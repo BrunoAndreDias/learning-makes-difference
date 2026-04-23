@@ -16,18 +16,18 @@ The goal is not to find the objectively best framework in general. The goal is t
 - No AI in v1
 - Small initial user base
 
-## Recommendation
+## Decision
 
-If you want the shortest path with the lowest framework risk, choose **Next.js**.
+The chosen framework for **Learning Makes Difference** is **TanStack Start**.
 
-If you want the stack that is likely to feel cleaner and more aligned with your preferences as a TypeScript-heavy React developer, choose **TanStack Start**, but accept a bit more ecosystem and documentation risk.
+Reasoning:
 
-My recommendation for you right now is:
+- the product is primarily an authenticated CRUD app with server-aware flows, not a content platform
+- the stack should stay explicit and TypeScript-first
+- TanStack Start fits the desired "single full-stack app without extra framework ceremony" shape better
+- Drizzle plus explicit SQL is already the more important architectural choice for the data layer, so framework selection should optimize for code clarity and developer ergonomics
 
-- **Choose TanStack Start** if you value a more explicit, TS-native, less magic-heavy developer experience and are comfortable absorbing some framework immaturity.
-- **Choose Next.js** if you want the safer default with more examples, more hosting paths, and fewer unknowns when you get stuck.
-
-If I had to pick one for this project today without further research, I would lean **TanStack Start**, with the caveat that this is a preference-sensitive decision rather than a hard technical necessity.
+This does not mean **Next.js** was a bad option. It means the tradeoff here favors a cleaner, more intentional app structure over the safer mainstream default.
 
 ## Why This Is Not A Huge Technical Gap
 
@@ -260,23 +260,9 @@ Regardless of framework, I would avoid:
 - optimizing for AI features before the flashcard loop is validated
 - choosing based on trendiness instead of the shape of your actual product
 
-## Suggested Decision Rule
+## Final Recommendation
 
-Choose **TanStack Start** if these statements feel true:
-
-- I want one TS-first app with minimal conceptual overhead.
-- I am comfortable solving some problems without huge ecosystem support.
-- I care more about framework feel than mainstream safety.
-
-Choose **Next.js** if these statements feel true:
-
-- I want the most documented and least risky path.
-- I want easier answers when I hit deployment or auth friction.
-- I would rather accept some framework weight than framework uncertainty.
-
-## My Final Recommendation
-
-For **Learning Makes Difference**, I would personally choose:
+For **Learning Makes Difference**, the chosen stack is:
 
 **TanStack Start + PostgreSQL + Drizzle**
 
@@ -288,13 +274,13 @@ Why:
 - it fits a CRUD-heavy, session-heavy, server-aware app well
 - it leaves room to add AI later without having to redesign the core
 
-The honest caveat is simple:
+The main caveat is simple:
 
 If, after reading docs and trying a tiny spike, TanStack Start feels rough or under-documented for auth/session flows, switch to **Next.js** quickly and without regret. That would be a pragmatic downgrade in novelty, not a technical failure.
 
-## Suggested Next Step
+## Next Step
 
-Before fully committing, build a tiny spike in the chosen framework with only these four things:
+Validate the decision with a tiny spike in TanStack Start that includes only these four things:
 
 1. Login page with cookie session
 2. Authenticated Notes list page
