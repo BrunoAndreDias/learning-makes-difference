@@ -13,9 +13,11 @@ import { Route as PublicRouteImport } from './routes/_public'
 import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as PublicIndexRouteImport } from './routes/_public.index'
 import { Route as PublicLoginRouteImport } from './routes/_public.login'
-import { Route as ProtectedAppRouteImport } from './routes/_protected.app'
-import { Route as ProtectedAppSettingsRouteImport } from './routes/_protected.app.settings'
-import { Route as ProtectedAppDashboardRouteImport } from './routes/_protected.app.dashboard'
+import { Route as ProtectedSettingsRouteImport } from './routes/_protected.settings'
+import { Route as ProtectedRecallRouteImport } from './routes/_protected.recall'
+import { Route as ProtectedNotesRouteImport } from './routes/_protected.notes'
+import { Route as ProtectedLabelsRouteImport } from './routes/_protected.labels'
+import { Route as ProtectedHistoryRouteImport } from './routes/_protected.history'
 
 const PublicRoute = PublicRouteImport.update({
   id: '/_public',
@@ -35,60 +37,92 @@ const PublicLoginRoute = PublicLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => PublicRoute,
 } as any)
-const ProtectedAppRoute = ProtectedAppRouteImport.update({
-  id: '/app',
-  path: '/app',
-  getParentRoute: () => ProtectedRoute,
-} as any)
-const ProtectedAppSettingsRoute = ProtectedAppSettingsRouteImport.update({
+const ProtectedSettingsRoute = ProtectedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => ProtectedAppRoute,
+  getParentRoute: () => ProtectedRoute,
 } as any)
-const ProtectedAppDashboardRoute = ProtectedAppDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => ProtectedAppRoute,
+const ProtectedRecallRoute = ProtectedRecallRouteImport.update({
+  id: '/recall',
+  path: '/recall',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+const ProtectedNotesRoute = ProtectedNotesRouteImport.update({
+  id: '/notes',
+  path: '/notes',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+const ProtectedLabelsRoute = ProtectedLabelsRouteImport.update({
+  id: '/labels',
+  path: '/labels',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+const ProtectedHistoryRoute = ProtectedHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => ProtectedRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
-  '/app': typeof ProtectedAppRouteWithChildren
+  '/history': typeof ProtectedHistoryRoute
+  '/labels': typeof ProtectedLabelsRoute
+  '/notes': typeof ProtectedNotesRoute
+  '/recall': typeof ProtectedRecallRoute
+  '/settings': typeof ProtectedSettingsRoute
   '/login': typeof PublicLoginRoute
-  '/app/dashboard': typeof ProtectedAppDashboardRoute
-  '/app/settings': typeof ProtectedAppSettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
-  '/app': typeof ProtectedAppRouteWithChildren
+  '/history': typeof ProtectedHistoryRoute
+  '/labels': typeof ProtectedLabelsRoute
+  '/notes': typeof ProtectedNotesRoute
+  '/recall': typeof ProtectedRecallRoute
+  '/settings': typeof ProtectedSettingsRoute
   '/login': typeof PublicLoginRoute
-  '/app/dashboard': typeof ProtectedAppDashboardRoute
-  '/app/settings': typeof ProtectedAppSettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_protected': typeof ProtectedRouteWithChildren
   '/_public': typeof PublicRouteWithChildren
-  '/_protected/app': typeof ProtectedAppRouteWithChildren
+  '/_protected/history': typeof ProtectedHistoryRoute
+  '/_protected/labels': typeof ProtectedLabelsRoute
+  '/_protected/notes': typeof ProtectedNotesRoute
+  '/_protected/recall': typeof ProtectedRecallRoute
+  '/_protected/settings': typeof ProtectedSettingsRoute
   '/_public/login': typeof PublicLoginRoute
   '/_public/': typeof PublicIndexRoute
-  '/_protected/app/dashboard': typeof ProtectedAppDashboardRoute
-  '/_protected/app/settings': typeof ProtectedAppSettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/app' | '/login' | '/app/dashboard' | '/app/settings'
+  fullPaths:
+    | '/'
+    | '/history'
+    | '/labels'
+    | '/notes'
+    | '/recall'
+    | '/settings'
+    | '/login'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/app' | '/login' | '/app/dashboard' | '/app/settings'
+  to:
+    | '/'
+    | '/history'
+    | '/labels'
+    | '/notes'
+    | '/recall'
+    | '/settings'
+    | '/login'
   id:
     | '__root__'
     | '/_protected'
     | '/_public'
-    | '/_protected/app'
+    | '/_protected/history'
+    | '/_protected/labels'
+    | '/_protected/notes'
+    | '/_protected/recall'
+    | '/_protected/settings'
     | '/_public/login'
     | '/_public/'
-    | '/_protected/app/dashboard'
-    | '/_protected/app/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -126,50 +160,58 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicLoginRouteImport
       parentRoute: typeof PublicRoute
     }
-    '/_protected/app': {
-      id: '/_protected/app'
-      path: '/app'
-      fullPath: '/app'
-      preLoaderRoute: typeof ProtectedAppRouteImport
+    '/_protected/settings': {
+      id: '/_protected/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof ProtectedSettingsRouteImport
       parentRoute: typeof ProtectedRoute
     }
-    '/_protected/app/settings': {
-      id: '/_protected/app/settings'
-      path: '/settings'
-      fullPath: '/app/settings'
-      preLoaderRoute: typeof ProtectedAppSettingsRouteImport
-      parentRoute: typeof ProtectedAppRoute
+    '/_protected/recall': {
+      id: '/_protected/recall'
+      path: '/recall'
+      fullPath: '/recall'
+      preLoaderRoute: typeof ProtectedRecallRouteImport
+      parentRoute: typeof ProtectedRoute
     }
-    '/_protected/app/dashboard': {
-      id: '/_protected/app/dashboard'
-      path: '/dashboard'
-      fullPath: '/app/dashboard'
-      preLoaderRoute: typeof ProtectedAppDashboardRouteImport
-      parentRoute: typeof ProtectedAppRoute
+    '/_protected/notes': {
+      id: '/_protected/notes'
+      path: '/notes'
+      fullPath: '/notes'
+      preLoaderRoute: typeof ProtectedNotesRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
+    '/_protected/labels': {
+      id: '/_protected/labels'
+      path: '/labels'
+      fullPath: '/labels'
+      preLoaderRoute: typeof ProtectedLabelsRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
+    '/_protected/history': {
+      id: '/_protected/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof ProtectedHistoryRouteImport
+      parentRoute: typeof ProtectedRoute
     }
   }
 }
 
-interface ProtectedAppRouteChildren {
-  ProtectedAppDashboardRoute: typeof ProtectedAppDashboardRoute
-  ProtectedAppSettingsRoute: typeof ProtectedAppSettingsRoute
-}
-
-const ProtectedAppRouteChildren: ProtectedAppRouteChildren = {
-  ProtectedAppDashboardRoute: ProtectedAppDashboardRoute,
-  ProtectedAppSettingsRoute: ProtectedAppSettingsRoute,
-}
-
-const ProtectedAppRouteWithChildren = ProtectedAppRoute._addFileChildren(
-  ProtectedAppRouteChildren,
-)
-
 interface ProtectedRouteChildren {
-  ProtectedAppRoute: typeof ProtectedAppRouteWithChildren
+  ProtectedHistoryRoute: typeof ProtectedHistoryRoute
+  ProtectedLabelsRoute: typeof ProtectedLabelsRoute
+  ProtectedNotesRoute: typeof ProtectedNotesRoute
+  ProtectedRecallRoute: typeof ProtectedRecallRoute
+  ProtectedSettingsRoute: typeof ProtectedSettingsRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
-  ProtectedAppRoute: ProtectedAppRouteWithChildren,
+  ProtectedHistoryRoute: ProtectedHistoryRoute,
+  ProtectedLabelsRoute: ProtectedLabelsRoute,
+  ProtectedNotesRoute: ProtectedNotesRoute,
+  ProtectedRecallRoute: ProtectedRecallRoute,
+  ProtectedSettingsRoute: ProtectedSettingsRoute,
 }
 
 const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(
@@ -196,12 +238,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

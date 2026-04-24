@@ -37,7 +37,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         <HeadContent />
       </head>
       <body>
-        <div className="shell">
+        <div className="app-shell shell">
           <header className="topbar">
             <div>
               <p className="eyebrow">Learning Makes Difference</p>
@@ -66,7 +66,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
                 </li>
                 <li>
                   <Link
-                    to="/app"
+                    to="/notes"
                     activeProps={{ className: "nav-link nav-link-active" }}
                     className="nav-link"
                   >
