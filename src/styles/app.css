@@ -385,6 +385,11 @@ h3 {
   align-items: start;
 }
 
+.recall-layout {
+  align-items: start;
+}
+
+.recall-page,
 .labels-page,
 .labels-list,
 .labels-card,

@@ -1,41 +1,224 @@
 import { createFileRoute } from "@tanstack/react-router";
+import {
+  type FormEvent,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
-import { ProductAreaPlaceholder } from "./-product-area-placeholder";
+import type { AppLabel } from "../lib/labels";
+import {
+  type AppRecallSnapshot,
+  AppRecallError,
+  resolveRecallableNotesFromLabel,
+} from "../lib/recall";
+import type { AppSessionSnapshot } from "../lib/session";
 
 export const Route = createFileRoute("/_protected/recall")({
-  component: RecallPlaceholder,
+  component: RecallPage,
 });
 
-function RecallPlaceholder() {
-  return (
-    <ProductAreaPlaceholder
-      description="Recall sessions will turn saved notes into focused flashcard-style review rounds."
-      heading="Recall placeholder"
-      intro="This stub leaves room for session setup, in-progress prompts, and completion summaries while preserving the protected shell rhythm."
-      sections={[
-        {
-          description:
-            "Session setup needs to expose label selection, note counts, and start controls clearly.",
-          title: "Start session",
-        },
-        {
-          description:
-            "In-session cards will need a stable area for prompts, reveal actions, and self-rating controls.",
-          title: "Practice flow",
-        },
-        {
-          description:
-            "Completion summaries should fit beside future study history links without crowding.",
-          title: "Session wrap-up",
-        },
-      ]}
-      summary={
-        <p>
-          The layout checks a deeper reading surface and action-heavy card mix,
-          which matters before the recall workflow starts introducing stateful
-          interactions.
-        </p>
+function RecallPage() {
+  const labelsContext = Route.useRouteContext({
+    select: (context) => context.labels,
+  });
+  const notesContext = Route.useRouteContext({
+    select: (context) => context.notes,
+  });
+  const recallContext = Route.useRouteContext({
+    select: (context) => context.recall,
+  });
+  const sessionContext = Route.useRouteContext({
+    select: (context) => context.session,
+  });
+  const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
+    sessionContext.subscribe,
+    sessionContext.getSnapshot,
+    sessionContext.getSnapshot,
+  );
+  const recallSnapshot = useSyncExternalStore<AppRecallSnapshot>(
+    recallContext.subscribe,
+    recallContext.getSnapshot,
+    recallContext.getSnapshot,
+  );
+  const userId = sessionSnapshot.user?.id ?? null;
+  const activeSession =
+    userId !== null && recallSnapshot?.userId === userId ? recallSnapshot : null;
+  const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
+  const [selectedLabelId, setSelectedLabelId] = useState("");
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [previewCount, setPreviewCount] = useState(0);
+
+  useEffect(() => {
+    function syncLabels() {
+      if (userId === null) {
+        setAvailableLabels([]);
+        return;
       }
-    />
+
+      setAvailableLabels(labelsContext.getLabelsForUser(userId));
+    }
+
+    syncLabels();
+
+    return labelsContext.subscribe(syncLabels);
+  }, [labelsContext, userId]);
+
+  useEffect(() => {
+    if (availableLabels.length === 0) {
+      setSelectedLabelId("");
+      return;
+    }
+
+    const hasSelectedLabel = availableLabels.some((label) => {
+      return label.id === selectedLabelId;
+    });
+
+    if (!hasSelectedLabel) {
+      setSelectedLabelId(availableLabels[0].id);
+    }
+  }, [availableLabels, selectedLabelId]);
+
+  useEffect(() => {
+    if (userId === null || selectedLabelId === "") {
+      setPreviewCount(0);
+      return;
+    }
+
+    try {
+      const recallableNotes = resolveRecallableNotesFromLabel({
+        labelId: selectedLabelId,
+        labels: labelsContext,
+        notes: notesContext,
+        userId,
+      });
+
+      setPreviewCount(recallableNotes.length);
+    } catch {
+      setPreviewCount(0);
+    }
+  }, [labelsContext, notesContext, selectedLabelId, userId]);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (userId === null || selectedLabelId === "") {
+      return;
+    }
+
+    try {
+      recallContext.startFlashCardSession({
+        labelId: selectedLabelId,
+        userId,
+      });
+      setFeedbackMessage(null);
+    } catch (error) {
+      if (error instanceof AppRecallError) {
+        setFeedbackMessage(error.message);
+        return;
+      }
+
+      throw error;
+    }
+  }
+
+  return (
+    <section className="recall-page">
+      <article className="card stack panel-protected">
+        <p className="section-label">Recall setup</p>
+        <h3>Start a recall session</h3>
+        <p>
+          Pick one of your labels, gather every reachable note from that label
+          and its descendants, and begin a FlashCard round in randomized order.
+        </p>
+        <div className="tag-row">
+          <span className="tag">FlashCard only</span>
+          <span className="tag">DAG-aware note selection</span>
+          <span className="tag">Account scoped</span>
+        </div>
+      </article>
+
+      <div className="placeholder-grid recall-layout">
+        <article className="card stack">
+          <p className="section-label">Session setup</p>
+          {availableLabels.length === 0 ? (
+            <p className="muted">
+              Create a label and assign at least one note before starting recall.
+            </p>
+          ) : (
+            <form
+              aria-label="Recall session setup form"
+              className="auth-form"
+              onSubmit={handleSubmit}
+            >
+              <label className="auth-form__field">
+                <span>Choose a label</span>
+                <select
+                  className="auth-form__control"
+                  name="labelId"
+                  onChange={(event) => setSelectedLabelId(event.target.value)}
+                  value={selectedLabelId}
+                >
+                  {availableLabels.map((label) => (
+                    <option key={label.id} value={label.id}>
+                      {label.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <p className="muted">{previewCount} reachable notes</p>
+
+              <button className="auth-form__submit" type="submit">
+                Start FlashCard session
+              </button>
+            </form>
+          )}
+
+          {feedbackMessage !== null ? (
+            <p className="auth-form__error" role="alert">
+              {feedbackMessage}
+            </p>
+          ) : null}
+        </article>
+
+        <article className="card stack">
+          <p className="section-label">Selection rules</p>
+          <ul className="placeholder-list">
+            <li>
+              <strong>Descendants included</strong>
+              <p>Starting from a broad label pulls in child-topic notes too.</p>
+            </li>
+            <li>
+              <strong>No overlap duplicates</strong>
+              <p>Notes reachable through multiple label paths only appear once.</p>
+            </li>
+            <li>
+              <strong>Unlabeled notes excluded</strong>
+              <p>Loose capture stays out of recall until it belongs to a label.</p>
+            </li>
+          </ul>
+        </article>
+      </div>
+
+      {activeSession !== null ? (
+        <article className="card stack">
+          <p className="section-label">In progress</p>
+          <h3>FlashCard session</h3>
+          <p>{`Target label: ${activeSession.labelName}`}</p>
+          <div className="tag-row">
+            <span className="tag">{`${activeSession.notes.length} notes in play`}</span>
+            <span className="tag">{`Question ${activeSession.currentIndex + 1} of ${activeSession.notes.length}`}</span>
+          </div>
+          <ul className="placeholder-list" aria-label="Recall session notes">
+            {activeSession.notes.map((note) => (
+              <li key={note.id}>
+                <strong>{note.title}</strong>
+              </li>
+            ))}
+          </ul>
+        </article>
+      ) : null}
+    </section>
   );
 }

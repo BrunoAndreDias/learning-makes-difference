@@ -25,6 +25,10 @@ import {
   type AppSessionSnapshot,
   createAppSessionContext,
 } from "../src/lib/session";
+import {
+  type AppRecallContext,
+  createAppRecallContext,
+} from "../src/lib/recall";
 import { routeTree } from "../src/routeTree.gen";
 
 function renderRoute(
@@ -32,6 +36,7 @@ function renderRoute(
   options: {
     labelsContext?: AppLabelsContext;
     notesContext?: AppNotesContext;
+    recallContext?: AppRecallContext;
     session?: AppSessionSnapshot;
     sessionContext?: AppSessionContext;
   } = {},
@@ -72,6 +77,14 @@ function renderRoute(
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
     });
+  const recallContext =
+    options.recallContext ??
+    createAppRecallContext({
+      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+      labels: labelsContext,
+      notes: notesContext,
+      storage: window.localStorage,
+    });
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({
@@ -80,6 +93,7 @@ function renderRoute(
     context: {
       labels: labelsContext,
       notes: notesContext,
+      recall: recallContext,
       session: sessionContext,
     },
     defaultPreload: "intent",
@@ -307,7 +321,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(recallLink);
 
     expect(
-      await screen.findByRole("heading", { name: "Recall placeholder" }),
+      await screen.findByRole("heading", { name: "Start a recall session" }),
     ).toBeInTheDocument();
     expect(recallLink).toHaveAttribute("aria-current", "page");
 
@@ -608,5 +622,88 @@ describe("authenticated app shell", () => {
     expect(
       screen.queryByRole("heading", { name: "Biology" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("starts a FlashCard session from one of the signed-in user's labels", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labelsContext.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const recallContext = createAppRecallContext({
+      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+      labels: labelsContext,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+    const userId = "user-placeholder";
+    const science = labelsContext.createLabel({ name: "Alpha Science", userId });
+    const biology = labelsContext.createLabel({ name: "Biology", userId });
+    const otherUsersLabel = labelsContext.createLabel({
+      name: "Private topic",
+      userId: "other-user",
+    });
+
+    labelsContext.addParent({
+      labelId: biology.id,
+      parentId: science.id,
+      userId,
+    });
+
+    notesContext.createNote(userId, {
+      body: "Broad foundation",
+      labelIds: [science.id],
+      title: "Study foundation",
+    });
+    notesContext.createNote(userId, {
+      body: "Child topic",
+      labelIds: [biology.id],
+      title: "Leaf detail",
+    });
+    notesContext.createNote(userId, {
+      body: "Ignored until organized",
+      labelIds: [],
+      title: "Loose note",
+    });
+    notesContext.createNote("other-user", {
+      body: "Other account note",
+      labelIds: [otherUsersLabel.id],
+      title: "Private note",
+    });
+
+    renderRoute("/recall", {
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Start a recall session" }),
+    ).toBeInTheDocument();
+
+    expect(screen.getByLabelText("Choose a label")).toHaveDisplayValue(
+      "Alpha Science",
+    );
+    expect(screen.queryByRole("option", { name: "Private topic" })).toBeNull();
+    expect(await screen.findByText("2 reachable notes")).toBeInTheDocument();
+
+    fireEvent.submit(
+      screen.getByRole("form", { name: "Recall session setup form" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "FlashCard session" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Target label: Alpha Science")).toBeInTheDocument();
+    expect(screen.getByText("2 notes in play")).toBeInTheDocument();
+    expect(screen.getByText("Study foundation")).toBeInTheDocument();
+    expect(screen.getByText("Leaf detail")).toBeInTheDocument();
+    expect(screen.queryByText("Loose note")).toBeNull();
   });
 });
