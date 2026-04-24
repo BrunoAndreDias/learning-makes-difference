@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  type ChangeEvent,
   type FormEvent,
   useEffect,
   useState,
@@ -42,6 +43,15 @@ function SettingsPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
+
+  function updateLanguagePreference(
+    setter: (value: AppLanguagePreference) => void,
+  ) {
+    return (event: ChangeEvent<HTMLSelectElement>) => {
+      setter(event.target.value as AppLanguagePreference);
+      setStatusMessage(null);
+    };
+  }
 
   useEffect(() => {
     setDisplayName(user?.displayName ?? "");
@@ -120,12 +130,7 @@ function SettingsPage() {
               <select
                 className="auth-form__control"
                 name="interfaceLanguage"
-                onChange={(event) => {
-                  setInterfaceLanguage(
-                    event.target.value as AppLanguagePreference,
-                  );
-                  setStatusMessage(null);
-                }}
+                onChange={updateLanguagePreference(setInterfaceLanguage)}
                 value={interfaceLanguage}
               >
                 {appLanguagePreferences.map((language) => (
@@ -141,10 +146,7 @@ function SettingsPage() {
               <select
                 className="auth-form__control"
                 name="studyLanguage"
-                onChange={(event) => {
-                  setStudyLanguage(event.target.value as AppLanguagePreference);
-                  setStatusMessage(null);
-                }}
+                onChange={updateLanguagePreference(setStudyLanguage)}
                 value={studyLanguage}
               >
                 {appLanguagePreferences.map((language) => (

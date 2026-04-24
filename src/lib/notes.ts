@@ -328,10 +328,9 @@ export function createAppNotesContext(
       };
 
       writeSnapshot(
-        [
-          nextNote,
-          ...snapshot.filter((note) => note.id !== existingNote.id),
-        ].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
+        [nextNote, ...snapshot.filter((note) => note.id !== noteId)].sort(
+          (left, right) => right.updatedAt.localeCompare(left.updatedAt),
+        ),
       );
 
       return toPublicNote(nextNote);

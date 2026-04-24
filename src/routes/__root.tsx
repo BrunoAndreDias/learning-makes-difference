@@ -11,12 +11,14 @@ import type { ReactNode } from "react";
 
 import type { AppLabelsContext } from "../lib/labels";
 import type { AppNotesContext } from "../lib/notes";
+import type { AppRecallContext } from "../lib/recall";
 import type { AppSessionContext } from "../lib/session";
 import appCss from "../styles/app.css?url";
 
 export const Route = createRootRouteWithContext<{
   labels: AppLabelsContext;
   notes: AppNotesContext;
+  recall: AppRecallContext;
   session: AppSessionContext;
 }>()({
   head: () => ({

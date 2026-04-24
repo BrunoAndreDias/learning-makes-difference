@@ -246,16 +246,16 @@ function LabelCard({
   allLabels,
   deleteLabel,
   label,
+  labels,
   removeParent,
   renameLabel,
-  labels,
   userId,
 }: Readonly<{
   addParent: (labelId: string, parentId: string) => void;
   allLabels: AppLabel[];
   deleteLabel: (labelId: string) => void;
   label: AppLabel;
-  labels: Pick<AppLabelsContext, "getDescendantIds">;
+  labels: AppLabelsContext;
   removeParent: (labelId: string, parentId: string) => void;
   renameLabel: (labelId: string, name: string) => void;
   userId: string | null;

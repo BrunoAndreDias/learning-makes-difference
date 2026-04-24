@@ -153,7 +153,7 @@ function getChildrenByParent(records: StoredLabelRecord[]) {
   return childrenByParent;
 }
 
-function getDescendantIds(
+function collectDescendantIds(
   records: StoredLabelRecord[],
   labelId: string,
 ): string[] {
@@ -243,7 +243,7 @@ export function createAppLabelsContext(
 
       requireOwnedLabel(records, userId, labelId);
 
-      return getDescendantIds(records, labelId);
+      return collectDescendantIds(records, labelId);
     },
     createLabel: ({ name, userId }) => {
       const records = readRecords();
@@ -321,7 +321,7 @@ export function createAppLabelsContext(
         return toAppLabel(label);
       }
 
-      if (getDescendantIds(records, labelId).includes(parentId)) {
+      if (collectDescendantIds(records, labelId).includes(parentId)) {
         throw new AppLabelError(
           "cycle_detected",
           "This relationship would create a cycle.",
