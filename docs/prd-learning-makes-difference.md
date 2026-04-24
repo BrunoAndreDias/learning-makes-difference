@@ -2,234 +2,120 @@
 
 ## Problem Statement
 
-Studying effectively is hard. Most note-taking tools capture information but do nothing to help you actually retain it. Barbara Oakley's research shows that recall practice, chunking concepts into small units, and anchoring ideas to metaphors are among the most effective techniques for deep learning — yet no app combines all of these in a single focused tool. Learners who study across diverse domains (software engineering, sleep, nutrition, etc.) also lack a flexible way to organize knowledge that mirrors how concepts actually relate to each other.
+Studying effectively is harder than merely collecting information. Most tools are good at storing notes but weak at helping a learner retain, organize, and actively retrieve what they studied. Learning Makes Difference needs to support a study workflow centered on small Notes, memory aids, topic organization through a Label DAG, and RecallSessions that turn saved knowledge into deliberate retrieval practice.
+
+The product also needs to stay disciplined about language and scope. FocusSessions are part of the broader product, but they are already specified separately and should not blur the main knowledge-and-recall workflow captured here.
 
 ## Solution
 
-A web app that lets users capture knowledge as small, focused Notes, enrich each Note with Metaphors and Acronyms as memory aids, organize Notes under a flexible DAG of Labels, and test their recall through FlashCard-style Recall Sessions where the Note content starts hidden and can be revealed later for review and self-assessment. The app supports multiple users and is designed to be accessible (WCAG 2.1 AA) and multi-language from day one. AI-assisted recall is explicitly deferred to a later version.
+Learning Makes Difference is a multi-user web app where each User captures one concept per Note, enriches Notes with Metaphors and Acronyms, organizes Notes through Labels that can have multiple parents, and starts RecallSessions from any Label to practice retrieval across that Label and its descendants.
+
+The v1 experience should feel like one coherent study workspace rather than a collection of disconnected CRUD screens. The authenticated shell should support Notes, Labels, Recall, History, and Settings as first-class product areas, with accessibility and future internationalization built in from the start. Recall in this PRD is `FlashCard`-first; AI-powered recall modes remain deferred.
 
 ## User Stories
 
-### Notes & Knowledge Capture
-
-1. As a learner, I want to create a Note for a single concept, so that I can capture ideas in focused, retrievable chunks.
-2. As a learner, I want to give my Note a title and a body, so that I can describe the concept clearly.
-3. As a learner, I want to edit an existing Note, so that I can refine my understanding over time.
-4. As a learner, I want to delete a Note I no longer need, so that my knowledge base stays relevant.
-5. As a learner, I want to search my Notes by Note title/body and attached Metaphors/Acronyms, so that I can quickly find what I'm looking for even when I remember the memory aid better than the Note text.
-6. As a learner, I want to see all Notes belonging to a Label, so that I can browse by topic.
-
-### Metaphors
-
-7. As a learner, I want to add a Metaphor to a Note, so that I can anchor the concept to something familiar.
-8. As a learner, I want each Metaphor to have a title and an explanation, so that I can describe both what the metaphor is and why it maps to the concept.
-9. As a learner, I want to add multiple Metaphors to a single Note, so that I can capture different angles of understanding without broadening the Note beyond one retrievable idea.
-10. As a learner, I want to edit a Metaphor, so that I can improve it as my understanding deepens.
-11. As a learner, I want to delete a Metaphor, so that I can remove ones that no longer resonate.
-12. As a learner, I want to see all Metaphors for a Note in one place, so that I can review all my mental anchors together.
-
-### Acronyms
-
-13. As a learner, I want to add an Acronym to a Note, so that I have a mnemonic to trigger recall.
-14. As a learner, I want to define what each letter of the Acronym stands for, so that the mnemonic is fully documented.
-15. As a learner, I want to add multiple Acronyms to a single Note, so that I can try different mnemonics without turning the Note into a bundle of separate concepts.
-16. As a learner, I want to edit an Acronym, so that I can refine it.
-17. As a learner, I want to delete an Acronym, so that I can remove ones I no longer use.
-
-### Labels & Organisation
-
-18. As a learner, I want to create a Label, so that I can group related Notes together.
-19. As a learner, I want to assign a Note to one or more Labels, so that a concept can belong to multiple domains simultaneously.
-20. As a learner, I want to nest Labels under other Labels, so that I can build a hierarchy like "Software Engineering → Frontend → React".
-21. As a learner, I want a Label to have multiple parent Labels, so that cross-cutting concepts (e.g. "React" under both "Frontend" and "JavaScript") are represented accurately.
-22. As a learner, I want to rename a Label, so that I can improve my taxonomy over time.
-23. As a learner, I want to delete a Label, so that I can remove topics I no longer study.
-24. As a learner, I want to browse the Label graph visually, so that I can see how my domains relate to each other.
-25. As a learner, I want to see all Notes under a Label including Notes from child Labels, so that I get a complete view of a topic.
-
-### Recall Sessions
-
-26. As a learner, I want to start a Recall Session on a Label, so that I can test my memory across all Notes in that topic.
-27. As a learner, I want the session to cover Notes from all descendant Labels automatically, so that choosing "Frontend" also tests me on "React" and "CSS".
-28. As a learner, I want to start a FlashCard Recall Session without configuring any AI provider, so that recall practice works out of the box in v1.
-29. As a learner, I want the session to include each matching Note only once even when it is reachable through multiple Label paths, so that cross-cutting Notes are not over-tested.
-30. As a learner, I want FlashCard mode to show only the Note title and hide the content at first, so that I can attempt recall before revealing the answer.
-31. As a learner, I want to reveal the Note content in FlashCard mode and then self-rate my recall, so that the session history remains useful.
-32. As a learner, I want Notes to appear in random order during a session, so that I do not memorize sequence instead of concepts.
-33. As a learner, I want to move through Notes one at a time during a session, so that I focus on one concept at a time.
-34. As a learner, I want to see how many Notes remain in the session, so that I know my progress.
-35. As a learner, I want to end a session early, so that I'm not forced to complete it if I run out of time.
-36. As a learner, I want a partially completed session to still be saved when I have answered at least one question, so that my practice history is not lost.
-
-### Session History
-
-37. As a learner, I want every completed Recall Session to be saved, so that I have a full history of my practice.
-38. As a learner, I want to see when a session happened, which Label I tested, and how many Notes I covered, so that I can track my study habits.
-39. As a learner, I want to see every Question from a past session along with my answer, score, and the Note snapshot used at the time, so that later Note edits do not make old results confusing.
-40. As a learner, I want to filter session history by Label, so that I can track progress in a specific domain.
-
-### Users & Authentication
-
-41. As a new user, I want to register with email and password, so that I can access the app securely.
-42. As a returning user, I want to log in with my email and password, so that I can access my Notes.
-43. As a user, I want my password stored securely, so that my account is safe if there is a data breach.
-44. As a user, I want to update my display name, so that the app feels personal.
-45. As a user, I want to update my email or password, so that I can maintain my account.
-46. As a user, I want to set my interface language, so that the app UI matches how I prefer to navigate software.
-47. As a user, I want to set my study language, so that the content I write and review can reflect the language I am studying in.
-
-### Accessibility & Internationalisation
-
-48. As a user with a keyboard-only workflow, I want to navigate the entire app without a mouse, so that I can use it accessibly.
-49. As a user with a screen reader, I want all interactive elements to have appropriate ARIA labels, so that I can use the app independently.
-50. As a user with low vision, I want the app to meet WCAG 2.1 AA color contrast requirements, so that content is always readable.
-51. As a non-English speaker, I want the UI to eventually support my language, so that the app is accessible to me.
+1. As a learner, I want to create a Note for one concept, so that my knowledge stays focused and recallable.
+2. As a learner, I want each Note to have a title and body, so that I can capture both the label and the explanation of the concept.
+3. As a learner, I want to edit a Note, so that I can refine my understanding over time.
+4. As a learner, I want to delete a Note, so that I can remove stale or mistaken material.
+5. As a learner, I want to browse my Notes in the authenticated workspace, so that my study material feels organized instead of scattered.
+6. As a learner, I want to search Notes by their own content, so that I can find concepts quickly.
+7. As a learner, I want Note search to include attached Metaphors and Acronyms, so that I can find a concept from the memory aid I remember first.
+8. As a learner, I want a Note to belong to multiple Labels, so that one concept can live in multiple study contexts.
+9. As a learner, I want Notes to be allowed without Labels initially, so that I can capture ideas quickly before organizing them.
+10. As a learner, I want unlabeled Notes excluded from RecallSessions, so that recall stays grounded in intentional study areas.
+11. As a learner, I want to add a Metaphor to a Note, so that I can anchor the concept to something familiar.
+12. As a learner, I want a Metaphor to have both a title and explanation, so that the mapping to the concept is explicit.
+13. As a learner, I want multiple Metaphors on a Note, so that I can keep alternative memory hooks for the same concept.
+14. As a learner, I want to edit and delete Metaphors, so that weak memory aids can be improved or removed.
+15. As a learner, I want to add an Acronym to a Note, so that I can create a compact mnemonic for recall.
+16. As a learner, I want each Acronym to preserve what its letters stand for, so that the mnemonic remains useful later.
+17. As a learner, I want multiple Acronyms on a Note, so that I can try different mnemonic approaches.
+18. As a learner, I want to edit and delete Acronyms, so that they evolve with my understanding.
+19. As a learner, I want to create a Label, so that I can group related Notes.
+20. As a learner, I want to rename and delete Labels, so that my study taxonomy can evolve.
+21. As a learner, I want Labels to support parent-child relationships, so that I can model broad and narrow study areas.
+22. As a learner, I want a Label to have multiple parents, so that cross-cutting subjects are represented accurately.
+23. As a learner, I want the Label graph to remain a DAG, so that the organization model stays valid and traversable.
+24. As a learner, I want to see Notes directly attached to a Label, so that I can inspect a topic’s immediate material.
+25. As a learner, I want to see Notes reachable through descendant Labels, so that broader topic views feel complete.
+26. As a learner, I want to start a RecallSession from a Label, so that I can practice a chosen study area deliberately.
+27. As a learner, I want a RecallSession to include Notes from descendant Labels automatically, so that broader Labels work as study launch points.
+28. As a learner, I want each reachable Note included only once per RecallSession, so that DAG overlaps do not cause duplicate practice.
+29. As a learner, I want RecallSession Notes randomized, so that I am recalling concepts rather than memorizing order.
+30. As a learner, I want `FlashCard` mode to hide the Note body at first, so that I attempt retrieval before seeing the answer.
+31. As a learner, I want to reveal the Note content when I am ready, so that I can review the correct material.
+32. As a learner, I want to self-rate my recall after revealing the Note, so that the session result captures how well I remembered it.
+33. As a learner, I want to move through one Question at a time, so that recall stays focused.
+34. As a learner, I want to see progress during a RecallSession, so that I know how much remains.
+35. As a learner, I want to end a RecallSession early, so that I am not forced to finish every session.
+36. As a learner, I want a session with at least one attempted Question saved as a SessionResult, so that partial practice still contributes to my history.
+37. As a learner, I want a session with zero attempts discarded, so that accidental starts do not pollute my history.
+38. As a learner, I want SessionResults to preserve Note snapshots, so that later edits do not rewrite what happened in past study sessions.
+39. As a learner, I want to review past SessionResults, so that I can understand my study history.
+40. As a learner, I want History to show when a session happened, which Label it targeted, and how many Questions I attempted, so that the past session list is useful at a glance.
+41. As a learner, I want to open a past SessionResult and inspect the stored Questions, answers, scores, and Note snapshots, so that the historical review is trustworthy.
+42. As a learner, I want to filter study history by Label, so that I can evaluate a particular area of study.
+43. As a new User, I want to register securely, so that my data is private to my account.
+44. As a returning User, I want to log in and resume the authenticated workspace, so that I can continue studying where I left off.
+45. As a User, I want server-managed authenticated sessions, so that protected routes are enforced consistently.
+46. As a User, I want my password stored securely, so that a database leak does not expose plain credentials.
+47. As a User, I want all Notes, Labels, RecallSessions, and history scoped to my account, so that users cannot cross-access each other’s data.
+48. As a User, I want to update my display name, so that the workspace reflects my identity.
+49. As a User, I want interface language settings prepared from the start, so that internationalization does not become a retrofit.
+50. As a User, I want study language settings prepared from the start, so that the product can support multilingual study workflows later.
+51. As a keyboard-only user, I want to navigate the workspace and RecallSession flow without a mouse, so that the product is accessible.
+52. As a screen-reader user, I want landmarks, labels, and control names to be explicit, so that study workflows remain independently usable.
+53. As a low-vision user, I want the interface to meet WCAG 2.1 AA contrast and focus requirements, so that long study sessions remain readable.
+54. As a learner, I want the main product areas to feel consistent inside the authenticated shell, so that Notes, Labels, Recall, History, and Settings behave like parts of one study system.
 
 ## Implementation Decisions
 
-### Modules
-
-**Auth Module**
-- Handles registration, login, session management, and password hashing (argon2).
-- Uses server-managed sessions with secure HTTP-only cookies.
-
-**User Module**
-- Manages User profiles: display name, interface language, and study language.
-- Thin CRUD over the User entity.
-
-**Label Module**
-- Manages the Label DAG: create, rename, delete, parent/child relationships.
-- Provides a query to resolve all descendant Note IDs for a given Label (used by Recall), deduplicated by `note_id`, using recursive database queries over the adjacency list in v1.
-- Validates that adding a parent edge does not create a cycle.
-
-**Note Module**
-- Manages Notes: create, edit, delete, and simple substring search by Note title/body plus attached Metaphors and Acronyms.
-- Owns Metaphors and Acronyms as child entities (cascade delete with Note).
-- Manages Note↔Label assignments.
-- Allows unlabeled Notes in v1, but those Notes are not recallable until assigned to at least one Label.
-
-**Recall Module**
-- Orchestrates RecallSessions: start, progress through Questions, end.
-- Resolves which Notes to include (Label + descendants via Label Module), deduplicates them, randomizes order, and snapshots the selected Notes at session start.
-- Persists SessionResult with full Question/answer/score history plus Note snapshots.
-- Treats a session ended after at least one attempted Question as completed; discards sessions with zero attempts.
-
-### Architecture
-
-- Web app: React frontend, REST API backend.
-- V1 is a single deployable full-stack web app rather than separately deployed frontend and backend services.
-- The implementation target is an SSR-capable TypeScript full-stack framework; the exact framework will be chosen in a follow-up stack decision.
-- PostgreSQL is the v1 system of record.
-- Use an ORM or query builder for routine CRUD, but write explicit SQL for recursive label traversal and any query that becomes awkward or opaque through the abstraction.
-- V1 uses no separate blob or object storage; all persisted application data lives in PostgreSQL.
-- Multi-user from day one — all data is scoped to a User.
-- All relationships are ownership-local to a single User; Notes can only be assigned to Labels owned by the same User.
-- All server-side data access must scope by authenticated `user_id` at query time; v1 should avoid any fetch-first-authorize-later pattern.
-- Label relationships stored as an adjacency list (label_id, parent_label_id) with cycle detection on write.
-- Use foreign keys and `ON DELETE CASCADE` for true dependent records, while keeping business rules about whether a delete is allowed in application code.
-- Passwords hashed with argon2id.
-- HTTPS enforced; no secrets in client-side code.
-- V1 includes basic structured server logging for auth events, RecallSession lifecycle events, and unexpected errors.
-- i18n library integrated from day one (e.g. i18next); all UI strings externalised.
-- In v1, deleting active Notes, Labels, Metaphors, and Acronyms is a hard delete. History is preserved only through SessionResult snapshots.
-- In v1, Note edits overwrite the current Note in place; separate Note version history is out of scope.
-- In v1, search is simple substring matching rather than full-text search with ranking.
-- Environment configuration should use a schema-driven approach such as Varlock instead of relying on a plain committed `.env.example` plus ad hoc local `.env` conventions.
-- AI-assisted recall, AI grading, provider integration, and BYOK are deferred to v1.1 or later.
-
-### Schema (logical)
-
-Logical schema shown here is intended for PostgreSQL.
-
-- `users`: id, email, password_hash, display_name, interface_language, study_language
-- `labels`: id, user_id, name
-- `label_edges`: parent_label_id, child_label_id (adjacency list for DAG)
-- `notes`: id, user_id, title, body
-- `note_labels`: note_id, label_id
-- `metaphors`: id, note_id, title, explanation
-- `acronyms`: id, note_id, letters, expansion (each letter + meaning)
-- `recall_sessions`: id, user_id, label_id, mode, started_at, ended_at, attempted_count, completed_count
-- `session_questions`: id, session_id, note_id, note_title_snapshot, note_body_snapshot, prompt_type, user_answer, score, score_source
+- The product remains a single TanStack Start web application with SSR-capable routing, protected/public route areas, and one authenticated shell that hosts the main product modules.
+- The Notes area should own Note CRUD, search, Note-to-Label assignment, and the dependent child entities Metaphor and Acronym.
+- The Labels area should own Label CRUD, parent-child relationships, DAG validation, descendant traversal, and topic-centric browsing behavior.
+- The Recall area should own RecallSession lifecycle: session setup, note resolution from a target Label, deduplication across DAG paths, random ordering, question progression, answer reveal, self-rating, and early termination.
+- The History area should own SessionResult retrieval and review flows, including session summaries and question-level historical detail.
+- The Settings area should own account profile editing, session/account controls, and future language preferences.
+- Auth should be implemented with server-managed sessions and ownership-safe data access for every protected operation.
+- All server-side data access must scope directly by authenticated `user_id`; business rules should not rely on fetch-first-authorize-later patterns.
+- Labels must remain a DAG. Writes that would introduce a cycle should be rejected at the application boundary before persistence succeeds.
+- RecallSession note selection should resolve the chosen Label plus all descendants, deduplicate by Note identity, and snapshot the selected material when the session starts.
+- `FlashCard` is the only in-scope RecallMode for this PRD’s implementation target. `AiAssisted`, `AiGraded`, and BYOK remain deferred.
+- SessionResult persistence should happen only after at least one attempted Question. Zero-attempt sessions should be discarded.
+- Historical review should rely on stored snapshots, not live Note reads, so that later content edits do not mutate past results.
+- Search in v1 should be pragmatic substring matching across Note text plus attached Metaphor and Acronym content rather than full-text ranking.
+- Internationalization infrastructure should be wired from day one, but translated copy beyond the base language is not required in v1.
+- Accessibility is a hard product requirement, not a polish task. The existing shell’s landmarks, focus handling, and navigation behavior set the baseline for future surfaces.
+- The current route structure already reserves first-class product areas for `/notes`, `/labels`, `/recall`, `/history`, and `/settings`; implementation should deepen those routes rather than inventing parallel navigation.
+- FocusSessions are explicitly separate from this PRD and remain governed by `docs/prd-focus-sessions.md`. This file should not absorb timer-domain behavior.
 
 ## Testing Decisions
 
-A good test verifies observable behaviour from the outside — what goes in, what comes out, what side effects are produced — without caring how the internals achieve it. Tests should not assert on private methods, implementation details, or internal state that isn't externally visible.
-
-### Modules to test
-
-**Label Module** — highest priority. The DAG traversal (find all descendants) and cycle detection are non-trivial logic with clear inputs/outputs. Unit test with an in-memory graph.
-
-**Recall Module** — test session creation (correct Notes selected for a Label + descendants, deduplicated, randomized, and snapshotted), session progression, FlashCard self-rating, partial-session persistence, and result persistence. Integration test against a real database.
-
-**Auth Module** — test registration (duplicate email rejection, password hashing) and login (correct/incorrect password).
-
-**Note Module** — test CRUD operations, unlabeled Note behaviour, and search across Note/Metaphor/Acronym content. Integration tests against a real database.
+- A good test verifies externally observable behavior: what the user or route boundary does, what data is returned or persisted, and what protected outcomes occur. Tests should avoid asserting on internal helpers, implementation-only state, or incidental DOM structure.
+- The authenticated shell and route protection should continue to be tested as integration behavior, following existing tests that verify protected redirects, sidebar behavior, and accessible navigation.
+- The Labels module should have strong tests around DAG rules, especially descendant traversal and cycle rejection, because this logic is central to both browsing and recall setup.
+- The Recall module should be tested for note selection from a target Label, deduplication across multiple DAG paths, randomized ordering constraints, reveal/self-rating flow, partial session persistence, and zero-attempt discard behavior.
+- The Notes module should be tested for CRUD behavior, search behavior across Notes plus child memory aids, and ownership-safe Label assignment.
+- The History module should be tested for SessionResult summaries, question-level review, filtering behavior, and snapshot correctness after Note edits.
+- The Auth and session boundary should be tested for registration, login, protected route access, and account-scoped data isolation.
+- Testing prior art already exists in the repository around route-tree stability, environment contracts, design-system foundations, and authenticated shell behavior. New tests should follow that style: integration-oriented where route behavior matters, isolated domain tests where the logic is deep and stable.
 
 ## Out of Scope
 
-- Spaced repetition scheduling / automated reminders (future)
-- FocusSession / pomodoro tracking is specified separately in `docs/prd-focus-sessions.md`
-- Per-use credit billing and payment infrastructure
-- Mobile app or Electron wrapper (future)
-- Sharing Notes or Labels between Users
-- Collaborative or social features
-- Offline-first / local storage mode
-- Image or file attachments on Notes
-- Rich text / markdown rendering in Note body (plain text first)
-- UI translations (i18n infrastructure is in scope; actual translated strings are not)
-- AI-assisted recall and AI grading
-- BYOK / premium access model
+- FocusSession timing, FocusRecord analytics, and timer-domain behavior covered by `docs/prd-focus-sessions.md`
+- `AiAssisted` and `AiGraded` RecallModes
+- BYOK and premium billing mechanics
+- Rich text editing, markdown rendering, or file attachments on Notes
+- Social sharing, collaboration, or multi-user shared workspaces
+- Mobile-native apps or offline-first synchronization
+- Automatic spaced repetition scheduling and reminder systems
+- Full-text search relevance tuning beyond pragmatic substring matching
+- Retroactive Note version history outside the snapshots preserved in SessionResults
+- A visual Label graph explorer, unless later promoted from nice-to-have into committed scope
 
 ## Further Notes
 
-- The app is named **Learning Makes Difference**.
-- Domain language is fully defined in `CONTEXT.md` — use those terms precisely throughout the codebase.
-- FocusSession / pomodoro requirements are tracked in the separate PRD `docs/prd-focus-sessions.md` so the study-timer domain can evolve independently.
-- WCAG 2.1 AA compliance is a hard requirement recorded in `docs/adr/0001-wcag2-accessibility.md`.
-- Tech stack has not yet been decided — a follow-up session will cover this before implementation begins.
-- The initial user base is two people (Bruno and his girlfriend); the architecture must support multi-tenancy from day one for future public release.
-
-## Proposed V1 Scope
-
-### Must-Have For V1
-
-- User registration, login, logout, and authenticated sessions
-- User profile management for display name and interface language
-- Create, edit, delete, and search Notes
-- Create, edit, delete, and assign Labels, including parent/child Label relationships
-- Create, edit, and delete Metaphors and Acronyms attached to a Note
-- Browse Notes by Label, including descendant Labels
-- Start a FlashCard RecallSession from a Label
-- Deduplicated, randomized RecallSession note selection
-- Reveal answer and self-rate recall in FlashCard sessions
-- End sessions early and persist partial SessionResults after at least one attempted Question
-- Session history with stored Note snapshots
-- Ownership-safe multi-user data scoping
-- WCAG 2.1 AA compliance for the implemented UI surfaces
-
-### Nice-To-Have If Time Allows In V1
-
-- Visual Label graph browser
-- Profile setting for study language before AI features exist
-- More polished session-history filtering and review UX
-- Strong empty states and onboarding hints for unlabeled Notes
-
-### Explicitly Deferred To V1.1+
-
-- AiAssisted RecallMode
-- AiGraded RecallMode
-- BYOK / premium access model
-- AI provider integration and prompt contracts
-- Richer search relevance or full-text search
-- Note version history
-- Recall of unlabeled Notes
-- UI translations beyond the base language
-
-## Stack Selection Criteria
-
-- Must work well as a single deployable SSR-capable TypeScript full-stack app
-- Must support server-managed cookie sessions cleanly
-- Must fit PostgreSQL well
-- Must allow pragmatic use of ORM/query-builder plus explicit SQL
-- Must not force a separate backend service for v1
-- Must be straightforward to deploy and maintain for a small initial user base
+- Canonical product language lives in `CONTEXT.md`. Terms such as Note, Label, RecallSession, Question, SessionResult, FocusSession, and FocusTarget should be used precisely and consistently.
+- The existing UI foundation and layout references establish the intended product shell direction, but this PRD is primarily about product behavior and scope rather than pixel-perfect layout prescription.
+- The current application already has the right top-level shell shape for the product. The main implementation task is to replace placeholders with domain behavior without breaking accessibility, route clarity, or the dense study-workspace feel already established in the foundation docs.
