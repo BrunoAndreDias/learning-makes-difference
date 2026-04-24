@@ -1,10 +1,6 @@
 import type { AppLabelsContext } from "./labels";
 import { AppLabelError } from "./labels";
-import {
-  type AppNote,
-  type AppNotesContext,
-  listNotesForUser,
-} from "./notes";
+import { type AppNote, type AppNotesContext, listNotesForUser } from "./notes";
 
 export type FlashCardRecallMode = "FlashCard";
 
@@ -86,9 +82,27 @@ function getRecallStorageKey(prefix: string) {
   return `${prefix}:active-session`;
 }
 
-function parseStoredRecallSession(
-  value: string | null,
-): AppRecallSnapshot {
+function isFlashCardRecallNote(note: unknown): note is FlashCardRecallNote {
+  const candidate =
+    typeof note === "object" && note !== null
+      ? (note as Record<string, unknown>)
+      : null;
+
+  return (
+    candidate !== null &&
+    typeof candidate.id === "string" &&
+    typeof candidate.title === "string" &&
+    typeof candidate.body === "string" &&
+    Array.isArray(candidate.labelIds) &&
+    candidate.labelIds.every(
+      (labelId: unknown) => typeof labelId === "string",
+    ) &&
+    typeof candidate.createdAt === "string" &&
+    typeof candidate.updatedAt === "string"
+  );
+}
+
+function parseStoredRecallSession(value: string | null): AppRecallSnapshot {
   if (value === null) {
     return null;
   }
@@ -112,27 +126,7 @@ function parseStoredRecallSession(
       return null;
     }
 
-    const notes = parsedValue.notes.filter(
-      (note: unknown): note is FlashCardRecallNote => {
-        const candidate =
-          typeof note === "object" && note !== null
-            ? (note as Record<string, unknown>)
-            : null;
-
-        return (
-          candidate !== null &&
-          typeof candidate.id === "string" &&
-          typeof candidate.title === "string" &&
-          typeof candidate.body === "string" &&
-          Array.isArray(candidate.labelIds) &&
-          candidate.labelIds.every(
-            (labelId: unknown) => typeof labelId === "string",
-          ) &&
-          typeof candidate.createdAt === "string" &&
-          typeof candidate.updatedAt === "string"
-        );
-      },
-    );
+    const notes = parsedValue.notes.filter(isFlashCardRecallNote);
 
     return {
       ...parsedValue,
@@ -159,7 +153,11 @@ function defaultShuffleNotes(
   return shuffledNotes;
 }
 
-function getLabelName(labels: AppLabelsContext, labelId: string, userId: string) {
+function getLabelNameForUser(
+  labels: AppLabelsContext,
+  labelId: string,
+  userId: string,
+) {
   const label = labels.getLabelsForUser(userId).find((candidate) => {
     return candidate.id === labelId;
   });
@@ -196,7 +194,10 @@ export function resolveRecallableNotesFromLabel(input: {
 
   const recallableNotes = new Map<string, FlashCardRecallNote>();
 
-  for (const note of listNotesForUser(input.notes.getSnapshot(), input.userId)) {
+  for (const note of listNotesForUser(
+    input.notes.getSnapshot(),
+    input.userId,
+  )) {
     const isReachable = note.labelIds.some((labelId) => {
       return reachableLabelIds.has(labelId);
     });
@@ -242,7 +243,7 @@ export function createAppRecallContext(
   return {
     getSnapshot: () => snapshot,
     startFlashCardSession: ({ labelId, userId }) => {
-      const labelName = getLabelName(options.labels, labelId, userId);
+      const labelName = getLabelNameForUser(options.labels, labelId, userId);
       const resolvedNotes = resolveRecallableNotesFromLabel({
         labelId,
         labels: options.labels,

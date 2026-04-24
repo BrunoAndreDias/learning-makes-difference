@@ -21,14 +21,14 @@ import {
 } from "../src/lib/labels";
 import { type AppNotesContext, createAppNotesContext } from "../src/lib/notes";
 import {
+  type AppRecallContext,
+  createAppRecallContext,
+} from "../src/lib/recall";
+import {
   type AppSessionContext,
   type AppSessionSnapshot,
   createAppSessionContext,
 } from "../src/lib/session";
-import {
-  type AppRecallContext,
-  createAppRecallContext,
-} from "../src/lib/recall";
 import { routeTree } from "../src/routeTree.gen";
 
 function renderRoute(
@@ -643,7 +643,10 @@ describe("authenticated app shell", () => {
       storage: window.localStorage,
     });
     const userId = "user-placeholder";
-    const science = labelsContext.createLabel({ name: "Alpha Science", userId });
+    const science = labelsContext.createLabel({
+      name: "Alpha Science",
+      userId,
+    });
     const biology = labelsContext.createLabel({ name: "Biology", userId });
     const otherUsersLabel = labelsContext.createLabel({
       name: "Private topic",

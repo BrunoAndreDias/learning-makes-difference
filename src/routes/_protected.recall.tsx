@@ -8,8 +8,8 @@ import {
 
 import type { AppLabel } from "../lib/labels";
 import {
-  type AppRecallSnapshot,
   AppRecallError,
+  type AppRecallSnapshot,
   resolveRecallableNotesFromLabel,
 } from "../lib/recall";
 import type { AppSessionSnapshot } from "../lib/session";
@@ -43,7 +43,9 @@ function RecallPage() {
   );
   const userId = sessionSnapshot.user?.id ?? null;
   const activeSession =
-    userId !== null && recallSnapshot?.userId === userId ? recallSnapshot : null;
+    userId !== null && recallSnapshot?.userId === userId
+      ? recallSnapshot
+      : null;
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
   const [selectedLabelId, setSelectedLabelId] = useState("");
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
@@ -143,7 +145,8 @@ function RecallPage() {
           <p className="section-label">Session setup</p>
           {availableLabels.length === 0 ? (
             <p className="muted">
-              Create a label and assign at least one note before starting recall.
+              Create a label and assign at least one note before starting
+              recall.
             </p>
           ) : (
             <form
@@ -191,11 +194,15 @@ function RecallPage() {
             </li>
             <li>
               <strong>No overlap duplicates</strong>
-              <p>Notes reachable through multiple label paths only appear once.</p>
+              <p>
+                Notes reachable through multiple label paths only appear once.
+              </p>
             </li>
             <li>
               <strong>Unlabeled notes excluded</strong>
-              <p>Loose capture stays out of recall until it belongs to a label.</p>
+              <p>
+                Loose capture stays out of recall until it belongs to a label.
+              </p>
             </li>
           </ul>
         </article>

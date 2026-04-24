@@ -6,7 +6,11 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { type AppLabel, AppLabelError } from "../lib/labels";
+import {
+  type AppLabel,
+  AppLabelError,
+  type AppLabelsContext,
+} from "../lib/labels";
 import type { AppSessionSnapshot } from "../lib/session";
 
 export const Route = createFileRoute("/_protected/labels")({
@@ -225,6 +229,7 @@ function LabelsPage() {
               deleteLabel={deleteLabel}
               key={label.id}
               label={label}
+              labels={labels}
               removeParent={removeParent}
               renameLabel={renameLabel}
               userId={currentUserId}
@@ -241,6 +246,7 @@ function LabelCard({
   allLabels,
   deleteLabel,
   label,
+  labels,
   removeParent,
   renameLabel,
   userId,
@@ -249,13 +255,11 @@ function LabelCard({
   allLabels: AppLabel[];
   deleteLabel: (labelId: string) => void;
   label: AppLabel;
+  labels: AppLabelsContext;
   removeParent: (labelId: string, parentId: string) => void;
   renameLabel: (labelId: string, name: string) => void;
   userId: string | null;
 }>) {
-  const labels = Route.useRouteContext({
-    select: (context) => context.labels,
-  });
   const [nextName, setNextName] = useState(label.name);
   const [selectedParentId, setSelectedParentId] = useState("");
   const parentLabels = label.parentIds

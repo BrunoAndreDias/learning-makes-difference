@@ -1,5 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import {
   AppAuthError,
@@ -38,6 +44,15 @@ function SettingsPage() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
 
+  function updateLanguagePreference(
+    setter: (value: AppLanguagePreference) => void,
+  ) {
+    return (event: ChangeEvent<HTMLSelectElement>) => {
+      setter(event.target.value as AppLanguagePreference);
+      setStatusMessage(null);
+    };
+  }
+
   useEffect(() => {
     setDisplayName(user?.displayName ?? "");
     setInterfaceLanguage(user?.interfaceLanguage ?? "en");
@@ -48,7 +63,7 @@ function SettingsPage() {
     return null;
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage(null);
     setStatusMessage(null);
@@ -115,12 +130,7 @@ function SettingsPage() {
               <select
                 className="auth-form__control"
                 name="interfaceLanguage"
-                onChange={(event) => {
-                  setInterfaceLanguage(
-                    event.target.value as AppLanguagePreference,
-                  );
-                  setStatusMessage(null);
-                }}
+                onChange={updateLanguagePreference(setInterfaceLanguage)}
                 value={interfaceLanguage}
               >
                 {appLanguagePreferences.map((language) => (
@@ -136,10 +146,7 @@ function SettingsPage() {
               <select
                 className="auth-form__control"
                 name="studyLanguage"
-                onChange={(event) => {
-                  setStudyLanguage(event.target.value as AppLanguagePreference);
-                  setStatusMessage(null);
-                }}
+                onChange={updateLanguagePreference(setStudyLanguage)}
                 value={studyLanguage}
               >
                 {appLanguagePreferences.map((language) => (
