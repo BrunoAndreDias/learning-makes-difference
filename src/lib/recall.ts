@@ -128,6 +128,23 @@ function isFlashCardRecallNote(note: unknown): note is FlashCardRecallNote {
   );
 }
 
+function isFlashCardRecallAttempt(
+  attempt: unknown,
+): attempt is FlashCardRecallAttempt {
+  const candidate =
+    typeof attempt === "object" && attempt !== null
+      ? (attempt as Record<string, unknown>)
+      : null;
+
+  return (
+    candidate !== null &&
+    typeof candidate.noteId === "string" &&
+    (candidate.rating === "missed" ||
+      candidate.rating === "partial" ||
+      candidate.rating === "nailed")
+  );
+}
+
 function parseStoredRecallSession(value: string | null): AppRecallSnapshot {
   if (value === null) {
     return null;
@@ -150,18 +167,7 @@ function parseStoredRecallSession(value: string | null): AppRecallSnapshot {
       ("attempts" in parsedValue &&
         (!Array.isArray(parsedValue.attempts) ||
           parsedValue.attempts.some((attempt: unknown) => {
-            const candidate =
-              typeof attempt === "object" && attempt !== null
-                ? (attempt as Record<string, unknown>)
-                : null;
-
-            return (
-              candidate === null ||
-              typeof candidate.noteId !== "string" ||
-              (candidate.rating !== "missed" &&
-                candidate.rating !== "partial" &&
-                candidate.rating !== "nailed")
-            );
+            return !isFlashCardRecallAttempt(attempt);
           }))) ||
       !Array.isArray(parsedValue.notes)
     ) {
@@ -315,7 +321,10 @@ export function createAppRecallContext(
       const currentNote = activeSession.notes[activeSession.currentIndex];
 
       if (currentNote === undefined) {
-        throw new AppRecallError("invalid_input", "Recall session is complete.");
+        throw new AppRecallError(
+          "invalid_input",
+          "Recall session is complete.",
+        );
       }
 
       if (!activeSession.isAnswerRevealed) {
@@ -351,7 +360,10 @@ export function createAppRecallContext(
       const activeSession = getActiveSessionForUser({ sessionId, userId });
 
       if (activeSession.notes[activeSession.currentIndex] === undefined) {
-        throw new AppRecallError("invalid_input", "Recall session is complete.");
+        throw new AppRecallError(
+          "invalid_input",
+          "Recall session is complete.",
+        );
       }
 
       if (activeSession.isAnswerRevealed) {

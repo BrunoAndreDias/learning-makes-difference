@@ -139,6 +139,26 @@ function getOwnedLabelIndex(
   );
 }
 
+function getOwnedLabelEntry(
+  records: StoredLabelRecord[],
+  userId: string,
+  labelId: string,
+): {
+  index: number;
+  record: StoredLabelRecord;
+} {
+  const index = getOwnedLabelIndex(records, userId, labelId);
+
+  if (index === -1) {
+    throw new AppLabelError("not_found", "Label not found.");
+  }
+
+  return {
+    index,
+    record: records[index],
+  };
+}
+
 function getChildrenByParent(records: StoredLabelRecord[]) {
   const childrenByParent = new Map<string, string[]>();
 
@@ -213,13 +233,7 @@ export function createAppLabelsContext(
     userId: string,
     labelId: string,
   ): StoredLabelRecord {
-    const labelIndex = getOwnedLabelIndex(records, userId, labelId);
-
-    if (labelIndex === -1) {
-      throw new AppLabelError("not_found", "Label not found.");
-    }
-
-    return records[labelIndex];
+    return getOwnedLabelEntry(records, userId, labelId).record;
   }
 
   return {
@@ -261,14 +275,14 @@ export function createAppLabelsContext(
     },
     renameLabel: ({ labelId, name, userId }) => {
       const records = readRecords();
-      const labelIndex = getOwnedLabelIndex(records, userId, labelId);
-
-      if (labelIndex === -1) {
-        throw new AppLabelError("not_found", "Label not found.");
-      }
+      const { index: labelIndex, record: label } = getOwnedLabelEntry(
+        records,
+        userId,
+        labelId,
+      );
 
       const nextRecord = {
-        ...records[labelIndex],
+        ...label,
         name: normalizeLabelName(name),
       };
 
@@ -281,7 +295,7 @@ export function createAppLabelsContext(
     deleteLabel: ({ labelId, userId }) => {
       const records = readRecords();
 
-      requireOwnedLabel(records, userId, labelId);
+      getOwnedLabelEntry(records, userId, labelId);
 
       const nextRecords = records
         .filter(
@@ -312,8 +326,11 @@ export function createAppLabelsContext(
       }
 
       const records = readRecords();
-      const labelIndex = getOwnedLabelIndex(records, userId, labelId);
-      const label = requireOwnedLabel(records, userId, labelId);
+      const { index: labelIndex, record: label } = getOwnedLabelEntry(
+        records,
+        userId,
+        labelId,
+      );
 
       requireOwnedLabel(records, userId, parentId);
 
@@ -341,15 +358,15 @@ export function createAppLabelsContext(
     },
     removeParent: ({ labelId, parentId, userId }) => {
       const records = readRecords();
-      const labelIndex = getOwnedLabelIndex(records, userId, labelId);
-
-      if (labelIndex === -1) {
-        throw new AppLabelError("not_found", "Label not found.");
-      }
+      const { index: labelIndex, record: label } = getOwnedLabelEntry(
+        records,
+        userId,
+        labelId,
+      );
 
       const nextRecord = {
-        ...records[labelIndex],
-        parentIds: records[labelIndex].parentIds.filter(
+        ...label,
+        parentIds: label.parentIds.filter(
           (candidateId) => candidateId !== parentId,
         ),
       };
