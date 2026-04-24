@@ -1,16 +1,44 @@
 {
   "name": "learning-makes-difference",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Learning Makes Difference application shell",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "varlock run -- vite dev",
+    "build": "varlock run -- vite build",
+    "start": "node .output/server/index.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "biome check .",
+    "format": "biome check --write ."
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "packageManager": "pnpm@10.33.0",
   "dependencies": {
-    "@ai-hero/sandcastle": "^0.5.1"
+    "@ai-hero/sandcastle": "^0.5.1",
+    "@tanstack/react-router": "^1.168.23",
+    "@tanstack/react-router-devtools": "^1.166.13",
+    "@tanstack/react-start": "^1.167.43",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "varlock": "^0.9.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.0",
+    "@rsbuild/core": "^2.0.1",
+    "@tailwindcss/vite": "^4.2.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^24.9.1",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^6.0.1",
+    "jsdom": "^28.1.0",
+    "nitro": "^3.0.260311-beta",
+    "tailwindcss": "^4.1.16",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.10",
+    "vitest": "^4.1.5"
   }
 }
