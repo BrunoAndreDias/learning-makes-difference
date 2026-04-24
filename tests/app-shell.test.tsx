@@ -431,7 +431,9 @@ describe("authenticated app shell", () => {
 
     const shellHeader = screen.getByLabelText("Notes workspace toolbar");
 
-    expect(within(shellHeader).getByText("Study workspace")).toBeInTheDocument();
+    expect(
+      within(shellHeader).getByText("Study workspace"),
+    ).toBeInTheDocument();
     expect(
       within(shellHeader).getByRole("searchbox", { name: "Search notes" }),
     ).toBeInTheDocument();
@@ -440,9 +442,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(within(shellHeader).getByText("1 note")).toBeInTheDocument();
 
-    expect(
-      screen.getByLabelText("Note editor surface"),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Note editor surface")).toBeInTheDocument();
     expect(screen.getByLabelText("Notes catalog")).toBeInTheDocument();
     expect(screen.getAllByText("Biology").length).toBeGreaterThan(0);
   });

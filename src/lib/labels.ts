@@ -182,8 +182,8 @@ function collectDescendantIds(
   const visited = new Set<string>();
   const descendants: string[] = [];
 
-  while (queue.length > 0) {
-    const currentId = queue.shift();
+  for (let index = 0; index < queue.length; index += 1) {
+    const currentId = queue[index];
 
     if (currentId === undefined || visited.has(currentId)) {
       continue;
@@ -228,7 +228,7 @@ export function createAppLabelsContext(
     storage?.setItem(getLabelsStorageKey(keyPrefix), JSON.stringify(records));
   }
 
-  function requireOwnedLabel(
+  function getOwnedLabelRecord(
     records: StoredLabelRecord[],
     userId: string,
     labelId: string,
@@ -255,7 +255,7 @@ export function createAppLabelsContext(
         (record) => record.userId === userId,
       );
 
-      requireOwnedLabel(records, userId, labelId);
+      getOwnedLabelRecord(records, userId, labelId);
 
       return collectDescendantIds(records, labelId);
     },
@@ -332,7 +332,7 @@ export function createAppLabelsContext(
         labelId,
       );
 
-      requireOwnedLabel(records, userId, parentId);
+      getOwnedLabelRecord(records, userId, parentId);
 
       if (label.parentIds.includes(parentId)) {
         return toAppLabel(label);

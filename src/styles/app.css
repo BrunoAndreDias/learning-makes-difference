@@ -125,7 +125,11 @@ h3 {
   gap: var(--space-4);
   padding: 1.25rem 1rem;
   background:
-    linear-gradient(180deg, rgba(255, 253, 250, 0.96) 0%, rgba(245, 248, 255, 0.94) 100%),
+    linear-gradient(
+      180deg,
+      rgba(255, 253, 250, 0.96) 0%,
+      rgba(245, 248, 255, 0.94) 100%
+    ),
     rgba(255, 253, 250, 0.92);
 }
 
@@ -243,7 +247,11 @@ h3 {
 }
 
 .app-sidebar__link-active {
-  background: linear-gradient(180deg, rgba(37, 99, 235, 0.14) 0%, rgba(37, 99, 235, 0.08) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(37, 99, 235, 0.14) 0%,
+    rgba(37, 99, 235, 0.08) 100%
+  );
   border-color: rgba(37, 99, 235, 0.24);
   color: var(--color-content-strong);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
@@ -286,7 +294,11 @@ h3 {
   gap: var(--space-4);
   padding: 1.25rem;
   background:
-    linear-gradient(180deg, rgba(255, 253, 250, 0.92) 0%, rgba(242, 246, 255, 0.88) 100%),
+    linear-gradient(
+      180deg,
+      rgba(255, 253, 250, 0.92) 0%,
+      rgba(242, 246, 255, 0.88) 100%
+    ),
     rgba(255, 253, 250, 0.88);
 }
 

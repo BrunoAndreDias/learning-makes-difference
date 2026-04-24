@@ -278,6 +278,11 @@ export function createAppSessionContext(
     }
   }
 
+  function commitSnapshot(nextSnapshot: AppSessionSnapshot) {
+    snapshot = nextSnapshot;
+    notifyListeners();
+  }
+
   function readUsers(): StoredUserRecord[] {
     return parseStoredUsers(
       storage?.getItem(getUsersStorageKey(keyPrefix)) ?? null,
@@ -355,8 +360,7 @@ export function createAppSessionContext(
       users.push(nextUser);
       writeUsers(users);
       writeSessionUser(nextUser);
-      snapshot = buildSnapshot(nextUser);
-      notifyListeners();
+      commitSnapshot(buildSnapshot(nextUser));
 
       return snapshot;
     },
@@ -389,15 +393,13 @@ export function createAppSessionContext(
       }
 
       writeSessionUser(user);
-      snapshot = buildSnapshot(user);
-      notifyListeners();
+      commitSnapshot(buildSnapshot(user));
 
       return snapshot;
     },
     logout: () => {
       writeSessionUser(null);
-      snapshot = { user: null };
-      notifyListeners();
+      commitSnapshot({ user: null });
 
       return snapshot;
     },
@@ -438,8 +440,7 @@ export function createAppSessionContext(
       users[userIndex] = nextUser;
       writeUsers(users);
       writeSessionUser(nextUser);
-      snapshot = buildSnapshot(nextUser);
-      notifyListeners();
+      commitSnapshot(buildSnapshot(nextUser));
 
       return snapshot;
     },

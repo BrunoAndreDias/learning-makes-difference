@@ -9,8 +9,8 @@ import {
 import type { AppLabel } from "../lib/labels";
 import {
   AppRecallError,
-  type FlashCardRecallRating,
   type AppRecallSnapshot,
+  type FlashCardRecallRating,
   resolveRecallableNotesFromLabel,
 } from "../lib/recall";
 import type { AppSessionSnapshot } from "../lib/session";
@@ -203,7 +203,7 @@ function RecallPage() {
 
   const currentNote =
     activeSession !== null
-      ? activeSession.notes[activeSession.currentIndex] ?? null
+      ? (activeSession.notes[activeSession.currentIndex] ?? null)
       : null;
 
   return (

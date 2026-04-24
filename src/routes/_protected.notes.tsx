@@ -423,7 +423,7 @@ function NotesWorkspace() {
 
   return (
     <section className="notes-workspace">
-      <header
+      <section
         aria-label="Notes workspace toolbar"
         className="notes-workspace__toolbar shell-panel"
       >
@@ -462,7 +462,7 @@ function NotesWorkspace() {
             New note
           </button>
         </div>
-      </header>
+      </section>
 
       <div className="notes-layout">
         <article
