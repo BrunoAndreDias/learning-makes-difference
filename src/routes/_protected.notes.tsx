@@ -415,33 +415,32 @@ function NotesWorkspace() {
   const selectedLabels = availableLabels.filter((label) =>
     editorState.labelIds.includes(label.id),
   );
+  const noteCountLabel = `${notes.length} ${notes.length === 1 ? "note" : "notes"}`;
+  const selectedLabelCount = `${selectedLabels.length} ${
+    selectedLabels.length === 1 ? "label" : "labels"
+  }`;
+  const workspaceModeLabel = isCreating ? "Draft mode" : "Editing note";
 
   return (
-    <section className="stack">
-      <article className="card stack panel-protected">
-        <p className="section-label">Protected route</p>
-        <h3>Notes workspace</h3>
-        <p>
-          Browse your notes, capture new concepts, and refine existing drafts
-          without leaving the authenticated shell.
-        </p>
-      </article>
+    <section className="notes-workspace">
+      <header
+        aria-label="Notes workspace toolbar"
+        className="notes-workspace__toolbar shell-panel"
+      >
+        <div className="notes-workspace__intro stack">
+          <p className="section-label">Study workspace</p>
+          <h3>Notes workspace</h3>
+          <p className="muted">
+            Browse your notes, capture new concepts, and refine existing drafts
+            without leaving the authenticated shell.
+          </p>
+        </div>
 
-      <div className="notes-layout">
-        <aside className="card stack notes-list" aria-label="Notes list">
-          <div className="notes-list__header">
-            <div className="stack">
-              <p className="section-label">Your notes</p>
-              <h3>Browse notes</h3>
-            </div>
-
-            <button
-              className="notes-action"
-              onClick={handleNewNote}
-              type="button"
-            >
-              New note
-            </button>
+        <div className="notes-workspace__utilities">
+          <div className="tag-row notes-workspace__tags">
+            <span className="tag">{noteCountLabel}</span>
+            <span className="tag">{selectedLabelCount}</span>
+            <span className="tag">{workspaceModeLabel}</span>
           </div>
 
           <label className="notes-form__field">
@@ -455,35 +454,21 @@ function NotesWorkspace() {
             />
           </label>
 
-          {notes.length === 0 ? (
-            <p className="muted">No notes yet</p>
-          ) : filteredNotes.length === 0 ? (
-            <p className="muted">No notes match this search.</p>
-          ) : (
-            <ul className="notes-list__items">
-              {filteredNotes.map((note) => {
-                const isActive = note.id === selectedNote?.id;
+          <button
+            className="notes-action notes-action-primary"
+            onClick={handleNewNote}
+            type="button"
+          >
+            New note
+          </button>
+        </div>
+      </header>
 
-                return (
-                  <li key={note.id}>
-                    <button
-                      aria-pressed={isActive}
-                      className="notes-list__item"
-                      data-active={isActive}
-                      onClick={() => handleSelectNote(note)}
-                      type="button"
-                    >
-                      <strong>{note.title}</strong>
-                      <span>{note.body}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </aside>
-
-        <article className="card stack notes-editor">
+      <div className="notes-layout">
+        <article
+          aria-label="Note editor surface"
+          className="card stack notes-editor"
+        >
           <div className="notes-editor__header">
             <div className="stack">
               <p className="section-label">Editor</p>
@@ -492,6 +477,18 @@ function NotesWorkspace() {
                 Notes remain valid without labels, so capture the concept first
                 and organize it later.
               </p>
+            </div>
+
+            <div className="tag-row">
+              {selectedLabels.length === 0 ? (
+                <span className="tag">Unlabeled draft</span>
+              ) : (
+                selectedLabels.map((label) => (
+                  <span className="tag" key={label.id}>
+                    {label.name}
+                  </span>
+                ))
+              )}
             </div>
           </div>
 
@@ -749,6 +746,61 @@ function NotesWorkspace() {
             </div>
           </form>
         </article>
+
+        <aside className="card stack notes-list" aria-label="Notes catalog">
+          <div className="notes-list__header">
+            <div className="stack">
+              <p className="section-label">Your notes</p>
+              <h3>Browse notes</h3>
+              <p className="muted">
+                Keep the working set visible while you edit the current note.
+              </p>
+            </div>
+          </div>
+
+          {selectedNote === null ? (
+            <article className="notes-list__selection">
+              <p className="section-label">Current selection</p>
+              <strong>New note draft</strong>
+              <p className="muted">
+                Start typing in the editor to capture a fresh concept.
+              </p>
+            </article>
+          ) : (
+            <article className="notes-list__selection">
+              <p className="section-label">Current selection</p>
+              <strong>{selectedNote.title}</strong>
+              <p className="muted">{selectedNote.body}</p>
+            </article>
+          )}
+
+          {notes.length === 0 ? (
+            <p className="muted">No notes yet</p>
+          ) : filteredNotes.length === 0 ? (
+            <p className="muted">No notes match this search.</p>
+          ) : (
+            <ul className="notes-list__items">
+              {filteredNotes.map((note) => {
+                const isActive = note.id === selectedNote?.id;
+
+                return (
+                  <li key={note.id}>
+                    <button
+                      aria-pressed={isActive}
+                      className="notes-list__item"
+                      data-active={isActive}
+                      onClick={() => handleSelectNote(note)}
+                      type="button"
+                    >
+                      <strong>{note.title}</strong>
+                      <span>{note.body}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </aside>
       </div>
     </section>
   );

@@ -386,6 +386,67 @@ describe("authenticated app shell", () => {
     expect(mobileToggle).toHaveFocus();
   });
 
+  it("renders the notes workspace as a dense study shell with utility controls, main editor surface, and catalog rail", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labelsContext.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+    const biology = labelsContext.createLabel({
+      name: "Biology",
+      userId,
+    });
+
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Signals travel across neurons and strengthen with repeated use.",
+      labelIds: [biology.id],
+      metaphors: [],
+      title: "Neural pathways",
+    });
+
+    renderRoute("/notes", {
+      labelsContext,
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const shellHeader = screen.getByLabelText("Notes workspace toolbar");
+
+    expect(within(shellHeader).getByText("Study workspace")).toBeInTheDocument();
+    expect(
+      within(shellHeader).getByRole("searchbox", { name: "Search notes" }),
+    ).toBeInTheDocument();
+    expect(
+      within(shellHeader).getByRole("button", { name: "New note" }),
+    ).toBeInTheDocument();
+    expect(within(shellHeader).getByText("1 note")).toBeInTheDocument();
+
+    expect(
+      screen.getByLabelText("Note editor surface"),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Notes catalog")).toBeInTheDocument();
+    expect(screen.getAllByText("Biology").length).toBeGreaterThan(0);
+  });
+
   it("lets an authenticated user create and edit notes inside the notes workspace", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
