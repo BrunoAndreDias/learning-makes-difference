@@ -15,12 +15,13 @@ After all branches are merged, make a single commit summarizing the merge.
 
 # CLOSE ISSUES
 
-For each issue listed below that corresponds to a merged branch, close it using:
+Use the explicit branch-to-issue mapping below to determine which issue to
+close after each successful merge.
 
 `gh issue close <issue-number> --comment "Completed by Sandcastle"`
 
-Here are all the issues:
+Issue mapping:
 
-{{ISSUES}}
+{{ISSUE_BRANCH_MAP}}
 
 Once you've merged everything you can, output <promise>COMPLETE</promise>.

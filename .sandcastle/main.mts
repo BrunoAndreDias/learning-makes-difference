@@ -260,8 +260,9 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // One agent merges all completed branches into the current branch,
   // resolving any conflicts and running tests to confirm everything works.
   //
-  // The {{BRANCHES}} and {{ISSUES}} prompt arguments are lists that the agent
-  // uses to know which branches to merge and which issues to close.
+  // The {{BRANCHES}} argument tells the agent what to merge, and the
+  // {{ISSUE_BRANCH_MAP}} argument provides an explicit branch → issue mapping
+  // for the issue-closing step.
   // -------------------------------------------------------------------------
   await sandcastle.run({
     hooks,
@@ -281,10 +282,16 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     promptArgs: {
       // A markdown list of branch names, one per line.
       BRANCHES: completedBranches.map((b) => `- ${b}`).join("\n"),
-      // A markdown list of issue IDs and titles, one per line.
-      ISSUES: completedIssues
-        .map((i) => `- ${i.id}: ${i.title}`)
-        .join("\n"),
+      // A structured branch → issue mapping for post-merge issue closure.
+      ISSUE_BRANCH_MAP: JSON.stringify(
+        completedIssues.map((issue) => ({
+          issueId: issue.id,
+          title: issue.title,
+          branch: issue.branch,
+        })),
+        null,
+        2,
+      ),
     },
   });
 
