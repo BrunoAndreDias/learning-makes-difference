@@ -109,8 +109,7 @@ function isStoredAcronym(value: unknown): value is AppAcronym {
   const record = value as Record<string, unknown>;
 
   return (
-    typeof record.shortForm === "string" &&
-    typeof record.expansion === "string"
+    typeof record.shortForm === "string" && typeof record.expansion === "string"
   );
 }
 
@@ -295,6 +294,38 @@ export function listNotesForUser(
       return right.updatedAt.localeCompare(left.updatedAt);
     })
     .map(toPublicNote);
+}
+
+function noteMatchesQuery(note: AppNote, query: string): boolean {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+
+  if (normalizedQuery.length === 0) {
+    return true;
+  }
+
+  const searchFields = [
+    note.title,
+    note.body,
+    ...note.metaphors.flatMap((metaphor) => [
+      metaphor.title,
+      metaphor.explanation,
+    ]),
+    ...note.acronyms.flatMap((acronym) => [
+      acronym.shortForm,
+      acronym.expansion,
+    ]),
+  ];
+
+  return searchFields.some((field) => {
+    return field.toLocaleLowerCase().includes(normalizedQuery);
+  });
+}
+
+export function filterNotesByQuery(
+  notes: readonly AppNote[],
+  query: string,
+): AppNote[] {
+  return notes.filter((note) => noteMatchesQuery(note, query));
 }
 
 export function createAppNotesContext(

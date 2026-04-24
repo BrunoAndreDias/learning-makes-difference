@@ -447,6 +447,90 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
   });
 
+  it("searches notes by note text and attached memory aids while keeping results account-scoped", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [
+        {
+          expansion: "Long-Term Potentiation",
+          shortForm: "LTP",
+        },
+      ],
+      body: "Repeated activation strengthens the pathway.",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation:
+            "It is like cutting a groove into a sled track so the next pass follows more easily.",
+          title: "Sled track",
+        },
+      ],
+      title: "Synaptic plasticity",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Short-term storage supports active reasoning.",
+      labelIds: [],
+      metaphors: [],
+      title: "Working memory",
+    });
+    notesContext.createNote("user-casey", {
+      acronyms: [
+        {
+          expansion: "Long-Term Potentiation",
+          shortForm: "LTP",
+        },
+      ],
+      body: "This note belongs to another account.",
+      labelIds: [],
+      metaphors: [],
+      title: "Hidden note",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Search notes"), {
+      target: { value: "sled track" },
+    });
+
+    expect(
+      screen.getByRole("button", { name: /Synaptic plasticity/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Working memory/ }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Search notes"), {
+      target: { value: "long-term potentiation" },
+    });
+
+    expect(
+      screen.getByRole("button", { name: /Synaptic plasticity/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Hidden note/ }),
+    ).not.toBeInTheDocument();
+  });
+
   it("assigns and removes owned labels from a note inside the notes workspace", async () => {
     const labelsContext = createAppLabelsContext({
       keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
@@ -544,15 +628,12 @@ describe("authenticated app shell", () => {
     fireEvent.change(screen.getAllByLabelText("Metaphor title")[0], {
       target: { value: "Domino line" },
     });
-    fireEvent.change(
-      screen.getAllByLabelText("Metaphor explanation")[0],
-      {
-        target: {
-          value:
-            "Crossing threshold is like tipping the first domino so the whole line falls.",
-        },
+    fireEvent.change(screen.getAllByLabelText("Metaphor explanation")[0], {
+      target: {
+        value:
+          "Crossing threshold is like tipping the first domino so the whole line falls.",
       },
-    );
+    });
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
 
     expect(await screen.findByDisplayValue("Domino line")).toBeInTheDocument();
@@ -566,29 +647,20 @@ describe("authenticated app shell", () => {
 
     expect(screen.getAllByLabelText("Metaphor editor")).toHaveLength(2);
 
-    fireEvent.change(
-      screen.getAllByLabelText("Metaphor explanation")[0],
-      {
-        target: {
-          value:
-            "Crossing threshold is like tipping the first domino and committing the whole chain.",
-        },
+    fireEvent.change(screen.getAllByLabelText("Metaphor explanation")[0], {
+      target: {
+        value:
+          "Crossing threshold is like tipping the first domino and committing the whole chain.",
       },
-    );
-    fireEvent.change(
-      screen.getAllByLabelText("Metaphor title")[1],
-      {
-        target: { value: "Fuse" },
+    });
+    fireEvent.change(screen.getAllByLabelText("Metaphor title")[1], {
+      target: { value: "Fuse" },
+    });
+    fireEvent.change(screen.getAllByLabelText("Metaphor explanation")[1], {
+      target: {
+        value: "Threshold acts like lighting a fuse that runs to completion.",
       },
-    );
-    fireEvent.change(
-      screen.getAllByLabelText("Metaphor explanation")[1],
-      {
-        target: {
-          value: "Threshold acts like lighting a fuse that runs to completion.",
-        },
-      },
-    );
+    });
     fireEvent.click(screen.getByRole("button", { name: "Remove metaphor 2" }));
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
 
@@ -939,27 +1011,43 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "FlashCard session" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Completed 0 of 2 questions")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Leaf detail" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Leaf detail" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Child topic")).toBeNull();
-    expect(screen.getByRole("button", { name: "Reveal answer" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Reveal answer" }),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Reveal answer" }));
 
     expect(screen.getByText("Child topic")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Missed it" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Partly recalled" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Nailed it" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Missed it" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Partly recalled" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Nailed it" }),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Partly recalled" }));
 
     expect(screen.getByText("Completed 1 of 2 questions")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Study foundation" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Study foundation" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Child topic")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Partly recalled" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Partly recalled" }),
+    ).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "End session early" }));
 
-    expect(screen.queryByRole("heading", { name: "FlashCard session" })).toBeNull();
+    expect(
+      screen.queryByRole("heading", { name: "FlashCard session" }),
+    ).toBeNull();
     expect(
       screen.getByText("Ended session early after 1 of 2 questions."),
     ).toBeInTheDocument();

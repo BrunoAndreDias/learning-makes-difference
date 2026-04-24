@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   type AppNotesError,
   createAppNotesContext,
+  filterNotesByQuery,
   listNotesForUser,
 } from "../src/lib/notes";
 
@@ -324,5 +325,63 @@ describe("app notes context", () => {
         code: "not_found",
       } satisfies Pick<AppNotesError, "code">),
     );
+  });
+
+  it("matches note search against note text and attached memory aids while returning owning notes", () => {
+    const notes = createAppNotesContext({
+      keyPrefix: "notes-test-search",
+      storage: createMemoryStorage(),
+    });
+
+    notes.createNote("user-casey", {
+      acronyms: [
+        {
+          expansion: "Long-Term Potentiation",
+          shortForm: "LTP",
+        },
+      ],
+      body: "Stronger synapses become easier to activate after repeated use.",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation:
+            "It is like carving a groove into a trail so the next walk follows it more easily.",
+          title: "Forest trail",
+        },
+      ],
+      title: "Synaptic plasticity",
+    });
+    notes.createNote("user-casey", {
+      acronyms: [],
+      body: "Working memory holds a small amount of information temporarily.",
+      labelIds: [],
+      metaphors: [],
+      title: "Working memory",
+    });
+    notes.createNote("user-jordan", {
+      acronyms: [
+        {
+          expansion: "Long-Term Potentiation",
+          shortForm: "LTP",
+        },
+      ],
+      body: "Another account should stay invisible to Casey's search.",
+      labelIds: [],
+      metaphors: [],
+      title: "Hidden note",
+    });
+
+    const visibleNotes = listNotesForUser(notes.getSnapshot(), "user-casey");
+
+    expect(filterNotesByQuery(visibleNotes, "groove")).toMatchObject([
+      { title: "Synaptic plasticity" },
+    ]);
+    expect(
+      filterNotesByQuery(visibleNotes, "long-term potentiation"),
+    ).toMatchObject([{ title: "Synaptic plasticity" }]);
+    expect(filterNotesByQuery(visibleNotes, "working")).toMatchObject([
+      { title: "Working memory" },
+    ]);
+    expect(filterNotesByQuery(visibleNotes, "hidden note")).toEqual([]);
   });
 });
