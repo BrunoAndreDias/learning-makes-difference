@@ -2,13 +2,25 @@ import {
   createFileRoute,
   Link,
   Outlet,
+  redirect,
   useLocation,
 } from "@tanstack/react-router";
 import { useId, useState } from "react";
 
 import appLogo from "../../docs/layout/logo.png";
+import { hasActiveSession } from "../lib/session";
 
 export const Route = createFileRoute("/_protected")({
+  beforeLoad: ({ context, location }) => {
+    if (!hasActiveSession(context.session.getSnapshot())) {
+      throw redirect({
+        to: "/login",
+        search: {
+          redirect: location.href,
+        },
+      });
+    }
+  },
   component: AppLayout,
 });
 
@@ -53,6 +65,9 @@ function getActiveNavigationItem(pathname: string) {
 }
 
 function AppLayout() {
+  const session = Route.useRouteContext({
+    select: (context) => context.session.getSnapshot(),
+  });
   const location = useLocation();
   const navigationId = useId();
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -141,11 +156,11 @@ function AppLayout() {
 
         <div className="app-sidebar__footer">
           <div className="app-sidebar__avatar" aria-hidden="true">
-            LM
+            {session.user?.displayName.slice(0, 2).toUpperCase() ?? "LM"}
           </div>
           <div className="app-sidebar__profile">
-            <strong>Placeholder user</strong>
-            <span>Auth wiring arrives in a follow-up issue.</span>
+            <strong>{session.user?.displayName ?? "Placeholder user"}</strong>
+            <span>Session guard scaffolded; auth flows land next.</span>
           </div>
         </div>
       </aside>

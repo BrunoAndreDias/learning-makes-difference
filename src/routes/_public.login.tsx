@@ -1,10 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
 
 export const Route = createFileRoute("/_public/login")({
+  validateSearch: z.object({
+    redirect: z.string().optional(),
+  }),
   component: LoginPlaceholder,
 });
 
 function LoginPlaceholder() {
+  const search = Route.useSearch();
+
   return (
     <section className="stack">
       <article className="card stack">
@@ -23,6 +29,10 @@ function LoginPlaceholder() {
             The public login route gives the unauthenticated area a concrete
             destination before real form handling and password workflows exist.
           </p>
+          <div className="stack" aria-label="Reserved redirect target">
+            <strong>Return path reserved for post-auth handoff</strong>
+            <code>{search.redirect ?? "/notes"}</code>
+          </div>
           <div className="tag-row">
             <span className="tag">Email</span>
             <span className="tag">Password</span>

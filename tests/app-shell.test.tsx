@@ -7,29 +7,72 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+import type { AppSessionSnapshot } from "../src/lib/session";
 import { routeTree } from "../src/routeTree.gen";
 
-function renderRoute(initialPath: string) {
+function renderRoute(
+  initialPath: string,
+  session: AppSessionSnapshot = {
+    user: {
+      displayName: "Placeholder user",
+      id: "user-placeholder",
+    },
+  },
+) {
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({
       initialEntries: [initialPath],
     }),
+    context: {
+      session: {
+        getSnapshot: () => session,
+      },
+    },
     defaultPreload: "intent",
     scrollRestoration: true,
   });
 
-  return render(<RouterProvider router={router} />);
+  return {
+    router,
+    ...render(<RouterProvider router={router} />),
+  };
 }
 
 beforeAll(() => {
   window.scrollTo = vi.fn();
 });
 
+afterEach(() => {
+  cleanup();
+});
+
 describe("authenticated app shell", () => {
+  it("redirects unauthenticated protected navigation into the public login area", async () => {
+    const { router } = renderRoute("/settings", {
+      user: null,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Login placeholder" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Return path reserved for post-auth handoff"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("/settings")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/login");
+    expect(router.state.location.search.redirect).toBe("/settings");
+  });
+
   it("renders the shell landmarks, supports sidebar states, and navigates across protected placeholders", async () => {
     renderRoute("/settings");
 
@@ -40,7 +83,7 @@ describe("authenticated app shell", () => {
       name: "App sections",
     });
 
-    expect(screen.getByRole("main")).toBeInTheDocument();
+    expect(screen.getAllByRole("main")).toHaveLength(1);
     expect(
       within(sidebar).getByRole("img", { name: "Learning Makes Difference" }),
     ).toBeInTheDocument();

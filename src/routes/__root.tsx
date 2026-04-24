@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 import {
-  createRootRoute,
+  createRootRouteWithContext,
   HeadContent,
   Link,
   Scripts,
@@ -9,9 +9,12 @@ import {
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import type { ReactNode } from "react";
 
+import type { AppSessionContext } from "../lib/session";
 import appCss from "../styles/app.css?url";
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<{
+  session: AppSessionContext;
+}>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
