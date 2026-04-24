@@ -29,7 +29,7 @@ describe("loadAppEnv", () => {
         DATABASE_URL: "sqlite://tmp.db",
         SESSION_SECRET: "short",
         LOG_LEVEL: "verbose",
-      } as NodeJS.ProcessEnv),
+      }),
     ).toThrow();
   });
 });

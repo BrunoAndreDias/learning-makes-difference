@@ -11,7 +11,7 @@ export type AppSessionContext = {
   getSnapshot: () => AppSessionSnapshot;
 };
 
-export function hasActiveSession(session: AppSessionSnapshot) {
+export function hasActiveSession(session: AppSessionSnapshot): boolean {
   return session.user !== null;
 }
 

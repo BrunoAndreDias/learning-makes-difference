@@ -29,10 +29,12 @@ function LoginPlaceholder() {
             The public login route gives the unauthenticated area a concrete
             destination before real form handling and password workflows exist.
           </p>
-          <div className="stack" aria-label="Reserved redirect target">
-            <strong>Return path reserved for post-auth handoff</strong>
+          <section className="stack" aria-labelledby="redirect-target-label">
+            <strong id="redirect-target-label">
+              Return path reserved for post-auth handoff
+            </strong>
             <code>{search.redirect ?? "/notes"}</code>
-          </div>
+          </section>
           <div className="tag-row">
             <span className="tag">Email</span>
             <span className="tag">Password</span>
