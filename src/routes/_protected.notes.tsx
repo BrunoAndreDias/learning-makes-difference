@@ -45,6 +45,10 @@ const emptyEditorState: NoteEditorState = {
   title: "",
 };
 
+function createEditorKey(): string {
+  return globalThis.crypto.randomUUID();
+}
+
 function createNoteMetaphorEditor(
   metaphor: AppMetaphor = {
     explanation: "",
@@ -53,7 +57,7 @@ function createNoteMetaphorEditor(
 ): NoteMetaphorEditor {
   return {
     ...metaphor,
-    key: globalThis.crypto.randomUUID(),
+    key: createEditorKey(),
   };
 }
 
@@ -65,24 +69,22 @@ function createNoteAcronymEditor(
 ): NoteAcronymEditor {
   return {
     ...acronym,
-    key: globalThis.crypto.randomUUID(),
+    key: createEditorKey(),
   };
 }
 
 function toStoredMetaphor(metaphor: NoteMetaphorEditor): AppMetaphor {
-  const { key, ...storedMetaphor } = metaphor;
-
-  void key;
-
-  return storedMetaphor;
+  return {
+    explanation: metaphor.explanation,
+    title: metaphor.title,
+  };
 }
 
 function toStoredAcronym(acronym: NoteAcronymEditor): AppAcronym {
-  const { key, ...storedAcronym } = acronym;
-
-  void key;
-
-  return storedAcronym;
+  return {
+    expansion: acronym.expansion,
+    shortForm: acronym.shortForm,
+  };
 }
 
 function getEditorState(note: AppNote | null): NoteEditorState {
@@ -101,50 +103,61 @@ function getEditorState(note: AppNote | null): NoteEditorState {
   };
 }
 
-function haveSameLabelIds(left: string[], right: string[]): boolean {
+function haveSameItems<T>(
+  left: readonly T[],
+  right: readonly T[],
+  areEqual: (leftItem: T, rightItem: T) => boolean,
+): boolean {
   if (left.length !== right.length) {
     return false;
   }
 
-  return left.every((labelId, index) => labelId === right[index]);
-}
+  return left.every((leftItem, index) => {
+    const rightItem = right[index];
 
-function haveSameMetaphors(left: AppMetaphor[], right: AppMetaphor[]): boolean {
-  if (left.length !== right.length) {
-    return false;
-  }
-
-  return left.every((metaphor, index) => {
-    const rightMetaphor = right[index];
-
-    if (rightMetaphor === undefined) {
+    if (rightItem === undefined) {
       return false;
     }
 
+    return areEqual(leftItem, rightItem);
+  });
+}
+
+function haveSameLabelIds(left: string[], right: string[]): boolean {
+  return haveSameItems(left, right, (leftLabelId, rightLabelId) => {
+    return leftLabelId === rightLabelId;
+  });
+}
+
+function haveSameMetaphors(left: AppMetaphor[], right: AppMetaphor[]): boolean {
+  return haveSameItems(left, right, (leftMetaphor, rightMetaphor) => {
     return (
-      metaphor.title === rightMetaphor.title &&
-      metaphor.explanation === rightMetaphor.explanation
+      leftMetaphor.title === rightMetaphor.title &&
+      leftMetaphor.explanation === rightMetaphor.explanation
     );
   });
 }
 
 function haveSameAcronyms(left: AppAcronym[], right: AppAcronym[]): boolean {
-  if (left.length !== right.length) {
-    return false;
-  }
-
-  return left.every((acronym, index) => {
-    const rightAcronym = right[index];
-
-    if (rightAcronym === undefined) {
-      return false;
-    }
-
+  return haveSameItems(left, right, (leftAcronym, rightAcronym) => {
     return (
-      acronym.shortForm === rightAcronym.shortForm &&
-      acronym.expansion === rightAcronym.expansion
+      leftAcronym.shortForm === rightAcronym.shortForm &&
+      leftAcronym.expansion === rightAcronym.expansion
     );
   });
+}
+
+function isSameEditorState(
+  left: NoteEditorState,
+  right: NoteEditorState,
+): boolean {
+  return (
+    left.title === right.title &&
+    left.body === right.body &&
+    haveSameLabelIds(left.labelIds, right.labelIds) &&
+    haveSameMetaphors(left.metaphors, right.metaphors) &&
+    haveSameAcronyms(left.acronyms, right.acronyms)
+  );
 }
 
 function NotesWorkspace() {
@@ -184,13 +197,9 @@ function NotesWorkspace() {
       ? null
       : (notes.find((note) => note.id === selectedNoteId) ?? null);
   const isCreating = selectedNote === null;
-  const selectedNoteExists =
-    selectedNoteId === null
-      ? false
-      : userId !== null &&
-        notesSnapshot.some(
-          (note) => note.userId === userId && note.id === selectedNoteId,
-        );
+  const selectedNoteStillExists =
+    selectedNoteId !== null &&
+    notes.some((note) => note.id === selectedNoteId);
 
   useEffect(() => {
     function syncLabels() {
@@ -218,12 +227,12 @@ function NotesWorkspace() {
       return;
     }
 
-    if (selectedNoteExists) {
+    if (selectedNoteStillExists) {
       return;
     }
 
     setSelectedNoteId(firstNoteId);
-  }, [firstNoteId, isCreatingNew, selectedNoteExists]);
+  }, [firstNoteId, isCreatingNew, selectedNoteStillExists]);
 
   useEffect(() => {
     const currentUserNotesSnapshot =
@@ -240,26 +249,12 @@ function NotesWorkspace() {
 
     setEditorState((currentState) => {
       if (nextSelectedNote === null) {
-        if (
-          haveSameAcronyms(currentState.acronyms, emptyEditorState.acronyms) &&
-          currentState.title === emptyEditorState.title &&
-          currentState.body === emptyEditorState.body &&
-          haveSameLabelIds(currentState.labelIds, emptyEditorState.labelIds) &&
-          haveSameMetaphors(currentState.metaphors, emptyEditorState.metaphors)
-        ) {
-          return currentState;
-        }
-
-        return emptyEditorState;
+        return isSameEditorState(currentState, emptyEditorState)
+          ? currentState
+          : emptyEditorState;
       }
 
-      if (
-        haveSameAcronyms(currentState.acronyms, nextEditorState.acronyms) &&
-        currentState.title === nextEditorState.title &&
-        currentState.body === nextEditorState.body &&
-        haveSameLabelIds(currentState.labelIds, nextEditorState.labelIds) &&
-        haveSameMetaphors(currentState.metaphors, nextEditorState.metaphors)
-      ) {
+      if (isSameEditorState(currentState, nextEditorState)) {
         return currentState;
       }
 
