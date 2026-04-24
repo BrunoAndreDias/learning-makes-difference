@@ -29,7 +29,10 @@ type StoredUserRecord = {
   passwordSalt: string;
 };
 
-type SessionStorageAdapter = Pick<Storage, "getItem" | "removeItem" | "setItem">;
+type SessionStorageAdapter = Pick<
+  Storage,
+  "getItem" | "removeItem" | "setItem"
+>;
 
 type SessionCrypto = Pick<Crypto, "randomUUID" | "subtle">;
 
@@ -41,7 +44,7 @@ type CreateAppSessionContextOptions = {
 };
 
 export class AppAuthError extends Error {
-  code: "email_taken" | "invalid_credentials" | "invalid_input";
+  readonly code: "email_taken" | "invalid_credentials" | "invalid_input";
 
   constructor(
     code: "email_taken" | "invalid_credentials" | "invalid_input",
@@ -209,7 +212,9 @@ export function createAppSessionContext(
   }
 
   function readUsers(): StoredUserRecord[] {
-    return parseStoredUsers(storage?.getItem(getUsersStorageKey(keyPrefix)) ?? null);
+    return parseStoredUsers(
+      storage?.getItem(getUsersStorageKey(keyPrefix)) ?? null,
+    );
   }
 
   function writeUsers(users: StoredUserRecord[]) {
@@ -217,7 +222,8 @@ export function createAppSessionContext(
   }
 
   function readSessionUser(users: StoredUserRecord[]): StoredUserRecord | null {
-    const sessionUserId = storage?.getItem(getSessionStorageKey(keyPrefix)) ?? null;
+    const sessionUserId =
+      storage?.getItem(getSessionStorageKey(keyPrefix)) ?? null;
 
     if (sessionUserId === null) {
       return null;
@@ -270,7 +276,11 @@ export function createAppSessionContext(
         displayName: safeDisplayName,
         email: safeEmail,
         passwordSalt,
-        passwordHash: await hashPassword(cryptoProvider, safePassword, passwordSalt),
+        passwordHash: await hashPassword(
+          cryptoProvider,
+          safePassword,
+          passwordSalt,
+        ),
       };
 
       users.push(nextUser);
@@ -285,7 +295,9 @@ export function createAppSessionContext(
       const safeEmail = validateEmail(email);
       const safePassword = validatePassword(password);
       const users = readUsers();
-      const user = users.find((candidate) => normalizeEmail(candidate.email) === safeEmail);
+      const user = users.find(
+        (candidate) => normalizeEmail(candidate.email) === safeEmail,
+      );
 
       if (user === undefined) {
         throw new AppAuthError(

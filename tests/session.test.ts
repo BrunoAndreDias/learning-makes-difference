@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-
 import {
-  AppAuthError,
+  type AppAuthError,
   createAppSessionContext,
   hasActiveSession,
 } from "../src/lib/session";

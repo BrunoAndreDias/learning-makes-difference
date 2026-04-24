@@ -9,8 +9,8 @@ import { z } from "zod";
 
 import {
   AppAuthError,
-  hasActiveSession,
   type AppSessionSnapshot,
+  hasActiveSession,
 } from "../lib/session";
 
 export const Route = createFileRoute("/_public/login")({
@@ -95,7 +95,11 @@ function LoginPage() {
 
       <div className="placeholder-grid auth-grid">
         <article className="card stack">
-          <div className="auth-mode-toggle" role="tablist" aria-label="Auth mode">
+          <div
+            className="auth-mode-toggle"
+            role="tablist"
+            aria-label="Auth mode"
+          >
             <button
               aria-selected={mode === "login"}
               className="auth-mode-toggle__button"
@@ -150,7 +154,9 @@ function LoginPage() {
             <label className="auth-form__field">
               <span>Password</span>
               <input
-                autoComplete={isRegistrationMode ? "new-password" : "current-password"}
+                autoComplete={
+                  isRegistrationMode ? "new-password" : "current-password"
+                }
                 name="password"
                 onChange={(event) => setPassword(event.target.value)}
                 required
@@ -165,7 +171,11 @@ function LoginPage() {
               </p>
             ) : null}
 
-            <button className="auth-form__submit" disabled={isSubmitting} type="submit">
+            <button
+              className="auth-form__submit"
+              disabled={isSubmitting}
+              type="submit"
+            >
               {isSubmitting
                 ? "Submitting..."
                 : isRegistrationMode

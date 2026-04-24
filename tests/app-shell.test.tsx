@@ -17,9 +17,9 @@ import {
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
-  createAppSessionContext,
   type AppSessionContext,
   type AppSessionSnapshot,
+  createAppSessionContext,
 } from "../src/lib/session";
 import { routeTree } from "../src/routeTree.gen";
 
@@ -37,16 +37,15 @@ function renderRoute(
       id: "user-placeholder",
     },
   };
-  const sessionContext =
-    options.sessionContext ??
-    {
-      getSnapshot: () => staticSnapshot,
-      subscribe: () => () => undefined,
-      login: () => Promise.reject(new Error("Static test session cannot log in.")),
-      logout: () => ({ user: null }),
-      register: () =>
-        Promise.reject(new Error("Static test session cannot register.")),
-    };
+  const sessionContext = options.sessionContext ?? {
+    getSnapshot: () => staticSnapshot,
+    subscribe: () => () => undefined,
+    login: () =>
+      Promise.reject(new Error("Static test session cannot log in.")),
+    logout: () => ({ user: null }),
+    register: () =>
+      Promise.reject(new Error("Static test session cannot register.")),
+  };
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({

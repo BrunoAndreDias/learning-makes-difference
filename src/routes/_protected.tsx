@@ -7,10 +7,16 @@ import {
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
-import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import appLogo from "../../docs/layout/logo.png";
-import { hasActiveSession, type AppSessionSnapshot } from "../lib/session";
+import { type AppSessionSnapshot, hasActiveSession } from "../lib/session";
 
 export const Route = createFileRoute("/_protected")({
   beforeLoad: ({ context, location }) => {
@@ -122,12 +128,16 @@ function AppLayout() {
 
   async function handleLogout() {
     setLoggingOut(true);
-    session.logout();
-    await router.invalidate();
-    await navigate({
-      to: "/login",
-    });
-    setLoggingOut(false);
+
+    try {
+      session.logout();
+      await router.invalidate();
+      await navigate({
+        to: "/login",
+      });
+    } finally {
+      setLoggingOut(false);
+    }
   }
 
   useEffect(() => {
@@ -223,7 +233,9 @@ function AppLayout() {
             {userInitials}
           </div>
           <div className="app-sidebar__profile">
-            <strong>{sessionSnapshot.user?.displayName ?? "Unknown user"}</strong>
+            <strong>
+              {sessionSnapshot.user?.displayName ?? "Unknown user"}
+            </strong>
             <span>{sessionSnapshot.user?.email ?? "No email available"}</span>
           </div>
           <button
