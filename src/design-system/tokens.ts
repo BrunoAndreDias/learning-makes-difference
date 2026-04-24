@@ -18,7 +18,8 @@ const brandTokens = {
   productName: "Learning Makes Difference",
   logoSource: "docs/layout/logo.png",
   layoutReferences: layoutReferencePaths,
-  shellTone: "Warm canvas with bright blue utility accents and calm slate text.",
+  shellTone:
+    "Warm canvas with bright blue utility accents and calm slate text.",
 } as const;
 
 const colorTokens = {
@@ -46,18 +47,18 @@ const colorTokens = {
 
 const typographyTokens = {
   heading: {
-    family: "\"Sora\", \"Avenir Next\", \"Trebuchet MS\", sans-serif",
+    family: '"Sora", "Avenir Next", "Trebuchet MS", sans-serif',
     weight: 700,
     trackingEm: "-0.03em",
   },
   body: {
-    family: "\"Manrope\", \"Segoe UI\", sans-serif",
+    family: '"Manrope", "Segoe UI", sans-serif',
     weight: 500,
     sizeRem: 1,
     lineHeight: 1.5,
   },
   label: {
-    family: "\"Manrope\", \"Segoe UI\", sans-serif",
+    family: '"Manrope", "Segoe UI", sans-serif',
     weight: 600,
     sizeRem: 0.875,
     lineHeight: 1.4,

@@ -9,7 +9,7 @@
     "allowJs": false,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "types": ["node", "vitest/globals"],
+    "types": ["node", "vite/client", "vitest/globals"],
     "verbatimModuleSyntax": false
   },
   "include": ["src", "tests", "vite.config.ts", "vitest.config.ts"]
