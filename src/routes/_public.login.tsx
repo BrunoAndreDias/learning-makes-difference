@@ -1,53 +1,191 @@
-import { createFileRoute } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  redirect,
+  useNavigate,
+  useRouter,
+} from "@tanstack/react-router";
+import { useState, useSyncExternalStore } from "react";
 import { z } from "zod";
+
+import {
+  AppAuthError,
+  hasActiveSession,
+  type AppSessionSnapshot,
+} from "../lib/session";
 
 export const Route = createFileRoute("/_public/login")({
   validateSearch: z.object({
     redirect: z.string().optional(),
   }),
-  component: LoginPlaceholder,
+  beforeLoad: ({ context, search }) => {
+    if (hasActiveSession(context.session.getSnapshot())) {
+      throw redirect({
+        to: search.redirect ?? "/notes",
+      });
+    }
+  },
+  component: LoginPage,
 });
 
-function LoginPlaceholder() {
+type AuthMode = "login" | "register";
+
+function LoginPage() {
   const search = Route.useSearch();
+  const session = Route.useRouteContext({
+    select: (context) => context.session,
+  });
+  const navigate = useNavigate();
+  const router = useRouter();
+  const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
+    session.subscribe,
+    session.getSnapshot,
+    session.getSnapshot,
+  );
+  const [mode, setMode] = useState<AuthMode>("login");
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSubmitting, setSubmitting] = useState(false);
+  const isRegistrationMode = mode === "register";
+  const redirectTarget = search.redirect ?? "/notes";
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErrorMessage(null);
+    setSubmitting(true);
+
+    try {
+      if (isRegistrationMode) {
+        await session.register({
+          displayName,
+          email,
+          password,
+        });
+      } else {
+        await session.login({
+          email,
+          password,
+        });
+      }
+
+      await router.invalidate();
+      await navigate({ to: redirectTarget });
+    } catch (error) {
+      if (error instanceof AppAuthError) {
+        setErrorMessage(error.message);
+      } else {
+        setErrorMessage("Authentication failed. Try again.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <section className="stack">
       <article className="card stack">
         <p className="section-label">Public route</p>
-        <h2>Login placeholder</h2>
+        <h2>Welcome back</h2>
         <p>
-          Authentication flows will land here once the auth module is
-          implemented.
+          Register a new account or log in to continue into your protected study
+          workspace.
         </p>
       </article>
 
-      <div className="placeholder-grid">
+      <div className="placeholder-grid auth-grid">
         <article className="card stack">
-          <p className="section-label">Entry point</p>
-          <p>
-            The public login route gives the unauthenticated area a concrete
-            destination before real form handling and password workflows exist.
-          </p>
-          <section className="stack" aria-labelledby="redirect-target-label">
-            <strong id="redirect-target-label">
-              Return path reserved for post-auth handoff
-            </strong>
-            <code>{search.redirect ?? "/notes"}</code>
-          </section>
-          <div className="tag-row">
-            <span className="tag">Email</span>
-            <span className="tag">Password</span>
-            <span className="tag">Forgot password</span>
+          <div className="auth-mode-toggle" role="tablist" aria-label="Auth mode">
+            <button
+              aria-selected={mode === "login"}
+              className="auth-mode-toggle__button"
+              onClick={() => setMode("login")}
+              role="tab"
+              type="button"
+            >
+              Log in
+            </button>
+            <button
+              aria-selected={mode === "register"}
+              className="auth-mode-toggle__button"
+              onClick={() => setMode("register")}
+              role="tab"
+              type="button"
+            >
+              Create account
+            </button>
           </div>
+
+          <form
+            aria-label={isRegistrationMode ? "Registration form" : "Login form"}
+            className="auth-form"
+            onSubmit={handleSubmit}
+          >
+            {isRegistrationMode ? (
+              <label className="auth-form__field">
+                <span>Display name</span>
+                <input
+                  autoComplete="name"
+                  name="displayName"
+                  onChange={(event) => setDisplayName(event.target.value)}
+                  required
+                  type="text"
+                  value={displayName}
+                />
+              </label>
+            ) : null}
+
+            <label className="auth-form__field">
+              <span>Email</span>
+              <input
+                autoComplete="email"
+                name="email"
+                onChange={(event) => setEmail(event.target.value)}
+                required
+                type="email"
+                value={email}
+              />
+            </label>
+
+            <label className="auth-form__field">
+              <span>Password</span>
+              <input
+                autoComplete={isRegistrationMode ? "new-password" : "current-password"}
+                name="password"
+                onChange={(event) => setPassword(event.target.value)}
+                required
+                type="password"
+                value={password}
+              />
+            </label>
+
+            {errorMessage !== null ? (
+              <p className="auth-form__error" role="alert">
+                {errorMessage}
+              </p>
+            ) : null}
+
+            <button className="auth-form__submit" disabled={isSubmitting} type="submit">
+              {isSubmitting
+                ? "Submitting..."
+                : isRegistrationMode
+                  ? "Create account"
+                  : "Log in"}
+            </button>
+          </form>
         </article>
 
         <article className="card stack">
-          <p className="section-label">Layout check</p>
-          <p>
-            The placeholder validates a compact public card stack distinct from
-            the denser protected shell.
-          </p>
+          <p className="section-label">Entry point</p>
+          <p>After authentication you'll continue to:</p>
+          <code>{redirectTarget}</code>
+          <div className="tag-row">
+            <span className="tag">
+              {sessionSnapshot.user === null
+                ? "No active session"
+                : `Signed in as ${sessionSnapshot.user.displayName}`}
+            </span>
+          </div>
         </article>
       </div>
     </section>

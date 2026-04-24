@@ -4,11 +4,13 @@ import {
   Outlet,
   redirect,
   useLocation,
+  useNavigate,
+  useRouter,
 } from "@tanstack/react-router";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 
 import appLogo from "../../docs/layout/logo.png";
-import { hasActiveSession } from "../lib/session";
+import { hasActiveSession, type AppSessionSnapshot } from "../lib/session";
 
 export const Route = createFileRoute("/_protected")({
   beforeLoad: ({ context, location }) => {
@@ -66,16 +68,24 @@ function getActiveNavigationItem(pathname: string) {
 
 function AppLayout() {
   const session = Route.useRouteContext({
-    select: (context) => context.session.getSnapshot(),
+    select: (context) => context.session,
   });
   const location = useLocation();
+  const navigate = useNavigate();
+  const router = useRouter();
   const navigationId = useId();
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [shouldRestoreMobileToggleFocus, setShouldRestoreMobileToggleFocus] =
     useState(false);
+  const [isLoggingOut, setLoggingOut] = useState(false);
   const activeNavigationLinkRef = useRef<HTMLAnchorElement | null>(null);
   const mobileToggleRef = useRef<HTMLButtonElement | null>(null);
+  const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
+    session.subscribe,
+    session.getSnapshot,
+    session.getSnapshot,
+  );
   const activeItem = getActiveNavigationItem(location.pathname);
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
   const sidebarToggleLabel = isSidebarCollapsed
@@ -85,7 +95,7 @@ function AppLayout() {
     ? "Close navigation menu"
     : "Open navigation menu";
   const userInitials =
-    session.user?.displayName.slice(0, 2).toUpperCase() ?? "LM";
+    sessionSnapshot.user?.displayName.slice(0, 2).toUpperCase() ?? "LM";
 
   function closeMobileSidebar(shouldRestoreFocus = false) {
     setShouldRestoreMobileToggleFocus(shouldRestoreFocus);
@@ -108,6 +118,16 @@ function AppLayout() {
     }
 
     toggleMobileSidebar();
+  }
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    session.logout();
+    await router.invalidate();
+    await navigate({
+      to: "/login",
+    });
+    setLoggingOut(false);
   }
 
   useEffect(() => {
@@ -203,9 +223,17 @@ function AppLayout() {
             {userInitials}
           </div>
           <div className="app-sidebar__profile">
-            <strong>{session.user?.displayName ?? "Placeholder user"}</strong>
-            <span>Session guard scaffolded; auth flows land next.</span>
+            <strong>{sessionSnapshot.user?.displayName ?? "Unknown user"}</strong>
+            <span>{sessionSnapshot.user?.email ?? "No email available"}</span>
           </div>
+          <button
+            className="app-sidebar__logout"
+            disabled={isLoggingOut}
+            onClick={() => void handleLogout()}
+            type="button"
+          >
+            {isLoggingOut ? "Logging out..." : "Log out"}
+          </button>
         </div>
       </aside>
 

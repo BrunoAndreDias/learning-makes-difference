@@ -1,12 +1,12 @@
 import { createRouter } from "@tanstack/react-router";
 
-import { createGuestSessionContext } from "./lib/session";
+import { createAppSessionContext } from "./lib/session";
 import { routeTree } from "./routeTree.gen";
 
 export function getRouter() {
   return createRouter({
     context: {
-      session: createGuestSessionContext(),
+      session: createAppSessionContext(),
     },
     routeTree,
     defaultPreload: "intent",

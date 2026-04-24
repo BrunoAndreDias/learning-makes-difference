@@ -16,27 +16,44 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-import type { AppSessionSnapshot } from "../src/lib/session";
+import {
+  createAppSessionContext,
+  type AppSessionContext,
+  type AppSessionSnapshot,
+} from "../src/lib/session";
 import { routeTree } from "../src/routeTree.gen";
 
 function renderRoute(
   initialPath: string,
-  session: AppSessionSnapshot = {
+  options: {
+    session?: AppSessionSnapshot;
+    sessionContext?: AppSessionContext;
+  } = {},
+) {
+  const staticSnapshot = options.session ?? {
     user: {
       displayName: "Placeholder user",
+      email: "placeholder@example.com",
       id: "user-placeholder",
     },
-  },
-) {
+  };
+  const sessionContext =
+    options.sessionContext ??
+    {
+      getSnapshot: () => staticSnapshot,
+      subscribe: () => () => undefined,
+      login: () => Promise.reject(new Error("Static test session cannot log in.")),
+      logout: () => ({ user: null }),
+      register: () =>
+        Promise.reject(new Error("Static test session cannot register.")),
+    };
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({
       initialEntries: [initialPath],
     }),
     context: {
-      session: {
-        getSnapshot: () => session,
-      },
+      session: sessionContext,
     },
     defaultPreload: "intent",
     scrollRestoration: true,
@@ -58,19 +75,90 @@ afterEach(() => {
 
 describe("authenticated app shell", () => {
   it("redirects unauthenticated protected navigation into the public login area", async () => {
-    const { router } = renderRoute("/settings", {
-      user: null,
-    });
+    const { router } = renderRoute("/settings", { session: { user: null } });
 
     expect(
-      await screen.findByRole("heading", { name: "Login placeholder" }),
+      await screen.findByRole("heading", { name: "Welcome back" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Return path reserved for post-auth handoff"),
+      screen.getByText("After authentication you'll continue to:"),
     ).toBeInTheDocument();
     expect(screen.getByText("/settings")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/login");
     expect(router.state.location.search.redirect).toBe("/settings");
+  });
+
+  it("registers a new account into the intended protected route and logs out cleanly", async () => {
+    const sessionContext = createAppSessionContext({
+      keyPrefix: `test-auth-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const { router } = renderRoute("/settings", { sessionContext });
+
+    expect(
+      await screen.findByRole("heading", { name: "Welcome back" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Create account" }));
+    fireEvent.change(screen.getByLabelText("Display name"), {
+      target: { value: "Casey Learner" },
+    });
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "casey@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Registration form" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Settings placeholder" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Casey Learner")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/settings");
+
+    fireEvent.click(screen.getByRole("button", { name: "Log out" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Welcome back" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/login");
+  });
+
+  it("logs a returning user into the requested protected route", async () => {
+    const sessionContext = createAppSessionContext({
+      keyPrefix: `test-auth-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    await sessionContext.register({
+      displayName: "Jordan Review",
+      email: "jordan@example.com",
+      password: "correct horse battery staple",
+    });
+    sessionContext.logout();
+
+    const { router } = renderRoute("/login?redirect=%2Fhistory", {
+      sessionContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Welcome back" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "jordan@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Login form" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "History placeholder" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Jordan Review")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/history");
   });
 
   it("renders the shell landmarks, supports sidebar states, and navigates across protected placeholders", async () => {
