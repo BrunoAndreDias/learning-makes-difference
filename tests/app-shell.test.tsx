@@ -15,7 +15,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-
+import { type AppNotesContext, createAppNotesContext } from "../src/lib/notes";
 import {
   type AppSessionContext,
   type AppSessionSnapshot,
@@ -26,6 +26,7 @@ import { routeTree } from "../src/routeTree.gen";
 function renderRoute(
   initialPath: string,
   options: {
+    notesContext?: AppNotesContext;
     session?: AppSessionSnapshot;
     sessionContext?: AppSessionContext;
   } = {},
@@ -46,12 +47,19 @@ function renderRoute(
     register: () =>
       Promise.reject(new Error("Static test session cannot register.")),
   };
+  const notesContext =
+    options.notesContext ??
+    createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({
       initialEntries: [initialPath],
     }),
     context: {
+      notes: notesContext,
       session: sessionContext,
     },
     defaultPreload: "intent",
@@ -244,7 +252,7 @@ describe("authenticated app shell", () => {
     renderRoute("/notes");
 
     expect(
-      await screen.findByRole("heading", { name: "Notes placeholder" }),
+      await screen.findByRole("heading", { name: "Notes workspace" }),
     ).toBeInTheDocument();
 
     const skipLink = screen.getByRole("link", { name: "Skip to main content" });
@@ -271,5 +279,64 @@ describe("authenticated app shell", () => {
     );
 
     expect(mobileToggle).toHaveFocus();
+  });
+
+  it("lets an authenticated user create and edit notes inside the notes workspace", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("No notes yet")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Spaced repetition" },
+    });
+    fireEvent.change(screen.getByLabelText("Body"), {
+      target: {
+        value: "Reviewing at expanding intervals improves long-term retention.",
+      },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
+
+    expect(
+      await screen.findByRole("button", { name: /Spaced repetition/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Spaced repetition")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue(
+        "Reviewing at expanding intervals improves long-term retention.",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Body"), {
+      target: {
+        value:
+          "Reviewing at expanding intervals improves recall over long spans.",
+      },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
+    fireEvent.click(screen.getByRole("button", { name: "New note" }));
+    fireEvent.click(screen.getByRole("button", { name: /Spaced repetition/ }));
+
+    expect(
+      screen.getByDisplayValue(
+        "Reviewing at expanding intervals improves recall over long spans.",
+      ),
+    ).toBeInTheDocument();
   });
 });

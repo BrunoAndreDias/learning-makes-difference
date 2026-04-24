@@ -181,7 +181,8 @@ h3 {
 .sidebar-mobile-toggle,
 .app-sidebar__logout,
 .auth-mode-toggle__button,
-.auth-form__submit {
+.auth-form__submit,
+.notes-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -227,8 +228,12 @@ h3 {
 .app-sidebar__logout:focus-visible,
 .auth-mode-toggle__button:focus-visible,
 .auth-form__submit:focus-visible,
+.notes-action:focus-visible,
 .nav-link:focus-visible,
-.auth-form__field input:focus-visible {
+.auth-form__field input:focus-visible,
+.notes-form__field input:focus-visible,
+.notes-form__field textarea:focus-visible,
+.notes-list__item:focus-visible {
   border-color: rgba(37, 99, 235, 0.5);
 }
 
@@ -360,6 +365,99 @@ h3 {
   font-weight: 600;
 }
 
+.notes-layout {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.notes-list,
+.notes-editor {
+  min-width: 0;
+}
+
+.notes-list__header,
+.notes-editor__header,
+.notes-editor__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.notes-list__items {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notes-list__item {
+  width: 100%;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid rgba(215, 222, 234, 0.9);
+  border-radius: var(--radius-lg);
+  background: #fffdfa;
+  color: var(--color-content-strong);
+  text-align: left;
+  cursor: pointer;
+}
+
+.notes-list__item[data-active="true"] {
+  border-color: rgba(37, 99, 235, 0.24);
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.notes-list__item span {
+  color: var(--color-content-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.notes-form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.notes-form__field {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--color-content-strong);
+  font-weight: 600;
+}
+
+.notes-form__field input,
+.notes-form__field textarea {
+  width: 100%;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid rgba(215, 222, 234, 0.9);
+  border-radius: var(--radius-md);
+  background: #fffdfa;
+  color: var(--color-content-strong);
+  font: inherit;
+}
+
+.notes-form__field input {
+  min-height: 2.75rem;
+}
+
+.notes-form__field textarea {
+  min-height: 14rem;
+  resize: vertical;
+}
+
+.notes-action-primary {
+  background: var(--color-brand-primary);
+  border-color: transparent;
+  color: #f8fbff;
+}
+
 @media (min-width: 48rem) {
   .authenticated-shell {
     grid-template-columns: minmax(16rem, 18rem) minmax(0, 1fr);
@@ -367,6 +465,10 @@ h3 {
 
   .placeholder-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .notes-layout {
+    grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
   }
 }
 
