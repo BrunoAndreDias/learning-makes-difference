@@ -223,23 +223,6 @@ function parseStoredRecallSession(value: string | null): AppRecallSnapshot {
   }
 }
 
-function isFlashCardRecallAttempt(
-  attempt: unknown,
-): attempt is FlashCardRecallAttempt {
-  const candidate =
-    typeof attempt === "object" && attempt !== null
-      ? (attempt as Record<string, unknown>)
-      : null;
-
-  return (
-    candidate !== null &&
-    typeof candidate.noteId === "string" &&
-    (candidate.rating === "missed" ||
-      candidate.rating === "partial" ||
-      candidate.rating === "nailed")
-  );
-}
-
 function parseStoredSessionResults(
   value: string | null,
 ): StoredFlashCardSessionResult[] {
