@@ -177,12 +177,14 @@ describe("recall session setup", () => {
     const science = labels.createLabel({ name: "Science", userId });
 
     notes.createNote(userId, {
+      acronyms: [],
       body: "Answer one",
       labelIds: [science.id],
       metaphors: [],
       title: "Question one",
     });
     notes.createNote(userId, {
+      acronyms: [],
       body: "Answer two",
       labelIds: [science.id],
       metaphors: [],

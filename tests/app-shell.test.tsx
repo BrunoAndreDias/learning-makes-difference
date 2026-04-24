@@ -911,12 +911,14 @@ describe("authenticated app shell", () => {
     });
 
     notesContext.createNote(userId, {
+      acronyms: [],
       body: "Broad foundation",
       labelIds: [science.id],
       metaphors: [],
       title: "Study foundation",
     });
     notesContext.createNote(userId, {
+      acronyms: [],
       body: "Child topic",
       labelIds: [science.id],
       metaphors: [],
