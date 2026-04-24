@@ -302,6 +302,10 @@ function LabelCard({
     setSelectedParentId("");
   }
 
+  useEffect(() => {
+    setNextName(label.name);
+  }, [label.name]);
+
   return (
     <article className="card stack labels-card">
       <div className="labels-card__header">

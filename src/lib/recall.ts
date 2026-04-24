@@ -6,7 +6,15 @@ export type FlashCardRecallMode = "FlashCard";
 
 export type FlashCardRecallNote = AppNote;
 
+export type FlashCardRecallRating = "missed" | "partial" | "nailed";
+
+export type FlashCardRecallAttempt = {
+  noteId: string;
+  rating: FlashCardRecallRating;
+};
+
 export type FlashCardRecallSession = {
+  attempts: FlashCardRecallAttempt[];
   createdAt: string;
   currentIndex: number;
   id: string;
@@ -38,6 +46,15 @@ type StartFlashCardSessionInput = {
   userId: string;
 };
 
+type UpdateFlashCardSessionInput = {
+  sessionId: string;
+  userId: string;
+};
+
+type RateFlashCardAnswerInput = UpdateFlashCardSessionInput & {
+  rating: FlashCardRecallRating;
+};
+
 type CreateAppRecallContextOptions = {
   crypto?: RecallCrypto;
   keyPrefix?: string;
@@ -57,7 +74,16 @@ export class AppRecallError extends Error {
 }
 
 export type AppRecallContext = {
+  endFlashCardSession: (
+    input: UpdateFlashCardSessionInput,
+  ) => FlashCardRecallSession;
   getSnapshot: () => AppRecallSnapshot;
+  rateFlashCardAnswer: (
+    input: RateFlashCardAnswerInput,
+  ) => FlashCardRecallSession | null;
+  revealFlashCardAnswer: (
+    input: UpdateFlashCardSessionInput,
+  ) => FlashCardRecallSession;
   startFlashCardSession: (
     input: StartFlashCardSessionInput,
   ) => FlashCardRecallSession;
@@ -121,15 +147,35 @@ function parseStoredRecallSession(value: string | null): AppRecallSnapshot {
       typeof parsedValue.createdAt !== "string" ||
       typeof parsedValue.currentIndex !== "number" ||
       typeof parsedValue.isAnswerRevealed !== "boolean" ||
+      ("attempts" in parsedValue &&
+        (!Array.isArray(parsedValue.attempts) ||
+          parsedValue.attempts.some((attempt: unknown) => {
+            const candidate =
+              typeof attempt === "object" && attempt !== null
+                ? (attempt as Record<string, unknown>)
+                : null;
+
+            return (
+              candidate === null ||
+              typeof candidate.noteId !== "string" ||
+              (candidate.rating !== "missed" &&
+                candidate.rating !== "partial" &&
+                candidate.rating !== "nailed")
+            );
+          }))) ||
       !Array.isArray(parsedValue.notes)
     ) {
       return null;
     }
 
     const notes = parsedValue.notes.filter(isFlashCardRecallNote);
+    const attempts = Array.isArray(parsedValue.attempts)
+      ? parsedValue.attempts
+      : [];
 
     return {
       ...parsedValue,
+      attempts,
       notes,
     };
   } catch {
@@ -240,8 +286,87 @@ export function createAppRecallContext(
     notifyListeners();
   }
 
+  function getActiveSessionForUser({
+    sessionId,
+    userId,
+  }: UpdateFlashCardSessionInput): StoredFlashCardRecallSession {
+    if (
+      snapshot === null ||
+      snapshot.userId !== userId ||
+      snapshot.id !== sessionId
+    ) {
+      throw new AppRecallError("not_found", "Recall session not found.");
+    }
+
+    return snapshot;
+  }
+
   return {
+    endFlashCardSession: ({ sessionId, userId }) => {
+      const activeSession = getActiveSessionForUser({ sessionId, userId });
+
+      writeSnapshot(null);
+
+      return activeSession;
+    },
     getSnapshot: () => snapshot,
+    rateFlashCardAnswer: ({ rating, sessionId, userId }) => {
+      const activeSession = getActiveSessionForUser({ sessionId, userId });
+      const currentNote = activeSession.notes[activeSession.currentIndex];
+
+      if (currentNote === undefined) {
+        throw new AppRecallError("invalid_input", "Recall session is complete.");
+      }
+
+      if (!activeSession.isAnswerRevealed) {
+        throw new AppRecallError(
+          "invalid_input",
+          "Reveal the answer before rating recall.",
+        );
+      }
+
+      const nextSession: StoredFlashCardRecallSession = {
+        ...activeSession,
+        attempts: [
+          ...activeSession.attempts,
+          {
+            noteId: currentNote.id,
+            rating,
+          },
+        ],
+        currentIndex: activeSession.currentIndex + 1,
+        isAnswerRevealed: false,
+      };
+
+      if (nextSession.currentIndex >= nextSession.notes.length) {
+        writeSnapshot(null);
+        return null;
+      }
+
+      writeSnapshot(nextSession);
+
+      return nextSession;
+    },
+    revealFlashCardAnswer: ({ sessionId, userId }) => {
+      const activeSession = getActiveSessionForUser({ sessionId, userId });
+
+      if (activeSession.notes[activeSession.currentIndex] === undefined) {
+        throw new AppRecallError("invalid_input", "Recall session is complete.");
+      }
+
+      if (activeSession.isAnswerRevealed) {
+        return activeSession;
+      }
+
+      const nextSession: StoredFlashCardRecallSession = {
+        ...activeSession,
+        isAnswerRevealed: true,
+      };
+
+      writeSnapshot(nextSession);
+
+      return nextSession;
+    },
     startFlashCardSession: ({ labelId, userId }) => {
       const labelName = getLabelNameForUser(options.labels, labelId, userId);
       const resolvedNotes = resolveRecallableNotesFromLabel({
@@ -259,6 +384,7 @@ export function createAppRecallContext(
       }
 
       const nextSession: StoredFlashCardRecallSession = {
+        attempts: [],
         createdAt: new Date().toISOString(),
         currentIndex: 0,
         id: cryptoProvider.randomUUID(),

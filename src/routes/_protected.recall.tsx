@@ -9,6 +9,7 @@ import {
 import type { AppLabel } from "../lib/labels";
 import {
   AppRecallError,
+  type FlashCardRecallRating,
   type AppRecallSnapshot,
   resolveRecallableNotesFromLabel,
 } from "../lib/recall";
@@ -124,6 +125,87 @@ function RecallPage() {
     }
   }
 
+  function handleRevealAnswer() {
+    if (userId === null || activeSession === null) {
+      return;
+    }
+
+    try {
+      recallContext.revealFlashCardAnswer({
+        sessionId: activeSession.id,
+        userId,
+      });
+      setFeedbackMessage(null);
+    } catch (error) {
+      if (error instanceof AppRecallError) {
+        setFeedbackMessage(error.message);
+        return;
+      }
+
+      throw error;
+    }
+  }
+
+  function handleRateAnswer(rating: FlashCardRecallRating) {
+    if (userId === null || activeSession === null) {
+      return;
+    }
+
+    try {
+      const completedSession = activeSession;
+      const nextSession = recallContext.rateFlashCardAnswer({
+        rating,
+        sessionId: activeSession.id,
+        userId,
+      });
+
+      if (nextSession === null) {
+        setFeedbackMessage(
+          `Completed all ${completedSession.notes.length} questions.`,
+        );
+        return;
+      }
+
+      setFeedbackMessage(null);
+    } catch (error) {
+      if (error instanceof AppRecallError) {
+        setFeedbackMessage(error.message);
+        return;
+      }
+
+      throw error;
+    }
+  }
+
+  function handleEndSessionEarly() {
+    if (userId === null || activeSession === null) {
+      return;
+    }
+
+    try {
+      const endedSession = recallContext.endFlashCardSession({
+        sessionId: activeSession.id,
+        userId,
+      });
+
+      setFeedbackMessage(
+        `Ended session early after ${endedSession.attempts.length} of ${endedSession.notes.length} questions.`,
+      );
+    } catch (error) {
+      if (error instanceof AppRecallError) {
+        setFeedbackMessage(error.message);
+        return;
+      }
+
+      throw error;
+    }
+  }
+
+  const currentNote =
+    activeSession !== null
+      ? activeSession.notes[activeSession.currentIndex] ?? null
+      : null;
+
   return (
     <section className="recall-page">
       <article className="card stack panel-protected">
@@ -215,15 +297,68 @@ function RecallPage() {
           <p>{`Target label: ${activeSession.labelName}`}</p>
           <div className="tag-row">
             <span className="tag">{`${activeSession.notes.length} notes in play`}</span>
+            <span className="tag">{`Completed ${activeSession.attempts.length} of ${activeSession.notes.length} questions`}</span>
             <span className="tag">{`Question ${activeSession.currentIndex + 1} of ${activeSession.notes.length}`}</span>
           </div>
-          <ul className="placeholder-list" aria-label="Recall session notes">
-            {activeSession.notes.map((note) => (
-              <li key={note.id}>
-                <strong>{note.title}</strong>
-              </li>
-            ))}
-          </ul>
+          {currentNote !== null ? (
+            <article className="recall-session-card stack">
+              <p className="section-label">Current question</p>
+              <h4>{currentNote.title}</h4>
+              <p className="muted">
+                Attempt recall before revealing the note body.
+              </p>
+
+              {activeSession.isAnswerRevealed ? (
+                <div className="recall-session-card__answer stack">
+                  <p className="section-label">Answer</p>
+                  <p>{currentNote.body}</p>
+                </div>
+              ) : null}
+
+              <div className="recall-session-card__actions">
+                {!activeSession.isAnswerRevealed ? (
+                  <button
+                    className="notes-action"
+                    onClick={handleRevealAnswer}
+                    type="button"
+                  >
+                    Reveal answer
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      className="notes-action"
+                      onClick={() => handleRateAnswer("missed")}
+                      type="button"
+                    >
+                      Missed it
+                    </button>
+                    <button
+                      className="notes-action"
+                      onClick={() => handleRateAnswer("partial")}
+                      type="button"
+                    >
+                      Partly recalled
+                    </button>
+                    <button
+                      className="notes-action"
+                      onClick={() => handleRateAnswer("nailed")}
+                      type="button"
+                    >
+                      Nailed it
+                    </button>
+                  </>
+                )}
+                <button
+                  className="notes-action"
+                  onClick={handleEndSessionEarly}
+                  type="button"
+                >
+                  End session early
+                </button>
+              </div>
+            </article>
+          ) : null}
         </article>
       ) : null}
     </section>

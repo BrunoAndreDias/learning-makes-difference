@@ -390,6 +390,7 @@ h3 {
 }
 
 .recall-page,
+.recall-session-card,
 .labels-page,
 .labels-list,
 .labels-card,
@@ -464,9 +465,23 @@ h3 {
 .notes-metaphors,
 .notes-acronyms,
 .notes-topic-context,
-.notes-labels {
+.notes-labels,
+.recall-session-card__answer {
   display: grid;
   gap: var(--space-3);
+}
+
+.recall-session-card {
+  padding: var(--space-4);
+  border: 1px solid rgba(215, 222, 234, 0.9);
+  border-radius: var(--radius-lg);
+  background: rgba(248, 251, 255, 0.55);
+}
+
+.recall-session-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 .notes-metaphors,
