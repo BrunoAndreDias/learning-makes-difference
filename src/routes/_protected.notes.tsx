@@ -28,6 +28,17 @@ const emptyEditorState: NoteEditorState = {
   title: "",
 };
 
+function getEditorState(note: AppNote | null): NoteEditorState {
+  if (note === null) {
+    return emptyEditorState;
+  }
+
+  return {
+    body: note.body,
+    title: note.title,
+  };
+}
+
 function NotesWorkspace() {
   const notesContext = Route.useRouteContext({
     select: (context) => context.notes,
@@ -47,31 +58,26 @@ function NotesWorkspace() {
   );
   const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
+  const firstNoteId = notes[0]?.id ?? null;
   const [isCreatingNew, setIsCreatingNew] = useState(notes.length === 0);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(
-    notes[0]?.id ?? null,
+    firstNoteId,
   );
-  const [editorState, setEditorState] = useState<NoteEditorState>(() => {
-    const selectedNote = notes[0];
-
-    if (selectedNote === undefined) {
-      return emptyEditorState;
-    }
-
-    return {
-      body: selectedNote.body,
-      title: selectedNote.title,
-    };
-  });
+  const [editorState, setEditorState] = useState<NoteEditorState>(() =>
+    getEditorState(notes[0] ?? null),
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const selectedNote =
     isCreatingNew || selectedNoteId === null
       ? null
       : (notes.find((note) => note.id === selectedNoteId) ?? null);
   const isCreating = selectedNote === null;
+  const selectedNoteEditorState = getEditorState(selectedNote);
+  const selectedNoteTitle = selectedNoteEditorState.title;
+  const selectedNoteBody = selectedNoteEditorState.body;
 
   useEffect(() => {
-    if (notes.length === 0) {
+    if (firstNoteId === null) {
       setIsCreatingNew(true);
       setSelectedNoteId(null);
       return;
@@ -81,42 +87,28 @@ function NotesWorkspace() {
       return;
     }
 
-    if (selectedNoteId !== null && selectedNote !== null) {
+    if (selectedNoteId !== null && selectedNoteTitle !== "") {
       return;
     }
 
-    setSelectedNoteId(notes[0].id);
-  }, [isCreatingNew, notes, selectedNote, selectedNoteId]);
+    setSelectedNoteId(firstNoteId);
+  }, [firstNoteId, isCreatingNew, selectedNoteId, selectedNoteTitle]);
 
   useEffect(() => {
-    if (selectedNote === null) {
-      setEditorState((currentState) => {
-        if (
-          currentState.title === emptyEditorState.title &&
-          currentState.body === emptyEditorState.body
-        ) {
-          return currentState;
-        }
-
-        return emptyEditorState;
-      });
-      return;
-    }
-
     setEditorState((currentState) => {
       if (
-        currentState.title === selectedNote.title &&
-        currentState.body === selectedNote.body
+        currentState.title === selectedNoteTitle &&
+        currentState.body === selectedNoteBody
       ) {
         return currentState;
       }
 
       return {
-        body: selectedNote.body,
-        title: selectedNote.title,
+        body: selectedNoteBody,
+        title: selectedNoteTitle,
       };
     });
-  }, [selectedNote]);
+  }, [selectedNoteBody, selectedNoteTitle]);
 
   function handleEditorChange<K extends keyof NoteEditorState>(
     field: K,

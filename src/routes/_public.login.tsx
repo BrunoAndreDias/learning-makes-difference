@@ -4,7 +4,7 @@ import {
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
-import { useState, useSyncExternalStore } from "react";
+import { type FormEvent, useState, useSyncExternalStore } from "react";
 import { z } from "zod";
 
 import {
@@ -49,8 +49,17 @@ function LoginPage() {
   const [isSubmitting, setSubmitting] = useState(false);
   const isRegistrationMode = mode === "register";
   const redirectTarget = search.redirect ?? "/notes";
+  let submitButtonLabel = "Log in";
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  if (isRegistrationMode) {
+    submitButtonLabel = "Create account";
+  }
+
+  if (isSubmitting) {
+    submitButtonLabel = "Submitting...";
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage(null);
     setSubmitting(true);
@@ -95,30 +104,25 @@ function LoginPage() {
 
       <div className="placeholder-grid auth-grid">
         <article className="card stack">
-          <div
-            className="auth-mode-toggle"
-            role="tablist"
-            aria-label="Auth mode"
-          >
+          <fieldset className="auth-mode-toggle">
+            <legend className="section-label">Auth mode</legend>
             <button
-              aria-selected={mode === "login"}
+              aria-pressed={mode === "login"}
               className="auth-mode-toggle__button"
               onClick={() => setMode("login")}
-              role="tab"
               type="button"
             >
               Log in
             </button>
             <button
-              aria-selected={mode === "register"}
+              aria-pressed={mode === "register"}
               className="auth-mode-toggle__button"
               onClick={() => setMode("register")}
-              role="tab"
               type="button"
             >
               Create account
             </button>
-          </div>
+          </fieldset>
 
           <form
             aria-label={isRegistrationMode ? "Registration form" : "Login form"}
@@ -176,11 +180,7 @@ function LoginPage() {
               disabled={isSubmitting}
               type="submit"
             >
-              {isSubmitting
-                ? "Submitting..."
-                : isRegistrationMode
-                  ? "Create account"
-                  : "Log in"}
+              {submitButtonLabel}
             </button>
           </form>
         </article>

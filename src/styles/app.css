@@ -327,12 +327,15 @@ h3 {
 }
 
 .auth-mode-toggle {
+  border: 0;
+  margin: 0;
+  padding: 0;
   display: inline-flex;
   gap: var(--space-2);
   flex-wrap: wrap;
 }
 
-.auth-mode-toggle__button[aria-selected="true"] {
+.auth-mode-toggle__button[aria-pressed="true"] {
   background: var(--color-brand-primary);
   border-color: transparent;
   color: #f8fbff;

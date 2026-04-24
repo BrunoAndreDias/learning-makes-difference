@@ -151,7 +151,8 @@ export function listNotesForUser(
     })
     .sort((left, right) => {
       return right.updatedAt.localeCompare(left.updatedAt);
-    });
+    })
+    .map(toPublicNote);
 }
 
 export function createAppNotesContext(

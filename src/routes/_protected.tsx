@@ -67,8 +67,9 @@ const appNavigationItems = [
 
 function getActiveNavigationItem(pathname: string) {
   return (
-    appNavigationItems.find((item) => pathname.startsWith(item.to)) ??
-    appNavigationItems[0]
+    appNavigationItems.find((item) => {
+      return pathname === item.to || pathname.startsWith(`${item.to}/`);
+    }) ?? appNavigationItems[0]
   );
 }
 

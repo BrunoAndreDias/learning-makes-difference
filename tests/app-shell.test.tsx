@@ -106,7 +106,7 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "Welcome back" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Create account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
     fireEvent.change(screen.getByLabelText("Display name"), {
       target: { value: "Casey Learner" },
     });
