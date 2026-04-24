@@ -1,5 +1,4 @@
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -14,17 +13,17 @@ describe("foundationTokens", () => {
     ]);
     expect(foundationTokens.color.shell.canvas).toBe("#f7f4ea");
     expect(foundationTokens.color.brand.primary).toBe("#2563eb");
-    expect(foundationTokens.typography.body.sizeRem).toBeGreaterThanOrEqual(1);
-    expect(foundationTokens.typography.body.lineHeight).toBeGreaterThanOrEqual(1.5);
-    expect(foundationTokens.focus.outlineWidthPx).toBeGreaterThanOrEqual(2);
-    expect(foundationTokens.focus.outlineOffsetPx).toBeGreaterThanOrEqual(2);
+    expect(foundationTokens.typography.body.sizeRem).toBe(1);
+    expect(foundationTokens.typography.body.lineHeight).toBe(1.5);
+    expect(foundationTokens.focus.outlineWidthPx).toBe(3);
+    expect(foundationTokens.focus.outlineOffsetPx).toBe(3);
     expect(foundationTokens.spacing[4]).toBe("1rem");
     expect(foundationTokens.radius.lg).toBe("1rem");
     expect(foundationTokens.breakpoints.lg).toBe("72rem");
   });
 
   it("publishes CSS variables and accessible defaults for the app shell", () => {
-    const css = readFileSync(resolve("src/design-system/global.css"), "utf8");
+    const css = readFileSync(new URL("./global.css", import.meta.url), "utf8");
 
     expect(css).toContain("--color-shell-canvas: #f7f4ea;");
     expect(css).toContain("--color-brand-primary: #2563eb;");
