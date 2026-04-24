@@ -10,14 +10,18 @@ describe("route tree", () => {
 
     expect(generatedRouteTree).toContain("'/': typeof PublicIndexRoute");
     expect(generatedRouteTree).toContain("'/login': typeof PublicLoginRoute");
+    expect(generatedRouteTree).toContain("'/notes': typeof ProtectedNotesRoute");
     expect(generatedRouteTree).toContain(
-      "'/app': typeof ProtectedAppRouteWithChildren",
+      "'/labels': typeof ProtectedLabelsRoute",
     );
     expect(generatedRouteTree).toContain(
-      "'/app/dashboard': typeof ProtectedAppDashboardRoute",
+      "'/recall': typeof ProtectedRecallRoute",
     );
     expect(generatedRouteTree).toContain(
-      "'/app/settings': typeof ProtectedAppSettingsRoute",
+      "'/history': typeof ProtectedHistoryRoute",
+    );
+    expect(generatedRouteTree).toContain(
+      "'/settings': typeof ProtectedSettingsRoute",
     );
   });
 });

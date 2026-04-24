@@ -11,8 +11,8 @@ function LandingPage() {
       <h2>SSR-ready application shell</h2>
       <p>
         This bootstrap slice wires TanStack Start, TypeScript, schema-driven
-        environment configuration, and placeholder route areas for future
-        product work.
+        environment configuration, and public/protected placeholder route
+        areas for future product work.
       </p>
     </section>
   );

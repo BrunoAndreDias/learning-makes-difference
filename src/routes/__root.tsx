@@ -66,7 +66,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
                 </li>
                 <li>
                   <Link
-                    to="/app"
+                    to="/notes"
                     activeProps={{ className: "nav-link nav-link-active" }}
                     className="nav-link"
                   >
