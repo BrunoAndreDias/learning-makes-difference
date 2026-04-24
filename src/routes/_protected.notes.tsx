@@ -88,8 +88,10 @@ function NotesWorkspace() {
       ? null
       : (notes.find((note) => note.id === selectedNoteId) ?? null);
   const isCreating = selectedNote === null;
-  const selectedNoteEditorState = getEditorState(selectedNote);
-  const selectedNoteUpdatedAt = selectedNote?.updatedAt ?? null;
+  const selectedNoteExists =
+    selectedNoteId === null
+      ? false
+      : notesSnapshot.some((note) => note.id === selectedNoteId);
 
   useEffect(() => {
     function syncLabels() {
@@ -117,18 +119,22 @@ function NotesWorkspace() {
       return;
     }
 
-    if (selectedNoteId !== null && selectedNote !== null) {
+    if (selectedNoteExists) {
       return;
     }
 
     setSelectedNoteId(firstNoteId);
-  }, [firstNoteId, isCreatingNew, selectedNote, selectedNoteId]);
+  }, [firstNoteId, isCreatingNew, selectedNoteExists]);
 
   useEffect(() => {
-    const nextEditorState = getEditorState(selectedNote);
+    const nextSelectedNote =
+      isCreatingNew || selectedNoteId === null
+        ? null
+        : (notesSnapshot.find((note) => note.id === selectedNoteId) ?? null);
+    const nextEditorState = getEditorState(nextSelectedNote);
 
     setEditorState((currentState) => {
-      if (selectedNote === null) {
+      if (nextSelectedNote === null) {
         if (
           currentState.title === emptyEditorState.title &&
           currentState.body === emptyEditorState.body &&
@@ -150,7 +156,7 @@ function NotesWorkspace() {
 
       return nextEditorState;
     });
-  }, [isCreating, selectedNote?.id, selectedNoteUpdatedAt]);
+  }, [isCreatingNew, notesSnapshot, selectedNoteId]);
 
   function handleEditorChange<K extends keyof NoteEditorState>(
     field: K,
@@ -324,13 +330,13 @@ function NotesWorkspace() {
                 {selectedLabels.length === 0 ? (
                   <p className="muted">This note is currently unlabeled.</p>
                 ) : (
-                  <div aria-label="Assigned labels" className="tag-row">
+                  <section aria-label="Assigned labels" className="tag-row">
                     {selectedLabels.map((label) => (
                       <span className="tag" key={label.id}>
                         {label.name}
                       </span>
                     ))}
-                  </div>
+                  </section>
                 )}
               </div>
 

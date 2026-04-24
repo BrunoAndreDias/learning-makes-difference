@@ -25,14 +25,14 @@ function LabelsPage() {
     session.getSnapshot,
     session.getSnapshot,
   );
-  const currentUserId = sessionSnapshot.user?.id ?? "";
+  const currentUserId = sessionSnapshot.user?.id ?? null;
   const [labelRecords, setLabelRecords] = useState<AppLabel[]>([]);
   const [createName, setCreateName] = useState("");
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   useEffect(() => {
     function syncLabelRecords() {
-      if (currentUserId === "") {
+      if (currentUserId === null) {
         setLabelRecords([]);
         return;
       }
@@ -66,7 +66,7 @@ function LabelsPage() {
   function handleCreateLabel(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (currentUserId === "") {
+    if (currentUserId === null) {
       return;
     }
 
@@ -80,7 +80,7 @@ function LabelsPage() {
   }
 
   function renameLabel(labelId: string, name: string) {
-    if (currentUserId === "") {
+    if (currentUserId === null) {
       return;
     }
 
@@ -94,7 +94,7 @@ function LabelsPage() {
   }
 
   function deleteLabel(labelId: string) {
-    if (currentUserId === "") {
+    if (currentUserId === null) {
       return;
     }
 
@@ -107,7 +107,7 @@ function LabelsPage() {
   }
 
   function addParent(labelId: string, parentId: string) {
-    if (currentUserId === "" || parentId === "") {
+    if (currentUserId === null || parentId === "") {
       return;
     }
 
@@ -121,7 +121,7 @@ function LabelsPage() {
   }
 
   function removeParent(labelId: string, parentId: string) {
-    if (currentUserId === "") {
+    if (currentUserId === null) {
       return;
     }
 
@@ -251,7 +251,7 @@ function LabelCard({
   label: AppLabel;
   removeParent: (labelId: string, parentId: string) => void;
   renameLabel: (labelId: string, name: string) => void;
-  userId: string;
+  userId: string | null;
 }>) {
   const labels = Route.useRouteContext({
     select: (context) => context.labels,
@@ -265,17 +265,20 @@ function LabelCard({
   const availableParents = allLabels.filter((candidate) => {
     return candidate.id !== label.id && !label.parentIds.includes(candidate.id);
   });
-  const descendantNames = labels
-    .getDescendantIds({
-      labelId: label.id,
-      userId,
-    })
-    .map(
-      (descendantId: string) =>
-        allLabels.find((candidate) => candidate.id === descendantId)?.name ??
-        descendantId,
-    )
-    .sort((left: string, right: string) => left.localeCompare(right));
+  const descendantNames =
+    userId === null
+      ? []
+      : labels
+          .getDescendantIds({
+            labelId: label.id,
+            userId,
+          })
+          .map(
+            (descendantId: string) =>
+              allLabels.find((candidate) => candidate.id === descendantId)
+                ?.name ?? descendantId,
+          )
+          .sort((left: string, right: string) => left.localeCompare(right));
 
   function handleRename(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -465,14 +465,17 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", { name: "Notes workspace" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("This note is currently unlabeled.")).toBeInTheDocument();
+    expect(
+      screen.getByText("This note is currently unlabeled."),
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "Cell respiration" },
     });
     fireEvent.change(screen.getByLabelText("Body"), {
       target: {
-        value: "Cells convert glucose into usable energy through staged reactions.",
+        value:
+          "Cells convert glucose into usable energy through staged reactions.",
       },
     });
     fireEvent.click(screen.getByRole("checkbox", { name: "Science" }));
@@ -480,7 +483,8 @@ describe("authenticated app shell", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
 
     const topicContext = await screen.findByLabelText("Topic context");
-    const assignedLabels = within(topicContext).getByLabelText("Assigned labels");
+    const assignedLabels =
+      within(topicContext).getByLabelText("Assigned labels");
 
     expect(within(assignedLabels).getByText("Science")).toBeInTheDocument();
     expect(within(assignedLabels).getByText("Biology")).toBeInTheDocument();
@@ -489,7 +493,9 @@ describe("authenticated app shell", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
 
     expect(within(assignedLabels).getByText("Science")).toBeInTheDocument();
-    expect(within(assignedLabels).queryByText("Biology")).not.toBeInTheDocument();
+    expect(
+      within(assignedLabels).queryByText("Biology"),
+    ).not.toBeInTheDocument();
   });
 
   it("manages labels and rejects cycle-causing parent relationships", async () => {

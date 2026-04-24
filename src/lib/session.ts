@@ -88,6 +88,7 @@ export type AppSessionContext = {
 };
 
 const DEFAULT_STORAGE_KEY_PREFIX = "learning-makes-difference-auth";
+const NOT_AUTHENTICATED_MESSAGE = "Sign in to update account preferences.";
 
 function getDefaultStorage(): SessionStorageAdapter | undefined {
   if (typeof window === "undefined") {
@@ -107,6 +108,10 @@ function getUsersStorageKey(prefix: string): string {
 
 function getSessionStorageKey(prefix: string): string {
   return `${prefix}:session-user-id`;
+}
+
+function createNotAuthenticatedError(): AppAuthError {
+  return new AppAuthError("not_authenticated", NOT_AUTHENTICATED_MESSAGE);
 }
 
 function normalizeEmail(email: string): string {
@@ -246,23 +251,14 @@ export function createGuestSessionContext(): AppSessionContext {
     getSnapshot: () => snapshot,
     subscribe: () => () => undefined,
     register: async () => {
-      throw new AppAuthError(
-        "not_authenticated",
-        "Sign in to update account preferences.",
-      );
+      throw createNotAuthenticatedError();
     },
     login: async () => {
-      throw new AppAuthError(
-        "not_authenticated",
-        "Sign in to update account preferences.",
-      );
+      throw createNotAuthenticatedError();
     },
     logout: () => snapshot,
     updatePreferences: async () => {
-      throw new AppAuthError(
-        "not_authenticated",
-        "Sign in to update account preferences.",
-      );
+      throw createNotAuthenticatedError();
     },
   };
 }
@@ -413,10 +409,7 @@ export function createAppSessionContext(
       const activeUserId = snapshot.user?.id;
 
       if (activeUserId === undefined) {
-        throw new AppAuthError(
-          "not_authenticated",
-          "Sign in to update account preferences.",
-        );
+        throw createNotAuthenticatedError();
       }
 
       const safeDisplayName = validateDisplayName(displayName);
@@ -432,10 +425,7 @@ export function createAppSessionContext(
       const userIndex = users.findIndex((user) => user.id === activeUserId);
 
       if (userIndex === -1) {
-        throw new AppAuthError(
-          "not_authenticated",
-          "Sign in to update account preferences.",
-        );
+        throw createNotAuthenticatedError();
       }
 
       const nextUser: StoredUserRecord = {

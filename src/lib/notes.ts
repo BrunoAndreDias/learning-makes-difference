@@ -87,26 +87,28 @@ function parseStoredNotes(value: string | null): AppStoredNote[] {
       return [];
     }
 
-    return parsedValue.filter((note): note is AppStoredNote => {
-      return (
-        typeof note === "object" &&
-        note !== null &&
-        typeof note.id === "string" &&
-        typeof note.userId === "string" &&
-        typeof note.title === "string" &&
-        typeof note.body === "string" &&
-        (note.labelIds === undefined ||
-          (Array.isArray(note.labelIds) &&
-            note.labelIds.every(
-              (labelId: unknown) => typeof labelId === "string",
-            ))) &&
-        typeof note.createdAt === "string" &&
-        typeof note.updatedAt === "string"
-      );
-    }).map((note) => ({
-      ...note,
-      labelIds: Array.isArray(note.labelIds) ? note.labelIds : [],
-    }));
+    return parsedValue
+      .filter((note): note is AppStoredNote => {
+        return (
+          typeof note === "object" &&
+          note !== null &&
+          typeof note.id === "string" &&
+          typeof note.userId === "string" &&
+          typeof note.title === "string" &&
+          typeof note.body === "string" &&
+          (note.labelIds === undefined ||
+            (Array.isArray(note.labelIds) &&
+              note.labelIds.every(
+                (labelId: unknown) => typeof labelId === "string",
+              ))) &&
+          typeof note.createdAt === "string" &&
+          typeof note.updatedAt === "string"
+        );
+      })
+      .map((note) => ({
+        ...note,
+        labelIds: Array.isArray(note.labelIds) ? note.labelIds : [],
+      }));
   } catch {
     return [];
   }
