@@ -60,6 +60,13 @@ function extractAgentText(stdout: string): string {
 // Raise this if your backlog is large; lower it for a quick smoke-test run.
 const MAX_ITERATIONS = 10;
 
+// Sandcastle's idle timeout is based on lack of streamed output, not wall time.
+// Give coding phases more headroom because they can stay quiet for a while.
+const PLANNER_IDLE_TIMEOUT_SECONDS = 10 * 60;
+const IMPLEMENTER_IDLE_TIMEOUT_SECONDS = 30 * 60;
+const REVIEWER_IDLE_TIMEOUT_SECONDS = 10 * 60;
+const MERGER_IDLE_TIMEOUT_SECONDS = 15 * 60;
+
 // No startup install hook for now.
 // This repo does not yet have a runnable app stack inside the sandbox, and
 // forcing a package-manager install during sandbox boot adds avoidable failure
@@ -104,6 +111,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     // One iteration is enough: the planner just needs to read and reason,
     // not write code.
     maxIterations: 1,
+    idleTimeoutSeconds: PLANNER_IDLE_TIMEOUT_SECONDS,
     // Opus for planning: dependency analysis benefits from deeper reasoning.
     agent: sandcastle.codex("gpt-5.4", { effort: "high" }),
     promptFile: "./.sandcastle/plan-prompt.md",
@@ -190,6 +198,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
         const implement = await sandbox.run({
           name: "implementer",
           maxIterations: 100,
+          idleTimeoutSeconds: IMPLEMENTER_IDLE_TIMEOUT_SECONDS,
           agent: sandcastle.codex("gpt-5.4"),
           promptFile: "./.sandcastle/implement-prompt.md",
           promptArgs: {
@@ -204,6 +213,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           await sandbox.run({
             name: "reviewer",
             maxIterations: 1,
+            idleTimeoutSeconds: REVIEWER_IDLE_TIMEOUT_SECONDS,
             agent: sandcastle.codex("gpt-5.4-mini"),
             promptFile: "./.sandcastle/review-prompt.md",
             promptArgs: {
@@ -277,6 +287,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     }),
     name: "merger",
     maxIterations: 1,
+    idleTimeoutSeconds: MERGER_IDLE_TIMEOUT_SECONDS,
     agent: sandcastle.codex("gpt-5.4-mini"),
     promptFile: "./.sandcastle/merge-prompt.md",
     promptArgs: {
