@@ -1,8 +1,14 @@
+export type AppMetaphor = {
+  explanation: string;
+  title: string;
+};
+
 export type AppNote = {
   body: string;
   createdAt: string;
   id: string;
   labelIds: string[];
+  metaphors: AppMetaphor[];
   title: string;
   updatedAt: string;
 };
@@ -16,6 +22,7 @@ type NotesListener = () => void;
 type CreateNoteInput = {
   body: string;
   labelIds: string[];
+  metaphors: AppMetaphor[];
   title: string;
 };
 
@@ -75,6 +82,19 @@ function getNotesStorageKey(prefix: string): string {
   return `${prefix}:records`;
 }
 
+function isStoredMetaphor(value: unknown): value is AppMetaphor {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  return (
+    typeof record.title === "string" &&
+    typeof record.explanation === "string"
+  );
+}
+
 function parseStoredNotes(value: string | null): AppStoredNote[] {
   if (value === null) {
     return [];
@@ -96,6 +116,11 @@ function parseStoredNotes(value: string | null): AppStoredNote[] {
           typeof note.userId === "string" &&
           typeof note.title === "string" &&
           typeof note.body === "string" &&
+          (note.metaphors === undefined ||
+            (Array.isArray(note.metaphors) &&
+              note.metaphors.every((metaphor: unknown) =>
+                isStoredMetaphor(metaphor),
+              ))) &&
           (note.labelIds === undefined ||
             (Array.isArray(note.labelIds) &&
               note.labelIds.every(
@@ -108,6 +133,7 @@ function parseStoredNotes(value: string | null): AppStoredNote[] {
       .map((note) => ({
         ...note,
         labelIds: Array.isArray(note.labelIds) ? note.labelIds : [],
+        metaphors: Array.isArray(note.metaphors) ? note.metaphors : [],
       }));
   } catch {
     return [];
@@ -169,10 +195,34 @@ function validateLabelIds(
   );
 }
 
+function validateMetaphors(metaphors: AppMetaphor[]): AppMetaphor[] {
+  return metaphors.map((metaphor) => {
+    const title = metaphor.title.trim();
+    const explanation = metaphor.explanation.trim();
+
+    if (title.length === 0) {
+      throw new AppNotesError("invalid_input", "Metaphor title is required.");
+    }
+
+    if (explanation.length === 0) {
+      throw new AppNotesError(
+        "invalid_input",
+        "Metaphor explanation is required.",
+      );
+    }
+
+    return {
+      explanation,
+      title,
+    };
+  });
+}
+
 function toPublicNote(note: AppStoredNote): AppNote {
   return {
     id: note.id,
     labelIds: [...note.labelIds],
+    metaphors: note.metaphors.map((metaphor) => ({ ...metaphor })),
     title: note.title,
     body: note.body,
     createdAt: note.createdAt,
@@ -234,6 +284,7 @@ export function createAppNotesContext(
           getOwnedLabelIdsForUser,
           userId: validatedUserId,
         }),
+        metaphors: validateMetaphors(input.metaphors),
         title: validateTitle(input.title),
         updatedAt: timestamp,
         userId: validatedUserId,
@@ -272,6 +323,7 @@ export function createAppNotesContext(
           getOwnedLabelIdsForUser,
           userId: validatedUserId,
         }),
+        metaphors: validateMetaphors(input.metaphors),
         title: validateTitle(input.title),
         updatedAt: new Date().toISOString(),
       };

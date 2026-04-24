@@ -8,6 +8,7 @@ import {
 
 import type { AppLabel } from "../lib/labels";
 import {
+  type AppMetaphor,
   type AppNote,
   AppNotesError,
   type AppStoredNote,
@@ -22,12 +23,14 @@ export const Route = createFileRoute("/_protected/notes")({
 type NoteEditorState = {
   body: string;
   labelIds: string[];
+  metaphors: AppMetaphor[];
   title: string;
 };
 
 const emptyEditorState: NoteEditorState = {
   body: "",
   labelIds: [],
+  metaphors: [],
   title: "",
 };
 
@@ -39,6 +42,7 @@ function getEditorState(note: AppNote | null): NoteEditorState {
   return {
     body: note.body,
     labelIds: note.labelIds,
+    metaphors: note.metaphors,
     title: note.title,
   };
 }
@@ -49,6 +53,24 @@ function haveSameLabelIds(left: string[], right: string[]): boolean {
   }
 
   return left.every((labelId, index) => labelId === right[index]);
+}
+
+function haveSameMetaphors(
+  left: AppMetaphor[],
+  right: AppMetaphor[],
+): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((metaphor, index) => {
+    const rightMetaphor = right[index];
+
+    return (
+      metaphor.title === rightMetaphor?.title &&
+      metaphor.explanation === rightMetaphor.explanation
+    );
+  });
 }
 
 function NotesWorkspace() {
@@ -138,7 +160,11 @@ function NotesWorkspace() {
         if (
           currentState.title === emptyEditorState.title &&
           currentState.body === emptyEditorState.body &&
-          haveSameLabelIds(currentState.labelIds, emptyEditorState.labelIds)
+          haveSameLabelIds(currentState.labelIds, emptyEditorState.labelIds) &&
+          haveSameMetaphors(
+            currentState.metaphors,
+            emptyEditorState.metaphors,
+          )
         ) {
           return currentState;
         }
@@ -149,7 +175,8 @@ function NotesWorkspace() {
       if (
         currentState.title === nextEditorState.title &&
         currentState.body === nextEditorState.body &&
-        haveSameLabelIds(currentState.labelIds, nextEditorState.labelIds)
+        haveSameLabelIds(currentState.labelIds, nextEditorState.labelIds) &&
+        haveSameMetaphors(currentState.metaphors, nextEditorState.metaphors)
       ) {
         return currentState;
       }
@@ -184,6 +211,48 @@ function NotesWorkspace() {
         ),
       };
     });
+  }
+
+  function handleAddMetaphor() {
+    setEditorState((currentState) => ({
+      ...currentState,
+      metaphors: [
+        ...currentState.metaphors,
+        {
+          explanation: "",
+          title: "",
+        },
+      ],
+    }));
+  }
+
+  function handleMetaphorChange<K extends keyof AppMetaphor>(
+    index: number,
+    field: K,
+    value: AppMetaphor[K],
+  ) {
+    setEditorState((currentState) => ({
+      ...currentState,
+      metaphors: currentState.metaphors.map((metaphor, metaphorIndex) => {
+        if (metaphorIndex !== index) {
+          return metaphor;
+        }
+
+        return {
+          ...metaphor,
+          [field]: value,
+        };
+      }),
+    }));
+  }
+
+  function handleRemoveMetaphor(index: number) {
+    setEditorState((currentState) => ({
+      ...currentState,
+      metaphors: currentState.metaphors.filter(
+        (_, metaphorIndex) => metaphorIndex !== index,
+      ),
+    }));
   }
 
   function handleNewNote() {
@@ -322,6 +391,88 @@ function NotesWorkspace() {
                 value={editorState.body}
               />
             </label>
+
+            <section aria-label="Metaphors" className="notes-metaphors">
+              <div className="notes-metaphors__header">
+                <div className="stack">
+                  <p className="section-label">Memory aids</p>
+                  <h4>Metaphors on this note</h4>
+                  <p className="muted">
+                    Keep concrete analogies with the note they support.
+                  </p>
+                </div>
+
+                <button
+                  className="notes-action"
+                  onClick={handleAddMetaphor}
+                  type="button"
+                >
+                  Add metaphor
+                </button>
+              </div>
+
+              {editorState.metaphors.length === 0 ? (
+                <p className="muted">
+                  No metaphors yet. Add one when a concept needs a memory hook.
+                </p>
+              ) : (
+                <div className="notes-metaphors__list">
+                  {editorState.metaphors.map((metaphor, index) => (
+                    <fieldset
+                      aria-label="Metaphor editor"
+                      className="notes-metaphor"
+                      key={`${index}-${metaphor.title}`}
+                    >
+                      <legend>{`Metaphor ${index + 1}`}</legend>
+
+                      <label className="notes-form__field">
+                        <span>Metaphor title</span>
+                        <input
+                          aria-label="Metaphor title"
+                          onChange={(event) =>
+                            handleMetaphorChange(
+                              index,
+                              "title",
+                              event.target.value,
+                            )
+                          }
+                          placeholder="Battery, bridge, map..."
+                          type="text"
+                          value={metaphor.title}
+                        />
+                      </label>
+
+                      <label className="notes-form__field">
+                        <span>Metaphor explanation</span>
+                        <textarea
+                          aria-label="Metaphor explanation"
+                          onChange={(event) =>
+                            handleMetaphorChange(
+                              index,
+                              "explanation",
+                              event.target.value,
+                            )
+                          }
+                          placeholder="Explain how the metaphor maps to the concept"
+                          rows={4}
+                          value={metaphor.explanation}
+                        />
+                      </label>
+
+                      <div className="notes-metaphor__actions">
+                        <button
+                          className="notes-action"
+                          onClick={() => handleRemoveMetaphor(index)}
+                          type="button"
+                        >
+                          {`Remove metaphor ${index + 1}`}
+                        </button>
+                      </div>
+                    </fieldset>
+                  ))}
+                </div>
+              )}
+            </section>
 
             <section aria-label="Topic context" className="notes-topic-context">
               <div className="stack">

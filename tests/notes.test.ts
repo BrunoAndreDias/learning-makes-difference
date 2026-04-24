@@ -29,11 +29,13 @@ describe("app notes context", () => {
     const createdNote = notes.createNote("user-casey", {
       body: "Flash cards reveal the answer after an honest recall attempt.",
       labelIds: [],
+      metaphors: [],
       title: "Flash cards",
     });
     const updatedNote = notes.updateNote("user-casey", createdNote.id, {
       body: "Flash cards reveal the answer only after an honest recall attempt.",
       labelIds: [],
+      metaphors: [],
       title: "Flash cards",
     });
 
@@ -52,12 +54,14 @@ describe("app notes context", () => {
     const caseyNote = notes.createNote("user-casey", {
       body: "Concepts can stay unlabeled until the learner is ready to organize.",
       labelIds: [],
+      metaphors: [],
       title: "Unlabeled notes",
     });
 
     notes.createNote("user-jordan", {
       body: "Start with the note, then connect it to labels later.",
       labelIds: [],
+      metaphors: [],
       title: "Capture first",
     });
 
@@ -73,6 +77,7 @@ describe("app notes context", () => {
       notes.updateNote("user-jordan", caseyNote.id, {
         body: "This update should be rejected.",
         labelIds: [],
+        metaphors: [],
         title: "Cross-account edit",
       }),
     ).toThrowError(
@@ -98,6 +103,7 @@ describe("app notes context", () => {
     const unlabeledNote = notes.createNote("user-casey", {
       body: "Capture first, organize later remains a valid study flow.",
       labelIds: [],
+      metaphors: [],
       title: "Unlabeled capture",
     });
 
@@ -106,6 +112,7 @@ describe("app notes context", () => {
     const labeledNote = notes.updateNote("user-casey", unlabeledNote.id, {
       body: "Now this concept belongs to multiple study topics.",
       labelIds: ["label-science", "label-biology"],
+      metaphors: [],
       title: "Organized capture",
     });
 
@@ -115,11 +122,105 @@ describe("app notes context", () => {
       notes.updateNote("user-casey", unlabeledNote.id, {
         body: "Cross-account labels must be rejected.",
         labelIds: ["label-science", "label-other"],
+        metaphors: [],
         title: "Invalid labels",
       }),
     ).toThrowError(
       expect.objectContaining({
         code: "invalid_input",
+      } satisfies Pick<AppNotesError, "code">),
+    );
+  });
+
+  it("stores note-owned metaphors and keeps their lifecycle scoped to the owning account", () => {
+    const notes = createAppNotesContext({
+      keyPrefix: "notes-test-metaphors",
+      storage: createMemoryStorage(),
+    });
+
+    const createdNote = notes.createNote("user-casey", {
+      body: "Mitochondria produce ATP for the cell.",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation:
+            "It works like a power plant that converts fuel into usable energy.",
+          title: "Cell power plant",
+        },
+      ],
+      title: "Mitochondria",
+    });
+
+    expect(createdNote.metaphors).toEqual([
+      {
+        explanation:
+          "It works like a power plant that converts fuel into usable energy.",
+        title: "Cell power plant",
+      },
+    ]);
+
+    const updatedNote = notes.updateNote("user-casey", createdNote.id, {
+      body: "Mitochondria produce ATP for the cell.",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation:
+            "It behaves like a rechargeable battery that stores usable energy.",
+          title: "Cell battery",
+        },
+        {
+          explanation:
+            "It also resembles a power plant that processes incoming fuel.",
+          title: "Cell power plant",
+        },
+      ],
+      title: "Mitochondria",
+    });
+
+    expect(updatedNote.metaphors).toEqual([
+      {
+        explanation:
+          "It behaves like a rechargeable battery that stores usable energy.",
+        title: "Cell battery",
+      },
+      {
+        explanation:
+          "It also resembles a power plant that processes incoming fuel.",
+        title: "Cell power plant",
+      },
+    ]);
+
+    const withoutWeakMetaphor = notes.updateNote("user-casey", createdNote.id, {
+      body: "Mitochondria produce ATP for the cell.",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation:
+            "It behaves like a rechargeable battery that stores usable energy.",
+          title: "Cell battery",
+        },
+      ],
+      title: "Mitochondria",
+    });
+
+    expect(withoutWeakMetaphor.metaphors).toEqual([
+      {
+        explanation:
+          "It behaves like a rechargeable battery that stores usable energy.",
+        title: "Cell battery",
+      },
+    ]);
+
+    expect(() =>
+      notes.updateNote("user-jordan", createdNote.id, {
+        body: "Cross-account edits must fail.",
+        labelIds: [],
+        metaphors: [],
+        title: "Mitochondria",
+      }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: "not_found",
       } satisfies Pick<AppNotesError, "code">),
     );
   });

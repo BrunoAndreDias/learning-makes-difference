@@ -456,17 +456,50 @@ h3 {
   gap: var(--space-3);
 }
 
+.notes-metaphors,
 .notes-topic-context,
 .notes-labels {
   display: grid;
   gap: var(--space-3);
 }
 
+.notes-metaphors,
 .notes-labels {
   margin: 0;
   padding: var(--space-3);
   border: 1px solid rgba(215, 222, 234, 0.9);
   border-radius: var(--radius-lg);
+  background: rgba(248, 251, 255, 0.55);
+}
+
+.notes-metaphors__header,
+.notes-metaphor__actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.notes-metaphors__list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.notes-metaphor {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid rgba(215, 222, 234, 0.9);
+  border-radius: var(--radius-lg);
+  background: #fffdfa;
+}
+
+.notes-metaphor legend {
+  padding: 0 0.35rem;
+  color: var(--color-content-strong);
+  font-weight: 700;
 }
 
 .notes-labels legend {

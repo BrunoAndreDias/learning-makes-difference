@@ -498,6 +498,95 @@ describe("authenticated app shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("manages note metaphors inside the note workflow", async () => {
+    renderRoute("/notes", {
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Action potentials" },
+    });
+    fireEvent.change(screen.getByLabelText("Body"), {
+      target: {
+        value: "Neurons fire once membrane voltage crosses threshold.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add metaphor" }));
+
+    expect(screen.getAllByLabelText("Metaphor editor")).toHaveLength(1);
+
+    fireEvent.change(screen.getAllByLabelText("Metaphor title")[0], {
+      target: { value: "Domino line" },
+    });
+    fireEvent.change(
+      screen.getAllByLabelText("Metaphor explanation")[0],
+      {
+        target: {
+          value:
+            "Crossing threshold is like tipping the first domino so the whole line falls.",
+        },
+      },
+    );
+    fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
+
+    expect(await screen.findByDisplayValue("Domino line")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue(
+        "Crossing threshold is like tipping the first domino so the whole line falls.",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add metaphor" }));
+
+    expect(screen.getAllByLabelText("Metaphor editor")).toHaveLength(2);
+
+    fireEvent.change(
+      screen.getAllByLabelText("Metaphor explanation")[0],
+      {
+        target: {
+          value:
+            "Crossing threshold is like tipping the first domino and committing the whole chain.",
+        },
+      },
+    );
+    fireEvent.change(
+      screen.getAllByLabelText("Metaphor title")[1],
+      {
+        target: { value: "Fuse" },
+      },
+    );
+    fireEvent.change(
+      screen.getAllByLabelText("Metaphor explanation")[1],
+      {
+        target: {
+          value: "Threshold acts like lighting a fuse that runs to completion.",
+        },
+      },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove metaphor 2" }));
+    fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
+
+    expect(await screen.findByDisplayValue("Domino line")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue(
+        "Crossing threshold is like tipping the first domino and committing the whole chain.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("Fuse")).not.toBeInTheDocument();
+  });
+
   it("manages labels and rejects cycle-causing parent relationships", async () => {
     const sessionContext = createAppSessionContext({
       keyPrefix: `test-auth-${Math.random().toString(36).slice(2)}`,
