@@ -27,12 +27,14 @@ describe("app notes context", () => {
     });
 
     const createdNote = notes.createNote("user-casey", {
+      acronyms: [],
       body: "Flash cards reveal the answer after an honest recall attempt.",
       labelIds: [],
       metaphors: [],
       title: "Flash cards",
     });
     const updatedNote = notes.updateNote("user-casey", createdNote.id, {
+      acronyms: [],
       body: "Flash cards reveal the answer only after an honest recall attempt.",
       labelIds: [],
       metaphors: [],
@@ -52,6 +54,7 @@ describe("app notes context", () => {
     });
 
     const caseyNote = notes.createNote("user-casey", {
+      acronyms: [],
       body: "Concepts can stay unlabeled until the learner is ready to organize.",
       labelIds: [],
       metaphors: [],
@@ -59,6 +62,7 @@ describe("app notes context", () => {
     });
 
     notes.createNote("user-jordan", {
+      acronyms: [],
       body: "Start with the note, then connect it to labels later.",
       labelIds: [],
       metaphors: [],
@@ -75,6 +79,7 @@ describe("app notes context", () => {
 
     expect(() =>
       notes.updateNote("user-jordan", caseyNote.id, {
+        acronyms: [],
         body: "This update should be rejected.",
         labelIds: [],
         metaphors: [],
@@ -101,6 +106,7 @@ describe("app notes context", () => {
     });
 
     const unlabeledNote = notes.createNote("user-casey", {
+      acronyms: [],
       body: "Capture first, organize later remains a valid study flow.",
       labelIds: [],
       metaphors: [],
@@ -110,6 +116,7 @@ describe("app notes context", () => {
     expect(unlabeledNote.labelIds).toEqual([]);
 
     const labeledNote = notes.updateNote("user-casey", unlabeledNote.id, {
+      acronyms: [],
       body: "Now this concept belongs to multiple study topics.",
       labelIds: ["label-science", "label-biology"],
       metaphors: [],
@@ -120,6 +127,7 @@ describe("app notes context", () => {
 
     expect(() =>
       notes.updateNote("user-casey", unlabeledNote.id, {
+        acronyms: [],
         body: "Cross-account labels must be rejected.",
         labelIds: ["label-science", "label-other"],
         metaphors: [],
@@ -139,6 +147,7 @@ describe("app notes context", () => {
     });
 
     const createdNote = notes.createNote("user-casey", {
+      acronyms: [],
       body: "Mitochondria produce ATP for the cell.",
       labelIds: [],
       metaphors: [
@@ -160,6 +169,7 @@ describe("app notes context", () => {
     ]);
 
     const updatedNote = notes.updateNote("user-casey", createdNote.id, {
+      acronyms: [],
       body: "Mitochondria produce ATP for the cell.",
       labelIds: [],
       metaphors: [
@@ -191,6 +201,7 @@ describe("app notes context", () => {
     ]);
 
     const withoutWeakMetaphor = notes.updateNote("user-casey", createdNote.id, {
+      acronyms: [],
       body: "Mitochondria produce ATP for the cell.",
       labelIds: [],
       metaphors: [
@@ -213,10 +224,100 @@ describe("app notes context", () => {
 
     expect(() =>
       notes.updateNote("user-jordan", createdNote.id, {
+        acronyms: [],
         body: "Cross-account edits must fail.",
         labelIds: [],
         metaphors: [],
         title: "Mitochondria",
+      }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: "not_found",
+      } satisfies Pick<AppNotesError, "code">),
+    );
+  });
+
+  it("stores note-owned acronyms and keeps their lifecycle scoped to the owning account", () => {
+    const notes = createAppNotesContext({
+      keyPrefix: "notes-test-acronyms",
+      storage: createMemoryStorage(),
+    });
+
+    const createdNote = notes.createNote("user-casey", {
+      acronyms: [
+        {
+          expansion: "First In, First Out",
+          shortForm: "FIFO",
+        },
+      ],
+      body: "Queue ordering returns items in insertion order.",
+      labelIds: [],
+      metaphors: [],
+      title: "Queue",
+    });
+
+    expect(createdNote.acronyms).toEqual([
+      {
+        expansion: "First In, First Out",
+        shortForm: "FIFO",
+      },
+    ]);
+
+    const updatedNote = notes.updateNote("user-casey", createdNote.id, {
+      acronyms: [
+        {
+          expansion: "First In, First Out",
+          shortForm: "FIFO",
+        },
+        {
+          expansion: "Last In, First Out",
+          shortForm: "LIFO",
+        },
+      ],
+      body: "Stacks reverse retrieval order.",
+      labelIds: [],
+      metaphors: [],
+      title: "Queue and stack order",
+    });
+
+    expect(updatedNote.acronyms).toEqual([
+      {
+        expansion: "First In, First Out",
+        shortForm: "FIFO",
+      },
+      {
+        expansion: "Last In, First Out",
+        shortForm: "LIFO",
+      },
+    ]);
+
+    const withoutWeakAcronym = notes.updateNote("user-casey", createdNote.id, {
+      acronyms: [
+        {
+          expansion: "Last In, First Out",
+          shortForm: "LIFO",
+        },
+      ],
+      body: "Stacks reverse retrieval order.",
+      labelIds: [],
+      metaphors: [],
+      title: "Queue and stack order",
+    });
+
+    expect(withoutWeakAcronym.acronyms).toEqual([
+      {
+        expansion: "Last In, First Out",
+        shortForm: "LIFO",
+      },
+    ]);
+
+    expect(() =>
+      notes.updateNote("user-jordan", createdNote.id, {
+        acronyms: [],
+        body: "Cross-account edits must fail.",
+        labelIds: [],
+        metaphors: [],
+        title: "Queue",
       }),
     ).toThrowError(
       expect.objectContaining({

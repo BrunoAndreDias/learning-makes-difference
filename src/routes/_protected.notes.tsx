@@ -8,6 +8,7 @@ import {
 
 import type { AppLabel } from "../lib/labels";
 import {
+  type AppAcronym,
   type AppMetaphor,
   type AppNote,
   AppNotesError,
@@ -24,7 +25,12 @@ type NoteMetaphorEditor = AppMetaphor & {
   key: string;
 };
 
+type NoteAcronymEditor = AppAcronym & {
+  key: string;
+};
+
 type NoteEditorState = {
+  acronyms: NoteAcronymEditor[];
   body: string;
   labelIds: string[];
   metaphors: NoteMetaphorEditor[];
@@ -32,6 +38,7 @@ type NoteEditorState = {
 };
 
 const emptyEditorState: NoteEditorState = {
+  acronyms: [],
   body: "",
   labelIds: [],
   metaphors: [],
@@ -50,6 +57,18 @@ function createNoteMetaphorEditor(
   };
 }
 
+function createNoteAcronymEditor(
+  acronym: AppAcronym = {
+    expansion: "",
+    shortForm: "",
+  },
+): NoteAcronymEditor {
+  return {
+    ...acronym,
+    key: globalThis.crypto.randomUUID(),
+  };
+}
+
 function toStoredMetaphor(metaphor: NoteMetaphorEditor): AppMetaphor {
   const { key, ...storedMetaphor } = metaphor;
 
@@ -58,12 +77,21 @@ function toStoredMetaphor(metaphor: NoteMetaphorEditor): AppMetaphor {
   return storedMetaphor;
 }
 
+function toStoredAcronym(acronym: NoteAcronymEditor): AppAcronym {
+  const { key, ...storedAcronym } = acronym;
+
+  void key;
+
+  return storedAcronym;
+}
+
 function getEditorState(note: AppNote | null): NoteEditorState {
   if (note === null) {
     return emptyEditorState;
   }
 
   return {
+    acronyms: note.acronyms.map((acronym) => createNoteAcronymEditor(acronym)),
     body: note.body,
     labelIds: note.labelIds,
     metaphors: note.metaphors.map((metaphor) =>
@@ -96,6 +124,25 @@ function haveSameMetaphors(left: AppMetaphor[], right: AppMetaphor[]): boolean {
     return (
       metaphor.title === rightMetaphor.title &&
       metaphor.explanation === rightMetaphor.explanation
+    );
+  });
+}
+
+function haveSameAcronyms(left: AppAcronym[], right: AppAcronym[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((acronym, index) => {
+    const rightAcronym = right[index];
+
+    if (rightAcronym === undefined) {
+      return false;
+    }
+
+    return (
+      acronym.shortForm === rightAcronym.shortForm &&
+      acronym.expansion === rightAcronym.expansion
     );
   });
 }
@@ -194,6 +241,7 @@ function NotesWorkspace() {
     setEditorState((currentState) => {
       if (nextSelectedNote === null) {
         if (
+          haveSameAcronyms(currentState.acronyms, emptyEditorState.acronyms) &&
           currentState.title === emptyEditorState.title &&
           currentState.body === emptyEditorState.body &&
           haveSameLabelIds(currentState.labelIds, emptyEditorState.labelIds) &&
@@ -206,6 +254,7 @@ function NotesWorkspace() {
       }
 
       if (
+        haveSameAcronyms(currentState.acronyms, nextEditorState.acronyms) &&
         currentState.title === nextEditorState.title &&
         currentState.body === nextEditorState.body &&
         haveSameLabelIds(currentState.labelIds, nextEditorState.labelIds) &&
@@ -253,6 +302,13 @@ function NotesWorkspace() {
     }));
   }
 
+  function handleAddAcronym() {
+    setEditorState((currentState) => ({
+      ...currentState,
+      acronyms: [...currentState.acronyms, createNoteAcronymEditor()],
+    }));
+  }
+
   function handleMetaphorChange<K extends keyof AppMetaphor>(
     index: number,
     field: K,
@@ -273,11 +329,40 @@ function NotesWorkspace() {
     }));
   }
 
+  function handleAcronymChange<K extends keyof AppAcronym>(
+    index: number,
+    field: K,
+    value: AppAcronym[K],
+  ) {
+    setEditorState((currentState) => ({
+      ...currentState,
+      acronyms: currentState.acronyms.map((acronym, acronymIndex) => {
+        if (acronymIndex !== index) {
+          return acronym;
+        }
+
+        return {
+          ...acronym,
+          [field]: value,
+        };
+      }),
+    }));
+  }
+
   function handleRemoveMetaphor(index: number) {
     setEditorState((currentState) => ({
       ...currentState,
       metaphors: currentState.metaphors.filter(
         (_, metaphorIndex) => metaphorIndex !== index,
+      ),
+    }));
+  }
+
+  function handleRemoveAcronym(index: number) {
+    setEditorState((currentState) => ({
+      ...currentState,
+      acronyms: currentState.acronyms.filter(
+        (_, acronymIndex) => acronymIndex !== index,
       ),
     }));
   }
@@ -301,6 +386,7 @@ function NotesWorkspace() {
     try {
       if (selectedNote === null) {
         const createdNote = notesContext.createNote(userId, {
+          acronyms: editorState.acronyms.map(toStoredAcronym),
           body: editorState.body,
           labelIds: editorState.labelIds,
           metaphors: editorState.metaphors.map(toStoredMetaphor),
@@ -313,6 +399,7 @@ function NotesWorkspace() {
       }
 
       notesContext.updateNote(userId, selectedNote.id, {
+        acronyms: editorState.acronyms.map(toStoredAcronym),
         body: editorState.body,
         labelIds: editorState.labelIds,
         metaphors: editorState.metaphors.map(toStoredMetaphor),
@@ -503,6 +590,88 @@ function NotesWorkspace() {
                           type="button"
                         >
                           {`Remove metaphor ${index + 1}`}
+                        </button>
+                      </div>
+                    </fieldset>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section aria-label="Acronyms" className="notes-acronyms">
+              <div className="notes-acronyms__header">
+                <div className="stack">
+                  <p className="section-label">Memory aids</p>
+                  <h4>Acronyms on this note</h4>
+                  <p className="muted">
+                    Keep mnemonic expansions beside the concept they support.
+                  </p>
+                </div>
+
+                <button
+                  className="notes-action"
+                  onClick={handleAddAcronym}
+                  type="button"
+                >
+                  Add acronym
+                </button>
+              </div>
+
+              {editorState.acronyms.length === 0 ? (
+                <p className="muted">
+                  No acronyms yet. Add one when a compact mnemonic helps recall.
+                </p>
+              ) : (
+                <div className="notes-acronyms__list">
+                  {editorState.acronyms.map((acronym, index) => (
+                    <fieldset
+                      aria-label="Acronym editor"
+                      className="notes-acronym"
+                      key={acronym.key}
+                    >
+                      <legend>{`Acronym ${index + 1}`}</legend>
+
+                      <label className="notes-form__field">
+                        <span>Acronym</span>
+                        <input
+                          aria-label="Acronym"
+                          onChange={(event) =>
+                            handleAcronymChange(
+                              index,
+                              "shortForm",
+                              event.target.value,
+                            )
+                          }
+                          placeholder="PEMDAS, FIFO, SMART..."
+                          type="text"
+                          value={acronym.shortForm}
+                        />
+                      </label>
+
+                      <label className="notes-form__field">
+                        <span>What it stands for</span>
+                        <textarea
+                          aria-label="Acronym expansion"
+                          onChange={(event) =>
+                            handleAcronymChange(
+                              index,
+                              "expansion",
+                              event.target.value,
+                            )
+                          }
+                          placeholder="Preserve what each letter stands for"
+                          rows={4}
+                          value={acronym.expansion}
+                        />
+                      </label>
+
+                      <div className="notes-acronym__actions">
+                        <button
+                          className="notes-action"
+                          onClick={() => handleRemoveAcronym(index)}
+                          type="button"
+                        >
+                          {`Remove acronym ${index + 1}`}
                         </button>
                       </div>
                     </fieldset>

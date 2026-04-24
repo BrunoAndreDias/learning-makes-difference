@@ -601,6 +601,84 @@ describe("authenticated app shell", () => {
     expect(screen.queryByDisplayValue("Fuse")).not.toBeInTheDocument();
   });
 
+  it("manages note acronyms inside the note workflow", async () => {
+    renderRoute("/notes", {
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Order of operations" },
+    });
+    fireEvent.change(screen.getByLabelText("Body"), {
+      target: {
+        value: "Acronyms help preserve the order of arithmetic steps.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add acronym" }));
+
+    expect(screen.getAllByLabelText("Acronym editor")).toHaveLength(1);
+
+    fireEvent.change(screen.getAllByLabelText("Acronym")[0], {
+      target: { value: "PEMDAS" },
+    });
+    fireEvent.change(screen.getAllByLabelText("Acronym expansion")[0], {
+      target: {
+        value:
+          "Parentheses, Exponents, Multiplication, Division, Addition, Subtraction.",
+      },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
+
+    expect(await screen.findByDisplayValue("PEMDAS")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue(
+        "Parentheses, Exponents, Multiplication, Division, Addition, Subtraction.",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add acronym" }));
+
+    expect(screen.getAllByLabelText("Acronym editor")).toHaveLength(2);
+
+    fireEvent.change(screen.getAllByLabelText("Acronym expansion")[0], {
+      target: {
+        value:
+          "Parentheses, Exponents, Multiplication, Division, Addition, Subtraction",
+      },
+    });
+    fireEvent.change(screen.getAllByLabelText("Acronym")[1], {
+      target: { value: "BODMAS" },
+    });
+    fireEvent.change(screen.getAllByLabelText("Acronym expansion")[1], {
+      target: {
+        value:
+          "Brackets, Orders, Division, Multiplication, Addition, Subtraction",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Remove acronym 2" }));
+    fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
+
+    expect(await screen.findByDisplayValue("PEMDAS")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue(
+        "Parentheses, Exponents, Multiplication, Division, Addition, Subtraction",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("BODMAS")).not.toBeInTheDocument();
+  });
+
   it("manages labels and rejects cycle-causing parent relationships", async () => {
     const sessionContext = createAppSessionContext({
       keyPrefix: `test-auth-${Math.random().toString(36).slice(2)}`,
@@ -749,24 +827,28 @@ describe("authenticated app shell", () => {
     });
 
     notesContext.createNote(userId, {
+      acronyms: [],
       body: "Broad foundation",
       labelIds: [science.id],
       metaphors: [],
       title: "Study foundation",
     });
     notesContext.createNote(userId, {
+      acronyms: [],
       body: "Child topic",
       labelIds: [biology.id],
       metaphors: [],
       title: "Leaf detail",
     });
     notesContext.createNote(userId, {
+      acronyms: [],
       body: "Ignored until organized",
       labelIds: [],
       metaphors: [],
       title: "Loose note",
     });
     notesContext.createNote("other-user", {
+      acronyms: [],
       body: "Other account note",
       labelIds: [otherUsersLabel.id],
       metaphors: [],

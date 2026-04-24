@@ -65,30 +65,35 @@ describe("recall session setup", () => {
     });
 
     notes.createNote(userId, {
+      acronyms: [],
       body: "Broad topic note",
       labelIds: [science.id],
       metaphors: [],
       title: "Science note",
     });
     notes.createNote(userId, {
+      acronyms: [],
       body: "Biology note",
       labelIds: [biology.id],
       metaphors: [],
       title: "Biology note",
     });
     notes.createNote(userId, {
+      acronyms: [],
       body: "Overlap note",
       labelIds: [biology.id, chemistry.id],
       metaphors: [],
       title: "Overlap note",
     });
     notes.createNote(userId, {
+      acronyms: [],
       body: "Descendant note",
       labelIds: [biochemistry.id],
       metaphors: [],
       title: "Biochemistry note",
     });
     notes.createNote(userId, {
+      acronyms: [],
       body: "Should not be recallable without a label",
       labelIds: [],
       metaphors: [],

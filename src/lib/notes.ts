@@ -3,7 +3,13 @@ export type AppMetaphor = {
   title: string;
 };
 
+export type AppAcronym = {
+  expansion: string;
+  shortForm: string;
+};
+
 export type AppNote = {
+  acronyms: AppAcronym[];
   body: string;
   createdAt: string;
   id: string;
@@ -20,6 +26,7 @@ export type AppStoredNote = AppNote & {
 type NotesListener = () => void;
 
 type CreateNoteInput = {
+  acronyms: AppAcronym[];
   body: string;
   labelIds: string[];
   metaphors: AppMetaphor[];
@@ -94,6 +101,19 @@ function isStoredMetaphor(value: unknown): value is AppMetaphor {
   );
 }
 
+function isStoredAcronym(value: unknown): value is AppAcronym {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  return (
+    typeof record.shortForm === "string" &&
+    typeof record.expansion === "string"
+  );
+}
+
 function parseStoredNotes(value: string | null): AppStoredNote[] {
   if (value === null) {
     return [];
@@ -115,6 +135,11 @@ function parseStoredNotes(value: string | null): AppStoredNote[] {
           typeof note.userId === "string" &&
           typeof note.title === "string" &&
           typeof note.body === "string" &&
+          (note.acronyms === undefined ||
+            (Array.isArray(note.acronyms) &&
+              note.acronyms.every((acronym: unknown) =>
+                isStoredAcronym(acronym),
+              ))) &&
           (note.metaphors === undefined ||
             (Array.isArray(note.metaphors) &&
               note.metaphors.every((metaphor: unknown) =>
@@ -131,6 +156,7 @@ function parseStoredNotes(value: string | null): AppStoredNote[] {
       })
       .map((note) => ({
         ...note,
+        acronyms: Array.isArray(note.acronyms) ? note.acronyms : [],
         labelIds: Array.isArray(note.labelIds) ? note.labelIds : [],
         metaphors: Array.isArray(note.metaphors) ? note.metaphors : [],
       }));
@@ -217,8 +243,32 @@ function validateMetaphors(metaphors: AppMetaphor[]): AppMetaphor[] {
   });
 }
 
+function validateAcronyms(acronyms: AppAcronym[]): AppAcronym[] {
+  return acronyms.map((acronym) => {
+    const shortForm = acronym.shortForm.trim();
+    const expansion = acronym.expansion.trim();
+
+    if (shortForm.length === 0) {
+      throw new AppNotesError("invalid_input", "Acronym is required.");
+    }
+
+    if (expansion.length === 0) {
+      throw new AppNotesError(
+        "invalid_input",
+        "Acronym expansion is required.",
+      );
+    }
+
+    return {
+      expansion,
+      shortForm,
+    };
+  });
+}
+
 function toPublicNote(note: AppStoredNote): AppNote {
   return {
+    acronyms: note.acronyms.map((acronym) => ({ ...acronym })),
     id: note.id,
     labelIds: [...note.labelIds],
     metaphors: note.metaphors.map((metaphor) => ({ ...metaphor })),
@@ -276,6 +326,7 @@ export function createAppNotesContext(
       const validatedUserId = validateUserId(userId);
       const timestamp = new Date().toISOString();
       const nextNote: AppStoredNote = {
+        acronyms: validateAcronyms(input.acronyms),
         body: validateBody(input.body),
         createdAt: timestamp,
         id: cryptoProvider.randomUUID(),
@@ -317,6 +368,7 @@ export function createAppNotesContext(
 
       const nextNote: AppStoredNote = {
         ...existingNote,
+        acronyms: validateAcronyms(input.acronyms),
         body: validateBody(input.body),
         labelIds: validateLabelIds(input.labelIds, {
           getOwnedLabelIdsForUser,
