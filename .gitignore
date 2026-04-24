@@ -1,0 +1,16 @@
+node_modules/
+.pnpm-store/
+
+.env
+.env.*
+!.env.example
+
+dist/
+build/
+.tanstack/
+.output/
+
+coverage/
+*.log
+
+.DS_Store
