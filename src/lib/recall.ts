@@ -25,7 +25,22 @@ export type FlashCardRecallSession = {
   notes: FlashCardRecallNote[];
 };
 
+export type FlashCardSessionResult = {
+  attempts: FlashCardRecallAttempt[];
+  completedAt: string;
+  createdAt: string;
+  id: string;
+  labelId: string;
+  labelName: string;
+  mode: FlashCardRecallMode;
+  notes: FlashCardRecallNote[];
+};
+
 type StoredFlashCardRecallSession = FlashCardRecallSession & {
+  userId: string;
+};
+
+type StoredFlashCardSessionResult = FlashCardSessionResult & {
   userId: string;
 };
 
@@ -48,6 +63,16 @@ type StartFlashCardSessionInput = {
 
 type UpdateFlashCardSessionInput = {
   sessionId: string;
+  userId: string;
+};
+
+type GetSessionResultInput = {
+  sessionResultId: string;
+  userId: string;
+};
+
+type ListSessionResultsInput = {
+  labelId?: string;
   userId: string;
 };
 
@@ -77,7 +102,12 @@ export type AppRecallContext = {
   endFlashCardSession: (
     input: UpdateFlashCardSessionInput,
   ) => FlashCardRecallSession;
+  getSessionResult: (input: GetSessionResultInput) => FlashCardSessionResult;
+  getSessionResultsSnapshot: () => readonly FlashCardSessionResult[];
   getSnapshot: () => AppRecallSnapshot;
+  listSessionResults: (
+    input: ListSessionResultsInput,
+  ) => FlashCardSessionResult[];
   rateFlashCardAnswer: (
     input: RateFlashCardAnswerInput,
   ) => FlashCardRecallSession | null;
@@ -106,6 +136,10 @@ function getDefaultCrypto(): RecallCrypto {
 
 function getRecallStorageKey(prefix: string) {
   return `${prefix}:active-session`;
+}
+
+function getSessionResultsStorageKey(prefix: string) {
+  return `${prefix}:session-results`;
 }
 
 function isFlashCardRecallNote(note: unknown): note is FlashCardRecallNote {
@@ -180,6 +214,65 @@ function parseStoredRecallSession(value: string | null): AppRecallSnapshot {
     };
   } catch {
     return null;
+  }
+}
+
+function isFlashCardRecallAttempt(
+  attempt: unknown,
+): attempt is FlashCardRecallAttempt {
+  const candidate =
+    typeof attempt === "object" && attempt !== null
+      ? (attempt as Record<string, unknown>)
+      : null;
+
+  return (
+    candidate !== null &&
+    typeof candidate.noteId === "string" &&
+    (candidate.rating === "missed" ||
+      candidate.rating === "partial" ||
+      candidate.rating === "nailed")
+  );
+}
+
+function parseStoredSessionResults(
+  value: string | null,
+): StoredFlashCardSessionResult[] {
+  if (value === null) {
+    return [];
+  }
+
+  try {
+    const parsedValue = JSON.parse(value);
+
+    if (!Array.isArray(parsedValue)) {
+      return [];
+    }
+
+    return parsedValue
+      .filter((result): result is StoredFlashCardSessionResult => {
+        return (
+          typeof result === "object" &&
+          result !== null &&
+          typeof result.id === "string" &&
+          typeof result.userId === "string" &&
+          typeof result.labelId === "string" &&
+          typeof result.labelName === "string" &&
+          result.mode === "FlashCard" &&
+          typeof result.createdAt === "string" &&
+          typeof result.completedAt === "string" &&
+          Array.isArray(result.attempts) &&
+          result.attempts.every((attempt: unknown) =>
+            isFlashCardRecallAttempt(attempt),
+          ) &&
+          Array.isArray(result.notes)
+        );
+      })
+      .map((result) => ({
+        ...result,
+        notes: result.notes.filter(isFlashCardRecallNote),
+      }));
+  } catch {
+    return [];
   }
 }
 
@@ -273,6 +366,9 @@ export function createAppRecallContext(
   let snapshot = parseStoredRecallSession(
     storage?.getItem(getRecallStorageKey(keyPrefix)) ?? null,
   );
+  let sessionResults = parseStoredSessionResults(
+    storage?.getItem(getSessionResultsStorageKey(keyPrefix)) ?? null,
+  );
 
   function notifyListeners() {
     for (const listener of listeners) {
@@ -283,6 +379,17 @@ export function createAppRecallContext(
   function writeSnapshot(nextSnapshot: StoredFlashCardRecallSession | null) {
     snapshot = nextSnapshot;
     storage?.setItem(getRecallStorageKey(keyPrefix), JSON.stringify(snapshot));
+    notifyListeners();
+  }
+
+  function writeSessionResults(
+    nextSessionResults: StoredFlashCardSessionResult[],
+  ) {
+    sessionResults = nextSessionResults;
+    storage?.setItem(
+      getSessionResultsStorageKey(keyPrefix),
+      JSON.stringify(sessionResults),
+    );
     notifyListeners();
   }
 
@@ -301,21 +408,86 @@ export function createAppRecallContext(
     return snapshot;
   }
 
+  function toSessionResult(
+    session: StoredFlashCardRecallSession,
+  ): StoredFlashCardSessionResult {
+    return {
+      attempts: [...session.attempts],
+      completedAt: new Date().toISOString(),
+      createdAt: session.createdAt,
+      id: session.id,
+      labelId: session.labelId,
+      labelName: session.labelName,
+      mode: session.mode,
+      notes: session.notes.map((note) => ({
+        ...note,
+        acronyms: [...note.acronyms],
+        labelIds: [...note.labelIds],
+        metaphors: note.metaphors.map((metaphor) => ({ ...metaphor })),
+      })),
+      userId: session.userId,
+    };
+  }
+
+  function persistSessionResult(session: StoredFlashCardRecallSession) {
+    if (session.attempts.length === 0) {
+      return;
+    }
+
+    const nextResult = toSessionResult(session);
+
+    writeSessionResults([
+      ...sessionResults.filter((result) => result.id !== nextResult.id),
+      nextResult,
+    ]);
+  }
+
   return {
     endFlashCardSession: ({ sessionId, userId }) => {
       const activeSession = getActiveSessionForUser({ sessionId, userId });
 
+      persistSessionResult(activeSession);
       writeSnapshot(null);
 
       return activeSession;
     },
+    getSessionResult: ({ sessionResultId, userId }) => {
+      const result = sessionResults.find((candidate) => {
+        return candidate.userId === userId && candidate.id === sessionResultId;
+      });
+
+      if (result === undefined) {
+        throw new AppRecallError("not_found", "Session result not found.");
+      }
+
+      return result;
+    },
+    getSessionResultsSnapshot: () => sessionResults,
     getSnapshot: () => snapshot,
+    listSessionResults: ({ labelId, userId }) => {
+      return sessionResults
+        .filter((result) => {
+          return (
+            result.userId === userId &&
+            (labelId === undefined || result.labelId === labelId)
+          );
+        })
+        .sort((left, right) => {
+          return (
+            right.completedAt.localeCompare(left.completedAt) ||
+            right.id.localeCompare(left.id)
+          );
+        });
+    },
     rateFlashCardAnswer: ({ rating, sessionId, userId }) => {
       const activeSession = getActiveSessionForUser({ sessionId, userId });
       const currentNote = activeSession.notes[activeSession.currentIndex];
 
       if (currentNote === undefined) {
-        throw new AppRecallError("invalid_input", "Recall session is complete.");
+        throw new AppRecallError(
+          "invalid_input",
+          "Recall session is complete.",
+        );
       }
 
       if (!activeSession.isAnswerRevealed) {
@@ -339,6 +511,7 @@ export function createAppRecallContext(
       };
 
       if (nextSession.currentIndex >= nextSession.notes.length) {
+        persistSessionResult(nextSession);
         writeSnapshot(null);
         return null;
       }
@@ -351,7 +524,10 @@ export function createAppRecallContext(
       const activeSession = getActiveSessionForUser({ sessionId, userId });
 
       if (activeSession.notes[activeSession.currentIndex] === undefined) {
-        throw new AppRecallError("invalid_input", "Recall session is complete.");
+        throw new AppRecallError(
+          "invalid_input",
+          "Recall session is complete.",
+        );
       }
 
       if (activeSession.isAnswerRevealed) {

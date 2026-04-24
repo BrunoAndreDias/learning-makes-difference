@@ -231,4 +231,182 @@ describe("recall session setup", () => {
     expect(endedSession.attempts).toHaveLength(1);
     expect(recall.getSnapshot()).toBeNull();
   });
+
+  it("persists attempted sessions for history, preserves note snapshots, and discards zero-attempt exits", () => {
+    const storage = createMemoryStorage();
+    const labels = createAppLabelsContext({
+      keyPrefix: "recall-test-history-labels",
+      storage,
+    });
+    const notes = createAppNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labels.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: "recall-test-history-notes",
+      storage,
+    });
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          "session-3-3-3-3" as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "recall-test-history-session",
+      labels,
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+    });
+    const userId = "user-1";
+    const science = labels.createLabel({ name: "Science", userId });
+    const note = notes.createNote(userId, {
+      acronyms: [],
+      body: "Original answer",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Original question",
+    });
+
+    const attemptedSession = recall.startFlashCardSession({
+      labelId: science.id,
+      userId,
+    });
+
+    recall.revealFlashCardAnswer({
+      sessionId: attemptedSession.id,
+      userId,
+    });
+    recall.rateFlashCardAnswer({
+      rating: "nailed",
+      sessionId: attemptedSession.id,
+      userId,
+    });
+
+    notes.updateNote(userId, note.id, {
+      acronyms: [],
+      body: "Updated answer",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Updated question",
+    });
+
+    const reloadedRecall = createAppRecallContext({
+      keyPrefix: "recall-test-history-session",
+      labels,
+      notes,
+      storage,
+    });
+
+    expect(reloadedRecall.listSessionResults({ userId })).toMatchObject([
+      {
+        attempts: [{ noteId: note.id, rating: "nailed" }],
+        id: attemptedSession.id,
+        labelId: science.id,
+        labelName: "Science",
+        notes: [
+          {
+            body: "Original answer",
+            id: note.id,
+            title: "Original question",
+          },
+        ],
+      },
+    ]);
+
+    const zeroAttemptSession = reloadedRecall.startFlashCardSession({
+      labelId: science.id,
+      userId,
+    });
+
+    reloadedRecall.endFlashCardSession({
+      sessionId: zeroAttemptSession.id,
+      userId,
+    });
+
+    expect(reloadedRecall.listSessionResults({ userId })).toHaveLength(1);
+  });
+
+  it("filters session results by target label and account", () => {
+    const storage = createMemoryStorage();
+    const labels = createAppLabelsContext({
+      keyPrefix: "recall-test-filter-labels",
+      storage,
+    });
+    const notes = createAppNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labels.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: "recall-test-filter-notes",
+      storage,
+    });
+    let sessionCounter = 0;
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `session-4-4-4-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "recall-test-filter-session",
+      labels,
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+    });
+    const userId = "user-1";
+    const science = labels.createLabel({ name: "Science", userId });
+    const history = labels.createLabel({ name: "History", userId });
+    const otherScience = labels.createLabel({
+      name: "Private science",
+      userId: "user-2",
+    });
+
+    notes.createNote(userId, {
+      acronyms: [],
+      body: "Science answer",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Science question",
+    });
+    notes.createNote(userId, {
+      acronyms: [],
+      body: "History answer",
+      labelIds: [history.id],
+      metaphors: [],
+      title: "History question",
+    });
+    notes.createNote("user-2", {
+      acronyms: [],
+      body: "Private answer",
+      labelIds: [otherScience.id],
+      metaphors: [],
+      title: "Private question",
+    });
+
+    for (const [labelId, owner] of [
+      [science.id, userId],
+      [history.id, userId],
+      [otherScience.id, "user-2"],
+    ] as const) {
+      const session = recall.startFlashCardSession({
+        labelId,
+        userId: owner,
+      });
+
+      recall.revealFlashCardAnswer({
+        sessionId: session.id,
+        userId: owner,
+      });
+      recall.rateFlashCardAnswer({
+        rating: "partial",
+        sessionId: session.id,
+        userId: owner,
+      });
+    }
+
+    expect(
+      recall
+        .listSessionResults({ labelId: science.id, userId })
+        .map((result) => {
+          return result.labelName;
+        }),
+    ).toEqual(["Science"]);
+    expect(recall.listSessionResults({ userId })).toHaveLength(2);
+    expect(recall.listSessionResults({ userId: "user-2" })).toHaveLength(1);
+  });
 });

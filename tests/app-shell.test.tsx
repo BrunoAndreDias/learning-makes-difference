@@ -196,7 +196,7 @@ describe("authenticated app shell", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Login form" }));
 
     expect(
-      await screen.findByRole("heading", { name: "History placeholder" }),
+      await screen.findByRole("heading", { name: "Study history" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Jordan Review")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/history");
@@ -544,15 +544,12 @@ describe("authenticated app shell", () => {
     fireEvent.change(screen.getAllByLabelText("Metaphor title")[0], {
       target: { value: "Domino line" },
     });
-    fireEvent.change(
-      screen.getAllByLabelText("Metaphor explanation")[0],
-      {
-        target: {
-          value:
-            "Crossing threshold is like tipping the first domino so the whole line falls.",
-        },
+    fireEvent.change(screen.getAllByLabelText("Metaphor explanation")[0], {
+      target: {
+        value:
+          "Crossing threshold is like tipping the first domino so the whole line falls.",
       },
-    );
+    });
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
 
     expect(await screen.findByDisplayValue("Domino line")).toBeInTheDocument();
@@ -566,29 +563,20 @@ describe("authenticated app shell", () => {
 
     expect(screen.getAllByLabelText("Metaphor editor")).toHaveLength(2);
 
-    fireEvent.change(
-      screen.getAllByLabelText("Metaphor explanation")[0],
-      {
-        target: {
-          value:
-            "Crossing threshold is like tipping the first domino and committing the whole chain.",
-        },
+    fireEvent.change(screen.getAllByLabelText("Metaphor explanation")[0], {
+      target: {
+        value:
+          "Crossing threshold is like tipping the first domino and committing the whole chain.",
       },
-    );
-    fireEvent.change(
-      screen.getAllByLabelText("Metaphor title")[1],
-      {
-        target: { value: "Fuse" },
+    });
+    fireEvent.change(screen.getAllByLabelText("Metaphor title")[1], {
+      target: { value: "Fuse" },
+    });
+    fireEvent.change(screen.getAllByLabelText("Metaphor explanation")[1], {
+      target: {
+        value: "Threshold acts like lighting a fuse that runs to completion.",
       },
-    );
-    fireEvent.change(
-      screen.getAllByLabelText("Metaphor explanation")[1],
-      {
-        target: {
-          value: "Threshold acts like lighting a fuse that runs to completion.",
-        },
-      },
-    );
+    });
     fireEvent.click(screen.getByRole("button", { name: "Remove metaphor 2" }));
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
 
@@ -939,29 +927,144 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "FlashCard session" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Completed 0 of 2 questions")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Leaf detail" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Leaf detail" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Child topic")).toBeNull();
-    expect(screen.getByRole("button", { name: "Reveal answer" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Reveal answer" }),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Reveal answer" }));
 
     expect(screen.getByText("Child topic")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Missed it" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Partly recalled" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Nailed it" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Missed it" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Partly recalled" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Nailed it" }),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Partly recalled" }));
 
     expect(screen.getByText("Completed 1 of 2 questions")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Study foundation" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Study foundation" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Child topic")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Partly recalled" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Partly recalled" }),
+    ).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "End session early" }));
 
-    expect(screen.queryByRole("heading", { name: "FlashCard session" })).toBeNull();
+    expect(
+      screen.queryByRole("heading", { name: "FlashCard session" }),
+    ).toBeNull();
     expect(
       screen.getByText("Ended session early after 1 of 2 questions."),
     ).toBeInTheDocument();
+  });
+
+  it("shows persisted session history with label filtering and stored note snapshots", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labelsContext.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const recallContext = createAppRecallContext({
+      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+      labels: labelsContext,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+    const userId = "user-placeholder";
+    const science = labelsContext.createLabel({
+      name: "Alpha Science",
+      userId,
+    });
+    const historyLabel = labelsContext.createLabel({
+      name: "World History",
+      userId,
+    });
+    const note = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Original study snapshot",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Original prompt",
+    });
+
+    renderRoute("/recall", {
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    fireEvent.submit(
+      await screen.findByRole("form", { name: "Recall session setup form" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Reveal answer" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Nailed it" }));
+
+    expect(
+      await screen.findByText("Completed all 1 questions."),
+    ).toBeInTheDocument();
+
+    notesContext.updateNote(userId, note.id, {
+      acronyms: [],
+      body: "Edited live note",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Edited live prompt",
+    });
+
+    cleanup();
+
+    renderRoute("/history", {
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Study history" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Review session" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("1 attempted question")).toHaveLength(2);
+
+    fireEvent.change(screen.getByLabelText("Filter by label"), {
+      target: { value: historyLabel.id },
+    });
+
+    expect(
+      screen.getByText("No sessions match the current label filter."),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Filter by label"), {
+      target: { value: science.id },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review session" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Original prompt" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Original study snapshot")).toBeInTheDocument();
+    expect(screen.getByText("Rating: Nailed it")).toBeInTheDocument();
+    expect(screen.queryByText("Edited live note")).toBeNull();
+    expect(screen.queryByText("Edited live prompt")).toBeNull();
   });
 });
