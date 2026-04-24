@@ -84,19 +84,30 @@ function AppLayout() {
   const mobileToggleLabel = isMobileSidebarOpen
     ? "Close navigation menu"
     : "Open navigation menu";
+  const userInitials =
+    session.user?.displayName.slice(0, 2).toUpperCase() ?? "LM";
 
-  function handleMobileSidebarClose() {
+  function closeMobileSidebar(shouldRestoreFocus = false) {
+    setShouldRestoreMobileToggleFocus(shouldRestoreFocus);
     setMobileSidebarOpen(false);
   }
 
-  function handleMobileSidebarToggle() {
+  function toggleMobileSidebar() {
     setShouldRestoreMobileToggleFocus(false);
     setMobileSidebarOpen((value) => !value);
   }
 
-  function handleMobileSidebarDismiss() {
-    setShouldRestoreMobileToggleFocus(true);
-    setMobileSidebarOpen(false);
+  function handleSidebarLinkClick() {
+    closeMobileSidebar();
+  }
+
+  function handleMobileSidebarAction() {
+    if (isMobileSidebarOpen) {
+      closeMobileSidebar(true);
+      return;
+    }
+
+    toggleMobileSidebar();
   }
 
   useEffect(() => {
@@ -123,7 +134,7 @@ function AppLayout() {
           <Link
             aria-label="Learning Makes Difference home"
             className="brand-lockup app-sidebar__brand"
-            onClick={handleMobileSidebarClose}
+            onClick={handleSidebarLinkClick}
             to="/notes"
           >
             <img
@@ -160,32 +171,36 @@ function AppLayout() {
           id={navigationId}
         >
           <ul className="app-sidebar__list">
-            {appNavigationItems.map((item) => (
-              <li key={item.to}>
-                <Link
-                  activeProps={{
-                    className: "app-sidebar__link app-sidebar__link-active",
-                  }}
-                  className="app-sidebar__link"
-                  onClick={handleMobileSidebarClose}
-                  ref={
-                    activeItem.to === item.to ? activeNavigationLinkRef : null
-                  }
-                  to={item.to}
-                >
-                  <span aria-hidden="true" className="app-sidebar__icon">
-                    {item.shortLabel}
-                  </span>
-                  <span className="app-sidebar__label">{item.label}</span>
-                </Link>
-              </li>
-            ))}
+            {appNavigationItems.map((item) => {
+              const isActiveNavigationLink = activeItem.to === item.to;
+
+              return (
+                <li key={item.to}>
+                  <Link
+                    activeProps={{
+                      className: "app-sidebar__link app-sidebar__link-active",
+                    }}
+                    className="app-sidebar__link"
+                    onClick={handleSidebarLinkClick}
+                    ref={
+                      isActiveNavigationLink ? activeNavigationLinkRef : null
+                    }
+                    to={item.to}
+                  >
+                    <span aria-hidden="true" className="app-sidebar__icon">
+                      {item.shortLabel}
+                    </span>
+                    <span className="app-sidebar__label">{item.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </nav>
 
         <div className="app-sidebar__footer">
           <div className="app-sidebar__avatar" aria-hidden="true">
-            {session.user?.displayName.slice(0, 2).toUpperCase() ?? "LM"}
+            {userInitials}
           </div>
           <div className="app-sidebar__profile">
             <strong>{session.user?.displayName ?? "Placeholder user"}</strong>
@@ -208,11 +223,7 @@ function AppLayout() {
               aria-expanded={isMobileSidebarOpen}
               aria-label={mobileToggleLabel}
               className="sidebar-mobile-toggle"
-              onClick={
-                isMobileSidebarOpen
-                  ? handleMobileSidebarDismiss
-                  : handleMobileSidebarToggle
-              }
+              onClick={handleMobileSidebarAction}
               ref={mobileToggleRef}
               type="button"
             >

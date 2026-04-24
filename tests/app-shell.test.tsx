@@ -179,7 +179,9 @@ describe("authenticated app shell", () => {
 
     expect(notesLink).toHaveFocus();
 
-    fireEvent.click(screen.getByRole("button", { name: "Close navigation menu" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Close navigation menu" }),
+    );
 
     expect(mobileToggle).toHaveFocus();
   });
