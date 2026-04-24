@@ -16,6 +16,15 @@ Review the code changes on branch `{{BRANCH}}` and improve code clarity, consist
 
 Inspect only the files you need with targeted commands such as `git diff main...{{BRANCH}} -- <path>` and `sed -n`.
 
+## Conditional frontend accessibility context
+
+If the changed files include frontend surfaces such as `src/routes/**`, `src/components/**`, `src/design-system/**`, `src/styles/**`, or other UI-facing React/CSS files, load and apply the local accessibility guidance before reviewing those files:
+
+- `@.agents/skills/a11y-best-practices/SKILL.md`
+- `@.agents/skills/a11y-best-practices/REFERENCE.md`
+
+For backend-, domain-, storage-, or infrastructure-only changes, do not load the accessibility guidance.
+
 # REVIEW PROCESS
 
 1. **Understand the change**: Read the diff and commits above to understand the intent.
@@ -34,6 +43,7 @@ Inspect only the files you need with targeted commands such as `git diff main...
    - Are new/changed behaviours covered by tests?
    - Are there unsafe casts, `any` types, or unchecked assumptions?
    - Does the change introduce injection vulnerabilities, credential leaks, or other security issues?
+   - For frontend changes, check keyboard access, focus visibility, semantic structure, accessible names, form labeling, status/error announcements, contrast-sensitive UI states, and whether the implementation preserves the repo's WCAG baseline.
 
 4. **Maintain balance**: Avoid over-simplification that could:
    - Reduce code clarity or maintainability
