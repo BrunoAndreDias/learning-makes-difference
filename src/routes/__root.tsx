@@ -41,6 +41,9 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
       </head>
       <body>
         <div className="app-shell shell">
+          <a className="skip-link" href="#main-content">
+            Skip to main content
+          </a>
           <header className="topbar">
             <div>
               <p className="eyebrow">Learning Makes Difference</p>
@@ -80,7 +83,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
             </nav>
           </header>
 
-          <main>{children}</main>
+          <main id="main-content">{children}</main>
         </div>
 
         <TanStackRouterDevtools position="bottom-right" />

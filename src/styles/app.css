@@ -6,6 +6,23 @@
   padding: var(--space-5);
 }
 
+.skip-link {
+  position: absolute;
+  top: var(--space-4);
+  left: var(--space-4);
+  z-index: 40;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-content-strong);
+  color: #fffdfa;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
 .topbar {
   display: flex;
   justify-content: space-between;
@@ -199,6 +216,13 @@ h3 {
 
 .app-sidebar__link:hover {
   background: rgba(37, 99, 235, 0.08);
+}
+
+.app-sidebar__link:focus-visible,
+.sidebar-toggle:focus-visible,
+.sidebar-mobile-toggle:focus-visible,
+.nav-link:focus-visible {
+  border-color: rgba(37, 99, 235, 0.5);
 }
 
 .app-sidebar__link-active {

@@ -5,7 +5,7 @@ import {
   redirect,
   useLocation,
 } from "@tanstack/react-router";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import appLogo from "../../docs/layout/logo.png";
 import { hasActiveSession } from "../lib/session";
@@ -72,6 +72,10 @@ function AppLayout() {
   const navigationId = useId();
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [shouldRestoreMobileToggleFocus, setShouldRestoreMobileToggleFocus] =
+    useState(false);
+  const activeNavigationLinkRef = useRef<HTMLAnchorElement | null>(null);
+  const mobileToggleRef = useRef<HTMLButtonElement | null>(null);
   const activeItem = getActiveNavigationItem(location.pathname);
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
   const sidebarToggleLabel = isSidebarCollapsed
@@ -84,6 +88,28 @@ function AppLayout() {
   function handleMobileSidebarClose() {
     setMobileSidebarOpen(false);
   }
+
+  function handleMobileSidebarToggle() {
+    setShouldRestoreMobileToggleFocus(false);
+    setMobileSidebarOpen((value) => !value);
+  }
+
+  function handleMobileSidebarDismiss() {
+    setShouldRestoreMobileToggleFocus(true);
+    setMobileSidebarOpen(false);
+  }
+
+  useEffect(() => {
+    if (isMobileSidebarOpen) {
+      activeNavigationLinkRef.current?.focus();
+      return;
+    }
+
+    if (shouldRestoreMobileToggleFocus) {
+      mobileToggleRef.current?.focus();
+      setShouldRestoreMobileToggleFocus(false);
+    }
+  }, [isMobileSidebarOpen, shouldRestoreMobileToggleFocus]);
 
   return (
     <section className="authenticated-shell">
@@ -142,6 +168,9 @@ function AppLayout() {
                   }}
                   className="app-sidebar__link"
                   onClick={handleMobileSidebarClose}
+                  ref={
+                    activeItem.to === item.to ? activeNavigationLinkRef : null
+                  }
                   to={item.to}
                 >
                   <span aria-hidden="true" className="app-sidebar__icon">
@@ -179,7 +208,12 @@ function AppLayout() {
               aria-expanded={isMobileSidebarOpen}
               aria-label={mobileToggleLabel}
               className="sidebar-mobile-toggle"
-              onClick={() => setMobileSidebarOpen((value) => !value)}
+              onClick={
+                isMobileSidebarOpen
+                  ? handleMobileSidebarDismiss
+                  : handleMobileSidebarToggle
+              }
+              ref={mobileToggleRef}
               type="button"
             >
               {isMobileSidebarOpen ? "Close menu" : "Open menu"}

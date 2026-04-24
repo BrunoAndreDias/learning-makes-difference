@@ -152,4 +152,35 @@ describe("authenticated app shell", () => {
     expect(mobileToggle).toHaveAttribute("aria-expanded", "false");
     expect(sidebar).toHaveAttribute("data-mobile-open", "false");
   });
+
+  it("supports skip navigation and manages focus when the mobile menu opens and closes", async () => {
+    renderRoute("/notes");
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes placeholder" }),
+    ).toBeInTheDocument();
+
+    const skipLink = screen.getByRole("link", { name: "Skip to main content" });
+    const main = screen.getByRole("main");
+
+    expect(skipLink).toHaveAttribute("href", "#main-content");
+    expect(main).toHaveAttribute("id", "main-content");
+
+    const mobileToggle = screen.getByRole("button", {
+      name: "Open navigation menu",
+    });
+
+    mobileToggle.focus();
+    expect(mobileToggle).toHaveFocus();
+
+    fireEvent.click(mobileToggle);
+
+    const notesLink = await screen.findByRole("link", { name: "Notes" });
+
+    expect(notesLink).toHaveFocus();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close navigation menu" }));
+
+    expect(mobileToggle).toHaveFocus();
+  });
 });
