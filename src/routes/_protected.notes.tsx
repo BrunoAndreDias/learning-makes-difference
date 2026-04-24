@@ -13,6 +13,7 @@ import {
   type AppNote,
   AppNotesError,
   type AppStoredNote,
+  filterNotesByQuery,
   listNotesForUser,
 } from "../lib/notes";
 import type { AppSessionSnapshot } from "../lib/session";
@@ -182,6 +183,8 @@ function NotesWorkspace() {
   );
   const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
+  const [searchQuery, setSearchQuery] = useState("");
+  const filteredNotes = filterNotesByQuery(notes, searchQuery);
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
   const firstNoteId = notes[0]?.id ?? null;
   const [isCreatingNew, setIsCreatingNew] = useState(notes.length === 0);
@@ -198,8 +201,7 @@ function NotesWorkspace() {
       : (notes.find((note) => note.id === selectedNoteId) ?? null);
   const isCreating = selectedNote === null;
   const selectedNoteStillExists =
-    selectedNoteId !== null &&
-    notes.some((note) => note.id === selectedNoteId);
+    selectedNoteId !== null && notes.some((note) => note.id === selectedNoteId);
 
   useEffect(() => {
     function syncLabels() {
@@ -442,11 +444,24 @@ function NotesWorkspace() {
             </button>
           </div>
 
+          <label className="notes-form__field">
+            <span>Search notes</span>
+            <input
+              name="search"
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search note text, metaphors, and acronyms"
+              type="search"
+              value={searchQuery}
+            />
+          </label>
+
           {notes.length === 0 ? (
             <p className="muted">No notes yet</p>
+          ) : filteredNotes.length === 0 ? (
+            <p className="muted">No notes match this search.</p>
           ) : (
             <ul className="notes-list__items">
-              {notes.map((note) => {
+              {filteredNotes.map((note) => {
                 const isActive = note.id === selectedNote?.id;
 
                 return (

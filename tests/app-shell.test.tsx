@@ -447,6 +447,90 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
   });
 
+  it("searches notes by note text and attached memory aids while keeping results account-scoped", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [
+        {
+          expansion: "Long-Term Potentiation",
+          shortForm: "LTP",
+        },
+      ],
+      body: "Repeated activation strengthens the pathway.",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation:
+            "It is like cutting a groove into a sled track so the next pass follows more easily.",
+          title: "Sled track",
+        },
+      ],
+      title: "Synaptic plasticity",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Short-term storage supports active reasoning.",
+      labelIds: [],
+      metaphors: [],
+      title: "Working memory",
+    });
+    notesContext.createNote("user-casey", {
+      acronyms: [
+        {
+          expansion: "Long-Term Potentiation",
+          shortForm: "LTP",
+        },
+      ],
+      body: "This note belongs to another account.",
+      labelIds: [],
+      metaphors: [],
+      title: "Hidden note",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Search notes"), {
+      target: { value: "sled track" },
+    });
+
+    expect(
+      screen.getByRole("button", { name: /Synaptic plasticity/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Working memory/ }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Search notes"), {
+      target: { value: "long-term potentiation" },
+    });
+
+    expect(
+      screen.getByRole("button", { name: /Synaptic plasticity/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Hidden note/ }),
+    ).not.toBeInTheDocument();
+  });
+
   it("assigns and removes owned labels from a note inside the notes workspace", async () => {
     const labelsContext = createAppLabelsContext({
       keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
