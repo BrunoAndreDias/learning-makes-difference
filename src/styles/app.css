@@ -320,10 +320,6 @@ h3 {
   flex-direction: column;
 }
 
-.app-sidebar[data-mobile-open="false"] {
-  display: none;
-}
-
 @media (min-width: 52rem) {
   .authenticated-shell {
     grid-template-columns: auto minmax(0, 1fr);
@@ -364,6 +360,10 @@ h3 {
 }
 
 @media (max-width: 51.99rem) {
+  .app-sidebar[data-mobile-open="false"] {
+    display: none;
+  }
+
   .app-sidebar {
     position: fixed;
     inset: var(--space-4) auto var(--space-4) var(--space-4);

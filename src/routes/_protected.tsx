@@ -59,7 +59,6 @@ function AppLayout() {
   const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const activeItem = getActiveNavigationItem(location.pathname);
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
-  const mobileSidebarState = isMobileSidebarOpen ? "true" : "false";
   const sidebarToggleLabel = isSidebarCollapsed
     ? "Expand sidebar"
     : "Collapse sidebar";
@@ -67,7 +66,7 @@ function AppLayout() {
     ? "Close navigation menu"
     : "Open navigation menu";
 
-  function closeMobileSidebar() {
+  function handleMobileSidebarClose() {
     setMobileSidebarOpen(false);
   }
 
@@ -76,14 +75,14 @@ function AppLayout() {
       <aside
         aria-label="App sidebar"
         className="app-sidebar shell-panel"
-        data-mobile-open={mobileSidebarState}
+        data-mobile-open={isMobileSidebarOpen}
         data-sidebar-state={sidebarState}
       >
         <div className="app-sidebar__header">
           <Link
             aria-label="Learning Makes Difference home"
             className="brand-lockup app-sidebar__brand"
-            onClick={closeMobileSidebar}
+            onClick={handleMobileSidebarClose}
             to="/notes"
           >
             <img
@@ -127,7 +126,7 @@ function AppLayout() {
                     className: "app-sidebar__link app-sidebar__link-active",
                   }}
                   className="app-sidebar__link"
-                  onClick={closeMobileSidebar}
+                  onClick={handleMobileSidebarClose}
                   to={item.to}
                 >
                   <span aria-hidden="true" className="app-sidebar__icon">
@@ -162,7 +161,7 @@ function AppLayout() {
           <div className="app-frame__actions">
             <button
               aria-controls={navigationId}
-              aria-expanded={mobileSidebarState}
+              aria-expanded={isMobileSidebarOpen}
               aria-label={mobileToggleLabel}
               className="sidebar-mobile-toggle"
               onClick={() => setMobileSidebarOpen((value) => !value)}
