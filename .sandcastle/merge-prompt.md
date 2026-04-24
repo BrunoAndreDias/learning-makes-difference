@@ -15,9 +15,9 @@ After all branches are merged, make a single commit summarizing the merge.
 
 # CLOSE ISSUES
 
-For each branch that was merged, close its issue using the following command:
+For each issue listed below that corresponds to a merged branch, close it using:
 
-`gh issue close {{TASK_ID}} --comment "Completed by Sandcastle"`
+`gh issue close <issue-number> --comment "Completed by Sandcastle"`
 
 Here are all the issues:
 

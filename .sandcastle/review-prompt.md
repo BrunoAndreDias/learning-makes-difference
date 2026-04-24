@@ -4,13 +4,17 @@ Review the code changes on branch `{{BRANCH}}` and improve code clarity, consist
 
 # CONTEXT
 
-## Branch diff
+## Changed files
 
-!`git diff main...{{BRANCH}}`
+!`git diff --stat main...{{BRANCH}}`
+
+!`git diff --name-only main...{{BRANCH}}`
 
 ## Commits on this branch
 
 !`git log main..{{BRANCH}} --oneline`
+
+Inspect only the files you need with targeted commands such as `git diff main...{{BRANCH}} -- <path>` and `sed -n`.
 
 # REVIEW PROCESS
 
