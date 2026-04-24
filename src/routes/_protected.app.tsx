@@ -29,32 +29,45 @@ const appNavigationItems = [
   },
 ] as const;
 
+function getActiveNavigationItem(pathname: string) {
+  return (
+    appNavigationItems.find((item) => pathname.startsWith(item.to)) ??
+    appNavigationItems[0]
+  );
+}
+
 function AppLayout() {
   const location = useLocation();
   const navigationId = useId();
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const activeItem = getActiveNavigationItem(location.pathname);
+  const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
+  const mobileSidebarState = isMobileSidebarOpen ? "true" : "false";
+  const sidebarToggleLabel = isSidebarCollapsed
+    ? "Expand sidebar"
+    : "Collapse sidebar";
+  const mobileToggleLabel = isMobileSidebarOpen
+    ? "Close navigation menu"
+    : "Open navigation menu";
 
-  const activeItem =
-    appNavigationItems.find((item) => location.pathname.startsWith(item.to)) ??
-    appNavigationItems[0];
+  function closeMobileSidebar() {
+    setMobileSidebarOpen(false);
+  }
 
   return (
-    <section
-      className="authenticated-shell"
-      data-mobile-nav-open={isMobileSidebarOpen ? "true" : "false"}
-    >
+    <section className="authenticated-shell">
       <aside
         aria-label="App sidebar"
         className="app-sidebar shell-panel"
-        data-mobile-open={isMobileSidebarOpen ? "true" : "false"}
-        data-sidebar-state={isSidebarCollapsed ? "collapsed" : "expanded"}
+        data-mobile-open={mobileSidebarState}
+        data-sidebar-state={sidebarState}
       >
         <div className="app-sidebar__header">
           <Link
             aria-label="Learning Makes Difference home"
             className="brand-lockup app-sidebar__brand"
-            onClick={() => setMobileSidebarOpen(false)}
+            onClick={closeMobileSidebar}
             to="/app/dashboard"
           >
             <img
@@ -76,9 +89,7 @@ function AppLayout() {
 
           <button
             aria-controls={navigationId}
-            aria-label={
-              isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
-            }
+            aria-label={sidebarToggleLabel}
             className="sidebar-toggle"
             onClick={() => setSidebarCollapsed((value) => !value)}
             type="button"
@@ -99,9 +110,8 @@ function AppLayout() {
                   activeProps={{
                     className: "app-sidebar__link app-sidebar__link-active",
                   }}
-                  aria-label={item.label}
                   className="app-sidebar__link"
-                  onClick={() => setMobileSidebarOpen(false)}
+                  onClick={closeMobileSidebar}
                   to={item.to}
                 >
                   <span aria-hidden="true" className="app-sidebar__icon">
@@ -136,12 +146,8 @@ function AppLayout() {
           <div className="app-frame__actions">
             <button
               aria-controls={navigationId}
-              aria-expanded={isMobileSidebarOpen ? "true" : "false"}
-              aria-label={
-                isMobileSidebarOpen
-                  ? "Close navigation menu"
-                  : "Open navigation menu"
-              }
+              aria-expanded={mobileSidebarState}
+              aria-label={mobileToggleLabel}
               className="sidebar-mobile-toggle"
               onClick={() => setMobileSidebarOpen((value) => !value)}
               type="button"
