@@ -2,11 +2,17 @@ export type AppSessionUser = {
   email: string;
   id: string;
   displayName: string;
+  interfaceLanguage: AppLanguagePreference;
+  studyLanguage: AppLanguagePreference;
 };
 
 export type AppSessionSnapshot = {
   user: AppSessionUser | null;
 };
+
+export const appLanguagePreferences = ["en", "es", "pt-BR"] as const;
+
+export type AppLanguagePreference = (typeof appLanguagePreferences)[number];
 
 type SessionListener = () => void;
 
@@ -21,12 +27,20 @@ type LoginInput = {
   password: string;
 };
 
+type UpdatePreferencesInput = {
+  displayName: string;
+  interfaceLanguage: AppLanguagePreference;
+  studyLanguage: AppLanguagePreference;
+};
+
 type StoredUserRecord = {
   id: string;
   displayName: string;
   email: string;
   passwordHash: string;
   passwordSalt: string;
+  interfaceLanguage: AppLanguagePreference;
+  studyLanguage: AppLanguagePreference;
 };
 
 type SessionStorageAdapter = Pick<
@@ -38,16 +52,23 @@ type SessionCrypto = Pick<Crypto, "randomUUID" | "subtle">;
 
 type CreateAppSessionContextOptions = {
   crypto?: SessionCrypto;
-  initialSnapshot?: AppSessionSnapshot;
   keyPrefix?: string;
   storage?: SessionStorageAdapter;
 };
 
 export class AppAuthError extends Error {
-  readonly code: "email_taken" | "invalid_credentials" | "invalid_input";
+  readonly code:
+    | "email_taken"
+    | "invalid_credentials"
+    | "invalid_input"
+    | "not_authenticated";
 
   constructor(
-    code: "email_taken" | "invalid_credentials" | "invalid_input",
+    code:
+      | "email_taken"
+      | "invalid_credentials"
+      | "invalid_input"
+      | "not_authenticated",
     message: string,
   ) {
     super(message);
@@ -61,6 +82,9 @@ export type AppSessionContext = {
   register: (input: RegisterInput) => Promise<AppSessionSnapshot>;
   login: (input: LoginInput) => Promise<AppSessionSnapshot>;
   logout: () => AppSessionSnapshot;
+  updatePreferences: (
+    input: UpdatePreferencesInput,
+  ) => Promise<AppSessionSnapshot>;
 };
 
 const DEFAULT_STORAGE_KEY_PREFIX = "learning-makes-difference-auth";
@@ -109,12 +133,21 @@ function parseStoredUsers(value: string | null): StoredUserRecord[] {
         typeof user.displayName === "string" &&
         typeof user.email === "string" &&
         typeof user.passwordHash === "string" &&
-        typeof user.passwordSalt === "string"
+        typeof user.passwordSalt === "string" &&
+        isLanguagePreference(user.interfaceLanguage) &&
+        isLanguagePreference(user.studyLanguage)
       );
     });
   } catch {
     return [];
   }
+}
+
+function isLanguagePreference(value: unknown): value is AppLanguagePreference {
+  return (
+    typeof value === "string" &&
+    appLanguagePreferences.includes(value as AppLanguagePreference)
+  );
 }
 
 function buildSnapshot(user: StoredUserRecord | null): AppSessionSnapshot {
@@ -127,6 +160,8 @@ function buildSnapshot(user: StoredUserRecord | null): AppSessionSnapshot {
       id: user.id,
       displayName: user.displayName,
       email: user.email,
+      interfaceLanguage: user.interfaceLanguage,
+      studyLanguage: user.studyLanguage,
     },
   };
 }
@@ -184,16 +219,52 @@ function validateEmail(email: string): string {
   return normalizedEmail;
 }
 
+function validateLanguagePreference(
+  value: string,
+  fieldLabel: string,
+): AppLanguagePreference {
+  if (!isLanguagePreference(value)) {
+    throw new AppAuthError(
+      "invalid_input",
+      `${fieldLabel} must be one of the supported language options.`,
+    );
+  }
+
+  return value;
+}
+
 export function hasActiveSession(session: AppSessionSnapshot): boolean {
   return session.user !== null;
 }
 
 export function createGuestSessionContext(): AppSessionContext {
-  return createAppSessionContext({
-    initialSnapshot: {
-      user: null,
+  const snapshot: AppSessionSnapshot = {
+    user: null,
+  };
+
+  return {
+    getSnapshot: () => snapshot,
+    subscribe: () => () => undefined,
+    register: async () => {
+      throw new AppAuthError(
+        "not_authenticated",
+        "Sign in to update account preferences.",
+      );
     },
-  });
+    login: async () => {
+      throw new AppAuthError(
+        "not_authenticated",
+        "Sign in to update account preferences.",
+      );
+    },
+    logout: () => snapshot,
+    updatePreferences: async () => {
+      throw new AppAuthError(
+        "not_authenticated",
+        "Sign in to update account preferences.",
+      );
+    },
+  };
 }
 
 export function createAppSessionContext(
@@ -203,7 +274,7 @@ export function createAppSessionContext(
   const cryptoProvider = options.crypto ?? getDefaultCrypto();
   const keyPrefix = options.keyPrefix ?? DEFAULT_STORAGE_KEY_PREFIX;
   const listeners = new Set<SessionListener>();
-  let snapshot = options.initialSnapshot ?? { user: null };
+  let snapshot: AppSessionSnapshot = { user: null };
 
   function notifyListeners() {
     for (const listener of listeners) {
@@ -281,6 +352,8 @@ export function createAppSessionContext(
           safePassword,
           passwordSalt,
         ),
+        interfaceLanguage: "en",
+        studyLanguage: "en",
       };
 
       users.push(nextUser);
@@ -328,6 +401,54 @@ export function createAppSessionContext(
     logout: () => {
       writeSessionUser(null);
       snapshot = { user: null };
+      notifyListeners();
+
+      return snapshot;
+    },
+    updatePreferences: async ({
+      displayName,
+      interfaceLanguage,
+      studyLanguage,
+    }) => {
+      const activeUserId = snapshot.user?.id;
+
+      if (activeUserId === undefined) {
+        throw new AppAuthError(
+          "not_authenticated",
+          "Sign in to update account preferences.",
+        );
+      }
+
+      const safeDisplayName = validateDisplayName(displayName);
+      const safeInterfaceLanguage = validateLanguagePreference(
+        interfaceLanguage,
+        "Interface language",
+      );
+      const safeStudyLanguage = validateLanguagePreference(
+        studyLanguage,
+        "Study language",
+      );
+      const users = readUsers();
+      const userIndex = users.findIndex((user) => user.id === activeUserId);
+
+      if (userIndex === -1) {
+        throw new AppAuthError(
+          "not_authenticated",
+          "Sign in to update account preferences.",
+        );
+      }
+
+      const nextUser: StoredUserRecord = {
+        ...users[userIndex],
+        displayName: safeDisplayName,
+        interfaceLanguage: safeInterfaceLanguage,
+        studyLanguage: safeStudyLanguage,
+      };
+
+      users[userIndex] = nextUser;
+      writeUsers(users);
+      writeSessionUser(nextUser);
+      snapshot = buildSnapshot(nextUser);
       notifyListeners();
 
       return snapshot;

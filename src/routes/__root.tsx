@@ -9,11 +9,13 @@ import {
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import type { ReactNode } from "react";
 
+import type { AppLabelsContext } from "../lib/labels";
 import type { AppNotesContext } from "../lib/notes";
 import type { AppSessionContext } from "../lib/session";
 import appCss from "../styles/app.css?url";
 
 export const Route = createRootRouteWithContext<{
+  labels: AppLabelsContext;
   notes: AppNotesContext;
   session: AppSessionContext;
 }>()({

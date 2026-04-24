@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type AppAuthError,
   createAppSessionContext,
+  createGuestSessionContext,
   hasActiveSession,
 } from "../src/lib/session";
 
@@ -22,6 +23,21 @@ function createMemoryStorage() {
 }
 
 describe("app session context", () => {
+  it("keeps guest sessions unauthenticated", async () => {
+    const session = createGuestSessionContext();
+
+    expect(hasActiveSession(session.getSnapshot())).toBe(false);
+
+    await expect(
+      session.login({
+        email: "guest@example.com",
+        password: "correct horse battery staple",
+      }),
+    ).rejects.toMatchObject({
+      code: "not_authenticated",
+    } satisfies Pick<AppAuthError, "code">);
+  });
+
   it("registers users with hashed credentials and restores the correct account on login", async () => {
     const storage = createMemoryStorage();
     const session = createAppSessionContext({
@@ -86,5 +102,51 @@ describe("app session context", () => {
     } satisfies Pick<AppAuthError, "code">);
 
     expect(hasActiveSession(session.getSnapshot())).toBe(false);
+  });
+
+  it("persists account preferences per user without leaking across accounts", async () => {
+    const storage = createMemoryStorage();
+    const session = createAppSessionContext({
+      keyPrefix: "session-test-preferences",
+      storage,
+    });
+
+    await session.register({
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      password: "correct horse battery staple",
+    });
+    session.logout();
+
+    await session.register({
+      displayName: "Jordan Review",
+      email: "jordan@example.com",
+      password: "second secure password",
+    });
+
+    await session.updatePreferences({
+      displayName: "Jordan Rivera",
+      interfaceLanguage: "pt-BR",
+      studyLanguage: "es",
+    });
+
+    expect(session.getSnapshot().user).toMatchObject({
+      displayName: "Jordan Rivera",
+      interfaceLanguage: "pt-BR",
+      studyLanguage: "es",
+    });
+
+    session.logout();
+
+    await session.login({
+      email: "casey@example.com",
+      password: "correct horse battery staple",
+    });
+
+    expect(session.getSnapshot().user).toMatchObject({
+      displayName: "Casey Learner",
+      interfaceLanguage: "en",
+      studyLanguage: "en",
+    });
   });
 });

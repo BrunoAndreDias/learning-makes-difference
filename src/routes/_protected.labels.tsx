@@ -1,41 +1,390 @@
 import { createFileRoute } from "@tanstack/react-router";
+import {
+  type FormEvent,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
-import { ProductAreaPlaceholder } from "./-product-area-placeholder";
+import { type AppLabel, AppLabelError } from "../lib/labels";
+import type { AppSessionSnapshot } from "../lib/session";
 
 export const Route = createFileRoute("/_protected/labels")({
-  component: LabelsPlaceholder,
+  component: LabelsPage,
 });
 
-function LabelsPlaceholder() {
-  return (
-    <ProductAreaPlaceholder
-      description="Labels will organize notes into a graph that can power browsing and recall selection."
-      heading="Labels placeholder"
-      intro="This stub reserves space for graph navigation, parent-child editing, and note assignment context in one consistent layout."
-      sections={[
-        {
-          description:
-            "A future label browser can switch between list and graph views without replacing the shell.",
-          title: "Label map",
-        },
-        {
-          description:
-            "Editing flows will need clear separation between label metadata and parent relationships.",
-          title: "Manage hierarchy",
-        },
-        {
-          description:
-            "Assigned note summaries should stay visible while taxonomy changes are made.",
-          title: "Review linked notes",
-        },
-      ]}
-      summary={
-        <p>
-          The placeholder demonstrates enough density to validate card spacing,
-          long-copy wrapping, and future mixed-content panels inside the shared
-          protected frame.
-        </p>
+function LabelsPage() {
+  const labels = Route.useRouteContext({
+    select: (context) => context.labels,
+  });
+  const session = Route.useRouteContext({
+    select: (context) => context.session,
+  });
+  const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
+    session.subscribe,
+    session.getSnapshot,
+    session.getSnapshot,
+  );
+  const currentUserId = sessionSnapshot.user?.id ?? "";
+  const [labelRecords, setLabelRecords] = useState<AppLabel[]>([]);
+  const [createName, setCreateName] = useState("");
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    function syncLabelRecords() {
+      if (currentUserId === "") {
+        setLabelRecords([]);
+        return;
       }
-    />
+
+      setLabelRecords(labels.getLabelsForUser(currentUserId));
+    }
+
+    syncLabelRecords();
+
+    return labels.subscribe(syncLabelRecords);
+  }, [currentUserId, labels]);
+
+  function handleError(error: unknown) {
+    if (error instanceof AppLabelError) {
+      setFeedbackMessage(error.message);
+      return;
+    }
+
+    setFeedbackMessage("Label update failed. Try again.");
+  }
+
+  function runLabelAction(action: () => void) {
+    try {
+      action();
+      setFeedbackMessage(null);
+    } catch (error) {
+      handleError(error);
+    }
+  }
+
+  function handleCreateLabel(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (currentUserId === "") {
+      return;
+    }
+
+    runLabelAction(() => {
+      labels.createLabel({
+        name: createName,
+        userId: currentUserId,
+      });
+      setCreateName("");
+    });
+  }
+
+  function renameLabel(labelId: string, name: string) {
+    if (currentUserId === "") {
+      return;
+    }
+
+    runLabelAction(() => {
+      labels.renameLabel({
+        labelId,
+        name,
+        userId: currentUserId,
+      });
+    });
+  }
+
+  function deleteLabel(labelId: string) {
+    if (currentUserId === "") {
+      return;
+    }
+
+    runLabelAction(() => {
+      labels.deleteLabel({
+        labelId,
+        userId: currentUserId,
+      });
+    });
+  }
+
+  function addParent(labelId: string, parentId: string) {
+    if (currentUserId === "" || parentId === "") {
+      return;
+    }
+
+    runLabelAction(() => {
+      labels.addParent({
+        labelId,
+        parentId,
+        userId: currentUserId,
+      });
+    });
+  }
+
+  function removeParent(labelId: string, parentId: string) {
+    if (currentUserId === "") {
+      return;
+    }
+
+    runLabelAction(() => {
+      labels.removeParent({
+        labelId,
+        parentId,
+        userId: currentUserId,
+      });
+    });
+  }
+
+  return (
+    <section className="labels-page">
+      <article className="card stack panel-protected">
+        <p className="section-label">Topic management</p>
+        <h3>Manage your label graph</h3>
+        <p>
+          Create labels, rename them in place, and connect parent-child
+          relationships without allowing cycles into the graph.
+        </p>
+        <div className="tag-row">
+          <span className="tag">{labelRecords.length} labels</span>
+          <span className="tag">Account scoped</span>
+          <span className="tag">DAG-safe validation</span>
+        </div>
+      </article>
+
+      <div className="placeholder-grid labels-layout">
+        <article className="card stack">
+          <p className="section-label">Create label</p>
+          <form
+            aria-label="Create label form"
+            className="auth-form"
+            onSubmit={handleCreateLabel}
+          >
+            <label className="auth-form__field">
+              <span>New label name</span>
+              <input
+                name="newLabelName"
+                onChange={(event) => setCreateName(event.target.value)}
+                type="text"
+                value={createName}
+              />
+            </label>
+            <button className="auth-form__submit" type="submit">
+              Create label
+            </button>
+          </form>
+
+          {feedbackMessage !== null ? (
+            <p
+              aria-label="Label management feedback"
+              className="auth-form__error"
+              role="alert"
+            >
+              {feedbackMessage}
+            </p>
+          ) : null}
+        </article>
+
+        <article className="card stack">
+          <p className="section-label">Graph rules</p>
+          <ul className="placeholder-list">
+            <li>
+              <strong>Scoped data</strong>
+              <p>Each account can only read and mutate its own labels.</p>
+            </li>
+            <li>
+              <strong>Multiple parents</strong>
+              <p>
+                A label can belong to more than one broader topic when the graph
+                stays acyclic.
+              </p>
+            </li>
+            <li>
+              <strong>Cycle rejection</strong>
+              <p>
+                Parent assignment is blocked when it would make a label reach
+                itself through descendants.
+              </p>
+            </li>
+          </ul>
+        </article>
+      </div>
+
+      <section className="labels-list" aria-label="Labels list">
+        {labelRecords.length === 0 ? (
+          <article className="card stack">
+            <p className="section-label">No labels yet</p>
+            <p>
+              Start with a broad topic, then add narrower labels and connect
+              them as the graph takes shape.
+            </p>
+          </article>
+        ) : (
+          labelRecords.map((label) => (
+            <LabelCard
+              addParent={addParent}
+              allLabels={labelRecords}
+              deleteLabel={deleteLabel}
+              key={label.id}
+              label={label}
+              removeParent={removeParent}
+              renameLabel={renameLabel}
+              userId={currentUserId}
+            />
+          ))
+        )}
+      </section>
+    </section>
+  );
+}
+
+function LabelCard({
+  addParent,
+  allLabels,
+  deleteLabel,
+  label,
+  removeParent,
+  renameLabel,
+  userId,
+}: Readonly<{
+  addParent: (labelId: string, parentId: string) => void;
+  allLabels: AppLabel[];
+  deleteLabel: (labelId: string) => void;
+  label: AppLabel;
+  removeParent: (labelId: string, parentId: string) => void;
+  renameLabel: (labelId: string, name: string) => void;
+  userId: string;
+}>) {
+  const labels = Route.useRouteContext({
+    select: (context) => context.labels,
+  });
+  const [nextName, setNextName] = useState(label.name);
+  const [selectedParentId, setSelectedParentId] = useState("");
+  const parentLabels = label.parentIds
+    .map((parentId) => allLabels.find((candidate) => candidate.id === parentId))
+    .filter((parent): parent is AppLabel => parent !== undefined)
+    .sort((left, right) => left.name.localeCompare(right.name));
+  const availableParents = allLabels.filter((candidate) => {
+    return candidate.id !== label.id && !label.parentIds.includes(candidate.id);
+  });
+  const descendantNames = labels
+    .getDescendantIds({
+      labelId: label.id,
+      userId,
+    })
+    .map(
+      (descendantId: string) =>
+        allLabels.find((candidate) => candidate.id === descendantId)?.name ??
+        descendantId,
+    )
+    .sort((left: string, right: string) => left.localeCompare(right));
+
+  function handleRename(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    renameLabel(label.id, nextName);
+  }
+
+  function handleAddParent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    addParent(label.id, selectedParentId);
+    setSelectedParentId("");
+  }
+
+  return (
+    <article className="card stack labels-card">
+      <div className="labels-card__header">
+        <div className="stack">
+          <p className="section-label">Label</p>
+          <h3>{label.name}</h3>
+        </div>
+        <button
+          className="labels-card__button labels-card__button-danger"
+          onClick={() => deleteLabel(label.id)}
+          type="button"
+        >
+          Delete {label.name}
+        </button>
+      </div>
+
+      <form
+        aria-label={`Rename ${label.name}`}
+        className="auth-form labels-card__form"
+        onSubmit={handleRename}
+      >
+        <label className="auth-form__field">
+          <span>Label name</span>
+          <input
+            onChange={(event) => setNextName(event.target.value)}
+            type="text"
+            value={nextName}
+          />
+        </label>
+        <button className="labels-card__button" type="submit">
+          Save name
+        </button>
+      </form>
+
+      <div className="labels-card__meta">
+        <section className="stack">
+          <p className="section-label">Parents</p>
+          {parentLabels.length === 0 ? (
+            <p className="muted">No parents assigned yet.</p>
+          ) : (
+            <ul className="labels-card__relationship-list">
+              {parentLabels.map((parent) => (
+                <li key={parent.id}>
+                  <span className="tag">{parent.name}</span>
+                  <button
+                    className="labels-card__inline-action"
+                    onClick={() => removeParent(label.id, parent.id)}
+                    type="button"
+                  >
+                    Remove parent {parent.name} from {label.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <form
+          aria-label={`Add parent for ${label.name}`}
+          className="auth-form labels-card__form"
+          onSubmit={handleAddParent}
+        >
+          <label className="auth-form__field">
+            <span>Add parent label</span>
+            <select
+              className="labels-card__select"
+              onChange={(event) => setSelectedParentId(event.target.value)}
+              value={selectedParentId}
+            >
+              <option value="">Choose a parent</option>
+              {availableParents.map((candidate) => (
+                <option key={candidate.id} value={candidate.id}>
+                  {candidate.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="labels-card__button" type="submit">
+            Add parent
+          </button>
+        </form>
+      </div>
+
+      <section className="stack">
+        <p className="section-label">Descendants</p>
+        {descendantNames.length === 0 ? (
+          <p className="muted">No descendants yet.</p>
+        ) : (
+          <div className="tag-row">
+            {descendantNames.map((name: string) => (
+              <span className="tag" key={name}>
+                {name}
+              </span>
+            ))}
+          </div>
+        )}
+      </section>
+    </article>
   );
 }

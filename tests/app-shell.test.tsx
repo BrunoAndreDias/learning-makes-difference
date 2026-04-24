@@ -15,6 +15,10 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  type AppLabelsContext,
+  createAppLabelsContext,
+} from "../src/lib/labels";
 import { type AppNotesContext, createAppNotesContext } from "../src/lib/notes";
 import {
   type AppSessionContext,
@@ -26,6 +30,7 @@ import { routeTree } from "../src/routeTree.gen";
 function renderRoute(
   initialPath: string,
   options: {
+    labelsContext?: AppLabelsContext;
     notesContext?: AppNotesContext;
     session?: AppSessionSnapshot;
     sessionContext?: AppSessionContext;
@@ -36,6 +41,8 @@ function renderRoute(
       displayName: "Placeholder user",
       email: "placeholder@example.com",
       id: "user-placeholder",
+      interfaceLanguage: "en",
+      studyLanguage: "en",
     },
   };
   const sessionContext = options.sessionContext ?? {
@@ -46,7 +53,17 @@ function renderRoute(
     logout: () => ({ user: null }),
     register: () =>
       Promise.reject(new Error("Static test session cannot register.")),
+    updatePreferences: () =>
+      Promise.reject(
+        new Error("Static test session cannot update preferences."),
+      ),
   };
+  const labelsContext =
+    options.labelsContext ??
+    createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
   const notesContext =
     options.notesContext ??
     createAppNotesContext({
@@ -59,6 +76,7 @@ function renderRoute(
       initialEntries: [initialPath],
     }),
     context: {
+      labels: labelsContext,
       notes: notesContext,
       session: sessionContext,
     },
@@ -119,7 +137,7 @@ describe("authenticated app shell", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Registration form" }));
 
     expect(
-      await screen.findByRole("heading", { name: "Settings placeholder" }),
+      await screen.findByRole("heading", { name: "Settings" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Casey Learner")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/settings");
@@ -168,6 +186,77 @@ describe("authenticated app shell", () => {
     expect(router.state.location.pathname).toBe("/history");
   });
 
+  it("updates account preferences from settings and restores them for the same account", async () => {
+    const sessionContext = createAppSessionContext({
+      keyPrefix: `test-auth-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    await sessionContext.register({
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      password: "correct horse battery staple",
+    });
+
+    renderRoute("/settings", { sessionContext });
+
+    expect(
+      await screen.findByRole("heading", { name: "Settings" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Display name"), {
+      target: { value: "Casey Rivers" },
+    });
+    fireEvent.change(screen.getByLabelText("Interface language"), {
+      target: { value: "pt-BR" },
+    });
+    fireEvent.change(screen.getByLabelText("Study language"), {
+      target: { value: "es" },
+    });
+    fireEvent.submit(
+      screen.getByRole("form", { name: "Account preferences form" }),
+    );
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Preferences saved.",
+    );
+    expect(screen.getAllByText("Casey Rivers")).not.toHaveLength(0);
+    expect(screen.getByLabelText("Interface language")).toHaveValue("pt-BR");
+    expect(screen.getByLabelText("Study language")).toHaveValue("es");
+
+    fireEvent.click(screen.getByRole("button", { name: "Log out" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Welcome back" }),
+    ).toBeInTheDocument();
+
+    cleanup();
+
+    const { router } = renderRoute("/login?redirect=%2Fsettings", {
+      sessionContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Welcome back" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "casey@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Login form" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Settings" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/settings");
+    expect(screen.getByLabelText("Display name")).toHaveValue("Casey Rivers");
+    expect(screen.getByLabelText("Interface language")).toHaveValue("pt-BR");
+    expect(screen.getByLabelText("Study language")).toHaveValue("es");
+  });
+
   it("renders the shell landmarks, supports sidebar states, and navigates across protected placeholders", async () => {
     renderRoute("/settings");
 
@@ -209,7 +298,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(labelsLink);
 
     expect(
-      await screen.findByRole("heading", { name: "Labels placeholder" }),
+      await screen.findByRole("heading", { name: "Labels" }),
     ).toBeInTheDocument();
     expect(labelsLink).toHaveAttribute("aria-current", "page");
 
@@ -294,6 +383,8 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
         },
       },
     });
@@ -338,5 +429,117 @@ describe("authenticated app shell", () => {
         "Reviewing at expanding intervals improves recall over long spans.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("manages labels and rejects cycle-causing parent relationships", async () => {
+    const sessionContext = createAppSessionContext({
+      keyPrefix: `test-auth-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    await sessionContext.register({
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      password: "correct horse battery staple",
+    });
+
+    renderRoute("/labels", { sessionContext });
+
+    expect(
+      await screen.findByRole("heading", { name: "Labels" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("New label name"), {
+      target: { value: "Science" },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Create label form" }));
+
+    expect(await screen.findByDisplayValue("Science")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("New label name"), {
+      target: { value: "Biology" },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Create label form" }));
+
+    const biologySection = (
+      await screen.findByRole("heading", {
+        name: "Biology",
+      })
+    ).closest("article");
+
+    if (biologySection === null) {
+      throw new Error("Biology card not found.");
+    }
+
+    const scienceOption = within(biologySection).getByRole("option", {
+      name: "Science",
+    }) as HTMLOptionElement;
+
+    fireEvent.change(
+      within(biologySection).getByLabelText("Add parent label"),
+      {
+        target: { value: scienceOption.value },
+      },
+    );
+    fireEvent.submit(
+      within(biologySection).getByRole("form", {
+        name: "Add parent for Biology",
+      }),
+    );
+
+    expect(within(biologySection).getByText("Science")).toBeInTheDocument();
+
+    const scienceSection = (
+      await screen.findByRole("heading", {
+        name: "Science",
+      })
+    ).closest("article");
+
+    if (scienceSection === null) {
+      throw new Error("Science card not found.");
+    }
+
+    const biologyOption = within(scienceSection).getByRole("option", {
+      name: "Biology",
+    }) as HTMLOptionElement;
+
+    fireEvent.change(
+      within(scienceSection).getByLabelText("Add parent label"),
+      {
+        target: { value: biologyOption.value },
+      },
+    );
+    fireEvent.submit(
+      within(scienceSection).getByRole("form", {
+        name: "Add parent for Science",
+      }),
+    );
+
+    expect(
+      await screen.findByRole("alert", {
+        name: "Label management feedback",
+      }),
+    ).toHaveTextContent("create a cycle");
+
+    fireEvent.change(within(scienceSection).getByLabelText("Label name"), {
+      target: { value: "Natural Science" },
+    });
+    fireEvent.submit(
+      within(scienceSection).getByRole("form", {
+        name: "Rename Science",
+      }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Natural Science" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(biologySection).getByRole("button", { name: "Delete Biology" }),
+    );
+
+    expect(
+      screen.queryByRole("heading", { name: "Biology" }),
+    ).not.toBeInTheDocument();
   });
 });
