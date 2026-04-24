@@ -24,6 +24,34 @@
 import * as sandcastle from "@ai-hero/sandcastle";
 import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
 
+function extractAgentText(stdout: string): string {
+  const texts: string[] = [];
+
+  for (const line of stdout.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    try {
+      const event = JSON.parse(trimmed) as {
+        type?: string;
+        item?: { type?: string; text?: string };
+      };
+
+      if (
+        event.type === "item.completed" &&
+        event.item?.type === "agent_message" &&
+        typeof event.item.text === "string"
+      ) {
+        texts.push(event.item.text);
+      }
+    } catch {
+      // Ignore non-JSON lines and keep scanning.
+    }
+  }
+
+  return texts.join("\n");
+}
+
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
@@ -32,14 +60,16 @@ import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
 // Raise this if your backlog is large; lower it for a quick smoke-test run.
 const MAX_ITERATIONS = 10;
 
-// Hooks run inside the sandbox before the agent starts each iteration.
-// npm install ensures the sandbox always has fresh dependencies.
+// No startup install hook for now.
+// This repo does not yet have a runnable app stack inside the sandbox, and
+// forcing a package-manager install during sandbox boot adds avoidable failure
+// points. Reintroduce a pnpm hook later when the project actually needs it.
 const hooks = {
-  sandbox: { onSandboxReady: [{ command: "npm install" }] },
+  sandbox: { onSandboxReady: [] },
 };
 
 // Copy node_modules from the host into the worktree before each sandbox
-// starts. Avoids a full npm install from scratch; the hook above handles
+// starts. Avoids a full reinstall from scratch; the hook above handles
 // platform-specific binaries and any packages added since the last copy.
 const copyToWorktree = ["node_modules"];
 
@@ -79,16 +109,39 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     promptFile: "./.sandcastle/plan-prompt.md",
   });
 
-  // Extract the <plan>…</plan> block from the agent's stdout.
-  const planMatch = plan.stdout.match(/<plan>([\s\S]*?)<\/plan>/);
+  const plannerText = extractAgentText(plan.stdout);
+
+  // Extract the <plan>…</plan> block from the planner agent message.
+  const planMatch = plannerText.match(/<plan>([\s\S]*?)<\/plan>/);
   if (!planMatch) {
     throw new Error(
-      "Planning agent did not produce a <plan> tag.\n\n" + plan.stdout,
+      "Planning agent did not produce a <plan> tag.\n\n" + plannerText,
     );
   }
 
+  const rawPlan = planMatch[1]!.trim();
+  const normalizedPlan = rawPlan
+    .replace(/^```(?:json)?\s*/, "")
+    .replace(/\s*```$/, "")
+    .replace(/\\n/g, "\n")
+    .trim();
+
   // The plan JSON contains an array of issues, each with id, title, branch.
-  const { issues } = JSON.parse(planMatch[1]!) as {
+  let parsedPlan: unknown;
+  try {
+    parsedPlan = JSON.parse(normalizedPlan);
+  } catch {
+    throw new Error(
+      "Planning agent produced an invalid <plan> payload.\n\n" +
+        normalizedPlan +
+        "\n\nPlanner text:\n" +
+        plannerText +
+        "\n\nFull stdout:\n" +
+        plan.stdout,
+    );
+  }
+
+  const { issues } = parsedPlan as {
     issues: { id: string; title: string; branch: string }[];
   };
 
