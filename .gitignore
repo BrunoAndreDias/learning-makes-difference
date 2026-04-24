@@ -4,6 +4,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+!.env.schema
 
 dist/
 build/
@@ -12,5 +13,6 @@ build/
 
 coverage/
 *.log
+/.vite/
 
 .DS_Store
