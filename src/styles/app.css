@@ -456,6 +456,43 @@ h3 {
   gap: var(--space-3);
 }
 
+.notes-topic-context,
+.notes-labels {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.notes-labels {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid rgba(215, 222, 234, 0.9);
+  border-radius: var(--radius-lg);
+}
+
+.notes-labels legend {
+  padding: 0 0.35rem;
+  color: var(--color-content-strong);
+  font-weight: 700;
+}
+
+.notes-labels__options {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.notes-labels__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--color-content-strong);
+  font-weight: 600;
+}
+
+.notes-labels__option input {
+  width: 1rem;
+  height: 1rem;
+}
+
 .notes-form__field {
   display: grid;
   gap: 0.35rem;

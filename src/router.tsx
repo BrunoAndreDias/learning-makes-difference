@@ -6,10 +6,15 @@ import { createAppSessionContext } from "./lib/session";
 import { routeTree } from "./routeTree.gen";
 
 export function getRouter() {
+  const labels = createAppLabelsContext();
+
   return createRouter({
     context: {
-      notes: createAppNotesContext(),
-      labels: createAppLabelsContext(),
+      notes: createAppNotesContext({
+        getOwnedLabelIdsForUser: (userId) =>
+          labels.getLabelsForUser(userId).map((label) => label.id),
+      }),
+      labels,
       session: createAppSessionContext(),
     },
     routeTree,

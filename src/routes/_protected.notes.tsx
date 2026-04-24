@@ -6,6 +6,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import type { AppLabel } from "../lib/labels";
 import {
   type AppNote,
   AppNotesError,
@@ -20,11 +21,13 @@ export const Route = createFileRoute("/_protected/notes")({
 
 type NoteEditorState = {
   body: string;
+  labelIds: string[];
   title: string;
 };
 
 const emptyEditorState: NoteEditorState = {
   body: "",
+  labelIds: [],
   title: "",
 };
 
@@ -35,8 +38,17 @@ function getEditorState(note: AppNote | null): NoteEditorState {
 
   return {
     body: note.body,
+    labelIds: note.labelIds,
     title: note.title,
   };
+}
+
+function haveSameLabelIds(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((labelId, index) => labelId === right[index]);
 }
 
 function NotesWorkspace() {
@@ -45,6 +57,9 @@ function NotesWorkspace() {
   });
   const sessionContext = Route.useRouteContext({
     select: (context) => context.session,
+  });
+  const labelsContext = Route.useRouteContext({
+    select: (context) => context.labels,
   });
   const notesSnapshot = useSyncExternalStore<readonly AppStoredNote[]>(
     notesContext.subscribe,
@@ -58,6 +73,7 @@ function NotesWorkspace() {
   );
   const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
+  const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
   const firstNoteId = notes[0]?.id ?? null;
   const [isCreatingNew, setIsCreatingNew] = useState(notes.length === 0);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(
@@ -73,8 +89,22 @@ function NotesWorkspace() {
       : (notes.find((note) => note.id === selectedNoteId) ?? null);
   const isCreating = selectedNote === null;
   const selectedNoteEditorState = getEditorState(selectedNote);
-  const selectedNoteTitle = selectedNoteEditorState.title;
-  const selectedNoteBody = selectedNoteEditorState.body;
+  const selectedNoteUpdatedAt = selectedNote?.updatedAt ?? null;
+
+  useEffect(() => {
+    function syncLabels() {
+      if (userId === null) {
+        setAvailableLabels([]);
+        return;
+      }
+
+      setAvailableLabels(labelsContext.getLabelsForUser(userId));
+    }
+
+    syncLabels();
+
+    return labelsContext.subscribe(syncLabels);
+  }, [labelsContext, userId]);
 
   useEffect(() => {
     if (firstNoteId === null) {
@@ -87,28 +117,40 @@ function NotesWorkspace() {
       return;
     }
 
-    if (selectedNoteId !== null && selectedNoteTitle !== "") {
+    if (selectedNoteId !== null && selectedNote !== null) {
       return;
     }
 
     setSelectedNoteId(firstNoteId);
-  }, [firstNoteId, isCreatingNew, selectedNoteId, selectedNoteTitle]);
+  }, [firstNoteId, isCreatingNew, selectedNote, selectedNoteId]);
 
   useEffect(() => {
+    const nextEditorState = getEditorState(selectedNote);
+
     setEditorState((currentState) => {
+      if (selectedNote === null) {
+        if (
+          currentState.title === emptyEditorState.title &&
+          currentState.body === emptyEditorState.body &&
+          haveSameLabelIds(currentState.labelIds, emptyEditorState.labelIds)
+        ) {
+          return currentState;
+        }
+
+        return emptyEditorState;
+      }
+
       if (
-        currentState.title === selectedNoteTitle &&
-        currentState.body === selectedNoteBody
+        currentState.title === nextEditorState.title &&
+        currentState.body === nextEditorState.body &&
+        haveSameLabelIds(currentState.labelIds, nextEditorState.labelIds)
       ) {
         return currentState;
       }
 
-      return {
-        body: selectedNoteBody,
-        title: selectedNoteTitle,
-      };
+      return nextEditorState;
     });
-  }, [selectedNoteBody, selectedNoteTitle]);
+  }, [isCreating, selectedNote?.id, selectedNoteUpdatedAt]);
 
   function handleEditorChange<K extends keyof NoteEditorState>(
     field: K,
@@ -118,6 +160,24 @@ function NotesWorkspace() {
       ...currentState,
       [field]: value,
     }));
+  }
+
+  function handleLabelToggle(labelId: string, checked: boolean) {
+    setEditorState((currentState) => {
+      if (checked) {
+        return {
+          ...currentState,
+          labelIds: [...new Set([...currentState.labelIds, labelId])],
+        };
+      }
+
+      return {
+        ...currentState,
+        labelIds: currentState.labelIds.filter(
+          (candidateId) => candidateId !== labelId,
+        ),
+      };
+    });
   }
 
   function handleNewNote() {
@@ -155,6 +215,10 @@ function NotesWorkspace() {
       throw error;
     }
   }
+
+  const selectedLabels = availableLabels.filter((label) =>
+    editorState.labelIds.includes(label.id),
+  );
 
   return (
     <section className="stack">
@@ -252,6 +316,49 @@ function NotesWorkspace() {
                 value={editorState.body}
               />
             </label>
+
+            <section aria-label="Topic context" className="notes-topic-context">
+              <div className="stack">
+                <p className="section-label">Topic context</p>
+                <h4>Labels on this note</h4>
+                {selectedLabels.length === 0 ? (
+                  <p className="muted">This note is currently unlabeled.</p>
+                ) : (
+                  <div aria-label="Assigned labels" className="tag-row">
+                    {selectedLabels.map((label) => (
+                      <span className="tag" key={label.id}>
+                        {label.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {availableLabels.length === 0 ? (
+                <p className="muted">
+                  Create labels in the Labels area to attach topic context to
+                  this note.
+                </p>
+              ) : (
+                <fieldset className="notes-labels">
+                  <legend>Assign labels</legend>
+                  <div className="notes-labels__options">
+                    {availableLabels.map((label) => (
+                      <label className="notes-labels__option" key={label.id}>
+                        <input
+                          checked={editorState.labelIds.includes(label.id)}
+                          onChange={(event) =>
+                            handleLabelToggle(label.id, event.target.checked)
+                          }
+                          type="checkbox"
+                        />
+                        <span>{label.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
+            </section>
 
             {errorMessage === null ? null : (
               <p className="auth-form__error" role="alert">

@@ -2,6 +2,7 @@ export type AppNote = {
   body: string;
   createdAt: string;
   id: string;
+  labelIds: string[];
   title: string;
   updatedAt: string;
 };
@@ -14,6 +15,7 @@ type NotesListener = () => void;
 
 type CreateNoteInput = {
   body: string;
+  labelIds: string[];
   title: string;
 };
 
@@ -23,8 +25,11 @@ type NotesStorageAdapter = Pick<Storage, "getItem" | "setItem">;
 
 type NotesCrypto = Pick<Crypto, "randomUUID">;
 
+type OwnedLabelIdsLookup = (userId: string) => readonly string[];
+
 type CreateAppNotesContextOptions = {
   crypto?: NotesCrypto;
+  getOwnedLabelIdsForUser?: OwnedLabelIdsLookup;
   keyPrefix?: string;
   storage?: NotesStorageAdapter;
 };
@@ -90,10 +95,18 @@ function parseStoredNotes(value: string | null): AppStoredNote[] {
         typeof note.userId === "string" &&
         typeof note.title === "string" &&
         typeof note.body === "string" &&
+        (note.labelIds === undefined ||
+          (Array.isArray(note.labelIds) &&
+            note.labelIds.every(
+              (labelId: unknown) => typeof labelId === "string",
+            ))) &&
         typeof note.createdAt === "string" &&
         typeof note.updatedAt === "string"
       );
-    });
+    }).map((note) => ({
+      ...note,
+      labelIds: Array.isArray(note.labelIds) ? note.labelIds : [],
+    }));
   } catch {
     return [];
   }
@@ -127,9 +140,37 @@ function validateBody(body: string): string {
   return trimmedValue;
 }
 
+function validateLabelIds(
+  labelIds: string[],
+  options: {
+    getOwnedLabelIdsForUser?: OwnedLabelIdsLookup;
+    userId: string;
+  },
+): string[] {
+  const normalizedLabelIds = [...new Set(labelIds.filter(Boolean))];
+
+  if (options.getOwnedLabelIdsForUser === undefined) {
+    return normalizedLabelIds;
+  }
+
+  const ownedLabelIds = new Set(
+    options.getOwnedLabelIdsForUser(options.userId),
+  );
+
+  if (normalizedLabelIds.every((labelId) => ownedLabelIds.has(labelId))) {
+    return normalizedLabelIds;
+  }
+
+  throw new AppNotesError(
+    "invalid_input",
+    "Notes can only be assigned to labels owned by this account.",
+  );
+}
+
 function toPublicNote(note: AppStoredNote): AppNote {
   return {
     id: note.id,
+    labelIds: [...note.labelIds],
     title: note.title,
     body: note.body,
     createdAt: note.createdAt,
@@ -160,6 +201,7 @@ export function createAppNotesContext(
 ): AppNotesContext {
   const storage = options.storage ?? getDefaultStorage();
   const cryptoProvider = options.crypto ?? getDefaultCrypto();
+  const getOwnedLabelIdsForUser = options.getOwnedLabelIdsForUser;
   const keyPrefix = options.keyPrefix ?? DEFAULT_STORAGE_KEY_PREFIX;
   const listeners = new Set<NotesListener>();
   let snapshot: readonly AppStoredNote[] = parseStoredNotes(
@@ -186,6 +228,10 @@ export function createAppNotesContext(
         body: validateBody(input.body),
         createdAt: timestamp,
         id: cryptoProvider.randomUUID(),
+        labelIds: validateLabelIds(input.labelIds, {
+          getOwnedLabelIdsForUser,
+          userId: validatedUserId,
+        }),
         title: validateTitle(input.title),
         updatedAt: timestamp,
         userId: validatedUserId,
@@ -220,6 +266,10 @@ export function createAppNotesContext(
       const nextNote: AppStoredNote = {
         ...existingNote,
         body: validateBody(input.body),
+        labelIds: validateLabelIds(input.labelIds, {
+          getOwnedLabelIdsForUser,
+          userId: validatedUserId,
+        }),
         title: validateTitle(input.title),
         updatedAt: new Date().toISOString(),
       };

@@ -67,6 +67,8 @@ function renderRoute(
   const notesContext =
     options.notesContext ??
     createAppNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labelsContext.getLabelsForUser(userId).map((label) => label.id),
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
     });
@@ -429,6 +431,65 @@ describe("authenticated app shell", () => {
         "Reviewing at expanding intervals improves recall over long spans.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("assigns and removes owned labels from a note inside the notes workspace", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+
+    labelsContext.createLabel({
+      name: "Biology",
+      userId,
+    });
+    labelsContext.createLabel({
+      name: "Science",
+      userId,
+    });
+
+    renderRoute("/notes", {
+      labelsContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("This note is currently unlabeled.")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Cell respiration" },
+    });
+    fireEvent.change(screen.getByLabelText("Body"), {
+      target: {
+        value: "Cells convert glucose into usable energy through staged reactions.",
+      },
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Science" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Biology" }));
+    fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
+
+    const topicContext = await screen.findByLabelText("Topic context");
+    const assignedLabels = within(topicContext).getByLabelText("Assigned labels");
+
+    expect(within(assignedLabels).getByText("Science")).toBeInTheDocument();
+    expect(within(assignedLabels).getByText("Biology")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Biology" }));
+    fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
+
+    expect(within(assignedLabels).getByText("Science")).toBeInTheDocument();
+    expect(within(assignedLabels).queryByText("Biology")).not.toBeInTheDocument();
   });
 
   it("manages labels and rejects cycle-causing parent relationships", async () => {
