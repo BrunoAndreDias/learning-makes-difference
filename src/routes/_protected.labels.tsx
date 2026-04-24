@@ -6,7 +6,11 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { type AppLabel, AppLabelError } from "../lib/labels";
+import {
+  type AppLabel,
+  AppLabelError,
+  type AppLabelsContext,
+} from "../lib/labels";
 import type { AppSessionSnapshot } from "../lib/session";
 
 export const Route = createFileRoute("/_protected/labels")({
@@ -227,6 +231,7 @@ function LabelsPage() {
               label={label}
               removeParent={removeParent}
               renameLabel={renameLabel}
+              labels={labels}
               userId={currentUserId}
             />
           ))
@@ -243,19 +248,18 @@ function LabelCard({
   label,
   removeParent,
   renameLabel,
+  labels,
   userId,
 }: Readonly<{
   addParent: (labelId: string, parentId: string) => void;
   allLabels: AppLabel[];
   deleteLabel: (labelId: string) => void;
   label: AppLabel;
+  labels: Pick<AppLabelsContext, "getDescendantIds">;
   removeParent: (labelId: string, parentId: string) => void;
   renameLabel: (labelId: string, name: string) => void;
   userId: string | null;
 }>) {
-  const labels = Route.useRouteContext({
-    select: (context) => context.labels,
-  });
   const [nextName, setNextName] = useState(label.name);
   const [selectedParentId, setSelectedParentId] = useState("");
   const parentLabels = label.parentIds
@@ -265,7 +269,7 @@ function LabelCard({
   const availableParents = allLabels.filter((candidate) => {
     return candidate.id !== label.id && !label.parentIds.includes(candidate.id);
   });
-  const descendantNames =
+  const descendantLabels =
     userId === null
       ? []
       : labels
@@ -273,12 +277,19 @@ function LabelCard({
             labelId: label.id,
             userId,
           })
-          .map(
-            (descendantId: string) =>
-              allLabels.find((candidate) => candidate.id === descendantId)
-                ?.name ?? descendantId,
-          )
-          .sort((left: string, right: string) => left.localeCompare(right));
+          .map((descendantId: string) => {
+            const descendant = allLabels.find(
+              (candidate) => candidate.id === descendantId,
+            );
+
+            return {
+              id: descendantId,
+              name: descendant?.name ?? descendantId,
+            };
+          })
+          .sort((left: { name: string }, right: { name: string }) =>
+            left.name.localeCompare(right.name),
+          );
 
   function handleRename(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -376,13 +387,13 @@ function LabelCard({
 
       <section className="stack">
         <p className="section-label">Descendants</p>
-        {descendantNames.length === 0 ? (
+        {descendantLabels.length === 0 ? (
           <p className="muted">No descendants yet.</p>
         ) : (
           <div className="tag-row">
-            {descendantNames.map((name: string) => (
-              <span className="tag" key={name}>
-                {name}
+            {descendantLabels.map((descendant) => (
+              <span className="tag" key={descendant.id}>
+                {descendant.name}
               </span>
             ))}
           </div>

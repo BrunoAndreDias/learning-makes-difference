@@ -90,8 +90,7 @@ function isStoredMetaphor(value: unknown): value is AppMetaphor {
   const record = value as Record<string, unknown>;
 
   return (
-    typeof record.title === "string" &&
-    typeof record.explanation === "string"
+    typeof record.title === "string" && typeof record.explanation === "string"
   );
 }
 

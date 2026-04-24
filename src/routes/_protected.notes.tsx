@@ -20,10 +20,14 @@ export const Route = createFileRoute("/_protected/notes")({
   component: NotesWorkspace,
 });
 
+type NoteMetaphorEditor = AppMetaphor & {
+  key: string;
+};
+
 type NoteEditorState = {
   body: string;
   labelIds: string[];
-  metaphors: AppMetaphor[];
+  metaphors: NoteMetaphorEditor[];
   title: string;
 };
 
@@ -34,6 +38,26 @@ const emptyEditorState: NoteEditorState = {
   title: "",
 };
 
+function createNoteMetaphorEditor(
+  metaphor: AppMetaphor = {
+    explanation: "",
+    title: "",
+  },
+): NoteMetaphorEditor {
+  return {
+    ...metaphor,
+    key: globalThis.crypto.randomUUID(),
+  };
+}
+
+function toStoredMetaphor(metaphor: NoteMetaphorEditor): AppMetaphor {
+  const { key, ...storedMetaphor } = metaphor;
+
+  void key;
+
+  return storedMetaphor;
+}
+
 function getEditorState(note: AppNote | null): NoteEditorState {
   if (note === null) {
     return emptyEditorState;
@@ -42,7 +66,9 @@ function getEditorState(note: AppNote | null): NoteEditorState {
   return {
     body: note.body,
     labelIds: note.labelIds,
-    metaphors: note.metaphors,
+    metaphors: note.metaphors.map((metaphor) =>
+      createNoteMetaphorEditor(metaphor),
+    ),
     title: note.title,
   };
 }
@@ -55,10 +81,7 @@ function haveSameLabelIds(left: string[], right: string[]): boolean {
   return left.every((labelId, index) => labelId === right[index]);
 }
 
-function haveSameMetaphors(
-  left: AppMetaphor[],
-  right: AppMetaphor[],
-): boolean {
+function haveSameMetaphors(left: AppMetaphor[], right: AppMetaphor[]): boolean {
   if (left.length !== right.length) {
     return false;
   }
@@ -66,8 +89,12 @@ function haveSameMetaphors(
   return left.every((metaphor, index) => {
     const rightMetaphor = right[index];
 
+    if (rightMetaphor === undefined) {
+      return false;
+    }
+
     return (
-      metaphor.title === rightMetaphor?.title &&
+      metaphor.title === rightMetaphor.title &&
       metaphor.explanation === rightMetaphor.explanation
     );
   });
@@ -113,7 +140,10 @@ function NotesWorkspace() {
   const selectedNoteExists =
     selectedNoteId === null
       ? false
-      : notesSnapshot.some((note) => note.id === selectedNoteId);
+      : userId !== null &&
+        notesSnapshot.some(
+          (note) => note.userId === userId && note.id === selectedNoteId,
+        );
 
   useEffect(() => {
     function syncLabels() {
@@ -149,10 +179,16 @@ function NotesWorkspace() {
   }, [firstNoteId, isCreatingNew, selectedNoteExists]);
 
   useEffect(() => {
+    const currentUserNotesSnapshot =
+      userId === null
+        ? []
+        : notesSnapshot.filter((note) => note.userId === userId);
     const nextSelectedNote =
       isCreatingNew || selectedNoteId === null
         ? null
-        : (notesSnapshot.find((note) => note.id === selectedNoteId) ?? null);
+        : (currentUserNotesSnapshot.find(
+            (note) => note.id === selectedNoteId,
+          ) ?? null);
     const nextEditorState = getEditorState(nextSelectedNote);
 
     setEditorState((currentState) => {
@@ -161,10 +197,7 @@ function NotesWorkspace() {
           currentState.title === emptyEditorState.title &&
           currentState.body === emptyEditorState.body &&
           haveSameLabelIds(currentState.labelIds, emptyEditorState.labelIds) &&
-          haveSameMetaphors(
-            currentState.metaphors,
-            emptyEditorState.metaphors,
-          )
+          haveSameMetaphors(currentState.metaphors, emptyEditorState.metaphors)
         ) {
           return currentState;
         }
@@ -183,7 +216,7 @@ function NotesWorkspace() {
 
       return nextEditorState;
     });
-  }, [isCreatingNew, notesSnapshot, selectedNoteId]);
+  }, [isCreatingNew, notesSnapshot, selectedNoteId, userId]);
 
   function handleEditorChange<K extends keyof NoteEditorState>(
     field: K,
@@ -216,13 +249,7 @@ function NotesWorkspace() {
   function handleAddMetaphor() {
     setEditorState((currentState) => ({
       ...currentState,
-      metaphors: [
-        ...currentState.metaphors,
-        {
-          explanation: "",
-          title: "",
-        },
-      ],
+      metaphors: [...currentState.metaphors, createNoteMetaphorEditor()],
     }));
   }
 
@@ -273,14 +300,24 @@ function NotesWorkspace() {
 
     try {
       if (selectedNote === null) {
-        const createdNote = notesContext.createNote(userId, editorState);
+        const createdNote = notesContext.createNote(userId, {
+          body: editorState.body,
+          labelIds: editorState.labelIds,
+          metaphors: editorState.metaphors.map(toStoredMetaphor),
+          title: editorState.title,
+        });
 
         setIsCreatingNew(false);
         setSelectedNoteId(createdNote.id);
         return;
       }
 
-      notesContext.updateNote(userId, selectedNote.id, editorState);
+      notesContext.updateNote(userId, selectedNote.id, {
+        body: editorState.body,
+        labelIds: editorState.labelIds,
+        metaphors: editorState.metaphors.map(toStoredMetaphor),
+        title: editorState.title,
+      });
     } catch (error) {
       if (error instanceof AppNotesError) {
         setErrorMessage(error.message);
@@ -421,7 +458,7 @@ function NotesWorkspace() {
                     <fieldset
                       aria-label="Metaphor editor"
                       className="notes-metaphor"
-                      key={`${index}-${metaphor.title}`}
+                      key={metaphor.key}
                     >
                       <legend>{`Metaphor ${index + 1}`}</legend>
 

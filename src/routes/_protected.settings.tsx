@@ -1,5 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import {
+  type FormEvent,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import {
   AppAuthError,
@@ -48,7 +53,7 @@ function SettingsPage() {
     return null;
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage(null);
     setStatusMessage(null);
