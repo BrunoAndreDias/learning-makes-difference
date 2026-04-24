@@ -144,4 +144,84 @@ describe("recall session setup", () => {
       }),
     ).toThrowError(expect.objectContaining({ code: "not_found" }));
   });
+
+  it("reveals answers, advances after rating, and clears the active session when ended", () => {
+    const storage = createMemoryStorage();
+    const labels = createAppLabelsContext({
+      keyPrefix: "recall-test-progress-labels",
+      storage,
+    });
+    const notes = createAppNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labels.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: "recall-test-progress-notes",
+      storage,
+    });
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          "session-2-2-2-2" as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "recall-test-progress-session",
+      labels,
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+    });
+    const userId = "user-1";
+    const science = labels.createLabel({ name: "Science", userId });
+
+    notes.createNote(userId, {
+      body: "Answer one",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Question one",
+    });
+    notes.createNote(userId, {
+      body: "Answer two",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Question two",
+    });
+
+    const session = recall.startFlashCardSession({
+      labelId: science.id,
+      userId,
+    });
+
+    expect(() =>
+      recall.rateFlashCardAnswer({
+        rating: "partial",
+        sessionId: session.id,
+        userId,
+      }),
+    ).toThrowError(expect.objectContaining({ code: "invalid_input" }));
+
+    const revealedSession = recall.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId,
+    });
+
+    expect(revealedSession.isAnswerRevealed).toBe(true);
+
+    const advancedSession = recall.rateFlashCardAnswer({
+      rating: "partial",
+      sessionId: session.id,
+      userId,
+    });
+
+    expect(advancedSession).toMatchObject({
+      attempts: [{ noteId: session.notes[0].id, rating: "partial" }],
+      currentIndex: 1,
+      isAnswerRevealed: false,
+    });
+
+    const endedSession = recall.endFlashCardSession({
+      sessionId: session.id,
+      userId,
+    });
+
+    expect(endedSession.attempts).toHaveLength(1);
+    expect(recall.getSnapshot()).toBeNull();
+  });
 });

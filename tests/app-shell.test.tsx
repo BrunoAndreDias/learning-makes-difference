@@ -798,8 +798,86 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Target label: Alpha Science")).toBeInTheDocument();
     expect(screen.getByText("2 notes in play")).toBeInTheDocument();
-    expect(screen.getByText("Study foundation")).toBeInTheDocument();
     expect(screen.getByText("Leaf detail")).toBeInTheDocument();
+    expect(screen.getByText("Completed 0 of 2 questions")).toBeInTheDocument();
+    expect(screen.queryByText("Child topic")).toBeNull();
     expect(screen.queryByText("Loose note")).toBeNull();
+  });
+
+  it("runs a FlashCard session one question at a time and supports ending early", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labelsContext.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const recallContext = createAppRecallContext({
+      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+      labels: labelsContext,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+    const userId = "user-placeholder";
+    const science = labelsContext.createLabel({
+      name: "Alpha Science",
+      userId,
+    });
+
+    notesContext.createNote(userId, {
+      body: "Broad foundation",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Study foundation",
+    });
+    notesContext.createNote(userId, {
+      body: "Child topic",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Leaf detail",
+    });
+
+    renderRoute("/recall", {
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    fireEvent.submit(
+      await screen.findByRole("form", { name: "Recall session setup form" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "FlashCard session" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Completed 0 of 2 questions")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Leaf detail" })).toBeInTheDocument();
+    expect(screen.queryByText("Child topic")).toBeNull();
+    expect(screen.getByRole("button", { name: "Reveal answer" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reveal answer" }));
+
+    expect(screen.getByText("Child topic")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Missed it" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Partly recalled" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Nailed it" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Partly recalled" }));
+
+    expect(screen.getByText("Completed 1 of 2 questions")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Study foundation" })).toBeInTheDocument();
+    expect(screen.queryByText("Child topic")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Partly recalled" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "End session early" }));
+
+    expect(screen.queryByRole("heading", { name: "FlashCard session" })).toBeNull();
+    expect(
+      screen.getByText("Ended session early after 1 of 2 questions."),
+    ).toBeInTheDocument();
   });
 });
