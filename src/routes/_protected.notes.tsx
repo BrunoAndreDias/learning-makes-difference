@@ -912,6 +912,7 @@ function NotesWorkspace() {
             aria-expanded={isSearchListboxOpen}
             aria-haspopup="listbox"
             aria-autocomplete="list"
+            autoComplete="off"
             id="notes-search"
             name="search"
             onChange={(event) => handleSearchChange(event.target.value)}
@@ -931,46 +932,6 @@ function NotesWorkspace() {
           <kbd>Cmd K</kbd>
           {searchResultsContent}
         </form>
-
-        <fieldset className="notes-filter-tabs">
-          <legend className="sr-only">Note filters</legend>
-          <button aria-pressed="true" type="button">
-            All
-          </button>
-          <button type="button">Today</button>
-          <button type="button">Untagged</button>
-          <button type="button">Pinned</button>
-        </fieldset>
-
-        <div className="notes-workspace__utilities">
-          <button className="notes-focus-toggle" type="button">
-            <span aria-hidden="true">O</span>
-            Focus mode
-            <span className="notes-focus-toggle__switch" aria-hidden="true" />
-          </button>
-
-          <button
-            className="notes-icon-button"
-            type="button"
-            aria-label="Calendar"
-          >
-            []
-          </button>
-          <button
-            className="notes-icon-button"
-            type="button"
-            aria-label="Filter"
-          >
-            V
-          </button>
-          <button
-            className="notes-icon-button"
-            type="button"
-            aria-label="More actions"
-          >
-            ...
-          </button>
-        </div>
       </section>
 
       <section className="notes-mobile-summary" aria-label="Workspace summary">
@@ -986,35 +947,24 @@ function NotesWorkspace() {
         <article aria-label="Note editor surface" className="notes-editor">
           <header className="notes-editor__header">
             <div>
-              <h3>
-                {editorState.title ||
-                  (isCreating ? "Create note" : "Edit note")}
-              </h3>
+              <label className="notes-title-editor">
+                <span className="sr-only">Note title</span>
+                <input
+                  ref={titleInputRef}
+                  aria-label="Title"
+                  name="title"
+                  onChange={(event) =>
+                    handleEditorChange("title", event.target.value)
+                  }
+                  placeholder="Name this note"
+                  type="text"
+                  value={editorState.title}
+                />
+              </label>
               <p className="muted">
                 {selectedNoteCreatedLabel} <span aria-hidden="true">-</span>{" "}
                 {selectedNoteUpdatedLabel}
               </p>
-            </div>
-
-            <div className="notes-editor__chrome-actions">
-              <button type="button" aria-label="Pin note">
-                Pin
-              </button>
-              <button type="button" aria-label="Favorite note">
-                *
-              </button>
-              <button type="button" aria-label="Edit note">
-                Edit
-              </button>
-              <button type="button" aria-label="Duplicate note">
-                Copy
-              </button>
-              <button type="button" aria-label="Share note">
-                Share
-              </button>
-              <button type="button" aria-label="More note actions">
-                ...
-              </button>
             </div>
           </header>
 
@@ -1024,22 +974,8 @@ function NotesWorkspace() {
             onSubmit={handleSubmit}
           >
             <div className="notes-form__primary">
-              <label className="notes-form__field">
-                <span>Title</span>
-                <input
-                  ref={titleInputRef}
-                  name="title"
-                  onChange={(event) =>
-                    handleEditorChange("title", event.target.value)
-                  }
-                  placeholder="One concept per note"
-                  type="text"
-                  value={editorState.title}
-                />
-              </label>
-
               <label className="notes-form__field notes-form__body-field">
-                <span>Body</span>
+                <span className="sr-only">Body</span>
                 <textarea
                   ref={bodyTextareaRef}
                   name="body"
