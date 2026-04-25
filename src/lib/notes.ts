@@ -449,15 +449,39 @@ function getNoteSearchEvaluation(
   return null;
 }
 
-function noteMatchesQuery(note: AppNote, query: string): boolean {
-  return getNoteSearchEvaluation(note, normalizeSearchQuery(query)) !== null;
+function noteMatchesQuery(
+  note: AppNote,
+  normalizedQuery: string,
+): boolean {
+  return getNoteSearchEvaluation(note, normalizedQuery) !== null;
+}
+
+function compareSearchResults(
+  left: AppNoteSearchResult,
+  right: AppNoteSearchResult,
+): number {
+  const priorityDifference =
+    NOTE_SEARCH_MATCH_PRIORITY[left.matchChip] -
+    NOTE_SEARCH_MATCH_PRIORITY[right.matchChip];
+
+  if (priorityDifference !== 0) {
+    return priorityDifference;
+  }
+
+  return right.note.updatedAt.localeCompare(left.note.updatedAt);
 }
 
 export function filterNotesByQuery(
   notes: readonly AppNote[],
   query: string,
 ): AppNote[] {
-  return notes.filter((note) => noteMatchesQuery(note, query));
+  const normalizedQuery = normalizeSearchQuery(query);
+
+  if (normalizedQuery.length === 0) {
+    return [...notes];
+  }
+
+  return notes.filter((note) => noteMatchesQuery(note, normalizedQuery));
 }
 
 export function searchNoteResults(
@@ -485,17 +509,7 @@ export function searchNoteResults(
       };
     })
     .filter((result): result is AppNoteSearchResult => result !== null)
-    .sort((left, right) => {
-      const priorityDifference =
-        NOTE_SEARCH_MATCH_PRIORITY[left.matchChip] -
-        NOTE_SEARCH_MATCH_PRIORITY[right.matchChip];
-
-      if (priorityDifference !== 0) {
-        return priorityDifference;
-      }
-
-      return right.note.updatedAt.localeCompare(left.note.updatedAt);
-    });
+    .sort(compareSearchResults);
 }
 
 export function createAppNotesContext(

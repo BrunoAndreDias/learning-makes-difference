@@ -28,16 +28,10 @@ const redirectableProtectedPaths = new Set([
 ]);
 
 function isProtectedPath(pathname: string): boolean {
-  for (const protectedPath of redirectableProtectedPaths) {
-    if (
-      pathname === protectedPath ||
-      pathname.startsWith(`${protectedPath}/`)
-    ) {
-      return true;
-    }
-  }
-
-  return false;
+  return [...redirectableProtectedPaths].some(
+    (protectedPath) =>
+      pathname === protectedPath || pathname.startsWith(`${protectedPath}/`),
+  );
 }
 
 export const Route = createRootRouteWithContext<{
@@ -90,10 +84,9 @@ function NotFoundRedirect() {
     session.getSnapshot,
     session.getSnapshot,
   );
+  const redirectTo = hasActiveSession(sessionSnapshot) ? "/notes" : "/login";
 
-  return (
-    <Navigate to={hasActiveSession(sessionSnapshot) ? "/notes" : "/login"} />
-  );
+  return <Navigate to={redirectTo} />;
 }
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {

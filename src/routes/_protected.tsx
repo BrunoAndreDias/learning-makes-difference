@@ -118,9 +118,7 @@ function AppLayout() {
       return;
     }
 
-    if (isSidebarCollapsed) {
-      setSidebarCollapsed(false);
-    }
+    setSidebarCollapsed(false);
 
     toggleMobileSidebar();
   }

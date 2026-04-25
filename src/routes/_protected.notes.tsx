@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   type FormEvent,
   type KeyboardEvent,
-  useCallback,
+  type RefObject,
+  type ReactNode,
   useEffect,
   useRef,
   useState,
@@ -193,16 +194,21 @@ function truncateNoteId(noteId: string): string {
 
 type SearchTargetElement = HTMLInputElement | HTMLTextAreaElement;
 
+type SearchTargetRefs = {
+  acronymExpansionRefs: RefObject<(HTMLTextAreaElement | null)[]>;
+  acronymShortFormRefs: RefObject<(HTMLInputElement | null)[]>;
+  bodyTextareaRef: RefObject<HTMLTextAreaElement | null>;
+  metaphorExplanationRefs: RefObject<(HTMLTextAreaElement | null)[]>;
+  metaphorTitleRefs: RefObject<(HTMLInputElement | null)[]>;
+  titleInputRef: RefObject<HTMLInputElement | null>;
+};
+
 function getSearchResultOptionId(noteId: string): string {
   return `notes-search-option-${noteId}`;
 }
 
 function getSearchResultLabel(result: AppNoteSearchResult): string {
   return `${result.note.title} ${result.matchChip} Updated ${formatNoteDate(result.note.updatedAt)}`;
-}
-
-function getSearchResultUpdatedLabel(result: AppNoteSearchResult): string {
-  return `Updated ${formatNoteDate(result.note.updatedAt)}`;
 }
 
 function getNoteDetailsSummary(
@@ -216,6 +222,28 @@ function getNoteDetailsSummary(
   }
 
   return `Updated ${formatCompactNoteDate(selectedNote.updatedAt)} - ${wordCountLabel}`;
+}
+
+function resolveSearchTargetElement(
+  refs: SearchTargetRefs,
+  result: AppNoteSearchResult,
+): SearchTargetElement | null {
+  const targetIndex = result.target.index ?? 0;
+
+  switch (result.target.field) {
+    case "title":
+      return refs.titleInputRef.current;
+    case "body":
+      return refs.bodyTextareaRef.current;
+    case "metaphorTitle":
+      return refs.metaphorTitleRefs.current[targetIndex] ?? null;
+    case "metaphorExplanation":
+      return refs.metaphorExplanationRefs.current[targetIndex] ?? null;
+    case "acronymShortForm":
+      return refs.acronymShortFormRefs.current[targetIndex] ?? null;
+    case "acronymExpansion":
+      return refs.acronymExpansionRefs.current[targetIndex] ?? null;
+  }
 }
 
 function NotesWorkspace() {
@@ -270,6 +298,7 @@ function NotesWorkspace() {
     typeof setTimeout
   > | null>(null);
   const unsavedSearchDialogRef = useRef<HTMLDivElement>(null);
+  const unsavedSearchCancelRef = useRef<HTMLButtonElement>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
   const selectedNote =
@@ -319,7 +348,9 @@ function NotesWorkspace() {
       event.preventDefault();
       searchInputRef.current?.focus();
 
-      if (hasSearchQuery) {
+      const currentSearchValue = searchInputRef.current?.value ?? "";
+
+      if (currentSearchValue.trim().length > 0) {
         setActiveSearchResultIndex(0);
         setIsSearchOpen(true);
       }
@@ -330,7 +361,7 @@ function NotesWorkspace() {
     return () => {
       document.removeEventListener("keydown", handleDocumentKeyDown);
     };
-  }, [hasSearchQuery]);
+  }, []);
 
   useEffect(() => {
     function handleDocumentMouseDown(event: MouseEvent) {
@@ -412,27 +443,13 @@ function NotesWorkspace() {
     };
   }, []);
 
-  const getSearchTargetElement = useCallback(
-    (result: AppNoteSearchResult): SearchTargetElement | null => {
-      const targetIndex = result.target.index ?? 0;
+  useEffect(() => {
+    if (guardedSearchResult === null) {
+      return;
+    }
 
-      switch (result.target.field) {
-        case "title":
-          return titleInputRef.current;
-        case "body":
-          return bodyTextareaRef.current;
-        case "metaphorTitle":
-          return metaphorTitleRefs.current[targetIndex] ?? null;
-        case "metaphorExplanation":
-          return metaphorExplanationRefs.current[targetIndex] ?? null;
-        case "acronymShortForm":
-          return acronymShortFormRefs.current[targetIndex] ?? null;
-        case "acronymExpansion":
-          return acronymExpansionRefs.current[targetIndex] ?? null;
-      }
-    },
-    [],
-  );
+    unsavedSearchCancelRef.current?.focus();
+  }, [guardedSearchResult]);
 
   useEffect(() => {
     if (pendingSearchJump === null) {
@@ -452,7 +469,17 @@ function NotesWorkspace() {
       searchSelectionTimeoutRef.current = null;
     }
 
-    const targetElement = getSearchTargetElement(pendingSearchJump);
+    const targetElement = resolveSearchTargetElement(
+      {
+        acronymExpansionRefs,
+        acronymShortFormRefs,
+        bodyTextareaRef,
+        metaphorExplanationRefs,
+        metaphorTitleRefs,
+        titleInputRef,
+      },
+      pendingSearchJump,
+    );
 
     if (targetElement === null) {
       setPendingSearchJump(null);
@@ -474,7 +501,17 @@ function NotesWorkspace() {
       searchSelectionTimeoutRef.current = null;
     }, 3000);
     setPendingSearchJump(null);
-  }, [editorState, pendingSearchJump, selectedNote, getSearchTargetElement]);
+  }, [
+    acronymExpansionRefs,
+    acronymShortFormRefs,
+    bodyTextareaRef,
+    editorState,
+    metaphorExplanationRefs,
+    metaphorTitleRefs,
+    pendingSearchJump,
+    selectedNote,
+    titleInputRef,
+  ]);
 
   function handleEditorChange<K extends keyof NoteEditorState>(
     field: K,
@@ -689,6 +726,17 @@ function NotesWorkspace() {
     }
   }
 
+  function handleUnsavedSearchDialogKeyDown(
+    event: KeyboardEvent<HTMLDivElement>,
+  ) {
+    if (event.key !== "Escape") {
+      return;
+    }
+
+    event.preventDefault();
+    handleCancelGuardedSearchNavigation();
+  }
+
   function handleCopyNoteId() {
     if (selectedNote === null) {
       return;
@@ -757,29 +805,6 @@ function NotesWorkspace() {
     selectedNote === null
       ? "Created after save"
       : `Created ${formatNoteDate(selectedNote.createdAt)}`;
-  const labelPickerContent = isLabelPickerOpen ? (
-    availableLabels.length === 0 ? (
-      <p className="muted">No labels available</p>
-    ) : (
-      <fieldset className="notes-labels">
-        <legend>Available labels</legend>
-        <div className="notes-labels__options">
-          {availableLabels.map((label) => (
-            <label className="notes-labels__option" key={label.id}>
-              <input
-                checked={editorState.labelIds.includes(label.id)}
-                onChange={(event) =>
-                  handleLabelToggle(label.id, event.target.checked)
-                }
-                type="checkbox"
-              />
-              <span>{label.name}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-    )
-  ) : null;
   const isSearchListboxOpen =
     hasSearchQuery && isSearchOpen && searchResults.length > 0;
   const activeSearchResult = searchResults[activeSearchResultIndex];
@@ -787,6 +812,75 @@ function NotesWorkspace() {
     isSearchListboxOpen && activeSearchResult !== undefined
       ? getSearchResultOptionId(activeSearchResult.note.id)
       : undefined;
+  let labelPickerContent: ReactNode = null;
+
+  if (isLabelPickerOpen) {
+    if (availableLabels.length === 0) {
+      labelPickerContent = <p className="muted">No labels available</p>;
+    } else {
+      labelPickerContent = (
+        <fieldset className="notes-labels">
+          <legend>Available labels</legend>
+          <div className="notes-labels__options">
+            {availableLabels.map((label) => (
+              <label className="notes-labels__option" key={label.id}>
+                <input
+                  checked={editorState.labelIds.includes(label.id)}
+                  onChange={(event) =>
+                    handleLabelToggle(label.id, event.target.checked)
+                  }
+                  type="checkbox"
+                />
+                <span>{label.name}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      );
+    }
+  }
+
+  let searchResultsContent: ReactNode = null;
+
+  if (hasSearchQuery && isSearchOpen) {
+    if (searchResults.length === 0) {
+      searchResultsContent = (
+        <p className="notes-search__empty" role="status">
+          No notes found
+        </p>
+      );
+    } else {
+      searchResultsContent = (
+        <div
+          aria-label="Notes search results"
+          className="notes-search__results"
+          id={notesSearchListboxId}
+          role="listbox"
+        >
+          {searchResults.map((result, index) => (
+            <button
+              aria-label={getSearchResultLabel(result)}
+              aria-selected={index === activeSearchResultIndex}
+              className="notes-search__option"
+              id={getSearchResultOptionId(result.note.id)}
+              key={result.note.id}
+              onClick={() => handleSelectSearchResult(result)}
+              role="option"
+              type="button"
+            >
+              <span className="notes-search__option-title">
+                <strong>{result.note.title}</strong>
+                <span className="notes-search__match-chip">
+                  {result.matchChip}
+                </span>
+              </span>
+              <span>{`Updated ${formatNoteDate(result.note.updatedAt)}`}</span>
+            </button>
+          ))}
+        </div>
+      );
+    }
+  }
 
   return (
     <section className="notes-workspace">
@@ -832,41 +926,7 @@ function NotesWorkspace() {
             value={searchQuery}
           />
           <kbd>Cmd K</kbd>
-          {hasSearchQuery && isSearchOpen ? (
-            searchResults.length > 0 ? (
-              <div
-                aria-label="Notes search results"
-                className="notes-search__results"
-                id={notesSearchListboxId}
-                role="listbox"
-              >
-                {searchResults.map((result, index) => (
-                  <button
-                    aria-label={getSearchResultLabel(result)}
-                    aria-selected={index === activeSearchResultIndex}
-                    className="notes-search__option"
-                    id={getSearchResultOptionId(result.note.id)}
-                    key={result.note.id}
-                    onClick={() => handleSelectSearchResult(result)}
-                    role="option"
-                    type="button"
-                  >
-                    <span className="notes-search__option-title">
-                      <strong>{result.note.title}</strong>
-                      <span className="notes-search__match-chip">
-                        {result.matchChip}
-                      </span>
-                    </span>
-                    <span>{getSearchResultUpdatedLabel(result)}</span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="notes-search__empty" role="status">
-                No notes found
-              </p>
-            )
-          ) : null}
+          {searchResultsContent}
         </form>
 
         <fieldset className="notes-filter-tabs">
@@ -1337,6 +1397,7 @@ function NotesWorkspace() {
           aria-labelledby="notes-unsaved-search-title"
           aria-modal="true"
           className="notes-unsaved-search-dialog"
+          onKeyDown={handleUnsavedSearchDialogKeyDown}
           ref={unsavedSearchDialogRef}
           role="dialog"
         >
@@ -1349,6 +1410,7 @@ function NotesWorkspace() {
               <button
                 className="notes-action"
                 onClick={handleCancelGuardedSearchNavigation}
+                ref={unsavedSearchCancelRef}
                 type="button"
               >
                 Cancel
