@@ -15,7 +15,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import appLogo from "../../docs/layout/logo.png";
+import appLogo from "../../docs/layout/logo.svg";
 import { type AppSessionSnapshot, hasActiveSession } from "../lib/session";
 
 export const Route = createFileRoute("/_protected")({

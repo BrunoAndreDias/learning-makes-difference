@@ -9,7 +9,7 @@ describe("route tree", () => {
     );
 
     expect(generatedRouteTree).toContain("'/': typeof PublicIndexRoute");
-    expect(generatedRouteTree).toContain("'/login': typeof PublicLoginRoute");
+    expect(generatedRouteTree).toContain("'/login': typeof AuthLoginRoute");
     expect(generatedRouteTree).toContain(
       "'/notes': typeof ProtectedNotesRoute",
     );

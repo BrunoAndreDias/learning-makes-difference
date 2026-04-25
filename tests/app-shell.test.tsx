@@ -121,10 +121,6 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", { name: "Welcome back" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("After authentication you'll continue to:"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("/settings")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/login");
     expect(router.state.location.search.redirect).toBe("/settings");
   });
@@ -140,7 +136,10 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "Welcome back" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+    fireEvent.click(screen.getAllByRole("link", { name: "Sign up" })[0]);
+    expect(
+      await screen.findByRole("heading", { name: "Create your account" }),
+    ).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Display name"), {
       target: { value: "Casey Learner" },
     });
@@ -150,7 +149,7 @@ describe("authenticated app shell", () => {
     fireEvent.change(screen.getByLabelText("Password"), {
       target: { value: "correct horse battery staple" },
     });
-    fireEvent.submit(screen.getByRole("form", { name: "Registration form" }));
+    fireEvent.submit(screen.getByRole("form", { name: "Sign up form" }));
 
     expect(
       await screen.findByRole("heading", { name: "Settings" }),
@@ -193,7 +192,7 @@ describe("authenticated app shell", () => {
     fireEvent.change(screen.getByLabelText("Password"), {
       target: { value: "correct horse battery staple" },
     });
-    fireEvent.submit(screen.getByRole("form", { name: "Login form" }));
+    fireEvent.submit(screen.getByRole("form", { name: "Sign in form" }));
 
     expect(
       await screen.findByRole("heading", { name: "Study history" }),
@@ -262,7 +261,7 @@ describe("authenticated app shell", () => {
     fireEvent.change(screen.getByLabelText("Password"), {
       target: { value: "correct horse battery staple" },
     });
-    fireEvent.submit(screen.getByRole("form", { name: "Login form" }));
+    fireEvent.submit(screen.getByRole("form", { name: "Sign in form" }));
 
     expect(
       await screen.findByRole("heading", { name: "Settings" }),

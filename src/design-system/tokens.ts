@@ -16,7 +16,7 @@ const spacingScale = {
 
 const brandTokens = {
   productName: "Learning Makes Difference",
-  logoSource: "docs/layout/logo.png",
+  logoSource: "docs/layout/logo.svg",
   layoutReferences: layoutReferencePaths,
   shellTone:
     "Warm canvas with bright blue utility accents and calm slate text.",
