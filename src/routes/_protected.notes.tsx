@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   type FormEvent,
   type KeyboardEvent,
-  type RefObject,
   type ReactNode,
   useEffect,
   useRef,
@@ -15,12 +14,20 @@ import {
   type AppAcronym,
   type AppMetaphor,
   type AppNote,
-  type AppNoteSearchResult,
   AppNotesError,
   type AppStoredNote,
   listNotesForUser,
-  searchNoteResults,
 } from "../lib/notes";
+import {
+  type AppNoteSearchResult,
+  searchNoteResults,
+} from "../lib/notes-search";
+import {
+  cancelGuardedNotesSearchNavigation,
+  discardGuardedNotesSearchNavigation,
+  planNotesSearchNavigation,
+  resolveNotesSearchTargetElement,
+} from "../lib/notes-search-navigation";
 import type { AppSessionSnapshot } from "../lib/session";
 
 export const Route = createFileRoute("/_protected/notes")({
@@ -192,17 +199,6 @@ function truncateNoteId(noteId: string): string {
   return noteId.length <= 12 ? noteId : `${noteId.slice(0, 8)}...`;
 }
 
-type SearchTargetElement = HTMLInputElement | HTMLTextAreaElement;
-
-type SearchTargetRefs = {
-  acronymExpansionRefs: RefObject<(HTMLTextAreaElement | null)[]>;
-  acronymShortFormRefs: RefObject<(HTMLInputElement | null)[]>;
-  bodyTextareaRef: RefObject<HTMLTextAreaElement | null>;
-  metaphorExplanationRefs: RefObject<(HTMLTextAreaElement | null)[]>;
-  metaphorTitleRefs: RefObject<(HTMLInputElement | null)[]>;
-  titleInputRef: RefObject<HTMLInputElement | null>;
-};
-
 function getSearchResultOptionId(noteId: string): string {
   return `notes-search-option-${noteId}`;
 }
@@ -222,28 +218,6 @@ function getNoteDetailsSummary(
   }
 
   return `Updated ${formatCompactNoteDate(selectedNote.updatedAt)} - ${wordCountLabel}`;
-}
-
-function resolveSearchTargetElement(
-  refs: SearchTargetRefs,
-  result: AppNoteSearchResult,
-): SearchTargetElement | null {
-  const targetIndex = result.target.index ?? 0;
-
-  switch (result.target.field) {
-    case "title":
-      return refs.titleInputRef.current;
-    case "body":
-      return refs.bodyTextareaRef.current;
-    case "metaphorTitle":
-      return refs.metaphorTitleRefs.current[targetIndex] ?? null;
-    case "metaphorExplanation":
-      return refs.metaphorExplanationRefs.current[targetIndex] ?? null;
-    case "acronymShortForm":
-      return refs.acronymShortFormRefs.current[targetIndex] ?? null;
-    case "acronymExpansion":
-      return refs.acronymExpansionRefs.current[targetIndex] ?? null;
-  }
 }
 
 function NotesWorkspace() {
@@ -469,14 +443,14 @@ function NotesWorkspace() {
       searchSelectionTimeoutRef.current = null;
     }
 
-    const targetElement = resolveSearchTargetElement(
+    const targetElement = resolveNotesSearchTargetElement(
       {
-        acronymExpansionRefs,
-        acronymShortFormRefs,
-        bodyTextareaRef,
-        metaphorExplanationRefs,
-        metaphorTitleRefs,
-        titleInputRef,
+        acronymExpansions: acronymExpansionRefs.current,
+        acronymShortForms: acronymShortFormRefs.current,
+        body: bodyTextareaRef.current,
+        metaphorExplanations: metaphorExplanationRefs.current,
+        metaphorTitles: metaphorTitleRefs.current,
+        title: titleInputRef.current,
       },
       pendingSearchJump,
     );
@@ -647,25 +621,37 @@ function NotesWorkspace() {
   function handleSelectSearchResult(result: AppNoteSearchResult) {
     setErrorMessage(null);
 
-    if (hasUnsavedEditorChanges()) {
-      setGuardedSearchResult(result);
+    const navigationPlan = planNotesSearchNavigation({
+      hasUnsavedChanges: hasUnsavedEditorChanges(),
+      result,
+    });
+
+    if (navigationPlan.type === "guard") {
+      setGuardedSearchResult(navigationPlan.guardedResult);
       return;
     }
 
-    completeSearchResultNavigation(result);
+    completeSearchResultNavigation(navigationPlan.result);
   }
 
   function handleCancelGuardedSearchNavigation() {
-    setGuardedSearchResult(null);
-    searchInputRef.current?.focus();
+    const navigationPlan = cancelGuardedNotesSearchNavigation();
+
+    if (navigationPlan.type === "cancel") {
+      setGuardedSearchResult(null);
+      searchInputRef.current?.focus();
+    }
   }
 
   function handleDiscardGuardedSearchNavigation() {
-    if (guardedSearchResult === null) {
+    const navigationPlan =
+      discardGuardedNotesSearchNavigation(guardedSearchResult);
+
+    if (navigationPlan.type === "idle") {
       return;
     }
 
-    completeSearchResultNavigation(guardedSearchResult);
+    completeSearchResultNavigation(navigationPlan.result);
   }
 
   function handleSearchChange(value: string) {
