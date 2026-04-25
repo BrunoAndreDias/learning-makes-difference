@@ -23,6 +23,17 @@ export type AppStoredNote = AppNote & {
   userId: string;
 };
 
+export type {
+  AppNoteSearchMatchChip,
+  AppNoteSearchResult,
+  AppNoteSearchTarget,
+  AppNoteSearchTargetField,
+} from "./notes-search";
+export {
+  filterNotesByQuery,
+  searchNoteResults,
+} from "./notes-search";
+
 type NotesListener = () => void;
 
 type CreateNoteInput = {
@@ -294,38 +305,6 @@ export function listNotesForUser(
       return right.updatedAt.localeCompare(left.updatedAt);
     })
     .map(toPublicNote);
-}
-
-function noteMatchesQuery(note: AppNote, query: string): boolean {
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-
-  if (normalizedQuery.length === 0) {
-    return true;
-  }
-
-  const searchFields = [
-    note.title,
-    note.body,
-    ...note.metaphors.flatMap((metaphor) => [
-      metaphor.title,
-      metaphor.explanation,
-    ]),
-    ...note.acronyms.flatMap((acronym) => [
-      acronym.shortForm,
-      acronym.expansion,
-    ]),
-  ];
-
-  return searchFields.some((field) => {
-    return field.toLocaleLowerCase().includes(normalizedQuery);
-  });
-}
-
-export function filterNotesByQuery(
-  notes: readonly AppNote[],
-  query: string,
-): AppNote[] {
-  return notes.filter((note) => noteMatchesQuery(note, query));
 }
 
 export function createAppNotesContext(

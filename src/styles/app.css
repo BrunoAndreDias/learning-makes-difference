@@ -187,6 +187,7 @@ h3 {
 
 .sidebar-toggle,
 .sidebar-mobile-toggle,
+.sidebar-header-toggle,
 .app-sidebar__logout,
 .notes-action,
 .notes-inline-action {
@@ -232,6 +233,7 @@ h3 {
 .app-sidebar__link:focus-visible,
 .sidebar-toggle:focus-visible,
 .sidebar-mobile-toggle:focus-visible,
+.sidebar-header-toggle:focus-visible,
 .app-sidebar__logout:focus-visible,
 .notes-action:focus-visible,
 .notes-inline-action:focus-visible,
@@ -1092,6 +1094,17 @@ h3 {
   background: #ffffff;
 }
 
+.sidebar-header-toggle {
+  min-width: 2.75rem;
+  min-height: 2.35rem;
+  padding: 0 0.75rem;
+  border-color: #d7e5ff;
+  border-radius: 0.5rem;
+  color: #0f63ff;
+  background: #f6f9ff;
+  font-weight: 800;
+}
+
 .app-sidebar__nav {
   align-self: start;
   margin-top: 0.75rem;
@@ -1215,6 +1228,7 @@ h3 {
 }
 
 .notes-search {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -1235,6 +1249,26 @@ h3 {
   background: transparent;
 }
 
+.notes-search__icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #9aa4b5;
+}
+
+.notes-search__icon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .notes-search kbd {
   flex: 0 0 auto;
   padding: 0.05rem 0.45rem;
@@ -1243,6 +1277,105 @@ h3 {
   color: #66758f;
   font-size: 0.8rem;
   font-family: var(--font-body);
+}
+
+.notes-search__results {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  right: 0;
+  display: grid;
+  gap: 0.35rem;
+  max-height: min(22rem, 60vh);
+  padding: 0.45rem;
+  overflow: auto;
+  border: 1px solid #dce4ef;
+  border-radius: 0.55rem;
+  background: #ffffff;
+  box-shadow: 0 1rem 2.5rem rgb(19 29 51 / 14%);
+}
+
+.notes-search__option {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  padding: 0.65rem 0.7rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: #172033;
+  text-align: left;
+  cursor: pointer;
+}
+
+.notes-search__option-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.notes-search__match-chip {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid #d9e2ef;
+  border-radius: 999px;
+  background: #f7f9fc;
+  color: #45536b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.notes-search__option:hover,
+.notes-search__option:focus-visible,
+.notes-search__option[aria-selected="true"] {
+  background: #f2f6fc;
+  outline: 0;
+}
+
+.notes-search__option > span:not(.notes-search__option-title),
+.notes-search__empty {
+  color: #66758f;
+  font-size: 0.9rem;
+}
+
+.notes-search__empty {
+  margin: 0;
+  padding: 0.75rem;
+}
+
+.notes-unsaved-search-dialog {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(15 23 42 / 38%);
+}
+
+.notes-unsaved-search-dialog__panel {
+  display: grid;
+  gap: 0.85rem;
+  width: min(100%, 26rem);
+  padding: 1rem;
+  border: 1px solid #dce4ef;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  box-shadow: 0 1.25rem 3rem rgb(19 29 51 / 22%);
+}
+
+.notes-unsaved-search-dialog__panel h3,
+.notes-unsaved-search-dialog__panel p {
+  margin: 0;
+}
+
+.notes-unsaved-search-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
 }
 
 .notes-filter-tabs {
@@ -1627,6 +1760,19 @@ h3 {
   width: 5rem;
 }
 
+.authenticated-shell[data-sidebar-state="collapsed"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.authenticated-shell[data-sidebar-state="collapsed"] .app-frame__mobile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid #e8edf5;
+}
+
 .app-sidebar[data-sidebar-state="collapsed"] .app-sidebar__header {
   justify-items: center;
 }
@@ -1656,6 +1802,10 @@ h3 {
 @media (max-width: 78rem) {
   .authenticated-shell {
     grid-template-columns: 5rem minmax(0, 1fr);
+  }
+
+  .authenticated-shell[data-sidebar-state="collapsed"] {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .app-sidebar {
@@ -1747,4 +1897,8 @@ h3 {
     max-height: none;
     border-top: 1px solid #e8edf5;
   }
+}
+
+.app-sidebar[hidden] {
+  display: none;
 }

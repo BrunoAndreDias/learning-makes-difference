@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
   type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -13,9 +16,18 @@ import {
   type AppNote,
   AppNotesError,
   type AppStoredNote,
-  filterNotesByQuery,
   listNotesForUser,
 } from "../lib/notes";
+import {
+  type AppNoteSearchResult,
+  searchNoteResults,
+} from "../lib/notes-search";
+import {
+  cancelGuardedNotesSearchNavigation,
+  discardGuardedNotesSearchNavigation,
+  planNotesSearchNavigation,
+  resolveNotesSearchTargetElement,
+} from "../lib/notes-search-navigation";
 import type { AppSessionSnapshot } from "../lib/session";
 
 export const Route = createFileRoute("/_protected/notes")({
@@ -45,6 +57,9 @@ const emptyEditorState: NoteEditorState = {
   metaphors: [],
   title: "",
 };
+
+const labelPickerPanelId = "note-label-picker-panel";
+const notesSearchListboxId = "notes-search-results";
 
 function createEditorKey(): string {
   return globalThis.crypto.randomUUID();
@@ -184,6 +199,27 @@ function truncateNoteId(noteId: string): string {
   return noteId.length <= 12 ? noteId : `${noteId.slice(0, 8)}...`;
 }
 
+function getSearchResultOptionId(noteId: string): string {
+  return `notes-search-option-${noteId}`;
+}
+
+function getSearchResultLabel(result: AppNoteSearchResult): string {
+  return `${result.note.title} ${result.matchChip} Updated ${formatNoteDate(result.note.updatedAt)}`;
+}
+
+function getNoteDetailsSummary(
+  selectedNote: AppNote | null,
+  wordCount: number,
+): string {
+  const wordCountLabel = `${wordCount} ${wordCount === 1 ? "word" : "words"}`;
+
+  if (selectedNote === null) {
+    return `Draft - ${wordCountLabel}`;
+  }
+
+  return `Updated ${formatCompactNoteDate(selectedNote.updatedAt)} - ${wordCountLabel}`;
+}
+
 function NotesWorkspace() {
   const notesContext = Route.useRouteContext({
     select: (context) => context.notes,
@@ -207,7 +243,12 @@ function NotesWorkspace() {
   const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
   const [searchQuery, setSearchQuery] = useState("");
-  const filteredNotes = filterNotesByQuery(notes, searchQuery);
+  const searchResults = searchNoteResults(notes, searchQuery);
+  const hasSearchQuery = searchQuery.trim().length > 0;
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [activeSearchResultIndex, setActiveSearchResultIndex] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchRootRef = useRef<HTMLFormElement>(null);
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
   const firstNoteId = notes[0]?.id ?? null;
   const [isCreatingNew, setIsCreatingNew] = useState(notes.length === 0);
@@ -217,6 +258,22 @@ function NotesWorkspace() {
   const [editorState, setEditorState] = useState<NoteEditorState>(() =>
     getEditorState(notes[0] ?? null),
   );
+  const [pendingSearchJump, setPendingSearchJump] =
+    useState<AppNoteSearchResult | null>(null);
+  const [guardedSearchResult, setGuardedSearchResult] =
+    useState<AppNoteSearchResult | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const metaphorTitleRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const metaphorExplanationRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
+  const acronymShortFormRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const acronymExpansionRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
+  const searchSelectionTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const unsavedSearchDialogRef = useRef<HTMLDivElement>(null);
+  const unsavedSearchCancelRef = useRef<HTMLButtonElement>(null);
+  const unsavedSearchDiscardRef = useRef<HTMLButtonElement>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
   const selectedNote =
@@ -241,6 +298,71 @@ function NotesWorkspace() {
 
     return labelsContext.subscribe(syncLabels);
   }, [labelsContext, userId]);
+
+  useEffect(() => {
+    if (searchResults.length === 0) {
+      setActiveSearchResultIndex(0);
+      return;
+    }
+
+    setActiveSearchResultIndex((currentIndex) =>
+      Math.min(currentIndex, searchResults.length - 1),
+    );
+  }, [searchResults.length]);
+
+  useEffect(() => {
+    function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key.toLocaleLowerCase() !== "k") {
+        return;
+      }
+
+      if (!event.metaKey && !event.ctrlKey) {
+        return;
+      }
+
+      event.preventDefault();
+      searchInputRef.current?.focus();
+
+      const currentSearchValue = searchInputRef.current?.value ?? "";
+
+      if (currentSearchValue.trim().length > 0) {
+        setActiveSearchResultIndex(0);
+        setIsSearchOpen(true);
+      }
+    }
+
+    document.addEventListener("keydown", handleDocumentKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleDocumentKeyDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    function handleDocumentMouseDown(event: MouseEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (searchRootRef.current?.contains(target)) {
+        return;
+      }
+
+      if (unsavedSearchDialogRef.current?.contains(target)) {
+        return;
+      }
+
+      setIsSearchOpen(false);
+    }
+
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentMouseDown);
+    };
+  }, []);
 
   useEffect(() => {
     if (firstNoteId === null) {
@@ -287,6 +409,74 @@ function NotesWorkspace() {
       return nextEditorState;
     });
   }, [isCreatingNew, notesSnapshot, selectedNoteId, userId]);
+
+  useEffect(() => {
+    return () => {
+      if (searchSelectionTimeoutRef.current !== null) {
+        clearTimeout(searchSelectionTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (guardedSearchResult === null) {
+      return;
+    }
+
+    unsavedSearchCancelRef.current?.focus();
+  }, [guardedSearchResult]);
+
+  useEffect(() => {
+    if (pendingSearchJump === null) {
+      return;
+    }
+
+    if (
+      selectedNote === null ||
+      selectedNote.id !== pendingSearchJump.note.id ||
+      !isSameEditorState(editorState, getEditorState(selectedNote))
+    ) {
+      return;
+    }
+
+    if (searchSelectionTimeoutRef.current !== null) {
+      clearTimeout(searchSelectionTimeoutRef.current);
+      searchSelectionTimeoutRef.current = null;
+    }
+
+    const targetElement = resolveNotesSearchTargetElement(
+      {
+        acronymExpansions: acronymExpansionRefs.current,
+        acronymShortForms: acronymShortFormRefs.current,
+        body: bodyTextareaRef.current,
+        metaphorExplanations: metaphorExplanationRefs.current,
+        metaphorTitles: metaphorTitleRefs.current,
+        title: titleInputRef.current,
+      },
+      pendingSearchJump,
+    );
+
+    if (targetElement === null) {
+      setPendingSearchJump(null);
+      return;
+    }
+
+    const selectionEnd = pendingSearchJump.target.match.end;
+
+    targetElement.scrollIntoView({ block: "center", inline: "nearest" });
+    targetElement.focus();
+    targetElement.setSelectionRange(
+      pendingSearchJump.target.match.start,
+      selectionEnd,
+    );
+
+    searchSelectionTimeoutRef.current = setTimeout(() => {
+      targetElement.focus();
+      targetElement.setSelectionRange(selectionEnd, selectionEnd);
+      searchSelectionTimeoutRef.current = null;
+    }, 3000);
+    setPendingSearchJump(null);
+  }, [editorState, pendingSearchJump, selectedNote]);
 
   function handleEditorChange<K extends keyof NoteEditorState>(
     field: K,
@@ -400,12 +590,163 @@ function NotesWorkspace() {
     setSelectedNoteId(note.id);
   }
 
+  function completeSearchResultNavigation(result: AppNoteSearchResult) {
+    setErrorMessage(null);
+    setGuardedSearchResult(null);
+    setPendingSearchJump(result);
+    setSearchQuery("");
+    setIsCreatingNew(false);
+    setSelectedNoteId(result.note.id);
+    setIsSearchOpen(false);
+    setActiveSearchResultIndex(0);
+  }
+
+  function hasUnsavedEditorChanges() {
+    if (selectedNote === null) {
+      return !isSameEditorState(editorState, emptyEditorState);
+    }
+
+    return !isSameEditorState(editorState, getEditorState(selectedNote));
+  }
+
+  function handleSelectSearchResult(result: AppNoteSearchResult) {
+    setErrorMessage(null);
+
+    const navigationPlan = planNotesSearchNavigation({
+      hasUnsavedChanges: hasUnsavedEditorChanges(),
+      result,
+    });
+
+    if (navigationPlan.type === "guard") {
+      setGuardedSearchResult(navigationPlan.guardedResult);
+      return;
+    }
+
+    completeSearchResultNavigation(navigationPlan.result);
+  }
+
+  function handleCancelGuardedSearchNavigation() {
+    const navigationPlan = cancelGuardedNotesSearchNavigation();
+
+    if (navigationPlan.type === "cancel") {
+      setGuardedSearchResult(null);
+      searchInputRef.current?.focus();
+    }
+  }
+
+  function handleDiscardGuardedSearchNavigation() {
+    const navigationPlan =
+      discardGuardedNotesSearchNavigation(guardedSearchResult);
+
+    if (navigationPlan.type === "idle") {
+      return;
+    }
+
+    completeSearchResultNavigation(navigationPlan.result);
+  }
+
+  function handleSearchChange(value: string) {
+    setSearchQuery(value);
+    setActiveSearchResultIndex(0);
+    setIsSearchOpen(value.trim().length > 0);
+  }
+
+  function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (!isSearchOpen || searchResults.length === 0) {
+      if (event.key === "Escape") {
+        setIsSearchOpen(false);
+      }
+
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveSearchResultIndex(
+        (currentIndex) => (currentIndex + 1) % searchResults.length,
+      );
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveSearchResultIndex(
+        (currentIndex) =>
+          (currentIndex - 1 + searchResults.length) % searchResults.length,
+      );
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const result = searchResults[activeSearchResultIndex];
+
+      if (result !== undefined) {
+        handleSelectSearchResult(result);
+      }
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setIsSearchOpen(false);
+    }
+  }
+
+  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const result = searchResults[activeSearchResultIndex];
+
+    if (result !== undefined) {
+      handleSelectSearchResult(result);
+    }
+  }
+
+  function handleUnsavedSearchDialogKeyDown(
+    event: KeyboardEvent<HTMLDivElement>,
+  ) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      handleCancelGuardedSearchNavigation();
+      return;
+    }
+
+    if (event.key !== "Tab") {
+      return;
+    }
+
+    const cancelButton = unsavedSearchCancelRef.current;
+    const discardButton = unsavedSearchDiscardRef.current;
+
+    if (cancelButton === null || discardButton === null) {
+      return;
+    }
+
+    if (event.shiftKey && document.activeElement === cancelButton) {
+      event.preventDefault();
+      discardButton.focus();
+      return;
+    }
+
+    if (!event.shiftKey && document.activeElement === discardButton) {
+      event.preventDefault();
+      cancelButton.focus();
+    }
+  }
+
   function handleCopyNoteId() {
     if (selectedNote === null) {
       return;
     }
 
-    void navigator.clipboard?.writeText(selectedNote.id);
+    const clipboard = navigator.clipboard;
+
+    if (clipboard === undefined) {
+      return;
+    }
+
+    void clipboard.writeText(selectedNote.id).catch(() => undefined);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -453,11 +794,7 @@ function NotesWorkspace() {
   }`;
   const workspaceModeLabel = isCreating ? "Draft mode" : "Editing note";
   const wordCount = getWordCount(editorState.body);
-  const wordCountLabel = `${wordCount} ${wordCount === 1 ? "word" : "words"}`;
-  const compactDetailsLabel =
-    selectedNote === null
-      ? `Draft - ${wordCountLabel}`
-      : `Updated ${formatCompactNoteDate(selectedNote.updatedAt)} - ${wordCountLabel}`;
+  const compactDetailsLabel = getNoteDetailsSummary(selectedNote, wordCount);
   const selectedNoteUpdatedLabel =
     selectedNote === null
       ? "Unsaved draft"
@@ -466,6 +803,83 @@ function NotesWorkspace() {
     selectedNote === null
       ? "Created after save"
       : `Created ${formatNoteDate(selectedNote.createdAt)}`;
+  const isSearchListboxOpen =
+    hasSearchQuery && isSearchOpen && searchResults.length > 0;
+  const activeSearchResult = searchResults[activeSearchResultIndex];
+  const activeSearchOptionId =
+    isSearchListboxOpen && activeSearchResult !== undefined
+      ? getSearchResultOptionId(activeSearchResult.note.id)
+      : undefined;
+  let labelPickerContent: ReactNode = null;
+
+  if (isLabelPickerOpen) {
+    if (availableLabels.length === 0) {
+      labelPickerContent = <p className="muted">No labels available</p>;
+    } else {
+      labelPickerContent = (
+        <fieldset className="notes-labels">
+          <legend>Available labels</legend>
+          <div className="notes-labels__options">
+            {availableLabels.map((label) => (
+              <label className="notes-labels__option" key={label.id}>
+                <input
+                  checked={editorState.labelIds.includes(label.id)}
+                  onChange={(event) =>
+                    handleLabelToggle(label.id, event.target.checked)
+                  }
+                  type="checkbox"
+                />
+                <span>{label.name}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      );
+    }
+  }
+
+  let searchResultsContent: ReactNode = null;
+
+  if (hasSearchQuery && isSearchOpen) {
+    if (searchResults.length === 0) {
+      searchResultsContent = (
+        <p className="notes-search__empty" role="status">
+          No notes found
+        </p>
+      );
+    } else {
+      searchResultsContent = (
+        <div
+          aria-label="Notes search results"
+          className="notes-search__results"
+          id={notesSearchListboxId}
+          role="listbox"
+        >
+          {searchResults.map((result, index) => (
+            <button
+              aria-label={getSearchResultLabel(result)}
+              aria-selected={index === activeSearchResultIndex}
+              className="notes-search__option"
+              id={getSearchResultOptionId(result.note.id)}
+              key={result.note.id}
+              onClick={() => handleSelectSearchResult(result)}
+              role="option"
+              tabIndex={-1}
+              type="button"
+            >
+              <span className="notes-search__option-title">
+                <strong>{result.note.title}</strong>
+                <span className="notes-search__match-chip">
+                  {result.matchChip}
+                </span>
+              </span>
+              <span>{`Updated ${formatNoteDate(result.note.updatedAt)}`}</span>
+            </button>
+          ))}
+        </div>
+      );
+    }
+  }
 
   return (
     <section className="notes-workspace">
@@ -478,21 +892,45 @@ function NotesWorkspace() {
           New note
         </button>
         <span className="sr-only">{noteCountLabel}</span>
-        <label className="notes-search">
+        <form
+          className="notes-search"
+          onSubmit={handleSearchSubmit}
+          ref={searchRootRef}
+        >
           <span className="notes-search__icon" aria-hidden="true">
-            /
+            <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+              <circle cx="10.5" cy="10.5" r="6" />
+              <path d="m15 15 4.5 4.5" />
+            </svg>
           </span>
-          <span className="sr-only">Search notes</span>
+          <label className="sr-only" htmlFor="notes-search">
+            Search notes
+          </label>
           <input
-            aria-label="Search notes"
+            aria-activedescendant={activeSearchOptionId}
+            aria-controls={notesSearchListboxId}
+            aria-expanded={isSearchListboxOpen}
+            aria-haspopup="listbox"
+            aria-autocomplete="list"
+            id="notes-search"
             name="search"
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search notes, labels, acronyms, metaphors..."
+            onChange={(event) => handleSearchChange(event.target.value)}
+            onFocus={() => {
+              if (hasSearchQuery) {
+                setActiveSearchResultIndex(0);
+                setIsSearchOpen(true);
+              }
+            }}
+            onKeyDown={handleSearchKeyDown}
+            placeholder="Search notes"
+            ref={searchInputRef}
+            role="combobox"
             type="search"
             value={searchQuery}
           />
           <kbd>Cmd K</kbd>
-        </label>
+          {searchResultsContent}
+        </form>
 
         <fieldset className="notes-filter-tabs">
           <legend className="sr-only">Note filters</legend>
@@ -589,6 +1027,7 @@ function NotesWorkspace() {
               <label className="notes-form__field">
                 <span>Title</span>
                 <input
+                  ref={titleInputRef}
                   name="title"
                   onChange={(event) =>
                     handleEditorChange("title", event.target.value)
@@ -602,6 +1041,7 @@ function NotesWorkspace() {
               <label className="notes-form__field notes-form__body-field">
                 <span>Body</span>
                 <textarea
+                  ref={bodyTextareaRef}
                   name="body"
                   onChange={(event) =>
                     handleEditorChange("body", event.target.value)
@@ -622,6 +1062,7 @@ function NotesWorkspace() {
                   <h4>Labels</h4>
                   <button
                     aria-expanded={isLabelPickerOpen}
+                    aria-controls={labelPickerPanelId}
                     aria-label="Add label"
                     className="notes-inline-action"
                     onClick={() =>
@@ -646,35 +1087,9 @@ function NotesWorkspace() {
                   </section>
                 )}
 
-                {isLabelPickerOpen ? (
-                  availableLabels.length === 0 ? (
-                    <p className="muted">No labels available</p>
-                  ) : (
-                    <fieldset className="notes-labels">
-                      <legend>Available labels</legend>
-                      <div className="notes-labels__options">
-                        {availableLabels.map((label) => (
-                          <label
-                            className="notes-labels__option"
-                            key={label.id}
-                          >
-                            <input
-                              checked={editorState.labelIds.includes(label.id)}
-                              onChange={(event) =>
-                                handleLabelToggle(
-                                  label.id,
-                                  event.target.checked,
-                                )
-                              }
-                              type="checkbox"
-                            />
-                            <span>{label.name}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </fieldset>
-                  )
-                ) : null}
+                {labelPickerContent === null ? null : (
+                  <div id={labelPickerPanelId}>{labelPickerContent}</div>
+                )}
               </section>
 
               <section
@@ -724,6 +1139,9 @@ function NotesWorkspace() {
                             <span>Metaphor title</span>
                             <input
                               aria-label="Metaphor title"
+                              ref={(element) => {
+                                metaphorTitleRefs.current[index] = element;
+                              }}
                               onChange={(event) =>
                                 handleMetaphorChange(
                                   index,
@@ -741,6 +1159,10 @@ function NotesWorkspace() {
                             <span>Metaphor explanation</span>
                             <textarea
                               aria-label="Metaphor explanation"
+                              ref={(element) => {
+                                metaphorExplanationRefs.current[index] =
+                                  element;
+                              }}
                               onChange={(event) =>
                                 handleMetaphorChange(
                                   index,
@@ -785,6 +1207,9 @@ function NotesWorkspace() {
                             <span>Acronym</span>
                             <input
                               aria-label="Acronym"
+                              ref={(element) => {
+                                acronymShortFormRefs.current[index] = element;
+                              }}
                               onChange={(event) =>
                                 handleAcronymChange(
                                   index,
@@ -802,6 +1227,9 @@ function NotesWorkspace() {
                             <span>What it stands for</span>
                             <textarea
                               aria-label="Acronym expansion"
+                              ref={(element) => {
+                                acronymExpansionRefs.current[index] = element;
+                              }}
                               onChange={(event) =>
                                 handleAcronymChange(
                                   index,
@@ -931,11 +1359,9 @@ function NotesWorkspace() {
 
           {notes.length === 0 ? (
             <p className="muted">No notes yet</p>
-          ) : filteredNotes.length === 0 ? (
-            <p className="muted">No notes match this search.</p>
           ) : (
             <ul className="notes-list__items">
-              {filteredNotes.map((note) => {
+              {notes.map((note) => {
                 const isActive = note.id === selectedNote?.id;
                 const noteLabels = availableLabels.filter((label) =>
                   note.labelIds.includes(label.id),
@@ -969,6 +1395,42 @@ function NotesWorkspace() {
           )}
         </aside>
       </div>
+      {guardedSearchResult === null ? null : (
+        <div
+          aria-labelledby="notes-unsaved-search-title"
+          aria-describedby="notes-unsaved-search-description"
+          aria-modal="true"
+          className="notes-unsaved-search-dialog"
+          onKeyDown={handleUnsavedSearchDialogKeyDown}
+          ref={unsavedSearchDialogRef}
+          role="dialog"
+        >
+          <div className="notes-unsaved-search-dialog__panel">
+            <h3 id="notes-unsaved-search-title">Discard unsaved changes?</h3>
+            <p id="notes-unsaved-search-description">
+              Search navigation will replace the current note editor state.
+            </p>
+            <div className="notes-unsaved-search-dialog__actions">
+              <button
+                className="notes-action"
+                onClick={handleCancelGuardedSearchNavigation}
+                ref={unsavedSearchCancelRef}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="notes-action notes-action-primary"
+                onClick={handleDiscardGuardedSearchNavigation}
+                ref={unsavedSearchDiscardRef}
+                type="button"
+              >
+                Discard changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
