@@ -59,6 +59,7 @@ const emptyEditorState: NoteEditorState = {
 };
 
 const labelPickerPanelId = "note-label-picker-panel";
+const notesCatalogPanelId = "notes-catalog-panel";
 const notesSearchListboxId = "notes-search-results";
 
 function createEditorKey(): string {
@@ -276,6 +277,7 @@ function NotesWorkspace() {
   const unsavedSearchDiscardRef = useRef<HTMLButtonElement>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
+  const [isNotesCatalogCollapsed, setIsNotesCatalogCollapsed] = useState(false);
   const selectedNote =
     isCreatingNew || selectedNoteId === null
       ? null
@@ -943,7 +945,21 @@ function NotesWorkspace() {
         </div>
       </section>
 
-      <div className="notes-layout">
+      <div
+        className="notes-layout"
+        data-catalog-state={isNotesCatalogCollapsed ? "collapsed" : "expanded"}
+      >
+        {isNotesCatalogCollapsed ? (
+          <button
+            aria-controls={notesCatalogPanelId}
+            aria-label="Reopen notes catalog"
+            className="notes-catalog-reopen"
+            onClick={() => setIsNotesCatalogCollapsed(false)}
+            type="button"
+          >
+            Notes
+          </button>
+        ) : null}
         <article aria-label="Note editor surface" className="notes-editor">
           <header className="notes-editor__header">
             <div>
@@ -1265,7 +1281,12 @@ function NotesWorkspace() {
           </form>
         </article>
 
-        <aside className="notes-list" aria-label="Notes catalog">
+        <aside
+          aria-label="Notes catalog"
+          className="notes-list"
+          hidden={isNotesCatalogCollapsed}
+          id={notesCatalogPanelId}
+        >
           <div className="notes-list__toolbar">
             <button
               className="notes-action notes-action-primary"
@@ -1290,6 +1311,15 @@ function NotesWorkspace() {
               type="button"
             >
               ...
+            </button>
+            <button
+              aria-controls={notesCatalogPanelId}
+              aria-label="Collapse notes catalog"
+              className="notes-icon-button"
+              onClick={() => setIsNotesCatalogCollapsed(true)}
+              type="button"
+            >
+              <span aria-hidden="true">-</span>
             </button>
           </div>
 
