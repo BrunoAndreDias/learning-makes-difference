@@ -544,7 +544,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
   });
 
-  it("searches notes by note text and attached memory aids while keeping results account-scoped", async () => {
+  it("opens notes search results without live-filtering the stable notes catalog", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -605,27 +605,60 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "Notes workspace" }),
     ).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Search notes"), {
+    const searchInput = screen.getByRole("searchbox", {
+      name: "Search notes",
+    });
+    const notesCatalog = screen.getByLabelText("Notes catalog");
+
+    expect(searchInput).toHaveAttribute("placeholder", "Search notes");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Short-term storage supports active reasoning."),
+    ).toBeInTheDocument();
+
+    fireEvent.change(searchInput, {
       target: { value: "sled track" },
     });
 
     expect(
-      screen.getByRole("button", { name: /Synaptic plasticity/ }),
+      within(
+        screen.getByRole("listbox", { name: "Notes search results" }),
+      ).getByRole("option", { name: /Synaptic plasticity/ }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /Working memory/ }),
-    ).not.toBeInTheDocument();
+      within(notesCatalog).getByRole("button", { name: /Working memory/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(notesCatalog).getByRole("button", { name: /Synaptic plasticity/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Short-term storage supports active reasoning."),
+    ).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Search notes"), {
+    fireEvent.change(searchInput, {
       target: { value: "long-term potentiation" },
     });
 
     expect(
-      screen.getByRole("button", { name: /Synaptic plasticity/ }),
+      within(
+        screen.getByRole("listbox", { name: "Notes search results" }),
+      ).getByRole("option", { name: /Synaptic plasticity/ }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /Hidden note/ }),
+      screen.queryByRole("option", { name: /Hidden note/ }),
     ).not.toBeInTheDocument();
+
+    fireEvent.change(searchInput, {
+      target: { value: "missing concept" },
+    });
+
+    expect(screen.getByText("No notes found")).toBeInTheDocument();
+    expect(
+      within(notesCatalog).getByRole("button", { name: /Working memory/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Short-term storage supports active reasoning."),
+    ).toBeInTheDocument();
   });
 
   it("assigns and removes owned labels from a note inside the notes workspace", async () => {
