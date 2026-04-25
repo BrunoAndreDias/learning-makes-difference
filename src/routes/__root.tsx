@@ -4,17 +4,28 @@ import {
   createRootRouteWithContext,
   HeadContent,
   Link,
+  Navigate,
+  redirect,
   Scripts,
   useRouterState,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-import type { ReactNode } from "react";
+import { type ReactNode, useSyncExternalStore } from "react";
 
 import type { AppLabelsContext } from "../lib/labels";
 import type { AppNotesContext } from "../lib/notes";
 import type { AppRecallContext } from "../lib/recall";
-import type { AppSessionContext } from "../lib/session";
+import { type AppSessionContext, hasActiveSession } from "../lib/session";
 import appCss from "../styles/app.css?url";
+
+const authRoutePaths = new Set(["/forgot-password", "/login", "/register"]);
+const redirectableProtectedPaths = new Set([
+  "/history",
+  "/labels",
+  "/notes",
+  "/recall",
+  "/settings",
+]);
 
 export const Route = createRootRouteWithContext<{
   labels: AppLabelsContext;
@@ -37,8 +48,42 @@ export const Route = createRootRouteWithContext<{
     ],
     links: [{ rel: "stylesheet", href: appCss }],
   }),
+  beforeLoad: ({ context, location }) => {
+    if (hasActiveSession(context.session.getSnapshot())) {
+      return;
+    }
+
+    if (authRoutePaths.has(location.pathname)) {
+      return;
+    }
+
+    throw redirect({
+      to: "/login",
+      search: redirectableProtectedPaths.has(location.pathname)
+        ? {
+            redirect: location.href,
+          }
+        : undefined,
+    });
+  },
+  notFoundComponent: NotFoundRedirect,
   shellComponent: RootDocument,
 });
+
+function NotFoundRedirect() {
+  const session = Route.useRouteContext({
+    select: (context) => context.session,
+  });
+  const sessionSnapshot = useSyncExternalStore(
+    session.subscribe,
+    session.getSnapshot,
+    session.getSnapshot,
+  );
+
+  return (
+    <Navigate to={hasActiveSession(sessionSnapshot) ? "/notes" : "/login"} />
+  );
+}
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   const isAuthRoute = useRouterState({
