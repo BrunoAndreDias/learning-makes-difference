@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   type FormEvent,
   useEffect,
-  useId,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -209,9 +208,7 @@ function NotesWorkspace() {
   const notes = listNotesForUser(notesSnapshot, userId);
   const [searchQuery, setSearchQuery] = useState("");
   const searchResults = filterNotesByQuery(notes, searchQuery);
-  const shouldShowSearchResults = searchQuery.trim().length > 0;
-  const searchInputId = useId();
-  const searchResultsId = useId();
+  const hasSearchQuery = searchQuery.trim().length > 0;
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
   const firstNoteId = notes[0]?.id ?? null;
   const [isCreatingNew, setIsCreatingNew] = useState(notes.length === 0);
@@ -486,15 +483,11 @@ function NotesWorkspace() {
           <span className="notes-search__icon" aria-hidden="true">
             /
           </span>
-          <label className="sr-only" htmlFor={searchInputId}>
+          <label className="sr-only" htmlFor="notes-search">
             Search notes
           </label>
           <input
-            aria-controls={
-              shouldShowSearchResults ? searchResultsId : undefined
-            }
-            aria-label="Search notes"
-            id={searchInputId}
+            id="notes-search"
             name="search"
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search notes"
@@ -502,31 +495,29 @@ function NotesWorkspace() {
             value={searchQuery}
           />
           <kbd>Cmd K</kbd>
-          {shouldShowSearchResults ? (
-            <div
-              aria-label="Notes search results"
-              className="notes-search__results"
-              id={searchResultsId}
-              role="listbox"
-            >
-              {searchResults.length === 0 ? (
-                <p className="notes-search__empty">No notes found</p>
-              ) : (
-                searchResults.map((note) => (
+          {hasSearchQuery ? (
+            searchResults.length > 0 ? (
+              <section
+                aria-label="Notes search results"
+                className="notes-search__results"
+              >
+                {searchResults.map((note) => (
                   <button
-                    aria-selected={note.id === selectedNote?.id}
                     className="notes-search__option"
                     key={note.id}
                     onClick={() => handleSelectNote(note)}
-                    role="option"
                     type="button"
                   >
                     <strong>{note.title}</strong>
                     <span>{`Updated ${formatNoteDate(note.updatedAt)}`}</span>
                   </button>
-                ))
-              )}
-            </div>
+                ))}
+              </section>
+            ) : (
+              <p className="notes-search__empty" role="status">
+                No notes found
+              </p>
+            )
           ) : null}
         </div>
 

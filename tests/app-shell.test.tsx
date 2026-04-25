@@ -611,7 +611,9 @@ describe("authenticated app shell", () => {
     const notesCatalog = screen.getByLabelText("Notes catalog");
 
     expect(searchInput).toHaveAttribute("placeholder", "Search notes");
-    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Notes search results"),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByDisplayValue("Short-term storage supports active reasoning."),
     ).toBeInTheDocument();
@@ -621,9 +623,10 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      within(
-        screen.getByRole("listbox", { name: "Notes search results" }),
-      ).getByRole("option", { name: /Synaptic plasticity/ }),
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "button",
+        { name: /Synaptic plasticity/ },
+      ),
     ).toBeInTheDocument();
     expect(
       within(notesCatalog).getByRole("button", { name: /Working memory/ }),
@@ -640,12 +643,13 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      within(
-        screen.getByRole("listbox", { name: "Notes search results" }),
-      ).getByRole("option", { name: /Synaptic plasticity/ }),
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "button",
+        { name: /Synaptic plasticity/ },
+      ),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("option", { name: /Hidden note/ }),
+      screen.queryByRole("button", { name: /Hidden note/ }),
     ).not.toBeInTheDocument();
 
     fireEvent.change(searchInput, {
