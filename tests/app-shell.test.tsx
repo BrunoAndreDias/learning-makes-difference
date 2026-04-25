@@ -646,6 +646,67 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows save changes only for unsaved note edits and places it near the title", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Reviewing at expanding intervals improves long-term retention.",
+      labelIds: [],
+      metaphors: [],
+      title: "Spaced repetition",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByDisplayValue("Spaced repetition"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Save changes" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Body"), {
+      target: {
+        value:
+          "Reviewing at expanding intervals improves recall over long spans.",
+      },
+    });
+
+    const saveButton = screen.getByRole("button", { name: "Save changes" });
+    const titleHeader = screen.getByLabelText("Title").closest("header");
+    const details = screen.getByLabelText("Details");
+
+    expect(titleHeader).not.toBeNull();
+    expect(titleHeader).toContainElement(saveButton);
+    expect(details).not.toContainElement(saveButton);
+
+    fireEvent.click(saveButton);
+
+    expect(
+      await screen.findByDisplayValue(
+        "Reviewing at expanding intervals improves recall over long spans.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Save changes" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("opens notes search results without live-filtering the stable notes catalog", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,

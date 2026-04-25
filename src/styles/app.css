@@ -1471,6 +1471,11 @@ h3 {
   border-bottom: 1px solid #edf1f6;
 }
 
+.notes-editor__header .notes-action {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
 .notes-title-editor {
   display: inline-flex;
   align-items: center;
@@ -1923,6 +1928,10 @@ h3 {
 
   .notes-editor__header {
     flex-direction: column;
+  }
+
+  .notes-editor__header .notes-action {
+    margin-top: 0;
   }
 
   .notes-title-editor {

@@ -61,6 +61,7 @@ const emptyEditorState: NoteEditorState = {
 const labelPickerPanelId = "note-label-picker-panel";
 const notesCatalogPanelId = "notes-catalog-panel";
 const notesSearchListboxId = "notes-search-results";
+const noteEditorFormId = "note-editor-form";
 
 function createEditorKey(): string {
   return globalThis.crypto.randomUUID();
@@ -815,6 +816,7 @@ function NotesWorkspace() {
   const workspaceModeLabel = isCreating ? "Draft mode" : "Editing note";
   const wordCount = getWordCount(editorState.body);
   const compactDetailsLabel = getNoteDetailsSummary(selectedNote, wordCount);
+  const hasUnsavedChanges = hasUnsavedEditorChanges();
   const selectedNoteUpdatedLabel =
     selectedNote === null
       ? "Unsaved draft"
@@ -1000,11 +1002,21 @@ function NotesWorkspace() {
                 {selectedNoteUpdatedLabel}
               </p>
             </div>
+            {!isCreating && hasUnsavedChanges ? (
+              <button
+                className="notes-action notes-action-primary"
+                form={noteEditorFormId}
+                type="submit"
+              >
+                Save changes
+              </button>
+            ) : null}
           </header>
 
           <form
             aria-label="Note editor"
             className="notes-form"
+            id={noteEditorFormId}
             onSubmit={handleSubmit}
           >
             <div className="notes-form__primary">
@@ -1287,14 +1299,16 @@ function NotesWorkspace() {
                 </p>
               )}
 
-              <div className="notes-editor__actions">
-                <button
-                  className="notes-action notes-action-primary"
-                  type="submit"
-                >
-                  {isCreating ? "Create note" : "Save changes"}
-                </button>
-              </div>
+              {isCreating ? (
+                <div className="notes-editor__actions">
+                  <button
+                    className="notes-action notes-action-primary"
+                    type="submit"
+                  >
+                    Create note
+                  </button>
+                </div>
+              ) : null}
             </aside>
           </form>
         </article>
