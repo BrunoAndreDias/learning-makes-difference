@@ -13,6 +13,7 @@ import {
   type AppAcronym,
   type AppMetaphor,
   type AppNote,
+  type AppNoteSearchResult,
   AppNotesError,
   type AppStoredNote,
   listNotesForUser,
@@ -189,6 +190,31 @@ function truncateNoteId(noteId: string): string {
   return noteId.length <= 12 ? noteId : `${noteId.slice(0, 8)}...`;
 }
 
+function getSearchResultOptionId(noteId: string): string {
+  return `notes-search-option-${noteId}`;
+}
+
+function getSearchResultLabel(result: AppNoteSearchResult): string {
+  return `${result.note.title} ${result.matchChip} Updated ${formatNoteDate(result.note.updatedAt)}`;
+}
+
+function getSearchResultUpdatedLabel(result: AppNoteSearchResult): string {
+  return `Updated ${formatNoteDate(result.note.updatedAt)}`;
+}
+
+function getNoteDetailsSummary(
+  selectedNote: AppNote | null,
+  wordCount: number,
+): string {
+  const wordCountLabel = `${wordCount} ${wordCount === 1 ? "word" : "words"}`;
+
+  if (selectedNote === null) {
+    return `Draft - ${wordCountLabel}`;
+  }
+
+  return `Updated ${formatCompactNoteDate(selectedNote.updatedAt)} - ${wordCountLabel}`;
+}
+
 function NotesWorkspace() {
   const notesContext = Route.useRouteContext({
     select: (context) => context.notes,
@@ -253,11 +279,6 @@ function NotesWorkspace() {
   }, [labelsContext, userId]);
 
   useEffect(() => {
-    setActiveSearchResultIndex(0);
-    setIsSearchOpen(hasSearchQuery);
-  }, [hasSearchQuery, searchQuery]);
-
-  useEffect(() => {
     if (searchResults.length === 0) {
       setActiveSearchResultIndex(0);
       return;
@@ -281,7 +302,7 @@ function NotesWorkspace() {
       event.preventDefault();
       searchInputRef.current?.focus();
 
-      if (searchQuery.trim().length > 0) {
+      if (hasSearchQuery) {
         setActiveSearchResultIndex(0);
         setIsSearchOpen(true);
       }
@@ -292,7 +313,7 @@ function NotesWorkspace() {
     return () => {
       document.removeEventListener("keydown", handleDocumentKeyDown);
     };
-  }, [searchQuery]);
+  }, [hasSearchQuery]);
 
   useEffect(() => {
     function handleDocumentMouseDown(event: MouseEvent) {
@@ -487,6 +508,12 @@ function NotesWorkspace() {
     setActiveSearchResultIndex(0);
   }
 
+  function handleSearchChange(value: string) {
+    setSearchQuery(value);
+    setActiveSearchResultIndex(0);
+    setIsSearchOpen(value.trim().length > 0);
+  }
+
   function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (!isSearchOpen || searchResults.length === 0) {
       if (event.key === "Escape") {
@@ -583,11 +610,7 @@ function NotesWorkspace() {
   }`;
   const workspaceModeLabel = isCreating ? "Draft mode" : "Editing note";
   const wordCount = getWordCount(editorState.body);
-  const wordCountLabel = `${wordCount} ${wordCount === 1 ? "word" : "words"}`;
-  const compactDetailsLabel =
-    selectedNote === null
-      ? `Draft - ${wordCountLabel}`
-      : `Updated ${formatCompactNoteDate(selectedNote.updatedAt)} - ${wordCountLabel}`;
+  const compactDetailsLabel = getNoteDetailsSummary(selectedNote, wordCount);
   const selectedNoteUpdatedLabel =
     selectedNote === null
       ? "Unsaved draft"
@@ -624,7 +647,7 @@ function NotesWorkspace() {
   const activeSearchResult = searchResults[activeSearchResultIndex];
   const activeSearchOptionId =
     isSearchListboxOpen && activeSearchResult !== undefined
-      ? `notes-search-option-${activeSearchResult.note.id}`
+      ? getSearchResultOptionId(activeSearchResult.note.id)
       : undefined;
 
   return (
@@ -656,7 +679,7 @@ function NotesWorkspace() {
             aria-haspopup="listbox"
             id="notes-search"
             name="search"
-            onChange={(event) => setSearchQuery(event.target.value)}
+            onChange={(event) => handleSearchChange(event.target.value)}
             onFocus={() => {
               if (hasSearchQuery) {
                 setActiveSearchResultIndex(0);
@@ -673,7 +696,7 @@ function NotesWorkspace() {
           <kbd>Cmd K</kbd>
           {hasSearchQuery && isSearchOpen ? (
             searchResults.length > 0 ? (
-              <section
+              <div
                 aria-label="Notes search results"
                 className="notes-search__results"
                 id={notesSearchListboxId}
@@ -681,10 +704,10 @@ function NotesWorkspace() {
               >
                 {searchResults.map((result, index) => (
                   <button
-                    aria-label={`${result.note.title} ${result.matchChip} Updated ${formatNoteDate(result.note.updatedAt)}`}
+                    aria-label={getSearchResultLabel(result)}
                     aria-selected={index === activeSearchResultIndex}
                     className="notes-search__option"
-                    id={`notes-search-option-${result.note.id}`}
+                    id={getSearchResultOptionId(result.note.id)}
                     key={result.note.id}
                     onClick={() => handleSelectSearchResult(index)}
                     role="option"
@@ -696,10 +719,10 @@ function NotesWorkspace() {
                         {result.matchChip}
                       </span>
                     </span>
-                    <span>{`Updated ${formatNoteDate(result.note.updatedAt)}`}</span>
+                    <span>{getSearchResultUpdatedLabel(result)}</span>
                   </button>
                 ))}
-              </section>
+              </div>
             ) : (
               <p className="notes-search__empty" role="status">
                 No notes found
