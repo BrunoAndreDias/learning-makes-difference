@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
   type FormEvent,
+  type KeyboardEvent,
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -47,6 +49,7 @@ const emptyEditorState: NoteEditorState = {
 };
 
 const labelPickerPanelId = "note-label-picker-panel";
+const notesSearchListboxId = "notes-search-results";
 
 function createEditorKey(): string {
   return globalThis.crypto.randomUUID();
@@ -211,6 +214,10 @@ function NotesWorkspace() {
   const [searchQuery, setSearchQuery] = useState("");
   const searchResults = searchNoteResults(notes, searchQuery);
   const hasSearchQuery = searchQuery.trim().length > 0;
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [activeSearchResultIndex, setActiveSearchResultIndex] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchRootRef = useRef<HTMLFormElement>(null);
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
   const firstNoteId = notes[0]?.id ?? null;
   const [isCreatingNew, setIsCreatingNew] = useState(notes.length === 0);
@@ -244,6 +251,70 @@ function NotesWorkspace() {
 
     return labelsContext.subscribe(syncLabels);
   }, [labelsContext, userId]);
+
+  useEffect(() => {
+    setActiveSearchResultIndex(0);
+    setIsSearchOpen(hasSearchQuery);
+  }, [hasSearchQuery, searchQuery]);
+
+  useEffect(() => {
+    if (searchResults.length === 0) {
+      setActiveSearchResultIndex(0);
+      return;
+    }
+
+    setActiveSearchResultIndex((currentIndex) =>
+      Math.min(currentIndex, searchResults.length - 1),
+    );
+  }, [searchResults.length]);
+
+  useEffect(() => {
+    function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key.toLocaleLowerCase() !== "k") {
+        return;
+      }
+
+      if (!event.metaKey && !event.ctrlKey) {
+        return;
+      }
+
+      event.preventDefault();
+      searchInputRef.current?.focus();
+
+      if (searchQuery.trim().length > 0) {
+        setActiveSearchResultIndex(0);
+        setIsSearchOpen(true);
+      }
+    }
+
+    document.addEventListener("keydown", handleDocumentKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleDocumentKeyDown);
+    };
+  }, [searchQuery]);
+
+  useEffect(() => {
+    function handleDocumentMouseDown(event: MouseEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (searchRootRef.current?.contains(target)) {
+        return;
+      }
+
+      setIsSearchOpen(false);
+    }
+
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentMouseDown);
+    };
+  }, []);
 
   useEffect(() => {
     if (firstNoteId === null) {
@@ -403,6 +474,62 @@ function NotesWorkspace() {
     setSelectedNoteId(note.id);
   }
 
+  function handleSelectSearchResult(index: number) {
+    const result = searchResults[index];
+
+    if (result === undefined) {
+      return;
+    }
+
+    handleSelectNote(result.note);
+    setSearchQuery("");
+    setIsSearchOpen(false);
+    setActiveSearchResultIndex(0);
+  }
+
+  function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (!isSearchOpen || searchResults.length === 0) {
+      if (event.key === "Escape") {
+        setIsSearchOpen(false);
+      }
+
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveSearchResultIndex(
+        (currentIndex) => (currentIndex + 1) % searchResults.length,
+      );
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveSearchResultIndex(
+        (currentIndex) =>
+          (currentIndex - 1 + searchResults.length) % searchResults.length,
+      );
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleSelectSearchResult(activeSearchResultIndex);
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setIsSearchOpen(false);
+    }
+  }
+
+  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    handleSelectSearchResult(activeSearchResultIndex);
+  }
+
   function handleCopyNoteId() {
     if (selectedNote === null) {
       return;
@@ -492,6 +619,13 @@ function NotesWorkspace() {
       </fieldset>
     )
   ) : null;
+  const isSearchListboxOpen =
+    hasSearchQuery && isSearchOpen && searchResults.length > 0;
+  const activeSearchResult = searchResults[activeSearchResultIndex];
+  const activeSearchOptionId =
+    isSearchListboxOpen && activeSearchResult !== undefined
+      ? `notes-search-option-${activeSearchResult.note.id}`
+      : undefined;
 
   return (
     <section className="notes-workspace">
@@ -504,7 +638,11 @@ function NotesWorkspace() {
           New note
         </button>
         <span className="sr-only">{noteCountLabel}</span>
-        <div className="notes-search">
+        <form
+          className="notes-search"
+          onSubmit={handleSearchSubmit}
+          ref={searchRootRef}
+        >
           <span className="notes-search__icon" aria-hidden="true">
             /
           </span>
@@ -512,25 +650,44 @@ function NotesWorkspace() {
             Search notes
           </label>
           <input
+            aria-activedescendant={activeSearchOptionId}
+            aria-controls={notesSearchListboxId}
+            aria-expanded={isSearchListboxOpen}
+            aria-haspopup="listbox"
             id="notes-search"
             name="search"
             onChange={(event) => setSearchQuery(event.target.value)}
+            onFocus={() => {
+              if (hasSearchQuery) {
+                setActiveSearchResultIndex(0);
+                setIsSearchOpen(true);
+              }
+            }}
+            onKeyDown={handleSearchKeyDown}
             placeholder="Search notes"
+            ref={searchInputRef}
+            role="combobox"
             type="search"
             value={searchQuery}
           />
           <kbd>Cmd K</kbd>
-          {hasSearchQuery ? (
+          {hasSearchQuery && isSearchOpen ? (
             searchResults.length > 0 ? (
               <section
                 aria-label="Notes search results"
                 className="notes-search__results"
+                id={notesSearchListboxId}
+                role="listbox"
               >
-                {searchResults.map((result) => (
+                {searchResults.map((result, index) => (
                   <button
+                    aria-label={`${result.note.title} ${result.matchChip} Updated ${formatNoteDate(result.note.updatedAt)}`}
+                    aria-selected={index === activeSearchResultIndex}
                     className="notes-search__option"
+                    id={`notes-search-option-${result.note.id}`}
                     key={result.note.id}
-                    onClick={() => handleSelectNote(result.note)}
+                    onClick={() => handleSelectSearchResult(index)}
+                    role="option"
                     type="button"
                   >
                     <span className="notes-search__option-title">
@@ -549,7 +706,7 @@ function NotesWorkspace() {
               </p>
             )
           ) : null}
-        </div>
+        </form>
 
         <fieldset className="notes-filter-tabs">
           <legend className="sr-only">Note filters</legend>

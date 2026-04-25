@@ -489,7 +489,7 @@ describe("authenticated app shell", () => {
       within(shellHeader).getByText("Study workspace"),
     ).toBeInTheDocument();
     expect(
-      within(shellHeader).getByRole("searchbox", { name: "Search notes" }),
+      within(shellHeader).getByRole("combobox", { name: "Search notes" }),
     ).toBeInTheDocument();
     expect(
       within(shellHeader).getByRole("button", { name: "New note" }),
@@ -623,7 +623,7 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "Notes workspace" }),
     ).toBeInTheDocument();
 
-    const searchInput = screen.getByRole("searchbox", {
+    const searchInput = screen.getByRole("combobox", {
       name: "Search notes",
     });
     const notesCatalog = screen.getByLabelText("Notes catalog");
@@ -642,7 +642,7 @@ describe("authenticated app shell", () => {
 
     expect(
       within(screen.getByLabelText("Notes search results")).getByRole(
-        "button",
+        "option",
         { name: /Synaptic plasticity/ },
       ),
     ).toBeInTheDocument();
@@ -662,7 +662,7 @@ describe("authenticated app shell", () => {
 
     expect(
       within(screen.getByLabelText("Notes search results")).getByRole(
-        "button",
+        "option",
         { name: /Synaptic plasticity/ },
       ),
     ).toBeInTheDocument();
@@ -751,7 +751,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
 
     fireEvent.change(
-      screen.getByRole("searchbox", {
+      screen.getByRole("combobox", {
         name: "Search notes",
       }),
       {
@@ -761,7 +761,7 @@ describe("authenticated app shell", () => {
 
     const resultButtons = within(
       screen.getByLabelText("Notes search results"),
-    ).getAllByRole("button");
+    ).getAllByRole("option");
 
     expect(resultButtons).toHaveLength(4);
     expect(resultButtons.map((button) => button.textContent)).toEqual([
@@ -770,6 +770,104 @@ describe("authenticated app shell", () => {
       expect.stringMatching(/^Metaphor resultMetaphorUpdated /),
       expect.stringMatching(/^Acronym resultAcronymUpdated /),
     ]);
+  });
+
+  it("supports keyboard, shortcut, mobile submit, and accessible notes search combobox behavior", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Older spaced retrieval cue.",
+      labelIds: [],
+      metaphors: [],
+      title: "Older retrieval",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Newer spaced retrieval cue.",
+      labelIds: [],
+      metaphors: [],
+      title: "Newer retrieval",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const searchInput = screen.getByRole("combobox", {
+      name: "Search notes",
+    });
+
+    fireEvent.change(searchInput, {
+      target: { value: "spaced retrieval cue" },
+    });
+
+    const listbox = screen.getByRole("listbox", {
+      name: "Notes search results",
+    });
+    const options = within(listbox).getAllByRole("option");
+
+    expect(searchInput).toHaveAttribute("aria-expanded", "true");
+    expect(searchInput).toHaveAttribute("aria-activedescendant", options[0].id);
+    expect(options[0]).toHaveAttribute("aria-selected", "true");
+    expect(options[0]).toHaveAccessibleName(
+      expect.stringMatching(/Newer retrieval Body Updated /),
+    );
+
+    fireEvent.keyDown(searchInput, { key: "ArrowDown" });
+    expect(searchInput).toHaveAttribute("aria-activedescendant", options[1].id);
+    expect(options[1]).toHaveAttribute("aria-selected", "true");
+
+    fireEvent.keyDown(searchInput, { key: "Escape" });
+    expect(searchInput).toHaveValue("spaced retrieval cue");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Newer spaced retrieval cue."),
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "k", metaKey: true });
+    expect(searchInput).toHaveFocus();
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByLabelText("Note editor surface"));
+    expect(searchInput).toHaveValue("spaced retrieval cue");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "k", metaKey: true });
+    fireEvent.submit(searchInput.closest("form") as HTMLFormElement);
+    expect(searchInput).toHaveValue("");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Newer spaced retrieval cue."),
+    ).toBeInTheDocument();
+
+    fireEvent.change(searchInput, {
+      target: { value: "spaced retrieval cue" },
+    });
+    fireEvent.keyDown(searchInput, { key: "ArrowDown" });
+    fireEvent.keyDown(searchInput, { key: "Enter" });
+
+    expect(searchInput).toHaveValue("");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Older spaced retrieval cue."),
+    ).toBeInTheDocument();
   });
 
   it("assigns and removes owned labels from a note inside the notes workspace", async () => {
