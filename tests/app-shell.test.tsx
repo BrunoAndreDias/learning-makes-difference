@@ -513,6 +513,78 @@ describe("authenticated app shell", () => {
     expect(screen.getAllByText("Biology").length).toBeGreaterThan(0);
   });
 
+  it("collapses the notes catalog and provides a compact reopen toggle", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Repeated review strengthens long-term retention.",
+      labelIds: [],
+      metaphors: [],
+      title: "Spaced repetition",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const notesCatalog = screen.getByLabelText("Notes catalog");
+
+    expect(notesCatalog).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Reopen notes catalog" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(notesCatalog).getByRole("button", {
+        name: "Collapse notes catalog",
+      }),
+    );
+
+    expect(notesCatalog).not.toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Reopen notes catalog" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Reopen notes catalog" }),
+    ).toHaveFocus();
+    expect(
+      screen.getByDisplayValue(
+        "Repeated review strengthens long-term retention.",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Reopen notes catalog" }),
+    );
+
+    expect(notesCatalog).toBeVisible();
+    expect(
+      within(notesCatalog).getByRole("button", {
+        name: "Collapse notes catalog",
+      }),
+    ).toHaveFocus();
+    expect(
+      screen.queryByRole("button", { name: "Reopen notes catalog" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("lets an authenticated user create and edit notes inside the notes workspace", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,

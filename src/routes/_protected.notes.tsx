@@ -59,6 +59,7 @@ const emptyEditorState: NoteEditorState = {
 };
 
 const labelPickerPanelId = "note-label-picker-panel";
+const notesCatalogPanelId = "notes-catalog-panel";
 const notesSearchListboxId = "notes-search-results";
 
 function createEditorKey(): string {
@@ -262,6 +263,7 @@ function NotesWorkspace() {
     useState<AppNoteSearchResult | null>(null);
   const [guardedSearchResult, setGuardedSearchResult] =
     useState<AppNoteSearchResult | null>(null);
+  const [isNotesCatalogCollapsed, setIsNotesCatalogCollapsed] = useState(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const metaphorTitleRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -274,6 +276,9 @@ function NotesWorkspace() {
   const unsavedSearchDialogRef = useRef<HTMLDivElement>(null);
   const unsavedSearchCancelRef = useRef<HTMLButtonElement>(null);
   const unsavedSearchDiscardRef = useRef<HTMLButtonElement>(null);
+  const collapseCatalogButtonRef = useRef<HTMLButtonElement>(null);
+  const reopenCatalogButtonRef = useRef<HTMLButtonElement>(null);
+  const previousCatalogCollapsedRef = useRef(isNotesCatalogCollapsed);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
   const selectedNote =
@@ -417,6 +422,21 @@ function NotesWorkspace() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (previousCatalogCollapsedRef.current === isNotesCatalogCollapsed) {
+      return;
+    }
+
+    previousCatalogCollapsedRef.current = isNotesCatalogCollapsed;
+
+    if (isNotesCatalogCollapsed) {
+      reopenCatalogButtonRef.current?.focus();
+      return;
+    }
+
+    collapseCatalogButtonRef.current?.focus();
+  }, [isNotesCatalogCollapsed]);
 
   useEffect(() => {
     if (guardedSearchResult === null) {
@@ -943,7 +963,22 @@ function NotesWorkspace() {
         </div>
       </section>
 
-      <div className="notes-layout">
+      <div
+        className="notes-layout"
+        data-catalog-state={isNotesCatalogCollapsed ? "collapsed" : "expanded"}
+      >
+        {isNotesCatalogCollapsed ? (
+          <button
+            aria-controls={notesCatalogPanelId}
+            aria-label="Reopen notes catalog"
+            className="notes-catalog-reopen"
+            ref={reopenCatalogButtonRef}
+            onClick={() => setIsNotesCatalogCollapsed(false)}
+            type="button"
+          >
+            Notes
+          </button>
+        ) : null}
         <article aria-label="Note editor surface" className="notes-editor">
           <header className="notes-editor__header">
             <div>
@@ -1264,7 +1299,12 @@ function NotesWorkspace() {
           </form>
         </article>
 
-        <aside className="notes-list" aria-label="Notes catalog">
+        <aside
+          aria-label="Notes catalog"
+          className="notes-list"
+          hidden={isNotesCatalogCollapsed}
+          id={notesCatalogPanelId}
+        >
           <div className="notes-list__toolbar">
             <button
               className="notes-action notes-action-primary"
@@ -1289,6 +1329,16 @@ function NotesWorkspace() {
               type="button"
             >
               ...
+            </button>
+            <button
+              aria-controls={notesCatalogPanelId}
+              aria-label="Collapse notes catalog"
+              className="notes-icon-button"
+              ref={collapseCatalogButtonRef}
+              onClick={() => setIsNotesCatalogCollapsed(true)}
+              type="button"
+            >
+              <span aria-hidden="true">-</span>
             </button>
           </div>
 
