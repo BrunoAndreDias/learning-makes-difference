@@ -1780,5 +1780,5 @@ h3 {
 }
 
 .app-sidebar[hidden] {
-  display: none !important;
+  display: none;
 }

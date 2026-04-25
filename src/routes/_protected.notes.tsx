@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
   type FormEvent,
+  type ReactElement,
   useEffect,
   useState,
   useSyncExternalStore,
@@ -466,6 +467,33 @@ function NotesWorkspace() {
     selectedNote === null
       ? "Created after save"
       : `Created ${formatNoteDate(selectedNote.createdAt)}`;
+  let labelPickerContent: ReactElement | null = null;
+
+  if (isLabelPickerOpen) {
+    if (availableLabels.length === 0) {
+      labelPickerContent = <p className="muted">No labels available</p>;
+    } else {
+      labelPickerContent = (
+        <fieldset className="notes-labels">
+          <legend>Available labels</legend>
+          <div className="notes-labels__options">
+            {availableLabels.map((label) => (
+              <label className="notes-labels__option" key={label.id}>
+                <input
+                  checked={editorState.labelIds.includes(label.id)}
+                  onChange={(event) =>
+                    handleLabelToggle(label.id, event.target.checked)
+                  }
+                  type="checkbox"
+                />
+                <span>{label.name}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      );
+    }
+  }
 
   return (
     <section className="notes-workspace">
@@ -646,35 +674,7 @@ function NotesWorkspace() {
                   </section>
                 )}
 
-                {isLabelPickerOpen ? (
-                  availableLabels.length === 0 ? (
-                    <p className="muted">No labels available</p>
-                  ) : (
-                    <fieldset className="notes-labels">
-                      <legend>Available labels</legend>
-                      <div className="notes-labels__options">
-                        {availableLabels.map((label) => (
-                          <label
-                            className="notes-labels__option"
-                            key={label.id}
-                          >
-                            <input
-                              checked={editorState.labelIds.includes(label.id)}
-                              onChange={(event) =>
-                                handleLabelToggle(
-                                  label.id,
-                                  event.target.checked,
-                                )
-                              }
-                              type="checkbox"
-                            />
-                            <span>{label.name}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </fieldset>
-                  )
-                ) : null}
+                {labelPickerContent}
               </section>
 
               <section
