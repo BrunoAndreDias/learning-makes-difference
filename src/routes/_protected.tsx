@@ -35,30 +35,35 @@ export const Route = createFileRoute("/_protected")({
 const appNavigationItems = [
   {
     description: "Capture focused concepts and draft the note workflow.",
+    icon: "note",
     label: "Notes",
     shortLabel: "NT",
     to: "/notes",
   },
   {
     description: "Shape the label graph and topic organization surfaces.",
+    icon: "label",
     label: "Labels",
     shortLabel: "LB",
     to: "/labels",
   },
   {
     description: "Exercise recall sessions before the real study loop lands.",
+    icon: "recall",
     label: "Recall",
     shortLabel: "RC",
     to: "/recall",
   },
   {
     description: "Reserve space for completed and partial study history.",
+    icon: "history",
     label: "History",
     shortLabel: "HS",
     to: "/history",
   },
   {
     description: "Profile and language controls will expand here later.",
+    icon: "settings",
     label: "Settings",
     shortLabel: "ST",
     to: "/settings",
@@ -219,7 +224,7 @@ function AppLayout() {
                     to={item.to}
                   >
                     <span aria-hidden="true" className="app-sidebar__icon">
-                      {item.shortLabel}
+                      <NavigationIcon name={item.icon} />
                     </span>
                     <span className="app-sidebar__label">{item.label}</span>
                   </Link>
@@ -250,14 +255,9 @@ function AppLayout() {
         </div>
       </aside>
 
-      <div className="app-frame shell-panel">
-        <header className="app-frame__header">
-          <div className="stack app-frame__title">
-            <p className="section-label">Authenticated workspace</p>
-            <h2>{activeItem.label}</h2>
-            <p className="muted">{activeItem.description}</p>
-          </div>
-
+      <div className="app-frame">
+        <header className="app-frame__mobile-header">
+          <h2>{activeItem.label}</h2>
           <div className="app-frame__actions">
             <button
               aria-controls={navigationId}
@@ -280,4 +280,50 @@ function AppLayout() {
       </div>
     </section>
   );
+}
+
+function NavigationIcon({
+  name,
+}: Readonly<{ name: (typeof appNavigationItems)[number]["icon"] }>) {
+  switch (name) {
+    case "label":
+      return (
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M4 12V5h7l9 9-7 7-9-9Z" />
+          <path d="M8 8h.01" />
+        </svg>
+      );
+    case "recall":
+      return (
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M12 5a7 7 0 1 1-6.4 4.2" />
+          <path d="M5 5v4h4" />
+          <path d="M12 9v4l3 2" />
+        </svg>
+      );
+    case "history":
+      return (
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M12 8v5l3 2" />
+          <path d="M5 5v4h4" />
+          <path d="M5.6 9A7 7 0 1 1 5 12" />
+        </svg>
+      );
+    case "settings":
+      return (
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+          <path d="m19 12 .8-2.1-1.9-3.3-2.3.4-1.6-.9L13.2 4H9.4l-.8 2.1-1.6.9-2.3-.4-1.9 3.3.8 2.1-.8 2.1 1.9 3.3 2.3-.4 1.6.9.8 2.1h3.8l.8-2.1 1.6-.9 2.3.4 1.9-3.3L19 12Z" />
+        </svg>
+      );
+    case "note":
+      return (
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M6 3h9l3 3v15H6V3Z" />
+          <path d="M14 3v4h4" />
+          <path d="M9 11h6" />
+          <path d="M9 15h6" />
+        </svg>
+      );
+  }
 }
