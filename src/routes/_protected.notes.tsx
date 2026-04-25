@@ -14,8 +14,8 @@ import {
   type AppNote,
   AppNotesError,
   type AppStoredNote,
-  filterNotesByQuery,
   listNotesForUser,
+  searchNoteResults,
 } from "../lib/notes";
 import type { AppSessionSnapshot } from "../lib/session";
 
@@ -208,7 +208,7 @@ function NotesWorkspace() {
   const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
   const [searchQuery, setSearchQuery] = useState("");
-  const searchResults = filterNotesByQuery(notes, searchQuery);
+  const searchResults = searchNoteResults(notes, searchQuery);
   const hasSearchQuery = searchQuery.trim().length > 0;
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
   const firstNoteId = notes[0]?.id ?? null;
@@ -529,15 +529,20 @@ function NotesWorkspace() {
                 aria-label="Notes search results"
                 className="notes-search__results"
               >
-                {searchResults.map((note) => (
+                {searchResults.map((result) => (
                   <button
                     className="notes-search__option"
-                    key={note.id}
-                    onClick={() => handleSelectNote(note)}
+                    key={result.note.id}
+                    onClick={() => handleSelectNote(result.note)}
                     type="button"
                   >
-                    <strong>{note.title}</strong>
-                    <span>{`Updated ${formatNoteDate(note.updatedAt)}`}</span>
+                    <span className="notes-search__option-title">
+                      <strong>{result.note.title}</strong>
+                      <span className="notes-search__match-chip">
+                        {result.matchChip}
+                      </span>
+                    </span>
+                    <span>{`Updated ${formatNoteDate(result.note.updatedAt)}`}</span>
                   </button>
                 ))}
               </section>

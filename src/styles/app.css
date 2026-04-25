@@ -1289,6 +1289,25 @@ h3 {
   cursor: pointer;
 }
 
+.notes-search__option-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.notes-search__match-chip {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid #d9e2ef;
+  border-radius: 999px;
+  background: #f7f9fc;
+  color: #45536b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .notes-search__option:hover,
 .notes-search__option:focus-visible,
 .notes-search__option[aria-selected="true"] {
@@ -1296,7 +1315,7 @@ h3 {
   outline: 0;
 }
 
-.notes-search__option span,
+.notes-search__option > span:not(.notes-search__option-title),
 .notes-search__empty {
   color: #66758f;
   font-size: 0.9rem;

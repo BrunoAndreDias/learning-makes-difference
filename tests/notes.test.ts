@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  type AppNote,
   type AppNotesError,
   createAppNotesContext,
   filterNotesByQuery,
   listNotesForUser,
+  searchNoteResults,
 } from "../src/lib/notes";
 
 function createMemoryStorage() {
@@ -383,5 +385,83 @@ describe("app notes context", () => {
       { title: "Working memory" },
     ]);
     expect(filterNotesByQuery(visibleNotes, "hidden note")).toEqual([]);
+  });
+
+  it("ranks note search results by match chip priority and note recency", () => {
+    const notes: AppNote[] = [
+      {
+        acronyms: [],
+        body: "The shared cue appears in body copy.",
+        createdAt: "2026-04-20T10:00:00.000Z",
+        id: "body-older",
+        labelIds: [],
+        metaphors: [],
+        title: "Older body note",
+        updatedAt: "2026-04-22T10:00:00.000Z",
+      },
+      {
+        acronyms: [],
+        body: "Another shared cue appears in body copy.",
+        createdAt: "2026-04-20T10:00:00.000Z",
+        id: "body-newer",
+        labelIds: [],
+        metaphors: [],
+        title: "Newer body note",
+        updatedAt: "2026-04-24T10:00:00.000Z",
+      },
+      {
+        acronyms: [
+          {
+            expansion: "Shared Cue",
+            shortForm: "SC",
+          },
+        ],
+        body: "Mnemonic content only.",
+        createdAt: "2026-04-20T10:00:00.000Z",
+        id: "acronym",
+        labelIds: [],
+        metaphors: [],
+        title: "Acronym note",
+        updatedAt: "2026-04-25T10:00:00.000Z",
+      },
+      {
+        acronyms: [],
+        body: "Visual memory aid only.",
+        createdAt: "2026-04-20T10:00:00.000Z",
+        id: "metaphor",
+        labelIds: [],
+        metaphors: [
+          {
+            explanation: "A shared cue acts like a lighthouse.",
+            title: "Lighthouse",
+          },
+        ],
+        title: "Metaphor note",
+        updatedAt: "2026-04-25T10:00:00.000Z",
+      },
+      {
+        acronyms: [],
+        body: "The shared cue also appears here.",
+        createdAt: "2026-04-20T10:00:00.000Z",
+        id: "title",
+        labelIds: [],
+        metaphors: [
+          {
+            explanation: "Shared cue also appears in an attached metaphor.",
+            title: "Duplicate match",
+          },
+        ],
+        title: "Shared cue title",
+        updatedAt: "2026-04-21T10:00:00.000Z",
+      },
+    ];
+
+    expect(searchNoteResults(notes, "shared cue")).toMatchObject([
+      { matchChip: "Title", note: { id: "title" } },
+      { matchChip: "Body", note: { id: "body-newer" } },
+      { matchChip: "Body", note: { id: "body-older" } },
+      { matchChip: "Metaphor", note: { id: "metaphor" } },
+      { matchChip: "Acronym", note: { id: "acronym" } },
+    ]);
   });
 });

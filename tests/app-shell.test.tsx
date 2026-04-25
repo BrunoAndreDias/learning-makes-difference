@@ -683,6 +683,95 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows ranked notes search results with match chips and updated dates", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [
+        {
+          expansion: "Priority Cue",
+          shortForm: "PC",
+        },
+      ],
+      body: "Mnemonic content only.",
+      labelIds: [],
+      metaphors: [],
+      title: "Acronym result",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Visual memory aid only.",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation: "A priority cue acts like a lighthouse.",
+          title: "Lighthouse",
+        },
+      ],
+      title: "Metaphor result",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "This body contains a priority cue.",
+      labelIds: [],
+      metaphors: [],
+      title: "Body result",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "This body also contains a priority cue.",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation: "Priority cue also appears here.",
+          title: "Duplicate attached match",
+        },
+      ],
+      title: "Priority cue title result",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(
+      screen.getByRole("searchbox", {
+        name: "Search notes",
+      }),
+      {
+        target: { value: "priority cue" },
+      },
+    );
+
+    const resultButtons = within(
+      screen.getByLabelText("Notes search results"),
+    ).getAllByRole("button");
+
+    expect(resultButtons).toHaveLength(4);
+    expect(resultButtons.map((button) => button.textContent)).toEqual([
+      expect.stringMatching(/^Priority cue title resultTitleUpdated /),
+      expect.stringMatching(/^Body resultBodyUpdated /),
+      expect.stringMatching(/^Metaphor resultMetaphorUpdated /),
+      expect.stringMatching(/^Acronym resultAcronymUpdated /),
+    ]);
+  });
+
   it("assigns and removes owned labels from a note inside the notes workspace", async () => {
     const labelsContext = createAppLabelsContext({
       keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,

@@ -23,6 +23,13 @@ export type AppStoredNote = AppNote & {
   userId: string;
 };
 
+export type AppNoteSearchMatchChip = "Title" | "Body" | "Metaphor" | "Acronym";
+
+export type AppNoteSearchResult = {
+  matchChip: AppNoteSearchMatchChip;
+  note: AppNote;
+};
+
 type NotesListener = () => void;
 
 type CreateNoteInput = {
@@ -296,29 +303,66 @@ export function listNotesForUser(
     .map(toPublicNote);
 }
 
-function noteMatchesQuery(note: AppNote, query: string): boolean {
-  const normalizedQuery = query.trim().toLocaleLowerCase();
+const NOTE_SEARCH_MATCH_PRIORITIES: AppNoteSearchMatchChip[] = [
+  "Title",
+  "Body",
+  "Metaphor",
+  "Acronym",
+];
 
+function getSearchMatchPriority(matchChip: AppNoteSearchMatchChip): number {
+  return NOTE_SEARCH_MATCH_PRIORITIES.indexOf(matchChip);
+}
+
+function includesNormalizedQuery(value: string, normalizedQuery: string) {
+  return value.toLocaleLowerCase().includes(normalizedQuery);
+}
+
+function getNoteSearchMatchChip(
+  note: AppNote,
+  normalizedQuery: string,
+): AppNoteSearchMatchChip | null {
   if (normalizedQuery.length === 0) {
-    return true;
+    return "Title";
   }
 
-  const searchFields = [
-    note.title,
-    note.body,
-    ...note.metaphors.flatMap((metaphor) => [
-      metaphor.title,
-      metaphor.explanation,
-    ]),
-    ...note.acronyms.flatMap((acronym) => [
-      acronym.shortForm,
-      acronym.expansion,
-    ]),
-  ];
+  if (includesNormalizedQuery(note.title, normalizedQuery)) {
+    return "Title";
+  }
 
-  return searchFields.some((field) => {
-    return field.toLocaleLowerCase().includes(normalizedQuery);
-  });
+  if (includesNormalizedQuery(note.body, normalizedQuery)) {
+    return "Body";
+  }
+
+  if (
+    note.metaphors.some((metaphor) => {
+      return (
+        includesNormalizedQuery(metaphor.title, normalizedQuery) ||
+        includesNormalizedQuery(metaphor.explanation, normalizedQuery)
+      );
+    })
+  ) {
+    return "Metaphor";
+  }
+
+  if (
+    note.acronyms.some((acronym) => {
+      return (
+        includesNormalizedQuery(acronym.shortForm, normalizedQuery) ||
+        includesNormalizedQuery(acronym.expansion, normalizedQuery)
+      );
+    })
+  ) {
+    return "Acronym";
+  }
+
+  return null;
+}
+
+function noteMatchesQuery(note: AppNote, query: string): boolean {
+  return (
+    getNoteSearchMatchChip(note, query.trim().toLocaleLowerCase()) !== null
+  );
 }
 
 export function filterNotesByQuery(
@@ -326,6 +370,43 @@ export function filterNotesByQuery(
   query: string,
 ): AppNote[] {
   return notes.filter((note) => noteMatchesQuery(note, query));
+}
+
+export function searchNoteResults(
+  notes: readonly AppNote[],
+  query: string,
+): AppNoteSearchResult[] {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+
+  if (normalizedQuery.length === 0) {
+    return [];
+  }
+
+  return notes
+    .map((note): AppNoteSearchResult | null => {
+      const matchChip = getNoteSearchMatchChip(note, normalizedQuery);
+
+      if (matchChip === null) {
+        return null;
+      }
+
+      return {
+        matchChip,
+        note,
+      };
+    })
+    .filter((result): result is AppNoteSearchResult => result !== null)
+    .sort((left, right) => {
+      const priorityDifference =
+        getSearchMatchPriority(left.matchChip) -
+        getSearchMatchPriority(right.matchChip);
+
+      if (priorityDifference !== 0) {
+        return priorityDifference;
+      }
+
+      return right.note.updatedAt.localeCompare(left.note.updatedAt);
+    });
 }
 
 export function createAppNotesContext(
