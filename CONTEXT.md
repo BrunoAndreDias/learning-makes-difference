@@ -94,6 +94,20 @@ _Avoid_: Account, member, profile
 **BYOK** (Bring Your Own Key):
 The current premium access model. A User supplies their own AI provider API key; the app uses it for AiAssisted and AiGraded RecallModes. Future model: per-use credits.
 
+### Workspace Navigation
+
+**App Sidebar**:
+The primary workspace navigation surface shown beside authenticated study screens.
+_Avoid_: Menu rail, icon rail
+
+**Collapsed App Sidebar**:
+A hidden App Sidebar state where the workspace content reclaims the sidebar area.
+_Avoid_: Mini sidebar, icon-only sidebar
+
+**Sidebar Reopen Control**:
+An icon-only frame header control that restores a Collapsed App Sidebar.
+_Avoid_: Menu text button, secondary navigation button
+
 ## Relationships
 
 - A **Label** can have zero or more parent **Labels** and zero or more child **Labels** (DAG, not a tree)
@@ -126,6 +140,10 @@ The current premium access model. A User supplies their own AI provider API key;
 - A **User** owns all their **Notes**, **Labels**, **Metaphors**, **Acronyms**, **RecallSessions**, and **FocusSessions**
 - All relationships are ownership-local to a single **User**. A **Note** can only be assigned to **Labels** owned by the same **User**, and a **RecallSession** can only traverse that User's own Label graph.
 - In v1, deleting active **Notes**, **Labels**, **Metaphors**, and **Acronyms** is a hard delete. Historical study records remain available only through the snapshots stored in **SessionResult**.
+- The **App Sidebar** can be collapsed into a **Collapsed App Sidebar**, which is hidden rather than reduced to an icon-only rail.
+- A **Sidebar Reopen Control** appears at the leading edge of the authenticated frame header only while the **App Sidebar** is collapsed.
+- The **Sidebar Reopen Control** is workspace-wide and appears consistently across authenticated screens.
+- The authenticated frame header owns workspace navigation affordances and page identity; individual routes own page-specific controls such as Note search, focus mode, view mode, and sorting.
 
 ## Example dialogue
 
@@ -180,6 +198,18 @@ The current premium access model. A User supplies their own AI provider API key;
 > **Dev:** "If one **FocusSession** touches `React`, `CSS`, and unlabeled Note work, how many minutes does each one get?"
 > **Domain expert:** "In v1 we only record that those **FocusTargets** appeared in the **FocusSession**; exact per-target minute splitting is deferred."
 
+> **Dev:** "When the **App Sidebar** is collapsed, do we keep a small navigation rail visible?"
+> **Domain expert:** "No — a **Collapsed App Sidebar** is hidden, and the workspace content reclaims that space."
+
+> **Dev:** "Where does the User reopen a **Collapsed App Sidebar**?"
+> **Domain expert:** "From a compact **Sidebar Reopen Control** at the leading edge of the frame header, before the active page title."
+
+> **Dev:** "Is the **Sidebar Reopen Control** a Notes-only control?"
+> **Domain expert:** "No — it belongs to the shared authenticated workspace frame and appears consistently across authenticated screens."
+
+> **Dev:** "Should Note search and sort controls move into the shared authenticated frame header?"
+> **Domain expert:** "No — the frame header identifies the current workspace screen, while Notes-specific controls stay inside the Notes route."
+
 ## Flagged ambiguities
 
 - "Study field" was used in early discussion to mean the top-level organizer — resolved: this is just a **Label** with no parent.
@@ -198,3 +228,5 @@ The current premium access model. A User supplies their own AI provider API key;
 - "Automatic focus classification" could have covered all study time everywhere — resolved: in v1, only in-app **StudyActivity** creates automatic **FocusTargets**.
 - "Recall time" could have been added on top of focus time — resolved: recall is nested study activity inside a **FocusSession**, not double-counted extra time.
 - "Per-target analytics" could have implied exact time allocation — resolved: in v1, target presence is recorded without minute-level attribution.
+- "Collapsed sidebar" could have meant a narrow icon-only rail — resolved: **Collapsed App Sidebar** means the sidebar is hidden and the workspace content reclaims the area.
+- "Menu button" was too vague for the collapsed state affordance — resolved: use **Sidebar Reopen Control** for the icon-only frame header control that restores the sidebar.

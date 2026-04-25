@@ -377,8 +377,17 @@ describe("authenticated app shell", () => {
     const headerSidebarToggle = screen.getByRole("button", {
       name: "Expand sidebar",
     });
+    const shellHeading = screen.getByRole("heading", {
+      level: 2,
+      name: "Recall",
+    });
 
     expect(headerSidebarToggle).toHaveAttribute("aria-controls", navigation.id);
+    expect(headerSidebarToggle).toHaveTextContent("");
+    expect(
+      headerSidebarToggle.compareDocumentPosition(shellHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
     fireEvent.click(headerSidebarToggle);
 

@@ -189,7 +189,7 @@ function AppLayout() {
             onClick={() => setSidebarCollapsed((value) => !value)}
             type="button"
           >
-            {isSidebarCollapsed ? ">" : "<"}
+            <SidebarCollapseIcon />
           </button>
         </div>
 
@@ -249,8 +249,7 @@ function AppLayout() {
 
       <div className="app-frame">
         <header className="app-frame__mobile-header">
-          <h2>{activeItem.label}</h2>
-          <div className="app-frame__actions">
+          <div className="app-frame__titlebar">
             {isSidebarCollapsed ? (
               <button
                 aria-controls={navigationId}
@@ -259,9 +258,12 @@ function AppLayout() {
                 onClick={() => setSidebarCollapsed(false)}
                 type="button"
               >
-                Menu
+                <SidebarReopenIcon />
               </button>
             ) : null}
+            <h2>{activeItem.label}</h2>
+          </div>
+          <div className="app-frame__actions">
             <button
               aria-controls={navigationId}
               aria-expanded={isMobileSidebarOpen}
@@ -282,6 +284,25 @@ function AppLayout() {
         </div>
       </div>
     </section>
+  );
+}
+
+function SidebarReopenIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M4 6h16" />
+      <path d="M4 12h16" />
+      <path d="M4 18h16" />
+    </svg>
+  );
+}
+
+function SidebarCollapseIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="m11 6-6 6 6 6" />
+      <path d="m19 6-6 6 6 6" />
+    </svg>
   );
 }
 
