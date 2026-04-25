@@ -25,9 +25,27 @@ export type AppStoredNote = AppNote & {
 
 export type AppNoteSearchMatchChip = "Title" | "Body" | "Metaphor" | "Acronym";
 
+export type AppNoteSearchTargetField =
+  | "title"
+  | "body"
+  | "metaphorTitle"
+  | "metaphorExplanation"
+  | "acronymShortForm"
+  | "acronymExpansion";
+
+export type AppNoteSearchTarget = {
+  field: AppNoteSearchTargetField;
+  index?: number;
+  match: {
+    end: number;
+    start: number;
+  };
+};
+
 export type AppNoteSearchResult = {
   matchChip: AppNoteSearchMatchChip;
   note: AppNote;
+  target: AppNoteSearchTarget;
 };
 
 type NotesListener = () => void;
@@ -318,6 +336,100 @@ function includesNormalizedQuery(value: string, normalizedQuery: string) {
   return value.toLocaleLowerCase().includes(normalizedQuery);
 }
 
+function findNormalizedQueryMatch(value: string, normalizedQuery: string) {
+  const start = value.toLocaleLowerCase().indexOf(normalizedQuery);
+
+  if (start === -1) {
+    return null;
+  }
+
+  return {
+    end: start + normalizedQuery.length,
+    start,
+  };
+}
+
+function getNoteSearchTarget(
+  note: AppNote,
+  normalizedQuery: string,
+): AppNoteSearchTarget | null {
+  const titleMatch = findNormalizedQueryMatch(note.title, normalizedQuery);
+
+  if (titleMatch !== null) {
+    return {
+      field: "title",
+      match: titleMatch,
+    };
+  }
+
+  const bodyMatch = findNormalizedQueryMatch(note.body, normalizedQuery);
+
+  if (bodyMatch !== null) {
+    return {
+      field: "body",
+      match: bodyMatch,
+    };
+  }
+
+  for (const [index, metaphor] of note.metaphors.entries()) {
+    const titleMatch = findNormalizedQueryMatch(
+      metaphor.title,
+      normalizedQuery,
+    );
+
+    if (titleMatch !== null) {
+      return {
+        field: "metaphorTitle",
+        index,
+        match: titleMatch,
+      };
+    }
+
+    const explanationMatch = findNormalizedQueryMatch(
+      metaphor.explanation,
+      normalizedQuery,
+    );
+
+    if (explanationMatch !== null) {
+      return {
+        field: "metaphorExplanation",
+        index,
+        match: explanationMatch,
+      };
+    }
+  }
+
+  for (const [index, acronym] of note.acronyms.entries()) {
+    const shortFormMatch = findNormalizedQueryMatch(
+      acronym.shortForm,
+      normalizedQuery,
+    );
+
+    if (shortFormMatch !== null) {
+      return {
+        field: "acronymShortForm",
+        index,
+        match: shortFormMatch,
+      };
+    }
+
+    const expansionMatch = findNormalizedQueryMatch(
+      acronym.expansion,
+      normalizedQuery,
+    );
+
+    if (expansionMatch !== null) {
+      return {
+        field: "acronymExpansion",
+        index,
+        match: expansionMatch,
+      };
+    }
+  }
+
+  return null;
+}
+
 function getNoteSearchMatchChip(
   note: AppNote,
   normalizedQuery: string,
@@ -383,14 +495,16 @@ export function searchNoteResults(
   return notes
     .map((note): AppNoteSearchResult | null => {
       const matchChip = getNoteSearchMatchChip(note, normalizedQuery);
+      const target = getNoteSearchTarget(note, normalizedQuery);
 
-      if (matchChip === null) {
+      if (matchChip === null || target === null) {
         return null;
       }
 
       return {
         matchChip,
         note,
+        target,
       };
     })
     .filter((result): result is AppNoteSearchResult => result !== null)

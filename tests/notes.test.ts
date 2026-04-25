@@ -464,4 +464,43 @@ describe("app notes context", () => {
       { matchChip: "Acronym", note: { id: "acronym" } },
     ]);
   });
+
+  it("includes first-occurrence editor targets for search navigation", () => {
+    const notes: AppNote[] = [
+      {
+        acronyms: [
+          {
+            expansion: "Another cue before Target Cue appears.",
+            shortForm: "TC",
+          },
+        ],
+        body: "Body copy without the phrase.",
+        createdAt: "2026-04-20T10:00:00.000Z",
+        id: "target",
+        labelIds: [],
+        metaphors: [
+          {
+            explanation: "Later Target Cue should not win.",
+            title: "First Target Cue field",
+          },
+        ],
+        title: "Target note",
+        updatedAt: "2026-04-25T10:00:00.000Z",
+      },
+    ];
+
+    expect(searchNoteResults(notes, "target cue")).toMatchObject([
+      {
+        matchChip: "Metaphor",
+        target: {
+          field: "metaphorTitle",
+          index: 0,
+          match: {
+            end: 16,
+            start: 6,
+          },
+        },
+      },
+    ]);
+  });
 });

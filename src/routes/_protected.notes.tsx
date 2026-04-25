@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   type FormEvent,
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -11,6 +12,7 @@ import {
   type AppAcronym,
   type AppMetaphor,
   type AppNote,
+  type AppNoteSearchResult,
   AppNotesError,
   type AppStoredNote,
   listNotesForUser,
@@ -186,6 +188,8 @@ function truncateNoteId(noteId: string): string {
   return noteId.length <= 12 ? noteId : `${noteId.slice(0, 8)}...`;
 }
 
+type SearchTargetElement = HTMLInputElement | HTMLTextAreaElement;
+
 function NotesWorkspace() {
   const notesContext = Route.useRouteContext({
     select: (context) => context.notes,
@@ -220,6 +224,17 @@ function NotesWorkspace() {
   const [editorState, setEditorState] = useState<NoteEditorState>(() =>
     getEditorState(notes[0] ?? null),
   );
+  const [pendingSearchJump, setPendingSearchJump] =
+    useState<AppNoteSearchResult | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const metaphorTitleRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const metaphorExplanationRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
+  const acronymShortFormRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const acronymExpansionRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
+  const searchSelectionTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
   const selectedNote =
@@ -290,6 +305,77 @@ function NotesWorkspace() {
       return nextEditorState;
     });
   }, [isCreatingNew, notesSnapshot, selectedNoteId, userId]);
+
+  useEffect(() => {
+    return () => {
+      if (searchSelectionTimeoutRef.current !== null) {
+        clearTimeout(searchSelectionTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  function getSearchTargetElement(
+    result: AppNoteSearchResult,
+  ): SearchTargetElement | null {
+    const targetIndex = result.target.index ?? 0;
+
+    switch (result.target.field) {
+      case "title":
+        return titleInputRef.current;
+      case "body":
+        return bodyTextareaRef.current;
+      case "metaphorTitle":
+        return metaphorTitleRefs.current[targetIndex] ?? null;
+      case "metaphorExplanation":
+        return metaphorExplanationRefs.current[targetIndex] ?? null;
+      case "acronymShortForm":
+        return acronymShortFormRefs.current[targetIndex] ?? null;
+      case "acronymExpansion":
+        return acronymExpansionRefs.current[targetIndex] ?? null;
+    }
+  }
+
+  useEffect(() => {
+    if (pendingSearchJump === null) {
+      return;
+    }
+
+    if (
+      selectedNote === null ||
+      selectedNote.id !== pendingSearchJump.note.id ||
+      !isSameEditorState(editorState, getEditorState(selectedNote))
+    ) {
+      return;
+    }
+
+    if (searchSelectionTimeoutRef.current !== null) {
+      clearTimeout(searchSelectionTimeoutRef.current);
+      searchSelectionTimeoutRef.current = null;
+    }
+
+    const targetElement = getSearchTargetElement(pendingSearchJump);
+
+    if (targetElement === null) {
+      setPendingSearchJump(null);
+      return;
+    }
+
+    const selectionEnd = pendingSearchJump.target.match.end;
+
+    targetElement.scrollIntoView({ block: "center", inline: "nearest" });
+    targetElement.focus();
+    targetElement.setSelectionRange(
+      pendingSearchJump.target.match.start,
+      selectionEnd,
+    );
+
+    searchSelectionTimeoutRef.current = setTimeout(() => {
+      targetElement.focus();
+      targetElement.setSelectionRange(selectionEnd, selectionEnd);
+      searchSelectionTimeoutRef.current = null;
+    }, 3000);
+    setPendingSearchJump(null);
+  }, [editorState, pendingSearchJump, selectedNote]);
 
   function handleEditorChange<K extends keyof NoteEditorState>(
     field: K,
@@ -401,6 +487,14 @@ function NotesWorkspace() {
     setErrorMessage(null);
     setIsCreatingNew(false);
     setSelectedNoteId(note.id);
+  }
+
+  function handleSelectSearchResult(result: AppNoteSearchResult) {
+    setErrorMessage(null);
+    setPendingSearchJump(result);
+    setSearchQuery("");
+    setIsCreatingNew(false);
+    setSelectedNoteId(result.note.id);
   }
 
   function handleCopyNoteId() {
@@ -530,7 +624,7 @@ function NotesWorkspace() {
                   <button
                     className="notes-search__option"
                     key={result.note.id}
-                    onClick={() => handleSelectNote(result.note)}
+                    onClick={() => handleSelectSearchResult(result)}
                     type="button"
                   >
                     <span className="notes-search__option-title">
@@ -646,6 +740,7 @@ function NotesWorkspace() {
               <label className="notes-form__field">
                 <span>Title</span>
                 <input
+                  ref={titleInputRef}
                   name="title"
                   onChange={(event) =>
                     handleEditorChange("title", event.target.value)
@@ -659,6 +754,7 @@ function NotesWorkspace() {
               <label className="notes-form__field notes-form__body-field">
                 <span>Body</span>
                 <textarea
+                  ref={bodyTextareaRef}
                   name="body"
                   onChange={(event) =>
                     handleEditorChange("body", event.target.value)
@@ -756,6 +852,9 @@ function NotesWorkspace() {
                             <span>Metaphor title</span>
                             <input
                               aria-label="Metaphor title"
+                              ref={(element) => {
+                                metaphorTitleRefs.current[index] = element;
+                              }}
                               onChange={(event) =>
                                 handleMetaphorChange(
                                   index,
@@ -773,6 +872,10 @@ function NotesWorkspace() {
                             <span>Metaphor explanation</span>
                             <textarea
                               aria-label="Metaphor explanation"
+                              ref={(element) => {
+                                metaphorExplanationRefs.current[index] =
+                                  element;
+                              }}
                               onChange={(event) =>
                                 handleMetaphorChange(
                                   index,
@@ -817,6 +920,9 @@ function NotesWorkspace() {
                             <span>Acronym</span>
                             <input
                               aria-label="Acronym"
+                              ref={(element) => {
+                                acronymShortFormRefs.current[index] = element;
+                              }}
                               onChange={(event) =>
                                 handleAcronymChange(
                                   index,
@@ -834,6 +940,9 @@ function NotesWorkspace() {
                             <span>What it stands for</span>
                             <textarea
                               aria-label="Acronym expansion"
+                              ref={(element) => {
+                                acronymExpansionRefs.current[index] = element;
+                              }}
                               onChange={(event) =>
                                 handleAcronymChange(
                                   index,

@@ -8,6 +8,7 @@ import {
   RouterProvider,
 } from "@tanstack/react-router";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -108,10 +109,12 @@ function renderRoute(
 
 beforeAll(() => {
   window.scrollTo = vi.fn();
+  HTMLElement.prototype.scrollIntoView = vi.fn();
 });
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
 });
 
 describe("authenticated app shell", () => {
@@ -770,6 +773,85 @@ describe("authenticated app shell", () => {
       expect.stringMatching(/^Metaphor resultMetaphorUpdated /),
       expect.stringMatching(/^Acronym resultAcronymUpdated /),
     ]);
+  });
+
+  it("jumps to and temporarily selects matched content from a chosen search result", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "The selected phrase appears here.",
+      labelIds: [],
+      metaphors: [],
+      title: "Older target note",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Current note stays visible until the search result is chosen.",
+      labelIds: [],
+      metaphors: [],
+      title: "Current note",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByDisplayValue(
+        "Current note stays visible until the search result is chosen.",
+      ),
+    ).toBeInTheDocument();
+
+    vi.useFakeTimers();
+
+    const searchInput = screen.getByRole("searchbox", {
+      name: "Search notes",
+    });
+
+    fireEvent.change(searchInput, {
+      target: { value: "selected phrase" },
+    });
+
+    fireEvent.click(
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "button",
+        { name: /Older target note/ },
+      ),
+    );
+
+    const bodyEditor = screen.getByDisplayValue(
+      "The selected phrase appears here.",
+    );
+
+    expect(searchInput).toHaveValue("");
+    expect(
+      screen.queryByLabelText("Notes search results"),
+    ).not.toBeInTheDocument();
+    expect(bodyEditor).toHaveFocus();
+    expect(bodyEditor).toHaveProperty("selectionStart", 4);
+    expect(bodyEditor).toHaveProperty("selectionEnd", 19);
+    expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+
+    expect(bodyEditor).toHaveFocus();
+    expect(bodyEditor).toHaveProperty("selectionStart", 19);
+    expect(bodyEditor).toHaveProperty("selectionEnd", 19);
   });
 
   it("assigns and removes owned labels from a note inside the notes workspace", async () => {
