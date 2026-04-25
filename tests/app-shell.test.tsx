@@ -898,6 +898,8 @@ describe("authenticated app shell", () => {
       name: "Search notes",
     });
 
+    expect(searchInput).toHaveAttribute("autocomplete", "off");
+
     fireEvent.change(searchInput, {
       target: { value: "spaced retrieval cue" },
     });
