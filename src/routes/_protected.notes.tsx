@@ -258,6 +258,8 @@ function NotesWorkspace() {
   );
   const [pendingSearchJump, setPendingSearchJump] =
     useState<AppNoteSearchResult | null>(null);
+  const [guardedSearchResult, setGuardedSearchResult] =
+    useState<AppNoteSearchResult | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const metaphorTitleRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -267,6 +269,7 @@ function NotesWorkspace() {
   const searchSelectionTimeoutRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
+  const unsavedSearchDialogRef = useRef<HTMLDivElement>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
   const selectedNote =
@@ -338,6 +341,10 @@ function NotesWorkspace() {
       }
 
       if (searchRootRef.current?.contains(target)) {
+        return;
+      }
+
+      if (unsavedSearchDialogRef.current?.contains(target)) {
         return;
       }
 
@@ -581,14 +588,47 @@ function NotesWorkspace() {
     setSelectedNoteId(note.id);
   }
 
-  function handleSelectSearchResult(result: AppNoteSearchResult) {
+  function completeSearchResultNavigation(result: AppNoteSearchResult) {
     setErrorMessage(null);
+    setGuardedSearchResult(null);
     setPendingSearchJump(result);
     setSearchQuery("");
     setIsCreatingNew(false);
     setSelectedNoteId(result.note.id);
     setIsSearchOpen(false);
     setActiveSearchResultIndex(0);
+  }
+
+  function hasUnsavedEditorChanges() {
+    if (selectedNote === null) {
+      return !isSameEditorState(editorState, emptyEditorState);
+    }
+
+    return !isSameEditorState(editorState, getEditorState(selectedNote));
+  }
+
+  function handleSelectSearchResult(result: AppNoteSearchResult) {
+    setErrorMessage(null);
+
+    if (hasUnsavedEditorChanges()) {
+      setGuardedSearchResult(result);
+      return;
+    }
+
+    completeSearchResultNavigation(result);
+  }
+
+  function handleCancelGuardedSearchNavigation() {
+    setGuardedSearchResult(null);
+    searchInputRef.current?.focus();
+  }
+
+  function handleDiscardGuardedSearchNavigation() {
+    if (guardedSearchResult === null) {
+      return;
+    }
+
+    completeSearchResultNavigation(guardedSearchResult);
   }
 
   function handleSearchChange(value: string) {
@@ -1292,6 +1332,38 @@ function NotesWorkspace() {
           )}
         </aside>
       </div>
+      {guardedSearchResult === null ? null : (
+        <div
+          aria-labelledby="notes-unsaved-search-title"
+          aria-modal="true"
+          className="notes-unsaved-search-dialog"
+          ref={unsavedSearchDialogRef}
+          role="dialog"
+        >
+          <div className="notes-unsaved-search-dialog__panel">
+            <h3 id="notes-unsaved-search-title">Discard unsaved changes?</h3>
+            <p>
+              Search navigation will replace the current note editor state.
+            </p>
+            <div className="notes-unsaved-search-dialog__actions">
+              <button
+                className="notes-action"
+                onClick={handleCancelGuardedSearchNavigation}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="notes-action notes-action-primary"
+                onClick={handleDiscardGuardedSearchNavigation}
+                type="button"
+              >
+                Discard changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

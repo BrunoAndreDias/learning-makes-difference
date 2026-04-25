@@ -952,6 +952,118 @@ describe("authenticated app shell", () => {
     expect(bodyEditor).toHaveProperty("selectionEnd", 19);
   });
 
+  it("guards search navigation when the current note has unsaved edits", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "The protected phrase appears here.",
+      labelIds: [],
+      metaphors: [],
+      title: "Older protected note",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Current note has work in progress.",
+      labelIds: [],
+      metaphors: [],
+      title: "Current draftable note",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    const bodyEditor = await screen.findByDisplayValue(
+      "Current note has work in progress.",
+    );
+    fireEvent.change(bodyEditor, {
+      target: { value: "Current note has unsaved work in progress." },
+    });
+
+    const searchInput = screen.getByRole("combobox", {
+      name: "Search notes",
+    });
+
+    fireEvent.change(searchInput, {
+      target: { value: "protected phrase" },
+    });
+
+    const searchResults = screen.getByLabelText("Notes search results");
+    fireEvent.click(
+      within(searchResults).getByRole("option", {
+        name: /Older protected note/,
+      }),
+    );
+
+    const dialog = screen.getByRole("dialog", {
+      name: "Discard unsaved changes?",
+    });
+    expect(
+      within(dialog).getByRole("button", { name: "Cancel" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Discard changes" }),
+    ).toBeInTheDocument();
+    expect(within(dialog).getAllByRole("button")).toHaveLength(2);
+    expect(searchInput).toHaveValue("protected phrase");
+    expect(screen.getByLabelText("Notes search results")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Current note has unsaved work in progress."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(
+      screen.queryByRole("dialog", { name: "Discard unsaved changes?" }),
+    ).not.toBeInTheDocument();
+    expect(searchInput).toHaveValue("protected phrase");
+    expect(screen.getByLabelText("Notes search results")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Current note has unsaved work in progress."),
+    ).toBeInTheDocument();
+
+    vi.useFakeTimers();
+
+    fireEvent.click(
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "option",
+        {
+          name: /Older protected note/,
+        },
+      ),
+    );
+    fireEvent.click(
+      within(
+        screen.getByRole("dialog", { name: "Discard unsaved changes?" }),
+      ).getByRole("button", { name: "Discard changes" }),
+    );
+
+    const targetEditor = screen.getByDisplayValue(
+      "The protected phrase appears here.",
+    );
+
+    expect(searchInput).toHaveValue("");
+    expect(
+      screen.queryByLabelText("Notes search results"),
+    ).not.toBeInTheDocument();
+    expect(targetEditor).toHaveFocus();
+    expect(targetEditor).toHaveProperty("selectionStart", 4);
+    expect(targetEditor).toHaveProperty("selectionEnd", 20);
+  });
+
   it("assigns and removes owned labels from a note inside the notes workspace", async () => {
     const labelsContext = createAppLabelsContext({
       keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
