@@ -188,7 +188,8 @@ h3 {
 .sidebar-toggle,
 .sidebar-mobile-toggle,
 .app-sidebar__logout,
-.notes-action {
+.notes-action,
+.notes-inline-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -233,6 +234,7 @@ h3 {
 .sidebar-mobile-toggle:focus-visible,
 .app-sidebar__logout:focus-visible,
 .notes-action:focus-visible,
+.notes-inline-action:focus-visible,
 .nav-link:focus-visible,
 .notes-form__field input:focus-visible,
 .notes-form__field textarea:focus-visible,
@@ -1410,8 +1412,6 @@ h3 {
 }
 
 .notes-inspector-card,
-.notes-metaphors,
-.notes-acronyms,
 .notes-labels {
   display: grid;
   gap: 0.8rem;
@@ -1423,53 +1423,86 @@ h3 {
 }
 
 .notes-inspector-card__header,
-.notes-metaphors__header,
-.notes-acronyms__header {
+.notes-inspector-card__actions,
+.notes-details summary,
+.notes-id-copy {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 0.75rem;
 }
 
+.notes-inspector-card__header,
+.notes-details summary {
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.notes-inspector-card__actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
 .notes-inspector-card h4,
-.notes-metaphors h4,
-.notes-acronyms h4 {
+.notes-hook-group h5,
+.notes-details summary span:first-child {
   margin: 0;
   color: #172033;
   font-size: 1rem;
 }
 
-.notes-inspector-card__header span {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.35rem;
-  min-height: 1.35rem;
-  border-radius: 999px;
-  background: #f1f5ff;
-  color: #66758f;
+.notes-hook-group h5 {
   font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.notes-inspector-card--meta dl {
+.notes-inline-action {
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #0f63ff;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.notes-details summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.notes-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.notes-details summary span:last-child {
+  color: #66758f;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: right;
+}
+
+.notes-details dl {
   display: grid;
   gap: 0.75rem;
   margin: 0;
+  padding-top: 0.1rem;
 }
 
-.notes-inspector-card--meta div {
+.notes-details div {
   display: grid;
   grid-template-columns: minmax(5.5rem, 1fr) minmax(0, 1.2fr);
   gap: 0.75rem;
   align-items: baseline;
 }
 
-.notes-inspector-card--meta dt {
+.notes-details dt {
   color: #66758f;
   font-size: 0.85rem;
 }
 
-.notes-inspector-card--meta dd {
+.notes-details dd {
   min-width: 0;
   margin: 0;
   overflow: hidden;
@@ -1477,6 +1510,12 @@ h3 {
   font-size: 0.85rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.notes-memory-hooks,
+.notes-hook-group {
+  display: grid;
+  gap: 0.75rem;
 }
 
 .notes-metaphor,

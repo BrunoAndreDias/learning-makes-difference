@@ -660,9 +660,8 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", { name: "Notes workspace" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("This note is currently unlabeled."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("No labels yet")).toBeInTheDocument();
+    expect(screen.queryByText("Assign labels")).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "Cell respiration" },
@@ -673,13 +672,14 @@ describe("authenticated app shell", () => {
           "Cells convert glucose into usable energy through staged reactions.",
       },
     });
+    fireEvent.click(screen.getByRole("button", { name: "Add label" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Science" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Biology" }));
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
 
-    const topicContext = await screen.findByLabelText("Topic context");
+    const currentLabels = await screen.findByLabelText("Current labels");
     const assignedLabels =
-      within(topicContext).getByLabelText("Assigned labels");
+      within(currentLabels).getByLabelText("Assigned labels");
 
     expect(within(assignedLabels).getByText("Science")).toBeInTheDocument();
     expect(within(assignedLabels).getByText("Biology")).toBeInTheDocument();
