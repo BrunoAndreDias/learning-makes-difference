@@ -247,7 +247,10 @@ function AppLayout() {
         </div>
       </aside>
 
-      <div className="app-frame">
+      <div
+        className="app-frame"
+        data-workspace={activeItem.to === "/notes" ? "notes" : undefined}
+      >
         <header className="app-frame__mobile-header">
           <div className="app-frame__titlebar">
             {isSidebarCollapsed ? (

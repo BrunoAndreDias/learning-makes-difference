@@ -1788,13 +1788,14 @@ h3 {
   border-bottom: 1px solid #e8edf5;
 }
 
-.authenticated-shell[data-sidebar-state="collapsed"]:has(.notes-workspace)
-  .app-frame {
+.authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="notes"] {
   display: grid;
   grid-template-rows: minmax(0, 1fr);
 }
 
-.authenticated-shell[data-sidebar-state="collapsed"]:has(.notes-workspace)
+.authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="notes"]
   .app-frame__mobile-header {
   position: absolute;
   z-index: 10;
@@ -1804,13 +1805,15 @@ h3 {
   background: transparent;
 }
 
-.authenticated-shell[data-sidebar-state="collapsed"]:has(.notes-workspace)
+.authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="notes"]
   .app-frame__mobile-header
   .app-frame__actions {
   display: none;
 }
 
-.authenticated-shell[data-sidebar-state="collapsed"]:has(.notes-workspace)
+.authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="notes"]
   .notes-workspace__toolbar {
   padding-left: calc(var(--authenticated-sidebar-width) + 1rem + 1.5rem);
 }
@@ -1957,12 +1960,13 @@ h3 {
     right: 0.85rem;
   }
 
-  .authenticated-shell[data-sidebar-state="collapsed"]:has(.notes-workspace)
-    .app-frame {
+  .authenticated-shell[data-sidebar-state="collapsed"]
+    .app-frame[data-workspace="notes"] {
     display: block;
   }
 
-  .authenticated-shell[data-sidebar-state="collapsed"]:has(.notes-workspace)
+  .authenticated-shell[data-sidebar-state="collapsed"]
+    .app-frame[data-workspace="notes"]
     .app-frame__mobile-header {
     position: static;
     min-height: 0;
@@ -1970,13 +1974,15 @@ h3 {
     background: #ffffff;
   }
 
-  .authenticated-shell[data-sidebar-state="collapsed"]:has(.notes-workspace)
+  .authenticated-shell[data-sidebar-state="collapsed"]
+    .app-frame[data-workspace="notes"]
     .app-frame__mobile-header
     .app-frame__actions {
     display: flex;
   }
 
-  .authenticated-shell[data-sidebar-state="collapsed"]:has(.notes-workspace)
+  .authenticated-shell[data-sidebar-state="collapsed"]
+    .app-frame[data-workspace="notes"]
     .notes-workspace__toolbar {
     grid-template-columns: 1fr;
     padding-left: 1.5rem;

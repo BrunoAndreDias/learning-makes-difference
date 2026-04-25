@@ -622,19 +622,11 @@ function NotesWorkspace() {
     setActiveSearchResultIndex(0);
   }
 
-  function hasUnsavedEditorChanges() {
-    if (selectedNote === null) {
-      return !isSameEditorState(editorState, emptyEditorState);
-    }
-
-    return !isSameEditorState(editorState, getEditorState(selectedNote));
-  }
-
   function handleSelectSearchResult(result: AppNoteSearchResult) {
     setErrorMessage(null);
 
     const navigationPlan = planNotesSearchNavigation({
-      hasUnsavedChanges: hasUnsavedEditorChanges(),
+      hasUnsavedChanges,
       result,
     });
 
@@ -816,7 +808,10 @@ function NotesWorkspace() {
   const workspaceModeLabel = isCreating ? "Draft mode" : "Editing note";
   const wordCount = getWordCount(editorState.body);
   const compactDetailsLabel = getNoteDetailsSummary(selectedNote, wordCount);
-  const hasUnsavedChanges = hasUnsavedEditorChanges();
+  const hasUnsavedChanges =
+    selectedNote === null
+      ? !isSameEditorState(editorState, emptyEditorState)
+      : !isSameEditorState(editorState, getEditorState(selectedNote));
   const selectedNoteUpdatedLabel =
     selectedNote === null
       ? "Unsaved draft"
@@ -987,6 +982,7 @@ function NotesWorkspace() {
               <label className="notes-title-editor">
                 <span className="sr-only">Title</span>
                 <input
+                  form={noteEditorFormId}
                   ref={titleInputRef}
                   name="title"
                   onChange={(event) =>
