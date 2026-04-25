@@ -5,7 +5,7 @@ This document is the canonical styling reference for feature work that builds on
 ## Source material
 
 - Primary layout references: `docs/layout/no_collapse.png` and `docs/layout/collapsed_menu_withou_focus_mode.png`
-- Brand mark: `docs/layout/logo.png`
+- Brand mark: `docs/layout/logo.svg`
 - Product and interaction language: `docs/prd-learning-makes-difference.md`
 - Accessibility baseline: `docs/adr/0001-wcag2-accessibility.md`
 

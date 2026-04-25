@@ -6,7 +6,7 @@ import { foundationTokens } from "./tokens.js";
 
 describe("foundationTokens", () => {
   it("captures the issue 14 design-system contract from docs/layout", () => {
-    expect(foundationTokens.brand.logoSource).toBe("docs/layout/logo.png");
+    expect(foundationTokens.brand.logoSource).toBe("docs/layout/logo.svg");
     expect(foundationTokens.brand.layoutReferences).toEqual([
       "docs/layout/no_collapse.png",
       "docs/layout/collapsed_menu_withou_focus_mode.png",
