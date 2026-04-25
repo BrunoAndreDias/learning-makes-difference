@@ -898,7 +898,10 @@ function NotesWorkspace() {
           ref={searchRootRef}
         >
           <span className="notes-search__icon" aria-hidden="true">
-            /
+            <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+              <circle cx="10.5" cy="10.5" r="6" />
+              <path d="m15 15 4.5 4.5" />
+            </svg>
           </span>
           <label className="sr-only" htmlFor="notes-search">
             Search notes

@@ -1249,6 +1249,26 @@ h3 {
   background: transparent;
 }
 
+.notes-search__icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #9aa4b5;
+}
+
+.notes-search__icon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .notes-search kbd {
   flex: 0 0 auto;
   padding: 0.05rem 0.45rem;
