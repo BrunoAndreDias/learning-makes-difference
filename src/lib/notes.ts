@@ -48,6 +48,11 @@ export type AppNoteSearchResult = {
   target: AppNoteSearchTarget;
 };
 
+type AppNoteSearchEvaluation = {
+  matchChip: AppNoteSearchMatchChip;
+  target: AppNoteSearchTarget;
+};
+
 type NotesListener = () => void;
 
 type CreateNoteInput = {
@@ -332,10 +337,6 @@ function normalizeSearchQuery(query: string): string {
   return query.trim().toLocaleLowerCase();
 }
 
-function includesNormalizedQuery(value: string, normalizedQuery: string) {
-  return value.toLocaleLowerCase().includes(normalizedQuery);
-}
-
 function findNormalizedQueryMatch(value: string, normalizedQuery: string) {
   const start = value.toLocaleLowerCase().indexOf(normalizedQuery);
 
@@ -349,16 +350,19 @@ function findNormalizedQueryMatch(value: string, normalizedQuery: string) {
   };
 }
 
-function getNoteSearchTarget(
+function getNoteSearchEvaluation(
   note: AppNote,
   normalizedQuery: string,
-): AppNoteSearchTarget | null {
+): AppNoteSearchEvaluation | null {
   const titleMatch = findNormalizedQueryMatch(note.title, normalizedQuery);
 
   if (titleMatch !== null) {
     return {
-      field: "title",
-      match: titleMatch,
+      matchChip: "Title",
+      target: {
+        field: "title",
+        match: titleMatch,
+      },
     };
   }
 
@@ -366,8 +370,11 @@ function getNoteSearchTarget(
 
   if (bodyMatch !== null) {
     return {
-      field: "body",
-      match: bodyMatch,
+      matchChip: "Body",
+      target: {
+        field: "body",
+        match: bodyMatch,
+      },
     };
   }
 
@@ -379,9 +386,12 @@ function getNoteSearchTarget(
 
     if (titleMatch !== null) {
       return {
-        field: "metaphorTitle",
-        index,
-        match: titleMatch,
+        matchChip: "Metaphor",
+        target: {
+          field: "metaphorTitle",
+          index,
+          match: titleMatch,
+        },
       };
     }
 
@@ -392,9 +402,12 @@ function getNoteSearchTarget(
 
     if (explanationMatch !== null) {
       return {
-        field: "metaphorExplanation",
-        index,
-        match: explanationMatch,
+        matchChip: "Metaphor",
+        target: {
+          field: "metaphorExplanation",
+          index,
+          match: explanationMatch,
+        },
       };
     }
   }
@@ -407,9 +420,12 @@ function getNoteSearchTarget(
 
     if (shortFormMatch !== null) {
       return {
-        field: "acronymShortForm",
-        index,
-        match: shortFormMatch,
+        matchChip: "Acronym",
+        target: {
+          field: "acronymShortForm",
+          index,
+          match: shortFormMatch,
+        },
       };
     }
 
@@ -420,9 +436,12 @@ function getNoteSearchTarget(
 
     if (expansionMatch !== null) {
       return {
-        field: "acronymExpansion",
-        index,
-        match: expansionMatch,
+        matchChip: "Acronym",
+        target: {
+          field: "acronymExpansion",
+          index,
+          match: expansionMatch,
+        },
       };
     }
   }
@@ -430,49 +449,8 @@ function getNoteSearchTarget(
   return null;
 }
 
-function getNoteSearchMatchChip(
-  note: AppNote,
-  normalizedQuery: string,
-): AppNoteSearchMatchChip | null {
-  if (normalizedQuery.length === 0) {
-    return null;
-  }
-
-  if (includesNormalizedQuery(note.title, normalizedQuery)) {
-    return "Title";
-  }
-
-  if (includesNormalizedQuery(note.body, normalizedQuery)) {
-    return "Body";
-  }
-
-  if (
-    note.metaphors.some((metaphor) => {
-      return (
-        includesNormalizedQuery(metaphor.title, normalizedQuery) ||
-        includesNormalizedQuery(metaphor.explanation, normalizedQuery)
-      );
-    })
-  ) {
-    return "Metaphor";
-  }
-
-  if (
-    note.acronyms.some((acronym) => {
-      return (
-        includesNormalizedQuery(acronym.shortForm, normalizedQuery) ||
-        includesNormalizedQuery(acronym.expansion, normalizedQuery)
-      );
-    })
-  ) {
-    return "Acronym";
-  }
-
-  return null;
-}
-
 function noteMatchesQuery(note: AppNote, query: string): boolean {
-  return getNoteSearchMatchChip(note, normalizeSearchQuery(query)) !== null;
+  return getNoteSearchEvaluation(note, normalizeSearchQuery(query)) !== null;
 }
 
 export function filterNotesByQuery(
@@ -494,17 +472,16 @@ export function searchNoteResults(
 
   return notes
     .map((note): AppNoteSearchResult | null => {
-      const matchChip = getNoteSearchMatchChip(note, normalizedQuery);
-      const target = getNoteSearchTarget(note, normalizedQuery);
+      const evaluation = getNoteSearchEvaluation(note, normalizedQuery);
 
-      if (matchChip === null || target === null) {
+      if (evaluation === null) {
         return null;
       }
 
       return {
-        matchChip,
+        matchChip: evaluation.matchChip,
         note,
-        target,
+        target: evaluation.target,
       };
     })
     .filter((result): result is AppNoteSearchResult => result !== null)

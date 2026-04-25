@@ -27,6 +27,19 @@ const redirectableProtectedPaths = new Set([
   "/settings",
 ]);
 
+function isProtectedPath(pathname: string): boolean {
+  for (const protectedPath of redirectableProtectedPaths) {
+    if (
+      pathname === protectedPath ||
+      pathname.startsWith(`${protectedPath}/`)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export const Route = createRootRouteWithContext<{
   labels: AppLabelsContext;
   notes: AppNotesContext;
@@ -59,10 +72,8 @@ export const Route = createRootRouteWithContext<{
 
     throw redirect({
       to: "/login",
-      search: redirectableProtectedPaths.has(location.pathname)
-        ? {
-            redirect: location.href,
-          }
+      search: isProtectedPath(location.pathname)
+        ? { redirect: location.href }
         : undefined,
     });
   },

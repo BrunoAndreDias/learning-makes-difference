@@ -502,7 +502,13 @@ function NotesWorkspace() {
       return;
     }
 
-    void navigator.clipboard?.writeText(selectedNote.id).catch(() => undefined);
+    const clipboard = navigator.clipboard;
+
+    if (clipboard === undefined) {
+      return;
+    }
+
+    void clipboard.writeText(selectedNote.id).catch(() => undefined);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
