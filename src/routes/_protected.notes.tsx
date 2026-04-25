@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
   type FormEvent,
-  type ReactElement,
   useEffect,
   useState,
   useSyncExternalStore,
@@ -46,6 +45,8 @@ const emptyEditorState: NoteEditorState = {
   metaphors: [],
   title: "",
 };
+
+const labelPickerPanelId = "note-label-picker-panel";
 
 function createEditorKey(): string {
   return globalThis.crypto.randomUUID();
@@ -407,7 +408,7 @@ function NotesWorkspace() {
       return;
     }
 
-    void navigator.clipboard?.writeText(selectedNote.id);
+    void navigator.clipboard?.writeText(selectedNote.id).catch(() => undefined);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -468,33 +469,29 @@ function NotesWorkspace() {
     selectedNote === null
       ? "Created after save"
       : `Created ${formatNoteDate(selectedNote.createdAt)}`;
-  let labelPickerContent: ReactElement | null = null;
-
-  if (isLabelPickerOpen) {
-    if (availableLabels.length === 0) {
-      labelPickerContent = <p className="muted">No labels available</p>;
-    } else {
-      labelPickerContent = (
-        <fieldset className="notes-labels">
-          <legend>Available labels</legend>
-          <div className="notes-labels__options">
-            {availableLabels.map((label) => (
-              <label className="notes-labels__option" key={label.id}>
-                <input
-                  checked={editorState.labelIds.includes(label.id)}
-                  onChange={(event) =>
-                    handleLabelToggle(label.id, event.target.checked)
-                  }
-                  type="checkbox"
-                />
-                <span>{label.name}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      );
-    }
-  }
+  const labelPickerContent = isLabelPickerOpen ? (
+    availableLabels.length === 0 ? (
+      <p className="muted">No labels available</p>
+    ) : (
+      <fieldset className="notes-labels">
+        <legend>Available labels</legend>
+        <div className="notes-labels__options">
+          {availableLabels.map((label) => (
+            <label className="notes-labels__option" key={label.id}>
+              <input
+                checked={editorState.labelIds.includes(label.id)}
+                onChange={(event) =>
+                  handleLabelToggle(label.id, event.target.checked)
+                }
+                type="checkbox"
+              />
+              <span>{label.name}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+    )
+  ) : null;
 
   return (
     <section className="notes-workspace">
@@ -682,6 +679,7 @@ function NotesWorkspace() {
                   <h4>Labels</h4>
                   <button
                     aria-expanded={isLabelPickerOpen}
+                    aria-controls={labelPickerPanelId}
                     aria-label="Add label"
                     className="notes-inline-action"
                     onClick={() =>
@@ -706,7 +704,9 @@ function NotesWorkspace() {
                   </section>
                 )}
 
-                {labelPickerContent}
+                {labelPickerContent === null ? null : (
+                  <div id={labelPickerPanelId}>{labelPickerContent}</div>
+                )}
               </section>
 
               <section

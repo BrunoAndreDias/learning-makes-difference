@@ -303,15 +303,15 @@ export function listNotesForUser(
     .map(toPublicNote);
 }
 
-const NOTE_SEARCH_MATCH_PRIORITIES: AppNoteSearchMatchChip[] = [
-  "Title",
-  "Body",
-  "Metaphor",
-  "Acronym",
-];
+const NOTE_SEARCH_MATCH_PRIORITY: Record<AppNoteSearchMatchChip, number> = {
+  Title: 0,
+  Body: 1,
+  Metaphor: 2,
+  Acronym: 3,
+};
 
-function getSearchMatchPriority(matchChip: AppNoteSearchMatchChip): number {
-  return NOTE_SEARCH_MATCH_PRIORITIES.indexOf(matchChip);
+function normalizeSearchQuery(query: string): string {
+  return query.trim().toLocaleLowerCase();
 }
 
 function includesNormalizedQuery(value: string, normalizedQuery: string) {
@@ -323,7 +323,7 @@ function getNoteSearchMatchChip(
   normalizedQuery: string,
 ): AppNoteSearchMatchChip | null {
   if (normalizedQuery.length === 0) {
-    return "Title";
+    return null;
   }
 
   if (includesNormalizedQuery(note.title, normalizedQuery)) {
@@ -360,9 +360,7 @@ function getNoteSearchMatchChip(
 }
 
 function noteMatchesQuery(note: AppNote, query: string): boolean {
-  return (
-    getNoteSearchMatchChip(note, query.trim().toLocaleLowerCase()) !== null
-  );
+  return getNoteSearchMatchChip(note, normalizeSearchQuery(query)) !== null;
 }
 
 export function filterNotesByQuery(
@@ -376,7 +374,7 @@ export function searchNoteResults(
   notes: readonly AppNote[],
   query: string,
 ): AppNoteSearchResult[] {
-  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const normalizedQuery = normalizeSearchQuery(query);
 
   if (normalizedQuery.length === 0) {
     return [];
@@ -398,8 +396,8 @@ export function searchNoteResults(
     .filter((result): result is AppNoteSearchResult => result !== null)
     .sort((left, right) => {
       const priorityDifference =
-        getSearchMatchPriority(left.matchChip) -
-        getSearchMatchPriority(right.matchChip);
+        NOTE_SEARCH_MATCH_PRIORITY[left.matchChip] -
+        NOTE_SEARCH_MATCH_PRIORITY[right.matchChip];
 
       if (priorityDifference !== 0) {
         return priorityDifference;

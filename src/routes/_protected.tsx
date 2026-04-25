@@ -2,7 +2,6 @@ import {
   createFileRoute,
   Link,
   Outlet,
-  redirect,
   useLocation,
   useNavigate,
   useRouter,
@@ -16,19 +15,9 @@ import {
 } from "react";
 
 import appLogo from "../../docs/layout/logo.svg";
-import { type AppSessionSnapshot, hasActiveSession } from "../lib/session";
+import type { AppSessionSnapshot } from "../lib/session";
 
 export const Route = createFileRoute("/_protected")({
-  beforeLoad: ({ context, location }) => {
-    if (!hasActiveSession(context.session.getSnapshot())) {
-      throw redirect({
-        to: "/login",
-        search: {
-          redirect: location.href,
-        },
-      });
-    }
-  },
   component: AppLayout,
 });
 
@@ -163,10 +152,7 @@ function AppLayout() {
   }, [isMobileSidebarOpen, shouldRestoreMobileToggleFocus]);
 
   return (
-    <section
-      className="authenticated-shell"
-      data-sidebar-state={sidebarState}
-    >
+    <section className="authenticated-shell" data-sidebar-state={sidebarState}>
       <aside
         aria-label="App sidebar"
         className="app-sidebar shell-panel"
