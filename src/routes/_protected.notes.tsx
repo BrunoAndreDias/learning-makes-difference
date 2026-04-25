@@ -208,7 +208,8 @@ function NotesWorkspace() {
   const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
   const [searchQuery, setSearchQuery] = useState("");
-  const filteredNotes = filterNotesByQuery(notes, searchQuery);
+  const searchResults = filterNotesByQuery(notes, searchQuery);
+  const hasSearchQuery = searchQuery.trim().length > 0;
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
   const firstNoteId = notes[0]?.id ?? null;
   const [isCreatingNew, setIsCreatingNew] = useState(notes.length === 0);
@@ -506,21 +507,47 @@ function NotesWorkspace() {
           New note
         </button>
         <span className="sr-only">{noteCountLabel}</span>
-        <label className="notes-search">
+        <div className="notes-search">
           <span className="notes-search__icon" aria-hidden="true">
             /
           </span>
-          <span className="sr-only">Search notes</span>
+          <label className="sr-only" htmlFor="notes-search">
+            Search notes
+          </label>
           <input
-            aria-label="Search notes"
+            id="notes-search"
             name="search"
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search notes, labels, acronyms, metaphors..."
+            placeholder="Search notes"
             type="search"
             value={searchQuery}
           />
           <kbd>Cmd K</kbd>
-        </label>
+          {hasSearchQuery ? (
+            searchResults.length > 0 ? (
+              <section
+                aria-label="Notes search results"
+                className="notes-search__results"
+              >
+                {searchResults.map((note) => (
+                  <button
+                    className="notes-search__option"
+                    key={note.id}
+                    onClick={() => handleSelectNote(note)}
+                    type="button"
+                  >
+                    <strong>{note.title}</strong>
+                    <span>{`Updated ${formatNoteDate(note.updatedAt)}`}</span>
+                  </button>
+                ))}
+              </section>
+            ) : (
+              <p className="notes-search__empty" role="status">
+                No notes found
+              </p>
+            )
+          ) : null}
+        </div>
 
         <fieldset className="notes-filter-tabs">
           <legend className="sr-only">Note filters</legend>
@@ -931,11 +958,9 @@ function NotesWorkspace() {
 
           {notes.length === 0 ? (
             <p className="muted">No notes yet</p>
-          ) : filteredNotes.length === 0 ? (
-            <p className="muted">No notes match this search.</p>
           ) : (
             <ul className="notes-list__items">
-              {filteredNotes.map((note) => {
+              {notes.map((note) => {
                 const isActive = note.id === selectedNote?.id;
                 const noteLabels = availableLabels.filter((label) =>
                   note.labelIds.includes(label.id),
