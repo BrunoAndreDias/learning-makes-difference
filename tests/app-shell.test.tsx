@@ -562,6 +562,9 @@ describe("authenticated app shell", () => {
       screen.getByRole("button", { name: "Reopen notes catalog" }),
     ).toBeVisible();
     expect(
+      screen.getByRole("button", { name: "Reopen notes catalog" }),
+    ).toHaveFocus();
+    expect(
       screen.getByDisplayValue(
         "Repeated review strengthens long-term retention.",
       ),
@@ -572,6 +575,11 @@ describe("authenticated app shell", () => {
     );
 
     expect(notesCatalog).toBeVisible();
+    expect(
+      within(notesCatalog).getByRole("button", {
+        name: "Collapse notes catalog",
+      }),
+    ).toHaveFocus();
     expect(
       screen.queryByRole("button", { name: "Reopen notes catalog" }),
     ).not.toBeInTheDocument();

@@ -263,6 +263,7 @@ function NotesWorkspace() {
     useState<AppNoteSearchResult | null>(null);
   const [guardedSearchResult, setGuardedSearchResult] =
     useState<AppNoteSearchResult | null>(null);
+  const [isNotesCatalogCollapsed, setIsNotesCatalogCollapsed] = useState(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const metaphorTitleRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -275,9 +276,11 @@ function NotesWorkspace() {
   const unsavedSearchDialogRef = useRef<HTMLDivElement>(null);
   const unsavedSearchCancelRef = useRef<HTMLButtonElement>(null);
   const unsavedSearchDiscardRef = useRef<HTMLButtonElement>(null);
+  const collapseCatalogButtonRef = useRef<HTMLButtonElement>(null);
+  const reopenCatalogButtonRef = useRef<HTMLButtonElement>(null);
+  const previousCatalogCollapsedRef = useRef(isNotesCatalogCollapsed);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
-  const [isNotesCatalogCollapsed, setIsNotesCatalogCollapsed] = useState(false);
   const selectedNote =
     isCreatingNew || selectedNoteId === null
       ? null
@@ -419,6 +422,21 @@ function NotesWorkspace() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (previousCatalogCollapsedRef.current === isNotesCatalogCollapsed) {
+      return;
+    }
+
+    previousCatalogCollapsedRef.current = isNotesCatalogCollapsed;
+
+    if (isNotesCatalogCollapsed) {
+      reopenCatalogButtonRef.current?.focus();
+      return;
+    }
+
+    collapseCatalogButtonRef.current?.focus();
+  }, [isNotesCatalogCollapsed]);
 
   useEffect(() => {
     if (guardedSearchResult === null) {
@@ -954,6 +972,7 @@ function NotesWorkspace() {
             aria-controls={notesCatalogPanelId}
             aria-label="Reopen notes catalog"
             className="notes-catalog-reopen"
+            ref={reopenCatalogButtonRef}
             onClick={() => setIsNotesCatalogCollapsed(false)}
             type="button"
           >
@@ -964,10 +983,9 @@ function NotesWorkspace() {
           <header className="notes-editor__header">
             <div>
               <label className="notes-title-editor">
-                <span className="sr-only">Note title</span>
+                <span className="sr-only">Title</span>
                 <input
                   ref={titleInputRef}
-                  aria-label="Title"
                   name="title"
                   onChange={(event) =>
                     handleEditorChange("title", event.target.value)
@@ -1316,6 +1334,7 @@ function NotesWorkspace() {
               aria-controls={notesCatalogPanelId}
               aria-label="Collapse notes catalog"
               className="notes-icon-button"
+              ref={collapseCatalogButtonRef}
               onClick={() => setIsNotesCatalogCollapsed(true)}
               type="button"
             >
