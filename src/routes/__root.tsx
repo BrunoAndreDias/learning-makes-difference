@@ -19,13 +19,20 @@ import { type AppSessionContext, hasActiveSession } from "../lib/session";
 import appCss from "../styles/app.css?url";
 
 const authRoutePaths = new Set(["/forgot-password", "/login", "/register"]);
-const redirectableProtectedPaths = new Set([
+const redirectableProtectedPaths = [
   "/history",
   "/labels",
   "/notes",
   "/recall",
   "/settings",
-]);
+];
+
+function isProtectedPath(pathname: string): boolean {
+  return redirectableProtectedPaths.some(
+    (protectedPath) =>
+      pathname === protectedPath || pathname.startsWith(`${protectedPath}/`),
+  );
+}
 
 export const Route = createRootRouteWithContext<{
   labels: AppLabelsContext;
@@ -59,10 +66,8 @@ export const Route = createRootRouteWithContext<{
 
     throw redirect({
       to: "/login",
-      search: redirectableProtectedPaths.has(location.pathname)
-        ? {
-            redirect: location.href,
-          }
+      search: isProtectedPath(location.pathname)
+        ? { redirect: location.href }
         : undefined,
     });
   },
@@ -79,10 +84,9 @@ function NotFoundRedirect() {
     session.getSnapshot,
     session.getSnapshot,
   );
+  const redirectTo = hasActiveSession(sessionSnapshot) ? "/notes" : "/login";
 
-  return (
-    <Navigate to={hasActiveSession(sessionSnapshot) ? "/notes" : "/login"} />
-  );
+  return <Navigate to={redirectTo} />;
 }
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {

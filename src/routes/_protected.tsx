@@ -2,7 +2,6 @@ import {
   createFileRoute,
   Link,
   Outlet,
-  redirect,
   useLocation,
   useNavigate,
   useRouter,
@@ -16,19 +15,9 @@ import {
 } from "react";
 
 import appLogo from "../../docs/layout/logo.svg";
-import { type AppSessionSnapshot, hasActiveSession } from "../lib/session";
+import type { AppSessionSnapshot } from "../lib/session";
 
 export const Route = createFileRoute("/_protected")({
-  beforeLoad: ({ context, location }) => {
-    if (!hasActiveSession(context.session.getSnapshot())) {
-      throw redirect({
-        to: "/login",
-        search: {
-          redirect: location.href,
-        },
-      });
-    }
-  },
   component: AppLayout,
 });
 
@@ -129,6 +118,8 @@ function AppLayout() {
       return;
     }
 
+    setSidebarCollapsed(false);
+
     toggleMobileSidebar();
   }
 
@@ -159,12 +150,13 @@ function AppLayout() {
   }, [isMobileSidebarOpen, shouldRestoreMobileToggleFocus]);
 
   return (
-    <section className="authenticated-shell">
+    <section className="authenticated-shell" data-sidebar-state={sidebarState}>
       <aside
         aria-label="App sidebar"
         className="app-sidebar shell-panel"
         data-mobile-open={isMobileSidebarOpen}
         data-sidebar-state={sidebarState}
+        hidden={isSidebarCollapsed}
       >
         <div className="app-sidebar__header">
           <Link
@@ -259,6 +251,17 @@ function AppLayout() {
         <header className="app-frame__mobile-header">
           <h2>{activeItem.label}</h2>
           <div className="app-frame__actions">
+            {isSidebarCollapsed ? (
+              <button
+                aria-controls={navigationId}
+                aria-label="Expand sidebar"
+                className="sidebar-header-toggle"
+                onClick={() => setSidebarCollapsed(false)}
+                type="button"
+              >
+                Menu
+              </button>
+            ) : null}
             <button
               aria-controls={navigationId}
               aria-expanded={isMobileSidebarOpen}

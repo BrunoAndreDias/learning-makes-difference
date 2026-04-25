@@ -8,6 +8,7 @@ import {
   RouterProvider,
 } from "@tanstack/react-router";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -108,10 +109,12 @@ function renderRoute(
 
 beforeAll(() => {
   window.scrollTo = vi.fn();
+  HTMLElement.prototype.scrollIntoView = vi.fn();
 });
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
 });
 
 describe("authenticated app shell", () => {
@@ -366,8 +369,26 @@ describe("authenticated app shell", () => {
     );
 
     expect(sidebar).toHaveAttribute("data-sidebar-state", "collapsed");
+    expect(sidebar).not.toBeVisible();
     expect(
-      within(sidebar).getByRole("button", { name: "Expand sidebar" }),
+      within(sidebar).queryByRole("button", { name: "Expand sidebar" }),
+    ).not.toBeInTheDocument();
+
+    const headerSidebarToggle = screen.getByRole("button", {
+      name: "Expand sidebar",
+    });
+
+    expect(headerSidebarToggle).toHaveAttribute("aria-controls", navigation.id);
+
+    fireEvent.click(headerSidebarToggle);
+
+    expect(sidebar).toHaveAttribute("data-sidebar-state", "expanded");
+    expect(sidebar).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Expand sidebar" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(sidebar).getByRole("button", { name: "Collapse sidebar" }),
     ).toBeInTheDocument();
 
     const mobileToggle = screen.getByRole("button", {
@@ -471,7 +492,7 @@ describe("authenticated app shell", () => {
       within(shellHeader).getByText("Study workspace"),
     ).toBeInTheDocument();
     expect(
-      within(shellHeader).getByRole("searchbox", { name: "Search notes" }),
+      within(shellHeader).getByRole("combobox", { name: "Search notes" }),
     ).toBeInTheDocument();
     expect(
       within(shellHeader).getByRole("button", { name: "New note" }),
@@ -544,7 +565,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
   });
 
-  it("searches notes by note text and attached memory aids while keeping results account-scoped", async () => {
+  it("opens notes search results without live-filtering the stable notes catalog", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -605,27 +626,442 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "Notes workspace" }),
     ).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Search notes"), {
+    const searchInput = screen.getByRole("combobox", {
+      name: "Search notes",
+    });
+    const notesCatalog = screen.getByLabelText("Notes catalog");
+
+    expect(searchInput).toHaveAttribute("placeholder", "Search notes");
+    expect(
+      screen.queryByLabelText("Notes search results"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Short-term storage supports active reasoning."),
+    ).toBeInTheDocument();
+
+    fireEvent.change(searchInput, {
       target: { value: "sled track" },
     });
 
     expect(
-      screen.getByRole("button", { name: /Synaptic plasticity/ }),
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "option",
+        { name: /Synaptic plasticity/ },
+      ),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /Working memory/ }),
-    ).not.toBeInTheDocument();
+      within(notesCatalog).getByRole("button", { name: /Working memory/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(notesCatalog).getByRole("button", { name: /Synaptic plasticity/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Short-term storage supports active reasoning."),
+    ).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Search notes"), {
+    fireEvent.change(searchInput, {
       target: { value: "long-term potentiation" },
     });
 
     expect(
-      screen.getByRole("button", { name: /Synaptic plasticity/ }),
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "option",
+        { name: /Synaptic plasticity/ },
+      ),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /Hidden note/ }),
     ).not.toBeInTheDocument();
+
+    fireEvent.change(searchInput, {
+      target: { value: "missing concept" },
+    });
+
+    expect(screen.getByText("No notes found")).toBeInTheDocument();
+    expect(
+      within(notesCatalog).getByRole("button", { name: /Working memory/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Short-term storage supports active reasoning."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows ranked notes search results with match chips and updated dates", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [
+        {
+          expansion: "Priority Cue",
+          shortForm: "PC",
+        },
+      ],
+      body: "Mnemonic content only.",
+      labelIds: [],
+      metaphors: [],
+      title: "Acronym result",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Visual memory aid only.",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation: "A priority cue acts like a lighthouse.",
+          title: "Lighthouse",
+        },
+      ],
+      title: "Metaphor result",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "This body contains a priority cue.",
+      labelIds: [],
+      metaphors: [],
+      title: "Body result",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "This body also contains a priority cue.",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation: "Priority cue also appears here.",
+          title: "Duplicate attached match",
+        },
+      ],
+      title: "Priority cue title result",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(
+      screen.getByRole("combobox", {
+        name: "Search notes",
+      }),
+      {
+        target: { value: "priority cue" },
+      },
+    );
+
+    const resultButtons = within(
+      screen.getByLabelText("Notes search results"),
+    ).getAllByRole("option");
+
+    expect(resultButtons).toHaveLength(4);
+    expect(resultButtons.map((button) => button.textContent)).toEqual([
+      expect.stringMatching(/^Priority cue title resultTitleUpdated /),
+      expect.stringMatching(/^Body resultBodyUpdated /),
+      expect.stringMatching(/^Metaphor resultMetaphorUpdated /),
+      expect.stringMatching(/^Acronym resultAcronymUpdated /),
+    ]);
+  });
+
+  it("supports keyboard, shortcut, mobile submit, and accessible notes search combobox behavior", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Older spaced retrieval cue.",
+      labelIds: [],
+      metaphors: [],
+      title: "Older retrieval",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Newer spaced retrieval cue.",
+      labelIds: [],
+      metaphors: [],
+      title: "Newer retrieval",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const searchInput = screen.getByRole("combobox", {
+      name: "Search notes",
+    });
+
+    fireEvent.change(searchInput, {
+      target: { value: "spaced retrieval cue" },
+    });
+
+    const listbox = screen.getByRole("listbox", {
+      name: "Notes search results",
+    });
+    const options = within(listbox).getAllByRole("option");
+
+    expect(searchInput).toHaveAttribute("aria-expanded", "true");
+    expect(searchInput).toHaveAttribute("aria-activedescendant", options[0].id);
+    expect(options[0]).toHaveAttribute("aria-selected", "true");
+    expect(options[0]).toHaveAccessibleName(
+      expect.stringMatching(/Newer retrieval Body Updated /),
+    );
+
+    fireEvent.keyDown(searchInput, { key: "ArrowDown" });
+    expect(searchInput).toHaveAttribute("aria-activedescendant", options[1].id);
+    expect(options[1]).toHaveAttribute("aria-selected", "true");
+
+    fireEvent.keyDown(searchInput, { key: "Escape" });
+    expect(searchInput).toHaveValue("spaced retrieval cue");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Newer spaced retrieval cue."),
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "k", metaKey: true });
+    expect(searchInput).toHaveFocus();
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByLabelText("Note editor surface"));
+    expect(searchInput).toHaveValue("spaced retrieval cue");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "k", metaKey: true });
+    fireEvent.submit(searchInput.closest("form") as HTMLFormElement);
+    expect(searchInput).toHaveValue("");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Newer spaced retrieval cue."),
+    ).toBeInTheDocument();
+
+    fireEvent.change(searchInput, {
+      target: { value: "spaced retrieval cue" },
+    });
+    fireEvent.keyDown(searchInput, { key: "ArrowDown" });
+    fireEvent.keyDown(searchInput, { key: "Enter" });
+
+    expect(searchInput).toHaveValue("");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Older spaced retrieval cue."),
+    ).toBeInTheDocument();
+  });
+
+  it("jumps to and temporarily selects matched content from a chosen search result", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "The selected phrase appears here.",
+      labelIds: [],
+      metaphors: [],
+      title: "Older target note",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Current note stays visible until the search result is chosen.",
+      labelIds: [],
+      metaphors: [],
+      title: "Current note",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByDisplayValue(
+        "Current note stays visible until the search result is chosen.",
+      ),
+    ).toBeInTheDocument();
+
+    vi.useFakeTimers();
+
+    const searchInput = screen.getByRole("combobox", {
+      name: "Search notes",
+    });
+
+    fireEvent.change(searchInput, {
+      target: { value: "selected phrase" },
+    });
+
+    fireEvent.click(
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "option",
+        { name: /Older target note/ },
+      ),
+    );
+
+    const bodyEditor = screen.getByDisplayValue(
+      "The selected phrase appears here.",
+    );
+
+    expect(searchInput).toHaveValue("");
+    expect(
+      screen.queryByLabelText("Notes search results"),
+    ).not.toBeInTheDocument();
+    expect(bodyEditor).toHaveFocus();
+    expect(bodyEditor).toHaveProperty("selectionStart", 4);
+    expect(bodyEditor).toHaveProperty("selectionEnd", 19);
+    expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+
+    expect(bodyEditor).toHaveFocus();
+    expect(bodyEditor).toHaveProperty("selectionStart", 19);
+    expect(bodyEditor).toHaveProperty("selectionEnd", 19);
+  });
+
+  it("guards search navigation when the current note has unsaved edits", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "The protected phrase appears here.",
+      labelIds: [],
+      metaphors: [],
+      title: "Older protected note",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Current note has work in progress.",
+      labelIds: [],
+      metaphors: [],
+      title: "Current draftable note",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    const bodyEditor = await screen.findByDisplayValue(
+      "Current note has work in progress.",
+    );
+    fireEvent.change(bodyEditor, {
+      target: { value: "Current note has unsaved work in progress." },
+    });
+
+    const searchInput = screen.getByRole("combobox", {
+      name: "Search notes",
+    });
+
+    fireEvent.change(searchInput, {
+      target: { value: "protected phrase" },
+    });
+
+    const searchResults = screen.getByLabelText("Notes search results");
+    fireEvent.click(
+      within(searchResults).getByRole("option", {
+        name: /Older protected note/,
+      }),
+    );
+
+    const dialog = screen.getByRole("dialog", {
+      name: "Discard unsaved changes?",
+    });
+    expect(
+      within(dialog).getByRole("button", { name: "Cancel" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Discard changes" }),
+    ).toBeInTheDocument();
+    expect(within(dialog).getAllByRole("button")).toHaveLength(2);
+    expect(searchInput).toHaveValue("protected phrase");
+    expect(screen.getByLabelText("Notes search results")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Current note has unsaved work in progress."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(
+      screen.queryByRole("dialog", { name: "Discard unsaved changes?" }),
+    ).not.toBeInTheDocument();
+    expect(searchInput).toHaveValue("protected phrase");
+    expect(screen.getByLabelText("Notes search results")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Current note has unsaved work in progress."),
+    ).toBeInTheDocument();
+
+    vi.useFakeTimers();
+
+    fireEvent.click(
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "option",
+        {
+          name: /Older protected note/,
+        },
+      ),
+    );
+    fireEvent.click(
+      within(
+        screen.getByRole("dialog", { name: "Discard unsaved changes?" }),
+      ).getByRole("button", { name: "Discard changes" }),
+    );
+
+    const targetEditor = screen.getByDisplayValue(
+      "The protected phrase appears here.",
+    );
+
+    expect(searchInput).toHaveValue("");
+    expect(
+      screen.queryByLabelText("Notes search results"),
+    ).not.toBeInTheDocument();
+    expect(targetEditor).toHaveFocus();
+    expect(targetEditor).toHaveProperty("selectionStart", 4);
+    expect(targetEditor).toHaveProperty("selectionEnd", 20);
   });
 
   it("assigns and removes owned labels from a note inside the notes workspace", async () => {
