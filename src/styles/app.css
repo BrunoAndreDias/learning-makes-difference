@@ -1035,7 +1035,9 @@ h3 {
 }
 
 .authenticated-shell {
-  grid-template-columns: 18rem minmax(0, 1fr);
+  --authenticated-sidebar-width: 18rem;
+
+  grid-template-columns: var(--authenticated-sidebar-width) minmax(0, 1fr);
   gap: 1rem;
   align-items: stretch;
   min-height: calc(100vh - 2rem);
@@ -1045,7 +1047,7 @@ h3 {
 .app-sidebar {
   align-self: stretch;
   grid-template-rows: auto 1fr auto;
-  width: 18rem;
+  width: var(--authenticated-sidebar-width);
   min-height: calc(100vh - 2rem);
   padding: 1.5rem 0.9rem;
   border: 1px solid #e4e9f2;
@@ -1775,7 +1777,7 @@ h3 {
 
 .authenticated-shell[data-sidebar-state="collapsed"]:has(.notes-workspace)
   .notes-workspace__toolbar {
-  padding-left: calc(18rem + 1rem + 1.5rem);
+  padding-left: calc(var(--authenticated-sidebar-width) + 1rem + 1.5rem);
 }
 
 .app-frame__titlebar {
@@ -1827,15 +1829,11 @@ h3 {
 
 @media (max-width: 78rem) {
   .authenticated-shell {
-    grid-template-columns: 15rem minmax(0, 1fr);
+    --authenticated-sidebar-width: 15rem;
   }
 
   .authenticated-shell[data-sidebar-state="collapsed"] {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .app-sidebar {
-    width: 15rem;
   }
 
   .app-sidebar__footer,
@@ -1849,11 +1847,6 @@ h3 {
 
   .notes-workspace__toolbar {
     grid-template-columns: minmax(16rem, 1fr);
-  }
-
-  .authenticated-shell[data-sidebar-state="collapsed"]:has(.notes-workspace)
-    .notes-workspace__toolbar {
-    padding-left: calc(15rem + 1rem + 1.5rem);
   }
 }
 

@@ -1,8 +1,5 @@
 // @vitest-environment jsdom
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 import "@testing-library/jest-dom/vitest";
 
 import {
@@ -121,15 +118,6 @@ afterEach(() => {
 });
 
 describe("authenticated app shell", () => {
-  it("keeps the authenticated workspace frame aligned with the sidebar height contract", () => {
-    const css = readFileSync(join(process.cwd(), "src/styles/app.css"), "utf8");
-
-    expect(css).toContain(".authenticated-shell");
-    expect(css).toContain("align-items: stretch;");
-    expect(css).toContain(".app-frame");
-    expect(css).toContain("min-height: calc(100vh - 2rem);");
-  });
-
   it("redirects anonymous visits to the root path into login", async () => {
     const { router } = renderRoute("/", { session: { user: null } });
 

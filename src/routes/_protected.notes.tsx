@@ -948,10 +948,9 @@ function NotesWorkspace() {
           <header className="notes-editor__header">
             <div>
               <label className="notes-title-editor">
-                <span className="sr-only">Note title</span>
+                <span className="sr-only">Title</span>
                 <input
                   ref={titleInputRef}
-                  aria-label="Title"
                   name="title"
                   onChange={(event) =>
                     handleEditorChange("title", event.target.value)
