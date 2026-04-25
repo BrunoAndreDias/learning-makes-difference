@@ -273,6 +273,7 @@ function NotesWorkspace() {
   > | null>(null);
   const unsavedSearchDialogRef = useRef<HTMLDivElement>(null);
   const unsavedSearchCancelRef = useRef<HTMLButtonElement>(null);
+  const unsavedSearchDiscardRef = useRef<HTMLButtonElement>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
   const selectedNote =
@@ -475,17 +476,7 @@ function NotesWorkspace() {
       searchSelectionTimeoutRef.current = null;
     }, 3000);
     setPendingSearchJump(null);
-  }, [
-    acronymExpansionRefs,
-    acronymShortFormRefs,
-    bodyTextareaRef,
-    editorState,
-    metaphorExplanationRefs,
-    metaphorTitleRefs,
-    pendingSearchJump,
-    selectedNote,
-    titleInputRef,
-  ]);
+  }, [editorState, pendingSearchJump, selectedNote]);
 
   function handleEditorChange<K extends keyof NoteEditorState>(
     field: K,
@@ -715,12 +706,33 @@ function NotesWorkspace() {
   function handleUnsavedSearchDialogKeyDown(
     event: KeyboardEvent<HTMLDivElement>,
   ) {
-    if (event.key !== "Escape") {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      handleCancelGuardedSearchNavigation();
       return;
     }
 
-    event.preventDefault();
-    handleCancelGuardedSearchNavigation();
+    if (event.key !== "Tab") {
+      return;
+    }
+
+    const cancelButton = unsavedSearchCancelRef.current;
+    const discardButton = unsavedSearchDiscardRef.current;
+
+    if (cancelButton === null || discardButton === null) {
+      return;
+    }
+
+    if (event.shiftKey && document.activeElement === cancelButton) {
+      event.preventDefault();
+      discardButton.focus();
+      return;
+    }
+
+    if (!event.shiftKey && document.activeElement === discardButton) {
+      event.preventDefault();
+      cancelButton.focus();
+    }
   }
 
   function handleCopyNoteId() {
@@ -852,6 +864,7 @@ function NotesWorkspace() {
               key={result.note.id}
               onClick={() => handleSelectSearchResult(result)}
               role="option"
+              tabIndex={-1}
               type="button"
             >
               <span className="notes-search__option-title">
@@ -895,6 +908,7 @@ function NotesWorkspace() {
             aria-controls={notesSearchListboxId}
             aria-expanded={isSearchListboxOpen}
             aria-haspopup="listbox"
+            aria-autocomplete="list"
             id="notes-search"
             name="search"
             onChange={(event) => handleSearchChange(event.target.value)}
@@ -1381,6 +1395,7 @@ function NotesWorkspace() {
       {guardedSearchResult === null ? null : (
         <div
           aria-labelledby="notes-unsaved-search-title"
+          aria-describedby="notes-unsaved-search-description"
           aria-modal="true"
           className="notes-unsaved-search-dialog"
           onKeyDown={handleUnsavedSearchDialogKeyDown}
@@ -1389,7 +1404,7 @@ function NotesWorkspace() {
         >
           <div className="notes-unsaved-search-dialog__panel">
             <h3 id="notes-unsaved-search-title">Discard unsaved changes?</h3>
-            <p>
+            <p id="notes-unsaved-search-description">
               Search navigation will replace the current note editor state.
             </p>
             <div className="notes-unsaved-search-dialog__actions">
@@ -1404,6 +1419,7 @@ function NotesWorkspace() {
               <button
                 className="notes-action notes-action-primary"
                 onClick={handleDiscardGuardedSearchNavigation}
+                ref={unsavedSearchDiscardRef}
                 type="button"
               >
                 Discard changes

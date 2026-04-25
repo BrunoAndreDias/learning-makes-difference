@@ -325,5 +325,4 @@ describe("app notes context", () => {
       } satisfies Pick<AppNotesError, "code">),
     );
   });
-
 });

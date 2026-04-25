@@ -23,15 +23,15 @@ export type AppStoredNote = AppNote & {
   userId: string;
 };
 
-export {
-  filterNotesByQuery,
-  searchNoteResults,
-} from "./notes-search";
 export type {
   AppNoteSearchMatchChip,
   AppNoteSearchResult,
   AppNoteSearchTarget,
   AppNoteSearchTargetField,
+} from "./notes-search";
+export {
+  filterNotesByQuery,
+  searchNoteResults,
 } from "./notes-search";
 
 type NotesListener = () => void;

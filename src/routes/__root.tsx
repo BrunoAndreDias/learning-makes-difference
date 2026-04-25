@@ -19,16 +19,16 @@ import { type AppSessionContext, hasActiveSession } from "../lib/session";
 import appCss from "../styles/app.css?url";
 
 const authRoutePaths = new Set(["/forgot-password", "/login", "/register"]);
-const redirectableProtectedPaths = new Set([
+const redirectableProtectedPaths = [
   "/history",
   "/labels",
   "/notes",
   "/recall",
   "/settings",
-]);
+];
 
 function isProtectedPath(pathname: string): boolean {
-  return [...redirectableProtectedPaths].some(
+  return redirectableProtectedPaths.some(
     (protectedPath) =>
       pathname === protectedPath || pathname.startsWith(`${protectedPath}/`),
   );
