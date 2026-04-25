@@ -366,8 +366,26 @@ describe("authenticated app shell", () => {
     );
 
     expect(sidebar).toHaveAttribute("data-sidebar-state", "collapsed");
+    expect(sidebar).not.toBeVisible();
     expect(
-      within(sidebar).getByRole("button", { name: "Expand sidebar" }),
+      within(sidebar).queryByRole("button", { name: "Expand sidebar" }),
+    ).not.toBeInTheDocument();
+
+    const headerSidebarToggle = screen.getByRole("button", {
+      name: "Expand sidebar",
+    });
+
+    expect(headerSidebarToggle).toHaveAttribute("aria-controls", navigation.id);
+
+    fireEvent.click(headerSidebarToggle);
+
+    expect(sidebar).toHaveAttribute("data-sidebar-state", "expanded");
+    expect(sidebar).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Expand sidebar" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(sidebar).getByRole("button", { name: "Collapse sidebar" }),
     ).toBeInTheDocument();
 
     const mobileToggle = screen.getByRole("button", {
