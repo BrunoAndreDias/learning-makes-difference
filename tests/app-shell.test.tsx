@@ -115,6 +115,43 @@ afterEach(() => {
 });
 
 describe("authenticated app shell", () => {
+  it("redirects anonymous visits to the root path into login", async () => {
+    const { router } = renderRoute("/", { session: { user: null } });
+
+    expect(
+      await screen.findByRole("heading", { name: "Welcome back" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/login");
+  });
+
+  it("redirects authenticated visits to the root path into the notes workspace", async () => {
+    const { router } = renderRoute("/");
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/notes");
+  });
+
+  it("redirects anonymous visits to unknown paths into login", async () => {
+    const { router } = renderRoute("/qweqwe", { session: { user: null } });
+
+    expect(
+      await screen.findByRole("heading", { name: "Welcome back" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/login");
+    expect(router.state.location.search.redirect).toBeUndefined();
+  });
+
+  it("redirects authenticated visits to unknown paths into the notes workspace", async () => {
+    const { router } = renderRoute("/qweqwe");
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/notes");
+  });
+
   it("redirects unauthenticated protected navigation into the public login area", async () => {
     const { router } = renderRoute("/settings", { session: { user: null } });
 

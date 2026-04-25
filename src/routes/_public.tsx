@@ -5,10 +5,5 @@ export const Route = createFileRoute("/_public")({
 });
 
 function PublicLayout() {
-  return (
-    <section className="panel">
-      <p className="section-label">Public area</p>
-      <Outlet />
-    </section>
-  );
+  return <Outlet />;
 }

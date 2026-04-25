@@ -1,19 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+
+import { hasActiveSession } from "../lib/session";
 
 export const Route = createFileRoute("/_public/")({
-  component: LandingPage,
+  beforeLoad: ({ context }) => {
+    throw redirect({
+      to: hasActiveSession(context.session.getSnapshot()) ? "/notes" : "/login",
+    });
+  },
 });
-
-function LandingPage() {
-  return (
-    <section className="stack">
-      <p className="section-label">Public route</p>
-      <h2>SSR-ready application shell</h2>
-      <p>
-        This bootstrap slice wires TanStack Start, TypeScript, schema-driven
-        environment configuration, and public/protected placeholder route areas
-        for future product work.
-      </p>
-    </section>
-  );
-}
