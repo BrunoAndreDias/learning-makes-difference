@@ -45,6 +45,7 @@ import {
   type AppStoredNote,
   listNotesForUser,
 } from "../features/notes/notes";
+import { useNotesWorkspace } from "../features/notes/notes-workspace";
 import type { AppSessionSnapshot } from "../features/session/session";
 
 export const Route = createFileRoute("/_protected/notes")({
@@ -52,7 +53,6 @@ export const Route = createFileRoute("/_protected/notes")({
 });
 
 const labelPickerPanelId = "note-label-picker-panel";
-const notesCatalogPanelId = "notes-catalog-panel";
 const notesSearchListboxId = "notes-search-results";
 const noteEditorFormId = "note-editor-form";
 
@@ -122,6 +122,11 @@ function NotesWorkspace() {
   );
   const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
+  const {
+    clearPendingSidebarAction,
+    pendingSidebarAction,
+    setActiveNoteId,
+  } = useNotesWorkspace();
   const [searchQuery, setSearchQuery] = useState("");
   const searchResults = searchNoteResults(notes, searchQuery);
   const hasSearchQuery = searchQuery.trim().length > 0;
@@ -136,7 +141,6 @@ function NotesWorkspace() {
   const editorState = noteEditor.draft;
   const [pendingSearchJump, setPendingSearchJump] =
     useState<AppNoteSearchResult | null>(null);
-  const [isNotesCatalogCollapsed, setIsNotesCatalogCollapsed] = useState(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const metaphorTitleRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -149,8 +153,6 @@ function NotesWorkspace() {
   const unsavedSearchDialogRef = useRef<HTMLDivElement>(null);
   const unsavedSearchCancelRef = useRef<HTMLButtonElement>(null);
   const unsavedSearchDiscardRef = useRef<HTMLButtonElement>(null);
-  const catalogToggleButtonRef = useRef<HTMLButtonElement>(null);
-  const previousCatalogCollapsedRef = useRef(isNotesCatalogCollapsed);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
   const selectedNote = getSelectedNote(noteEditor, notes);
@@ -251,15 +253,6 @@ function NotesWorkspace() {
   }, []);
 
   useEffect(() => {
-    if (previousCatalogCollapsedRef.current === isNotesCatalogCollapsed) {
-      return;
-    }
-
-    previousCatalogCollapsedRef.current = isNotesCatalogCollapsed;
-    catalogToggleButtonRef.current?.focus();
-  }, [isNotesCatalogCollapsed]);
-
-  useEffect(() => {
     if (noteEditor.pendingTransition === null) {
       return;
     }
@@ -318,6 +311,32 @@ function NotesWorkspace() {
     }, 3000);
     setPendingSearchJump(null);
   }, [noteEditor, pendingSearchJump, selectedNote]);
+
+  useEffect(() => {
+    setActiveNoteId(selectedNote?.id ?? null);
+  }, [selectedNote?.id, setActiveNoteId]);
+
+  useEffect(() => {
+    if (pendingSidebarAction === null) {
+      return;
+    }
+
+    if (pendingSidebarAction.type === "new") {
+      handleNewNote();
+      clearPendingSidebarAction(pendingSidebarAction.nonce);
+      return;
+    }
+
+    const requestedNote = notes.find(
+      (note) => note.id === pendingSidebarAction.noteId,
+    );
+
+    if (requestedNote !== undefined) {
+      handleSelectNote(requestedNote);
+    }
+
+    clearPendingSidebarAction(pendingSidebarAction.nonce);
+  }, [clearPendingSidebarAction, notes, pendingSidebarAction]);
 
   function handleEditorChange<K extends keyof NoteEditorDraft>(
     field: K,
@@ -682,9 +701,6 @@ function NotesWorkspace() {
         className="notes-workspace__toolbar"
       >
         <p className="sr-only">Study workspace</p>
-        <button className="sr-only" onClick={handleNewNote} type="button">
-          New note
-        </button>
         <span className="sr-only">{noteCountLabel}</span>
         <form
           className="notes-search"
@@ -726,29 +742,6 @@ function NotesWorkspace() {
           <kbd>Cmd K</kbd>
           {searchResultsContent}
         </form>
-        <button
-          aria-controls={notesCatalogPanelId}
-          aria-expanded={!isNotesCatalogCollapsed}
-          className="notes-catalog-toggle"
-          onClick={() =>
-            setIsNotesCatalogCollapsed(
-              (currentIsNotesCatalogCollapsed) =>
-                !currentIsNotesCatalogCollapsed,
-            )
-          }
-          ref={catalogToggleButtonRef}
-          type="button"
-        >
-          <span className="notes-catalog-toggle__icon" aria-hidden="true">
-            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-              <rect x="4" y="5" width="16" height="14" rx="2" />
-              <path d="M10 5v14" />
-            </svg>
-          </span>
-          {isNotesCatalogCollapsed
-            ? "Show notes catalog"
-            : "Hide notes catalog"}
-        </button>
       </section>
 
       <section className="notes-mobile-summary" aria-label="Workspace summary">
@@ -760,10 +753,7 @@ function NotesWorkspace() {
         </div>
       </section>
 
-      <div
-        className="notes-layout"
-        data-catalog-state={isNotesCatalogCollapsed ? "collapsed" : "expanded"}
-      >
+      <div className="notes-layout">
         <article aria-label="Note editor surface" className="notes-editor">
           <header className="notes-editor__header">
             <div>
@@ -1097,66 +1087,6 @@ function NotesWorkspace() {
           </form>
         </article>
 
-        <aside
-          aria-label="Notes catalog"
-          className="notes-list"
-          hidden={isNotesCatalogCollapsed}
-          id={notesCatalogPanelId}
-        >
-          <div className="notes-list__toolbar">
-            <div className="notes-list__heading">
-              <h3>Notes</h3>
-              <span>{noteCountLabel}</span>
-            </div>
-            <button
-              className="notes-action notes-action-primary"
-              onClick={handleNewNote}
-              type="button"
-            >
-              + New
-            </button>
-            <button className="notes-action" type="button">
-              Newest
-            </button>
-          </div>
-
-          {notes.length === 0 ? (
-            <p className="muted">No notes yet</p>
-          ) : (
-            <ul className="notes-list__items">
-              {notes.map((note) => {
-                const isActive = note.id === selectedNote?.id;
-                const noteLabels = availableLabels.filter((label) =>
-                  note.labelIds.includes(label.id),
-                );
-
-                return (
-                  <li key={note.id}>
-                    <button
-                      aria-pressed={isActive}
-                      className="notes-list__item"
-                      data-active={isActive}
-                      onClick={() => handleSelectNote(note)}
-                      type="button"
-                    >
-                      <strong>{note.title}</strong>
-                      {noteLabels.length === 0 ? null : (
-                        <span className="notes-list__item-tags">
-                          {noteLabels.slice(0, 3).map((label) => (
-                            <span className="tag" key={label.id}>
-                              {label.name}
-                            </span>
-                          ))}
-                        </span>
-                      )}
-                      <span>{`Updated ${formatNoteDate(note.updatedAt)}`}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </aside>
       </div>
       {noteEditor.pendingTransition === null ? null : (
         <div

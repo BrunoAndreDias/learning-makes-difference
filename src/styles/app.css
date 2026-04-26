@@ -235,6 +235,7 @@ h3 {
 .sidebar-mobile-toggle:focus-visible,
 .sidebar-header-toggle:focus-visible,
 .app-sidebar__logout:focus-visible,
+.app-sidebar__workspace-link:focus-visible,
 .notes-action:focus-visible,
 .notes-inline-action:focus-visible,
 .nav-link:focus-visible,
@@ -285,6 +286,67 @@ h3 {
   border-top: 1px solid rgba(215, 222, 234, 0.9);
   flex-wrap: wrap;
   align-self: end;
+}
+
+.app-sidebar__workspace {
+  display: grid;
+  gap: var(--space-3);
+  min-height: 0;
+}
+
+.app-sidebar__workspace-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.app-sidebar__workspace-header h3 {
+  font-size: 1rem;
+}
+
+.app-sidebar__workspace-nav {
+  min-height: 0;
+}
+
+.app-sidebar__workspace-list {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app-sidebar__workspace-link {
+  display: grid;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid rgba(215, 222, 234, 0.9);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--color-content-strong);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.app-sidebar__workspace-link:hover,
+.app-sidebar__workspace-link[aria-current="page"] {
+  background: linear-gradient(
+    180deg,
+    rgba(37, 99, 235, 0.14) 0%,
+    rgba(37, 99, 235, 0.08) 100%
+  );
+  border-color: rgba(37, 99, 235, 0.24);
+}
+
+.app-sidebar__workspace-meta {
+  color: var(--color-content-muted);
+  font-size: 0.8rem;
 }
 
 .app-frame {
