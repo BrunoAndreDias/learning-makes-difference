@@ -269,8 +269,7 @@ function AppLayout() {
             </nav>
           </div>
 
-          {/* biome-ignore lint/a11y/useSemanticElements: named contentinfo landmark is required here */}
-          <div
+          <footer
             aria-label="User controls"
             className="app-sidebar__footer"
             role="contentinfo"
@@ -292,7 +291,7 @@ function AppLayout() {
             >
               {isLoggingOut ? "Logging out..." : "Log out"}
             </button>
-          </div>
+          </footer>
         </aside>
 
         <div
@@ -355,8 +354,12 @@ function NotesSidebarContent({
   const session = Route.useRouteContext({
     select: (context) => context.session,
   });
-  const { activeNoteId, requestEditorFocus, requestNewNote, requestSelectNote } =
-    useNotesWorkspace();
+  const {
+    activeNoteId,
+    requestEditorFocus,
+    requestNewNote,
+    requestSelectNote,
+  } = useNotesWorkspace();
   const activeNoteRef = useRef<HTMLButtonElement | null>(null);
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
     session.subscribe,
@@ -372,6 +375,15 @@ function NotesSidebarContent({
     notesSnapshot,
     sessionSnapshot.user?.id ?? null,
   );
+
+  function handleSidebarAction(action: () => void) {
+    if (isMobileSidebarOpen) {
+      requestEditorFocus();
+    }
+
+    action();
+    closeMobileSidebar();
+  }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: activeNoteId changes which button owns the ref and must retrigger the scroll.
   useEffect(() => {
@@ -394,13 +406,7 @@ function NotesSidebarContent({
         </div>
         <button
           className="notes-action notes-action-primary"
-          onClick={() => {
-            if (isMobileSidebarOpen) {
-              requestEditorFocus();
-            }
-            requestNewNote();
-            closeMobileSidebar();
-          }}
+          onClick={() => handleSidebarAction(requestNewNote)}
           type="button"
         >
           New note
@@ -418,13 +424,9 @@ function NotesSidebarContent({
                   aria-label={note.title}
                   aria-current={activeNoteId === note.id ? "page" : undefined}
                   className="app-sidebar__workspace-link"
-                  onClick={() => {
-                    if (isMobileSidebarOpen) {
-                      requestEditorFocus();
-                    }
-                    requestSelectNote(note.id);
-                    closeMobileSidebar();
-                  }}
+                  onClick={() =>
+                    handleSidebarAction(() => requestSelectNote(note.id))
+                  }
                   ref={activeNoteId === note.id ? activeNoteRef : null}
                   type="button"
                 >

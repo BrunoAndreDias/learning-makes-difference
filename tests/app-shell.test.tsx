@@ -534,6 +534,74 @@ describe("authenticated app shell", () => {
     expect(screen.getByLabelText("Title")).toHaveFocus();
   });
 
+  it("keeps the discard dialog focused when a mobile sidebar note change is guarded", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "The protected phrase appears here.",
+      labelIds: [],
+      metaphors: [],
+      title: "Older protected note",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Current note has work in progress.",
+      labelIds: [],
+      metaphors: [],
+      title: "Current draftable note",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    const bodyEditor = await screen.findByDisplayValue(
+      "Current note has work in progress.",
+    );
+    const sidebar = screen.getByRole("complementary", {
+      name: "App sidebar",
+    });
+    const notesList = within(sidebar).getByRole("navigation", {
+      name: "Notes list",
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open navigation menu" }),
+    );
+    fireEvent.change(bodyEditor, {
+      target: {
+        value: "Current note has work in progress and should stay guarded.",
+      },
+    });
+    fireEvent.click(
+      within(notesList).getByRole("button", {
+        name: /Older protected note/,
+      }),
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Discard unsaved changes?",
+    });
+
+    expect(
+      within(dialog).getByRole("button", { name: "Cancel" }),
+    ).toHaveFocus();
+    expect(screen.getByLabelText("Title")).not.toHaveFocus();
+  });
+
   it("renders the notes list inside the app sidebar for the notes workspace", async () => {
     const labelsContext = createAppLabelsContext({
       keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,

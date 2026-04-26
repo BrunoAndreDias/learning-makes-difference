@@ -330,12 +330,15 @@ function NotesWorkspace() {
   }, [selectedNote?.id, setActiveNoteId]);
 
   useEffect(() => {
-    if (editorFocusRequestNonce === 0) {
+    if (
+      editorFocusRequestNonce === 0 ||
+      noteEditor.pendingTransition !== null
+    ) {
       return;
     }
 
     titleInputRef.current?.focus();
-  }, [editorFocusRequestNonce]);
+  }, [editorFocusRequestNonce, noteEditor.pendingTransition]);
 
   useEffect(() => {
     if (pendingSidebarAction === null) {
