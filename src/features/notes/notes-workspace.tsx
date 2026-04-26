@@ -107,11 +107,11 @@ export function NotesWorkspaceProvider({
   }, []);
 
   const finishRecallSelection = useCallback(() => {
-    const result = completeRecallSelection(recallSelection);
+    const { noteIds, state } = completeRecallSelection(recallSelection);
 
-    setRecallSelection(result.state);
+    setRecallSelection(state);
 
-    return result.noteIds;
+    return noteIds;
   }, [recallSelection]);
 
   const value: NotesWorkspaceContextValue = {

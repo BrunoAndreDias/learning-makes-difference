@@ -430,8 +430,9 @@ function NotesSidebarContent({
         ) : (
           <ul className="app-sidebar__workspace-list">
             {notes.map((note) => {
-              const isRecallSelected =
-                recallSelection.selectedNoteIds.includes(note.id);
+              const isRecallSelected = recallSelection.selectedNoteIds.includes(
+                note.id,
+              );
 
               return (
                 <li key={note.id}>
@@ -444,9 +445,7 @@ function NotesSidebarContent({
                         : undefined
                     }
                     className="app-sidebar__workspace-link"
-                    data-recall-selected={
-                      isRecallSelected ? "true" : undefined
-                    }
+                    data-recall-selected={isRecallSelected ? "true" : undefined}
                     onClick={() => handleNoteClick(note.id)}
                     ref={activeNoteId === note.id ? activeNoteRef : null}
                     type="button"

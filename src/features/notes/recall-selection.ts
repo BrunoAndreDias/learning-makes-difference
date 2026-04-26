@@ -11,7 +11,7 @@ function createRecallSelectionState(input: {
   return {
     isSelectingForRecall: input.isSelectingForRecall,
     selectedCount: input.selectedNoteIds.length,
-    selectedNoteIds: input.selectedNoteIds,
+    selectedNoteIds: [...input.selectedNoteIds],
   };
 }
 
@@ -56,7 +56,7 @@ export function completeRecallSelection(state: RecallSelectionState): {
   state: RecallSelectionState;
 } {
   return {
-    noteIds: state.selectedNoteIds,
+    noteIds: [...state.selectedNoteIds],
     state: createInitialRecallSelectionState(),
   };
 }

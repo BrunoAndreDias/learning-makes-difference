@@ -324,6 +324,12 @@ function cloneFlashCardRecallNotes(
   return notes.map(cloneFlashCardRecallNote);
 }
 
+function isSelectedNotesSessionInput(
+  input: StartFlashCardSessionInput,
+): input is Extract<StartFlashCardSessionInput, { noteIds: string[] }> {
+  return "noteIds" in input;
+}
+
 function getLabelNameForUser(
   labels: AppLabelsContext,
   labelId: string,
@@ -392,7 +398,9 @@ export function resolveRecallableNotesFromSelection(input: {
   notes: AppNotesContext;
   userId: string;
 }): FlashCardRecallNote[] {
-  const selectedNoteIds = [...new Set(input.noteIds.filter(Boolean))];
+  const selectedNoteIds = [
+    ...new Set(input.noteIds.filter((noteId) => noteId.length > 0)),
+  ];
 
   if (selectedNoteIds.length === 0) {
     throw new AppRecallError(
@@ -401,12 +409,8 @@ export function resolveRecallableNotesFromSelection(input: {
     );
   }
 
-  const ownedNotesById = new Map(
-    listNotesForUser(input.notes.getSnapshot(), input.userId).map((note) => [
-      note.id,
-      note,
-    ]),
-  );
+  const ownedNotes = listNotesForUser(input.notes.getSnapshot(), input.userId);
+  const ownedNotesById = new Map(ownedNotes.map((note) => [note.id, note]));
   const recallableNotes = selectedNoteIds.map((noteId) => {
     const note = ownedNotesById.get(noteId);
 
@@ -424,7 +428,7 @@ function resolveFlashCardSessionTarget(
   input: StartFlashCardSessionInput,
   options: ResolveFlashCardSessionTargetOptions,
 ): FlashCardSessionTarget {
-  if (input.noteIds !== undefined) {
+  if (isSelectedNotesSessionInput(input)) {
     return {
       labelId: null,
       labelName: "Selected notes",
