@@ -164,7 +164,10 @@ function AppLayout() {
 
   return (
     <NotesWorkspaceProvider>
-      <section className="authenticated-shell" data-sidebar-state={sidebarState}>
+      <section
+        className="authenticated-shell"
+        data-sidebar-state={sidebarState}
+      >
         <aside
           aria-label="App sidebar"
           className="app-sidebar shell-panel"
@@ -213,7 +216,7 @@ function AppLayout() {
             }`}
           >
             {isNotesWorkspace ? (
-              <NotesSidebarContent onSelectNote={handleSidebarLinkClick} />
+              <NotesSidebarContent closeMobileSidebar={closeMobileSidebar} />
             ) : null}
 
             <nav
@@ -237,7 +240,9 @@ function AppLayout() {
                         className="app-sidebar__link"
                         onClick={handleSidebarLinkClick}
                         ref={
-                          isActiveNavigationLink ? activeNavigationLinkRef : null
+                          isActiveNavigationLink
+                            ? activeNavigationLinkRef
+                            : null
                         }
                         to={item.to}
                       >
@@ -253,7 +258,12 @@ function AppLayout() {
             </nav>
           </div>
 
-          <footer aria-label="User controls" className="app-sidebar__footer">
+          {/* biome-ignore lint/a11y/useSemanticElements: named contentinfo landmark is required here */}
+          <div
+            aria-label="User controls"
+            className="app-sidebar__footer"
+            role="contentinfo"
+          >
             <div className="app-sidebar__avatar" aria-hidden="true">
               {userInitials}
             </div>
@@ -271,7 +281,7 @@ function AppLayout() {
             >
               {isLoggingOut ? "Logging out..." : "Log out"}
             </button>
-          </footer>
+          </div>
         </aside>
 
         <div
@@ -319,9 +329,9 @@ function AppLayout() {
 }
 
 function NotesSidebarContent({
-  onSelectNote,
+  closeMobileSidebar,
 }: Readonly<{
-  onSelectNote: () => void;
+  closeMobileSidebar: () => void;
 }>) {
   const notesContext = Route.useRouteContext({
     select: (context) => context.notes,
@@ -341,7 +351,10 @@ function NotesSidebarContent({
     notesContext.getSnapshot,
     notesContext.getSnapshot,
   );
-  const notes = listNotesForUser(notesSnapshot, sessionSnapshot.user?.id ?? null);
+  const notes = listNotesForUser(
+    notesSnapshot,
+    sessionSnapshot.user?.id ?? null,
+  );
 
   return (
     <section className="app-sidebar__workspace" aria-label="Notes sidebar">
@@ -354,7 +367,7 @@ function NotesSidebarContent({
           className="notes-action notes-action-primary"
           onClick={() => {
             requestNewNote();
-            onSelectNote();
+            closeMobileSidebar();
           }}
           type="button"
         >
@@ -375,12 +388,15 @@ function NotesSidebarContent({
                   className="app-sidebar__workspace-link"
                   onClick={() => {
                     requestSelectNote(note.id);
-                    onSelectNote();
+                    closeMobileSidebar();
                   }}
                   type="button"
                 >
                   <span>{note.title}</span>
-                  <span aria-hidden="true" className="app-sidebar__workspace-meta">
+                  <span
+                    aria-hidden="true"
+                    className="app-sidebar__workspace-meta"
+                  >
                     {formatSidebarNoteDate(note.updatedAt)}
                   </span>
                 </button>
