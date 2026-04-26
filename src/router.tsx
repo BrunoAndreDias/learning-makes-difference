@@ -1,9 +1,9 @@
 import { createRouter } from "@tanstack/react-router";
-import { createAppLabelsContext } from "./lib/labels";
 
-import { createAppNotesContext } from "./lib/notes";
-import { createAppRecallContext } from "./lib/recall";
-import { createAppSessionContext } from "./lib/session";
+import { createAppLabelsContext } from "./features/labels/labels";
+import { createAppNotesContext } from "./features/notes/notes";
+import { createAppRecallContext } from "./features/recall/recall";
+import { createAppSessionContext } from "./features/session/session";
 import { routeTree } from "./routeTree.gen";
 
 export function getRouter() {

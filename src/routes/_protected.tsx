@@ -15,7 +15,12 @@ import {
 } from "react";
 
 import appLogo from "../../docs/layout/logo.svg";
-import type { AppSessionSnapshot } from "../lib/session";
+import { listNotesForUser } from "../features/notes/notes";
+import {
+  NotesWorkspaceProvider,
+  useNotesWorkspace,
+} from "../features/notes/notes-workspace";
+import type { AppSessionSnapshot } from "../features/session/session";
 
 export const Route = createFileRoute("/_protected")({
   component: AppLayout,
@@ -67,6 +72,13 @@ function getActiveNavigationItem(pathname: string) {
   );
 }
 
+function formatSidebarNoteDate(value: string): string {
+  return new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+  }).format(new Date(value));
+}
+
 function AppLayout() {
   const session = Route.useRouteContext({
     select: (context) => context.session,
@@ -81,6 +93,7 @@ function AppLayout() {
     useState(false);
   const [isLoggingOut, setLoggingOut] = useState(false);
   const activeNavigationLinkRef = useRef<HTMLAnchorElement | null>(null);
+  const collapsedSidebarToggleRef = useRef<HTMLButtonElement | null>(null);
   const mobileToggleRef = useRef<HTMLButtonElement | null>(null);
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
     session.subscribe,
@@ -88,6 +101,7 @@ function AppLayout() {
     session.getSnapshot,
   );
   const activeItem = getActiveNavigationItem(location.pathname);
+  const isNotesWorkspace = activeItem.to === "/notes";
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
   const sidebarToggleLabel = isSidebarCollapsed
     ? "Expand sidebar"
@@ -138,6 +152,12 @@ function AppLayout() {
   }
 
   useEffect(() => {
+    if (isSidebarCollapsed) {
+      collapsedSidebarToggleRef.current?.focus();
+    }
+  }, [isSidebarCollapsed]);
+
+  useEffect(() => {
     if (isMobileSidebarOpen) {
       activeNavigationLinkRef.current?.focus();
       return;
@@ -150,138 +170,299 @@ function AppLayout() {
   }, [isMobileSidebarOpen, shouldRestoreMobileToggleFocus]);
 
   return (
-    <section className="authenticated-shell" data-sidebar-state={sidebarState}>
-      <aside
-        aria-label="App sidebar"
-        className="app-sidebar shell-panel"
-        data-mobile-open={isMobileSidebarOpen}
+    <NotesWorkspaceProvider>
+      <section
+        className="authenticated-shell"
         data-sidebar-state={sidebarState}
-        hidden={isSidebarCollapsed}
       >
-        <div className="app-sidebar__header">
-          <Link
-            aria-label="Learning Makes Difference home"
-            className="brand-lockup app-sidebar__brand"
-            onClick={handleSidebarLinkClick}
-            to="/notes"
-          >
-            <img
-              alt="Learning Makes Difference"
-              className="app-sidebar__logo"
-              height="56"
-              src={appLogo}
-              width="56"
-            />
-            <span className="app-sidebar__brand-copy">
-              <span className="app-sidebar__product">
-                Learning Makes Difference
-              </span>
-              <span className="app-sidebar__context">
-                Authenticated workspace
-              </span>
-            </span>
-          </Link>
-
-          <button
-            aria-controls={navigationId}
-            aria-label={sidebarToggleLabel}
-            className="sidebar-toggle"
-            onClick={() => setSidebarCollapsed((value) => !value)}
-            type="button"
-          >
-            {isSidebarCollapsed ? ">" : "<"}
-          </button>
-        </div>
-
-        <nav
-          aria-label="App sections"
-          className="app-sidebar__nav"
-          id={navigationId}
+        <aside
+          aria-label="App sidebar"
+          className="app-sidebar shell-panel"
+          data-mobile-open={isMobileSidebarOpen}
+          data-sidebar-state={sidebarState}
+          hidden={isSidebarCollapsed}
         >
-          <ul className="app-sidebar__list">
-            {appNavigationItems.map((item) => {
-              const isActiveNavigationLink = activeItem.to === item.to;
+          <div className="app-sidebar__header">
+            <Link
+              aria-label="Learning Makes Difference home"
+              className="brand-lockup app-sidebar__brand"
+              onClick={handleSidebarLinkClick}
+              to="/notes"
+            >
+              <img
+                alt="Learning Makes Difference"
+                className="app-sidebar__logo"
+                height="56"
+                src={appLogo}
+                width="56"
+              />
+              <span className="app-sidebar__brand-copy">
+                <span className="app-sidebar__product">
+                  Learning Makes Difference
+                </span>
+                <span className="app-sidebar__context">
+                  Authenticated workspace
+                </span>
+              </span>
+            </Link>
 
-              return (
-                <li key={item.to}>
-                  <Link
-                    activeProps={{
-                      className: "app-sidebar__link app-sidebar__link-active",
-                    }}
-                    className="app-sidebar__link"
-                    onClick={handleSidebarLinkClick}
-                    ref={
-                      isActiveNavigationLink ? activeNavigationLinkRef : null
-                    }
-                    to={item.to}
-                  >
-                    <span aria-hidden="true" className="app-sidebar__icon">
-                      <NavigationIcon name={item.icon} />
-                    </span>
-                    <span className="app-sidebar__label">{item.label}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-
-        <div className="app-sidebar__footer">
-          <div className="app-sidebar__avatar" aria-hidden="true">
-            {userInitials}
-          </div>
-          <div className="app-sidebar__profile">
-            <strong>
-              {sessionSnapshot.user?.displayName ?? "Unknown user"}
-            </strong>
-            <span>{sessionSnapshot.user?.email ?? "No email available"}</span>
-          </div>
-          <button
-            className="app-sidebar__logout"
-            disabled={isLoggingOut}
-            onClick={() => void handleLogout()}
-            type="button"
-          >
-            {isLoggingOut ? "Logging out..." : "Log out"}
-          </button>
-        </div>
-      </aside>
-
-      <div className="app-frame">
-        <header className="app-frame__mobile-header">
-          <h2>{activeItem.label}</h2>
-          <div className="app-frame__actions">
-            {isSidebarCollapsed ? (
-              <button
-                aria-controls={navigationId}
-                aria-label="Expand sidebar"
-                className="sidebar-header-toggle"
-                onClick={() => setSidebarCollapsed(false)}
-                type="button"
-              >
-                Menu
-              </button>
-            ) : null}
             <button
               aria-controls={navigationId}
-              aria-expanded={isMobileSidebarOpen}
-              aria-label={mobileToggleLabel}
-              className="sidebar-mobile-toggle"
-              onClick={handleMobileSidebarAction}
-              ref={mobileToggleRef}
+              aria-label={sidebarToggleLabel}
+              className="sidebar-toggle"
+              onClick={() => setSidebarCollapsed((value) => !value)}
               type="button"
             >
-              {isMobileSidebarOpen ? "Close menu" : "Open menu"}
+              <SidebarCollapseIcon />
             </button>
-            <span className="tag">Shell ready for future modules</span>
           </div>
-        </header>
 
-        <div className="app-frame__content">
-          <Outlet />
+          <div
+            className={`app-sidebar__body${
+              isNotesWorkspace ? " app-sidebar__body--notes" : ""
+            }`}
+          >
+            {isNotesWorkspace ? (
+              <NotesSidebarContent
+                closeMobileSidebar={closeMobileSidebar}
+                isMobileSidebarOpen={isMobileSidebarOpen}
+                isSidebarVisible={!isSidebarCollapsed}
+              />
+            ) : null}
+
+            <nav
+              aria-label="App sections"
+              className={`app-sidebar__nav${
+                isNotesWorkspace ? " app-sidebar__nav--compact" : ""
+              }`}
+              id={navigationId}
+            >
+              <ul className="app-sidebar__list">
+                {appNavigationItems.map((item) => {
+                  const isActiveNavigationLink = activeItem.to === item.to;
+
+                  return (
+                    <li key={item.to}>
+                      <Link
+                        activeProps={{
+                          className:
+                            "app-sidebar__link app-sidebar__link-active",
+                        }}
+                        className="app-sidebar__link"
+                        onClick={handleSidebarLinkClick}
+                        ref={
+                          isActiveNavigationLink
+                            ? activeNavigationLinkRef
+                            : null
+                        }
+                        to={item.to}
+                      >
+                        <span aria-hidden="true" className="app-sidebar__icon">
+                          <NavigationIcon name={item.icon} />
+                        </span>
+                        <span className="app-sidebar__label">{item.label}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+          </div>
+
+          <footer
+            aria-label="User controls"
+            className="app-sidebar__footer"
+            role="contentinfo"
+          >
+            <div className="app-sidebar__avatar" aria-hidden="true">
+              {userInitials}
+            </div>
+            <div className="app-sidebar__profile">
+              <strong>
+                {sessionSnapshot.user?.displayName ?? "Unknown user"}
+              </strong>
+              <span>{sessionSnapshot.user?.email ?? "No email available"}</span>
+            </div>
+            <button
+              className="app-sidebar__logout"
+              disabled={isLoggingOut}
+              onClick={() => void handleLogout()}
+              type="button"
+            >
+              {isLoggingOut ? "Logging out..." : "Log out"}
+            </button>
+          </footer>
+        </aside>
+
+        <div
+          className="app-frame"
+          data-workspace={isNotesWorkspace ? "notes" : undefined}
+        >
+          <header className="app-frame__mobile-header">
+            <div className="app-frame__titlebar">
+              {isSidebarCollapsed ? (
+                <button
+                  aria-controls={navigationId}
+                  aria-label="Expand sidebar"
+                  className="sidebar-header-toggle"
+                  onClick={() => setSidebarCollapsed(false)}
+                  ref={collapsedSidebarToggleRef}
+                  type="button"
+                >
+                  <SidebarReopenIcon />
+                </button>
+              ) : null}
+              <h2>{activeItem.label}</h2>
+            </div>
+            <div className="app-frame__actions">
+              <button
+                aria-controls={navigationId}
+                aria-expanded={isMobileSidebarOpen}
+                aria-label={mobileToggleLabel}
+                className="sidebar-mobile-toggle"
+                onClick={handleMobileSidebarAction}
+                ref={mobileToggleRef}
+                type="button"
+              >
+                {isMobileSidebarOpen ? "Close menu" : "Open menu"}
+              </button>
+              <span className="tag">Shell ready for future modules</span>
+            </div>
+          </header>
+
+          <div className="app-frame__content">
+            <Outlet />
+          </div>
         </div>
+      </section>
+    </NotesWorkspaceProvider>
+  );
+}
+
+function NotesSidebarContent({
+  isSidebarVisible,
+  isMobileSidebarOpen,
+  closeMobileSidebar,
+}: Readonly<{
+  isSidebarVisible: boolean;
+  isMobileSidebarOpen: boolean;
+  closeMobileSidebar: () => void;
+}>) {
+  const notesContext = Route.useRouteContext({
+    select: (context) => context.notes,
+  });
+  const session = Route.useRouteContext({
+    select: (context) => context.session,
+  });
+  const {
+    activeNoteId,
+    requestEditorFocus,
+    requestNewNote,
+    requestSelectNote,
+  } = useNotesWorkspace();
+  const activeNoteRef = useRef<HTMLButtonElement | null>(null);
+  const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
+    session.subscribe,
+    session.getSnapshot,
+    session.getSnapshot,
+  );
+  const notesSnapshot = useSyncExternalStore(
+    notesContext.subscribe,
+    notesContext.getSnapshot,
+    notesContext.getSnapshot,
+  );
+  const notes = listNotesForUser(
+    notesSnapshot,
+    sessionSnapshot.user?.id ?? null,
+  );
+
+  function handleSidebarAction(action: () => void) {
+    if (isMobileSidebarOpen) {
+      requestEditorFocus();
+    }
+
+    action();
+    closeMobileSidebar();
+  }
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: activeNoteId changes which button owns the ref and must retrigger the scroll.
+  useEffect(() => {
+    if (!isSidebarVisible) {
+      return;
+    }
+
+    activeNoteRef.current?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [activeNoteId, isSidebarVisible]);
+
+  return (
+    <section className="app-sidebar__workspace" aria-label="Notes sidebar">
+      <div className="app-sidebar__workspace-header">
+        <div>
+          <h3>All notes</h3>
+        </div>
+        <button
+          className="notes-action notes-action-primary"
+          disabled={activeNoteId === null}
+          onClick={() => handleSidebarAction(requestNewNote)}
+          type="button"
+        >
+          New note
+        </button>
       </div>
+
+      <nav aria-label="Notes list" className="app-sidebar__workspace-nav">
+        {notes.length === 0 ? (
+          <p className="muted">No notes yet</p>
+        ) : (
+          <ul className="app-sidebar__workspace-list">
+            {notes.map((note) => (
+              <li key={note.id}>
+                <button
+                  aria-label={note.title}
+                  aria-current={activeNoteId === note.id ? "page" : undefined}
+                  className="app-sidebar__workspace-link"
+                  onClick={() =>
+                    handleSidebarAction(() => requestSelectNote(note.id))
+                  }
+                  ref={activeNoteId === note.id ? activeNoteRef : null}
+                  type="button"
+                >
+                  <span>{note.title}</span>
+                  <span
+                    aria-hidden="true"
+                    className="app-sidebar__workspace-meta"
+                  >
+                    {formatSidebarNoteDate(note.updatedAt)}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </nav>
     </section>
+  );
+}
+
+function SidebarReopenIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M4 6h16" />
+      <path d="M4 12h16" />
+      <path d="M4 18h16" />
+    </svg>
+  );
+}
+
+function SidebarCollapseIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="m11 6-6 6 6 6" />
+      <path d="m19 6-6 6 6 6" />
+    </svg>
   );
 }
 

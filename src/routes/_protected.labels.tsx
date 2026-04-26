@@ -10,8 +10,8 @@ import {
   type AppLabel,
   AppLabelError,
   type AppLabelsContext,
-} from "../lib/labels";
-import type { AppSessionSnapshot } from "../lib/session";
+} from "../features/labels/labels";
+import type { AppSessionSnapshot } from "../features/session/session";
 
 export const Route = createFileRoute("/_protected/labels")({
   component: LabelsPage,

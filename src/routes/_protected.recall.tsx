@@ -6,14 +6,14 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import type { AppLabel } from "../lib/labels";
+import type { AppLabel } from "../features/labels/labels";
 import {
   AppRecallError,
   type AppRecallSnapshot,
   type FlashCardRecallRating,
   resolveRecallableNotesFromLabel,
-} from "../lib/recall";
-import type { AppSessionSnapshot } from "../lib/session";
+} from "../features/recall/recall";
+import type { AppSessionSnapshot } from "../features/session/session";
 
 export const Route = createFileRoute("/_protected/recall")({
   component: RecallPage,

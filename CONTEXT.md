@@ -21,6 +21,10 @@ A memory-aid mnemonic created by the user — a short word or phrase where each 
 Having several Acronyms can be useful, but an excessive number is usually a sign that the Note is too broad and should be split into separate Notes.
 _Avoid_: Abbreviation, term definition
 
+**Learning Loop**:
+The core study cycle where the User captures knowledge as Notes and reinforces it through RecallSessions.
+_Avoid_: Content workflow, study menu
+
 **Label**:
 A named concept used to group Notes. Labels form a DAG — a Label can have multiple parent Labels and multiple child Labels. A Note can belong to multiple Labels directly.
 _Avoid_: Tag, category, folder, topic, study field
@@ -28,8 +32,9 @@ _Avoid_: Tag, category, folder, topic, study field
 ### Recall
 
 **RecallSession**:
-A user-initiated event where the user is tested on Notes belonging to a chosen Label (and all its descendants). The Note content starts hidden; depending on the RecallMode, the user may reveal it later to self-assess or review the answer.
-When the chosen Label reaches the same Note through multiple Label paths, that Note is included only once in the RecallSession.
+A user-initiated event where the user is tested on a selected set of Notes. The Note content starts hidden; depending on the RecallMode, the user may reveal it later to self-assess or review the answer.
+In v1, the User chooses Notes for a RecallSession through search/filter and explicit selection.
+In v1, the selected set is temporary and exists only to start that RecallSession; it is not saved as a reusable grouping.
 For `AiAssisted` and `AiGraded`, the User chooses the question style for the session up front: `open-ended`, `multiple-choice`, or `mixed`.
 Notes are presented in random order within the RecallSession.
 A RecallSession snapshots its target Notes and generated Questions at the moment the session starts, so later edits or deletions do not change that in-progress session.
@@ -50,7 +55,7 @@ In `AiGraded`, the score is the AI-generated system score for v1. User overrides
 For multiple-choice Questions, distractors should be context-bound and plausible within the selected study area rather than arbitrary invented wrong answers.
 
 **SessionResult**:
-The persistent record of a completed RecallSession — when it happened, which Label was targeted, how many Notes were covered, and the full list of Questions with answers and scores.
+The persistent record of a completed RecallSession — when it happened, which Notes were targeted, and the full list of Questions with answers and scores.
 _Avoid_: History, log, summary
 A RecallSession is considered completed and gets a SessionResult when the user has attempted at least one Question, even if they end the session early before covering every Note. A session with zero attempted Questions is discarded.
 Each stored Question in a SessionResult preserves the Note title and Note body snapshot used at the time of the session, so later Note edits do not change historical results.
@@ -94,17 +99,44 @@ _Avoid_: Account, member, profile
 **BYOK** (Bring Your Own Key):
 The current premium access model. A User supplies their own AI provider API key; the app uses it for AiAssisted and AiGraded RecallModes. Future model: per-use credits.
 
+### Workspace Navigation
+
+**Notes Workspace**:
+The primary authenticated workspace where the User captures Notes, searches/selects Notes, and starts RecallSessions.
+_Avoid_: Product menu, notes page
+
+**Account Dock**:
+A fixed bottom utility area for User/account actions such as logout and settings access.
+_Avoid_: Product menu, primary navigation
+
+**Recall Selection Mode**:
+A temporary Notes Workspace state where the User searches/filters Notes and selects the Notes for a new RecallSession.
+_Avoid_: Bulk edit mode, saved set builder, deck builder
+
+**Recall Session View**:
+The focused route shown after a RecallSession starts, nested under the Notes Workspace.
+_Avoid_: Separate Recall workspace, quiz page
+
+**Workspace Breadcrumb**:
+A small navigational trail that shows where the User is inside the Notes-centered workflow.
+_Avoid_: Product menu, sidebar navigation
+
 ## Relationships
 
 - A **Label** can have zero or more parent **Labels** and zero or more child **Labels** (DAG, not a tree)
 - A **Note** can belong to zero or more **Labels**
 - A **Note** has zero or more **Metaphors** (cannot exist without their Note)
 - A **Note** has zero or more **Acronyms** (cannot exist without their Note)
+- The **Learning Loop** is centered on **Notes** and **RecallSessions**; **Metaphors** and **Acronyms** support Notes but are not standalone workspace destinations.
+- In v1, the **Learning Loop** is entered through the Notes workspace: the User searches/selects Notes and starts a **RecallSession** from that Notes-centered surface.
 - Searching for a **Note** includes its own title and body plus the titles/content of its attached **Metaphors** and **Acronyms**, but the search result is still the **Note**.
-- A **RecallSession** targets one **Label** and covers all **Notes** in that Label and its descendants
-- In v1, only **Notes** reachable from the targeted **Label** are included in a **RecallSession**. Unlabeled **Notes** are not recallable until they are assigned to at least one **Label**.
+- Searching/filtering Notes for a **RecallSession** includes the Note title/body and attached **Metaphors** and **Acronyms**, but selecting a result always selects the owning **Note**.
+- A **RecallSession** targets one or more **Notes** selected by the **User**
+- The selected Notes used to start a **RecallSession** are a temporary one-off selection, not a saved set, collection, deck, or Label.
+- In v1, **Labels** may help filter or group **Notes**, but **Labels** are not the foundation of **RecallSession** targeting.
+- Unlabeled **Notes** are recallable in v1 because **RecallSessions** target selected **Notes** directly.
 - A **RecallSession** has exactly one **RecallMode**
-- A **RecallSession** has a **SessionResult** — date, label, note count, and the full list of Questions with answers and scores
+- A **RecallSession** has a **SessionResult** — date, targeted Notes, and the full list of Questions with answers and scores
 - A **Question** belongs to exactly one **RecallSession** and one **Note**
 - A **Question** stores the user's answer and a score (self-rated or AI-graded depending on RecallMode)
 - A **FocusSession** is separate from a **RecallSession** and may overlap with Note-taking, Note review, or a **RecallSession**
@@ -124,13 +156,37 @@ The current premium access model. A User supplies their own AI provider API key;
 - A **RecallSession** that happens during a **FocusSession** counts as study activity inside that **FocusSession**, not as separate extra time on top of it
 - In v1, analytics record which **FocusTargets** appeared in a **FocusSession**, but do not assign exact minutes to each target
 - A **User** owns all their **Notes**, **Labels**, **Metaphors**, **Acronyms**, **RecallSessions**, and **FocusSessions**
-- All relationships are ownership-local to a single **User**. A **Note** can only be assigned to **Labels** owned by the same **User**, and a **RecallSession** can only traverse that User's own Label graph.
+- All relationships are ownership-local to a single **User**. A **Note** can only be assigned to **Labels** owned by the same **User**, and a **RecallSession** can only target Notes owned by that User.
 - In v1, deleting active **Notes**, **Labels**, **Metaphors**, and **Acronyms** is a hard delete. Historical study records remain available only through the snapshots stored in **SessionResult**.
+- In v1, authenticated study work happens in the **Notes Workspace** rather than through a product-menu sidebar.
+- The **Notes Workspace** owns Note search/filter, Note selection, Note editing, and starting a **RecallSession**.
+- The **Account Dock** owns utility account actions and should not contain product destinations.
+- The **Notes Workspace** enters **Recall Selection Mode** when the User chooses to select Notes for recall.
+- In **Recall Selection Mode**, selecting a Note toggles it into the temporary RecallSession selection instead of opening it for editing.
+- Exiting **Recall Selection Mode** clears the temporary selected Notes unless a **RecallSession** has already been started.
+- Starting a **RecallSession** takes the User from the **Notes Workspace** to a **Recall Session View** under the Notes route.
+- Ending a **RecallSession** returns the User to the **Notes Workspace**.
+- The **Recall Session View** is only valid while there is an active **RecallSession**; without one, the User returns to the **Notes Workspace**.
+- The **Workspace Breadcrumb** shows the User whether they are in the base **Notes Workspace** or an active **Recall Session View**.
+- The **Workspace Breadcrumb** is structural, such as Notes / Recall; RecallSession progress belongs inside the **Recall Session View**, not in the breadcrumb.
+- Recall history is not a primary v1 destination; where broader **SessionResult** history belongs is deferred.
 
 ## Example dialogue
 
-> **Dev:** "When a **User** starts a **RecallSession** on the 'Frontend' **Label**, do we include **Notes** from child **Labels** like 'React'?"
-> **Domain expert:** "Yes — the session covers the chosen Label and all its descendants in the DAG."
+> **Dev:** "When a **User** starts a **RecallSession**, do they have to choose a **Label** first?"
+> **Domain expert:** "No — in v1 they search/filter Notes and explicitly select the Notes they want to recall."
+
+> **Dev:** "Is **Recall** a separate primary destination beside **Notes** in v1?"
+> **Domain expert:** "No — the User starts a **RecallSession** from the Notes-centered workspace after finding and selecting Notes."
+
+> **Dev:** "Should **Metaphors** and **Acronyms** have their own main workspace screens?"
+> **Domain expert:** "No — they help a **Note** stick in memory, but the primary learning work is capturing **Notes** and doing **RecallSessions**."
+
+> **Dev:** "If a search match is inside an **Acronym**, does the **RecallSession** target that **Acronym**?"
+> **Domain expert:** "No — the **Acronym** helps find the owning **Note**, and the selected target is still that **Note**."
+
+> **Dev:** "Can the User save a selected group of **Notes** and reuse it for later **RecallSessions**?"
+> **Domain expert:** "Not in v1 — the selection is temporary and only snapshots the Notes for the session being started."
 
 > **Dev:** "Can a **Metaphor** be reused across multiple **Notes**?"
 > **Domain expert:** "No — a **Metaphor** is always tied to exactly one **Note**. If something works for two Notes, write it twice."
@@ -180,9 +236,38 @@ The current premium access model. A User supplies their own AI provider API key;
 > **Dev:** "If one **FocusSession** touches `React`, `CSS`, and unlabeled Note work, how many minutes does each one get?"
 > **Domain expert:** "In v1 we only record that those **FocusTargets** appeared in the **FocusSession**; exact per-target minute splitting is deferred."
 
+> **Dev:** "Does v1 need a product-menu sidebar with Notes, Recall, Labels, History, and Settings?"
+> **Domain expert:** "No — v1 is a **Notes Workspace**. Account utilities belong in the **Account Dock**, not in primary product navigation."
+
+> **Dev:** "Should Recall checkboxes always be visible in the **Notes Workspace**?"
+> **Domain expert:** "No — the User enters **Recall Selection Mode** first, then searches/filters and selects the Notes for the new **RecallSession**."
+
+> **Dev:** "After the User starts a **RecallSession**, does the session stay on the same Notes screen?"
+> **Domain expert:** "No — the active session opens in a **Recall Session View** under Notes, and ending the session returns to the **Notes Workspace**."
+
+> **Dev:** "Can the User open the **Recall Session View** directly when no **RecallSession** is active?"
+> **Domain expert:** "No — without an active **RecallSession**, they return to the **Notes Workspace**."
+
+> **Dev:** "Should the **Workspace Breadcrumb** show RecallSession progress like '3 of 10'?"
+> **Domain expert:** "No — the breadcrumb stays structural, such as Notes / Recall, while progress belongs in the **Recall Session View**."
+
+> **Dev:** "Where does broader **SessionResult** history live in v1 navigation?"
+> **Domain expert:** "It is not a primary destination in v1; its placement is deferred until the product needs it."
+
 ## Flagged ambiguities
 
 - "Study field" was used in early discussion to mean the top-level organizer — resolved: this is just a **Label** with no parent.
+- "Menu options" could have treated **Metaphors** and **Acronyms** as standalone destinations — resolved: they are Note-owned memory aids inside the **Learning Loop**, not primary workspace screens.
+- "Recall target" previously meant a chosen **Label** and its descendants — resolved for v1: a **RecallSession** targets explicitly selected **Notes**.
+- "Unlabeled Notes" were previously excluded from recall — resolved for v1: they are recallable because selection is Note-based.
+- "Saved recall set" could have introduced a new grouping concept — resolved for v1: Recall note selection is temporary and not reusable.
+- "Recall" could have meant a separate primary workspace destination — resolved for v1: starting a **RecallSession** is a Notes-centered action.
+- "Selecting Notes" could mean opening a Note for editing or choosing Notes for recall — resolved: in **Recall Selection Mode**, selection toggles Notes into the temporary RecallSession target set.
+- "Recall view" could have meant a separate product destination — resolved: the active **Recall Session View** is nested under the Notes-centered workflow.
+- "Recall route" could have meant a setup destination — resolved: the **Recall Session View** route only represents an active **RecallSession**.
+- "Breadcrumb" could have acted like primary navigation — resolved: the **Workspace Breadcrumb** indicates position inside the Notes-centered workflow, not product sections.
+- "History" could have stayed a primary product destination — resolved for v1: broader **SessionResult** history placement is deferred.
+- "App Sidebar" previously meant the primary authenticated product navigation — resolved for v1: use **Notes Workspace** plus an **Account Dock** instead of a product-menu sidebar.
 - "Premium" was initially vague — resolved: premium features require **BYOK** now; per-use credits in the future.
 - "Pomodoro" was used as if it were part of **RecallSession** — resolved: the canonical term is **FocusSession**, which is a separate concept.
 - "Pomodoro" was used as the root timer concept — resolved: it is the default **FocusMethod**, not the umbrella term.

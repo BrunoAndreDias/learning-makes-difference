@@ -28,11 +28,11 @@ export type {
   AppNoteSearchResult,
   AppNoteSearchTarget,
   AppNoteSearchTargetField,
-} from "./notes-search";
+} from "./note-search";
 export {
   filterNotesByQuery,
   searchNoteResults,
-} from "./notes-search";
+} from "./note-search";
 
 type NotesListener = () => void;
 
@@ -194,13 +194,7 @@ function validateTitle(title: string): string {
 }
 
 function validateBody(body: string): string {
-  const trimmedValue = body.trim();
-
-  if (trimmedValue.length === 0) {
-    throw new AppNotesError("invalid_input", "Body is required.");
-  }
-
-  return trimmedValue;
+  return body.trim();
 }
 
 function validateLabelIds(

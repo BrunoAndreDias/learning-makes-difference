@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createAppLabelsContext } from "../src/lib/labels";
+import { createAppLabelsContext } from "../src/features/labels/labels";
 
 function createMemoryStorage() {
   const values = new Map<string, string>();

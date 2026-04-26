@@ -1,6 +1,10 @@
-import type { AppLabelsContext } from "./labels";
-import { AppLabelError } from "./labels";
-import { type AppNote, type AppNotesContext, listNotesForUser } from "./notes";
+import type { AppLabelsContext } from "../labels/labels";
+import { AppLabelError } from "../labels/labels";
+import {
+  type AppNote,
+  type AppNotesContext,
+  listNotesForUser,
+} from "../notes/notes";
 
 export type FlashCardRecallMode = "FlashCard";
 

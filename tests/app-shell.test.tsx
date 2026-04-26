@@ -19,17 +19,20 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   type AppLabelsContext,
   createAppLabelsContext,
-} from "../src/lib/labels";
-import { type AppNotesContext, createAppNotesContext } from "../src/lib/notes";
+} from "../src/features/labels/labels";
+import {
+  type AppNotesContext,
+  createAppNotesContext,
+} from "../src/features/notes/notes";
 import {
   type AppRecallContext,
   createAppRecallContext,
-} from "../src/lib/recall";
+} from "../src/features/recall/recall";
 import {
   type AppSessionContext,
   type AppSessionSnapshot,
   createAppSessionContext,
-} from "../src/lib/session";
+} from "../src/features/session/session";
 import { routeTree } from "../src/routeTree.gen";
 
 function renderRoute(
@@ -377,8 +380,17 @@ describe("authenticated app shell", () => {
     const headerSidebarToggle = screen.getByRole("button", {
       name: "Expand sidebar",
     });
+    const shellHeading = screen.getByRole("heading", {
+      level: 2,
+      name: "Recall",
+    });
 
     expect(headerSidebarToggle).toHaveAttribute("aria-controls", navigation.id);
+    expect(headerSidebarToggle).toHaveTextContent("");
+    expect(
+      headerSidebarToggle.compareDocumentPosition(shellHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
     fireEvent.click(headerSidebarToggle);
 
@@ -443,7 +455,154 @@ describe("authenticated app shell", () => {
     expect(mobileToggle).toHaveFocus();
   });
 
-  it("renders the notes workspace as a dense study shell with utility controls, main editor surface, and catalog rail", async () => {
+  it("uses the notes sidebar as a mobile drawer and returns focus to the editor after note selection", async () => {
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: () => [],
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Repeated review strengthens long-term retention.",
+      labelIds: [],
+      metaphors: [],
+      title: "Spaced repetition",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Retrieval cues make later recall easier.",
+      labelIds: [],
+      metaphors: [],
+      title: "Retrieval practice",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const mobileToggle = screen.getByRole("button", {
+      name: "Open navigation menu",
+    });
+    const sidebar = screen.getByRole("complementary", {
+      name: "App sidebar",
+    });
+
+    fireEvent.click(mobileToggle);
+
+    const notesList = within(sidebar).getByRole("navigation", {
+      name: "Notes list",
+    });
+
+    expect(sidebar).toHaveAttribute("data-mobile-open", "true");
+    expect(
+      within(sidebar).getByRole("button", { name: "New note" }),
+    ).toBeInTheDocument();
+    expect(
+      within(sidebar).getByRole("navigation", { name: "App sections" }),
+    ).toBeInTheDocument();
+    expect(
+      within(sidebar).getByRole("contentinfo", { name: "User controls" }),
+    ).toBeInTheDocument();
+
+    const retrievalPracticeButton = within(notesList).getByRole("button", {
+      name: "Retrieval practice",
+    });
+
+    retrievalPracticeButton.focus();
+    expect(retrievalPracticeButton).toHaveFocus();
+
+    fireEvent.click(retrievalPracticeButton);
+
+    expect(sidebar).toHaveAttribute("data-mobile-open", "false");
+    expect(
+      screen.getByDisplayValue("Retrieval cues make later recall easier."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Title")).toHaveFocus();
+  });
+
+  it("keeps the discard dialog focused when a mobile sidebar note change is guarded", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "The protected phrase appears here.",
+      labelIds: [],
+      metaphors: [],
+      title: "Older protected note",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Current note has work in progress.",
+      labelIds: [],
+      metaphors: [],
+      title: "Current draftable note",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    const bodyEditor = await screen.findByDisplayValue(
+      "Current note has work in progress.",
+    );
+    const sidebar = screen.getByRole("complementary", {
+      name: "App sidebar",
+    });
+    const notesList = within(sidebar).getByRole("navigation", {
+      name: "Notes list",
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open navigation menu" }),
+    );
+    fireEvent.change(bodyEditor, {
+      target: {
+        value: "Current note has work in progress and should stay guarded.",
+      },
+    });
+    fireEvent.click(
+      within(notesList).getByRole("button", {
+        name: /Older protected note/,
+      }),
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Discard unsaved changes?",
+    });
+
+    expect(
+      within(dialog).getByRole("button", { name: "Cancel" }),
+    ).toHaveFocus();
+    expect(screen.getByLabelText("Title")).not.toHaveFocus();
+  });
+
+  it("renders the notes list inside the app sidebar for the notes workspace", async () => {
     const labelsContext = createAppLabelsContext({
       keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -461,6 +620,14 @@ describe("authenticated app shell", () => {
     });
 
     notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Patterns emerge after several careful comparison passes.",
+      labelIds: [],
+      metaphors: [],
+      title: "Second note",
+    });
+
+    const firstNote = notesContext.createNote(userId, {
       acronyms: [],
       body: "Signals travel across neurons and strengthen with repeated use.",
       labelIds: [biology.id],
@@ -486,22 +653,206 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "Notes workspace" }),
     ).toBeInTheDocument();
 
+    const sidebar = screen.getByRole("complementary", {
+      name: "App sidebar",
+    });
+    const notesNavigation = within(sidebar).getByRole("navigation", {
+      name: "Notes list",
+    });
+    const notesLinks = within(notesNavigation).getAllByRole("button");
+
+    expect(
+      within(sidebar).getByRole("button", { name: "New note" }),
+    ).toBeInTheDocument();
+    expect(notesLinks).toHaveLength(2);
+    expect(notesLinks[0]).toHaveTextContent("Neural pathways");
+    expect(notesLinks[1]).toHaveTextContent("Second note");
+    expect(notesLinks[0]).toHaveAttribute("aria-current", "page");
     const shellHeader = screen.getByLabelText("Notes workspace toolbar");
 
     expect(
-      within(shellHeader).getByText("Study workspace"),
-    ).toBeInTheDocument();
-    expect(
       within(shellHeader).getByRole("combobox", { name: "Search notes" }),
     ).toBeInTheDocument();
-    expect(
-      within(shellHeader).getByRole("button", { name: "New note" }),
-    ).toBeInTheDocument();
-    expect(within(shellHeader).getByText("1 note")).toBeInTheDocument();
+    expect(within(shellHeader).getByText("2 notes")).toBeInTheDocument();
 
     expect(screen.getByLabelText("Note editor surface")).toBeInTheDocument();
-    expect(screen.getByLabelText("Notes catalog")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Notes catalog")).not.toBeInTheDocument();
     expect(screen.getAllByText("Biology").length).toBeGreaterThan(0);
+    expect(firstNote.title).toBe("Neural pathways");
+  });
+
+  it("uses the app sidebar collapse as the only notes list visibility control", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Repeated review strengthens long-term retention.",
+      labelIds: [],
+      metaphors: [],
+      title: "Spaced repetition",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Retrieval cues make later recall easier.",
+      labelIds: [],
+      metaphors: [],
+      title: "Retrieval practice",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const sidebar = screen.getByRole("complementary", {
+      name: "App sidebar",
+    });
+    const notesList = within(sidebar).getByRole("navigation", {
+      name: "Notes list",
+    });
+    const collapseSidebarButton = within(sidebar).getByRole("button", {
+      name: "Collapse sidebar",
+    });
+
+    expect(notesList).toBeVisible();
+    fireEvent.click(
+      within(sidebar).getByRole("button", { name: /Spaced repetition/ }),
+    );
+    expect(
+      screen.getByDisplayValue(
+        "Repeated review strengthens long-term retention.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Hide notes catalog" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(collapseSidebarButton);
+
+    expect(sidebar).not.toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Expand sidebar" }),
+    ).toHaveFocus();
+    expect(
+      screen.queryByRole("navigation", { name: "App sections" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Log out" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Show notes catalog" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Search notes" }), {
+      target: { value: "retrieval practice" },
+    });
+    fireEvent.click(
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "option",
+        { name: /Retrieval practice/ },
+      ),
+    );
+
+    expect(
+      screen.getByDisplayValue("Retrieval cues make later recall easier."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
+
+    expect(sidebar).toBeVisible();
+    expect(
+      within(sidebar).getByRole("navigation", { name: "Notes list" }),
+    ).toBeVisible();
+    expect(
+      within(sidebar).getByRole("button", { name: /Retrieval practice/ }),
+    ).toHaveAttribute("aria-current", "page");
+  });
+
+  it("keeps compact app sections and user controls below the notes list in the notes sidebar", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const longTitle =
+      "Very long note title that should still stay reachable from the notes sidebar navigation";
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Repeated review strengthens long-term retention.",
+      labelIds: [],
+      metaphors: [],
+      title: longTitle,
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Alexandria Review Coordinator",
+          email: "jordan.alexandria.review.coordinator@example-learning.test",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const sidebar = screen.getByRole("complementary", {
+      name: "App sidebar",
+    });
+    const notesList = within(sidebar).getByRole("navigation", {
+      name: "Notes list",
+    });
+    const appSections = within(sidebar).getByRole("navigation", {
+      name: "App sections",
+    });
+    const userControls = within(sidebar).getByRole("contentinfo", {
+      name: "User controls",
+    });
+    const notesLink = within(appSections).getByRole("link", { name: "Notes" });
+
+    expect(
+      notesList.compareDocumentPosition(appSections) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      appSections.compareDocumentPosition(userControls) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(notesLink).toHaveAttribute("aria-current", "page");
+    expect(
+      within(notesList).getByRole("button", { name: longTitle }),
+    ).toBeInTheDocument();
+    expect(
+      within(userControls).getByText(/Jordan Alexandria Review/),
+    ).toBeVisible();
+    expect(
+      within(userControls).getByText(
+        "jordan.alexandria.review.coordinator@example-learning.test",
+      ),
+    ).toBeVisible();
+    expect(
+      within(userControls).getByRole("button", { name: "Log out" }),
+    ).toBeVisible();
   });
 
   it("lets an authenticated user create and edit notes inside the notes workspace", async () => {
@@ -527,6 +878,14 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "Notes workspace" }),
     ).toBeInTheDocument();
     expect(screen.getByText("No notes yet")).toBeInTheDocument();
+    expect(screen.getByLabelText("Title").closest("header")).toContainElement(
+      screen.getByRole("button", { name: "Create note" }),
+    );
+    expect(
+      within(
+        screen.getByRole("complementary", { name: "App sidebar" }),
+      ).getByRole("button", { name: "New note" }),
+    ).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "Spaced repetition" },
@@ -555,7 +914,11 @@ describe("authenticated app shell", () => {
       },
     });
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
-    fireEvent.click(screen.getByRole("button", { name: "New note" }));
+    fireEvent.click(
+      within(
+        screen.getByRole("complementary", { name: "App sidebar" }),
+      ).getByRole("button", { name: "New note" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: /Spaced repetition/ }));
 
     expect(
@@ -565,7 +928,68 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
   });
 
-  it("opens notes search results without live-filtering the stable notes catalog", async () => {
+  it("shows save changes only for unsaved note edits and places it near the title", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Reviewing at expanding intervals improves long-term retention.",
+      labelIds: [],
+      metaphors: [],
+      title: "Spaced repetition",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByDisplayValue("Spaced repetition"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Save changes" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Body"), {
+      target: {
+        value:
+          "Reviewing at expanding intervals improves recall over long spans.",
+      },
+    });
+
+    const saveButton = screen.getByRole("button", { name: "Save changes" });
+    const titleHeader = screen.getByLabelText("Title").closest("header");
+    const memoryHooks = screen.getByLabelText("Memory hooks");
+
+    expect(titleHeader).not.toBeNull();
+    expect(titleHeader).toContainElement(saveButton);
+    expect(memoryHooks).not.toContainElement(saveButton);
+
+    fireEvent.click(saveButton);
+
+    expect(
+      await screen.findByDisplayValue(
+        "Reviewing at expanding intervals improves recall over long spans.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Save changes" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens notes search results without live-filtering the stable sidebar notes list", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -629,7 +1053,9 @@ describe("authenticated app shell", () => {
     const searchInput = screen.getByRole("combobox", {
       name: "Search notes",
     });
-    const notesCatalog = screen.getByLabelText("Notes catalog");
+    const notesList = within(
+      screen.getByRole("navigation", { name: "Notes list" }),
+    );
 
     expect(searchInput).toHaveAttribute("placeholder", "Search notes");
     expect(
@@ -650,10 +1076,10 @@ describe("authenticated app shell", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      within(notesCatalog).getByRole("button", { name: /Working memory/ }),
+      notesList.getByRole("button", { name: /Working memory/ }),
     ).toBeInTheDocument();
     expect(
-      within(notesCatalog).getByRole("button", { name: /Synaptic plasticity/ }),
+      notesList.getByRole("button", { name: /Synaptic plasticity/ }),
     ).toBeInTheDocument();
     expect(
       screen.getByDisplayValue("Short-term storage supports active reasoning."),
@@ -679,7 +1105,7 @@ describe("authenticated app shell", () => {
 
     expect(screen.getByText("No notes found")).toBeInTheDocument();
     expect(
-      within(notesCatalog).getByRole("button", { name: /Working memory/ }),
+      notesList.getByRole("button", { name: /Working memory/ }),
     ).toBeInTheDocument();
     expect(
       screen.getByDisplayValue("Short-term storage supports active reasoning."),
@@ -817,6 +1243,8 @@ describe("authenticated app shell", () => {
       name: "Search notes",
     });
 
+    expect(searchInput).toHaveAttribute("autocomplete", "off");
+
     fireEvent.change(searchInput, {
       target: { value: "spaced retrieval cue" },
     });
@@ -950,6 +1378,85 @@ describe("authenticated app shell", () => {
     expect(bodyEditor).toHaveFocus();
     expect(bodyEditor).toHaveProperty("selectionStart", 19);
     expect(bodyEditor).toHaveProperty("selectionEnd", 19);
+  });
+
+  it("syncs the sidebar active note and reveals it after selecting a search result", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "The search phrase appears in this older note.",
+      labelIds: [],
+      metaphors: [],
+      title: "Older target note",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "This note stays selected before searching.",
+      labelIds: [],
+      metaphors: [],
+      title: "Current note",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByDisplayValue(
+        "This note stays selected before searching.",
+      ),
+    ).toBeInTheDocument();
+
+    const notesList = within(
+      screen.getByRole("navigation", { name: "Notes list" }),
+    );
+    const currentSidebarNote = notesList.getByRole("button", {
+      name: /Current note/,
+    });
+    const targetSidebarNote = notesList.getByRole("button", {
+      name: /Older target note/,
+    });
+    const scrollIntoView = vi.mocked(HTMLElement.prototype.scrollIntoView);
+
+    expect(currentSidebarNote).toHaveAttribute("aria-current", "page");
+    expect(targetSidebarNote).not.toHaveAttribute("aria-current");
+
+    scrollIntoView.mockClear();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Search notes" }), {
+      target: { value: "search phrase" },
+    });
+    fireEvent.click(
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "option",
+        {
+          name: /Older target note/,
+        },
+      ),
+    );
+
+    expect(
+      await screen.findByDisplayValue(
+        "The search phrase appears in this older note.",
+      ),
+    ).toBeInTheDocument();
+    expect(targetSidebarNote).toHaveAttribute("aria-current", "page");
+    expect(currentSidebarNote).not.toHaveAttribute("aria-current");
+    expect(scrollIntoView).toHaveBeenCalled();
+    expect(scrollIntoView.mock.contexts).toContain(targetSidebarNote);
   });
 
   it("guards search navigation when the current note has unsaved edits", async () => {

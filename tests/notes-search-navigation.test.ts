@@ -1,13 +1,8 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from "vitest";
-import type { AppNoteSearchResult } from "../src/lib/notes-search";
-import {
-  cancelGuardedNotesSearchNavigation,
-  discardGuardedNotesSearchNavigation,
-  planNotesSearchNavigation,
-  resolveNotesSearchTargetElement,
-} from "../src/lib/notes-search-navigation";
+import type { AppNoteSearchResult } from "../src/features/notes/note-search";
+import { resolveNotesSearchTargetElement } from "../src/features/notes/note-search-navigation";
 
 function createSearchResult(
   target: AppNoteSearchResult["target"],
@@ -75,46 +70,5 @@ describe("notes search navigation", () => {
         }),
       ),
     ).toBe(acronymExpansion);
-  });
-
-  it("guards dirty search navigation while preserving pending search state on cancel and completing it on discard", () => {
-    const result = createSearchResult({
-      field: "body",
-      match: {
-        end: 9,
-        start: 3,
-      },
-    });
-
-    expect(
-      planNotesSearchNavigation({
-        hasUnsavedChanges: false,
-        result,
-      }),
-    ).toEqual({
-      result,
-      type: "navigate",
-    });
-
-    const guardedNavigation = planNotesSearchNavigation({
-      hasUnsavedChanges: true,
-      result,
-    });
-
-    expect(guardedNavigation).toEqual({
-      guardedResult: result,
-      type: "guard",
-    });
-    expect(cancelGuardedNotesSearchNavigation()).toEqual({
-      preserveSearchState: true,
-      type: "cancel",
-    });
-    expect(discardGuardedNotesSearchNavigation(result)).toEqual({
-      result,
-      type: "navigate",
-    });
-    expect(discardGuardedNotesSearchNavigation(null)).toEqual({
-      type: "idle",
-    });
   });
 });

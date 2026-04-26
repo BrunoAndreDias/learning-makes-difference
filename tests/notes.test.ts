@@ -4,7 +4,7 @@ import {
   type AppNotesError,
   createAppNotesContext,
   listNotesForUser,
-} from "../src/lib/notes";
+} from "../src/features/notes/notes";
 
 function createMemoryStorage() {
   const values = new Map<string, string>();
@@ -45,6 +45,34 @@ describe("app notes context", () => {
     expect(listNotesForUser(notes.getSnapshot(), "user-casey")[0]?.body).toBe(
       "Flash cards reveal the answer only after an honest recall attempt.",
     );
+  });
+
+  it("allows title-only notes to be created and updated", () => {
+    const notes = createAppNotesContext({
+      keyPrefix: "notes-test-title-only",
+      storage: createMemoryStorage(),
+    });
+
+    const createdNote = notes.createNote("user-casey", {
+      acronyms: [],
+      body: "",
+      labelIds: [],
+      metaphors: [],
+      title: "Concept to expand later",
+    });
+
+    expect(createdNote.body).toBe("");
+
+    const updatedNote = notes.updateNote("user-casey", createdNote.id, {
+      acronyms: [],
+      body: "   ",
+      labelIds: [],
+      metaphors: [],
+      title: "Still needs detail",
+    });
+
+    expect(updatedNote.body).toBe("");
+    expect(updatedNote.title).toBe("Still needs detail");
   });
 
   it("keeps notes scoped to the owning account", () => {
