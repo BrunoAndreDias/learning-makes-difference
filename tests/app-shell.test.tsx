@@ -1118,6 +1118,76 @@ describe("authenticated app shell", () => {
     expect(bodyEditor).toHaveProperty("selectionEnd", 19);
   });
 
+  it("syncs the sidebar active note and reveals it after selecting a search result", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "The search phrase appears in this older note.",
+      labelIds: [],
+      metaphors: [],
+      title: "Older target note",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "This note stays selected before searching.",
+      labelIds: [],
+      metaphors: [],
+      title: "Current note",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByDisplayValue("This note stays selected before searching."),
+    ).toBeInTheDocument();
+
+    const notesList = within(screen.getByRole("navigation", { name: "Notes list" }));
+    const currentSidebarNote = notesList.getByRole("button", {
+      name: /Current note/,
+    });
+    const targetSidebarNote = notesList.getByRole("button", {
+      name: /Older target note/,
+    });
+    const scrollIntoView = vi.mocked(HTMLElement.prototype.scrollIntoView);
+
+    expect(currentSidebarNote).toHaveAttribute("aria-current", "page");
+    expect(targetSidebarNote).not.toHaveAttribute("aria-current");
+
+    scrollIntoView.mockClear();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Search notes" }), {
+      target: { value: "search phrase" },
+    });
+    fireEvent.click(
+      within(screen.getByLabelText("Notes search results")).getByRole("option", {
+        name: /Older target note/,
+      }),
+    );
+
+    expect(
+      await screen.findByDisplayValue("The search phrase appears in this older note."),
+    ).toBeInTheDocument();
+    expect(targetSidebarNote).toHaveAttribute("aria-current", "page");
+    expect(currentSidebarNote).not.toHaveAttribute("aria-current");
+    expect(scrollIntoView).toHaveBeenCalled();
+    expect(scrollIntoView.mock.contexts).toContain(targetSidebarNote);
+  });
+
   it("guards search navigation when the current note has unsaved edits", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,

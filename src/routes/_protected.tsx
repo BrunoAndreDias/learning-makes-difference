@@ -208,7 +208,10 @@ function AppLayout() {
           </div>
 
           {isNotesWorkspace ? (
-            <NotesSidebarContent onSelectNote={handleSidebarLinkClick} />
+            <NotesSidebarContent
+              isSidebarVisible={!isSidebarCollapsed}
+              onSelectNote={handleSidebarLinkClick}
+            />
           ) : null}
 
           <nav
@@ -310,8 +313,10 @@ function AppLayout() {
 }
 
 function NotesSidebarContent({
+  isSidebarVisible,
   onSelectNote,
 }: Readonly<{
+  isSidebarVisible: boolean;
   onSelectNote: () => void;
 }>) {
   const notesContext = Route.useRouteContext({
@@ -322,6 +327,7 @@ function NotesSidebarContent({
   });
   const { activeNoteId, requestNewNote, requestSelectNote } =
     useNotesWorkspace();
+  const activeNoteRef = useRef<HTMLButtonElement | null>(null);
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
     session.subscribe,
     session.getSnapshot,
@@ -333,6 +339,17 @@ function NotesSidebarContent({
     notesContext.getSnapshot,
   );
   const notes = listNotesForUser(notesSnapshot, sessionSnapshot.user?.id ?? null);
+
+  useEffect(() => {
+    if (!isSidebarVisible) {
+      return;
+    }
+
+    activeNoteRef.current?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [activeNoteId, isSidebarVisible]);
 
   return (
     <section className="app-sidebar__workspace" aria-label="Notes sidebar">
@@ -367,6 +384,7 @@ function NotesSidebarContent({
                     requestSelectNote(note.id);
                     onSelectNote();
                   }}
+                  ref={activeNoteId === note.id ? activeNoteRef : null}
                   type="button"
                 >
                   <span>{note.title}</span>
