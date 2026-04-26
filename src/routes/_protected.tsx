@@ -93,6 +93,7 @@ function AppLayout() {
     useState(false);
   const [isLoggingOut, setLoggingOut] = useState(false);
   const activeNavigationLinkRef = useRef<HTMLAnchorElement | null>(null);
+  const collapsedSidebarToggleRef = useRef<HTMLButtonElement | null>(null);
   const mobileToggleRef = useRef<HTMLButtonElement | null>(null);
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
     session.subscribe,
@@ -149,6 +150,12 @@ function AppLayout() {
       setLoggingOut(false);
     }
   }
+
+  useEffect(() => {
+    if (isSidebarCollapsed) {
+      collapsedSidebarToggleRef.current?.focus();
+    }
+  }, [isSidebarCollapsed]);
 
   useEffect(() => {
     if (isMobileSidebarOpen) {
@@ -277,6 +284,7 @@ function AppLayout() {
                   aria-label="Expand sidebar"
                   className="sidebar-header-toggle"
                   onClick={() => setSidebarCollapsed(false)}
+                  ref={collapsedSidebarToggleRef}
                   type="button"
                 >
                   <SidebarReopenIcon />

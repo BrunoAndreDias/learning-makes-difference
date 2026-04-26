@@ -547,6 +547,13 @@ describe("authenticated app shell", () => {
       metaphors: [],
       title: "Spaced repetition",
     });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Retrieval cues make later recall easier.",
+      labelIds: [],
+      metaphors: [],
+      title: "Retrieval practice",
+    });
 
     renderRoute("/notes", {
       notesContext,
@@ -576,6 +583,12 @@ describe("authenticated app shell", () => {
     });
 
     expect(notesList).toBeVisible();
+    fireEvent.click(
+      within(sidebar).getByRole("button", { name: /Spaced repetition/ }),
+    );
+    expect(
+      screen.getByDisplayValue("Repeated review strengthens long-term retention."),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Hide notes catalog" }),
     ).not.toBeInTheDocument();
@@ -584,13 +597,31 @@ describe("authenticated app shell", () => {
 
     expect(sidebar).not.toBeVisible();
     expect(
-      screen.getByDisplayValue(
-        "Repeated review strengthens long-term retention.",
-      ),
-    ).toBeInTheDocument();
+      screen.getByRole("button", { name: "Expand sidebar" }),
+    ).toHaveFocus();
+    expect(
+      screen.queryByRole("navigation", { name: "App sections" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Log out" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Show notes catalog" }),
     ).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Search notes" }), {
+      target: { value: "retrieval practice" },
+    });
+    fireEvent.click(
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "option",
+        { name: /Retrieval practice/ },
+      ),
+    );
+
+    expect(
+      screen.getByDisplayValue("Retrieval cues make later recall easier."),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
 
@@ -598,6 +629,9 @@ describe("authenticated app shell", () => {
     expect(
       within(sidebar).getByRole("navigation", { name: "Notes list" }),
     ).toBeVisible();
+    expect(
+      within(sidebar).getByRole("button", { name: /Retrieval practice/ }),
+    ).toHaveAttribute("aria-current", "page");
   });
 
   it("lets an authenticated user create and edit notes inside the notes workspace", async () => {
