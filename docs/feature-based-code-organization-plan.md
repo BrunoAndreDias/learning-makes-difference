@@ -239,6 +239,12 @@ Options:
 
 Do not create `src/shared` just to hold one file.
 
+Phase 5 result:
+
+- `src/lib/env.ts` remains as the only generic helper.
+- No product-specific modules remain in `src/lib`.
+- `src/shared` was not created because there is only one generic module.
+
 ## When to Deepen Further
 
 After the move, deepen a feature only when there is pressure from behaviour, tests, or readability.
