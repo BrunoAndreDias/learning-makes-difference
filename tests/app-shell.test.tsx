@@ -455,6 +455,85 @@ describe("authenticated app shell", () => {
     expect(mobileToggle).toHaveFocus();
   });
 
+  it("uses the notes sidebar as a mobile drawer and returns focus to the editor after note selection", async () => {
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: () => [],
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Repeated review strengthens long-term retention.",
+      labelIds: [],
+      metaphors: [],
+      title: "Spaced repetition",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Retrieval cues make later recall easier.",
+      labelIds: [],
+      metaphors: [],
+      title: "Retrieval practice",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const mobileToggle = screen.getByRole("button", {
+      name: "Open navigation menu",
+    });
+    const sidebar = screen.getByRole("complementary", {
+      name: "App sidebar",
+    });
+
+    fireEvent.click(mobileToggle);
+
+    const notesList = within(sidebar).getByRole("navigation", {
+      name: "Notes list",
+    });
+
+    expect(sidebar).toHaveAttribute("data-mobile-open", "true");
+    expect(
+      within(sidebar).getByRole("button", { name: "New note" }),
+    ).toBeInTheDocument();
+    expect(
+      within(sidebar).getByRole("navigation", { name: "App sections" }),
+    ).toBeInTheDocument();
+    expect(
+      within(sidebar).getByRole("contentinfo", { name: "User controls" }),
+    ).toBeInTheDocument();
+
+    const retrievalPracticeButton = within(notesList).getByRole("button", {
+      name: "Retrieval practice",
+    });
+
+    retrievalPracticeButton.focus();
+    expect(retrievalPracticeButton).toHaveFocus();
+
+    fireEvent.click(retrievalPracticeButton);
+
+    expect(sidebar).toHaveAttribute("data-mobile-open", "false");
+    expect(
+      screen.getByDisplayValue("Retrieval cues make later recall easier."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Title")).toHaveFocus();
+  });
+
   it("renders the notes list inside the app sidebar for the notes workspace", async () => {
     const labelsContext = createAppLabelsContext({
       keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,

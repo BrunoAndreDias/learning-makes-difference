@@ -123,8 +123,12 @@ function NotesWorkspace() {
   );
   const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
-  const { clearPendingSidebarAction, pendingSidebarAction, setActiveNoteId } =
-    useNotesWorkspace();
+  const {
+    clearPendingSidebarAction,
+    editorFocusRequestNonce,
+    pendingSidebarAction,
+    setActiveNoteId,
+  } = useNotesWorkspace();
   const [searchQuery, setSearchQuery] = useState("");
   const searchResults = searchNoteResults(notes, searchQuery);
   const hasSearchQuery = searchQuery.trim().length > 0;
@@ -324,6 +328,14 @@ function NotesWorkspace() {
   useEffect(() => {
     setActiveNoteId(selectedNote?.id ?? null);
   }, [selectedNote?.id, setActiveNoteId]);
+
+  useEffect(() => {
+    if (editorFocusRequestNonce === 0) {
+      return;
+    }
+
+    titleInputRef.current?.focus();
+  }, [editorFocusRequestNonce]);
 
   useEffect(() => {
     if (pendingSidebarAction === null) {

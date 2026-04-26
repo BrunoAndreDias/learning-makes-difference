@@ -225,6 +225,7 @@ function AppLayout() {
             {isNotesWorkspace ? (
               <NotesSidebarContent
                 closeMobileSidebar={closeMobileSidebar}
+                isMobileSidebarOpen={isMobileSidebarOpen}
                 isSidebarVisible={!isSidebarCollapsed}
               />
             ) : null}
@@ -341,9 +342,11 @@ function AppLayout() {
 
 function NotesSidebarContent({
   isSidebarVisible,
+  isMobileSidebarOpen,
   closeMobileSidebar,
 }: Readonly<{
   isSidebarVisible: boolean;
+  isMobileSidebarOpen: boolean;
   closeMobileSidebar: () => void;
 }>) {
   const notesContext = Route.useRouteContext({
@@ -352,7 +355,7 @@ function NotesSidebarContent({
   const session = Route.useRouteContext({
     select: (context) => context.session,
   });
-  const { activeNoteId, requestNewNote, requestSelectNote } =
+  const { activeNoteId, requestEditorFocus, requestNewNote, requestSelectNote } =
     useNotesWorkspace();
   const activeNoteRef = useRef<HTMLButtonElement | null>(null);
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
@@ -392,6 +395,9 @@ function NotesSidebarContent({
         <button
           className="notes-action notes-action-primary"
           onClick={() => {
+            if (isMobileSidebarOpen) {
+              requestEditorFocus();
+            }
             requestNewNote();
             closeMobileSidebar();
           }}
@@ -413,6 +419,9 @@ function NotesSidebarContent({
                   aria-current={activeNoteId === note.id ? "page" : undefined}
                   className="app-sidebar__workspace-link"
                   onClick={() => {
+                    if (isMobileSidebarOpen) {
+                      requestEditorFocus();
+                    }
                     requestSelectNote(note.id);
                     closeMobileSidebar();
                   }}

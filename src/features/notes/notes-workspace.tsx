@@ -21,7 +21,9 @@ export type NotesWorkspaceSidebarAction =
 type NotesWorkspaceContextValue = {
   activeNoteId: string | null;
   clearPendingSidebarAction: (nonce: number) => void;
+  editorFocusRequestNonce: number;
   pendingSidebarAction: NotesWorkspaceSidebarAction | null;
+  requestEditorFocus: () => void;
   requestNewNote: () => void;
   requestSelectNote: (noteId: string) => void;
   setActiveNoteId: (noteId: string | null) => void;
@@ -35,6 +37,7 @@ export function NotesWorkspaceProvider({
   children,
 }: Readonly<{ children: ReactNode }>) {
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+  const [editorFocusRequestNonce, setEditorFocusRequestNonce] = useState(0);
   const [pendingSidebarAction, setPendingSidebarAction] =
     useState<NotesWorkspaceSidebarAction | null>(null);
   const actionNonceRef = useRef(0);
@@ -66,10 +69,16 @@ export function NotesWorkspaceProvider({
     });
   }, []);
 
+  const requestEditorFocus = useCallback(() => {
+    setEditorFocusRequestNonce((currentValue) => currentValue + 1);
+  }, []);
+
   const value: NotesWorkspaceContextValue = {
     activeNoteId,
     clearPendingSidebarAction,
+    editorFocusRequestNonce,
     pendingSidebarAction,
+    requestEditorFocus,
     requestNewNote,
     requestSelectNote,
     setActiveNoteId,
