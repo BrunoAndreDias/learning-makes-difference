@@ -670,6 +670,52 @@ describe("authenticated app shell", () => {
     expect(firstNote.title).toBe("Neural pathways");
   });
 
+  it("renders every note in the sidebar notes list without a fixed item cap", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+
+    for (let index = 1; index <= 12; index += 1) {
+      notesContext.createNote(userId, {
+        acronyms: [],
+        body: `Study note ${index} body`,
+        labelIds: [],
+        metaphors: [],
+        title: `Study note ${index}`,
+      });
+    }
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const notesNavigation = within(
+      screen.getByRole("complementary", { name: "Notes workspace" }),
+    ).getByRole("navigation", {
+      name: "Notes list",
+    });
+
+    expect(within(notesNavigation).getAllByRole("button")).toHaveLength(12);
+    expect(
+      within(notesNavigation).getByRole("button", { name: "Study note 12" }),
+    ).toBeInTheDocument();
+  });
+
   it("uses the app sidebar collapse as the only notes list visibility control", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,

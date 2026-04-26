@@ -849,7 +849,7 @@ function NotesWorkspace() {
           </section>
         ) : (
           <button
-            className="notes-action notes-action-primary"
+            className="notes-action notes-action-primary notes-recall-entry-action"
             onClick={enterRecallSelection}
             type="button"
           >
