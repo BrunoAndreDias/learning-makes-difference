@@ -108,10 +108,15 @@ function NotesWorkspace() {
   const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
   const {
+    cancelRecallSelection,
     clearPendingSidebarAction,
+    completeRecallSelection,
+    enterRecallSelection,
     editorFocusRequestNonce,
     pendingSidebarAction,
+    recallSelection,
     setActiveNoteId,
+    toggleRecallSelection,
   } = useNotesWorkspace();
   const [searchQuery, setSearchQuery] = useState("");
   const searchResults = searchNoteResults(notes, searchQuery);
@@ -430,6 +435,12 @@ function NotesWorkspace() {
   function handleSelectSearchResult(result: AppNoteSearchResult) {
     setErrorMessage(null);
 
+    if (recallSelection.isSelectingForRecall) {
+      toggleRecallSelection(result.note.id);
+      resetSearchNavigationState();
+      return;
+    }
+
     const transitionResult = requestNoteEditorTransition(
       noteEditor,
       {
@@ -630,13 +641,15 @@ function NotesWorkspace() {
   }
 
   async function handleStartRecall() {
-    if (selectedNote === null || userId === null) {
+    if (userId === null || recallSelection.selectedCount === 0) {
       return;
     }
 
     try {
+      const noteIds = completeRecallSelection();
+
       recallContext.startFlashCardSession({
-        noteIds: [selectedNote.id],
+        noteIds,
         userId,
       });
       setErrorMessage(null);
@@ -659,6 +672,9 @@ function NotesWorkspace() {
     selectedLabels.length === 1 ? "label" : "labels"
   }`;
   const workspaceModeLabel = isCreating ? "Draft mode" : "Editing note";
+  const recallSelectionCountLabel = `${recallSelection.selectedCount} ${
+    recallSelection.selectedCount === 1 ? "note" : "notes"
+  } selected`;
   const isRecallSessionRoute = location.pathname === "/notes/recall";
   const hasUnsavedChanges = isNoteEditorDirty(noteEditor);
   const selectedNoteUpdatedLabel =
@@ -799,14 +815,37 @@ function NotesWorkspace() {
           <kbd>Cmd K</kbd>
           {searchResultsContent}
         </form>
-        <button
-          className="notes-action notes-action-primary"
-          disabled={selectedNote === null}
-          onClick={() => void handleStartRecall()}
-          type="button"
-        >
-          Start recall
-        </button>
+        {recallSelection.isSelectingForRecall ? (
+          <section
+            aria-label="Recall selection controls"
+            className="notes-recall-selection-controls"
+          >
+            <span className="tag">{recallSelectionCountLabel}</span>
+            <button
+              className="notes-action"
+              onClick={cancelRecallSelection}
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              className="notes-action notes-action-primary"
+              disabled={recallSelection.selectedCount === 0}
+              onClick={() => void handleStartRecall()}
+              type="button"
+            >
+              Start recall
+            </button>
+          </section>
+        ) : (
+          <button
+            className="notes-action notes-action-primary"
+            onClick={enterRecallSelection}
+            type="button"
+          >
+            Select for recall
+          </button>
+        )}
       </section>
 
       <section className="notes-mobile-summary" aria-label="Workspace summary">
@@ -814,7 +853,11 @@ function NotesWorkspace() {
         <div className="tag-row notes-workspace__tags">
           <span className="tag">{noteCountLabel}</span>
           <span className="tag">{selectedLabelCount}</span>
-          <span className="tag">{workspaceModeLabel}</span>
+          <span className="tag">
+            {recallSelection.isSelectingForRecall
+              ? recallSelectionCountLabel
+              : workspaceModeLabel}
+          </span>
         </div>
       </section>
 

@@ -7,6 +7,15 @@ import {
   useState,
 } from "react";
 
+import {
+  cancelRecallSelectionMode,
+  completeRecallSelection,
+  createInitialRecallSelectionState,
+  enterRecallSelectionMode,
+  type RecallSelectionState,
+  toggleRecallSelectionNote,
+} from "./recall-selection";
+
 export type NotesWorkspaceSidebarAction =
   | {
       nonce: number;
@@ -20,13 +29,18 @@ export type NotesWorkspaceSidebarAction =
 
 type NotesWorkspaceContextValue = {
   activeNoteId: string | null;
+  cancelRecallSelection: () => void;
   clearPendingSidebarAction: (nonce: number) => void;
+  completeRecallSelection: () => string[];
+  enterRecallSelection: () => void;
   editorFocusRequestNonce: number;
   pendingSidebarAction: NotesWorkspaceSidebarAction | null;
+  recallSelection: RecallSelectionState;
   requestEditorFocus: () => void;
   requestNewNote: () => void;
   requestSelectNote: (noteId: string) => void;
   setActiveNoteId: (noteId: string | null) => void;
+  toggleRecallSelection: (noteId: string) => void;
 };
 
 const NotesWorkspaceContext = createContext<NotesWorkspaceContextValue | null>(
@@ -40,6 +54,9 @@ export function NotesWorkspaceProvider({
   const [editorFocusRequestNonce, setEditorFocusRequestNonce] = useState(0);
   const [pendingSidebarAction, setPendingSidebarAction] =
     useState<NotesWorkspaceSidebarAction | null>(null);
+  const [recallSelection, setRecallSelection] = useState(() =>
+    createInitialRecallSelectionState(),
+  );
   const actionNonceRef = useRef(0);
 
   const clearPendingSidebarAction = useCallback((nonce: number) => {
@@ -73,15 +90,44 @@ export function NotesWorkspaceProvider({
     setEditorFocusRequestNonce((currentValue) => currentValue + 1);
   }, []);
 
+  const enterRecallSelection = useCallback(() => {
+    setRecallSelection((currentState) =>
+      enterRecallSelectionMode(currentState),
+    );
+  }, []);
+
+  const cancelRecallSelection = useCallback(() => {
+    setRecallSelection(cancelRecallSelectionMode());
+  }, []);
+
+  const toggleRecallSelection = useCallback((noteId: string) => {
+    setRecallSelection((currentState) =>
+      toggleRecallSelectionNote(currentState, noteId),
+    );
+  }, []);
+
+  const finishRecallSelection = useCallback(() => {
+    const result = completeRecallSelection(recallSelection);
+
+    setRecallSelection(result.state);
+
+    return result.noteIds;
+  }, [recallSelection]);
+
   const value: NotesWorkspaceContextValue = {
     activeNoteId,
+    cancelRecallSelection,
     clearPendingSidebarAction,
+    completeRecallSelection: finishRecallSelection,
+    enterRecallSelection,
     editorFocusRequestNonce,
     pendingSidebarAction,
+    recallSelection,
     requestEditorFocus,
     requestNewNote,
     requestSelectNote,
     setActiveNoteId,
+    toggleRecallSelection,
   };
 
   return (

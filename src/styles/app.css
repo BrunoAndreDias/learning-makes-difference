@@ -367,7 +367,8 @@ h3 {
 }
 
 .app-sidebar__workspace-link:hover,
-.app-sidebar__workspace-link[aria-current="page"] {
+.app-sidebar__workspace-link[aria-current="page"],
+.app-sidebar__workspace-link[data-recall-selected="true"] {
   background: linear-gradient(
     180deg,
     rgba(37, 99, 235, 0.14) 0%,
@@ -1380,6 +1381,14 @@ h3 {
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid #e8edf5;
   background: #ffffff;
+}
+
+.notes-recall-selection-controls {
+  display: flex;
+  align-items: center;
+  justify-content: end;
+  gap: 0.6rem;
+  flex-wrap: wrap;
 }
 
 .notes-search {

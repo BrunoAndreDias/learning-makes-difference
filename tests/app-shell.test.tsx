@@ -1682,6 +1682,13 @@ describe("authenticated app shell", () => {
       ),
     ).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: "Select for recall" }));
+    fireEvent.click(
+      within(screen.getByRole("navigation", { name: "Notes list" })).getByRole(
+        "button",
+        { name: "Testing effect" },
+      ),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
 
     expect(router.state.location.pathname).toBe("/notes/recall");
@@ -1716,6 +1723,117 @@ describe("authenticated app shell", () => {
         notes: [{ id: note.id, title: "Testing effect" }],
       },
     ]);
+  });
+
+  it("selects multiple notes for recall from the notes workspace without changing the edited note", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const recallContext = createAppRecallContext({
+      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+      labels: labelsContext,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+
+    const firstNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Retrieval practice strengthens recall.",
+      labelIds: [],
+      metaphors: [],
+      title: "Retrieval practice",
+    });
+    const secondNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Spacing practice reduces forgetting.",
+      labelIds: [],
+      metaphors: [],
+      title: "Spacing effect",
+    });
+
+    const { router } = renderRoute("/notes", {
+      labelsContext,
+      notesContext,
+      recallContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByDisplayValue("Spacing practice reduces forgetting."),
+    ).toBeInTheDocument();
+
+    const notesList = within(
+      screen.getByRole("navigation", { name: "Notes list" }),
+    );
+
+    fireEvent.click(
+      notesList.getByRole("button", { name: "Retrieval practice" }),
+    );
+
+    expect(
+      await screen.findByDisplayValue("Retrieval practice strengthens recall."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Select for recall" }));
+
+    let recallControls = within(
+      screen.getByLabelText("Recall selection controls"),
+    );
+
+    expect(recallControls.getByText("0 notes selected")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start recall" })).toBeDisabled();
+
+    fireEvent.click(notesList.getByRole("button", { name: "Spacing effect" }));
+    fireEvent.click(
+      notesList.getByRole("button", { name: "Retrieval practice" }),
+    );
+    fireEvent.click(notesList.getByRole("button", { name: "Spacing effect" }));
+
+    expect(recallControls.getByText("1 note selected")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Retrieval practice strengthens recall."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start recall" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select for recall" }));
+
+    recallControls = within(screen.getByLabelText("Recall selection controls"));
+
+    expect(recallControls.getByText("0 notes selected")).toBeInTheDocument();
+
+    fireEvent.click(
+      notesList.getByRole("button", { name: "Retrieval practice" }),
+    );
+    fireEvent.click(notesList.getByRole("button", { name: "Spacing effect" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
+
+    expect(router.state.location.pathname).toBe("/notes/recall");
+    expect(
+      await screen.findByRole("heading", { name: "FlashCard session" }),
+    ).toBeInTheDocument();
+    expect(recallContext.getSnapshot()).toMatchObject({
+      labelId: null,
+      notes: [
+        { id: firstNote.id, title: "Retrieval practice" },
+        { id: secondNote.id, title: "Spacing effect" },
+      ],
+    });
   });
 
   it("returns to notes and discards a zero-attempt single-note session", async () => {
@@ -1764,6 +1882,13 @@ describe("authenticated app shell", () => {
       ),
     ).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: "Select for recall" }));
+    fireEvent.click(
+      within(screen.getByRole("navigation", { name: "Notes list" })).getByRole(
+        "button",
+        { name: "Early exit" },
+      ),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
 
     expect(router.state.location.pathname).toBe("/notes/recall");
