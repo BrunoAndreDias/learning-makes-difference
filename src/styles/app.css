@@ -1464,12 +1464,23 @@ h3 {
   background: #ffffff;
 }
 
+.notes-workspace[data-recall-selection-mode="true"] .notes-workspace__toolbar {
+  border-bottom-color: rgba(37, 99, 235, 0.22);
+  background: #f7fbff;
+}
+
 .notes-recall-selection-controls {
   display: flex;
   align-items: center;
   justify-content: end;
   gap: 0.6rem;
   flex-wrap: wrap;
+}
+
+.notes-recall-selection-controls__mode {
+  color: var(--color-content-strong);
+  font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .notes-search {

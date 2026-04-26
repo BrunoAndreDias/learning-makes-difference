@@ -1704,6 +1704,126 @@ describe("authenticated app shell", () => {
     ]);
   });
 
+  it("completes the searched Notes recall loop while keeping recall mode and utilities clear", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const recallContext = createAppRecallContext({
+      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+    const note = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "The complete loop returns to the notes workspace.",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation: "A lighthouse search cue points back to this note.",
+          title: "Lighthouse cue",
+        },
+      ],
+      title: "Recall loop polish",
+    });
+
+    const { router } = renderRoute("/notes", {
+      notesContext,
+      recallContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const workspace = screen.getByLabelText("Notes workspace surface");
+    const accountDock = screen.getByRole("contentinfo", {
+      name: "Account Dock",
+    });
+
+    expect(workspace).toHaveAttribute("data-recall-selection-mode", "false");
+    expect(
+      within(accountDock).getByRole("link", { name: "Settings" }),
+    ).toBeVisible();
+    expect(
+      within(accountDock).getByRole("button", { name: "Log out" }),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Select for recall" }));
+
+    expect(workspace).toHaveAttribute("data-recall-selection-mode", "true");
+    expect(screen.getByText("Selecting for recall")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start recall" })).toBeDisabled();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Search notes" }), {
+      target: { value: "lighthouse search cue" },
+    });
+    fireEvent.click(
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "option",
+        { name: /Recall loop polish Metaphor/ },
+      ),
+    );
+
+    expect(
+      within(screen.getByLabelText("Recall selection controls")).getByText(
+        "1 note selected",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start recall" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
+
+    expect(router.state.location.pathname).toBe("/notes/recall");
+    expect(
+      await screen.findByRole("heading", { name: "FlashCard session" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("navigation", { name: "App sections" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("contentinfo", { name: "Account Dock" }),
+    ).toBeInTheDocument();
+
+    const breadcrumb = screen.getByRole("navigation", {
+      name: "Workspace breadcrumb",
+    });
+
+    expect(within(breadcrumb).getByText("Recall")).toBeInTheDocument();
+    expect(
+      within(breadcrumb).queryByText("Completed 0 of 1 questions"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Completed 0 of 1 questions")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reveal answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Partly recalled" }));
+
+    expect(router.state.location.pathname).toBe("/notes");
+    expect(
+      await screen.findByDisplayValue(
+        "The complete loop returns to the notes workspace.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Selecting for recall")).not.toBeInTheDocument();
+    expect(recallContext.listSessionResults({ userId })).toMatchObject([
+      {
+        attempts: [{ noteId: note.id, rating: "partial" }],
+        notes: [{ id: note.id, title: "Recall loop polish" }],
+      },
+    ]);
+  });
+
   it("selects multiple notes for recall from the notes workspace without changing the edited note", async () => {
     const labelsContext = createAppLabelsContext({
       keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,

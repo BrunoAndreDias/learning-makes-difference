@@ -767,7 +767,11 @@ function NotesWorkspace() {
   }
 
   return (
-    <section className="notes-workspace">
+    <section
+      aria-label="Notes workspace surface"
+      className="notes-workspace"
+      data-recall-selection-mode={recallSelection.isSelectingForRecall}
+    >
       <section
         aria-label="Notes workspace toolbar"
         className="notes-workspace__toolbar"
@@ -819,6 +823,9 @@ function NotesWorkspace() {
             aria-label="Recall selection controls"
             className="notes-recall-selection-controls"
           >
+            <strong className="notes-recall-selection-controls__mode">
+              Selecting for recall
+            </strong>
             <span className="tag">{recallSelectionCountLabel}</span>
             <button
               className="notes-action"
