@@ -971,11 +971,11 @@ describe("authenticated app shell", () => {
 
     const saveButton = screen.getByRole("button", { name: "Save changes" });
     const titleHeader = screen.getByLabelText("Title").closest("header");
-    const details = screen.getByLabelText("Details");
+    const memoryHooks = screen.getByLabelText("Memory hooks");
 
     expect(titleHeader).not.toBeNull();
     expect(titleHeader).toContainElement(saveButton);
-    expect(details).not.toContainElement(saveButton);
+    expect(memoryHooks).not.toContainElement(saveButton);
 
     fireEvent.click(saveButton);
 

@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  type CSSProperties,
   type FormEvent,
   type KeyboardEvent,
   type ReactNode,
+  type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
   useRef,
@@ -41,7 +43,6 @@ import { resolveNotesSearchTargetElement } from "../features/notes/note-search-n
 import {
   type AppAcronym,
   type AppMetaphor,
-  type AppNote,
   AppNotesError,
   type AppStoredNote,
   listNotesForUser,
@@ -65,40 +66,12 @@ function formatNoteDate(value: string): string {
   }).format(new Date(value));
 }
 
-function formatCompactNoteDate(value: string): string {
-  return new Intl.DateTimeFormat("en", {
-    day: "numeric",
-    month: "short",
-  }).format(new Date(value));
-}
-
-function getWordCount(body: string): number {
-  return body.trim() === "" ? 0 : body.trim().split(/\s+/).length;
-}
-
-function truncateNoteId(noteId: string): string {
-  return noteId.length <= 12 ? noteId : `${noteId.slice(0, 8)}...`;
-}
-
 function getSearchResultOptionId(noteId: string): string {
   return `notes-search-option-${noteId}`;
 }
 
 function getSearchResultLabel(result: AppNoteSearchResult): string {
   return `${result.note.title} ${result.matchChip} Updated ${formatNoteDate(result.note.updatedAt)}`;
-}
-
-function getNoteDetailsSummary(
-  selectedNote: AppNote | null,
-  wordCount: number,
-): string {
-  const wordCountLabel = `${wordCount} ${wordCount === 1 ? "word" : "words"}`;
-
-  if (selectedNote === null) {
-    return `Draft - ${wordCountLabel}`;
-  }
-
-  return `Updated ${formatCompactNoteDate(selectedNote.updatedAt)} - ${wordCountLabel}`;
 }
 
 function NotesWorkspace() {
@@ -157,6 +130,9 @@ function NotesWorkspace() {
   const unsavedSearchDiscardRef = useRef<HTMLButtonElement>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
+  const [bodyFraction, setBodyFraction] = useState(0.62);
+  const noteFormRef = useRef<HTMLFormElement>(null);
+  const isInspectorHidden = bodyFraction >= 0.88;
   const selectedNote = getSelectedNote(noteEditor, notes);
   const isCreating = selectedNote === null;
 
@@ -567,18 +543,48 @@ function NotesWorkspace() {
     }
   }
 
-  function handleCopyNoteId() {
-    if (selectedNote === null) {
+  function handleBodyResizePointerDown(
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) {
+    const form = noteFormRef.current;
+
+    if (form === null) {
       return;
     }
 
-    const clipboard = navigator.clipboard;
+    event.preventDefault();
+    const formRect = form.getBoundingClientRect();
 
-    if (clipboard === undefined) {
+    function handlePointerMove(moveEvent: PointerEvent) {
+      const offset = moveEvent.clientX - formRect.left;
+      const nextFraction = Math.min(
+        0.95,
+        Math.max(0.35, offset / formRect.width),
+      );
+
+      setBodyFraction(nextFraction);
+    }
+
+    function handlePointerUp() {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    }
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+  }
+
+  function handleBodyResizeKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setBodyFraction((current) => Math.max(0.35, current - 0.04));
       return;
     }
 
-    void clipboard.writeText(selectedNote.id).catch(() => undefined);
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setBodyFraction((current) => Math.min(0.95, current + 0.04));
+    }
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -620,8 +626,6 @@ function NotesWorkspace() {
     selectedLabels.length === 1 ? "label" : "labels"
   }`;
   const workspaceModeLabel = isCreating ? "Draft mode" : "Editing note";
-  const wordCount = getWordCount(editorState.body);
-  const compactDetailsLabel = getNoteDetailsSummary(selectedNote, wordCount);
   const hasUnsavedChanges = isNoteEditorDirty(noteEditor);
   const selectedNoteUpdatedLabel =
     selectedNote === null
@@ -771,7 +775,7 @@ function NotesWorkspace() {
       <div className="notes-layout">
         <article aria-label="Note editor surface" className="notes-editor">
           <header className="notes-editor__header">
-            <div>
+            <div className="notes-editor__title-stack">
               <label className="notes-title-editor">
                 <span className="sr-only">Title</span>
                 <input
@@ -786,51 +790,26 @@ function NotesWorkspace() {
                   value={editorState.title}
                 />
               </label>
-              <p className="muted">
+              <p className="muted notes-editor__meta">
                 {selectedNoteCreatedLabel} <span aria-hidden="true">-</span>{" "}
                 {selectedNoteUpdatedLabel}
               </p>
-            </div>
-            {isCreating || hasUnsavedChanges ? (
-              <button
-                className="notes-action notes-action-primary"
-                form={noteEditorFormId}
-                type="submit"
-              >
-                {isCreating ? "Create note" : "Save changes"}
-              </button>
-            ) : null}
-          </header>
-
-          <form
-            aria-label="Note editor"
-            className="notes-form"
-            id={noteEditorFormId}
-            onSubmit={handleSubmit}
-          >
-            <div className="notes-form__primary">
-              <label className="notes-form__field notes-form__body-field">
-                <span className="sr-only">Body</span>
-                <textarea
-                  ref={bodyTextareaRef}
-                  name="body"
-                  onChange={(event) =>
-                    handleEditorChange("body", event.target.value)
-                  }
-                  placeholder="Explain the concept in your own words"
-                  rows={10}
-                  value={editorState.body}
-                />
-              </label>
-            </div>
-
-            <aside className="notes-form__inspector" aria-label="Note metadata">
               <section
                 aria-label="Current labels"
-                className="notes-inspector-card"
+                className="notes-editor__labels"
               >
-                <div className="notes-inspector-card__header">
-                  <h4>Labels</h4>
+                <div className="notes-editor__label-row">
+                  {selectedLabels.length === 0 ? (
+                    <p className="muted">No labels yet</p>
+                  ) : (
+                    <section aria-label="Assigned labels" className="tag-row">
+                      {selectedLabels.map((label) => (
+                        <span className="tag" key={label.id}>
+                          {label.name}
+                        </span>
+                      ))}
+                    </section>
+                  )}
                   <button
                     aria-expanded={isLabelPickerOpen}
                     aria-controls={labelPickerPanelId}
@@ -846,23 +825,71 @@ function NotesWorkspace() {
                     + Add
                   </button>
                 </div>
-                {selectedLabels.length === 0 ? (
-                  <p className="muted">No labels yet</p>
-                ) : (
-                  <section aria-label="Assigned labels" className="tag-row">
-                    {selectedLabels.map((label) => (
-                      <span className="tag" key={label.id}>
-                        {label.name}
-                      </span>
-                    ))}
-                  </section>
-                )}
 
                 {labelPickerContent === null ? null : (
                   <div id={labelPickerPanelId}>{labelPickerContent}</div>
                 )}
               </section>
+            </div>
+            {isCreating || hasUnsavedChanges ? (
+              <button
+                className="notes-action notes-action-primary"
+                form={noteEditorFormId}
+                type="submit"
+              >
+                {isCreating ? "Create note" : "Save changes"}
+              </button>
+            ) : null}
+          </header>
 
+          <form
+            aria-label="Note editor"
+            className="notes-form"
+            data-inspector-hidden={isInspectorHidden ? "true" : undefined}
+            id={noteEditorFormId}
+            onSubmit={handleSubmit}
+            ref={noteFormRef}
+            style={{ "--notes-body-fraction": bodyFraction } as CSSProperties}
+          >
+            <div className="notes-form__primary">
+              <label className="notes-form__field notes-form__body-field">
+                <span className="sr-only">Body</span>
+                <textarea
+                  ref={bodyTextareaRef}
+                  name="body"
+                  onChange={(event) =>
+                    handleEditorChange("body", event.target.value)
+                  }
+                  placeholder="Explain the concept in your own words"
+                  rows={10}
+                  value={editorState.body}
+                />
+              </label>
+
+              {errorMessage === null ? null : (
+                <p className="auth-form__error" role="alert">
+                  {errorMessage}
+                </p>
+              )}
+            </div>
+
+            <hr
+              aria-label="Resize note body"
+              aria-orientation="vertical"
+              aria-valuemax={95}
+              aria-valuemin={35}
+              aria-valuenow={Math.round(bodyFraction * 100)}
+              className="notes-form__splitter"
+              onKeyDown={handleBodyResizeKeyDown}
+              onPointerDown={handleBodyResizePointerDown}
+              tabIndex={0}
+            />
+
+            <aside
+              aria-hidden={isInspectorHidden}
+              aria-label="Memory hooks panel"
+              className="notes-form__inspector"
+            >
               <section
                 aria-label="Memory hooks"
                 className="notes-memory-hooks notes-inspector-card"
@@ -1029,64 +1056,6 @@ function NotesWorkspace() {
                   </div>
                 )}
               </section>
-
-              <details
-                aria-label="Details"
-                className="notes-details notes-inspector-card"
-              >
-                <summary>
-                  <span>Details</span>
-                  <span>{compactDetailsLabel}</span>
-                </summary>
-
-                <dl>
-                  <div>
-                    <dt>Created</dt>
-                    <dd>
-                      {selectedNote === null
-                        ? "After save"
-                        : formatNoteDate(selectedNote.createdAt)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Updated</dt>
-                    <dd>
-                      {selectedNote === null
-                        ? "Draft"
-                        : formatNoteDate(selectedNote.updatedAt)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Words</dt>
-                    <dd>{wordCount}</dd>
-                  </div>
-                  <div>
-                    <dt>Note ID</dt>
-                    <dd>
-                      {selectedNote === null ? (
-                        "Unsaved"
-                      ) : (
-                        <span className="notes-id-copy">
-                          <span>{truncateNoteId(selectedNote.id)}</span>
-                          <button
-                            className="notes-inline-action"
-                            onClick={handleCopyNoteId}
-                            type="button"
-                          >
-                            Copy
-                          </button>
-                        </span>
-                      )}
-                    </dd>
-                  </div>
-                </dl>
-              </details>
-
-              {errorMessage === null ? null : (
-                <p className="auth-form__error" role="alert">
-                  {errorMessage}
-                </p>
-              )}
             </aside>
           </form>
         </article>
