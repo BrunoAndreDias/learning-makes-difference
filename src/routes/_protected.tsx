@@ -164,7 +164,10 @@ function AppLayout() {
 
   return (
     <NotesWorkspaceProvider>
-      <section className="authenticated-shell" data-sidebar-state={sidebarState}>
+      <section
+        className="authenticated-shell"
+        data-sidebar-state={sidebarState}
+      >
         <aside
           aria-label="App sidebar"
           className="app-sidebar shell-panel"
@@ -207,47 +210,63 @@ function AppLayout() {
             </button>
           </div>
 
-          {isNotesWorkspace ? (
-            <NotesSidebarContent
-              isSidebarVisible={!isSidebarCollapsed}
-              onSelectNote={handleSidebarLinkClick}
-            />
-          ) : null}
-
-          <nav
-            aria-label="App sections"
-            className="app-sidebar__nav"
-            id={navigationId}
+          <div
+            className={`app-sidebar__body${
+              isNotesWorkspace ? " app-sidebar__body--notes" : ""
+            }`}
           >
-            <ul className="app-sidebar__list">
-              {appNavigationItems.map((item) => {
-                const isActiveNavigationLink = activeItem.to === item.to;
+            {isNotesWorkspace ? (
+              <NotesSidebarContent
+                closeMobileSidebar={closeMobileSidebar}
+                isSidebarVisible={!isSidebarCollapsed}
+              />
+            ) : null}
 
-                return (
-                  <li key={item.to}>
-                    <Link
-                      activeProps={{
-                        className: "app-sidebar__link app-sidebar__link-active",
-                      }}
-                      className="app-sidebar__link"
-                      onClick={handleSidebarLinkClick}
-                      ref={
-                        isActiveNavigationLink ? activeNavigationLinkRef : null
-                      }
-                      to={item.to}
-                    >
-                      <span aria-hidden="true" className="app-sidebar__icon">
-                        <NavigationIcon name={item.icon} />
-                      </span>
-                      <span className="app-sidebar__label">{item.label}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
+            <nav
+              aria-label="App sections"
+              className={`app-sidebar__nav${
+                isNotesWorkspace ? " app-sidebar__nav--compact" : ""
+              }`}
+              id={navigationId}
+            >
+              <ul className="app-sidebar__list">
+                {appNavigationItems.map((item) => {
+                  const isActiveNavigationLink = activeItem.to === item.to;
 
-          <div className="app-sidebar__footer">
+                  return (
+                    <li key={item.to}>
+                      <Link
+                        activeProps={{
+                          className:
+                            "app-sidebar__link app-sidebar__link-active",
+                        }}
+                        className="app-sidebar__link"
+                        onClick={handleSidebarLinkClick}
+                        ref={
+                          isActiveNavigationLink
+                            ? activeNavigationLinkRef
+                            : null
+                        }
+                        to={item.to}
+                      >
+                        <span aria-hidden="true" className="app-sidebar__icon">
+                          <NavigationIcon name={item.icon} />
+                        </span>
+                        <span className="app-sidebar__label">{item.label}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+          </div>
+
+          {/* biome-ignore lint/a11y/useSemanticElements: named contentinfo landmark is required here */}
+          <div
+            aria-label="User controls"
+            className="app-sidebar__footer"
+            role="contentinfo"
+          >
             <div className="app-sidebar__avatar" aria-hidden="true">
               {userInitials}
             </div>
@@ -314,10 +333,10 @@ function AppLayout() {
 
 function NotesSidebarContent({
   isSidebarVisible,
-  onSelectNote,
+  closeMobileSidebar,
 }: Readonly<{
   isSidebarVisible: boolean;
-  onSelectNote: () => void;
+  closeMobileSidebar: () => void;
 }>) {
   const notesContext = Route.useRouteContext({
     select: (context) => context.notes,
@@ -338,8 +357,12 @@ function NotesSidebarContent({
     notesContext.getSnapshot,
     notesContext.getSnapshot,
   );
-  const notes = listNotesForUser(notesSnapshot, sessionSnapshot.user?.id ?? null);
+  const notes = listNotesForUser(
+    notesSnapshot,
+    sessionSnapshot.user?.id ?? null,
+  );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: activeNoteId changes which button owns the ref and must retrigger the scroll.
   useEffect(() => {
     if (!isSidebarVisible) {
       return;
@@ -362,7 +385,7 @@ function NotesSidebarContent({
           className="notes-action notes-action-primary"
           onClick={() => {
             requestNewNote();
-            onSelectNote();
+            closeMobileSidebar();
           }}
           type="button"
         >
@@ -378,17 +401,21 @@ function NotesSidebarContent({
             {notes.map((note) => (
               <li key={note.id}>
                 <button
+                  aria-label={note.title}
                   aria-current={activeNoteId === note.id ? "page" : undefined}
                   className="app-sidebar__workspace-link"
                   onClick={() => {
                     requestSelectNote(note.id);
-                    onSelectNote();
+                    closeMobileSidebar();
                   }}
                   ref={activeNoteId === note.id ? activeNoteRef : null}
                   type="button"
                 >
                   <span>{note.title}</span>
-                  <span className="app-sidebar__workspace-meta">
+                  <span
+                    aria-hidden="true"
+                    className="app-sidebar__workspace-meta"
+                  >
                     {formatSidebarNoteDate(note.updatedAt)}
                   </span>
                 </button>

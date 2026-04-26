@@ -600,6 +600,78 @@ describe("authenticated app shell", () => {
     ).toBeVisible();
   });
 
+  it("keeps compact app sections and user controls below the notes list in the notes sidebar", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const longTitle =
+      "Very long note title that should still stay reachable from the notes sidebar navigation";
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Repeated review strengthens long-term retention.",
+      labelIds: [],
+      metaphors: [],
+      title: longTitle,
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Alexandria Review Coordinator",
+          email: "jordan.alexandria.review.coordinator@example-learning.test",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const sidebar = screen.getByRole("complementary", {
+      name: "App sidebar",
+    });
+    const notesList = within(sidebar).getByRole("navigation", {
+      name: "Notes list",
+    });
+    const appSections = within(sidebar).getByRole("navigation", {
+      name: "App sections",
+    });
+    const userControls = within(sidebar).getByRole("contentinfo", {
+      name: "User controls",
+    });
+    const notesLink = within(appSections).getByRole("link", { name: "Notes" });
+
+    expect(
+      notesList.compareDocumentPosition(appSections) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      appSections.compareDocumentPosition(userControls) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(notesLink).toHaveAttribute("aria-current", "page");
+    expect(
+      within(notesList).getByRole("button", { name: longTitle }),
+    ).toBeInTheDocument();
+    expect(
+      within(userControls).getByText(/Jordan Alexandria Review/),
+    ).toBeVisible();
+    expect(
+      within(userControls).getByText(
+        "jordan.alexandria.review.coordinator@example-learning.test",
+      ),
+    ).toBeVisible();
+    expect(
+      within(userControls).getByRole("button", { name: "Log out" }),
+    ).toBeVisible();
+  });
+
   it("lets an authenticated user create and edit notes inside the notes workspace", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
@@ -652,10 +724,9 @@ describe("authenticated app shell", () => {
     });
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
     fireEvent.click(
-      within(screen.getByRole("complementary", { name: "App sidebar" })).getByRole(
-        "button",
-        { name: "New note" },
-      ),
+      within(
+        screen.getByRole("complementary", { name: "App sidebar" }),
+      ).getByRole("button", { name: "New note" }),
     );
     fireEvent.click(screen.getByRole("button", { name: /Spaced repetition/ }));
 
@@ -1153,10 +1224,14 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByDisplayValue("This note stays selected before searching."),
+      await screen.findByDisplayValue(
+        "This note stays selected before searching.",
+      ),
     ).toBeInTheDocument();
 
-    const notesList = within(screen.getByRole("navigation", { name: "Notes list" }));
+    const notesList = within(
+      screen.getByRole("navigation", { name: "Notes list" }),
+    );
     const currentSidebarNote = notesList.getByRole("button", {
       name: /Current note/,
     });
@@ -1174,13 +1249,18 @@ describe("authenticated app shell", () => {
       target: { value: "search phrase" },
     });
     fireEvent.click(
-      within(screen.getByLabelText("Notes search results")).getByRole("option", {
-        name: /Older target note/,
-      }),
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "option",
+        {
+          name: /Older target note/,
+        },
+      ),
     );
 
     expect(
-      await screen.findByDisplayValue("The search phrase appears in this older note."),
+      await screen.findByDisplayValue(
+        "The search phrase appears in this older note.",
+      ),
     ).toBeInTheDocument();
     expect(targetSidebarNote).toHaveAttribute("aria-current", "page");
     expect(currentSidebarNote).not.toHaveAttribute("aria-current");

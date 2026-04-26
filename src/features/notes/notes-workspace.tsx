@@ -1,10 +1,10 @@
 import {
   createContext,
+  type ReactNode,
+  useCallback,
   useContext,
-  useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
 
 export type NotesWorkspaceSidebarAction =
@@ -39,37 +39,41 @@ export function NotesWorkspaceProvider({
     useState<NotesWorkspaceSidebarAction | null>(null);
   const actionNonceRef = useRef(0);
 
-  const value = useMemo<NotesWorkspaceContextValue>(() => {
-    return {
-      activeNoteId,
-      clearPendingSidebarAction: (nonce) => {
-        setPendingSidebarAction((currentAction) => {
-          if (currentAction?.nonce !== nonce) {
-            return currentAction;
-          }
+  const clearPendingSidebarAction = useCallback((nonce: number) => {
+    setPendingSidebarAction((currentAction) => {
+      if (currentAction?.nonce !== nonce) {
+        return currentAction;
+      }
 
-          return null;
-        });
-      },
-      pendingSidebarAction,
-      requestNewNote: () => {
-        actionNonceRef.current += 1;
-        setPendingSidebarAction({
-          nonce: actionNonceRef.current,
-          type: "new",
-        });
-      },
-      requestSelectNote: (noteId) => {
-        actionNonceRef.current += 1;
-        setPendingSidebarAction({
-          nonce: actionNonceRef.current,
-          noteId,
-          type: "select",
-        });
-      },
-      setActiveNoteId,
-    };
-  }, [activeNoteId, pendingSidebarAction]);
+      return null;
+    });
+  }, []);
+
+  const requestNewNote = useCallback(() => {
+    actionNonceRef.current += 1;
+    setPendingSidebarAction({
+      nonce: actionNonceRef.current,
+      type: "new",
+    });
+  }, []);
+
+  const requestSelectNote = useCallback((noteId: string) => {
+    actionNonceRef.current += 1;
+    setPendingSidebarAction({
+      nonce: actionNonceRef.current,
+      noteId,
+      type: "select",
+    });
+  }, []);
+
+  const value: NotesWorkspaceContextValue = {
+    activeNoteId,
+    clearPendingSidebarAction,
+    pendingSidebarAction,
+    requestNewNote,
+    requestSelectNote,
+    setActiveNoteId,
+  };
 
   return (
     <NotesWorkspaceContext.Provider value={value}>
