@@ -28,11 +28,11 @@ export type {
   AppNoteSearchResult,
   AppNoteSearchTarget,
   AppNoteSearchTargetField,
-} from "./notes-search";
+} from "./note-search";
 export {
   filterNotesByQuery,
   searchNoteResults,
-} from "./notes-search";
+} from "./note-search";
 
 type NotesListener = () => void;
 

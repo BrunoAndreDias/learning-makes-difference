@@ -10,7 +10,7 @@ import {
   type AppLabel,
   AppLabelError,
   type AppLabelsContext,
-} from "../lib/labels";
+} from "../features/labels/labels";
 import type { AppSessionSnapshot } from "../lib/session";
 
 export const Route = createFileRoute("/_protected/labels")({

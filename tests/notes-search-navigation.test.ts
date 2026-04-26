@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from "vitest";
-import type { AppNoteSearchResult } from "../src/lib/notes-search";
+import type { AppNoteSearchResult } from "../src/features/notes/note-search";
 import {
   cancelGuardedNotesSearchNavigation,
   discardGuardedNotesSearchNavigation,
   planNotesSearchNavigation,
   resolveNotesSearchTargetElement,
-} from "../src/lib/notes-search-navigation";
+} from "../src/features/notes/note-search-navigation";
 
 function createSearchResult(
   target: AppNoteSearchResult["target"],

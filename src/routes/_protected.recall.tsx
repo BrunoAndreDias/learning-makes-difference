@@ -6,7 +6,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import type { AppLabel } from "../lib/labels";
+import type { AppLabel } from "../features/labels/labels";
 import {
   AppRecallError,
   type AppRecallSnapshot,

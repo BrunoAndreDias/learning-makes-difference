@@ -12,8 +12,8 @@ import {
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { type ReactNode, useSyncExternalStore } from "react";
 
-import type { AppLabelsContext } from "../lib/labels";
-import type { AppNotesContext } from "../lib/notes";
+import type { AppLabelsContext } from "../features/labels/labels";
+import type { AppNotesContext } from "../features/notes/notes";
 import type { AppRecallContext } from "../lib/recall";
 import { type AppSessionContext, hasActiveSession } from "../lib/session";
 import appCss from "../styles/app.css?url";

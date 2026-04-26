@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { createAppLabelsContext } from "../src/lib/labels";
-import { createAppNotesContext } from "../src/lib/notes";
+import { createAppLabelsContext } from "../src/features/labels/labels";
+import { createAppNotesContext } from "../src/features/notes/notes";
 import { createAppRecallContext } from "../src/lib/recall";
 
 function createMemoryStorage() {

@@ -19,8 +19,11 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   type AppLabelsContext,
   createAppLabelsContext,
-} from "../src/lib/labels";
-import { type AppNotesContext, createAppNotesContext } from "../src/lib/notes";
+} from "../src/features/labels/labels";
+import {
+  type AppNotesContext,
+  createAppNotesContext,
+} from "../src/features/notes/notes";
 import {
   type AppRecallContext,
   createAppRecallContext,

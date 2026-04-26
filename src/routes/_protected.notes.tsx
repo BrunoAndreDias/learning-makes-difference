@@ -9,7 +9,34 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import type { AppLabel } from "../lib/labels";
+import type { AppLabel } from "../features/labels/labels";
+import {
+  addNoteEditorAcronym,
+  addNoteEditorMetaphor,
+  cancelNoteEditorTransition,
+  createInitialNoteEditorState,
+  discardAndApplyNoteEditorTransition,
+  getNoteEditorSaveInput,
+  getSelectedNote,
+  isNoteEditorDirty,
+  markNoteEditorSaved,
+  type NoteEditorDraft,
+  type NoteEditorTransitionResult,
+  removeNoteEditorAcronym,
+  removeNoteEditorMetaphor,
+  requestNoteEditorTransition,
+  startNewNoteDraft,
+  syncNoteEditorWithNotes,
+  toggleNoteEditorLabel,
+  updateNoteEditorAcronym,
+  updateNoteEditorDraftField,
+  updateNoteEditorMetaphor,
+} from "../features/notes/note-editor";
+import {
+  type AppNoteSearchResult,
+  searchNoteResults,
+} from "../features/notes/note-search";
+import { resolveNotesSearchTargetElement } from "../features/notes/note-search-navigation";
 import {
   type AppAcronym,
   type AppMetaphor,
@@ -17,166 +44,17 @@ import {
   AppNotesError,
   type AppStoredNote,
   listNotesForUser,
-} from "../lib/notes";
-import {
-  type AppNoteSearchResult,
-  searchNoteResults,
-} from "../lib/notes-search";
-import {
-  cancelGuardedNotesSearchNavigation,
-  discardGuardedNotesSearchNavigation,
-  planNotesSearchNavigation,
-  resolveNotesSearchTargetElement,
-} from "../lib/notes-search-navigation";
+} from "../features/notes/notes";
 import type { AppSessionSnapshot } from "../lib/session";
 
 export const Route = createFileRoute("/_protected/notes")({
   component: NotesWorkspace,
 });
 
-type NoteMetaphorEditor = AppMetaphor & {
-  key: string;
-};
-
-type NoteAcronymEditor = AppAcronym & {
-  key: string;
-};
-
-type NoteEditorState = {
-  acronyms: NoteAcronymEditor[];
-  body: string;
-  labelIds: string[];
-  metaphors: NoteMetaphorEditor[];
-  title: string;
-};
-
-const emptyEditorState: NoteEditorState = {
-  acronyms: [],
-  body: "",
-  labelIds: [],
-  metaphors: [],
-  title: "",
-};
-
 const labelPickerPanelId = "note-label-picker-panel";
 const notesCatalogPanelId = "notes-catalog-panel";
 const notesSearchListboxId = "notes-search-results";
 const noteEditorFormId = "note-editor-form";
-
-function createEditorKey(): string {
-  return globalThis.crypto.randomUUID();
-}
-
-function createNoteMetaphorEditor(
-  metaphor: AppMetaphor = {
-    explanation: "",
-    title: "",
-  },
-): NoteMetaphorEditor {
-  return {
-    ...metaphor,
-    key: createEditorKey(),
-  };
-}
-
-function createNoteAcronymEditor(
-  acronym: AppAcronym = {
-    expansion: "",
-    shortForm: "",
-  },
-): NoteAcronymEditor {
-  return {
-    ...acronym,
-    key: createEditorKey(),
-  };
-}
-
-function toStoredMetaphor(metaphor: NoteMetaphorEditor): AppMetaphor {
-  return {
-    explanation: metaphor.explanation,
-    title: metaphor.title,
-  };
-}
-
-function toStoredAcronym(acronym: NoteAcronymEditor): AppAcronym {
-  return {
-    expansion: acronym.expansion,
-    shortForm: acronym.shortForm,
-  };
-}
-
-function getEditorState(note: AppNote | null): NoteEditorState {
-  if (note === null) {
-    return emptyEditorState;
-  }
-
-  return {
-    acronyms: note.acronyms.map((acronym) => createNoteAcronymEditor(acronym)),
-    body: note.body,
-    labelIds: note.labelIds,
-    metaphors: note.metaphors.map((metaphor) =>
-      createNoteMetaphorEditor(metaphor),
-    ),
-    title: note.title,
-  };
-}
-
-function haveSameItems<T>(
-  left: readonly T[],
-  right: readonly T[],
-  areEqual: (leftItem: T, rightItem: T) => boolean,
-): boolean {
-  if (left.length !== right.length) {
-    return false;
-  }
-
-  return left.every((leftItem, index) => {
-    const rightItem = right[index];
-
-    if (rightItem === undefined) {
-      return false;
-    }
-
-    return areEqual(leftItem, rightItem);
-  });
-}
-
-function haveSameLabelIds(left: string[], right: string[]): boolean {
-  return haveSameItems(left, right, (leftLabelId, rightLabelId) => {
-    return leftLabelId === rightLabelId;
-  });
-}
-
-function haveSameMetaphors(left: AppMetaphor[], right: AppMetaphor[]): boolean {
-  return haveSameItems(left, right, (leftMetaphor, rightMetaphor) => {
-    return (
-      leftMetaphor.title === rightMetaphor.title &&
-      leftMetaphor.explanation === rightMetaphor.explanation
-    );
-  });
-}
-
-function haveSameAcronyms(left: AppAcronym[], right: AppAcronym[]): boolean {
-  return haveSameItems(left, right, (leftAcronym, rightAcronym) => {
-    return (
-      leftAcronym.shortForm === rightAcronym.shortForm &&
-      leftAcronym.expansion === rightAcronym.expansion
-    );
-  });
-}
-
-function isSameEditorState(
-  left: NoteEditorState,
-  right: NoteEditorState,
-): boolean {
-  return (
-    left.title === right.title &&
-    left.body === right.body &&
-    haveSameLabelIds(left.labelIds, right.labelIds) &&
-    haveSameMetaphors(left.metaphors, right.metaphors) &&
-    haveSameAcronyms(left.acronyms, right.acronyms)
-  );
-}
 
 function formatNoteDate(value: string): string {
   return new Intl.DateTimeFormat("en", {
@@ -252,17 +130,11 @@ function NotesWorkspace() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchRootRef = useRef<HTMLFormElement>(null);
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
-  const firstNoteId = notes[0]?.id ?? null;
-  const [isCreatingNew, setIsCreatingNew] = useState(notes.length === 0);
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(
-    firstNoteId,
+  const [noteEditor, setNoteEditor] = useState(() =>
+    createInitialNoteEditorState(notes),
   );
-  const [editorState, setEditorState] = useState<NoteEditorState>(() =>
-    getEditorState(notes[0] ?? null),
-  );
+  const editorState = noteEditor.draft;
   const [pendingSearchJump, setPendingSearchJump] =
-    useState<AppNoteSearchResult | null>(null);
-  const [guardedSearchResult, setGuardedSearchResult] =
     useState<AppNoteSearchResult | null>(null);
   const [isNotesCatalogCollapsed, setIsNotesCatalogCollapsed] = useState(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -282,13 +154,8 @@ function NotesWorkspace() {
   const previousCatalogCollapsedRef = useRef(isNotesCatalogCollapsed);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
-  const selectedNote =
-    isCreatingNew || selectedNoteId === null
-      ? null
-      : (notes.find((note) => note.id === selectedNoteId) ?? null);
+  const selectedNote = getSelectedNote(noteEditor, notes);
   const isCreating = selectedNote === null;
-  const selectedNoteStillExists =
-    selectedNoteId !== null && notes.some((note) => note.id === selectedNoteId);
 
   useEffect(() => {
     function syncLabels() {
@@ -371,50 +238,10 @@ function NotesWorkspace() {
   }, []);
 
   useEffect(() => {
-    if (firstNoteId === null) {
-      setIsCreatingNew(true);
-      setSelectedNoteId(null);
-      return;
-    }
-
-    if (isCreatingNew) {
-      return;
-    }
-
-    if (selectedNoteStillExists) {
-      return;
-    }
-
-    setSelectedNoteId(firstNoteId);
-  }, [firstNoteId, isCreatingNew, selectedNoteStillExists]);
-
-  useEffect(() => {
-    const currentUserNotesSnapshot =
-      userId === null
-        ? []
-        : notesSnapshot.filter((note) => note.userId === userId);
-    const nextSelectedNote =
-      isCreatingNew || selectedNoteId === null
-        ? null
-        : (currentUserNotesSnapshot.find(
-            (note) => note.id === selectedNoteId,
-          ) ?? null);
-    const nextEditorState = getEditorState(nextSelectedNote);
-
-    setEditorState((currentState) => {
-      if (nextSelectedNote === null) {
-        return isSameEditorState(currentState, emptyEditorState)
-          ? currentState
-          : emptyEditorState;
-      }
-
-      if (isSameEditorState(currentState, nextEditorState)) {
-        return currentState;
-      }
-
-      return nextEditorState;
-    });
-  }, [isCreatingNew, notesSnapshot, selectedNoteId, userId]);
+    setNoteEditor((currentState) =>
+      syncNoteEditorWithNotes(currentState, notes),
+    );
+  }, [notes]);
 
   useEffect(() => {
     return () => {
@@ -440,12 +267,12 @@ function NotesWorkspace() {
   }, [isNotesCatalogCollapsed]);
 
   useEffect(() => {
-    if (guardedSearchResult === null) {
+    if (noteEditor.pendingTransition === null) {
       return;
     }
 
     unsavedSearchCancelRef.current?.focus();
-  }, [guardedSearchResult]);
+  }, [noteEditor.pendingTransition]);
 
   useEffect(() => {
     if (pendingSearchJump === null) {
@@ -455,7 +282,7 @@ function NotesWorkspace() {
     if (
       selectedNote === null ||
       selectedNote.id !== pendingSearchJump.note.id ||
-      !isSameEditorState(editorState, getEditorState(selectedNote))
+      isNoteEditorDirty(noteEditor)
     ) {
       return;
     }
@@ -497,48 +324,29 @@ function NotesWorkspace() {
       searchSelectionTimeoutRef.current = null;
     }, 3000);
     setPendingSearchJump(null);
-  }, [editorState, pendingSearchJump, selectedNote]);
+  }, [noteEditor, pendingSearchJump, selectedNote]);
 
-  function handleEditorChange<K extends keyof NoteEditorState>(
+  function handleEditorChange<K extends keyof NoteEditorDraft>(
     field: K,
-    value: NoteEditorState[K],
+    value: NoteEditorDraft[K],
   ) {
-    setEditorState((currentState) => ({
-      ...currentState,
-      [field]: value,
-    }));
+    setNoteEditor((currentState) =>
+      updateNoteEditorDraftField(currentState, field, value),
+    );
   }
 
   function handleLabelToggle(labelId: string, checked: boolean) {
-    setEditorState((currentState) => {
-      if (checked) {
-        return {
-          ...currentState,
-          labelIds: [...new Set([...currentState.labelIds, labelId])],
-        };
-      }
-
-      return {
-        ...currentState,
-        labelIds: currentState.labelIds.filter(
-          (candidateId) => candidateId !== labelId,
-        ),
-      };
-    });
+    setNoteEditor((currentState) =>
+      toggleNoteEditorLabel(currentState, labelId, checked),
+    );
   }
 
   function handleAddMetaphor() {
-    setEditorState((currentState) => ({
-      ...currentState,
-      metaphors: [...currentState.metaphors, createNoteMetaphorEditor()],
-    }));
+    setNoteEditor((currentState) => addNoteEditorMetaphor(currentState));
   }
 
   function handleAddAcronym() {
-    setEditorState((currentState) => ({
-      ...currentState,
-      acronyms: [...currentState.acronyms, createNoteAcronymEditor()],
-    }));
+    setNoteEditor((currentState) => addNoteEditorAcronym(currentState));
   }
 
   function handleMetaphorChange<K extends keyof AppMetaphor>(
@@ -546,19 +354,9 @@ function NotesWorkspace() {
     field: K,
     value: AppMetaphor[K],
   ) {
-    setEditorState((currentState) => ({
-      ...currentState,
-      metaphors: currentState.metaphors.map((metaphor, metaphorIndex) => {
-        if (metaphorIndex !== index) {
-          return metaphor;
-        }
-
-        return {
-          ...metaphor,
-          [field]: value,
-        };
-      }),
-    }));
+    setNoteEditor((currentState) =>
+      updateNoteEditorMetaphor(currentState, index, field, value),
+    );
   }
 
   function handleAcronymChange<K extends keyof AppAcronym>(
@@ -566,96 +364,90 @@ function NotesWorkspace() {
     field: K,
     value: AppAcronym[K],
   ) {
-    setEditorState((currentState) => ({
-      ...currentState,
-      acronyms: currentState.acronyms.map((acronym, acronymIndex) => {
-        if (acronymIndex !== index) {
-          return acronym;
-        }
-
-        return {
-          ...acronym,
-          [field]: value,
-        };
-      }),
-    }));
+    setNoteEditor((currentState) =>
+      updateNoteEditorAcronym(currentState, index, field, value),
+    );
   }
 
   function handleRemoveMetaphor(index: number) {
-    setEditorState((currentState) => ({
-      ...currentState,
-      metaphors: currentState.metaphors.filter(
-        (_, metaphorIndex) => metaphorIndex !== index,
-      ),
-    }));
+    setNoteEditor((currentState) =>
+      removeNoteEditorMetaphor(currentState, index),
+    );
   }
 
   function handleRemoveAcronym(index: number) {
-    setEditorState((currentState) => ({
-      ...currentState,
-      acronyms: currentState.acronyms.filter(
-        (_, acronymIndex) => acronymIndex !== index,
-      ),
-    }));
+    setNoteEditor((currentState) =>
+      removeNoteEditorAcronym(currentState, index),
+    );
   }
 
   function handleNewNote() {
     setErrorMessage(null);
-    setIsCreatingNew(true);
-    setSelectedNoteId(null);
+    setNoteEditor(startNewNoteDraft());
+  }
+
+  function applyEditorTransitionResult(result: NoteEditorTransitionResult) {
+    setNoteEditor(result.state);
+
+    if (result.completedSearchJump !== null) {
+      setPendingSearchJump(result.completedSearchJump);
+    }
   }
 
   function handleSelectNote(note: AppNote) {
     setErrorMessage(null);
-    setIsCreatingNew(false);
-    setSelectedNoteId(note.id);
-  }
 
-  function completeSearchResultNavigation(result: AppNoteSearchResult) {
-    setErrorMessage(null);
-    setGuardedSearchResult(null);
-    setPendingSearchJump(result);
-    setSearchQuery("");
-    setIsCreatingNew(false);
-    setSelectedNoteId(result.note.id);
-    setIsSearchOpen(false);
-    setActiveSearchResultIndex(0);
+    applyEditorTransitionResult(
+      requestNoteEditorTransition(
+        noteEditor,
+        {
+          noteId: note.id,
+          type: "note",
+        },
+        notes,
+      ),
+    );
   }
 
   function handleSelectSearchResult(result: AppNoteSearchResult) {
     setErrorMessage(null);
 
-    const navigationPlan = planNotesSearchNavigation({
-      hasUnsavedChanges,
-      result,
-    });
+    const transitionResult = requestNoteEditorTransition(
+      noteEditor,
+      {
+        result,
+        type: "searchResult",
+      },
+      notes,
+    );
 
-    if (navigationPlan.type === "guard") {
-      setGuardedSearchResult(navigationPlan.guardedResult);
-      return;
+    applyEditorTransitionResult(transitionResult);
+
+    if (transitionResult.state.pendingTransition === null) {
+      setSearchQuery("");
+      setIsSearchOpen(false);
+      setActiveSearchResultIndex(0);
     }
-
-    completeSearchResultNavigation(navigationPlan.result);
   }
 
   function handleCancelGuardedSearchNavigation() {
-    const navigationPlan = cancelGuardedNotesSearchNavigation();
-
-    if (navigationPlan.type === "cancel") {
-      setGuardedSearchResult(null);
-      searchInputRef.current?.focus();
-    }
+    setNoteEditor((currentState) => cancelNoteEditorTransition(currentState));
+    searchInputRef.current?.focus();
   }
 
   function handleDiscardGuardedSearchNavigation() {
-    const navigationPlan =
-      discardGuardedNotesSearchNavigation(guardedSearchResult);
+    const transitionResult = discardAndApplyNoteEditorTransition(
+      noteEditor,
+      notes,
+    );
 
-    if (navigationPlan.type === "idle") {
-      return;
+    applyEditorTransitionResult(transitionResult);
+
+    if (transitionResult.completedSearchJump !== null) {
+      setSearchQuery("");
+      setIsSearchOpen(false);
+      setActiveSearchResultIndex(0);
     }
-
-    completeSearchResultNavigation(navigationPlan.result);
   }
 
   function handleSearchChange(value: string) {
@@ -769,25 +561,20 @@ function NotesWorkspace() {
     try {
       if (selectedNote === null) {
         const createdNote = notesContext.createNote(userId, {
-          acronyms: editorState.acronyms.map(toStoredAcronym),
-          body: editorState.body,
-          labelIds: editorState.labelIds,
-          metaphors: editorState.metaphors.map(toStoredMetaphor),
-          title: editorState.title,
+          ...getNoteEditorSaveInput(noteEditor),
         });
 
-        setIsCreatingNew(false);
-        setSelectedNoteId(createdNote.id);
+        setNoteEditor(markNoteEditorSaved(createdNote));
         return;
       }
 
-      notesContext.updateNote(userId, selectedNote.id, {
-        acronyms: editorState.acronyms.map(toStoredAcronym),
-        body: editorState.body,
-        labelIds: editorState.labelIds,
-        metaphors: editorState.metaphors.map(toStoredMetaphor),
-        title: editorState.title,
-      });
+      const updatedNote = notesContext.updateNote(
+        userId,
+        selectedNote.id,
+        getNoteEditorSaveInput(noteEditor),
+      );
+
+      setNoteEditor(markNoteEditorSaved(updatedNote));
     } catch (error) {
       if (error instanceof AppNotesError) {
         setErrorMessage(error.message);
@@ -808,10 +595,7 @@ function NotesWorkspace() {
   const workspaceModeLabel = isCreating ? "Draft mode" : "Editing note";
   const wordCount = getWordCount(editorState.body);
   const compactDetailsLabel = getNoteDetailsSummary(selectedNote, wordCount);
-  const hasUnsavedChanges =
-    selectedNote === null
-      ? !isSameEditorState(editorState, emptyEditorState)
-      : !isSameEditorState(editorState, getEditorState(selectedNote));
+  const hasUnsavedChanges = isNoteEditorDirty(noteEditor);
   const selectedNoteUpdatedLabel =
     selectedNote === null
       ? "Unsaved draft"
@@ -1390,7 +1174,7 @@ function NotesWorkspace() {
           )}
         </aside>
       </div>
-      {guardedSearchResult === null ? null : (
+      {noteEditor.pendingTransition === null ? null : (
         <div
           aria-labelledby="notes-unsaved-search-title"
           aria-describedby="notes-unsaved-search-description"
@@ -1403,7 +1187,7 @@ function NotesWorkspace() {
           <div className="notes-unsaved-search-dialog__panel">
             <h3 id="notes-unsaved-search-title">Discard unsaved changes?</h3>
             <p id="notes-unsaved-search-description">
-              Search navigation will replace the current note editor state.
+              Navigation will replace the current note editor state.
             </p>
             <div className="notes-unsaved-search-dialog__actions">
               <button

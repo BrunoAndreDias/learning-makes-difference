@@ -1,4 +1,4 @@
-import type { AppNoteSearchResult } from "./notes-search";
+import type { AppNoteSearchResult } from "./note-search";
 
 export type NotesSearchTargetElement = HTMLInputElement | HTMLTextAreaElement;
 
