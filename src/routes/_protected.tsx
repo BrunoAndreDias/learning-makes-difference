@@ -207,44 +207,53 @@ function AppLayout() {
             </button>
           </div>
 
-          {isNotesWorkspace ? (
-            <NotesSidebarContent onSelectNote={handleSidebarLinkClick} />
-          ) : null}
-
-          <nav
-            aria-label="App sections"
-            className="app-sidebar__nav"
-            id={navigationId}
+          <div
+            className={`app-sidebar__body${
+              isNotesWorkspace ? " app-sidebar__body--notes" : ""
+            }`}
           >
-            <ul className="app-sidebar__list">
-              {appNavigationItems.map((item) => {
-                const isActiveNavigationLink = activeItem.to === item.to;
+            {isNotesWorkspace ? (
+              <NotesSidebarContent onSelectNote={handleSidebarLinkClick} />
+            ) : null}
 
-                return (
-                  <li key={item.to}>
-                    <Link
-                      activeProps={{
-                        className: "app-sidebar__link app-sidebar__link-active",
-                      }}
-                      className="app-sidebar__link"
-                      onClick={handleSidebarLinkClick}
-                      ref={
-                        isActiveNavigationLink ? activeNavigationLinkRef : null
-                      }
-                      to={item.to}
-                    >
-                      <span aria-hidden="true" className="app-sidebar__icon">
-                        <NavigationIcon name={item.icon} />
-                      </span>
-                      <span className="app-sidebar__label">{item.label}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
+            <nav
+              aria-label="App sections"
+              className={`app-sidebar__nav${
+                isNotesWorkspace ? " app-sidebar__nav--compact" : ""
+              }`}
+              id={navigationId}
+            >
+              <ul className="app-sidebar__list">
+                {appNavigationItems.map((item) => {
+                  const isActiveNavigationLink = activeItem.to === item.to;
 
-          <div className="app-sidebar__footer">
+                  return (
+                    <li key={item.to}>
+                      <Link
+                        activeProps={{
+                          className:
+                            "app-sidebar__link app-sidebar__link-active",
+                        }}
+                        className="app-sidebar__link"
+                        onClick={handleSidebarLinkClick}
+                        ref={
+                          isActiveNavigationLink ? activeNavigationLinkRef : null
+                        }
+                        to={item.to}
+                      >
+                        <span aria-hidden="true" className="app-sidebar__icon">
+                          <NavigationIcon name={item.icon} />
+                        </span>
+                        <span className="app-sidebar__label">{item.label}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+          </div>
+
+          <footer aria-label="User controls" className="app-sidebar__footer">
             <div className="app-sidebar__avatar" aria-hidden="true">
               {userInitials}
             </div>
@@ -262,7 +271,7 @@ function AppLayout() {
             >
               {isLoggingOut ? "Logging out..." : "Log out"}
             </button>
-          </div>
+          </footer>
         </aside>
 
         <div
@@ -361,6 +370,7 @@ function NotesSidebarContent({
             {notes.map((note) => (
               <li key={note.id}>
                 <button
+                  aria-label={note.title}
                   aria-current={activeNoteId === note.id ? "page" : undefined}
                   className="app-sidebar__workspace-link"
                   onClick={() => {
@@ -370,7 +380,7 @@ function NotesSidebarContent({
                   type="button"
                 >
                   <span>{note.title}</span>
-                  <span className="app-sidebar__workspace-meta">
+                  <span aria-hidden="true" className="app-sidebar__workspace-meta">
                     {formatSidebarNoteDate(note.updatedAt)}
                   </span>
                 </button>
