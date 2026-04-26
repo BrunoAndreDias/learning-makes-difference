@@ -72,6 +72,13 @@ function getActiveNavigationItem(pathname: string) {
   );
 }
 
+function formatSidebarNoteDate(value: string): string {
+  return new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+  }).format(new Date(value));
+}
+
 function AppLayout() {
   const session = Route.useRouteContext({
     select: (context) => context.session,
@@ -354,7 +361,6 @@ function NotesSidebarContent({
             {notes.map((note) => (
               <li key={note.id}>
                 <button
-                  aria-label={note.title}
                   aria-current={activeNoteId === note.id ? "page" : undefined}
                   className="app-sidebar__workspace-link"
                   onClick={() => {
@@ -365,10 +371,7 @@ function NotesSidebarContent({
                 >
                   <span>{note.title}</span>
                   <span className="app-sidebar__workspace-meta">
-                    {new Intl.DateTimeFormat("en", {
-                      day: "numeric",
-                      month: "short",
-                    }).format(new Date(note.updatedAt))}
+                    {formatSidebarNoteDate(note.updatedAt)}
                   </span>
                 </button>
               </li>

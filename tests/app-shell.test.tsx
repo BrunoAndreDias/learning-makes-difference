@@ -517,10 +517,9 @@ describe("authenticated app shell", () => {
     expect(
       within(sidebar).getByRole("button", { name: "New note" }),
     ).toBeInTheDocument();
-    expect(notesLinks.map((link) => link.getAttribute("aria-label"))).toEqual([
-      "Neural pathways",
-      "Second note",
-    ]);
+    expect(notesLinks).toHaveLength(2);
+    expect(notesLinks[0]).toHaveTextContent("Neural pathways");
+    expect(notesLinks[1]).toHaveTextContent("Second note");
     expect(notesLinks[0]).toHaveAttribute("aria-current", "page");
     const shellHeader = screen.getByLabelText("Notes workspace toolbar");
 
@@ -815,10 +814,10 @@ describe("authenticated app shell", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      notesList.getByRole("button", { name: "Working memory" }),
+      notesList.getByRole("button", { name: /Working memory/ }),
     ).toBeInTheDocument();
     expect(
-      notesList.getByRole("button", { name: "Synaptic plasticity" }),
+      notesList.getByRole("button", { name: /Synaptic plasticity/ }),
     ).toBeInTheDocument();
     expect(
       screen.getByDisplayValue("Short-term storage supports active reasoning."),
@@ -844,7 +843,7 @@ describe("authenticated app shell", () => {
 
     expect(screen.getByText("No notes found")).toBeInTheDocument();
     expect(
-      notesList.getByRole("button", { name: "Working memory" }),
+      notesList.getByRole("button", { name: /Working memory/ }),
     ).toBeInTheDocument();
     expect(
       screen.getByDisplayValue("Short-term storage supports active reasoning."),
