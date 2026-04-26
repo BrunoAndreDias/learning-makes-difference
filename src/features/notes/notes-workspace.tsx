@@ -9,7 +9,7 @@ import {
 
 import {
   cancelRecallSelectionMode,
-  completeRecallSelection,
+  completeRecallSelection as completeRecallSelectionState,
   createInitialRecallSelectionState,
   enterRecallSelectionMode,
   type RecallSelectionState,
@@ -107,11 +107,11 @@ export function NotesWorkspaceProvider({
   }, []);
 
   const finishRecallSelection = useCallback(() => {
-    const { noteIds, state } = completeRecallSelection(recallSelection);
+    const result = completeRecallSelectionState(recallSelection);
 
-    setRecallSelection(state);
+    setRecallSelection(result.state);
 
-    return noteIds;
+    return result.noteIds;
   }, [recallSelection]);
 
   const value: NotesWorkspaceContextValue = {
