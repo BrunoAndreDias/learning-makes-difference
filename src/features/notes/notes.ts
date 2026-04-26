@@ -194,13 +194,7 @@ function validateTitle(title: string): string {
 }
 
 function validateBody(body: string): string {
-  const trimmedValue = body.trim();
-
-  if (trimmedValue.length === 0) {
-    throw new AppNotesError("invalid_input", "Body is required.");
-  }
-
-  return trimmedValue;
+  return body.trim();
 }
 
 function validateLabelIds(

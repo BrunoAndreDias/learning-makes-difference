@@ -401,11 +401,11 @@ function NotesSidebarContent({
     <section className="app-sidebar__workspace" aria-label="Notes sidebar">
       <div className="app-sidebar__workspace-header">
         <div>
-          <p className="eyebrow">Notes workspace</p>
           <h3>All notes</h3>
         </div>
         <button
           className="notes-action notes-action-primary"
+          disabled={activeNoteId === null}
           onClick={() => handleSidebarAction(requestNewNote)}
           type="button"
         >

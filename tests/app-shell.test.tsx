@@ -878,6 +878,14 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "Notes workspace" }),
     ).toBeInTheDocument();
     expect(screen.getByText("No notes yet")).toBeInTheDocument();
+    expect(screen.getByLabelText("Title").closest("header")).toContainElement(
+      screen.getByRole("button", { name: "Create note" }),
+    );
+    expect(
+      within(
+        screen.getByRole("complementary", { name: "App sidebar" }),
+      ).getByRole("button", { name: "New note" }),
+    ).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "Spaced repetition" },

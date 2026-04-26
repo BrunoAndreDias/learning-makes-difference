@@ -791,13 +791,13 @@ function NotesWorkspace() {
                 {selectedNoteUpdatedLabel}
               </p>
             </div>
-            {!isCreating && hasUnsavedChanges ? (
+            {isCreating || hasUnsavedChanges ? (
               <button
                 className="notes-action notes-action-primary"
                 form={noteEditorFormId}
                 type="submit"
               >
-                Save changes
+                {isCreating ? "Create note" : "Save changes"}
               </button>
             ) : null}
           </header>
@@ -1087,17 +1087,6 @@ function NotesWorkspace() {
                   {errorMessage}
                 </p>
               )}
-
-              {isCreating ? (
-                <div className="notes-editor__actions">
-                  <button
-                    className="notes-action notes-action-primary"
-                    type="submit"
-                  >
-                    Create note
-                  </button>
-                </div>
-              ) : null}
             </aside>
           </form>
         </article>
