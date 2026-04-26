@@ -7,6 +7,7 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import {
+  type KeyboardEvent,
   useEffect,
   useId,
   useRef,
@@ -93,8 +94,6 @@ function AppLayout() {
   const mobileToggleLabel = isMobileSidebarOpen
     ? "Close navigation menu"
     : "Open navigation menu";
-  const userInitials =
-    sessionSnapshot.user?.displayName.slice(0, 2).toUpperCase() ?? "LM";
 
   function closeMobileSidebar(shouldRestoreFocus = false) {
     setShouldRestoreMobileToggleFocus(shouldRestoreFocus);
@@ -104,10 +103,6 @@ function AppLayout() {
   function toggleMobileSidebar() {
     setShouldRestoreMobileToggleFocus(false);
     setMobileSidebarOpen((value) => !value);
-  }
-
-  function handleSidebarLinkClick() {
-    closeMobileSidebar();
   }
 
   function handleMobileSidebarAction() {
@@ -170,28 +165,11 @@ function AppLayout() {
           tabIndex={-1}
         >
           <div className="app-sidebar__header">
-            <Link
-              aria-label="Learning Makes Difference home"
-              className="brand-lockup app-sidebar__brand"
-              onClick={handleSidebarLinkClick}
-              to="/notes"
-            >
-              <img
-                alt="Learning Makes Difference"
-                className="app-sidebar__logo"
-                height="56"
-                src={appLogo}
-                width="56"
-              />
-              <span className="app-sidebar__brand-copy">
-                <span className="app-sidebar__product">
-                  Learning Makes Difference
-                </span>
-                <span className="app-sidebar__context">
-                  Authenticated workspace
-                </span>
-              </span>
-            </Link>
+            <AccountMenu
+              isLoggingOut={isLoggingOut}
+              onLogout={() => void handleLogout()}
+              sessionSnapshot={sessionSnapshot}
+            />
 
             <button
               aria-controls={navigationId}
@@ -255,63 +233,123 @@ function AppLayout() {
             <Outlet />
           </div>
         </div>
-
-        <AccountDock
-          isLoggingOut={isLoggingOut}
-          onLogout={() => void handleLogout()}
-          sessionSnapshot={sessionSnapshot}
-          userInitials={userInitials}
-        />
       </section>
     </NotesWorkspaceProvider>
   );
 }
 
-function AccountDock({
+function AccountMenu({
   isLoggingOut,
   onLogout,
   sessionSnapshot,
-  userInitials,
 }: Readonly<{
   isLoggingOut: boolean;
   onLogout: () => void;
   sessionSnapshot: AppSessionSnapshot;
-  userInitials: string;
 }>) {
+  const accountMenuId = useId();
+  const [isAccountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
+  const displayName = sessionSnapshot.user?.displayName ?? "Unknown user";
+  const email = sessionSnapshot.user?.email ?? "No email available";
+
+  useEffect(() => {
+    if (!isAccountMenuOpen) {
+      return;
+    }
+
+    function handleDocumentMouseDown(event: MouseEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (accountMenuRef.current?.contains(target)) {
+        return;
+      }
+
+      setAccountMenuOpen(false);
+    }
+
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentMouseDown);
+    };
+  }, [isAccountMenuOpen]);
+
+  function closeAccountMenu() {
+    setAccountMenuOpen(false);
+  }
+
+  function handleAccountMenuKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeAccountMenu();
+    }
+  }
+
   return (
-    <footer
-      aria-label="Account Dock"
-      className="account-dock"
-      role="contentinfo"
-    >
-      <div className="app-sidebar__avatar" aria-hidden="true">
-        {userInitials}
-      </div>
-      <div className="app-sidebar__profile">
-        <strong>{sessionSnapshot.user?.displayName ?? "Unknown user"}</strong>
-        <span>{sessionSnapshot.user?.email ?? "No email available"}</span>
-      </div>
-      <Link
-        activeProps={{
-          className: "account-dock__link account-dock__link-active",
-        }}
-        className="account-dock__link"
-        to="/settings"
-      >
-        <span aria-hidden="true" className="app-sidebar__icon">
-          <NavigationIcon name="settings" />
-        </span>
-        <span>Settings</span>
-      </Link>
+    <div className="account-menu" ref={accountMenuRef}>
       <button
-        className="account-dock__logout"
-        disabled={isLoggingOut}
-        onClick={onLogout}
+        aria-label={`${displayName} ${email} account menu`}
+        aria-controls={accountMenuId}
+        aria-expanded={isAccountMenuOpen}
+        aria-haspopup="menu"
+        className="account-menu__trigger"
+        onClick={() => setAccountMenuOpen((value) => !value)}
+        onKeyDown={handleAccountMenuKeyDown}
         type="button"
       >
-        {isLoggingOut ? "Logging out..." : "Log out"}
+        <img
+          alt=""
+          aria-hidden="true"
+          className="account-menu__logo"
+          height="56"
+          src={appLogo}
+          width="56"
+        />
+        <span className="app-sidebar__profile">
+          <strong>{displayName}</strong>
+          <span className="sr-only">{email}</span>
+        </span>
+        <AccountMenuChevronIcon />
       </button>
-    </footer>
+      {isAccountMenuOpen ? (
+        <div
+          aria-label="Account options"
+          className="account-menu__popover"
+          id={accountMenuId}
+          onKeyDown={handleAccountMenuKeyDown}
+          role="menu"
+        >
+          <Link
+            activeProps={{
+              className: "account-menu__item account-menu__item-active",
+            }}
+            className="account-menu__item"
+            onClick={closeAccountMenu}
+            role="menuitem"
+            to="/settings"
+          >
+            <span aria-hidden="true" className="app-sidebar__icon">
+              <NavigationIcon name="settings" />
+            </span>
+            <span>Settings</span>
+          </Link>
+          <button
+            className="account-menu__item"
+            disabled={isLoggingOut}
+            onClick={onLogout}
+            role="menuitem"
+            type="button"
+          >
+            {isLoggingOut ? "Logging out..." : "Log out"}
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -440,6 +478,19 @@ function NotesSidebarContent({
         )}
       </nav>
     </section>
+  );
+}
+
+function AccountMenuChevronIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="account-menu__chevron"
+      focusable="false"
+      viewBox="0 0 24 24"
+    >
+      <path d="m7 10 5 5 5-5" />
+    </svg>
   );
 }
 

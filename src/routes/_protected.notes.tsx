@@ -537,6 +537,28 @@ function NotesWorkspace() {
     }
   }
 
+  function handleSearchPointerDown(event: ReactPointerEvent<HTMLFormElement>) {
+    const target = event.target;
+
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    if (target.closest(".notes-search__results")) {
+      return;
+    }
+
+    if (target.closest(".notes-search__icon")) {
+      return;
+    }
+
+    if (target !== searchInputRef.current) {
+      event.preventDefault();
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    }
+  }
+
   function handleUnsavedSearchDialogKeyDown(
     event: KeyboardEvent<HTMLDivElement>,
   ) {
@@ -784,6 +806,7 @@ function NotesWorkspace() {
         <span className="sr-only">{noteCountLabel}</span>
         <form
           className="notes-search"
+          onPointerDown={handleSearchPointerDown}
           onSubmit={handleSearchSubmit}
           ref={searchRootRef}
         >

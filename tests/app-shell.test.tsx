@@ -109,6 +109,10 @@ function renderRoute(
   };
 }
 
+function openAccountMenu() {
+  fireEvent.click(screen.getByRole("button", { name: /account menu/i }));
+}
+
 beforeAll(() => {
   window.scrollTo = vi.fn();
   HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -199,7 +203,8 @@ describe("authenticated app shell", () => {
     expect(screen.getByText("Casey Learner")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/settings");
 
-    fireEvent.click(screen.getByRole("button", { name: "Log out" }));
+    openAccountMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Log out" }));
 
     expect(
       await screen.findByRole("heading", { name: "Welcome back" }),
@@ -281,7 +286,8 @@ describe("authenticated app shell", () => {
     expect(screen.getByLabelText("Interface language")).toHaveValue("pt-BR");
     expect(screen.getByLabelText("Study language")).toHaveValue("es");
 
-    fireEvent.click(screen.getByRole("button", { name: "Log out" }));
+    openAccountMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Log out" }));
 
     expect(
       await screen.findByRole("heading", { name: "Welcome back" }),
@@ -314,20 +320,19 @@ describe("authenticated app shell", () => {
     expect(screen.getByLabelText("Study language")).toHaveValue("es");
   });
 
-  it("renders a Notes Workspace shell with Account Dock utilities instead of product navigation", async () => {
+  it("renders a Notes Workspace shell with an account menu instead of product navigation", async () => {
     renderRoute("/settings");
 
     const sidebar = await screen.findByRole("complementary", {
       name: "Notes workspace",
     });
-    const accountDock = screen.getByRole("contentinfo", {
-      name: "Account Dock",
+    const accountMenuButton = within(sidebar).getByRole("button", {
+      name: /Placeholder user placeholder@example\.com account menu/,
     });
 
     expect(screen.getAllByRole("main")).toHaveLength(1);
-    expect(
-      within(sidebar).getByRole("img", { name: "Learning Makes Difference" }),
-    ).toBeInTheDocument();
+    expect(accountMenuButton).toBeVisible();
+    expect(within(sidebar).queryByText("Learning Makes Difference")).toBeNull();
 
     expect(
       screen.queryByRole("navigation", { name: "App sections" }),
@@ -342,10 +347,14 @@ describe("authenticated app shell", () => {
       screen.queryByRole("link", { name: "History" }),
     ).not.toBeInTheDocument();
 
-    const settingsLink = within(accountDock).getByRole("link", {
+    openAccountMenu();
+    const accountMenu = screen.getByRole("menu", {
+      name: "Account options",
+    });
+    const settingsLink = within(accountMenu).getByRole("menuitem", {
       name: "Settings",
     });
-    const logoutButton = within(accountDock).getByRole("button", {
+    const logoutButton = within(accountMenu).getByRole("menuitem", {
       name: "Log out",
     });
 
@@ -504,7 +513,7 @@ describe("authenticated app shell", () => {
       screen.queryByRole("navigation", { name: "App sections" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("contentinfo", { name: "Account Dock" }),
+      within(sidebar).getByRole("button", { name: /account menu/i }),
     ).toBeInTheDocument();
 
     const retrievalPracticeButton = within(notesList).getByRole("button", {
@@ -786,7 +795,9 @@ describe("authenticated app shell", () => {
     expect(
       screen.queryByRole("navigation", { name: "App sections" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Log out" })).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Log out" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Show notes catalog" }),
     ).not.toBeInTheDocument();
@@ -816,7 +827,7 @@ describe("authenticated app shell", () => {
     ).toHaveAttribute("aria-current", "page");
   });
 
-  it("keeps account utilities in the dock while long notes stay reachable in the notes sidebar", async () => {
+  it("keeps account utilities at the top of the sidebar while long notes stay reachable", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -855,8 +866,8 @@ describe("authenticated app shell", () => {
     const notesList = within(sidebar).getByRole("navigation", {
       name: "Notes list",
     });
-    const accountDock = screen.getByRole("contentinfo", {
-      name: "Account Dock",
+    const accountMenuButton = within(sidebar).getByRole("button", {
+      name: /Jordan Alexandria Review Coordinator .* account menu/,
     });
 
     expect(
@@ -865,19 +876,28 @@ describe("authenticated app shell", () => {
     expect(
       within(notesList).getByRole("button", { name: longTitle }),
     ).toBeInTheDocument();
+    expect(sidebar).toContainElement(accountMenuButton);
     expect(
-      within(accountDock).getByText(/Jordan Alexandria Review/),
+      Boolean(
+        accountMenuButton.compareDocumentPosition(notesList) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ).toBe(true);
+    expect(
+      within(accountMenuButton).getByText(/Jordan Alexandria Review/),
     ).toBeVisible();
     expect(
-      within(accountDock).getByText(
+      within(accountMenuButton).getByText(
         "jordan.alexandria.review.coordinator@example-learning.test",
       ),
     ).toBeVisible();
+    openAccountMenu();
+    const accountMenu = screen.getByRole("menu", { name: "Account options" });
     expect(
-      within(accountDock).getByRole("link", { name: "Settings" }),
+      within(accountMenu).getByRole("menuitem", { name: "Settings" }),
     ).toBeVisible();
     expect(
-      within(accountDock).getByRole("button", { name: "Log out" }),
+      within(accountMenu).getByRole("menuitem", { name: "Log out" }),
     ).toBeVisible();
   });
 
@@ -1271,9 +1291,32 @@ describe("authenticated app shell", () => {
 
     expect(searchInput).toHaveAttribute("autocomplete", "off");
 
+    fireEvent.pointerDown(screen.getByText("Cmd K"));
+    expect(searchInput).toHaveFocus();
+
+    searchInput.blur();
+    fireEvent.pointerDown(searchInput.closest("form") as HTMLFormElement);
+    expect(searchInput).toHaveFocus();
+
     fireEvent.change(searchInput, {
       target: { value: "spaced retrieval cue" },
     });
+
+    searchInput.blur();
+    fireEvent.pointerDown(
+      searchInput
+        .closest("form")
+        ?.querySelector(".notes-search__icon svg") as SVGElement,
+    );
+    expect(searchInput).not.toHaveFocus();
+
+    fireEvent.pointerDown(screen.getByText("Cmd K"));
+    expect(searchInput).toHaveFocus();
+    expect(searchInput).toHaveProperty("selectionStart", 0);
+    expect(searchInput).toHaveProperty(
+      "selectionEnd",
+      "spaced retrieval cue".length,
+    );
 
     const listbox = screen.getByRole("listbox", {
       name: "Notes search results",
@@ -1794,16 +1837,15 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
 
     const workspace = screen.getByLabelText("Notes workspace surface");
-    const accountDock = screen.getByRole("contentinfo", {
-      name: "Account Dock",
-    });
 
     expect(workspace).toHaveAttribute("data-recall-selection-mode", "false");
+    openAccountMenu();
+    const accountMenu = screen.getByRole("menu", { name: "Account options" });
     expect(
-      within(accountDock).getByRole("link", { name: "Settings" }),
+      within(accountMenu).getByRole("menuitem", { name: "Settings" }),
     ).toBeVisible();
     expect(
-      within(accountDock).getByRole("button", { name: "Log out" }),
+      within(accountMenu).getByRole("menuitem", { name: "Log out" }),
     ).toBeVisible();
 
     fireEvent.click(screen.getByRole("button", { name: "Select for recall" }));
@@ -1839,7 +1881,7 @@ describe("authenticated app shell", () => {
       screen.queryByRole("navigation", { name: "App sections" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("contentinfo", { name: "Account Dock" }),
+      screen.getByRole("button", { name: /account menu/i }),
     ).toBeInTheDocument();
 
     const breadcrumb = screen.getByRole("navigation", {
