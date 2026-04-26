@@ -35,27 +35,6 @@ const appNavigationItems = [
     to: "/notes",
   },
   {
-    description: "Shape the label graph and topic organization surfaces.",
-    icon: "label",
-    label: "Labels",
-    shortLabel: "LB",
-    to: "/labels",
-  },
-  {
-    description: "Exercise recall sessions before the real study loop lands.",
-    icon: "recall",
-    label: "Recall",
-    shortLabel: "RC",
-    to: "/recall",
-  },
-  {
-    description: "Reserve space for completed and partial study history.",
-    icon: "history",
-    label: "History",
-    shortLabel: "HS",
-    to: "/history",
-  },
-  {
     description: "Profile and language controls will expand here later.",
     icon: "settings",
     label: "Settings",
@@ -430,8 +409,9 @@ function NotesSidebarContent({
         ) : (
           <ul className="app-sidebar__workspace-list">
             {notes.map((note) => {
-              const isRecallSelected =
-                recallSelection.selectedNoteIds.includes(note.id);
+              const isRecallSelected = recallSelection.selectedNoteIds.includes(
+                note.id,
+              );
 
               return (
                 <li key={note.id}>
@@ -444,9 +424,7 @@ function NotesSidebarContent({
                         : undefined
                     }
                     className="app-sidebar__workspace-link"
-                    data-recall-selected={
-                      isRecallSelected ? "true" : undefined
-                    }
+                    data-recall-selected={isRecallSelected ? "true" : undefined}
                     onClick={() => handleNoteClick(note.id)}
                     ref={activeNoteId === note.id ? activeNoteRef : null}
                     type="button"
@@ -492,29 +470,6 @@ function NavigationIcon({
   name,
 }: Readonly<{ name: (typeof appNavigationItems)[number]["icon"] }>) {
   switch (name) {
-    case "label":
-      return (
-        <svg aria-hidden="true" viewBox="0 0 24 24">
-          <path d="M4 12V5h7l9 9-7 7-9-9Z" />
-          <path d="M8 8h.01" />
-        </svg>
-      );
-    case "recall":
-      return (
-        <svg aria-hidden="true" viewBox="0 0 24 24">
-          <path d="M12 5a7 7 0 1 1-6.4 4.2" />
-          <path d="M5 5v4h4" />
-          <path d="M12 9v4l3 2" />
-        </svg>
-      );
-    case "history":
-      return (
-        <svg aria-hidden="true" viewBox="0 0 24 24">
-          <path d="M12 8v5l3 2" />
-          <path d="M5 5v4h4" />
-          <path d="M5.6 9A7 7 0 1 1 5 12" />
-        </svg>
-      );
     case "settings":
       return (
         <svg aria-hidden="true" viewBox="0 0 24 24">

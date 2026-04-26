@@ -18,7 +18,6 @@ export function getRouter() {
       labels,
       notes,
       recall: createAppRecallContext({
-        labels,
         notes,
       }),
       session: createAppSessionContext(),
