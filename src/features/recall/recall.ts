@@ -100,6 +100,17 @@ type CreateAppRecallContextOptions = {
   storage?: RecallStorageAdapter;
 };
 
+type ResolveFlashCardSessionTargetOptions = {
+  labels: AppLabelsContext;
+  notes: AppNotesContext;
+};
+
+type FlashCardSessionTarget = {
+  labelId: string | null;
+  labelName: string;
+  notes: FlashCardRecallNote[];
+};
+
 export class AppRecallError extends Error {
   readonly code: "invalid_input" | "not_found";
 
@@ -296,7 +307,7 @@ function defaultShuffleNotes(
   return shuffledNotes;
 }
 
-function cloneRecallNote(note: FlashCardRecallNote): FlashCardRecallNote {
+function cloneFlashCardRecallNote(note: FlashCardRecallNote): FlashCardRecallNote {
   return {
     ...note,
     acronyms: note.acronyms.map((acronym) => ({ ...acronym })),
@@ -305,10 +316,10 @@ function cloneRecallNote(note: FlashCardRecallNote): FlashCardRecallNote {
   };
 }
 
-function snapshotRecallNotes(
+function cloneFlashCardRecallNotes(
   notes: readonly FlashCardRecallNote[],
 ): FlashCardRecallNote[] {
-  return notes.map(cloneRecallNote);
+  return notes.map(cloneFlashCardRecallNote);
 }
 
 function getLabelNameForUser(
@@ -404,7 +415,35 @@ export function resolveRecallableNotesFromSelection(input: {
     return note;
   });
 
-  return snapshotRecallNotes(recallableNotes);
+  return cloneFlashCardRecallNotes(recallableNotes);
+}
+
+function resolveFlashCardSessionTarget(
+  input: StartFlashCardSessionInput,
+  options: ResolveFlashCardSessionTargetOptions,
+): FlashCardSessionTarget {
+  if (input.noteIds !== undefined) {
+    return {
+      labelId: null,
+      labelName: "Selected notes",
+      notes: resolveRecallableNotesFromSelection({
+        noteIds: input.noteIds,
+        notes: options.notes,
+        userId: input.userId,
+      }),
+    };
+  }
+
+  return {
+    labelId: input.labelId,
+    labelName: getLabelNameForUser(options.labels, input.labelId, input.userId),
+    notes: resolveRecallableNotesFromLabel({
+      labelId: input.labelId,
+      labels: options.labels,
+      notes: options.notes,
+      userId: input.userId,
+    }),
+  };
 }
 
 export function createAppRecallContext(
@@ -471,12 +510,7 @@ export function createAppRecallContext(
       labelId: session.labelId,
       labelName: session.labelName,
       mode: session.mode,
-      notes: session.notes.map((note) => ({
-        ...note,
-        acronyms: [...note.acronyms],
-        labelIds: [...note.labelIds],
-        metaphors: note.metaphors.map((metaphor) => ({ ...metaphor })),
-      })),
+      notes: cloneFlashCardRecallNotes(session.notes),
       userId: session.userId,
     };
   }
@@ -596,33 +630,10 @@ export function createAppRecallContext(
       return nextSession;
     },
     startFlashCardSession: (input) => {
-      const target =
-        input.noteIds !== undefined
-          ? {
-              labelId: null,
-              labelName: "Selected notes",
-              notes: resolveRecallableNotesFromSelection({
-                noteIds: input.noteIds,
-                notes: options.notes,
-                userId: input.userId,
-              }),
-            }
-          : {
-              labelId: input.labelId,
-              labelName: getLabelNameForUser(
-                options.labels,
-                input.labelId,
-                input.userId,
-              ),
-              notes: snapshotRecallNotes(
-                resolveRecallableNotesFromLabel({
-                  labelId: input.labelId,
-                  labels: options.labels,
-                  notes: options.notes,
-                  userId: input.userId,
-                }),
-              ),
-            };
+      const target = resolveFlashCardSessionTarget(input, {
+        labels: options.labels,
+        notes: options.notes,
+      });
 
       if (target.notes.length === 0) {
         throw new AppRecallError(
@@ -642,7 +653,7 @@ export function createAppRecallContext(
         labelId: target.labelId,
         labelName: target.labelName,
         mode: "FlashCard",
-        notes: snapshotRecallNotes(shuffleNotes(target.notes)),
+        notes: cloneFlashCardRecallNotes(shuffleNotes(target.notes)),
         userId: input.userId,
       };
 
