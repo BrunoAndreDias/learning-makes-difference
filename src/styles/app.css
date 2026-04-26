@@ -56,6 +56,31 @@ h3 {
   color: var(--color-content-muted);
 }
 
+.workspace-breadcrumb {
+  color: var(--color-content-muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.workspace-breadcrumb ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.workspace-breadcrumb a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.workspace-breadcrumb a:hover {
+  color: var(--color-content-strong);
+}
+
 .nav-list,
 .cluster {
   display: flex;

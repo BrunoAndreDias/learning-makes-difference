@@ -307,7 +307,9 @@ function defaultShuffleNotes(
   return shuffledNotes;
 }
 
-function cloneFlashCardRecallNote(note: FlashCardRecallNote): FlashCardRecallNote {
+function cloneFlashCardRecallNote(
+  note: FlashCardRecallNote,
+): FlashCardRecallNote {
   return {
     ...note,
     acronyms: note.acronyms.map((acronym) => ({ ...acronym })),
@@ -415,7 +417,7 @@ export function resolveRecallableNotesFromSelection(input: {
     return note;
   });
 
-  return cloneFlashCardRecallNotes(recallableNotes);
+  return recallableNotes;
 }
 
 function resolveFlashCardSessionTarget(

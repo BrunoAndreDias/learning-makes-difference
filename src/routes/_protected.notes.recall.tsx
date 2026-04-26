@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 import {
@@ -120,7 +120,15 @@ function NotesRecallSessionPage() {
   return (
     <section className="recall-page">
       <article className="card stack">
-        <p className="section-label">Notes / Recall</p>
+        <nav aria-label="Workspace breadcrumb" className="workspace-breadcrumb">
+          <ol>
+            <li>
+              <Link to="/notes">Notes</Link>
+            </li>
+            <li aria-hidden="true">/</li>
+            <li aria-current="page">Recall</li>
+          </ol>
+        </nav>
         <h3>FlashCard session</h3>
         <div className="tag-row">
           <span className="tag">{`${activeSession.notes.length} notes in play`}</span>

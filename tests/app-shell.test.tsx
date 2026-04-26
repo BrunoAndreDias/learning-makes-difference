@@ -1836,6 +1836,91 @@ describe("authenticated app shell", () => {
     });
   });
 
+  it("shows a structural Notes / Recall breadcrumb for an active notes recall session", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const recallContext = createAppRecallContext({
+      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+      labels: labelsContext,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+    const note = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Progress belongs inside the session view.",
+      labelIds: [],
+      metaphors: [],
+      title: "Breadcrumb recall",
+    });
+
+    recallContext.startFlashCardSession({
+      noteIds: [note.id],
+      userId,
+    });
+
+    renderRoute("/notes/recall", {
+      labelsContext,
+      notesContext,
+      recallContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "FlashCard session" }),
+    ).toBeInTheDocument();
+
+    const breadcrumb = screen.getByRole("navigation", {
+      name: "Workspace breadcrumb",
+    });
+
+    expect(
+      within(breadcrumb).getByRole("link", { name: "Notes" }),
+    ).toHaveAttribute("href", "/notes");
+    expect(within(breadcrumb).getByText("Recall")).toBeInTheDocument();
+    expect(
+      within(breadcrumb).queryByText("Completed 0 of 1 questions"),
+    ).toBeNull();
+    expect(screen.getByText("Completed 0 of 1 questions")).toBeInTheDocument();
+  });
+
+  it("redirects direct notes recall visits without an active session back to notes", async () => {
+    const { router } = renderRoute("/notes/recall", {
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/notes");
+    expect(
+      screen.queryByRole("heading", { name: "FlashCard session" }),
+    ).toBeNull();
+  });
+
   it("returns to notes and discards a zero-attempt single-note session", async () => {
     const labelsContext = createAppLabelsContext({
       keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
