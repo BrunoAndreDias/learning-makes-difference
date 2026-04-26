@@ -10,12 +10,18 @@
   --color-content-default: #314158;
   --color-content-muted: #66758f;
   --color-content-border: #d7deea;
-  --shadow-card: 0 18px 40px rgba(20, 32, 51, 0.08);
-  --shadow-chrome: 0 8px 30px rgba(20, 32, 51, 0.06);
+  --color-content-border-soft: #e6ebf3;
+  --color-accent-success: #2f855a;
+  --color-accent-warning: #b7791f;
+  --shadow-card:
+    0 1px 0 rgba(20, 32, 51, 0.04), 0 12px 32px -16px rgba(20, 32, 51, 0.18);
+  --shadow-chrome:
+    0 1px 0 rgba(20, 32, 51, 0.03), 0 8px 24px -18px rgba(20, 32, 51, 0.16);
+  --shadow-pop: 0 24px 60px -24px rgba(20, 32, 51, 0.32);
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
-  --radius-xl: 1.5rem;
+  --radius-xl: 1.25rem;
   --radius-pill: 999px;
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -25,9 +31,11 @@
   --space-6: 2rem;
   --space-7: 3rem;
   --space-8: 4rem;
-  --font-heading: "Sora", "Avenir Next", "Trebuchet MS", sans-serif;
-  --font-body: "Manrope", "Segoe UI", sans-serif;
+  --font-heading: "Sora", "Inter", "Avenir Next", system-ui, sans-serif;
+  --font-body: "Inter", "Manrope", "Segoe UI", system-ui, sans-serif;
   --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.35);
+  --motion-fast: 120ms cubic-bezier(0.2, 0, 0, 1);
+  --motion-base: 180ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 * {
@@ -38,13 +46,30 @@ html {
   font-size: 16px;
   line-height: 1.5;
   -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
-  background: linear-gradient(180deg, #f7f4ea 0%, #f2f6ff 100%);
+  background: var(--color-shell-canvas);
+  background-image:
+    radial-gradient(
+      1100px 520px at 12% -10%,
+      rgba(37, 99, 235, 0.06),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 480px at 110% 0%,
+      rgba(20, 32, 51, 0.04),
+      transparent 60%
+    );
+  background-attachment: fixed;
   color: var(--color-content-default);
   font-family: var(--font-body);
+  font-feature-settings: "ss01", "cv11", "calt";
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
@@ -58,16 +83,70 @@ input,
 textarea,
 select {
   font: inherit;
+  color: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
 }
 
 a {
   color: inherit;
 }
 
+p {
+  text-wrap: pretty;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  text-wrap: balance;
+}
+
+::selection {
+  background: rgba(37, 99, 235, 0.18);
+  color: var(--color-content-strong);
+}
+
 :focus-visible {
-  outline: 3px solid var(--color-brand-primary);
-  outline-offset: 3px;
-  box-shadow: var(--focus-ring);
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(20, 32, 51, 0.18) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(20, 32, 51, 0.16);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(20, 32, 51, 0.28);
+  background-clip: padding-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .app-shell {
@@ -84,21 +163,20 @@ a {
 }
 
 .shell-panel {
-  background: rgba(255, 253, 250, 0.82);
-  border: 1px solid rgba(215, 222, 234, 0.9);
+  background: var(--color-shell-panel);
+  border: 1px solid var(--color-content-border-soft);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-chrome);
-  backdrop-filter: blur(10px);
 }
 
 .brand-lockup {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   color: var(--color-content-strong);
   font-family: var(--font-heading);
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.025em;
 }
 
 .dense-grid {
@@ -109,13 +187,14 @@ a {
 .tag {
   display: inline-flex;
   align-items: center;
-  min-height: 2rem;
-  padding-inline: 0.75rem;
+  min-height: 1.75rem;
+  padding-inline: 0.625rem;
   border-radius: var(--radius-pill);
   background: var(--color-brand-primary-soft);
   color: var(--color-brand-primary-hover);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
+  letter-spacing: -0.005em;
 }
 
 @media (min-width: 72rem) {
