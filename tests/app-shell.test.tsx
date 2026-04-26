@@ -1836,6 +1836,162 @@ describe("authenticated app shell", () => {
     });
   });
 
+  it("selects owning notes from recall search matches across note text and memory aids", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const recallContext = createAppRecallContext({
+      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+      labels: labelsContext,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+
+    const titleNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "The title carries this selection cue.",
+      labelIds: [],
+      metaphors: [],
+      title: "Encoding specificity",
+    });
+    const bodyNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "A distinctive body cue should be searchable for recall.",
+      labelIds: [],
+      metaphors: [],
+      title: "Retrieval cues",
+    });
+    const metaphorNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Visual aids support concept recall.",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation: "The lighthouse beam points back to the safe harbor.",
+          title: "Lighthouse harbor",
+        },
+      ],
+      title: "Context reinstatement",
+    });
+    const acronymNote = notesContext.createNote(userId, {
+      acronyms: [
+        {
+          expansion: "Plan Organize Monitor Evaluate",
+          shortForm: "POME",
+        },
+      ],
+      body: "Acronyms can carry a recall selection cue.",
+      labelIds: [],
+      metaphors: [],
+      title: "Metacognition",
+    });
+
+    const { router } = renderRoute("/notes", {
+      labelsContext,
+      notesContext,
+      recallContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Select for recall" }));
+
+    const searchInput = screen.getByRole("combobox", {
+      name: "Search notes",
+    });
+    const recallControls = within(
+      screen.getByLabelText("Recall selection controls"),
+    );
+
+    fireEvent.change(searchInput, {
+      target: { value: "encoding specificity" },
+    });
+    fireEvent.click(
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "option",
+        { name: /Encoding specificity Title/ },
+      ),
+    );
+    expect(recallControls.getByText("1 note selected")).toBeInTheDocument();
+
+    fireEvent.change(searchInput, {
+      target: { value: "distinctive body cue" },
+    });
+    fireEvent.click(
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "option",
+        { name: /Retrieval cues Body/ },
+      ),
+    );
+    expect(recallControls.getByText("2 notes selected")).toBeInTheDocument();
+
+    fireEvent.change(searchInput, {
+      target: { value: "safe harbor" },
+    });
+    fireEvent.click(
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "option",
+        { name: /Context reinstatement Metaphor/ },
+      ),
+    );
+    expect(recallControls.getByText("3 notes selected")).toBeInTheDocument();
+
+    fireEvent.change(searchInput, {
+      target: { value: "plan organize monitor" },
+    });
+    fireEvent.click(
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "option",
+        { name: /Metacognition Acronym/ },
+      ),
+    );
+    expect(recallControls.getByText("4 notes selected")).toBeInTheDocument();
+
+    fireEvent.change(searchInput, {
+      target: { value: "lighthouse harbor" },
+    });
+    fireEvent.click(
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "option",
+        { name: /Context reinstatement Metaphor/ },
+      ),
+    );
+    expect(recallControls.getByText("3 notes selected")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
+
+    expect(router.state.location.pathname).toBe("/notes/recall");
+    expect(recallContext.getSnapshot()).toMatchObject({
+      labelId: null,
+      notes: [
+        { id: titleNote.id, title: "Encoding specificity" },
+        { id: bodyNote.id, title: "Retrieval cues" },
+        { id: acronymNote.id, title: "Metacognition" },
+      ],
+    });
+    expect(recallContext.getSnapshot()?.notes).not.toEqual(
+      expect.arrayContaining([{ id: metaphorNote.id }]),
+    );
+  });
+
   it("shows a structural Notes / Recall breadcrumb for an active notes recall session", async () => {
     const labelsContext = createAppLabelsContext({
       keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
