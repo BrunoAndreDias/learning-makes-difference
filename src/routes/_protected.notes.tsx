@@ -1,4 +1,9 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from "@tanstack/react-router";
 import {
   type CSSProperties,
   type FormEvent,
@@ -76,6 +81,7 @@ function getSearchResultLabel(result: AppNoteSearchResult): string {
 }
 
 function NotesWorkspace() {
+  const location = useLocation();
   const notesContext = Route.useRouteContext({
     select: (context) => context.notes,
   });
@@ -653,6 +659,7 @@ function NotesWorkspace() {
     selectedLabels.length === 1 ? "label" : "labels"
   }`;
   const workspaceModeLabel = isCreating ? "Draft mode" : "Editing note";
+  const isRecallSessionRoute = location.pathname === "/notes/recall";
   const hasUnsavedChanges = isNoteEditorDirty(noteEditor);
   const selectedNoteUpdatedLabel =
     selectedNote === null
@@ -738,6 +745,10 @@ function NotesWorkspace() {
         </div>
       );
     }
+  }
+
+  if (isRecallSessionRoute) {
+    return <Outlet />;
   }
 
   return (
