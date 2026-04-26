@@ -429,36 +429,39 @@ function NotesSidebarContent({
           <p className="muted">No notes yet</p>
         ) : (
           <ul className="app-sidebar__workspace-list">
-            {notes.map((note) => (
-              <li key={note.id}>
-                <button
-                  aria-label={note.title}
-                  aria-current={activeNoteId === note.id ? "page" : undefined}
-                  aria-pressed={
-                    recallSelection.isSelectingForRecall
-                      ? recallSelection.selectedNoteIds.includes(note.id)
-                      : undefined
-                  }
-                  className="app-sidebar__workspace-link"
-                  data-recall-selected={
-                    recallSelection.selectedNoteIds.includes(note.id)
-                      ? "true"
-                      : undefined
-                  }
-                  onClick={() => handleNoteClick(note.id)}
-                  ref={activeNoteId === note.id ? activeNoteRef : null}
-                  type="button"
-                >
-                  <span>{note.title}</span>
-                  <span
-                    aria-hidden="true"
-                    className="app-sidebar__workspace-meta"
+            {notes.map((note) => {
+              const isRecallSelected =
+                recallSelection.selectedNoteIds.includes(note.id);
+
+              return (
+                <li key={note.id}>
+                  <button
+                    aria-label={note.title}
+                    aria-current={activeNoteId === note.id ? "page" : undefined}
+                    aria-pressed={
+                      recallSelection.isSelectingForRecall
+                        ? isRecallSelected
+                        : undefined
+                    }
+                    className="app-sidebar__workspace-link"
+                    data-recall-selected={
+                      isRecallSelected ? "true" : undefined
+                    }
+                    onClick={() => handleNoteClick(note.id)}
+                    ref={activeNoteId === note.id ? activeNoteRef : null}
+                    type="button"
                   >
-                    {formatSidebarNoteDate(note.updatedAt)}
-                  </span>
-                </button>
-              </li>
-            ))}
+                    <span>{note.title}</span>
+                    <span
+                      aria-hidden="true"
+                      className="app-sidebar__workspace-meta"
+                    >
+                      {formatSidebarNoteDate(note.updatedAt)}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </nav>

@@ -646,12 +646,13 @@ function NotesWorkspace() {
     }
 
     try {
-      const noteIds = completeRecallSelection();
+      const noteIds = [...recallSelection.selectedNoteIds];
 
       recallContext.startFlashCardSession({
         noteIds,
         userId,
       });
+      completeRecallSelection();
       setErrorMessage(null);
       await navigate({ to: "/notes/recall" });
     } catch (error) {
