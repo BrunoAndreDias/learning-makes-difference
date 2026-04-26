@@ -315,14 +315,14 @@ describe("authenticated app shell", () => {
     expect(screen.getByLabelText("Study language")).toHaveValue("es");
   });
 
-  it("renders the shell landmarks, supports sidebar states, and navigates across protected placeholders", async () => {
+  it("renders a Notes Workspace shell with Account Dock utilities instead of product navigation", async () => {
     renderRoute("/settings");
 
     const sidebar = await screen.findByRole("complementary", {
-      name: "App sidebar",
+      name: "Notes workspace",
     });
-    const navigation = within(sidebar).getByRole("navigation", {
-      name: "App sections",
+    const accountDock = screen.getByRole("contentinfo", {
+      name: "Account Dock",
     });
 
     expect(screen.getAllByRole("main")).toHaveLength(1);
@@ -330,42 +330,30 @@ describe("authenticated app shell", () => {
       within(sidebar).getByRole("img", { name: "Learning Makes Difference" }),
     ).toBeInTheDocument();
 
-    const notesLink = within(navigation).getByRole("link", {
-      name: "Notes",
-    });
-    const labelsLink = within(navigation).getByRole("link", {
-      name: "Labels",
-    });
-    const recallLink = within(navigation).getByRole("link", {
-      name: "Recall",
-    });
-    const historyLink = within(navigation).getByRole("link", {
-      name: "History",
-    });
-    const settingsLink = within(navigation).getByRole("link", {
+    expect(
+      screen.queryByRole("navigation", { name: "App sections" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Labels" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Recall" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "History" }),
+    ).not.toBeInTheDocument();
+
+    const settingsLink = within(accountDock).getByRole("link", {
       name: "Settings",
     });
+    const logoutButton = within(accountDock).getByRole("button", {
+      name: "Log out",
+    });
 
-    expect(notesLink).toHaveAttribute("href", "/notes");
-    expect(labelsLink).toHaveAttribute("href", "/labels");
-    expect(recallLink).toHaveAttribute("href", "/recall");
-    expect(historyLink).toHaveAttribute("href", "/history");
+    expect(settingsLink).toHaveAttribute("href", "/settings");
     expect(settingsLink).toHaveAttribute("aria-current", "page");
+    expect(logoutButton).toBeVisible();
     expect(sidebar).toHaveAttribute("data-sidebar-state", "expanded");
-
-    fireEvent.click(labelsLink);
-
-    expect(
-      await screen.findByRole("heading", { name: "Labels" }),
-    ).toBeInTheDocument();
-    expect(labelsLink).toHaveAttribute("aria-current", "page");
-
-    fireEvent.click(recallLink);
-
-    expect(
-      await screen.findByRole("heading", { name: "Start a recall session" }),
-    ).toBeInTheDocument();
-    expect(recallLink).toHaveAttribute("aria-current", "page");
 
     fireEvent.click(
       within(sidebar).getByRole("button", { name: "Collapse sidebar" }),
@@ -382,10 +370,10 @@ describe("authenticated app shell", () => {
     });
     const shellHeading = screen.getByRole("heading", {
       level: 2,
-      name: "Recall",
+      name: "Settings",
     });
 
-    expect(headerSidebarToggle).toHaveAttribute("aria-controls", navigation.id);
+    expect(headerSidebarToggle).toHaveAttribute("aria-controls", sidebar.id);
     expect(headerSidebarToggle).toHaveTextContent("");
     expect(
       headerSidebarToggle.compareDocumentPosition(shellHeading) &
@@ -444,9 +432,11 @@ describe("authenticated app shell", () => {
 
     fireEvent.click(mobileToggle);
 
-    const notesLink = await screen.findByRole("link", { name: "Notes" });
+    const sidebar = await screen.findByRole("complementary", {
+      name: "Notes workspace",
+    });
 
-    expect(notesLink).toHaveFocus();
+    expect(sidebar).toHaveFocus();
 
     fireEvent.click(
       screen.getByRole("button", { name: "Close navigation menu" }),
@@ -498,7 +488,7 @@ describe("authenticated app shell", () => {
       name: "Open navigation menu",
     });
     const sidebar = screen.getByRole("complementary", {
-      name: "App sidebar",
+      name: "Notes workspace",
     });
 
     fireEvent.click(mobileToggle);
@@ -512,10 +502,10 @@ describe("authenticated app shell", () => {
       within(sidebar).getByRole("button", { name: "New note" }),
     ).toBeInTheDocument();
     expect(
-      within(sidebar).getByRole("navigation", { name: "App sections" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("navigation", { name: "App sections" }),
+    ).not.toBeInTheDocument();
     expect(
-      within(sidebar).getByRole("contentinfo", { name: "User controls" }),
+      screen.getByRole("contentinfo", { name: "Account Dock" }),
     ).toBeInTheDocument();
 
     const retrievalPracticeButton = within(notesList).getByRole("button", {
@@ -572,7 +562,7 @@ describe("authenticated app shell", () => {
       "Current note has work in progress.",
     );
     const sidebar = screen.getByRole("complementary", {
-      name: "App sidebar",
+      name: "Notes workspace",
     });
     const notesList = within(sidebar).getByRole("navigation", {
       name: "Notes list",
@@ -654,7 +644,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
 
     const sidebar = screen.getByRole("complementary", {
-      name: "App sidebar",
+      name: "Notes workspace",
     });
     const notesNavigation = within(sidebar).getByRole("navigation", {
       name: "Notes list",
@@ -720,7 +710,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
 
     const sidebar = screen.getByRole("complementary", {
-      name: "App sidebar",
+      name: "Notes workspace",
     });
     const notesList = within(sidebar).getByRole("navigation", {
       name: "Notes list",
@@ -751,9 +741,7 @@ describe("authenticated app shell", () => {
     expect(
       screen.queryByRole("navigation", { name: "App sections" }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Log out" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Log out" })).toBeVisible();
     expect(
       screen.queryByRole("button", { name: "Show notes catalog" }),
     ).not.toBeInTheDocument();
@@ -783,7 +771,7 @@ describe("authenticated app shell", () => {
     ).toHaveAttribute("aria-current", "page");
   });
 
-  it("keeps compact app sections and user controls below the notes list in the notes sidebar", async () => {
+  it("keeps account utilities in the dock while long notes stay reachable in the notes sidebar", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -817,41 +805,34 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
 
     const sidebar = screen.getByRole("complementary", {
-      name: "App sidebar",
+      name: "Notes workspace",
     });
     const notesList = within(sidebar).getByRole("navigation", {
       name: "Notes list",
     });
-    const appSections = within(sidebar).getByRole("navigation", {
-      name: "App sections",
+    const accountDock = screen.getByRole("contentinfo", {
+      name: "Account Dock",
     });
-    const userControls = within(sidebar).getByRole("contentinfo", {
-      name: "User controls",
-    });
-    const notesLink = within(appSections).getByRole("link", { name: "Notes" });
 
     expect(
-      notesList.compareDocumentPosition(appSections) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      appSections.compareDocumentPosition(userControls) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(notesLink).toHaveAttribute("aria-current", "page");
+      screen.queryByRole("navigation", { name: "App sections" }),
+    ).not.toBeInTheDocument();
     expect(
       within(notesList).getByRole("button", { name: longTitle }),
     ).toBeInTheDocument();
     expect(
-      within(userControls).getByText(/Jordan Alexandria Review/),
+      within(accountDock).getByText(/Jordan Alexandria Review/),
     ).toBeVisible();
     expect(
-      within(userControls).getByText(
+      within(accountDock).getByText(
         "jordan.alexandria.review.coordinator@example-learning.test",
       ),
     ).toBeVisible();
     expect(
-      within(userControls).getByRole("button", { name: "Log out" }),
+      within(accountDock).getByRole("link", { name: "Settings" }),
+    ).toBeVisible();
+    expect(
+      within(accountDock).getByRole("button", { name: "Log out" }),
     ).toBeVisible();
   });
 
@@ -883,7 +864,7 @@ describe("authenticated app shell", () => {
     );
     expect(
       within(
-        screen.getByRole("complementary", { name: "App sidebar" }),
+        screen.getByRole("complementary", { name: "Notes workspace" }),
       ).getByRole("button", { name: "New note" }),
     ).toBeDisabled();
 
@@ -916,7 +897,7 @@ describe("authenticated app shell", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
     fireEvent.click(
       within(
-        screen.getByRole("complementary", { name: "App sidebar" }),
+        screen.getByRole("complementary", { name: "Notes workspace" }),
       ).getByRole("button", { name: "New note" }),
     );
     fireEvent.click(screen.getByRole("button", { name: /Spaced repetition/ }));

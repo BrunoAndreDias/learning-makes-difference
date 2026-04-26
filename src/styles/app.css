@@ -1143,7 +1143,7 @@ h3 {
   width: 100%;
   max-width: none;
   min-height: 100vh;
-  padding: 1rem;
+  padding: 1rem 1rem 6.25rem;
   background: #f8fafc;
 }
 
@@ -1369,6 +1369,57 @@ h3 {
 .app-sidebar__profile span,
 .app-sidebar__workspace-link {
   overflow-wrap: anywhere;
+}
+
+.account-dock {
+  position: fixed;
+  z-index: 30;
+  right: 1rem;
+  bottom: 1rem;
+  left: 1rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 54rem;
+  margin: 0 auto;
+  padding: 0.75rem;
+  border: 1px solid #dbe4ef;
+  border-radius: 0.65rem;
+  background: #ffffff;
+  box-shadow: 0 1rem 2rem rgb(15 23 42 / 12%);
+}
+
+.account-dock__link,
+.account-dock__logout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.4rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid #dbe4ef;
+  border-radius: 0.45rem;
+  background: #ffffff;
+  color: #334155;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.account-dock__link:hover,
+.account-dock__logout:hover {
+  border-color: #bfd0e6;
+  background: #f8fafc;
+}
+
+.account-dock__link-active {
+  border-color: transparent;
+  background: #f1f5ff;
+  color: #0f63ff;
+}
+
+.account-dock__logout {
+  cursor: pointer;
 }
 
 .app-frame {
@@ -2137,7 +2188,19 @@ h3 {
 
 @media (max-width: 62rem) {
   .app-shell:has(.authenticated-shell) {
-    padding: 0.75rem;
+    padding: 0.75rem 0.75rem 8rem;
+  }
+
+  .account-dock {
+    right: 0.75rem;
+    bottom: 0.75rem;
+    left: 0.75rem;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .account-dock__logout {
+    grid-column: 1 / -1;
+    width: 100%;
   }
 
   .authenticated-shell,
