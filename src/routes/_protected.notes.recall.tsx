@@ -120,10 +120,7 @@ function NotesRecallSessionPage() {
   return (
     <section className="recall-page">
       <article className="card stack">
-        <nav
-          aria-label="Workspace breadcrumb"
-          className="workspace-breadcrumb"
-        >
+        <nav aria-label="Workspace breadcrumb" className="workspace-breadcrumb">
           <ol>
             <li>
               <Link to="/notes">Notes</Link>
