@@ -324,9 +324,22 @@ export function resolveRecallableNotesFromSelection(input: {
       "Choose at least one note for recall.",
     );
   }
-  const selectedNoteIds = [
-    ...new Set(input.noteIds.filter((noteId) => noteId.length > 0)),
-  ];
+
+  const selectedNoteIds: string[] = [];
+  const seenNoteIds = new Set<string>();
+
+  for (const noteId of input.noteIds) {
+    if (typeof noteId !== "string" || noteId.length === 0) {
+      continue;
+    }
+
+    if (seenNoteIds.has(noteId)) {
+      continue;
+    }
+
+    seenNoteIds.add(noteId);
+    selectedNoteIds.push(noteId);
+  }
 
   if (selectedNoteIds.length === 0) {
     throw new AppRecallError(

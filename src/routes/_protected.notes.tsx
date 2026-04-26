@@ -80,6 +80,10 @@ function getSearchResultLabel(result: AppNoteSearchResult): string {
   return `${result.note.title} ${result.matchChip} Updated ${formatNoteDate(result.note.updatedAt)}`;
 }
 
+function formatRecallSelectionCount(count: number) {
+  return `${count} ${count === 1 ? "note" : "notes"} selected`;
+}
+
 function NotesWorkspace() {
   const location = useLocation();
   const notesContext = Route.useRouteContext({
@@ -672,9 +676,9 @@ function NotesWorkspace() {
     selectedLabels.length === 1 ? "label" : "labels"
   }`;
   const workspaceModeLabel = isCreating ? "Draft mode" : "Editing note";
-  const recallSelectionCountLabel = `${recallSelection.selectedCount} ${
-    recallSelection.selectedCount === 1 ? "note" : "notes"
-  } selected`;
+  const recallSelectionCountLabel = formatRecallSelectionCount(
+    recallSelection.selectedCount,
+  );
   const hasUnsavedChanges = isNoteEditorDirty(noteEditor);
   const selectedNoteUpdatedLabel =
     selectedNote === null

@@ -52,6 +52,10 @@ function getWorkspaceTitle(pathname: string) {
   return "Notes";
 }
 
+function isNotesWorkspacePath(pathname: string) {
+  return pathname === "/notes" || pathname.startsWith("/notes/");
+}
+
 function formatSidebarNoteDate(value: string): string {
   return new Intl.DateTimeFormat("en", {
     day: "numeric",
@@ -81,7 +85,7 @@ function AppLayout() {
     session.getSnapshot,
   );
   const workspaceTitle = getWorkspaceTitle(location.pathname);
-  const isNotesWorkspaceRoute = location.pathname.startsWith("/notes");
+  const isNotesWorkspaceRoute = isNotesWorkspacePath(location.pathname);
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
   const sidebarToggleLabel = isSidebarCollapsed
     ? "Expand sidebar"
