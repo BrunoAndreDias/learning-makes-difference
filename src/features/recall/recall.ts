@@ -90,16 +90,6 @@ type CreateAppRecallContextOptions = {
   storage?: RecallStorageAdapter;
 };
 
-type ResolveFlashCardSessionTargetOptions = {
-  notes: AppNotesContext;
-};
-
-type FlashCardSessionTarget = {
-  labelId: string | null;
-  labelName: string;
-  notes: FlashCardRecallNote[];
-};
-
 export class AppRecallError extends Error {
   readonly code: "invalid_input" | "not_found";
 
@@ -325,7 +315,9 @@ export function resolveRecallableNotesFromSelection(input: {
     );
   }
 
-  const selectedNoteIds = [...new Set(input.noteIds.filter(Boolean))];
+  const selectedNoteIds = [
+    ...new Set(input.noteIds.filter((noteId) => noteId.length > 0)),
+  ];
 
   if (selectedNoteIds.length === 0) {
     throw new AppRecallError(
@@ -351,21 +343,6 @@ export function resolveRecallableNotesFromSelection(input: {
   });
 
   return recallableNotes;
-}
-
-function resolveFlashCardSessionTarget(
-  input: StartFlashCardSessionInput,
-  options: ResolveFlashCardSessionTargetOptions,
-): FlashCardSessionTarget {
-  return {
-    labelId: null,
-    labelName: "Selected notes",
-    notes: resolveRecallableNotesFromSelection({
-      noteIds: input.noteIds,
-      notes: options.notes,
-      userId: input.userId,
-    }),
-  };
 }
 
 export function createAppRecallContext(
@@ -552,16 +529,11 @@ export function createAppRecallContext(
       return nextSession;
     },
     startFlashCardSession: (input) => {
-      const target = resolveFlashCardSessionTarget(input, {
+      const notes = resolveRecallableNotesFromSelection({
+        noteIds: input.noteIds,
         notes: options.notes,
+        userId: input.userId,
       });
-
-      if (target.notes.length === 0) {
-        throw new AppRecallError(
-          "invalid_input",
-          "Choose at least one note for recall.",
-        );
-      }
 
       const nextSession: StoredFlashCardRecallSession = {
         attempts: [],
@@ -569,10 +541,10 @@ export function createAppRecallContext(
         currentIndex: 0,
         id: cryptoProvider.randomUUID(),
         isAnswerRevealed: false,
-        labelId: target.labelId,
-        labelName: target.labelName,
+        labelId: null,
+        labelName: "Selected notes",
         mode: "FlashCard",
-        notes: cloneFlashCardRecallNotes(shuffleNotes(target.notes)),
+        notes: cloneFlashCardRecallNotes(shuffleNotes(notes)),
         userId: input.userId,
       };
 
