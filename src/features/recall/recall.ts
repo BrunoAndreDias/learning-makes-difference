@@ -303,6 +303,16 @@ function cloneFlashCardRecallNotes(
   return notes.map(cloneFlashCardRecallNote);
 }
 
+function cloneFlashCardSessionResult(
+  result: StoredFlashCardSessionResult,
+): StoredFlashCardSessionResult {
+  return {
+    ...result,
+    attempts: result.attempts.map((attempt) => ({ ...attempt })),
+    notes: cloneFlashCardRecallNotes(result.notes),
+  };
+}
+
 export function resolveRecallableNotesFromSelection(input: {
   noteIds: readonly string[];
   notes: AppNotesContext;
@@ -354,6 +364,7 @@ export function createAppRecallContext(
   let sessionResults = parseStoredSessionResults(
     storage?.getItem(getSessionResultsStorageKey(keyPrefix)) ?? null,
   );
+  let sessionResultsSnapshot = sessionResults.map(cloneFlashCardSessionResult);
 
   function notifyListeners() {
     for (const listener of listeners) {
@@ -371,6 +382,7 @@ export function createAppRecallContext(
     nextSessionResults: StoredFlashCardSessionResult[],
   ) {
     sessionResults = nextSessionResults;
+    sessionResultsSnapshot = sessionResults.map(cloneFlashCardSessionResult);
     storage?.setItem(
       getSessionResultsStorageKey(keyPrefix),
       JSON.stringify(sessionResults),
@@ -440,9 +452,9 @@ export function createAppRecallContext(
         throw new AppRecallError("not_found", "Session result not found.");
       }
 
-      return result;
+      return cloneFlashCardSessionResult(result);
     },
-    getSessionResultsSnapshot: () => sessionResults,
+    getSessionResultsSnapshot: () => sessionResultsSnapshot,
     getSnapshot: () => snapshot,
     listSessionResults: ({ labelId, userId }) => {
       return sessionResults
@@ -457,7 +469,8 @@ export function createAppRecallContext(
             right.completedAt.localeCompare(left.completedAt) ||
             right.id.localeCompare(left.id)
           );
-        });
+        })
+        .map(cloneFlashCardSessionResult);
     },
     rateFlashCardAnswer: ({ rating, sessionId, userId }) => {
       const activeSession = getActiveSessionForUser({ sessionId, userId });

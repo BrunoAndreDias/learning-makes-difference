@@ -465,6 +465,131 @@ describe("recall session setup", () => {
     expect(reloadedRecall.listSessionResults({ userId })).toHaveLength(1);
   });
 
+  it("keeps saved selected-note SessionResult snapshots isolated from later reads and note edits", () => {
+    const storage = createMemoryStorage();
+    const notes = createAppNotesContext({
+      keyPrefix: "recall-test-result-snapshot-isolation-notes",
+      storage,
+    });
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          "session-result-snapshot-isolation" as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "recall-test-result-snapshot-isolation-session",
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+    });
+    const userId = "owner";
+    const attemptedNote = notes.createNote(userId, {
+      acronyms: [{ expansion: "Original Expansion", shortForm: "OE" }],
+      body: "Original attempted answer",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation: "Original attempted metaphor explanation",
+          title: "Original attempted metaphor",
+        },
+      ],
+      title: "Original attempted question",
+    });
+    const unattemptedNote = notes.createNote(userId, {
+      acronyms: [{ expansion: "Original Second Expansion", shortForm: "OSE" }],
+      body: "Original unattempted answer",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation: "Original unattempted metaphor explanation",
+          title: "Original unattempted metaphor",
+        },
+      ],
+      title: "Original unattempted question",
+    });
+
+    const session = recall.startFlashCardSession({
+      noteIds: [attemptedNote.id, unattemptedNote.id],
+      userId,
+    });
+
+    recall.revealFlashCardAnswer({ sessionId: session.id, userId });
+    recall.rateFlashCardAnswer({
+      rating: "partial",
+      sessionId: session.id,
+      userId,
+    });
+    recall.endFlashCardSession({ sessionId: session.id, userId });
+
+    notes.updateNote(userId, attemptedNote.id, {
+      acronyms: [{ expansion: "Updated Expansion", shortForm: "UE" }],
+      body: "Updated attempted answer",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation: "Updated attempted metaphor explanation",
+          title: "Updated attempted metaphor",
+        },
+      ],
+      title: "Updated attempted question",
+    });
+    notes.updateNote(userId, unattemptedNote.id, {
+      acronyms: [
+        { expansion: "Updated Second Expansion", shortForm: "USE" },
+      ],
+      body: "Updated unattempted answer",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation: "Updated unattempted metaphor explanation",
+          title: "Updated unattempted metaphor",
+        },
+      ],
+      title: "Updated unattempted question",
+    });
+
+    const listedResult = recall.listSessionResults({ userId })[0];
+    listedResult.notes[0].title = "Mutated read result";
+    listedResult.notes[0].metaphors[0].title = "Mutated read metaphor";
+    listedResult.notes[0].acronyms[0].shortForm = "MR";
+
+    expect(
+      recall.getSessionResult({
+        sessionResultId: session.id,
+        userId,
+      }),
+    ).toMatchObject({
+      attempts: [{ noteId: attemptedNote.id, rating: "partial" }],
+      notes: [
+        {
+          acronyms: [{ expansion: "Original Expansion", shortForm: "OE" }],
+          body: "Original attempted answer",
+          id: attemptedNote.id,
+          metaphors: [
+            {
+              explanation: "Original attempted metaphor explanation",
+              title: "Original attempted metaphor",
+            },
+          ],
+          title: "Original attempted question",
+        },
+        {
+          acronyms: [
+            { expansion: "Original Second Expansion", shortForm: "OSE" },
+          ],
+          body: "Original unattempted answer",
+          id: unattemptedNote.id,
+          metaphors: [
+            {
+              explanation: "Original unattempted metaphor explanation",
+              title: "Original unattempted metaphor",
+            },
+          ],
+          title: "Original unattempted question",
+        },
+      ],
+    });
+  });
+
   it("lists selected-note session results by account and leaves label filters empty", () => {
     const storage = createMemoryStorage();
     const labels = createAppLabelsContext({
