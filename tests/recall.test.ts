@@ -533,9 +533,7 @@ describe("recall session setup", () => {
       title: "Updated attempted question",
     });
     notes.updateNote(userId, unattemptedNote.id, {
-      acronyms: [
-        { expansion: "Updated Second Expansion", shortForm: "USE" },
-      ],
+      acronyms: [{ expansion: "Updated Second Expansion", shortForm: "USE" }],
       body: "Updated unattempted answer",
       labelIds: [],
       metaphors: [
