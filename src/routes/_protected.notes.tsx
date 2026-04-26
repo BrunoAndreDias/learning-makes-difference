@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   type CSSProperties,
   type FormEvent,
@@ -48,6 +48,7 @@ import {
   listNotesForUser,
 } from "../features/notes/notes";
 import { useNotesWorkspace } from "../features/notes/notes-workspace";
+import { AppRecallError } from "../features/recall/recall";
 import type { AppSessionSnapshot } from "../features/session/session";
 
 export const Route = createFileRoute("/_protected/notes")({
@@ -81,9 +82,13 @@ function NotesWorkspace() {
   const sessionContext = Route.useRouteContext({
     select: (context) => context.session,
   });
+  const recallContext = Route.useRouteContext({
+    select: (context) => context.recall,
+  });
   const labelsContext = Route.useRouteContext({
     select: (context) => context.labels,
   });
+  const navigate = useNavigate();
   const notesSnapshot = useSyncExternalStore<readonly AppStoredNote[]>(
     notesContext.subscribe,
     notesContext.getSnapshot,
@@ -618,6 +623,28 @@ function NotesWorkspace() {
     }
   }
 
+  async function handleStartRecall() {
+    if (selectedNote === null || userId === null) {
+      return;
+    }
+
+    try {
+      recallContext.startFlashCardSession({
+        noteIds: [selectedNote.id],
+        userId,
+      });
+      setErrorMessage(null);
+      await navigate({ to: "/notes/recall" });
+    } catch (error) {
+      if (error instanceof AppRecallError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    }
+  }
+
   const selectedLabels = availableLabels.filter((label) =>
     editorState.labelIds.includes(label.id),
   );
@@ -761,6 +788,14 @@ function NotesWorkspace() {
           <kbd>Cmd K</kbd>
           {searchResultsContent}
         </form>
+        <button
+          className="notes-action notes-action-primary"
+          disabled={selectedNote === null}
+          onClick={() => void handleStartRecall()}
+          type="button"
+        >
+          Start recall
+        </button>
       </section>
 
       <section className="notes-mobile-summary" aria-label="Workspace summary">

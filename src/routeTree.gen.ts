@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as PublicIndexRouteImport } from './routes/_public.index'
 import { Route as ProtectedSettingsRouteImport } from './routes/_protected.settings'
 import { Route as ProtectedRecallRouteImport } from './routes/_protected.recall'
+import { Route as ProtectedNotesRecallRouteImport } from './routes/_protected.notes.recall'
 import { Route as ProtectedNotesRouteImport } from './routes/_protected.notes'
 import { Route as ProtectedLabelsRouteImport } from './routes/_protected.labels'
 import { Route as ProtectedHistoryRouteImport } from './routes/_protected.history'
@@ -47,6 +48,11 @@ const ProtectedSettingsRoute = ProtectedSettingsRouteImport.update({
 const ProtectedRecallRoute = ProtectedRecallRouteImport.update({
   id: '/recall',
   path: '/recall',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+const ProtectedNotesRecallRoute = ProtectedNotesRecallRouteImport.update({
+  id: '/notes/recall',
+  path: '/notes/recall',
   getParentRoute: () => ProtectedRoute,
 } as any)
 const ProtectedNotesRoute = ProtectedNotesRouteImport.update({
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/history': typeof ProtectedHistoryRoute
   '/labels': typeof ProtectedLabelsRoute
   '/notes': typeof ProtectedNotesRoute
+  '/notes/recall': typeof ProtectedNotesRecallRoute
   '/recall': typeof ProtectedRecallRoute
   '/settings': typeof ProtectedSettingsRoute
 }
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/history': typeof ProtectedHistoryRoute
   '/labels': typeof ProtectedLabelsRoute
   '/notes': typeof ProtectedNotesRoute
+  '/notes/recall': typeof ProtectedNotesRecallRoute
   '/recall': typeof ProtectedRecallRoute
   '/settings': typeof ProtectedSettingsRoute
 }
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/_protected/history': typeof ProtectedHistoryRoute
   '/_protected/labels': typeof ProtectedLabelsRoute
   '/_protected/notes': typeof ProtectedNotesRoute
+  '/_protected/notes/recall': typeof ProtectedNotesRecallRoute
   '/_protected/recall': typeof ProtectedRecallRoute
   '/_protected/settings': typeof ProtectedSettingsRoute
   '/_public/': typeof PublicIndexRoute
@@ -127,6 +136,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/labels'
     | '/notes'
+    | '/notes/recall'
     | '/recall'
     | '/settings'
   fileRoutesByTo: FileRoutesByTo
@@ -138,6 +148,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/labels'
     | '/notes'
+    | '/notes/recall'
     | '/recall'
     | '/settings'
   id:
@@ -151,6 +162,7 @@ export interface FileRouteTypes {
     | '/_protected/history'
     | '/_protected/labels'
     | '/_protected/notes'
+    | '/_protected/notes/recall'
     | '/_protected/recall'
     | '/_protected/settings'
     | '/_public/'
@@ -204,6 +216,13 @@ declare module '@tanstack/react-router' {
       path: '/recall'
       fullPath: '/recall'
       preLoaderRoute: typeof ProtectedRecallRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
+    '/_protected/notes/recall': {
+      id: '/_protected/notes/recall'
+      path: '/notes/recall'
+      fullPath: '/notes/recall'
+      preLoaderRoute: typeof ProtectedNotesRecallRouteImport
       parentRoute: typeof ProtectedRoute
     }
     '/_protected/notes': {
@@ -269,6 +288,7 @@ interface ProtectedRouteChildren {
   ProtectedHistoryRoute: typeof ProtectedHistoryRoute
   ProtectedLabelsRoute: typeof ProtectedLabelsRoute
   ProtectedNotesRoute: typeof ProtectedNotesRoute
+  ProtectedNotesRecallRoute: typeof ProtectedNotesRecallRoute
   ProtectedRecallRoute: typeof ProtectedRecallRoute
   ProtectedSettingsRoute: typeof ProtectedSettingsRoute
 }
@@ -277,6 +297,7 @@ const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedHistoryRoute: ProtectedHistoryRoute,
   ProtectedLabelsRoute: ProtectedLabelsRoute,
   ProtectedNotesRoute: ProtectedNotesRoute,
+  ProtectedNotesRecallRoute: ProtectedNotesRecallRoute,
   ProtectedRecallRoute: ProtectedRecallRoute,
   ProtectedSettingsRoute: ProtectedSettingsRoute,
 }

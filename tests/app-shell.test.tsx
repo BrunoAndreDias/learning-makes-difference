@@ -1636,6 +1636,152 @@ describe("authenticated app shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("starts and completes a single-note FlashCard session from the notes workspace", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const recallContext = createAppRecallContext({
+      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+      labels: labelsContext,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+    const note = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Retrieval is strengthened by effortful recall.",
+      labelIds: [],
+      metaphors: [],
+      title: "Testing effect",
+    });
+
+    const { router } = renderRoute("/notes", {
+      labelsContext,
+      notesContext,
+      recallContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByDisplayValue(
+        "Retrieval is strengthened by effortful recall.",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
+
+    expect(router.state.location.pathname).toBe("/notes/recall");
+    expect(
+      await screen.findByRole("heading", { name: "FlashCard session" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Testing effect" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Retrieval is strengthened by effortful recall."),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reveal answer" }));
+
+    expect(
+      screen.getByText("Retrieval is strengthened by effortful recall."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Nailed it" }));
+
+    expect(router.state.location.pathname).toBe("/notes");
+    expect(
+      await screen.findByDisplayValue(
+        "Retrieval is strengthened by effortful recall.",
+      ),
+    ).toBeInTheDocument();
+    expect(recallContext.listSessionResults({ userId })).toMatchObject([
+      {
+        attempts: [{ noteId: note.id, rating: "nailed" }],
+        labelId: null,
+        notes: [{ id: note.id, title: "Testing effect" }],
+      },
+    ]);
+  });
+
+  it("returns to notes and discards a zero-attempt single-note session", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const recallContext = createAppRecallContext({
+      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+      labels: labelsContext,
+      notes: notesContext,
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "This session will be ended before any rating.",
+      labelIds: [],
+      metaphors: [],
+      title: "Early exit",
+    });
+
+    const { router } = renderRoute("/notes", {
+      labelsContext,
+      notesContext,
+      recallContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByDisplayValue(
+        "This session will be ended before any rating.",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
+
+    expect(router.state.location.pathname).toBe("/notes/recall");
+    expect(
+      await screen.findByRole("heading", { name: "FlashCard session" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "End session" }));
+
+    expect(router.state.location.pathname).toBe("/notes");
+    expect(
+      await screen.findByDisplayValue(
+        "This session will be ended before any rating.",
+      ),
+    ).toBeInTheDocument();
+    expect(recallContext.listSessionResults({ userId })).toHaveLength(0);
+  });
+
   it("manages note metaphors inside the note workflow", async () => {
     renderRoute("/notes", {
       session: {

@@ -150,6 +150,157 @@ describe("recall session setup", () => {
     ).toThrowError(expect.objectContaining({ code: "not_found" }));
   });
 
+  it("starts a FlashCard session from one owned note without a label and snapshots the note", () => {
+    const storage = createMemoryStorage();
+    const labels = createAppLabelsContext({
+      keyPrefix: "recall-test-selected-note-labels",
+      storage,
+    });
+    const notes = createAppNotesContext({
+      keyPrefix: "recall-test-selected-note-notes",
+      storage,
+    });
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          "session-selected-note" as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "recall-test-selected-note-session",
+      labels,
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+    });
+    const userId = "owner";
+    const selectedNote = notes.createNote(userId, {
+      acronyms: [],
+      body: "Original selected-note answer",
+      labelIds: [],
+      metaphors: [],
+      title: "Selected-note question",
+    });
+    const otherUsersNote = notes.createNote("other-user", {
+      acronyms: [],
+      body: "Private answer",
+      labelIds: [],
+      metaphors: [],
+      title: "Private question",
+    });
+
+    expect(() =>
+      recall.startFlashCardSession({
+        noteIds: [otherUsersNote.id],
+        userId,
+      }),
+    ).toThrowError(expect.objectContaining({ code: "not_found" }));
+
+    const session = recall.startFlashCardSession({
+      noteIds: [selectedNote.id],
+      userId,
+    });
+
+    notes.updateNote(userId, selectedNote.id, {
+      acronyms: [],
+      body: "Updated selected-note answer",
+      labelIds: [],
+      metaphors: [],
+      title: "Updated selected-note question",
+    });
+
+    expect(session).toMatchObject({
+      id: "session-selected-note",
+      labelId: null,
+      labelName: "Selected notes",
+      mode: "FlashCard",
+      notes: [
+        {
+          body: "Original selected-note answer",
+          id: selectedNote.id,
+          title: "Selected-note question",
+        },
+      ],
+    });
+    expect(recall.getSnapshot()).toMatchObject({
+      notes: [
+        {
+          body: "Original selected-note answer",
+          id: selectedNote.id,
+          title: "Selected-note question",
+        },
+      ],
+    });
+  });
+
+  it("persists attempted selected-note sessions and discards zero-attempt selected-note exits", () => {
+    const storage = createMemoryStorage();
+    const labels = createAppLabelsContext({
+      keyPrefix: "recall-test-selected-note-history-labels",
+      storage,
+    });
+    const notes = createAppNotesContext({
+      keyPrefix: "recall-test-selected-note-history-notes",
+      storage,
+    });
+    let sessionCounter = 0;
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `session-selected-note-history-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "recall-test-selected-note-history-session",
+      labels,
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+    });
+    const userId = "owner";
+    const note = notes.createNote(userId, {
+      acronyms: [],
+      body: "Selected-note answer",
+      labelIds: [],
+      metaphors: [],
+      title: "Selected-note question",
+    });
+
+    const attemptedSession = recall.startFlashCardSession({
+      noteIds: [note.id],
+      userId,
+    });
+
+    recall.revealFlashCardAnswer({
+      sessionId: attemptedSession.id,
+      userId,
+    });
+    expect(
+      recall.rateFlashCardAnswer({
+        rating: "partial",
+        sessionId: attemptedSession.id,
+        userId,
+      }),
+    ).toBeNull();
+
+    expect(recall.listSessionResults({ userId })).toMatchObject([
+      {
+        attempts: [{ noteId: note.id, rating: "partial" }],
+        id: attemptedSession.id,
+        labelId: null,
+        labelName: "Selected notes",
+      },
+    ]);
+
+    const zeroAttemptSession = recall.startFlashCardSession({
+      noteIds: [note.id],
+      userId,
+    });
+
+    recall.endFlashCardSession({
+      sessionId: zeroAttemptSession.id,
+      userId,
+    });
+
+    expect(recall.listSessionResults({ userId })).toHaveLength(1);
+  });
+
   it("reveals answers, advances after rating, and clears the active session when ended", () => {
     const storage = createMemoryStorage();
     const labels = createAppLabelsContext({
