@@ -516,7 +516,7 @@ describe("authenticated app shell", () => {
     expect(screen.getAllByText("Biology").length).toBeGreaterThan(0);
   });
 
-  it("collapses the notes catalog and provides a compact reopen toggle", async () => {
+  it("toggles the notes catalog from the workspace toolbar", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -548,43 +548,42 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
 
     const notesCatalog = screen.getByLabelText("Notes catalog");
+    const hideCatalogButton = screen.getByRole("button", {
+      name: "Hide notes catalog",
+    });
 
     expect(notesCatalog).toBeVisible();
     expect(
-      screen.queryByRole("button", { name: "Reopen notes catalog" }),
+      screen.queryByRole("button", { name: "Show notes catalog" }),
     ).not.toBeInTheDocument();
+    expect(hideCatalogButton).toHaveAttribute("aria-expanded", "true");
 
-    fireEvent.click(
-      within(notesCatalog).getByRole("button", {
-        name: "Collapse notes catalog",
-      }),
-    );
+    fireEvent.click(hideCatalogButton);
 
     expect(notesCatalog).not.toBeVisible();
     expect(
-      screen.getByRole("button", { name: "Reopen notes catalog" }),
+      screen.getByRole("button", { name: "Show notes catalog" }),
     ).toBeVisible();
     expect(
-      screen.getByRole("button", { name: "Reopen notes catalog" }),
+      screen.getByRole("button", { name: "Show notes catalog" }),
     ).toHaveFocus();
+    expect(
+      screen.getByRole("button", { name: "Show notes catalog" }),
+    ).toHaveAttribute("aria-expanded", "false");
     expect(
       screen.getByDisplayValue(
         "Repeated review strengthens long-term retention.",
       ),
     ).toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Reopen notes catalog" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Show notes catalog" }));
 
     expect(notesCatalog).toBeVisible();
     expect(
-      within(notesCatalog).getByRole("button", {
-        name: "Collapse notes catalog",
-      }),
+      screen.getByRole("button", { name: "Hide notes catalog" }),
     ).toHaveFocus();
     expect(
-      screen.queryByRole("button", { name: "Reopen notes catalog" }),
+      screen.queryByRole("button", { name: "Show notes catalog" }),
     ).not.toBeInTheDocument();
   });
 

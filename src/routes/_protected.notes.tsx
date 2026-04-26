@@ -149,8 +149,7 @@ function NotesWorkspace() {
   const unsavedSearchDialogRef = useRef<HTMLDivElement>(null);
   const unsavedSearchCancelRef = useRef<HTMLButtonElement>(null);
   const unsavedSearchDiscardRef = useRef<HTMLButtonElement>(null);
-  const collapseCatalogButtonRef = useRef<HTMLButtonElement>(null);
-  const reopenCatalogButtonRef = useRef<HTMLButtonElement>(null);
+  const catalogToggleButtonRef = useRef<HTMLButtonElement>(null);
   const previousCatalogCollapsedRef = useRef(isNotesCatalogCollapsed);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
@@ -257,13 +256,7 @@ function NotesWorkspace() {
     }
 
     previousCatalogCollapsedRef.current = isNotesCatalogCollapsed;
-
-    if (isNotesCatalogCollapsed) {
-      reopenCatalogButtonRef.current?.focus();
-      return;
-    }
-
-    collapseCatalogButtonRef.current?.focus();
+    catalogToggleButtonRef.current?.focus();
   }, [isNotesCatalogCollapsed]);
 
   useEffect(() => {
@@ -733,6 +726,29 @@ function NotesWorkspace() {
           <kbd>Cmd K</kbd>
           {searchResultsContent}
         </form>
+        <button
+          aria-controls={notesCatalogPanelId}
+          aria-expanded={!isNotesCatalogCollapsed}
+          className="notes-catalog-toggle"
+          onClick={() =>
+            setIsNotesCatalogCollapsed(
+              (currentIsNotesCatalogCollapsed) =>
+                !currentIsNotesCatalogCollapsed,
+            )
+          }
+          ref={catalogToggleButtonRef}
+          type="button"
+        >
+          <span className="notes-catalog-toggle__icon" aria-hidden="true">
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <rect x="4" y="5" width="16" height="14" rx="2" />
+              <path d="M10 5v14" />
+            </svg>
+          </span>
+          {isNotesCatalogCollapsed
+            ? "Show notes catalog"
+            : "Hide notes catalog"}
+        </button>
       </section>
 
       <section className="notes-mobile-summary" aria-label="Workspace summary">
@@ -748,18 +764,6 @@ function NotesWorkspace() {
         className="notes-layout"
         data-catalog-state={isNotesCatalogCollapsed ? "collapsed" : "expanded"}
       >
-        {isNotesCatalogCollapsed ? (
-          <button
-            aria-controls={notesCatalogPanelId}
-            aria-label="Reopen notes catalog"
-            className="notes-catalog-reopen"
-            ref={reopenCatalogButtonRef}
-            onClick={() => setIsNotesCatalogCollapsed(false)}
-            type="button"
-          >
-            Notes
-          </button>
-        ) : null}
         <article aria-label="Note editor surface" className="notes-editor">
           <header className="notes-editor__header">
             <div>
@@ -1100,39 +1104,19 @@ function NotesWorkspace() {
           id={notesCatalogPanelId}
         >
           <div className="notes-list__toolbar">
+            <div className="notes-list__heading">
+              <h3>Notes</h3>
+              <span>{noteCountLabel}</span>
+            </div>
             <button
               className="notes-action notes-action-primary"
               onClick={handleNewNote}
               type="button"
             >
-              + New Note
+              + New
             </button>
             <button className="notes-action" type="button">
-              Updated (Newest)
-            </button>
-            <button
-              aria-label="List settings"
-              className="notes-icon-button"
-              type="button"
-            >
-              =
-            </button>
-            <button
-              aria-label="More list actions"
-              className="notes-icon-button"
-              type="button"
-            >
-              ...
-            </button>
-            <button
-              aria-controls={notesCatalogPanelId}
-              aria-label="Collapse notes catalog"
-              className="notes-icon-button"
-              ref={collapseCatalogButtonRef}
-              onClick={() => setIsNotesCatalogCollapsed(true)}
-              type="button"
-            >
-              <span aria-hidden="true">-</span>
+              Newest
             </button>
           </div>
 
