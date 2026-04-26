@@ -171,7 +171,10 @@ function AppLayout() {
 
   return (
     <NotesWorkspaceProvider>
-      <section className="authenticated-shell" data-sidebar-state={sidebarState}>
+      <section
+        className="authenticated-shell"
+        data-sidebar-state={sidebarState}
+      >
         <aside
           aria-label="App sidebar"
           className="app-sidebar shell-panel"
@@ -215,7 +218,7 @@ function AppLayout() {
           </div>
 
           {isNotesWorkspace ? (
-            <NotesSidebarContent onSelectNote={handleSidebarLinkClick} />
+            <NotesSidebarContent onCloseSidebar={handleSidebarLinkClick} />
           ) : null}
 
           <nav
@@ -318,9 +321,9 @@ function AppLayout() {
 }
 
 function NotesSidebarContent({
-  onSelectNote,
+  onCloseSidebar,
 }: Readonly<{
-  onSelectNote: () => void;
+  onCloseSidebar: () => void;
 }>) {
   const notesContext = Route.useRouteContext({
     select: (context) => context.notes,
@@ -340,7 +343,10 @@ function NotesSidebarContent({
     notesContext.getSnapshot,
     notesContext.getSnapshot,
   );
-  const notes = listNotesForUser(notesSnapshot, sessionSnapshot.user?.id ?? null);
+  const notes = listNotesForUser(
+    notesSnapshot,
+    sessionSnapshot.user?.id ?? null,
+  );
 
   return (
     <section className="app-sidebar__workspace" aria-label="Notes sidebar">
@@ -353,7 +359,7 @@ function NotesSidebarContent({
           className="notes-action notes-action-primary"
           onClick={() => {
             requestNewNote();
-            onSelectNote();
+            onCloseSidebar();
           }}
           type="button"
         >
@@ -373,7 +379,7 @@ function NotesSidebarContent({
                   className="app-sidebar__workspace-link"
                   onClick={() => {
                     requestSelectNote(note.id);
-                    onSelectNote();
+                    onCloseSidebar();
                   }}
                   type="button"
                 >

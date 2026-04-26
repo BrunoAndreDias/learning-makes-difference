@@ -1,10 +1,10 @@
 import {
   createContext,
+  type ReactNode,
   useContext,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
 
 export type NotesWorkspaceSidebarAction =

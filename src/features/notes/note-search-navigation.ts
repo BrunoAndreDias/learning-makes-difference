@@ -11,30 +11,6 @@ export type NotesSearchTargetElements = {
   title: HTMLInputElement | null;
 };
 
-export type NotesSearchNavigationPlan =
-  | {
-      result: AppNoteSearchResult;
-      type: "navigate";
-    }
-  | {
-      guardedResult: AppNoteSearchResult;
-      type: "guard";
-    };
-
-export type NotesSearchCancelPlan = {
-  preserveSearchState: true;
-  type: "cancel";
-};
-
-export type NotesSearchDiscardPlan =
-  | {
-      result: AppNoteSearchResult;
-      type: "navigate";
-    }
-  | {
-      type: "idle";
-    };
-
 export function resolveNotesSearchTargetElement(
   elements: NotesSearchTargetElements,
   result: AppNoteSearchResult,
@@ -55,43 +31,4 @@ export function resolveNotesSearchTargetElement(
     case "acronymExpansion":
       return elements.acronymExpansions[targetIndex] ?? null;
   }
-}
-
-export function planNotesSearchNavigation(options: {
-  hasUnsavedChanges: boolean;
-  result: AppNoteSearchResult;
-}): NotesSearchNavigationPlan {
-  if (options.hasUnsavedChanges) {
-    return {
-      guardedResult: options.result,
-      type: "guard",
-    };
-  }
-
-  return {
-    result: options.result,
-    type: "navigate",
-  };
-}
-
-export function cancelGuardedNotesSearchNavigation(): NotesSearchCancelPlan {
-  return {
-    preserveSearchState: true,
-    type: "cancel",
-  };
-}
-
-export function discardGuardedNotesSearchNavigation(
-  guardedResult: AppNoteSearchResult | null,
-): NotesSearchDiscardPlan {
-  if (guardedResult === null) {
-    return {
-      type: "idle",
-    };
-  }
-
-  return {
-    result: guardedResult,
-    type: "navigate",
-  };
 }

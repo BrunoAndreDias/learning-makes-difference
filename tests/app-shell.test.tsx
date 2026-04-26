@@ -587,7 +587,9 @@ describe("authenticated app shell", () => {
       within(sidebar).getByRole("button", { name: /Spaced repetition/ }),
     );
     expect(
-      screen.getByDisplayValue("Repeated review strengthens long-term retention."),
+      screen.getByDisplayValue(
+        "Repeated review strengthens long-term retention.",
+      ),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Hide notes catalog" }),
@@ -686,10 +688,9 @@ describe("authenticated app shell", () => {
     });
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
     fireEvent.click(
-      within(screen.getByRole("complementary", { name: "App sidebar" })).getByRole(
-        "button",
-        { name: "New note" },
-      ),
+      within(
+        screen.getByRole("complementary", { name: "App sidebar" }),
+      ).getByRole("button", { name: "New note" }),
     );
     fireEvent.click(screen.getByRole("button", { name: /Spaced repetition/ }));
 
