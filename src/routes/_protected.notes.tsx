@@ -675,7 +675,6 @@ function NotesWorkspace() {
   const recallSelectionCountLabel = `${recallSelection.selectedCount} ${
     recallSelection.selectedCount === 1 ? "note" : "notes"
   } selected`;
-  const isRecallSessionRoute = location.pathname === "/notes/recall";
   const hasUnsavedChanges = isNoteEditorDirty(noteEditor);
   const selectedNoteUpdatedLabel =
     selectedNote === null
@@ -763,7 +762,7 @@ function NotesWorkspace() {
     }
   }
 
-  if (isRecallSessionRoute) {
+  if (location.pathname !== "/notes") {
     return <Outlet />;
   }
 

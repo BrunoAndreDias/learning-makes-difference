@@ -21,7 +21,47 @@ function createMemoryStorage() {
 }
 
 describe("recall session setup", () => {
-  it("resolves descendant notes once per note, excludes unlabeled notes, and shuffles the session order", () => {
+  it("does not start FlashCard sessions from label targets", () => {
+    const storage = createMemoryStorage();
+    const labels = createAppLabelsContext({
+      keyPrefix: "recall-test-label-targets-labels",
+      storage,
+    });
+    const notes = createAppNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labels.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: "recall-test-label-targets-notes",
+      storage,
+    });
+    const recall = createAppRecallContext({
+      notes,
+      storage,
+    });
+    const userId = "owner";
+    const science = labels.createLabel({ name: "Science", userId });
+
+    notes.createNote(userId, {
+      acronyms: [],
+      body: "Label assignment should not define v1 recall.",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Label-targeted note",
+    });
+
+    expect(() =>
+      recall.startFlashCardSession({
+        labelId: science.id,
+        userId,
+      } as never),
+    ).toThrowError(
+      expect.objectContaining({
+        code: "invalid_input",
+        message: "Choose at least one note for recall.",
+      }),
+    );
+  });
+
+  it("starts from selected owned notes including unlabeled notes and shuffles the session order", () => {
     const storage = createMemoryStorage();
     const labels = createAppLabelsContext({
       keyPrefix: "recall-test-labels",
@@ -39,7 +79,6 @@ describe("recall session setup", () => {
           "session-1-1-1-1" as `${string}-${string}-${string}-${string}-${string}`,
       },
       keyPrefix: "recall-test-session",
-      labels,
       notes,
       shuffleNotes: (sessionNotes) => [...sessionNotes].reverse(),
       storage,
@@ -48,78 +87,48 @@ describe("recall session setup", () => {
 
     const science = labels.createLabel({ name: "Science", userId });
     const biology = labels.createLabel({ name: "Biology", userId });
-    const chemistry = labels.createLabel({ name: "Chemistry", userId });
-    const biochemistry = labels.createLabel({ name: "Biochemistry", userId });
 
-    labels.addParent({ labelId: biology.id, parentId: science.id, userId });
-    labels.addParent({ labelId: chemistry.id, parentId: science.id, userId });
-    labels.addParent({
-      labelId: biochemistry.id,
-      parentId: biology.id,
-      userId,
-    });
-    labels.addParent({
-      labelId: biochemistry.id,
-      parentId: chemistry.id,
-      userId,
-    });
-
-    notes.createNote(userId, {
+    const scienceNote = notes.createNote(userId, {
       acronyms: [],
       body: "Broad topic note",
       labelIds: [science.id],
       metaphors: [],
       title: "Science note",
     });
-    notes.createNote(userId, {
+    const biologyNote = notes.createNote(userId, {
       acronyms: [],
       body: "Biology note",
       labelIds: [biology.id],
       metaphors: [],
       title: "Biology note",
     });
-    notes.createNote(userId, {
+    const unlabeledNote = notes.createNote(userId, {
       acronyms: [],
-      body: "Overlap note",
-      labelIds: [biology.id, chemistry.id],
-      metaphors: [],
-      title: "Overlap note",
-    });
-    notes.createNote(userId, {
-      acronyms: [],
-      body: "Descendant note",
-      labelIds: [biochemistry.id],
-      metaphors: [],
-      title: "Biochemistry note",
-    });
-    notes.createNote(userId, {
-      acronyms: [],
-      body: "Should not be recallable without a label",
+      body: "Should be recallable without a label",
       labelIds: [],
       metaphors: [],
       title: "Unlabeled note",
     });
 
     const session = recall.startFlashCardSession({
-      labelId: science.id,
+      noteIds: [scienceNote.id, biologyNote.id, unlabeledNote.id],
       userId,
     });
 
     expect(session).toMatchObject({
       id: "session-1-1-1-1",
-      labelId: science.id,
-      labelName: "Science",
+      labelId: null,
+      labelName: "Selected notes",
       mode: "FlashCard",
     });
     expect(session.notes.map((note) => note.title)).toEqual([
-      "Science note",
-      "Overlap note",
+      "Unlabeled note",
       "Biology note",
-      "Biochemistry note",
+      "Science note",
     ]);
   });
 
-  it("only allows session setup from a label owned by the signed-in account", () => {
+  it("requires at least one selected note to start a session", () => {
     const storage = createMemoryStorage();
     const labels = createAppLabelsContext({
       keyPrefix: "recall-test-ownership-labels",
@@ -132,30 +141,20 @@ describe("recall session setup", () => {
       storage,
     });
     const recall = createAppRecallContext({
-      labels,
       notes,
       storage,
     });
 
-    const privateLabel = labels.createLabel({
-      name: "Private topic",
-      userId: "owner",
-    });
-
     expect(() =>
       recall.startFlashCardSession({
-        labelId: privateLabel.id,
-        userId: "other-user",
+        noteIds: [],
+        userId: "owner",
       }),
-    ).toThrowError(expect.objectContaining({ code: "not_found" }));
+    ).toThrowError(expect.objectContaining({ code: "invalid_input" }));
   });
 
   it("starts a FlashCard session from one owned note without a label and snapshots the note", () => {
     const storage = createMemoryStorage();
-    const labels = createAppLabelsContext({
-      keyPrefix: "recall-test-selected-note-labels",
-      storage,
-    });
     const notes = createAppNotesContext({
       keyPrefix: "recall-test-selected-note-notes",
       storage,
@@ -166,7 +165,6 @@ describe("recall session setup", () => {
           "session-selected-note" as `${string}-${string}-${string}-${string}-${string}`,
       },
       keyPrefix: "recall-test-selected-note-session",
-      labels,
       notes,
       shuffleNotes: (sessionNotes) => [...sessionNotes],
       storage,
@@ -233,10 +231,6 @@ describe("recall session setup", () => {
 
   it("persists attempted selected-note sessions and discards zero-attempt selected-note exits", () => {
     const storage = createMemoryStorage();
-    const labels = createAppLabelsContext({
-      keyPrefix: "recall-test-selected-note-history-labels",
-      storage,
-    });
     const notes = createAppNotesContext({
       keyPrefix: "recall-test-selected-note-history-notes",
       storage,
@@ -248,7 +242,6 @@ describe("recall session setup", () => {
           `session-selected-note-history-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
       },
       keyPrefix: "recall-test-selected-note-history-session",
-      labels,
       notes,
       shuffleNotes: (sessionNotes) => [...sessionNotes],
       storage,
@@ -319,7 +312,6 @@ describe("recall session setup", () => {
           "session-2-2-2-2" as `${string}-${string}-${string}-${string}-${string}`,
       },
       keyPrefix: "recall-test-progress-session",
-      labels,
       notes,
       shuffleNotes: (sessionNotes) => [...sessionNotes],
       storage,
@@ -327,14 +319,14 @@ describe("recall session setup", () => {
     const userId = "user-1";
     const science = labels.createLabel({ name: "Science", userId });
 
-    notes.createNote(userId, {
+    const firstNote = notes.createNote(userId, {
       acronyms: [],
       body: "Answer one",
       labelIds: [science.id],
       metaphors: [],
       title: "Question one",
     });
-    notes.createNote(userId, {
+    const secondNote = notes.createNote(userId, {
       acronyms: [],
       body: "Answer two",
       labelIds: [science.id],
@@ -343,7 +335,7 @@ describe("recall session setup", () => {
     });
 
     const session = recall.startFlashCardSession({
-      labelId: science.id,
+      noteIds: [firstNote.id, secondNote.id],
       userId,
     });
 
@@ -401,7 +393,6 @@ describe("recall session setup", () => {
           "session-3-3-3-3" as `${string}-${string}-${string}-${string}-${string}`,
       },
       keyPrefix: "recall-test-history-session",
-      labels,
       notes,
       shuffleNotes: (sessionNotes) => [...sessionNotes],
       storage,
@@ -417,7 +408,7 @@ describe("recall session setup", () => {
     });
 
     const attemptedSession = recall.startFlashCardSession({
-      labelId: science.id,
+      noteIds: [note.id],
       userId,
     });
 
@@ -441,7 +432,6 @@ describe("recall session setup", () => {
 
     const reloadedRecall = createAppRecallContext({
       keyPrefix: "recall-test-history-session",
-      labels,
       notes,
       storage,
     });
@@ -450,8 +440,8 @@ describe("recall session setup", () => {
       {
         attempts: [{ noteId: note.id, rating: "nailed" }],
         id: attemptedSession.id,
-        labelId: science.id,
-        labelName: "Science",
+        labelId: null,
+        labelName: "Selected notes",
         notes: [
           {
             body: "Original answer",
@@ -463,7 +453,7 @@ describe("recall session setup", () => {
     ]);
 
     const zeroAttemptSession = reloadedRecall.startFlashCardSession({
-      labelId: science.id,
+      noteIds: [note.id],
       userId,
     });
 
@@ -475,7 +465,7 @@ describe("recall session setup", () => {
     expect(reloadedRecall.listSessionResults({ userId })).toHaveLength(1);
   });
 
-  it("filters session results by target label and account", () => {
+  it("lists selected-note session results by account and leaves label filters empty", () => {
     const storage = createMemoryStorage();
     const labels = createAppLabelsContext({
       keyPrefix: "recall-test-filter-labels",
@@ -494,7 +484,6 @@ describe("recall session setup", () => {
           `session-4-4-4-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
       },
       keyPrefix: "recall-test-filter-session",
-      labels,
       notes,
       shuffleNotes: (sessionNotes) => [...sessionNotes],
       storage,
@@ -507,21 +496,21 @@ describe("recall session setup", () => {
       userId: "user-2",
     });
 
-    notes.createNote(userId, {
+    const scienceNote = notes.createNote(userId, {
       acronyms: [],
       body: "Science answer",
       labelIds: [science.id],
       metaphors: [],
       title: "Science question",
     });
-    notes.createNote(userId, {
+    const historyNote = notes.createNote(userId, {
       acronyms: [],
       body: "History answer",
       labelIds: [history.id],
       metaphors: [],
       title: "History question",
     });
-    notes.createNote("user-2", {
+    const otherNote = notes.createNote("user-2", {
       acronyms: [],
       body: "Private answer",
       labelIds: [otherScience.id],
@@ -529,13 +518,13 @@ describe("recall session setup", () => {
       title: "Private question",
     });
 
-    for (const [labelId, owner] of [
-      [science.id, userId],
-      [history.id, userId],
-      [otherScience.id, "user-2"],
+    for (const [noteId, owner] of [
+      [scienceNote.id, userId],
+      [historyNote.id, userId],
+      [otherNote.id, "user-2"],
     ] as const) {
       const session = recall.startFlashCardSession({
-        labelId,
+        noteIds: [noteId],
         userId: owner,
       });
 
@@ -556,7 +545,7 @@ describe("recall session setup", () => {
         .map((result) => {
           return result.labelName;
         }),
-    ).toEqual(["Science"]);
+    ).toEqual([]);
     expect(recall.listSessionResults({ userId })).toHaveLength(2);
     expect(recall.listSessionResults({ userId: "user-2" })).toHaveLength(1);
   });

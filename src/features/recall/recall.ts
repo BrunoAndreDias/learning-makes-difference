@@ -1,5 +1,3 @@
-import type { AppLabelsContext } from "../labels/labels";
-import { AppLabelError } from "../labels/labels";
 import {
   type AppNote,
   type AppNotesContext,
@@ -60,17 +58,10 @@ type ShuffleNotes = (
   notes: readonly FlashCardRecallNote[],
 ) => FlashCardRecallNote[];
 
-type StartFlashCardSessionInput =
-  | {
-      labelId: string;
-      userId: string;
-      noteIds?: never;
-    }
-  | {
-      labelId?: never;
-      noteIds: string[];
-      userId: string;
-    };
+type StartFlashCardSessionInput = {
+  noteIds: string[];
+  userId: string;
+};
 
 type UpdateFlashCardSessionInput = {
   sessionId: string;
@@ -94,21 +85,9 @@ type RateFlashCardAnswerInput = UpdateFlashCardSessionInput & {
 type CreateAppRecallContextOptions = {
   crypto?: RecallCrypto;
   keyPrefix?: string;
-  labels: AppLabelsContext;
   notes: AppNotesContext;
   shuffleNotes?: ShuffleNotes;
   storage?: RecallStorageAdapter;
-};
-
-type ResolveFlashCardSessionTargetOptions = {
-  labels: AppLabelsContext;
-  notes: AppNotesContext;
-};
-
-type FlashCardSessionTarget = {
-  labelId: string | null;
-  labelName: string;
-  notes: FlashCardRecallNote[];
 };
 
 export class AppRecallError extends Error {
@@ -324,80 +303,17 @@ function cloneFlashCardRecallNotes(
   return notes.map(cloneFlashCardRecallNote);
 }
 
-function isSelectedNotesSessionInput(
-  input: StartFlashCardSessionInput,
-): input is Extract<StartFlashCardSessionInput, { noteIds: string[] }> {
-  return "noteIds" in input;
-}
-
-function getLabelNameForUser(
-  labels: AppLabelsContext,
-  labelId: string,
-  userId: string,
-) {
-  const label = labels.getLabelsForUser(userId).find((candidate) => {
-    return candidate.id === labelId;
-  });
-
-  if (label === undefined) {
-    throw new AppRecallError("not_found", "Label not found.");
-  }
-
-  return label.name;
-}
-
-export function resolveRecallableNotesFromLabel(input: {
-  labelId: string;
-  labels: AppLabelsContext;
-  notes: AppNotesContext;
-  userId: string;
-}): FlashCardRecallNote[] {
-  const reachableLabelIds = new Set<string>([input.labelId]);
-
-  try {
-    for (const descendantId of input.labels.getDescendantIds({
-      labelId: input.labelId,
-      userId: input.userId,
-    })) {
-      reachableLabelIds.add(descendantId);
-    }
-  } catch (error) {
-    if (error instanceof AppLabelError && error.code === "not_found") {
-      throw new AppRecallError("not_found", "Label not found.");
-    }
-
-    throw error;
-  }
-
-  const recallableNotes = new Map<string, FlashCardRecallNote>();
-
-  for (const note of listNotesForUser(
-    input.notes.getSnapshot(),
-    input.userId,
-  )) {
-    const isReachable = note.labelIds.some((labelId) => {
-      return reachableLabelIds.has(labelId);
-    });
-
-    if (!isReachable || recallableNotes.has(note.id)) {
-      continue;
-    }
-
-    recallableNotes.set(note.id, note);
-  }
-
-  return [...recallableNotes.values()].sort((left, right) => {
-    return (
-      left.title.localeCompare(right.title) || left.id.localeCompare(right.id)
-    );
-  });
-}
-
 export function resolveRecallableNotesFromSelection(input: {
   noteIds: readonly string[];
   notes: AppNotesContext;
   userId: string;
 }): FlashCardRecallNote[] {
+  if (!Array.isArray(input.noteIds)) {
+    throw new AppRecallError(
+      "invalid_input",
+      "Choose at least one note for recall.",
+    );
+  }
   const selectedNoteIds = [
     ...new Set(input.noteIds.filter((noteId) => noteId.length > 0)),
   ];
@@ -422,34 +338,6 @@ export function resolveRecallableNotesFromSelection(input: {
   });
 
   return recallableNotes;
-}
-
-function resolveFlashCardSessionTarget(
-  input: StartFlashCardSessionInput,
-  options: ResolveFlashCardSessionTargetOptions,
-): FlashCardSessionTarget {
-  if (isSelectedNotesSessionInput(input)) {
-    return {
-      labelId: null,
-      labelName: "Selected notes",
-      notes: resolveRecallableNotesFromSelection({
-        noteIds: input.noteIds,
-        notes: options.notes,
-        userId: input.userId,
-      }),
-    };
-  }
-
-  return {
-    labelId: input.labelId,
-    labelName: getLabelNameForUser(options.labels, input.labelId, input.userId),
-    notes: resolveRecallableNotesFromLabel({
-      labelId: input.labelId,
-      labels: options.labels,
-      notes: options.notes,
-      userId: input.userId,
-    }),
-  };
 }
 
 export function createAppRecallContext(
@@ -636,19 +524,11 @@ export function createAppRecallContext(
       return nextSession;
     },
     startFlashCardSession: (input) => {
-      const target = resolveFlashCardSessionTarget(input, {
-        labels: options.labels,
+      const notes = resolveRecallableNotesFromSelection({
+        noteIds: input.noteIds,
         notes: options.notes,
+        userId: input.userId,
       });
-
-      if (target.notes.length === 0) {
-        throw new AppRecallError(
-          "invalid_input",
-          target.labelId === null
-            ? "Choose at least one note for recall."
-            : "Choose a label with at least one reachable note.",
-        );
-      }
 
       const nextSession: StoredFlashCardRecallSession = {
         attempts: [],
@@ -656,10 +536,10 @@ export function createAppRecallContext(
         currentIndex: 0,
         id: cryptoProvider.randomUUID(),
         isAnswerRevealed: false,
-        labelId: target.labelId,
-        labelName: target.labelName,
+        labelId: null,
+        labelName: "Selected notes",
         mode: "FlashCard",
-        notes: cloneFlashCardRecallNotes(shuffleNotes(target.notes)),
+        notes: cloneFlashCardRecallNotes(shuffleNotes(notes)),
         userId: input.userId,
       };
 

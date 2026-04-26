@@ -349,6 +349,7 @@ function NotesSidebarContent({
     notesSnapshot,
     sessionSnapshot.user?.id ?? null,
   );
+  const recalledNoteIds = new Set(recallSelection.selectedNoteIds);
 
   function handleSidebarAction(action: () => void) {
     if (isMobileSidebarOpen) {
@@ -402,9 +403,7 @@ function NotesSidebarContent({
         ) : (
           <ul className="app-sidebar__workspace-list">
             {notes.map((note) => {
-              const isRecallSelected = recallSelection.selectedNoteIds.includes(
-                note.id,
-              );
+              const isRecallSelected = recalledNoteIds.has(note.id);
 
               return (
                 <li key={note.id}>
