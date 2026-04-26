@@ -3,6 +3,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
   type ReactNode,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -122,11 +123,8 @@ function NotesWorkspace() {
   );
   const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
-  const {
-    clearPendingSidebarAction,
-    pendingSidebarAction,
-    setActiveNoteId,
-  } = useNotesWorkspace();
+  const { clearPendingSidebarAction, pendingSidebarAction, setActiveNoteId } =
+    useNotesWorkspace();
   const [searchQuery, setSearchQuery] = useState("");
   const searchResults = searchNoteResults(notes, searchQuery);
   const hasSearchQuery = searchQuery.trim().length > 0;
@@ -157,6 +155,17 @@ function NotesWorkspace() {
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
   const selectedNote = getSelectedNote(noteEditor, notes);
   const isCreating = selectedNote === null;
+
+  const applyEditorTransitionResult = useCallback(
+    (result: NoteEditorTransitionResult) => {
+      setNoteEditor(result.state);
+
+      if (result.completedSearchJump !== null) {
+        setPendingSearchJump(result.completedSearchJump);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     function syncLabels() {
@@ -322,7 +331,8 @@ function NotesWorkspace() {
     }
 
     if (pendingSidebarAction.type === "new") {
-      handleNewNote();
+      setErrorMessage(null);
+      setNoteEditor(startNewNoteDraft());
       clearPendingSidebarAction(pendingSidebarAction.nonce);
       return;
     }
@@ -332,11 +342,27 @@ function NotesWorkspace() {
     );
 
     if (requestedNote !== undefined) {
-      handleSelectNote(requestedNote);
+      setErrorMessage(null);
+      applyEditorTransitionResult(
+        requestNoteEditorTransition(
+          noteEditor,
+          {
+            noteId: requestedNote.id,
+            type: "note",
+          },
+          notes,
+        ),
+      );
     }
 
     clearPendingSidebarAction(pendingSidebarAction.nonce);
-  }, [clearPendingSidebarAction, notes, pendingSidebarAction]);
+  }, [
+    applyEditorTransitionResult,
+    clearPendingSidebarAction,
+    noteEditor,
+    notes,
+    pendingSidebarAction,
+  ]);
 
   function handleEditorChange<K extends keyof NoteEditorDraft>(
     field: K,
@@ -393,32 +419,10 @@ function NotesWorkspace() {
     );
   }
 
-  function handleNewNote() {
-    setErrorMessage(null);
-    setNoteEditor(startNewNoteDraft());
-  }
-
-  function applyEditorTransitionResult(result: NoteEditorTransitionResult) {
-    setNoteEditor(result.state);
-
-    if (result.completedSearchJump !== null) {
-      setPendingSearchJump(result.completedSearchJump);
-    }
-  }
-
-  function handleSelectNote(note: AppNote) {
-    setErrorMessage(null);
-
-    applyEditorTransitionResult(
-      requestNoteEditorTransition(
-        noteEditor,
-        {
-          noteId: note.id,
-          type: "note",
-        },
-        notes,
-      ),
-    );
+  function resetSearchNavigationState() {
+    setSearchQuery("");
+    setIsSearchOpen(false);
+    setActiveSearchResultIndex(0);
   }
 
   function handleSelectSearchResult(result: AppNoteSearchResult) {
@@ -436,9 +440,7 @@ function NotesWorkspace() {
     applyEditorTransitionResult(transitionResult);
 
     if (transitionResult.state.pendingTransition === null) {
-      setSearchQuery("");
-      setIsSearchOpen(false);
-      setActiveSearchResultIndex(0);
+      resetSearchNavigationState();
     }
   }
 
@@ -456,9 +458,7 @@ function NotesWorkspace() {
     applyEditorTransitionResult(transitionResult);
 
     if (transitionResult.completedSearchJump !== null) {
-      setSearchQuery("");
-      setIsSearchOpen(false);
-      setActiveSearchResultIndex(0);
+      resetSearchNavigationState();
     }
   }
 
@@ -1086,7 +1086,6 @@ function NotesWorkspace() {
             </aside>
           </form>
         </article>
-
       </div>
       {noteEditor.pendingTransition === null ? null : (
         <div
