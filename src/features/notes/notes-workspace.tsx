@@ -9,7 +9,7 @@ import {
 
 import {
   cancelRecallSelectionMode,
-  completeRecallSelection,
+  completeRecallSelection as completeRecallSelectionState,
   createInitialRecallSelectionState,
   enterRecallSelectionMode,
   type RecallSelectionState,
@@ -107,7 +107,7 @@ export function NotesWorkspaceProvider({
   }, []);
 
   const finishRecallSelection = useCallback(() => {
-    const result = completeRecallSelection(recallSelection);
+    const result = completeRecallSelectionState(recallSelection);
 
     setRecallSelection(result.state);
 

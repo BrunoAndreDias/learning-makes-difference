@@ -26,13 +26,7 @@ export const Route = createFileRoute("/_protected")({
   component: AppLayout,
 });
 
-const appNavigationItems = [
-  {
-    icon: "note",
-    label: "Notes",
-    to: "/notes",
-  },
-] as const;
+type NavigationIconName = "note" | "settings";
 
 function getWorkspaceTitle(pathname: string) {
   if (pathname === "/labels" || pathname.startsWith("/labels/")) {
@@ -468,7 +462,7 @@ function SidebarCollapseIcon() {
 function NavigationIcon({
   name,
 }: Readonly<{
-  name: (typeof appNavigationItems)[number]["icon"] | "settings";
+  name: NavigationIconName;
 }>) {
   switch (name) {
     case "settings":

@@ -56,7 +56,7 @@ export function completeRecallSelection(state: RecallSelectionState): {
   state: RecallSelectionState;
 } {
   return {
-    noteIds: state.selectedNoteIds,
+    noteIds: [...state.selectedNoteIds],
     state: createInitialRecallSelectionState(),
   };
 }
