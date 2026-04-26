@@ -27,12 +27,12 @@ import {
 import {
   type AppRecallContext,
   createAppRecallContext,
-} from "../src/lib/recall";
+} from "../src/features/recall/recall";
 import {
   type AppSessionContext,
   type AppSessionSnapshot,
   createAppSessionContext,
-} from "../src/lib/session";
+} from "../src/features/session/session";
 import { routeTree } from "../src/routeTree.gen";
 
 function renderRoute(

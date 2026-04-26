@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 import type { AppLabel } from "../features/labels/labels";
-import type { FlashCardSessionResult } from "../lib/recall";
-import type { AppSessionSnapshot } from "../lib/session";
+import type { FlashCardSessionResult } from "../features/recall/recall";
+import type { AppSessionSnapshot } from "../features/session/session";
 
 export const Route = createFileRoute("/_protected/history")({
   component: HistoryPage,

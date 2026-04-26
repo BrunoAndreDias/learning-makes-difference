@@ -11,7 +11,7 @@ import {
   AppLabelError,
   type AppLabelsContext,
 } from "../features/labels/labels";
-import type { AppSessionSnapshot } from "../lib/session";
+import type { AppSessionSnapshot } from "../features/session/session";
 
 export const Route = createFileRoute("/_protected/labels")({
   component: LabelsPage,

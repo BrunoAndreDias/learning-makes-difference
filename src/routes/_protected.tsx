@@ -15,7 +15,7 @@ import {
 } from "react";
 
 import appLogo from "../../docs/layout/logo.svg";
-import type { AppSessionSnapshot } from "../lib/session";
+import type { AppSessionSnapshot } from "../features/session/session";
 
 export const Route = createFileRoute("/_protected")({
   component: AppLayout,

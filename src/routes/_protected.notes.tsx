@@ -45,7 +45,7 @@ import {
   type AppStoredNote,
   listNotesForUser,
 } from "../features/notes/notes";
-import type { AppSessionSnapshot } from "../lib/session";
+import type { AppSessionSnapshot } from "../features/session/session";
 
 export const Route = createFileRoute("/_protected/notes")({
   component: NotesWorkspace,

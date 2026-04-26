@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createAppLabelsContext } from "../src/features/labels/labels";
 import { createAppNotesContext } from "../src/features/notes/notes";
-import { createAppRecallContext } from "../src/lib/recall";
+import { createAppRecallContext } from "../src/features/recall/recall";
 
 function createMemoryStorage() {
   const values = new Map<string, string>();

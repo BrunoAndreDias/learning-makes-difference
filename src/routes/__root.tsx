@@ -14,8 +14,11 @@ import { type ReactNode, useSyncExternalStore } from "react";
 
 import type { AppLabelsContext } from "../features/labels/labels";
 import type { AppNotesContext } from "../features/notes/notes";
-import type { AppRecallContext } from "../lib/recall";
-import { type AppSessionContext, hasActiveSession } from "../lib/session";
+import type { AppRecallContext } from "../features/recall/recall";
+import {
+  type AppSessionContext,
+  hasActiveSession,
+} from "../features/session/session";
 import appCss from "../styles/app.css?url";
 
 const authRoutePaths = new Set(["/forgot-password", "/login", "/register"]);
