@@ -15,7 +15,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import appLogo from "../../docs/layout/learning-logo.svg";
+import appLogo from "../../docs/layout/logo.svg";
 import { listNotesForUser } from "../features/notes/notes";
 import {
   NotesWorkspaceProvider,

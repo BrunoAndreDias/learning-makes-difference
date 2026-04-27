@@ -11,7 +11,7 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { type ReactNode, useSyncExternalStore } from "react";
-
+import appLogo from "../../docs/layout/logo.svg";
 import type { AppLabelsContext } from "../features/labels/labels";
 import type { AppNotesContext } from "../features/notes/notes";
 import type { AppRecallContext } from "../features/recall/recall";
@@ -56,7 +56,10 @@ export const Route = createRootRouteWithContext<{
           "SSR-capable TanStack Start foundation for Learning Makes Difference.",
       },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "icon", type: "image/svg+xml", href: appLogo },
+      { rel: "stylesheet", href: appCss },
+    ],
   }),
   beforeLoad: ({ context, location }) => {
     if (hasActiveSession(context.session.getSnapshot())) {
