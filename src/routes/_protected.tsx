@@ -369,12 +369,11 @@ function NotesSidebarContent({
     select: (context) => context.session,
   });
   const {
+    activateNoteTarget,
     activeNoteId,
     recallSelection,
     requestEditorFocus,
-    requestNewNote,
-    requestSelectNote,
-    toggleRecallSelection,
+    startNewNoteDraft,
   } = useNotesWorkspace();
   const activeNoteRef = useRef<HTMLButtonElement | null>(null);
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
@@ -403,12 +402,23 @@ function NotesSidebarContent({
   }
 
   function handleNoteClick(noteId: string) {
-    if (recallSelection.isSelectingForRecall) {
-      toggleRecallSelection(noteId);
+    const result = activateNoteTarget(
+      {
+        noteId,
+        type: "note",
+      },
+      notes,
+    );
+
+    if (result.status === "selectedForRecall") {
       return;
     }
 
-    handleSidebarAction(() => requestSelectNote(noteId));
+    if (isMobileSidebarOpen) {
+      requestEditorFocus();
+    }
+
+    closeMobileSidebar();
   }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: activeNoteId changes which button owns the ref and must retrigger the scroll.
@@ -432,7 +442,7 @@ function NotesSidebarContent({
         <button
           className="notes-action notes-action-primary"
           disabled={activeNoteId === null}
-          onClick={() => handleSidebarAction(requestNewNote)}
+          onClick={() => handleSidebarAction(startNewNoteDraft)}
           type="button"
         >
           New note

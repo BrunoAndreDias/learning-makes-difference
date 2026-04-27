@@ -1793,6 +1793,89 @@ describe("authenticated app shell", () => {
     ]);
   });
 
+  it("guards starting a RecallSession when the selected Note has unsaved edits", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const recallContext = createAppRecallContext({
+      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+    const note = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Original recall answer.",
+      labelIds: [],
+      metaphors: [],
+      title: "Guarded recall start",
+    });
+
+    const { router } = renderRoute("/notes", {
+      notesContext,
+      recallContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    const bodyEditor = await screen.findByDisplayValue(
+      "Original recall answer.",
+    );
+
+    fireEvent.change(bodyEditor, {
+      target: { value: "Unsaved recall answer." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Select for recall" }));
+    fireEvent.click(
+      within(screen.getByRole("navigation", { name: "Notes list" })).getByRole(
+        "button",
+        { name: "Guarded recall start" },
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
+
+    const dialog = screen.getByRole("dialog", {
+      name: "Discard unsaved changes?",
+    });
+
+    expect(router.state.location.pathname).toBe("/notes");
+    expect(recallContext.getSnapshot()).toBeNull();
+    expect(
+      screen.getByDisplayValue("Unsaved recall answer."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(
+      screen.queryByRole("dialog", { name: "Discard unsaved changes?" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start recall" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
+    fireEvent.click(
+      within(
+        screen.getByRole("dialog", { name: "Discard unsaved changes?" }),
+      ).getByRole("button", { name: "Discard changes" }),
+    );
+
+    expect(router.state.location.pathname).toBe("/notes/recall");
+    expect(
+      await screen.findByRole("heading", { name: "FlashCard session" }),
+    ).toBeInTheDocument();
+    expect(recallContext.getSnapshot()).toMatchObject({
+      notes: [{ id: note.id, title: "Guarded recall start" }],
+    });
+  });
+
   it("completes the searched Notes recall loop while keeping recall mode and utilities clear", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,

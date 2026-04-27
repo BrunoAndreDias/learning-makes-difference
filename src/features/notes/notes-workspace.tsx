@@ -10,18 +10,14 @@ import {
 import {
   addNoteEditorAcronym,
   addNoteEditorMetaphor,
-  cancelNoteEditorTransition,
   createInitialNoteEditorState,
-  discardAndApplyNoteEditorTransition,
   isNoteEditorDirty,
   markNoteEditorSaved,
   type NoteEditorDraft,
   type NoteEditorState,
-  type NoteEditorTransitionResult,
   type NoteEditorTransitionTarget,
   removeNoteEditorAcronym,
   removeNoteEditorMetaphor,
-  requestNoteEditorTransition,
   startNewNoteDraft,
   syncNoteEditorWithNotes,
   toggleNoteEditorLabel,
@@ -31,57 +27,51 @@ import {
 } from "./note-editor";
 import type { AppAcronym, AppMetaphor, AppNote } from "./notes";
 import {
+  activateNotesWorkspaceNote,
+  cancelPendingNotesWorkspaceTransition,
+  discardPendingNotesWorkspaceTransition,
+  hasPendingNotesWorkspaceTransition,
+  type NotesWorkspaceActivationResult,
+  type NotesWorkspaceDiscardResult,
+  type NotesWorkspaceRecallStartResult,
+  type NotesWorkspaceState,
+  requestNotesWorkspaceRecallStart,
+} from "./notes-workspace-state";
+import {
   cancelRecallSelectionMode,
-  completeRecallSelection as completeRecallSelectionState,
   createInitialRecallSelectionState,
   enterRecallSelectionMode,
   type RecallSelectionState,
-  toggleRecallSelectionNote,
 } from "./recall-selection";
-
-export type NotesWorkspaceSidebarAction =
-  | {
-      nonce: number;
-      type: "new";
-    }
-  | {
-      nonce: number;
-      noteId: string;
-      type: "select";
-    };
 
 type NotesWorkspaceContextValue = {
   activeNoteId: string | null;
   addEditorAcronym: () => void;
   addEditorMetaphor: () => void;
   cancelRecallSelection: () => void;
-  cancelEditorTransition: () => void;
-  clearPendingSidebarAction: (nonce: number) => void;
+  cancelPendingWorkspaceTransition: () => void;
   clearPendingSearchJump: () => void;
-  completeRecallSelection: () => string[];
-  discardPendingEditorTransition: (
+  discardPendingWorkspaceTransition: (
     notes: readonly AppNote[],
-  ) => NoteEditorTransitionResult;
+  ) => NotesWorkspaceDiscardResult;
   enterRecallSelection: () => void;
   editorFocusRequestNonce: number;
+  hasPendingWorkspaceTransition: boolean;
   hasUnsavedNoteChanges: boolean;
   markEditorSaved: (note: AppNote) => void;
   noteEditor: NoteEditorState;
-  pendingSidebarAction: NotesWorkspaceSidebarAction | null;
-  pendingSearchJump: NoteEditorTransitionResult["completedSearchJump"];
+  pendingSearchJump: NotesWorkspaceActivationResult["completedSearchJump"];
   recallSelection: RecallSelectionState;
   removeEditorAcronym: (index: number) => void;
   removeEditorMetaphor: (index: number) => void;
   requestEditorFocus: () => void;
-  requestEditorTransition: (
+  activateNoteTarget: (
     target: NoteEditorTransitionTarget,
     notes: readonly AppNote[],
-  ) => NoteEditorTransitionResult;
-  requestNewNote: () => void;
-  requestSelectNote: (noteId: string) => void;
+  ) => NotesWorkspaceActivationResult;
+  requestRecallStart: () => NotesWorkspaceRecallStartResult;
   startNewNoteDraft: () => void;
   syncEditorWithNotes: (notes: readonly AppNote[]) => void;
-  toggleRecallSelection: (noteId: string) => void;
   toggleEditorLabel: (labelId: string, checked: boolean) => void;
   updateEditorAcronym: <K extends keyof AppAcronym>(
     index: number,
@@ -110,53 +100,36 @@ export function NotesWorkspaceProvider({
     createInitialNoteEditorState([]),
   );
   const [pendingSearchJump, setPendingSearchJump] =
-    useState<NoteEditorTransitionResult["completedSearchJump"]>(null);
+    useState<NotesWorkspaceActivationResult["completedSearchJump"]>(null);
   const [editorFocusRequestNonce, setEditorFocusRequestNonce] = useState(0);
-  const [pendingSidebarAction, setPendingSidebarAction] =
-    useState<NotesWorkspaceSidebarAction | null>(null);
   const [recallSelection, setRecallSelection] = useState(() =>
     createInitialRecallSelectionState(),
   );
-  const actionNonceRef = useRef(0);
   const hasInitializedEditorRef = useRef(false);
 
-  const applyEditorTransitionResult = useCallback(
-    (result: NoteEditorTransitionResult) => {
-      setNoteEditor(result.state);
+  const getWorkspaceState = useCallback(
+    (): NotesWorkspaceState => ({
+      noteEditor,
+      recallSelection,
+    }),
+    [noteEditor, recallSelection],
+  );
+
+  const applyWorkspaceState = useCallback((state: NotesWorkspaceState) => {
+    setNoteEditor(state.noteEditor);
+    setRecallSelection(state.recallSelection);
+  }, []);
+
+  const applyActivationResult = useCallback(
+    (result: NotesWorkspaceActivationResult) => {
+      applyWorkspaceState(result.state);
 
       if (result.completedSearchJump !== null) {
         setPendingSearchJump(result.completedSearchJump);
       }
     },
-    [],
+    [applyWorkspaceState],
   );
-
-  const clearPendingSidebarAction = useCallback((nonce: number) => {
-    setPendingSidebarAction((currentAction) => {
-      if (currentAction?.nonce !== nonce) {
-        return currentAction;
-      }
-
-      return null;
-    });
-  }, []);
-
-  const requestNewNote = useCallback(() => {
-    actionNonceRef.current += 1;
-    setPendingSidebarAction({
-      nonce: actionNonceRef.current,
-      type: "new",
-    });
-  }, []);
-
-  const requestSelectNote = useCallback((noteId: string) => {
-    actionNonceRef.current += 1;
-    setPendingSidebarAction({
-      nonce: actionNonceRef.current,
-      noteId,
-      type: "select",
-    });
-  }, []);
 
   const requestEditorFocus = useCallback(() => {
     setEditorFocusRequestNonce((currentValue) => currentValue + 1);
@@ -234,30 +207,43 @@ export function NotesWorkspaceProvider({
     [],
   );
 
-  const requestEditorTransition = useCallback(
+  const activateNoteTarget = useCallback(
     (target: NoteEditorTransitionTarget, notes: readonly AppNote[]) => {
-      const result = requestNoteEditorTransition(noteEditor, target, notes);
+      const result = activateNotesWorkspaceNote(
+        getWorkspaceState(),
+        target,
+        notes,
+      );
 
-      applyEditorTransitionResult(result);
+      applyActivationResult(result);
 
       return result;
     },
-    [applyEditorTransitionResult, noteEditor],
+    [applyActivationResult, getWorkspaceState],
   );
 
-  const cancelEditorTransition = useCallback(() => {
-    setNoteEditor((currentState) => cancelNoteEditorTransition(currentState));
-  }, []);
+  const cancelPendingWorkspaceTransition = useCallback(() => {
+    applyWorkspaceState(
+      cancelPendingNotesWorkspaceTransition(getWorkspaceState()),
+    );
+  }, [applyWorkspaceState, getWorkspaceState]);
 
-  const discardPendingEditorTransition = useCallback(
+  const discardPendingWorkspaceTransition = useCallback(
     (notes: readonly AppNote[]) => {
-      const result = discardAndApplyNoteEditorTransition(noteEditor, notes);
+      const result = discardPendingNotesWorkspaceTransition(
+        getWorkspaceState(),
+        notes,
+      );
 
-      applyEditorTransitionResult(result);
+      applyWorkspaceState(result.state);
+
+      if (result.completedSearchJump !== null) {
+        setPendingSearchJump(result.completedSearchJump);
+      }
 
       return result;
     },
-    [applyEditorTransitionResult, noteEditor],
+    [applyWorkspaceState, getWorkspaceState],
   );
 
   const startDraft = useCallback(() => {
@@ -282,47 +268,39 @@ export function NotesWorkspaceProvider({
     setRecallSelection(cancelRecallSelectionMode());
   }, []);
 
-  const toggleRecallSelection = useCallback((noteId: string) => {
-    setRecallSelection((currentState) =>
-      toggleRecallSelectionNote(currentState, noteId),
-    );
-  }, []);
+  const requestRecallStart = useCallback(() => {
+    const result = requestNotesWorkspaceRecallStart(getWorkspaceState());
 
-  const finishRecallSelection = useCallback(() => {
-    const result = completeRecallSelectionState(recallSelection);
+    applyWorkspaceState(result.state);
 
-    setRecallSelection(result.state);
-
-    return result.noteIds;
-  }, [recallSelection]);
+    return result;
+  }, [applyWorkspaceState, getWorkspaceState]);
 
   const value: NotesWorkspaceContextValue = {
     activeNoteId: noteEditor.selectedNoteId,
+    activateNoteTarget,
     addEditorAcronym,
     addEditorMetaphor,
     cancelRecallSelection,
-    cancelEditorTransition,
-    clearPendingSidebarAction,
+    cancelPendingWorkspaceTransition,
     clearPendingSearchJump,
-    completeRecallSelection: finishRecallSelection,
-    discardPendingEditorTransition,
+    discardPendingWorkspaceTransition,
     enterRecallSelection,
     editorFocusRequestNonce,
+    hasPendingWorkspaceTransition: hasPendingNotesWorkspaceTransition(
+      getWorkspaceState(),
+    ),
     hasUnsavedNoteChanges: isNoteEditorDirty(noteEditor),
     markEditorSaved: markSaved,
     noteEditor,
-    pendingSidebarAction,
     pendingSearchJump,
     recallSelection,
     removeEditorAcronym,
     removeEditorMetaphor,
     requestEditorFocus,
-    requestEditorTransition,
-    requestNewNote,
-    requestSelectNote,
+    requestRecallStart,
     startNewNoteDraft: startDraft,
     syncEditorWithNotes,
-    toggleRecallSelection,
     toggleEditorLabel,
     updateEditorAcronym,
     updateEditorDraftField: updateEditorDraft,

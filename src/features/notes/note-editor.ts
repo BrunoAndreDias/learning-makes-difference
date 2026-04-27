@@ -272,6 +272,28 @@ export function syncNoteEditorWithNotes(
   };
 }
 
+export function discardNoteEditorChanges(
+  state: NoteEditorState,
+  notes: readonly AppNote[],
+  createEditorKey: EditorKeyFactory = defaultEditorKeyFactory,
+): NoteEditorState {
+  if (state.mode === "editing" && state.selectedNoteId !== null) {
+    const selectedNote = findNoteById(notes, state.selectedNoteId);
+
+    if (selectedNote !== null) {
+      return createEditingState(selectedNote, createEditorKey);
+    }
+  }
+
+  const firstNote = notes[0];
+
+  if (firstNote === undefined) {
+    return createDraftState();
+  }
+
+  return createEditingState(firstNote, createEditorKey);
+}
+
 export function startNewNoteDraft(): NoteEditorState {
   return createDraftState();
 }

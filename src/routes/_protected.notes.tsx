@@ -94,28 +94,25 @@ function NotesWorkspace() {
   const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
   const {
+    activateNoteTarget,
     addEditorAcronym,
     addEditorMetaphor,
-    cancelEditorTransition,
+    cancelPendingWorkspaceTransition,
     cancelRecallSelection,
-    clearPendingSidebarAction,
     clearPendingSearchJump,
-    completeRecallSelection,
-    discardPendingEditorTransition,
+    discardPendingWorkspaceTransition,
     enterRecallSelection,
     editorFocusRequestNonce,
+    hasPendingWorkspaceTransition,
     hasUnsavedNoteChanges,
     markEditorSaved,
     noteEditor,
-    pendingSidebarAction,
     pendingSearchJump,
     recallSelection,
     removeEditorAcronym,
     removeEditorMetaphor,
-    requestEditorTransition,
-    startNewNoteDraft,
+    requestRecallStart,
     syncEditorWithNotes,
-    toggleRecallSelection,
     toggleEditorLabel,
     updateEditorAcronym,
     updateEditorDraftField,
@@ -149,6 +146,9 @@ function NotesWorkspace() {
   const isInspectorHidden = bodyFraction >= 0.88;
   const selectedNote = getSelectedNote(noteEditor, notes);
   const isCreating = selectedNote === null;
+  const editorIdentity =
+    noteEditor.mode === "draft" ? "draft" : noteEditor.selectedNoteId;
+  const previousEditorIdentityRef = useRef(editorIdentity);
 
   useEffect(() => {
     function syncLabels() {
@@ -235,6 +235,15 @@ function NotesWorkspace() {
   }, [notes, syncEditorWithNotes]);
 
   useEffect(() => {
+    if (previousEditorIdentityRef.current === editorIdentity) {
+      return;
+    }
+
+    previousEditorIdentityRef.current = editorIdentity;
+    setErrorMessage(null);
+  }, [editorIdentity]);
+
+  useEffect(() => {
     return () => {
       if (searchSelectionTimeoutRef.current !== null) {
         clearTimeout(searchSelectionTimeoutRef.current);
@@ -243,12 +252,12 @@ function NotesWorkspace() {
   }, []);
 
   useEffect(() => {
-    if (noteEditor.pendingTransition === null) {
+    if (!hasPendingWorkspaceTransition) {
       return;
     }
 
     unsavedSearchCancelRef.current?.focus();
-  }, [noteEditor.pendingTransition]);
+  }, [hasPendingWorkspaceTransition]);
 
   useEffect(() => {
     if (pendingSearchJump === null) {
@@ -308,51 +317,12 @@ function NotesWorkspace() {
   ]);
 
   useEffect(() => {
-    if (
-      editorFocusRequestNonce === 0 ||
-      noteEditor.pendingTransition !== null
-    ) {
+    if (editorFocusRequestNonce === 0 || hasPendingWorkspaceTransition) {
       return;
     }
 
     titleInputRef.current?.focus();
-  }, [editorFocusRequestNonce, noteEditor.pendingTransition]);
-
-  useEffect(() => {
-    if (pendingSidebarAction === null) {
-      return;
-    }
-
-    if (pendingSidebarAction.type === "new") {
-      setErrorMessage(null);
-      startNewNoteDraft();
-      clearPendingSidebarAction(pendingSidebarAction.nonce);
-      return;
-    }
-
-    const requestedNote = notes.find(
-      (note) => note.id === pendingSidebarAction.noteId,
-    );
-
-    if (requestedNote !== undefined) {
-      setErrorMessage(null);
-      requestEditorTransition(
-        {
-          noteId: requestedNote.id,
-          type: "note",
-        },
-        notes,
-      );
-    }
-
-    clearPendingSidebarAction(pendingSidebarAction.nonce);
-  }, [
-    clearPendingSidebarAction,
-    notes,
-    pendingSidebarAction,
-    requestEditorTransition,
-    startNewNoteDraft,
-  ]);
+  }, [editorFocusRequestNonce, hasPendingWorkspaceTransition]);
 
   function handleEditorChange<K extends keyof NoteEditorDraft>(
     field: K,
@@ -406,13 +376,7 @@ function NotesWorkspace() {
   function handleSelectSearchResult(result: AppNoteSearchResult) {
     setErrorMessage(null);
 
-    if (recallSelection.isSelectingForRecall) {
-      toggleRecallSelection(result.note.id);
-      resetSearchNavigationState();
-      return;
-    }
-
-    const transitionResult = requestEditorTransition(
+    const transitionResult = activateNoteTarget(
       {
         result,
         type: "searchResult",
@@ -420,21 +384,25 @@ function NotesWorkspace() {
       notes,
     );
 
-    if (transitionResult.state.pendingTransition === null) {
+    if (transitionResult.status !== "pending") {
       resetSearchNavigationState();
     }
   }
 
-  function handleCancelGuardedSearchNavigation() {
-    cancelEditorTransition();
+  function handleCancelGuardedWorkspaceTransition() {
+    cancelPendingWorkspaceTransition();
     searchInputRef.current?.focus();
   }
 
-  function handleDiscardGuardedSearchNavigation() {
-    const transitionResult = discardPendingEditorTransition(notes);
+  async function handleDiscardGuardedWorkspaceTransition() {
+    const transitionResult = discardPendingWorkspaceTransition(notes);
 
     if (transitionResult.completedSearchJump !== null) {
       resetSearchNavigationState();
+    }
+
+    if (transitionResult.status === "recallStart") {
+      await startRecallSession(transitionResult.noteIds);
     }
   }
 
@@ -523,7 +491,7 @@ function NotesWorkspace() {
   ) {
     if (event.key === "Escape") {
       event.preventDefault();
-      handleCancelGuardedSearchNavigation();
+      handleCancelGuardedWorkspaceTransition();
       return;
     }
 
@@ -625,16 +593,14 @@ function NotesWorkspace() {
     }
   }
 
-  async function handleStartRecall() {
-    if (userId === null || recallSelection.selectedCount === 0) {
+  async function startRecallSession(noteIds: readonly string[]) {
+    if (userId === null) {
       return;
     }
 
     try {
-      const noteIds = completeRecallSelection();
-
       recallContext.startFlashCardSession({
-        noteIds,
+        noteIds: [...noteIds],
         userId,
       });
       setErrorMessage(null);
@@ -647,6 +613,20 @@ function NotesWorkspace() {
 
       throw error;
     }
+  }
+
+  async function handleStartRecall() {
+    if (userId === null || recallSelection.selectedCount === 0) {
+      return;
+    }
+
+    const result = requestRecallStart();
+
+    if (result.status !== "ready") {
+      return;
+    }
+
+    await startRecallSession(result.noteIds);
   }
 
   const selectedLabels = availableLabels.filter((label) =>
@@ -1141,7 +1121,7 @@ function NotesWorkspace() {
           </form>
         </article>
       </div>
-      {noteEditor.pendingTransition === null ? null : (
+      {hasPendingWorkspaceTransition ? (
         <div
           aria-labelledby="notes-unsaved-search-title"
           aria-describedby="notes-unsaved-search-description"
@@ -1159,7 +1139,7 @@ function NotesWorkspace() {
             <div className="notes-unsaved-search-dialog__actions">
               <button
                 className="notes-action"
-                onClick={handleCancelGuardedSearchNavigation}
+                onClick={handleCancelGuardedWorkspaceTransition}
                 ref={unsavedSearchCancelRef}
                 type="button"
               >
@@ -1167,7 +1147,7 @@ function NotesWorkspace() {
               </button>
               <button
                 className="notes-action notes-action-primary"
-                onClick={handleDiscardGuardedSearchNavigation}
+                onClick={() => void handleDiscardGuardedWorkspaceTransition()}
                 ref={unsavedSearchDiscardRef}
                 type="button"
               >
@@ -1176,7 +1156,7 @@ function NotesWorkspace() {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </section>
   );
 }

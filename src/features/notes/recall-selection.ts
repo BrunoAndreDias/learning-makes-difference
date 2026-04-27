@@ -1,15 +1,18 @@
 export type RecallSelectionState = {
   isSelectingForRecall: boolean;
+  pendingStart: boolean;
   selectedCount: number;
   selectedNoteIds: string[];
 };
 
 function createRecallSelectionState(input: {
   isSelectingForRecall: boolean;
+  pendingStart?: boolean;
   selectedNoteIds: string[];
 }): RecallSelectionState {
   return {
     isSelectingForRecall: input.isSelectingForRecall,
+    pendingStart: input.pendingStart ?? false,
     selectedCount: input.selectedNoteIds.length,
     selectedNoteIds: [...input.selectedNoteIds],
   };
@@ -27,6 +30,7 @@ export function enterRecallSelectionMode(
 ): RecallSelectionState {
   return createRecallSelectionState({
     isSelectingForRecall: true,
+    pendingStart: false,
     selectedNoteIds: state.selectedNoteIds,
   });
 }
@@ -43,6 +47,7 @@ export function toggleRecallSelectionNote(
 
   return createRecallSelectionState({
     isSelectingForRecall: state.isSelectingForRecall,
+    pendingStart: false,
     selectedNoteIds,
   });
 }
@@ -59,4 +64,28 @@ export function completeRecallSelection(state: RecallSelectionState): {
     noteIds: [...state.selectedNoteIds],
     state: createInitialRecallSelectionState(),
   };
+}
+
+export function markRecallSelectionStartPending(
+  state: RecallSelectionState,
+): RecallSelectionState {
+  return createRecallSelectionState({
+    isSelectingForRecall: state.isSelectingForRecall,
+    pendingStart: true,
+    selectedNoteIds: state.selectedNoteIds,
+  });
+}
+
+export function cancelPendingRecallSelectionStart(
+  state: RecallSelectionState,
+): RecallSelectionState {
+  if (!state.pendingStart) {
+    return state;
+  }
+
+  return createRecallSelectionState({
+    isSelectingForRecall: state.isSelectingForRecall,
+    pendingStart: false,
+    selectedNoteIds: state.selectedNoteIds,
+  });
 }
