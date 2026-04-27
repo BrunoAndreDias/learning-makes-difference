@@ -34,4 +34,14 @@ describe("foundationTokens", () => {
     expect(css).toContain(".app-shell");
     expect(css).toContain(".surface-card");
   });
+
+  it("keeps the app sidebar account row pinned above the flexible notes body", () => {
+    const css = readFileSync(
+      new URL("../styles/app.css", import.meta.url),
+      "utf8",
+    );
+
+    expect(css).toContain("grid-template-rows: auto minmax(0, 1fr);");
+    expect(css).toContain("align-content: start;");
+  });
 });

@@ -1207,7 +1207,8 @@ h3 {
 
 .app-sidebar {
   align-self: stretch;
-  grid-template-rows: auto auto auto;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: start;
   width: var(--authenticated-sidebar-width);
   min-height: calc(100vh - 2rem);
   padding: 0.875rem 0.875rem 1.25rem;
