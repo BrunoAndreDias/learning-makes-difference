@@ -7,6 +7,7 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import {
+  type KeyboardEvent,
   useEffect,
   useId,
   useRef,
@@ -26,50 +27,34 @@ export const Route = createFileRoute("/_protected")({
   component: AppLayout,
 });
 
-const appNavigationItems = [
-  {
-    description: "Capture focused concepts and draft the note workflow.",
-    icon: "note",
-    label: "Notes",
-    shortLabel: "NT",
-    to: "/notes",
-  },
-  {
-    description: "Shape the label graph and topic organization surfaces.",
-    icon: "label",
-    label: "Labels",
-    shortLabel: "LB",
-    to: "/labels",
-  },
-  {
-    description: "Exercise recall sessions before the real study loop lands.",
-    icon: "recall",
-    label: "Recall",
-    shortLabel: "RC",
-    to: "/recall",
-  },
-  {
-    description: "Reserve space for completed and partial study history.",
-    icon: "history",
-    label: "History",
-    shortLabel: "HS",
-    to: "/history",
-  },
-  {
-    description: "Profile and language controls will expand here later.",
-    icon: "settings",
-    label: "Settings",
-    shortLabel: "ST",
-    to: "/settings",
-  },
-] as const;
+type NavigationIconName = "note" | "settings";
 
-function getActiveNavigationItem(pathname: string) {
-  return (
-    appNavigationItems.find((item) => {
-      return pathname === item.to || pathname.startsWith(`${item.to}/`);
-    }) ?? appNavigationItems[0]
-  );
+function getWorkspaceTitle(pathname: string) {
+  if (pathname === "/labels" || pathname.startsWith("/labels/")) {
+    return "Labels";
+  }
+
+  if (pathname === "/recall" || pathname.startsWith("/recall/")) {
+    return "Recall";
+  }
+
+  if (pathname === "/history" || pathname.startsWith("/history/")) {
+    return "History";
+  }
+
+  if (pathname === "/settings" || pathname.startsWith("/settings/")) {
+    return "Settings";
+  }
+
+  if (pathname === "/notes/recall" || pathname.startsWith("/notes/recall/")) {
+    return "Recall";
+  }
+
+  return "Notes";
+}
+
+function isNotesWorkspacePath(pathname: string) {
+  return pathname === "/notes" || pathname.startsWith("/notes/");
 }
 
 function formatSidebarNoteDate(value: string): string {
@@ -92,7 +77,7 @@ function AppLayout() {
   const [shouldRestoreMobileToggleFocus, setShouldRestoreMobileToggleFocus] =
     useState(false);
   const [isLoggingOut, setLoggingOut] = useState(false);
-  const activeNavigationLinkRef = useRef<HTMLAnchorElement | null>(null);
+  const sidebarRef = useRef<HTMLElement | null>(null);
   const collapsedSidebarToggleRef = useRef<HTMLButtonElement | null>(null);
   const mobileToggleRef = useRef<HTMLButtonElement | null>(null);
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
@@ -100,8 +85,8 @@ function AppLayout() {
     session.getSnapshot,
     session.getSnapshot,
   );
-  const activeItem = getActiveNavigationItem(location.pathname);
-  const isNotesWorkspace = activeItem.to === "/notes";
+  const workspaceTitle = getWorkspaceTitle(location.pathname);
+  const isNotesWorkspaceRoute = isNotesWorkspacePath(location.pathname);
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
   const sidebarToggleLabel = isSidebarCollapsed
     ? "Expand sidebar"
@@ -109,8 +94,6 @@ function AppLayout() {
   const mobileToggleLabel = isMobileSidebarOpen
     ? "Close navigation menu"
     : "Open navigation menu";
-  const userInitials =
-    sessionSnapshot.user?.displayName.slice(0, 2).toUpperCase() ?? "LM";
 
   function closeMobileSidebar(shouldRestoreFocus = false) {
     setShouldRestoreMobileToggleFocus(shouldRestoreFocus);
@@ -120,10 +103,6 @@ function AppLayout() {
   function toggleMobileSidebar() {
     setShouldRestoreMobileToggleFocus(false);
     setMobileSidebarOpen((value) => !value);
-  }
-
-  function handleSidebarLinkClick() {
-    closeMobileSidebar();
   }
 
   function handleMobileSidebarAction() {
@@ -159,7 +138,7 @@ function AppLayout() {
 
   useEffect(() => {
     if (isMobileSidebarOpen) {
-      activeNavigationLinkRef.current?.focus();
+      sidebarRef.current?.focus();
       return;
     }
 
@@ -176,35 +155,21 @@ function AppLayout() {
         data-sidebar-state={sidebarState}
       >
         <aside
-          aria-label="App sidebar"
+          aria-label="Notes workspace"
           className="app-sidebar shell-panel"
           data-mobile-open={isMobileSidebarOpen}
           data-sidebar-state={sidebarState}
           hidden={isSidebarCollapsed}
+          id={navigationId}
+          ref={sidebarRef}
+          tabIndex={-1}
         >
           <div className="app-sidebar__header">
-            <Link
-              aria-label="Learning Makes Difference home"
-              className="brand-lockup app-sidebar__brand"
-              onClick={handleSidebarLinkClick}
-              to="/notes"
-            >
-              <img
-                alt="Learning Makes Difference"
-                className="app-sidebar__logo"
-                height="56"
-                src={appLogo}
-                width="56"
-              />
-              <span className="app-sidebar__brand-copy">
-                <span className="app-sidebar__product">
-                  Learning Makes Difference
-                </span>
-                <span className="app-sidebar__context">
-                  Authenticated workspace
-                </span>
-              </span>
-            </Link>
+            <AccountMenu
+              isLoggingOut={isLoggingOut}
+              onLogout={() => void handleLogout()}
+              sessionSnapshot={sessionSnapshot}
+            />
 
             <button
               aria-controls={navigationId}
@@ -217,86 +182,20 @@ function AppLayout() {
             </button>
           </div>
 
-          <div
-            className={`app-sidebar__body${
-              isNotesWorkspace ? " app-sidebar__body--notes" : ""
-            }`}
-          >
-            {isNotesWorkspace ? (
+          <div className="app-sidebar__body app-sidebar__body--notes">
+            {isNotesWorkspaceRoute ? (
               <NotesSidebarContent
                 closeMobileSidebar={closeMobileSidebar}
                 isMobileSidebarOpen={isMobileSidebarOpen}
                 isSidebarVisible={!isSidebarCollapsed}
               />
             ) : null}
-
-            <nav
-              aria-label="App sections"
-              className={`app-sidebar__nav${
-                isNotesWorkspace ? " app-sidebar__nav--compact" : ""
-              }`}
-              id={navigationId}
-            >
-              <ul className="app-sidebar__list">
-                {appNavigationItems.map((item) => {
-                  const isActiveNavigationLink = activeItem.to === item.to;
-
-                  return (
-                    <li key={item.to}>
-                      <Link
-                        activeProps={{
-                          className:
-                            "app-sidebar__link app-sidebar__link-active",
-                        }}
-                        className="app-sidebar__link"
-                        onClick={handleSidebarLinkClick}
-                        ref={
-                          isActiveNavigationLink
-                            ? activeNavigationLinkRef
-                            : null
-                        }
-                        to={item.to}
-                      >
-                        <span aria-hidden="true" className="app-sidebar__icon">
-                          <NavigationIcon name={item.icon} />
-                        </span>
-                        <span className="app-sidebar__label">{item.label}</span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </nav>
           </div>
-
-          <footer
-            aria-label="User controls"
-            className="app-sidebar__footer"
-            role="contentinfo"
-          >
-            <div className="app-sidebar__avatar" aria-hidden="true">
-              {userInitials}
-            </div>
-            <div className="app-sidebar__profile">
-              <strong>
-                {sessionSnapshot.user?.displayName ?? "Unknown user"}
-              </strong>
-              <span>{sessionSnapshot.user?.email ?? "No email available"}</span>
-            </div>
-            <button
-              className="app-sidebar__logout"
-              disabled={isLoggingOut}
-              onClick={() => void handleLogout()}
-              type="button"
-            >
-              {isLoggingOut ? "Logging out..." : "Log out"}
-            </button>
-          </footer>
         </aside>
 
         <div
           className="app-frame"
-          data-workspace={isNotesWorkspace ? "notes" : undefined}
+          data-workspace={isNotesWorkspaceRoute ? "notes" : undefined}
         >
           <header className="app-frame__mobile-header">
             <div className="app-frame__titlebar">
@@ -312,7 +211,7 @@ function AppLayout() {
                   <SidebarReopenIcon />
                 </button>
               ) : null}
-              <h2>{activeItem.label}</h2>
+              <h2>{workspaceTitle}</h2>
             </div>
             <div className="app-frame__actions">
               <button
@@ -339,6 +238,121 @@ function AppLayout() {
   );
 }
 
+function AccountMenu({
+  isLoggingOut,
+  onLogout,
+  sessionSnapshot,
+}: Readonly<{
+  isLoggingOut: boolean;
+  onLogout: () => void;
+  sessionSnapshot: AppSessionSnapshot;
+}>) {
+  const accountMenuId = useId();
+  const [isAccountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
+  const displayName = sessionSnapshot.user?.displayName ?? "Unknown user";
+  const email = sessionSnapshot.user?.email ?? "No email available";
+
+  useEffect(() => {
+    if (!isAccountMenuOpen) {
+      return;
+    }
+
+    function handleDocumentMouseDown(event: MouseEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (accountMenuRef.current?.contains(target)) {
+        return;
+      }
+
+      setAccountMenuOpen(false);
+    }
+
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentMouseDown);
+    };
+  }, [isAccountMenuOpen]);
+
+  function closeAccountMenu() {
+    setAccountMenuOpen(false);
+  }
+
+  function handleAccountMenuKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeAccountMenu();
+    }
+  }
+
+  return (
+    <div className="account-menu" ref={accountMenuRef}>
+      <button
+        aria-label={`${displayName} ${email} account menu`}
+        aria-controls={accountMenuId}
+        aria-expanded={isAccountMenuOpen}
+        aria-haspopup="menu"
+        className="account-menu__trigger"
+        onClick={() => setAccountMenuOpen((value) => !value)}
+        onKeyDown={handleAccountMenuKeyDown}
+        type="button"
+      >
+        <img
+          alt=""
+          aria-hidden="true"
+          className="account-menu__logo"
+          height="56"
+          src={appLogo}
+          width="56"
+        />
+        <span className="app-sidebar__profile">
+          <strong>{displayName}</strong>
+          <span className="sr-only">{email}</span>
+        </span>
+        <AccountMenuChevronIcon />
+      </button>
+      {isAccountMenuOpen ? (
+        <div
+          aria-label="Account options"
+          className="account-menu__popover"
+          id={accountMenuId}
+          onKeyDown={handleAccountMenuKeyDown}
+          role="menu"
+        >
+          <Link
+            activeProps={{
+              className: "account-menu__item account-menu__item-active",
+            }}
+            className="account-menu__item"
+            onClick={closeAccountMenu}
+            role="menuitem"
+            to="/settings"
+          >
+            <span aria-hidden="true" className="app-sidebar__icon">
+              <NavigationIcon name="settings" />
+            </span>
+            <span>Settings</span>
+          </Link>
+          <button
+            className="account-menu__item"
+            disabled={isLoggingOut}
+            onClick={onLogout}
+            role="menuitem"
+            type="button"
+          >
+            {isLoggingOut ? "Logging out..." : "Log out"}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function NotesSidebarContent({
   isSidebarVisible,
   isMobileSidebarOpen,
@@ -356,9 +370,11 @@ function NotesSidebarContent({
   });
   const {
     activeNoteId,
+    recallSelection,
     requestEditorFocus,
     requestNewNote,
     requestSelectNote,
+    toggleRecallSelection,
   } = useNotesWorkspace();
   const activeNoteRef = useRef<HTMLButtonElement | null>(null);
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
@@ -375,6 +391,7 @@ function NotesSidebarContent({
     notesSnapshot,
     sessionSnapshot.user?.id ?? null,
   );
+  const recalledNoteIds = new Set(recallSelection.selectedNoteIds);
 
   function handleSidebarAction(action: () => void) {
     if (isMobileSidebarOpen) {
@@ -383,6 +400,15 @@ function NotesSidebarContent({
 
     action();
     closeMobileSidebar();
+  }
+
+  function handleNoteClick(noteId: string) {
+    if (recallSelection.isSelectingForRecall) {
+      toggleRecallSelection(noteId);
+      return;
+    }
+
+    handleSidebarAction(() => requestSelectNote(noteId));
   }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: activeNoteId changes which button owns the ref and must retrigger the scroll.
@@ -418,32 +444,53 @@ function NotesSidebarContent({
           <p className="muted">No notes yet</p>
         ) : (
           <ul className="app-sidebar__workspace-list">
-            {notes.map((note) => (
-              <li key={note.id}>
-                <button
-                  aria-label={note.title}
-                  aria-current={activeNoteId === note.id ? "page" : undefined}
-                  className="app-sidebar__workspace-link"
-                  onClick={() =>
-                    handleSidebarAction(() => requestSelectNote(note.id))
-                  }
-                  ref={activeNoteId === note.id ? activeNoteRef : null}
-                  type="button"
-                >
-                  <span>{note.title}</span>
-                  <span
-                    aria-hidden="true"
-                    className="app-sidebar__workspace-meta"
+            {notes.map((note) => {
+              const isRecallSelected = recalledNoteIds.has(note.id);
+
+              return (
+                <li key={note.id}>
+                  <button
+                    aria-label={note.title}
+                    aria-current={activeNoteId === note.id ? "page" : undefined}
+                    aria-pressed={
+                      recallSelection.isSelectingForRecall
+                        ? isRecallSelected
+                        : undefined
+                    }
+                    className="app-sidebar__workspace-link"
+                    data-recall-selected={isRecallSelected ? "true" : undefined}
+                    onClick={() => handleNoteClick(note.id)}
+                    ref={activeNoteId === note.id ? activeNoteRef : null}
+                    type="button"
                   >
-                    {formatSidebarNoteDate(note.updatedAt)}
-                  </span>
-                </button>
-              </li>
-            ))}
+                    <span>{note.title}</span>
+                    <span
+                      aria-hidden="true"
+                      className="app-sidebar__workspace-meta"
+                    >
+                      {formatSidebarNoteDate(note.updatedAt)}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </nav>
     </section>
+  );
+}
+
+function AccountMenuChevronIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="account-menu__chevron"
+      focusable="false"
+      viewBox="0 0 24 24"
+    >
+      <path d="m7 10 5 5 5-5" />
+    </svg>
   );
 }
 
@@ -468,31 +515,10 @@ function SidebarCollapseIcon() {
 
 function NavigationIcon({
   name,
-}: Readonly<{ name: (typeof appNavigationItems)[number]["icon"] }>) {
+}: Readonly<{
+  name: NavigationIconName;
+}>) {
   switch (name) {
-    case "label":
-      return (
-        <svg aria-hidden="true" viewBox="0 0 24 24">
-          <path d="M4 12V5h7l9 9-7 7-9-9Z" />
-          <path d="M8 8h.01" />
-        </svg>
-      );
-    case "recall":
-      return (
-        <svg aria-hidden="true" viewBox="0 0 24 24">
-          <path d="M12 5a7 7 0 1 1-6.4 4.2" />
-          <path d="M5 5v4h4" />
-          <path d="M12 9v4l3 2" />
-        </svg>
-      );
-    case "history":
-      return (
-        <svg aria-hidden="true" viewBox="0 0 24 24">
-          <path d="M12 8v5l3 2" />
-          <path d="M5 5v4h4" />
-          <path d="M5.6 9A7 7 0 1 1 5 12" />
-        </svg>
-      );
     case "settings":
       return (
         <svg aria-hidden="true" viewBox="0 0 24 24">

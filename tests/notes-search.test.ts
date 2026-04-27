@@ -80,6 +80,20 @@ describe("notes search results", () => {
       { title: "Working memory" },
     ]);
     expect(filterNotesByQuery(visibleNotes, "hidden note")).toEqual([]);
+    expect(
+      searchNoteResults(visibleNotes, "synaptic plasticity"),
+    ).toMatchObject([
+      { matchChip: "Title", note: { title: "Synaptic plasticity" } },
+    ]);
+    expect(searchNoteResults(visibleNotes, "small amount")).toMatchObject([
+      { matchChip: "Body", note: { title: "Working memory" } },
+    ]);
+    expect(searchNoteResults(visibleNotes, "forest trail")).toMatchObject([
+      { matchChip: "Metaphor", note: { title: "Synaptic plasticity" } },
+    ]);
+    expect(searchNoteResults(visibleNotes, "ltp")).toMatchObject([
+      { matchChip: "Acronym", note: { title: "Synaptic plasticity" } },
+    ]);
   });
 
   it("ranks note search results by match chip priority and note recency", () => {

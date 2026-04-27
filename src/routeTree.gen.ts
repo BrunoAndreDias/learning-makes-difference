@@ -21,6 +21,7 @@ import { Route as ProtectedHistoryRouteImport } from './routes/_protected.histor
 import { Route as AuthRegisterRouteImport } from './routes/_auth.register'
 import { Route as AuthLoginRouteImport } from './routes/_auth.login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/_auth.forgot-password'
+import { Route as ProtectedNotesRecallRouteImport } from './routes/_protected.notes.recall'
 
 const PublicRoute = PublicRouteImport.update({
   id: '/_public',
@@ -79,6 +80,11 @@ const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
   path: '/forgot-password',
   getParentRoute: () => AuthRoute,
 } as any)
+const ProtectedNotesRecallRoute = ProtectedNotesRecallRouteImport.update({
+  id: '/recall',
+  path: '/recall',
+  getParentRoute: () => ProtectedNotesRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
@@ -87,9 +93,10 @@ export interface FileRoutesByFullPath {
   '/register': typeof AuthRegisterRoute
   '/history': typeof ProtectedHistoryRoute
   '/labels': typeof ProtectedLabelsRoute
-  '/notes': typeof ProtectedNotesRoute
+  '/notes': typeof ProtectedNotesRouteWithChildren
   '/recall': typeof ProtectedRecallRoute
   '/settings': typeof ProtectedSettingsRoute
+  '/notes/recall': typeof ProtectedNotesRecallRoute
 }
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
@@ -98,9 +105,10 @@ export interface FileRoutesByTo {
   '/register': typeof AuthRegisterRoute
   '/history': typeof ProtectedHistoryRoute
   '/labels': typeof ProtectedLabelsRoute
-  '/notes': typeof ProtectedNotesRoute
+  '/notes': typeof ProtectedNotesRouteWithChildren
   '/recall': typeof ProtectedRecallRoute
   '/settings': typeof ProtectedSettingsRoute
+  '/notes/recall': typeof ProtectedNotesRecallRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -112,10 +120,11 @@ export interface FileRoutesById {
   '/_auth/register': typeof AuthRegisterRoute
   '/_protected/history': typeof ProtectedHistoryRoute
   '/_protected/labels': typeof ProtectedLabelsRoute
-  '/_protected/notes': typeof ProtectedNotesRoute
+  '/_protected/notes': typeof ProtectedNotesRouteWithChildren
   '/_protected/recall': typeof ProtectedRecallRoute
   '/_protected/settings': typeof ProtectedSettingsRoute
   '/_public/': typeof PublicIndexRoute
+  '/_protected/notes/recall': typeof ProtectedNotesRecallRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -129,6 +138,7 @@ export interface FileRouteTypes {
     | '/notes'
     | '/recall'
     | '/settings'
+    | '/notes/recall'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -140,6 +150,7 @@ export interface FileRouteTypes {
     | '/notes'
     | '/recall'
     | '/settings'
+    | '/notes/recall'
   id:
     | '__root__'
     | '/_auth'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/_protected/recall'
     | '/_protected/settings'
     | '/_public/'
+    | '/_protected/notes/recall'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -248,6 +260,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthForgotPasswordRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_protected/notes/recall': {
+      id: '/_protected/notes/recall'
+      path: '/recall'
+      fullPath: '/notes/recall'
+      preLoaderRoute: typeof ProtectedNotesRecallRouteImport
+      parentRoute: typeof ProtectedNotesRoute
+    }
   }
 }
 
@@ -265,10 +284,22 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
+interface ProtectedNotesRouteChildren {
+  ProtectedNotesRecallRoute: typeof ProtectedNotesRecallRoute
+}
+
+const ProtectedNotesRouteChildren: ProtectedNotesRouteChildren = {
+  ProtectedNotesRecallRoute: ProtectedNotesRecallRoute,
+}
+
+const ProtectedNotesRouteWithChildren = ProtectedNotesRoute._addFileChildren(
+  ProtectedNotesRouteChildren,
+)
+
 interface ProtectedRouteChildren {
   ProtectedHistoryRoute: typeof ProtectedHistoryRoute
   ProtectedLabelsRoute: typeof ProtectedLabelsRoute
-  ProtectedNotesRoute: typeof ProtectedNotesRoute
+  ProtectedNotesRoute: typeof ProtectedNotesRouteWithChildren
   ProtectedRecallRoute: typeof ProtectedRecallRoute
   ProtectedSettingsRoute: typeof ProtectedSettingsRoute
 }
@@ -276,7 +307,7 @@ interface ProtectedRouteChildren {
 const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedHistoryRoute: ProtectedHistoryRoute,
   ProtectedLabelsRoute: ProtectedLabelsRoute,
-  ProtectedNotesRoute: ProtectedNotesRoute,
+  ProtectedNotesRoute: ProtectedNotesRouteWithChildren,
   ProtectedRecallRoute: ProtectedRecallRoute,
   ProtectedSettingsRoute: ProtectedSettingsRoute,
 }

@@ -1,11 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from "@tanstack/react-router";
 import {
   type CSSProperties,
   type FormEvent,
   type KeyboardEvent,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
-  useCallback,
   useEffect,
   useRef,
   useState,
@@ -14,26 +18,9 @@ import {
 
 import type { AppLabel } from "../features/labels/labels";
 import {
-  addNoteEditorAcronym,
-  addNoteEditorMetaphor,
-  cancelNoteEditorTransition,
-  createInitialNoteEditorState,
-  discardAndApplyNoteEditorTransition,
   getNoteEditorSaveInput,
   getSelectedNote,
-  isNoteEditorDirty,
-  markNoteEditorSaved,
   type NoteEditorDraft,
-  type NoteEditorTransitionResult,
-  removeNoteEditorAcronym,
-  removeNoteEditorMetaphor,
-  requestNoteEditorTransition,
-  startNewNoteDraft,
-  syncNoteEditorWithNotes,
-  toggleNoteEditorLabel,
-  updateNoteEditorAcronym,
-  updateNoteEditorDraftField,
-  updateNoteEditorMetaphor,
 } from "../features/notes/note-editor";
 import {
   type AppNoteSearchResult,
@@ -48,6 +35,7 @@ import {
   listNotesForUser,
 } from "../features/notes/notes";
 import { useNotesWorkspace } from "../features/notes/notes-workspace";
+import { AppRecallError } from "../features/recall/recall";
 import type { AppSessionSnapshot } from "../features/session/session";
 
 export const Route = createFileRoute("/_protected/notes")({
@@ -74,16 +62,25 @@ function getSearchResultLabel(result: AppNoteSearchResult): string {
   return `${result.note.title} ${result.matchChip} Updated ${formatNoteDate(result.note.updatedAt)}`;
 }
 
+function formatRecallSelectionCount(count: number) {
+  return `${count} ${count === 1 ? "note" : "notes"} selected`;
+}
+
 function NotesWorkspace() {
+  const location = useLocation();
   const notesContext = Route.useRouteContext({
     select: (context) => context.notes,
   });
   const sessionContext = Route.useRouteContext({
     select: (context) => context.session,
   });
+  const recallContext = Route.useRouteContext({
+    select: (context) => context.recall,
+  });
   const labelsContext = Route.useRouteContext({
     select: (context) => context.labels,
   });
+  const navigate = useNavigate();
   const notesSnapshot = useSyncExternalStore<readonly AppStoredNote[]>(
     notesContext.subscribe,
     notesContext.getSnapshot,
@@ -97,10 +94,32 @@ function NotesWorkspace() {
   const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
   const {
+    addEditorAcronym,
+    addEditorMetaphor,
+    cancelEditorTransition,
+    cancelRecallSelection,
     clearPendingSidebarAction,
+    clearPendingSearchJump,
+    completeRecallSelection,
+    discardPendingEditorTransition,
+    enterRecallSelection,
     editorFocusRequestNonce,
+    hasUnsavedNoteChanges,
+    markEditorSaved,
+    noteEditor,
     pendingSidebarAction,
-    setActiveNoteId,
+    pendingSearchJump,
+    recallSelection,
+    removeEditorAcronym,
+    removeEditorMetaphor,
+    requestEditorTransition,
+    startNewNoteDraft,
+    syncEditorWithNotes,
+    toggleRecallSelection,
+    toggleEditorLabel,
+    updateEditorAcronym,
+    updateEditorDraftField,
+    updateEditorMetaphor,
   } = useNotesWorkspace();
   const [searchQuery, setSearchQuery] = useState("");
   const searchResults = searchNoteResults(notes, searchQuery);
@@ -110,12 +129,7 @@ function NotesWorkspace() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchRootRef = useRef<HTMLFormElement>(null);
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
-  const [noteEditor, setNoteEditor] = useState(() =>
-    createInitialNoteEditorState(notes),
-  );
   const editorState = noteEditor.draft;
-  const [pendingSearchJump, setPendingSearchJump] =
-    useState<AppNoteSearchResult | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const metaphorTitleRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -135,17 +149,6 @@ function NotesWorkspace() {
   const isInspectorHidden = bodyFraction >= 0.88;
   const selectedNote = getSelectedNote(noteEditor, notes);
   const isCreating = selectedNote === null;
-
-  const applyEditorTransitionResult = useCallback(
-    (result: NoteEditorTransitionResult) => {
-      setNoteEditor(result.state);
-
-      if (result.completedSearchJump !== null) {
-        setPendingSearchJump(result.completedSearchJump);
-      }
-    },
-    [],
-  );
 
   useEffect(() => {
     function syncLabels() {
@@ -228,10 +231,8 @@ function NotesWorkspace() {
   }, []);
 
   useEffect(() => {
-    setNoteEditor((currentState) =>
-      syncNoteEditorWithNotes(currentState, notes),
-    );
-  }, [notes]);
+    syncEditorWithNotes(notes);
+  }, [notes, syncEditorWithNotes]);
 
   useEffect(() => {
     return () => {
@@ -257,7 +258,7 @@ function NotesWorkspace() {
     if (
       selectedNote === null ||
       selectedNote.id !== pendingSearchJump.note.id ||
-      isNoteEditorDirty(noteEditor)
+      hasUnsavedNoteChanges
     ) {
       return;
     }
@@ -280,7 +281,7 @@ function NotesWorkspace() {
     );
 
     if (targetElement === null) {
-      setPendingSearchJump(null);
+      clearPendingSearchJump();
       return;
     }
 
@@ -298,12 +299,13 @@ function NotesWorkspace() {
       targetElement.setSelectionRange(selectionEnd, selectionEnd);
       searchSelectionTimeoutRef.current = null;
     }, 3000);
-    setPendingSearchJump(null);
-  }, [noteEditor, pendingSearchJump, selectedNote]);
-
-  useEffect(() => {
-    setActiveNoteId(selectedNote?.id ?? null);
-  }, [selectedNote?.id, setActiveNoteId]);
+    clearPendingSearchJump();
+  }, [
+    clearPendingSearchJump,
+    hasUnsavedNoteChanges,
+    pendingSearchJump,
+    selectedNote,
+  ]);
 
   useEffect(() => {
     if (
@@ -323,7 +325,7 @@ function NotesWorkspace() {
 
     if (pendingSidebarAction.type === "new") {
       setErrorMessage(null);
-      setNoteEditor(startNewNoteDraft());
+      startNewNoteDraft();
       clearPendingSidebarAction(pendingSidebarAction.nonce);
       return;
     }
@@ -334,48 +336,41 @@ function NotesWorkspace() {
 
     if (requestedNote !== undefined) {
       setErrorMessage(null);
-      applyEditorTransitionResult(
-        requestNoteEditorTransition(
-          noteEditor,
-          {
-            noteId: requestedNote.id,
-            type: "note",
-          },
-          notes,
-        ),
+      requestEditorTransition(
+        {
+          noteId: requestedNote.id,
+          type: "note",
+        },
+        notes,
       );
     }
 
     clearPendingSidebarAction(pendingSidebarAction.nonce);
   }, [
-    applyEditorTransitionResult,
     clearPendingSidebarAction,
-    noteEditor,
     notes,
     pendingSidebarAction,
+    requestEditorTransition,
+    startNewNoteDraft,
   ]);
 
   function handleEditorChange<K extends keyof NoteEditorDraft>(
     field: K,
     value: NoteEditorDraft[K],
   ) {
-    setNoteEditor((currentState) =>
-      updateNoteEditorDraftField(currentState, field, value),
-    );
+    updateEditorDraftField(field, value);
   }
 
   function handleLabelToggle(labelId: string, checked: boolean) {
-    setNoteEditor((currentState) =>
-      toggleNoteEditorLabel(currentState, labelId, checked),
-    );
+    toggleEditorLabel(labelId, checked);
   }
 
   function handleAddMetaphor() {
-    setNoteEditor((currentState) => addNoteEditorMetaphor(currentState));
+    addEditorMetaphor();
   }
 
   function handleAddAcronym() {
-    setNoteEditor((currentState) => addNoteEditorAcronym(currentState));
+    addEditorAcronym();
   }
 
   function handleMetaphorChange<K extends keyof AppMetaphor>(
@@ -383,9 +378,7 @@ function NotesWorkspace() {
     field: K,
     value: AppMetaphor[K],
   ) {
-    setNoteEditor((currentState) =>
-      updateNoteEditorMetaphor(currentState, index, field, value),
-    );
+    updateEditorMetaphor(index, field, value);
   }
 
   function handleAcronymChange<K extends keyof AppAcronym>(
@@ -393,21 +386,15 @@ function NotesWorkspace() {
     field: K,
     value: AppAcronym[K],
   ) {
-    setNoteEditor((currentState) =>
-      updateNoteEditorAcronym(currentState, index, field, value),
-    );
+    updateEditorAcronym(index, field, value);
   }
 
   function handleRemoveMetaphor(index: number) {
-    setNoteEditor((currentState) =>
-      removeNoteEditorMetaphor(currentState, index),
-    );
+    removeEditorMetaphor(index);
   }
 
   function handleRemoveAcronym(index: number) {
-    setNoteEditor((currentState) =>
-      removeNoteEditorAcronym(currentState, index),
-    );
+    removeEditorAcronym(index);
   }
 
   function resetSearchNavigationState() {
@@ -419,8 +406,13 @@ function NotesWorkspace() {
   function handleSelectSearchResult(result: AppNoteSearchResult) {
     setErrorMessage(null);
 
-    const transitionResult = requestNoteEditorTransition(
-      noteEditor,
+    if (recallSelection.isSelectingForRecall) {
+      toggleRecallSelection(result.note.id);
+      resetSearchNavigationState();
+      return;
+    }
+
+    const transitionResult = requestEditorTransition(
       {
         result,
         type: "searchResult",
@@ -428,25 +420,18 @@ function NotesWorkspace() {
       notes,
     );
 
-    applyEditorTransitionResult(transitionResult);
-
     if (transitionResult.state.pendingTransition === null) {
       resetSearchNavigationState();
     }
   }
 
   function handleCancelGuardedSearchNavigation() {
-    setNoteEditor((currentState) => cancelNoteEditorTransition(currentState));
+    cancelEditorTransition();
     searchInputRef.current?.focus();
   }
 
   function handleDiscardGuardedSearchNavigation() {
-    const transitionResult = discardAndApplyNoteEditorTransition(
-      noteEditor,
-      notes,
-    );
-
-    applyEditorTransitionResult(transitionResult);
+    const transitionResult = discardPendingEditorTransition(notes);
 
     if (transitionResult.completedSearchJump !== null) {
       resetSearchNavigationState();
@@ -508,6 +493,28 @@ function NotesWorkspace() {
 
     if (result !== undefined) {
       handleSelectSearchResult(result);
+    }
+  }
+
+  function handleSearchPointerDown(event: ReactPointerEvent<HTMLFormElement>) {
+    const target = event.target;
+
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    if (target.closest(".notes-search__results")) {
+      return;
+    }
+
+    if (target.closest(".notes-search__icon")) {
+      return;
+    }
+
+    if (target !== searchInputRef.current) {
+      event.preventDefault();
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
     }
   }
 
@@ -597,7 +604,7 @@ function NotesWorkspace() {
           ...getNoteEditorSaveInput(noteEditor),
         });
 
-        setNoteEditor(markNoteEditorSaved(createdNote));
+        markEditorSaved(createdNote);
         return;
       }
 
@@ -607,9 +614,33 @@ function NotesWorkspace() {
         getNoteEditorSaveInput(noteEditor),
       );
 
-      setNoteEditor(markNoteEditorSaved(updatedNote));
+      markEditorSaved(updatedNote);
     } catch (error) {
       if (error instanceof AppNotesError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    }
+  }
+
+  async function handleStartRecall() {
+    if (userId === null || recallSelection.selectedCount === 0) {
+      return;
+    }
+
+    try {
+      const noteIds = completeRecallSelection();
+
+      recallContext.startFlashCardSession({
+        noteIds,
+        userId,
+      });
+      setErrorMessage(null);
+      await navigate({ to: "/notes/recall" });
+    } catch (error) {
+      if (error instanceof AppRecallError) {
         setErrorMessage(error.message);
         return;
       }
@@ -626,7 +657,10 @@ function NotesWorkspace() {
     selectedLabels.length === 1 ? "label" : "labels"
   }`;
   const workspaceModeLabel = isCreating ? "Draft mode" : "Editing note";
-  const hasUnsavedChanges = isNoteEditorDirty(noteEditor);
+  const recallSelectionCountLabel = formatRecallSelectionCount(
+    recallSelection.selectedCount,
+  );
+  const hasUnsavedChanges = hasUnsavedNoteChanges;
   const selectedNoteUpdatedLabel =
     selectedNote === null
       ? "Unsaved draft"
@@ -713,8 +747,16 @@ function NotesWorkspace() {
     }
   }
 
+  if (location.pathname !== "/notes") {
+    return <Outlet />;
+  }
+
   return (
-    <section className="notes-workspace">
+    <section
+      aria-label="Notes workspace surface"
+      className="notes-workspace"
+      data-recall-selection-mode={recallSelection.isSelectingForRecall}
+    >
       <section
         aria-label="Notes workspace toolbar"
         className="notes-workspace__toolbar"
@@ -723,6 +765,7 @@ function NotesWorkspace() {
         <span className="sr-only">{noteCountLabel}</span>
         <form
           className="notes-search"
+          onPointerDown={handleSearchPointerDown}
           onSubmit={handleSearchSubmit}
           ref={searchRootRef}
         >
@@ -761,6 +804,40 @@ function NotesWorkspace() {
           <kbd>Cmd K</kbd>
           {searchResultsContent}
         </form>
+        {recallSelection.isSelectingForRecall ? (
+          <section
+            aria-label="Recall selection controls"
+            className="notes-recall-selection-controls"
+          >
+            <strong className="notes-recall-selection-controls__mode">
+              Selecting for recall
+            </strong>
+            <span className="tag">{recallSelectionCountLabel}</span>
+            <button
+              className="notes-action"
+              onClick={cancelRecallSelection}
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              className="notes-action notes-action-primary"
+              disabled={recallSelection.selectedCount === 0}
+              onClick={() => void handleStartRecall()}
+              type="button"
+            >
+              Start recall
+            </button>
+          </section>
+        ) : (
+          <button
+            className="notes-action notes-action-primary notes-recall-entry-action"
+            onClick={enterRecallSelection}
+            type="button"
+          >
+            Select for recall
+          </button>
+        )}
       </section>
 
       <section className="notes-mobile-summary" aria-label="Workspace summary">
@@ -768,7 +845,11 @@ function NotesWorkspace() {
         <div className="tag-row notes-workspace__tags">
           <span className="tag">{noteCountLabel}</span>
           <span className="tag">{selectedLabelCount}</span>
-          <span className="tag">{workspaceModeLabel}</span>
+          <span className="tag">
+            {recallSelection.isSelectingForRecall
+              ? recallSelectionCountLabel
+              : workspaceModeLabel}
+          </span>
         </div>
       </section>
 

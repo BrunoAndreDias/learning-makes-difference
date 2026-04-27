@@ -11,7 +11,7 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { type ReactNode, useSyncExternalStore } from "react";
-
+import appLogo from "../../docs/layout/logo.svg";
 import type { AppLabelsContext } from "../features/labels/labels";
 import type { AppNotesContext } from "../features/notes/notes";
 import type { AppRecallContext } from "../features/recall/recall";
@@ -56,7 +56,10 @@ export const Route = createRootRouteWithContext<{
           "SSR-capable TanStack Start foundation for Learning Makes Difference.",
       },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "icon", type: "image/svg+xml", href: appLogo },
+      { rel: "stylesheet", href: appCss },
+    ],
   }),
   beforeLoad: ({ context, location }) => {
     if (hasActiveSession(context.session.getSnapshot())) {
@@ -110,10 +113,14 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
           </a>
           {isAuthRoute ? null : (
             <header className="topbar">
-              <div>
-                <p className="eyebrow">Learning Makes Difference</p>
-                <h1 className="site-title">TanStack Start Skeleton</h1>
-              </div>
+              <Link className="topbar__brand" to="/">
+                <span aria-hidden="true" className="topbar__mark">
+                  L
+                </span>
+                <span className="topbar__wordmark">
+                  Learning <em>Makes</em> Difference
+                </span>
+              </Link>
 
               <nav aria-label="Primary">
                 <ul className="nav-list">
@@ -121,18 +128,10 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
                     <Link
                       to="/"
                       activeProps={{ className: "nav-link nav-link-active" }}
+                      activeOptions={{ exact: true }}
                       className="nav-link"
                     >
                       Home
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/login"
-                      activeProps={{ className: "nav-link nav-link-active" }}
-                      className="nav-link"
-                    >
-                      Login
                     </Link>
                   </li>
                   <li>
@@ -141,7 +140,16 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
                       activeProps={{ className: "nav-link nav-link-active" }}
                       className="nav-link"
                     >
-                      App
+                      Workspace
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/login"
+                      activeProps={{ className: "nav-link nav-link-active" }}
+                      className="nav-link nav-link--ghost"
+                    >
+                      Sign in
                     </Link>
                   </li>
                 </ul>
