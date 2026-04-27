@@ -10,7 +10,6 @@ import {
   type KeyboardEvent,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
-  useCallback,
   useEffect,
   useRef,
   useState,
@@ -19,26 +18,9 @@ import {
 
 import type { AppLabel } from "../features/labels/labels";
 import {
-  addNoteEditorAcronym,
-  addNoteEditorMetaphor,
-  cancelNoteEditorTransition,
-  createInitialNoteEditorState,
-  discardAndApplyNoteEditorTransition,
   getNoteEditorSaveInput,
   getSelectedNote,
-  isNoteEditorDirty,
-  markNoteEditorSaved,
   type NoteEditorDraft,
-  type NoteEditorTransitionResult,
-  removeNoteEditorAcronym,
-  removeNoteEditorMetaphor,
-  requestNoteEditorTransition,
-  startNewNoteDraft,
-  syncNoteEditorWithNotes,
-  toggleNoteEditorLabel,
-  updateNoteEditorAcronym,
-  updateNoteEditorDraftField,
-  updateNoteEditorMetaphor,
 } from "../features/notes/note-editor";
 import {
   type AppNoteSearchResult,
@@ -112,15 +94,32 @@ function NotesWorkspace() {
   const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
   const {
+    addEditorAcronym,
+    addEditorMetaphor,
+    cancelEditorTransition,
     cancelRecallSelection,
     clearPendingSidebarAction,
+    clearPendingSearchJump,
     completeRecallSelection,
+    discardPendingEditorTransition,
     enterRecallSelection,
     editorFocusRequestNonce,
+    hasUnsavedNoteChanges,
+    markEditorSaved,
+    noteEditor,
     pendingSidebarAction,
+    pendingSearchJump,
     recallSelection,
-    setActiveNoteId,
+    removeEditorAcronym,
+    removeEditorMetaphor,
+    requestEditorTransition,
+    startNewNoteDraft,
+    syncEditorWithNotes,
     toggleRecallSelection,
+    toggleEditorLabel,
+    updateEditorAcronym,
+    updateEditorDraftField,
+    updateEditorMetaphor,
   } = useNotesWorkspace();
   const [searchQuery, setSearchQuery] = useState("");
   const searchResults = searchNoteResults(notes, searchQuery);
@@ -130,12 +129,7 @@ function NotesWorkspace() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchRootRef = useRef<HTMLFormElement>(null);
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
-  const [noteEditor, setNoteEditor] = useState(() =>
-    createInitialNoteEditorState(notes),
-  );
   const editorState = noteEditor.draft;
-  const [pendingSearchJump, setPendingSearchJump] =
-    useState<AppNoteSearchResult | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const metaphorTitleRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -155,17 +149,6 @@ function NotesWorkspace() {
   const isInspectorHidden = bodyFraction >= 0.88;
   const selectedNote = getSelectedNote(noteEditor, notes);
   const isCreating = selectedNote === null;
-
-  const applyEditorTransitionResult = useCallback(
-    (result: NoteEditorTransitionResult) => {
-      setNoteEditor(result.state);
-
-      if (result.completedSearchJump !== null) {
-        setPendingSearchJump(result.completedSearchJump);
-      }
-    },
-    [],
-  );
 
   useEffect(() => {
     function syncLabels() {
@@ -248,10 +231,8 @@ function NotesWorkspace() {
   }, []);
 
   useEffect(() => {
-    setNoteEditor((currentState) =>
-      syncNoteEditorWithNotes(currentState, notes),
-    );
-  }, [notes]);
+    syncEditorWithNotes(notes);
+  }, [notes, syncEditorWithNotes]);
 
   useEffect(() => {
     return () => {
@@ -277,7 +258,7 @@ function NotesWorkspace() {
     if (
       selectedNote === null ||
       selectedNote.id !== pendingSearchJump.note.id ||
-      isNoteEditorDirty(noteEditor)
+      hasUnsavedNoteChanges
     ) {
       return;
     }
@@ -300,7 +281,7 @@ function NotesWorkspace() {
     );
 
     if (targetElement === null) {
-      setPendingSearchJump(null);
+      clearPendingSearchJump();
       return;
     }
 
@@ -318,12 +299,13 @@ function NotesWorkspace() {
       targetElement.setSelectionRange(selectionEnd, selectionEnd);
       searchSelectionTimeoutRef.current = null;
     }, 3000);
-    setPendingSearchJump(null);
-  }, [noteEditor, pendingSearchJump, selectedNote]);
-
-  useEffect(() => {
-    setActiveNoteId(selectedNote?.id ?? null);
-  }, [selectedNote?.id, setActiveNoteId]);
+    clearPendingSearchJump();
+  }, [
+    clearPendingSearchJump,
+    hasUnsavedNoteChanges,
+    pendingSearchJump,
+    selectedNote,
+  ]);
 
   useEffect(() => {
     if (
@@ -343,7 +325,7 @@ function NotesWorkspace() {
 
     if (pendingSidebarAction.type === "new") {
       setErrorMessage(null);
-      setNoteEditor(startNewNoteDraft());
+      startNewNoteDraft();
       clearPendingSidebarAction(pendingSidebarAction.nonce);
       return;
     }
@@ -354,48 +336,41 @@ function NotesWorkspace() {
 
     if (requestedNote !== undefined) {
       setErrorMessage(null);
-      applyEditorTransitionResult(
-        requestNoteEditorTransition(
-          noteEditor,
-          {
-            noteId: requestedNote.id,
-            type: "note",
-          },
-          notes,
-        ),
+      requestEditorTransition(
+        {
+          noteId: requestedNote.id,
+          type: "note",
+        },
+        notes,
       );
     }
 
     clearPendingSidebarAction(pendingSidebarAction.nonce);
   }, [
-    applyEditorTransitionResult,
     clearPendingSidebarAction,
-    noteEditor,
     notes,
     pendingSidebarAction,
+    requestEditorTransition,
+    startNewNoteDraft,
   ]);
 
   function handleEditorChange<K extends keyof NoteEditorDraft>(
     field: K,
     value: NoteEditorDraft[K],
   ) {
-    setNoteEditor((currentState) =>
-      updateNoteEditorDraftField(currentState, field, value),
-    );
+    updateEditorDraftField(field, value);
   }
 
   function handleLabelToggle(labelId: string, checked: boolean) {
-    setNoteEditor((currentState) =>
-      toggleNoteEditorLabel(currentState, labelId, checked),
-    );
+    toggleEditorLabel(labelId, checked);
   }
 
   function handleAddMetaphor() {
-    setNoteEditor((currentState) => addNoteEditorMetaphor(currentState));
+    addEditorMetaphor();
   }
 
   function handleAddAcronym() {
-    setNoteEditor((currentState) => addNoteEditorAcronym(currentState));
+    addEditorAcronym();
   }
 
   function handleMetaphorChange<K extends keyof AppMetaphor>(
@@ -403,9 +378,7 @@ function NotesWorkspace() {
     field: K,
     value: AppMetaphor[K],
   ) {
-    setNoteEditor((currentState) =>
-      updateNoteEditorMetaphor(currentState, index, field, value),
-    );
+    updateEditorMetaphor(index, field, value);
   }
 
   function handleAcronymChange<K extends keyof AppAcronym>(
@@ -413,21 +386,15 @@ function NotesWorkspace() {
     field: K,
     value: AppAcronym[K],
   ) {
-    setNoteEditor((currentState) =>
-      updateNoteEditorAcronym(currentState, index, field, value),
-    );
+    updateEditorAcronym(index, field, value);
   }
 
   function handleRemoveMetaphor(index: number) {
-    setNoteEditor((currentState) =>
-      removeNoteEditorMetaphor(currentState, index),
-    );
+    removeEditorMetaphor(index);
   }
 
   function handleRemoveAcronym(index: number) {
-    setNoteEditor((currentState) =>
-      removeNoteEditorAcronym(currentState, index),
-    );
+    removeEditorAcronym(index);
   }
 
   function resetSearchNavigationState() {
@@ -445,8 +412,7 @@ function NotesWorkspace() {
       return;
     }
 
-    const transitionResult = requestNoteEditorTransition(
-      noteEditor,
+    const transitionResult = requestEditorTransition(
       {
         result,
         type: "searchResult",
@@ -454,25 +420,18 @@ function NotesWorkspace() {
       notes,
     );
 
-    applyEditorTransitionResult(transitionResult);
-
     if (transitionResult.state.pendingTransition === null) {
       resetSearchNavigationState();
     }
   }
 
   function handleCancelGuardedSearchNavigation() {
-    setNoteEditor((currentState) => cancelNoteEditorTransition(currentState));
+    cancelEditorTransition();
     searchInputRef.current?.focus();
   }
 
   function handleDiscardGuardedSearchNavigation() {
-    const transitionResult = discardAndApplyNoteEditorTransition(
-      noteEditor,
-      notes,
-    );
-
-    applyEditorTransitionResult(transitionResult);
+    const transitionResult = discardPendingEditorTransition(notes);
 
     if (transitionResult.completedSearchJump !== null) {
       resetSearchNavigationState();
@@ -645,7 +604,7 @@ function NotesWorkspace() {
           ...getNoteEditorSaveInput(noteEditor),
         });
 
-        setNoteEditor(markNoteEditorSaved(createdNote));
+        markEditorSaved(createdNote);
         return;
       }
 
@@ -655,7 +614,7 @@ function NotesWorkspace() {
         getNoteEditorSaveInput(noteEditor),
       );
 
-      setNoteEditor(markNoteEditorSaved(updatedNote));
+      markEditorSaved(updatedNote);
     } catch (error) {
       if (error instanceof AppNotesError) {
         setErrorMessage(error.message);
@@ -701,7 +660,7 @@ function NotesWorkspace() {
   const recallSelectionCountLabel = formatRecallSelectionCount(
     recallSelection.selectedCount,
   );
-  const hasUnsavedChanges = isNoteEditorDirty(noteEditor);
+  const hasUnsavedChanges = hasUnsavedNoteChanges;
   const selectedNoteUpdatedLabel =
     selectedNote === null
       ? "Unsaved draft"
