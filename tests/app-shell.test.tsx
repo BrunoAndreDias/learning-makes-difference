@@ -139,6 +139,68 @@ function createLearningLoopTestContexts(
   };
 }
 
+type AppShellRouter = ReturnType<typeof renderRoute>["router"];
+type LearningLoopTestContexts = ReturnType<
+  typeof createLearningLoopTestContexts
+>;
+
+function createDeterministicRecallTestContexts() {
+  return createLearningLoopTestContexts({
+    shuffleNotes: (sessionNotes) => [...sessionNotes],
+  });
+}
+
+function createRecallNote(
+  notesContext: AppNotesContext,
+  userId: string,
+  input: {
+    body: string;
+    labelIds?: string[];
+    title: string;
+  },
+) {
+  return notesContext.createNote(userId, {
+    acronyms: [],
+    body: input.body,
+    labelIds: input.labelIds ?? [],
+    metaphors: [],
+    title: input.title,
+  });
+}
+
+async function renderRecallSelection(contexts: LearningLoopTestContexts) {
+  const routeRender = renderRoute("/recall/select", contexts);
+
+  expect(
+    await screen.findByRole("heading", { level: 3, name: "Select Notes" }),
+  ).toBeInTheDocument();
+
+  return routeRender;
+}
+
+function selectRecallableNote(title: string, body: string) {
+  fireEvent.click(
+    within(screen.getByLabelText("Recallable notes")).getByRole("button", {
+      name: `${title}${body}`,
+    }),
+  );
+}
+
+async function startSelectedRecallSession() {
+  fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
+
+  expect(
+    await screen.findByRole("heading", { name: "FlashCard session" }),
+  ).toBeInTheDocument();
+}
+
+async function expectReturnedToRecall(router: AppShellRouter) {
+  expect(
+    await screen.findByRole("heading", { level: 3, name: "Recall" }),
+  ).toBeInTheDocument();
+  expect(router.state.location.pathname).toBe("/recall");
+}
+
 function openAccountMenu() {
   fireEvent.click(screen.getByRole("button", { name: /account menu/i }));
 }
@@ -3138,51 +3200,36 @@ describe("authenticated app shell", () => {
 
   it("returns completed recall sessions to /recall and shows the new session in recent results", async () => {
     const { labelsContext, notesContext, recallContext } =
-      createLearningLoopTestContexts({
-        shuffleNotes: (sessionNotes) => [...sessionNotes],
-      });
+      createDeterministicRecallTestContexts();
     const userId = "user-placeholder";
     const science = labelsContext.createLabel({
       name: "Science",
       userId,
     });
-    const note = notesContext.createNote(userId, {
-      acronyms: [],
+    const note = createRecallNote(notesContext, userId, {
       body: "Completed sessions should return to Recall recent results.",
       labelIds: [science.id],
-      metaphors: [],
       title: "Spacing effect",
     });
 
-    const { router } = renderRoute("/recall/select", {
+    const { router } = await renderRecallSelection({
       labelsContext,
       notesContext,
       recallContext,
     });
 
-    expect(
-      await screen.findByRole("heading", { level: 3, name: "Select Notes" }),
-    ).toBeInTheDocument();
-
-    fireEvent.click(
-      within(screen.getByLabelText("Recallable notes")).getByRole("button", {
-        name: "Spacing effectCompleted sessions should return to Recall recent results.",
-      }),
+    selectRecallableNote(
+      "Spacing effect",
+      "Completed sessions should return to Recall recent results.",
     );
-    fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
+    await startSelectedRecallSession();
 
     expect(router.state.location.pathname).toBe("/recall/session");
-    expect(
-      await screen.findByRole("heading", { name: "FlashCard session" }),
-    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Reveal answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Nailed it" }));
 
-    expect(
-      await screen.findByRole("heading", { level: 3, name: "Recall" }),
-    ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall");
+    await expectReturnedToRecall(router);
     expect(screen.getByText("1 attempted question")).toBeInTheDocument();
     expect(
       screen.getByText("Nailed 1 · Partial 0 · Missed 0"),
@@ -3198,59 +3245,38 @@ describe("authenticated app shell", () => {
 
   it("returns attempted early-ended recall sessions to /recall and shows the new session in recent results", async () => {
     const { labelsContext, notesContext, recallContext } =
-      createLearningLoopTestContexts({
-        shuffleNotes: (sessionNotes) => [...sessionNotes],
-      });
+      createDeterministicRecallTestContexts();
     const userId = "user-placeholder";
-    const firstNote = notesContext.createNote(userId, {
-      acronyms: [],
+    const firstNote = createRecallNote(notesContext, userId, {
       body: "Attempted sessions should persist when ended early.",
-      labelIds: [],
-      metaphors: [],
       title: "Retrieval strength",
     });
-    notesContext.createNote(userId, {
-      acronyms: [],
+    createRecallNote(notesContext, userId, {
       body: "A second prompt keeps the session active after one rating.",
-      labelIds: [],
-      metaphors: [],
       title: "Desirable difficulty",
     });
 
-    const { router } = renderRoute("/recall/select", {
+    const { router } = await renderRecallSelection({
       labelsContext,
       notesContext,
       recallContext,
     });
 
-    expect(
-      await screen.findByRole("heading", { level: 3, name: "Select Notes" }),
-    ).toBeInTheDocument();
-
-    fireEvent.click(
-      within(screen.getByLabelText("Recallable notes")).getByRole("button", {
-        name: "Retrieval strengthAttempted sessions should persist when ended early.",
-      }),
+    selectRecallableNote(
+      "Retrieval strength",
+      "Attempted sessions should persist when ended early.",
     );
-    fireEvent.click(
-      within(screen.getByLabelText("Recallable notes")).getByRole("button", {
-        name: "Desirable difficultyA second prompt keeps the session active after one rating.",
-      }),
+    selectRecallableNote(
+      "Desirable difficulty",
+      "A second prompt keeps the session active after one rating.",
     );
-    fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
-
-    expect(
-      await screen.findByRole("heading", { name: "FlashCard session" }),
-    ).toBeInTheDocument();
+    await startSelectedRecallSession();
 
     fireEvent.click(screen.getByRole("button", { name: "Reveal answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Partly recalled" }));
     fireEvent.click(screen.getByRole("button", { name: "End session" }));
 
-    expect(
-      await screen.findByRole("heading", { level: 3, name: "Recall" }),
-    ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall");
+    await expectReturnedToRecall(router);
     expect(screen.getByText("1 attempted question")).toBeInTheDocument();
     expect(
       screen.getByText("Nailed 0 · Partial 1 · Missed 0"),
@@ -3269,46 +3295,29 @@ describe("authenticated app shell", () => {
 
   it("returns zero-attempt recall sessions to /recall without creating a recent result", async () => {
     const { labelsContext, notesContext, recallContext } =
-      createLearningLoopTestContexts({
-        shuffleNotes: (sessionNotes) => [...sessionNotes],
-      });
+      createDeterministicRecallTestContexts();
     const userId = "user-placeholder";
 
-    notesContext.createNote(userId, {
-      acronyms: [],
+    createRecallNote(notesContext, userId, {
       body: "Zero-attempt sessions should keep discard behavior.",
-      labelIds: [],
-      metaphors: [],
       title: "Testing cue",
     });
 
-    const { router } = renderRoute("/recall/select", {
+    const { router } = await renderRecallSelection({
       labelsContext,
       notesContext,
       recallContext,
     });
 
-    expect(
-      await screen.findByRole("heading", { level: 3, name: "Select Notes" }),
-    ).toBeInTheDocument();
-
-    fireEvent.click(
-      within(screen.getByLabelText("Recallable notes")).getByRole("button", {
-        name: "Testing cueZero-attempt sessions should keep discard behavior.",
-      }),
+    selectRecallableNote(
+      "Testing cue",
+      "Zero-attempt sessions should keep discard behavior.",
     );
-    fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
-
-    expect(
-      await screen.findByRole("heading", { name: "FlashCard session" }),
-    ).toBeInTheDocument();
+    await startSelectedRecallSession();
 
     fireEvent.click(screen.getByRole("button", { name: "End session" }));
 
-    expect(
-      await screen.findByRole("heading", { level: 3, name: "Recall" }),
-    ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall");
+    await expectReturnedToRecall(router);
     expect(screen.getByText("No recent results yet")).toBeInTheDocument();
     expect(recallContext.listSessionResults({ userId })).toHaveLength(0);
   });
