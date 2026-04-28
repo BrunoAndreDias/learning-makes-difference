@@ -67,6 +67,7 @@ export function SessionResultsPage() {
     null,
   );
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const selectedLabelFilter = selectedLabelId === "" ? undefined : selectedLabelId;
 
   useEffect(() => {
     function syncLabels() {
@@ -87,14 +88,14 @@ export function SessionResultsPage() {
     userId === null
       ? []
       : recallContext.listSessionResults({
-          labelId: selectedLabelId === "" ? undefined : selectedLabelId,
+          labelId: selectedLabelFilter,
           userId,
         });
   const noteResults =
     userId === null
       ? []
       : recallContext.listAttemptsByNote({
-          labelId: selectedLabelId === "" ? undefined : selectedLabelId,
+          labelId: selectedLabelFilter,
           userId,
         });
 
@@ -128,19 +129,11 @@ export function SessionResultsPage() {
     }
   }, [selectedNoteId, noteResults]);
 
-  let selectedSession: FlashCardSessionResult | null = null;
-
-  if (selectedSessionId !== null) {
-    selectedSession =
-      sessionResults.find((result) => result.id === selectedSessionId) ?? null;
-  }
-
-  let selectedNote: FlashCardRecallAttemptsByNote | null = null;
-
-  if (selectedNoteId !== null) {
-    selectedNote =
-      noteResults.find((result) => result.noteId === selectedNoteId) ?? null;
-  }
+  const selectedSession = getSelectedSessionResult(
+    sessionResults,
+    selectedSessionId,
+  );
+  const selectedNote = getSelectedNoteResult(noteResults, selectedNoteId);
 
   return (
     <section className="recall-page">
@@ -197,17 +190,8 @@ export function SessionResultsPage() {
           </label>
 
           {historyView === "session" && sessionResults.length === 0 ? (
-            selectedLabelId === "" ? (
-              <div className="stack">
-                <h4>No recall history yet</h4>
-                <p className="muted">
-                  Complete a recall session from Notes to build a reviewable
-                  history.
-                </p>
-                <Link className="notes-action" to="/notes">
-                  Go to Notes
-                </Link>
-              </div>
+            selectedLabelFilter === undefined ? (
+              <NoRecallHistoryState />
             ) : (
               <p className="muted">
                 No sessions match the current label filter.
@@ -251,17 +235,8 @@ export function SessionResultsPage() {
               })}
             </div>
           ) : noteResults.length === 0 ? (
-            selectedLabelId === "" ? (
-              <div className="stack">
-                <h4>No recall history yet</h4>
-                <p className="muted">
-                  Complete a recall session from Notes to build a reviewable
-                  history.
-                </p>
-                <Link className="notes-action" to="/notes">
-                  Go to Notes
-                </Link>
-              </div>
+            selectedLabelFilter === undefined ? (
+              <NoRecallHistoryState />
             ) : (
               <p className="muted">No notes match the current label filter.</p>
             )
@@ -356,6 +331,46 @@ export function SessionResultsPage() {
         </section>
       </div>
     </section>
+  );
+}
+
+function NoRecallHistoryState() {
+  return (
+    <div className="stack">
+      <h4>No recall history yet</h4>
+      <p className="muted">
+        Complete a recall session from Notes to build a reviewable history.
+      </p>
+      <Link className="notes-action" to="/notes">
+        Go to Notes
+      </Link>
+    </div>
+  );
+}
+
+function getSelectedSessionResult(
+  sessionResults: readonly FlashCardSessionResult[],
+  selectedSessionId: string | null,
+) {
+  if (selectedSessionId === null) {
+    return null;
+  }
+
+  return (
+    sessionResults.find((result) => result.id === selectedSessionId) ?? null
+  );
+}
+
+function getSelectedNoteResult(
+  noteResults: readonly FlashCardRecallAttemptsByNote[],
+  selectedNoteId: string | null,
+) {
+  if (selectedNoteId === null) {
+    return null;
+  }
+
+  return (
+    noteResults.find((result) => result.noteId === selectedNoteId) ?? null
   );
 }
 
