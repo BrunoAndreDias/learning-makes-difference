@@ -10,6 +10,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -41,6 +42,8 @@ import { AppRecallError } from "../domain/recall";
 const labelPickerPanelId = "note-label-picker-panel";
 const notesSearchListboxId = "notes-search-results";
 const noteEditorFormId = "note-editor-form";
+const minNoteBodyFraction = 0.35;
+const maxNoteBodyFraction = 0.95;
 
 function formatNoteDate(value: string): string {
   return new Intl.DateTimeFormat("en", {
@@ -132,6 +135,7 @@ export function NotesWorkspace() {
   const metaphorExplanationRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
   const acronymShortFormRefs = useRef<(HTMLInputElement | null)[]>([]);
   const acronymExpansionRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
+  const bodyResizeAnimationFrameRef = useRef<number | null>(null);
   const searchSelectionTimeoutRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
@@ -141,6 +145,7 @@ export function NotesWorkspace() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
   const [bodyFraction, setBodyFraction] = useState(0.62);
+  const [isBodyResizing, setIsBodyResizing] = useState(false);
   const noteFormRef = useRef<HTMLFormElement>(null);
   const isInspectorHidden = bodyFraction >= 0.88;
   const selectedNote = getSelectedNote(noteEditor, notes);
@@ -244,6 +249,10 @@ export function NotesWorkspace() {
 
   useEffect(() => {
     return () => {
+      if (bodyResizeAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(bodyResizeAnimationFrameRef.current);
+      }
+
       if (searchSelectionTimeoutRef.current !== null) {
         clearTimeout(searchSelectionTimeoutRef.current);
       }
@@ -322,6 +331,67 @@ export function NotesWorkspace() {
 
     titleInputRef.current?.focus();
   }, [editorFocusRequestNonce, hasPendingWorkspaceTransition]);
+
+  const syncBodyFractionFromTextarea = useCallback(() => {
+    const textarea = bodyTextareaRef.current;
+    const form = noteFormRef.current;
+
+    if (textarea === null || form === null) {
+      return;
+    }
+
+    if (bodyResizeAnimationFrameRef.current !== null) {
+      cancelAnimationFrame(bodyResizeAnimationFrameRef.current);
+    }
+
+    bodyResizeAnimationFrameRef.current = requestAnimationFrame(() => {
+      bodyResizeAnimationFrameRef.current = null;
+
+      const formRect = form.getBoundingClientRect();
+      const textareaRect = textarea.getBoundingClientRect();
+
+      if (formRect.width <= 0 || textareaRect.width <= 0) {
+        return;
+      }
+
+      const nextFraction = Math.min(
+        maxNoteBodyFraction,
+        Math.max(
+          minNoteBodyFraction,
+          (textareaRect.right - formRect.left) / formRect.width,
+        ),
+      );
+
+      setBodyFraction((currentFraction) => {
+        if (Math.abs(currentFraction - nextFraction) < 0.005) {
+          return currentFraction;
+        }
+
+        return nextFraction;
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    const textarea = bodyTextareaRef.current;
+
+    if (textarea === null || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver(syncBodyFractionFromTextarea);
+
+    observer.observe(textarea);
+
+    return () => {
+      observer.disconnect();
+
+      if (bodyResizeAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(bodyResizeAnimationFrameRef.current);
+        bodyResizeAnimationFrameRef.current = null;
+      }
+    };
+  }, [syncBodyFractionFromTextarea]);
 
   function handleEditorChange<K extends keyof NoteEditorDraft>(
     field: K,
@@ -513,7 +583,7 @@ export function NotesWorkspace() {
   }
 
   function handleBodyResizePointerDown(
-    event: ReactPointerEvent<HTMLDivElement>,
+    event: ReactPointerEvent<HTMLHRElement>,
   ) {
     const form = noteFormRef.current;
 
@@ -522,38 +592,81 @@ export function NotesWorkspace() {
     }
 
     event.preventDefault();
+    bodyTextareaRef.current?.style.removeProperty("width");
     const formRect = form.getBoundingClientRect();
 
     function handlePointerMove(moveEvent: PointerEvent) {
       const offset = moveEvent.clientX - formRect.left;
       const nextFraction = Math.min(
-        0.95,
-        Math.max(0.35, offset / formRect.width),
+        maxNoteBodyFraction,
+        Math.max(minNoteBodyFraction, offset / formRect.width),
       );
 
       setBodyFraction(nextFraction);
     }
 
     function handlePointerUp() {
+      setIsBodyResizing(false);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
     }
 
+    setIsBodyResizing(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
   }
 
-  function handleBodyResizeKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+  function handleBodyResizeKeyDown(event: KeyboardEvent<HTMLHRElement>) {
     if (event.key === "ArrowLeft") {
       event.preventDefault();
-      setBodyFraction((current) => Math.max(0.35, current - 0.04));
+      bodyTextareaRef.current?.style.removeProperty("width");
+      setBodyFraction((current) =>
+        Math.max(minNoteBodyFraction, current - 0.04),
+      );
       return;
     }
 
     if (event.key === "ArrowRight") {
       event.preventDefault();
-      setBodyFraction((current) => Math.min(0.95, current + 0.04));
+      bodyTextareaRef.current?.style.removeProperty("width");
+      setBodyFraction((current) =>
+        Math.min(maxNoteBodyFraction, current + 0.04),
+      );
     }
+  }
+
+  function handleBodyTextareaPointerDown(
+    event: ReactPointerEvent<HTMLTextAreaElement>,
+  ) {
+    const textareaRect = event.currentTarget.getBoundingClientRect();
+    const isNearNativeResizeHandle =
+      textareaRect.right - event.clientX <= 28 &&
+      textareaRect.bottom - event.clientY <= 28;
+
+    if (!isNearNativeResizeHandle) {
+      return;
+    }
+
+    function handlePointerMove() {
+      setIsBodyResizing(true);
+      syncBodyFractionFromTextarea();
+    }
+
+    function handlePointerUp() {
+      setIsBodyResizing(false);
+      syncBodyFractionFromTextarea();
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    }
+
+    setIsBodyResizing(true);
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -904,6 +1017,7 @@ export function NotesWorkspace() {
                   onChange={(event) =>
                     handleEditorChange("body", event.target.value)
                   }
+                  onPointerDown={handleBodyTextareaPointerDown}
                   placeholder="Explain the concept in your own words"
                   rows={10}
                   value={editorState.body}
@@ -920,10 +1034,12 @@ export function NotesWorkspace() {
             <hr
               aria-label="Resize note body"
               aria-orientation="vertical"
+              aria-valuetext={`${Math.round(bodyFraction * 100)}% note body width`}
               aria-valuemax={95}
               aria-valuemin={35}
               aria-valuenow={Math.round(bodyFraction * 100)}
               className="notes-form__splitter"
+              data-resizing={isBodyResizing ? "true" : undefined}
               onKeyDown={handleBodyResizeKeyDown}
               onPointerDown={handleBodyResizePointerDown}
               tabIndex={0}
