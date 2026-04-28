@@ -55,7 +55,7 @@ function formatDateTime(timestamp: string) {
   }).format(new Date(timestamp));
 }
 
-export function RecallResultsPage() {
+export function RecallResultsWorkspacePage() {
   const recallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.recall,
