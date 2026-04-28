@@ -227,13 +227,27 @@ export function NotesRecallSessionPage() {
         className="recall-card"
         data-revealed={activeSession.isAnswerRevealed}
       >
-        <div className="recall-card__face recall-card__face--prompt">
-          <p className="section-label">Prompt</p>
-          <h3 className="recall-card__title">{currentNote.title}</h3>
+        <div className="recall-card__top">
+          <div className="recall-card__face recall-card__face--prompt">
+            <p className="section-label">Prompt</p>
+            <h3 className="recall-card__title">{currentNote.title}</h3>
+            {!activeSession.isAnswerRevealed ? (
+              <p className="muted recall-card__hint">
+                Hold the answer in mind, then reveal it to compare.
+              </p>
+            ) : null}
+          </div>
+
           {!activeSession.isAnswerRevealed ? (
-            <p className="muted recall-card__hint">
-              Hold the answer in mind, then reveal it to compare.
-            </p>
+            <div className="recall-card__actions">
+              <button
+                className="notes-action notes-action-primary recall-card__reveal"
+                onClick={handleRevealAnswer}
+                type="button"
+              >
+                Reveal answer
+              </button>
+            </div>
           ) : null}
         </div>
 
@@ -244,16 +258,8 @@ export function NotesRecallSessionPage() {
           </div>
         ) : null}
 
-        <footer className="recall-card__footer">
-          {!activeSession.isAnswerRevealed ? (
-            <button
-              className="notes-action notes-action-primary recall-card__reveal"
-              onClick={handleRevealAnswer}
-              type="button"
-            >
-              Reveal answer
-            </button>
-          ) : (
+        {activeSession.isAnswerRevealed ? (
+          <footer className="recall-card__footer">
             <fieldset className="recall-rating-row">
               <legend className="sr-only">Rate your recall</legend>
               <button
@@ -278,8 +284,8 @@ export function NotesRecallSessionPage() {
                 Nailed it
               </button>
             </fieldset>
-          )}
-        </footer>
+          </footer>
+        ) : null}
       </article>
     </section>
   );

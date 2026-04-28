@@ -314,14 +314,14 @@
 }
 
 .recall-shell {
-  width: min(100%, 56rem);
-  margin-inline: auto;
-  padding: var(--space-4) var(--space-5) var(--space-5);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100%;
+  padding: 3rem 2.5rem 3rem;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   flex: 1;
-  min-height: 0;
 }
 
 .recall-shell__breadcrumb {
@@ -470,7 +470,7 @@
 .recall-card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-3);
   padding: clamp(var(--space-5), 4vw, var(--space-7));
   border: 1px solid var(--color-content-border-soft);
   border-radius: var(--radius-xl);
@@ -487,15 +487,21 @@
   gap: var(--space-2);
 }
 
+.recall-card__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-4);
+}
+
 .recall-card__face--prompt {
-  flex: 1;
-  align-content: center;
+  align-content: start;
   justify-items: start;
-  padding-block: var(--space-3);
+  padding-block: 0;
 }
 
 .recall-card__face--answer {
-  padding-top: var(--space-4);
+  padding-top: var(--space-3);
   border-top: 1px solid var(--color-content-border-soft);
 }
 
@@ -524,6 +530,11 @@
   gap: var(--space-3);
   padding-top: var(--space-3);
   border-top: 1px solid var(--color-content-border-soft);
+}
+
+.recall-card__actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .recall-card__reveal {
@@ -603,6 +614,14 @@
 
   .recall-rating-row {
     grid-template-columns: 1fr;
+  }
+
+  .recall-card__top {
+    grid-template-columns: 1fr;
+  }
+
+  .recall-card__actions {
+    justify-content: flex-start;
   }
 
   .recall-shell__title-row {
