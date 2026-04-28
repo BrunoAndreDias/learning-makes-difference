@@ -38,15 +38,15 @@ function formatCompletedAt(timestamp: string) {
 
 export function SessionResultsPage() {
   const labelsContext = useRouteContext({
-    from: "/_protected/history",
+    from: "/_protected",
     select: (context) => context.labels,
   });
   const recallContext = useRouteContext({
-    from: "/_protected/history",
+    from: "/_protected",
     select: (context) => context.recall,
   });
   const sessionContext = useRouteContext({
-    from: "/_protected/history",
+    from: "/_protected",
     select: (context) => context.session,
   });
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
@@ -62,7 +62,9 @@ export function SessionResultsPage() {
   const userId = sessionSnapshot.user?.id ?? null;
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
   const [selectedLabelId, setSelectedLabelId] = useState("");
-  const [historyView, setHistoryView] = useState<"note" | "session">("session");
+  const [resultsView, setResultsView] = useState<"note" | "session">(
+    "session",
+  );
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null,
   );
@@ -138,14 +140,14 @@ export function SessionResultsPage() {
   return (
     <section className="recall-page">
       <article className="card stack panel-protected">
-        <p className="section-label">Recall history</p>
-        <h3>Recall history</h3>
+        <p className="section-label">Results</p>
+        <h3>Results</h3>
         <p>
-          Review completed recall work by target label, attempted questions, and
-          stored note snapshots from the time of study.
+          Review completed recall work by target label, attempted questions,
+          and stored note snapshots from the time of study.
         </p>
         <div className="tag-row">
-          <span className="tag">Session results</span>
+          <span className="tag">Results</span>
           <span className="tag">Label filter</span>
           <span className="tag">Snapshot review</span>
         </div>
@@ -153,21 +155,21 @@ export function SessionResultsPage() {
 
       <div className="placeholder-grid recall-layout">
         <article className="card stack">
-          <p className="section-label">Filter history</p>
+          <p className="section-label">Filter results</p>
           <fieldset className="tag-row">
-            <legend className="section-label">History view</legend>
+            <legend className="section-label">Results view</legend>
             <button
-              aria-pressed={historyView === "session"}
+              aria-pressed={resultsView === "session"}
               className="notes-action"
-              onClick={() => setHistoryView("session")}
+              onClick={() => setResultsView("session")}
               type="button"
             >
               By session
             </button>
             <button
-              aria-pressed={historyView === "note"}
+              aria-pressed={resultsView === "note"}
               className="notes-action"
-              onClick={() => setHistoryView("note")}
+              onClick={() => setResultsView("note")}
               type="button"
             >
               By note
@@ -189,15 +191,15 @@ export function SessionResultsPage() {
             </select>
           </label>
 
-          {historyView === "session" && sessionResults.length === 0 ? (
+          {resultsView === "session" && sessionResults.length === 0 ? (
             selectedLabelFilter === undefined ? (
-              <NoRecallHistoryState />
+              <NoResultsState />
             ) : (
               <p className="muted">
                 No sessions match the current label filter.
               </p>
             )
-          ) : historyView === "session" ? (
+          ) : resultsView === "session" ? (
             <div className="stack">
               {sessionResults.map((result) => {
                 const isSelected = result.id === selectedSessionId;
@@ -236,7 +238,7 @@ export function SessionResultsPage() {
             </div>
           ) : noteResults.length === 0 ? (
             selectedLabelFilter === undefined ? (
-              <NoRecallHistoryState />
+              <NoResultsState />
             ) : (
               <p className="muted">No notes match the current label filter.</p>
             )
@@ -287,12 +289,12 @@ export function SessionResultsPage() {
 
         <section aria-label="Inspect results" className="card stack">
           <p className="section-label">Inspect results</p>
-          {historyView === "session" && selectedSession === null ? (
+          {resultsView === "session" && selectedSession === null ? (
             <p className="muted">
               Pick a stored session to review its questions, answers, and
               ratings.
             </p>
-          ) : historyView === "session" && selectedSession !== null ? (
+          ) : resultsView === "session" && selectedSession !== null ? (
             <>
               <h4>{selectedSession.labelName}</h4>
               <p>{formatCompletedAt(selectedSession.completedAt)}</p>
@@ -334,15 +336,15 @@ export function SessionResultsPage() {
   );
 }
 
-function NoRecallHistoryState() {
+function NoResultsState() {
   return (
     <div className="stack">
-      <h4>No recall history yet</h4>
+      <h4>No results yet</h4>
       <p className="muted">
-        Complete a recall session from Notes to build a reviewable history.
+        Complete a recall session to build reviewable results.
       </p>
-      <Link className="notes-action" to="/notes">
-        Go to Notes
+      <Link className="notes-action" to="/recall">
+        Go to Recall
       </Link>
     </div>
   );

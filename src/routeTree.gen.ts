@@ -17,10 +17,13 @@ import { Route as ProtectedSettingsRouteImport } from './routes/_protected.setti
 import { Route as ProtectedRecallRouteImport } from './routes/_protected.recall'
 import { Route as ProtectedNotesRouteImport } from './routes/_protected.notes'
 import { Route as ProtectedLabelsRouteImport } from './routes/_protected.labels'
-import { Route as ProtectedHistoryRouteImport } from './routes/_protected.history'
 import { Route as AuthRegisterRouteImport } from './routes/_auth.register'
 import { Route as AuthLoginRouteImport } from './routes/_auth.login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/_auth.forgot-password'
+import { Route as ProtectedRecallIndexRouteImport } from './routes/_protected.recall.index'
+import { Route as ProtectedRecallSessionRouteImport } from './routes/_protected.recall.session'
+import { Route as ProtectedRecallSelectRouteImport } from './routes/_protected.recall.select'
+import { Route as ProtectedRecallResultsRouteImport } from './routes/_protected.recall.results'
 import { Route as ProtectedNotesRecallRouteImport } from './routes/_protected.notes.recall'
 
 const PublicRoute = PublicRouteImport.update({
@@ -60,11 +63,6 @@ const ProtectedLabelsRoute = ProtectedLabelsRouteImport.update({
   path: '/labels',
   getParentRoute: () => ProtectedRoute,
 } as any)
-const ProtectedHistoryRoute = ProtectedHistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
-  getParentRoute: () => ProtectedRoute,
-} as any)
 const AuthRegisterRoute = AuthRegisterRouteImport.update({
   id: '/register',
   path: '/register',
@@ -80,6 +78,26 @@ const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
   path: '/forgot-password',
   getParentRoute: () => AuthRoute,
 } as any)
+const ProtectedRecallIndexRoute = ProtectedRecallIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProtectedRecallRoute,
+} as any)
+const ProtectedRecallSessionRoute = ProtectedRecallSessionRouteImport.update({
+  id: '/session',
+  path: '/session',
+  getParentRoute: () => ProtectedRecallRoute,
+} as any)
+const ProtectedRecallSelectRoute = ProtectedRecallSelectRouteImport.update({
+  id: '/select',
+  path: '/select',
+  getParentRoute: () => ProtectedRecallRoute,
+} as any)
+const ProtectedRecallResultsRoute = ProtectedRecallResultsRouteImport.update({
+  id: '/results',
+  path: '/results',
+  getParentRoute: () => ProtectedRecallRoute,
+} as any)
 const ProtectedNotesRecallRoute = ProtectedNotesRecallRouteImport.update({
   id: '/recall',
   path: '/recall',
@@ -91,24 +109,29 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
-  '/history': typeof ProtectedHistoryRoute
   '/labels': typeof ProtectedLabelsRoute
   '/notes': typeof ProtectedNotesRouteWithChildren
-  '/recall': typeof ProtectedRecallRoute
+  '/recall': typeof ProtectedRecallRouteWithChildren
   '/settings': typeof ProtectedSettingsRoute
   '/notes/recall': typeof ProtectedNotesRecallRoute
+  '/recall/results': typeof ProtectedRecallResultsRoute
+  '/recall/select': typeof ProtectedRecallSelectRoute
+  '/recall/session': typeof ProtectedRecallSessionRoute
+  '/recall/': typeof ProtectedRecallIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
-  '/history': typeof ProtectedHistoryRoute
   '/labels': typeof ProtectedLabelsRoute
   '/notes': typeof ProtectedNotesRouteWithChildren
-  '/recall': typeof ProtectedRecallRoute
   '/settings': typeof ProtectedSettingsRoute
   '/notes/recall': typeof ProtectedNotesRecallRoute
+  '/recall/results': typeof ProtectedRecallResultsRoute
+  '/recall/select': typeof ProtectedRecallSelectRoute
+  '/recall/session': typeof ProtectedRecallSessionRoute
+  '/recall': typeof ProtectedRecallIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -118,13 +141,16 @@ export interface FileRoutesById {
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/register': typeof AuthRegisterRoute
-  '/_protected/history': typeof ProtectedHistoryRoute
   '/_protected/labels': typeof ProtectedLabelsRoute
   '/_protected/notes': typeof ProtectedNotesRouteWithChildren
-  '/_protected/recall': typeof ProtectedRecallRoute
+  '/_protected/recall': typeof ProtectedRecallRouteWithChildren
   '/_protected/settings': typeof ProtectedSettingsRoute
   '/_public/': typeof PublicIndexRoute
   '/_protected/notes/recall': typeof ProtectedNotesRecallRoute
+  '/_protected/recall/results': typeof ProtectedRecallResultsRoute
+  '/_protected/recall/select': typeof ProtectedRecallSelectRoute
+  '/_protected/recall/session': typeof ProtectedRecallSessionRoute
+  '/_protected/recall/': typeof ProtectedRecallIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -133,24 +159,29 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/register'
-    | '/history'
     | '/labels'
     | '/notes'
     | '/recall'
     | '/settings'
     | '/notes/recall'
+    | '/recall/results'
+    | '/recall/select'
+    | '/recall/session'
+    | '/recall/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/forgot-password'
     | '/login'
     | '/register'
-    | '/history'
     | '/labels'
     | '/notes'
-    | '/recall'
     | '/settings'
     | '/notes/recall'
+    | '/recall/results'
+    | '/recall/select'
+    | '/recall/session'
+    | '/recall'
   id:
     | '__root__'
     | '/_auth'
@@ -159,13 +190,16 @@ export interface FileRouteTypes {
     | '/_auth/forgot-password'
     | '/_auth/login'
     | '/_auth/register'
-    | '/_protected/history'
     | '/_protected/labels'
     | '/_protected/notes'
     | '/_protected/recall'
     | '/_protected/settings'
     | '/_public/'
     | '/_protected/notes/recall'
+    | '/_protected/recall/results'
+    | '/_protected/recall/select'
+    | '/_protected/recall/session'
+    | '/_protected/recall/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -232,13 +266,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedLabelsRouteImport
       parentRoute: typeof ProtectedRoute
     }
-    '/_protected/history': {
-      id: '/_protected/history'
-      path: '/history'
-      fullPath: '/history'
-      preLoaderRoute: typeof ProtectedHistoryRouteImport
-      parentRoute: typeof ProtectedRoute
-    }
     '/_auth/register': {
       id: '/_auth/register'
       path: '/register'
@@ -259,6 +286,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/forgot-password'
       preLoaderRoute: typeof AuthForgotPasswordRouteImport
       parentRoute: typeof AuthRoute
+    }
+    '/_protected/recall/': {
+      id: '/_protected/recall/'
+      path: '/'
+      fullPath: '/recall/'
+      preLoaderRoute: typeof ProtectedRecallIndexRouteImport
+      parentRoute: typeof ProtectedRecallRoute
+    }
+    '/_protected/recall/session': {
+      id: '/_protected/recall/session'
+      path: '/session'
+      fullPath: '/recall/session'
+      preLoaderRoute: typeof ProtectedRecallSessionRouteImport
+      parentRoute: typeof ProtectedRecallRoute
+    }
+    '/_protected/recall/select': {
+      id: '/_protected/recall/select'
+      path: '/select'
+      fullPath: '/recall/select'
+      preLoaderRoute: typeof ProtectedRecallSelectRouteImport
+      parentRoute: typeof ProtectedRecallRoute
+    }
+    '/_protected/recall/results': {
+      id: '/_protected/recall/results'
+      path: '/results'
+      fullPath: '/recall/results'
+      preLoaderRoute: typeof ProtectedRecallResultsRouteImport
+      parentRoute: typeof ProtectedRecallRoute
     }
     '/_protected/notes/recall': {
       id: '/_protected/notes/recall'
@@ -296,19 +351,35 @@ const ProtectedNotesRouteWithChildren = ProtectedNotesRoute._addFileChildren(
   ProtectedNotesRouteChildren,
 )
 
+interface ProtectedRecallRouteChildren {
+  ProtectedRecallResultsRoute: typeof ProtectedRecallResultsRoute
+  ProtectedRecallSelectRoute: typeof ProtectedRecallSelectRoute
+  ProtectedRecallSessionRoute: typeof ProtectedRecallSessionRoute
+  ProtectedRecallIndexRoute: typeof ProtectedRecallIndexRoute
+}
+
+const ProtectedRecallRouteChildren: ProtectedRecallRouteChildren = {
+  ProtectedRecallResultsRoute: ProtectedRecallResultsRoute,
+  ProtectedRecallSelectRoute: ProtectedRecallSelectRoute,
+  ProtectedRecallSessionRoute: ProtectedRecallSessionRoute,
+  ProtectedRecallIndexRoute: ProtectedRecallIndexRoute,
+}
+
+const ProtectedRecallRouteWithChildren = ProtectedRecallRoute._addFileChildren(
+  ProtectedRecallRouteChildren,
+)
+
 interface ProtectedRouteChildren {
-  ProtectedHistoryRoute: typeof ProtectedHistoryRoute
   ProtectedLabelsRoute: typeof ProtectedLabelsRoute
   ProtectedNotesRoute: typeof ProtectedNotesRouteWithChildren
-  ProtectedRecallRoute: typeof ProtectedRecallRoute
+  ProtectedRecallRoute: typeof ProtectedRecallRouteWithChildren
   ProtectedSettingsRoute: typeof ProtectedSettingsRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
-  ProtectedHistoryRoute: ProtectedHistoryRoute,
   ProtectedLabelsRoute: ProtectedLabelsRoute,
   ProtectedNotesRoute: ProtectedNotesRouteWithChildren,
-  ProtectedRecallRoute: ProtectedRecallRoute,
+  ProtectedRecallRoute: ProtectedRecallRouteWithChildren,
   ProtectedSettingsRoute: ProtectedSettingsRoute,
 }
 

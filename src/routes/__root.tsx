@@ -23,7 +23,6 @@ import appCss from "../styles/app.css?url";
 
 const authRoutePaths = new Set(["/forgot-password", "/login", "/register"]);
 const redirectableProtectedPaths = [
-  "/history",
   "/labels",
   "/notes",
   "/recall",

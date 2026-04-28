@@ -20,6 +20,15 @@ describe("route tree", () => {
       "'/recall': typeof ProtectedRecallRoute",
     );
     expect(generatedRouteTree).toContain(
+      "'/recall/results': typeof ProtectedRecallResultsRoute",
+    );
+    expect(generatedRouteTree).toContain(
+      "'/recall/select': typeof ProtectedRecallSelectRoute",
+    );
+    expect(generatedRouteTree).toContain(
+      "'/recall/session': typeof ProtectedRecallSessionRoute",
+    );
+    expect(generatedRouteTree).not.toContain(
       "'/history': typeof ProtectedHistoryRoute",
     );
     expect(generatedRouteTree).toContain(

@@ -226,7 +226,7 @@ describe("authenticated app shell", () => {
     });
     sessionContext.logout();
 
-    const { router } = renderRoute("/login?redirect=%2Fhistory", {
+    const { router } = renderRoute("/login?redirect=%2Frecall%2Fresults", {
       sessionContext,
     });
 
@@ -245,11 +245,11 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", {
         level: 3,
-        name: "Recall history",
+        name: "Results",
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("Jordan Review")).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/history");
+    expect(router.state.location.pathname).toBe("/recall/results");
   });
 
   it("updates account preferences from settings and restores them for the same account", async () => {
@@ -338,9 +338,6 @@ describe("authenticated app shell", () => {
     expect(accountMenuButton).toBeVisible();
     expect(within(sidebar).queryByText("Learning Makes Difference")).toBeNull();
 
-    expect(
-      screen.queryByRole("link", { name: "Recall" }),
-    ).not.toBeInTheDocument();
     const appSections = within(sidebar).getByRole("navigation", {
       name: "App sections",
     });
@@ -351,7 +348,7 @@ describe("authenticated app shell", () => {
       within(appSections).getByRole("link", { name: "Labels" }),
     ).toBeInTheDocument();
     expect(
-      within(appSections).getByRole("link", { name: "Recall history" }),
+      within(appSections).getByRole("link", { name: "Recall" }),
     ).toBeInTheDocument();
     expect(
       within(appSections).queryByRole("link", { name: "Settings" }),
@@ -445,18 +442,18 @@ describe("authenticated app shell", () => {
     const labelsLink = within(appSections).getByRole("link", {
       name: "Labels",
     });
-    const historyLink = within(appSections).getByRole("link", {
-      name: "Recall history",
+    const recallLink = within(appSections).getByRole("link", {
+      name: "Recall",
     });
 
     expect(within(appSections).getAllByRole("link")).toEqual([
       notesLink,
       labelsLink,
-      historyLink,
+      recallLink,
     ]);
     expect(notesLink).toHaveAttribute("href", "/notes");
     expect(labelsLink).toHaveAttribute("href", "/labels");
-    expect(historyLink).toHaveAttribute("href", "/history");
+    expect(recallLink).toHaveAttribute("href", "/recall");
     expect(notesLink).toHaveAttribute("aria-current", "page");
 
     fireEvent.click(labelsLink);
@@ -468,16 +465,13 @@ describe("authenticated app shell", () => {
     expect(labelsLink).toHaveAttribute("aria-current", "page");
     expect(notesLink).not.toHaveAttribute("aria-current");
 
-    fireEvent.click(historyLink);
+    fireEvent.click(recallLink);
 
     expect(
-      await screen.findByRole("heading", {
-        level: 2,
-        name: "Recall history",
-      }),
+      await screen.findByRole("heading", { level: 3, name: "Recall" }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/history");
-    expect(historyLink).toHaveAttribute("aria-current", "page");
+    expect(router.state.location.pathname).toBe("/recall");
+    expect(recallLink).toHaveAttribute("aria-current", "page");
     expect(labelsLink).not.toHaveAttribute("aria-current");
   });
 
@@ -2819,33 +2813,33 @@ describe("authenticated app shell", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("redirects the retired standalone recall setup route back to notes", async () => {
+  it("renders recall as the primary route shell", async () => {
     const { router } = renderRoute("/recall");
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 3, name: "Recall" }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/notes");
-    expect(screen.queryByLabelText("Choose a label")).toBeNull();
+    expect(router.state.location.pathname).toBe("/recall");
     expect(
-      screen.queryByRole("form", { name: "Recall session setup form" }),
-    ).toBeNull();
+      screen.getByRole("link", { name: "Start Recall" }),
+    ).toHaveAttribute("href", "/recall/select");
+    expect(
+      screen.getByRole("link", { name: "Open Results" }),
+    ).toHaveAttribute("href", "/recall/results");
   });
 
-  it("shows a true empty recall history state with a notes CTA", async () => {
-    renderRoute("/history");
+  it("shows a true empty results state with a recall CTA", async () => {
+    renderRoute("/recall/results");
 
     expect(
-      await screen.findByRole("heading", { name: "No recall history yet" }),
+      await screen.findByRole("heading", { name: "No results yet" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Complete a recall session from Notes to build a reviewable history.",
-      ),
+      screen.getByText("Complete a recall session to build reviewable results."),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Go to Notes" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Go to Recall" })).toHaveAttribute(
       "href",
-      "/notes",
+      "/recall",
     );
     expect(
       screen.queryByText(
@@ -2854,7 +2848,7 @@ describe("authenticated app shell", () => {
     ).toBeNull();
   });
 
-  it("shows persisted session history with label filtering and stored note snapshots", async () => {
+  it("shows persisted session results with label filtering and stored note snapshots", async () => {
     const labelsContext = createAppLabelsContext({
       keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -2913,7 +2907,7 @@ describe("authenticated app shell", () => {
 
     cleanup();
 
-    renderRoute("/history", {
+    renderRoute("/recall/results", {
       labelsContext,
       notesContext,
       recallContext,
@@ -2922,7 +2916,7 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", {
         level: 3,
-        name: "Recall history",
+        name: "Results",
       }),
     ).toBeInTheDocument();
     expect(
@@ -2954,7 +2948,7 @@ describe("authenticated app shell", () => {
     expect(screen.queryByText("Edited live note")).toBeNull();
   });
 
-  it("toggles recall history by note and updates the drill-down pane", async () => {
+  it("toggles results by note and updates the drill-down pane", async () => {
     vi.useFakeTimers();
 
     const labelsContext = createAppLabelsContext({
@@ -3017,7 +3011,7 @@ describe("authenticated app shell", () => {
 
     vi.useRealTimers();
 
-    renderRoute("/history", {
+    renderRoute("/recall/results", {
       labelsContext,
       notesContext,
       recallContext,
@@ -3026,7 +3020,7 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", {
         level: 3,
-        name: "Recall history",
+        name: "Results",
       }),
     ).toBeInTheDocument();
     expect(

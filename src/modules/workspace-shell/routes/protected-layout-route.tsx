@@ -22,7 +22,7 @@ import {
   NotesWorkspaceSidebar,
 } from "../../learning-loop";
 
-type NavigationIconName = "history" | "label" | "note" | "settings";
+type NavigationIconName = "label" | "note" | "recall" | "settings";
 
 function getWorkspaceTitle(pathname: string) {
   if (pathname === "/labels" || pathname.startsWith("/labels/")) {
@@ -31,10 +31,6 @@ function getWorkspaceTitle(pathname: string) {
 
   if (pathname === "/recall" || pathname.startsWith("/recall/")) {
     return "Recall";
-  }
-
-  if (pathname === "/history" || pathname.startsWith("/history/")) {
-    return "Recall history";
   }
 
   if (pathname === "/settings" || pathname.startsWith("/settings/")) {
@@ -274,12 +270,12 @@ function GlobalNavigation({
             }}
             className="app-sidebar__link"
             onClick={onNavigate}
-            to="/history"
+            to="/recall"
           >
             <span aria-hidden="true" className="app-sidebar__icon">
-              <NavigationIcon name="history" />
+              <NavigationIcon name="recall" />
             </span>
-            <span className="app-sidebar__label">Recall history</span>
+            <span className="app-sidebar__label">Recall</span>
           </Link>
         </li>
       </ul>
@@ -440,7 +436,7 @@ function NavigationIcon({
   name: NavigationIconName;
 }>) {
   switch (name) {
-    case "history":
+    case "recall":
       return (
         <svg aria-hidden="true" viewBox="0 0 24 24">
           <path d="M4 5v6h6" />
