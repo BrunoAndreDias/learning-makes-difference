@@ -2820,12 +2820,14 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { level: 3, name: "Recall" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
-    expect(
-      screen.getByRole("link", { name: "Start Recall" }),
-    ).toHaveAttribute("href", "/recall/select");
-    expect(
-      screen.getByRole("link", { name: "Open Results" }),
-    ).toHaveAttribute("href", "/recall/results");
+    expect(screen.getByRole("link", { name: "Start Recall" })).toHaveAttribute(
+      "href",
+      "/recall/select",
+    );
+    expect(screen.getByRole("link", { name: "Open Results" })).toHaveAttribute(
+      "href",
+      "/recall/results",
+    );
   });
 
   it("shows a true empty results state with a recall CTA", async () => {
@@ -2835,7 +2837,9 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "No results yet" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Complete a recall session to build reviewable results."),
+      screen.getByText(
+        "Complete a recall session to build reviewable results.",
+      ),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Go to Recall" })).toHaveAttribute(
       "href",

@@ -77,7 +77,10 @@ export function RecallHomePage() {
             Open the new Recall route flow and choose the notes for your next
             session.
           </p>
-          <Link className="notes-action notes-action-primary" to="/recall/select">
+          <Link
+            className="notes-action notes-action-primary"
+            to="/recall/select"
+          >
             Start Recall
           </Link>
         </article>
@@ -116,7 +119,10 @@ export function RecallHomePage() {
                 const summary = summarizeAttempts(result.attempts);
 
                 return (
-                  <article className="recall-session-card stack" key={result.id}>
+                  <article
+                    className="recall-session-card stack"
+                    key={result.id}
+                  >
                     <p className="section-label">{result.labelName}</p>
                     <p>{formatCompletedAt(result.completedAt)}</p>
                     <div className="tag-row">

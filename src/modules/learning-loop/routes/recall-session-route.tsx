@@ -9,7 +9,27 @@ import {
   summarizeAttempts,
 } from "../domain/recall";
 
+type RecallSessionRouteOptions = {
+  breadcrumbCurrent: string;
+  breadcrumbLabel: string;
+  breadcrumbTo: "/notes" | "/recall";
+  returnTo: "/notes" | "/recall";
+  subtitle: string;
+};
+
 export function RecallSessionPage() {
+  return (
+    <FlashCardRecallSessionPage
+      breadcrumbCurrent="Session"
+      breadcrumbLabel="Recall"
+      breadcrumbTo="/recall"
+      returnTo="/recall"
+      subtitle="Recall the note from memory before revealing the answer. Rate honestly - your ratings shape future practice."
+    />
+  );
+}
+
+export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
   const navigate = useNavigate();
   const recallContext = useRouteContext({
     from: "/_protected",
@@ -45,8 +65,8 @@ export function RecallSessionPage() {
       return;
     }
 
-    void navigate({ replace: true, to: "/recall" });
-  }, [activeSession, navigate]);
+    void navigate({ replace: true, to: props.returnTo });
+  }, [activeSession, navigate, props.returnTo]);
 
   function handleRecallError(error: unknown) {
     if (error instanceof AppRecallError) {
@@ -88,7 +108,7 @@ export function RecallSessionPage() {
       setFeedbackMessage(null);
 
       if (nextSession === null) {
-        await navigate({ to: "/recall" });
+        await navigate({ to: props.returnTo });
       }
     } catch (error) {
       handleRecallError(error);
@@ -106,7 +126,7 @@ export function RecallSessionPage() {
         userId,
       });
       setFeedbackMessage(null);
-      await navigate({ to: "/recall" });
+      await navigate({ to: props.returnTo });
     } catch (error) {
       handleRecallError(error);
     }
@@ -133,10 +153,10 @@ export function RecallSessionPage() {
         >
           <ol>
             <li>
-              <Link to="/recall">Recall</Link>
+              <Link to={props.breadcrumbTo}>{props.breadcrumbLabel}</Link>
             </li>
             <li aria-hidden="true">/</li>
-            <li aria-current="page">Session</li>
+            <li aria-current="page">{props.breadcrumbCurrent}</li>
           </ol>
         </nav>
 
@@ -144,10 +164,7 @@ export function RecallSessionPage() {
           <div className="recall-shell__title-stack">
             <p className="eyebrow">{activeSession.labelName}</p>
             <h2>FlashCard session</h2>
-            <p className="muted recall-shell__subtitle">
-              Recall the note from memory before revealing the answer. Rate
-              honestly - your ratings shape future practice.
-            </p>
+            <p className="muted recall-shell__subtitle">{props.subtitle}</p>
           </div>
           <button
             className="notes-action recall-shell__end"

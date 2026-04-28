@@ -62,14 +62,13 @@ export function SessionResultsPage() {
   const userId = sessionSnapshot.user?.id ?? null;
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
   const [selectedLabelId, setSelectedLabelId] = useState("");
-  const [resultsView, setResultsView] = useState<"note" | "session">(
-    "session",
-  );
+  const [resultsView, setResultsView] = useState<"note" | "session">("session");
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null,
   );
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
-  const selectedLabelFilter = selectedLabelId === "" ? undefined : selectedLabelId;
+  const selectedLabelFilter =
+    selectedLabelId === "" ? undefined : selectedLabelId;
 
   useEffect(() => {
     function syncLabels() {
@@ -143,8 +142,8 @@ export function SessionResultsPage() {
         <p className="section-label">Results</p>
         <h3>Results</h3>
         <p>
-          Review completed recall work by target label, attempted questions,
-          and stored note snapshots from the time of study.
+          Review completed recall work by target label, attempted questions, and
+          stored note snapshots from the time of study.
         </p>
         <div className="tag-row">
           <span className="tag">Results</span>
@@ -371,9 +370,7 @@ function getSelectedNoteResult(
     return null;
   }
 
-  return (
-    noteResults.find((result) => result.noteId === selectedNoteId) ?? null
-  );
+  return noteResults.find((result) => result.noteId === selectedNoteId) ?? null;
 }
 
 function NoteAttemptHistory(props: {
