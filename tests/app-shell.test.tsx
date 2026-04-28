@@ -196,7 +196,7 @@ async function startSelectedRecallSession() {
 
 async function expectReturnedToRecall(router: AppShellRouter) {
   expect(
-    await screen.findByRole("heading", { level: 3, name: "Recall" }),
+    await screen.findByRole("heading", { level: 3, name: "Results" }),
   ).toBeInTheDocument();
   expect(router.state.location.pathname).toBe("/recall");
 }
@@ -317,7 +317,7 @@ describe("authenticated app shell", () => {
     });
     sessionContext.logout();
 
-    const { router } = renderRoute("/login?redirect=%2Frecall%2Fresults", {
+    const { router } = renderRoute("/login?redirect=%2Frecall", {
       sessionContext,
     });
 
@@ -340,7 +340,7 @@ describe("authenticated app shell", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("Jordan Review")).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall/results");
+    expect(router.state.location.pathname).toBe("/recall");
   });
 
   it("updates account preferences from settings and restores them for the same account", async () => {
@@ -562,7 +562,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(recallLink);
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Recall" }),
+      await screen.findByRole("heading", { level: 3, name: "Results" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
     expect(recallLink).toHaveAttribute("aria-current", "page");
@@ -1984,7 +1984,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start Recall" }));
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Recall" }),
+      await screen.findByRole("heading", { level: 3, name: "Results" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
     expect(recallContext.getSnapshot()).toBeNull();
@@ -2035,7 +2035,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start Recall" }));
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Recall" }),
+      await screen.findByRole("heading", { level: 3, name: "Results" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
     expect(recallContext.getSnapshot()).toBeNull();
@@ -2332,7 +2332,7 @@ describe("authenticated app shell", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders recall entry points with a stable empty recent-results preview", async () => {
+  it("renders /recall as an empty results workspace with a start action", async () => {
     const { labelsContext, notesContext } = createLearningLoopTestContexts();
     const userId = "user-placeholder";
 
@@ -2350,46 +2350,37 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Recall" }),
+      await screen.findByRole("heading", { level: 3, name: "Results" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
     expect(screen.getByRole("link", { name: "Start Recall" })).toHaveAttribute(
       "href",
       "/recall/select",
     );
-    expect(screen.getByRole("link", { name: "Open Results" })).toHaveAttribute(
-      "href",
-      "/recall/results",
-    );
     expect(
-      screen.getByRole("heading", { level: 4, name: "Results" }),
+      screen.getByRole("heading", { level: 4, name: "No results yet" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("No recent results yet")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Your completed and attempted recall sessions will appear here.",
+        "Complete a recall session to build reviewable results.",
       ),
     ).toBeInTheDocument();
   });
 
-  it("keeps no-note users on /recall with a path back to notes", async () => {
+  it("keeps no-note users on /recall with the empty results workspace", async () => {
     const { router } = renderRoute("/recall");
 
     expect(
-      await screen.findByRole("heading", { level: 4, name: "No notes yet" }),
+      await screen.findByRole("heading", { level: 3, name: "Results" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
     expect(
-      screen.getByText("Create notes first, then come back to start recall."),
+      screen.getByText("Complete a recall session to build reviewable results."),
     ).toBeInTheDocument();
-    expect(
-      screen
-        .getAllByRole("link", { name: "Go to Notes" })
-        .every((link) => link.getAttribute("href") === "/notes"),
-    ).toBe(true);
-    expect(
-      screen.queryByRole("link", { name: "Start Recall" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Start Recall" })).toHaveAttribute(
+      "href",
+      "/recall/select",
+    );
   });
 
   it("runs dedicated recall selection mode from /recall/select without opening the note editor", async () => {
@@ -2513,7 +2504,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(recallControls.getByRole("button", { name: "Cancel" }));
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Recall" }),
+      await screen.findByRole("heading", { level: 3, name: "Results" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
 
@@ -2618,7 +2609,7 @@ describe("authenticated app shell", () => {
     const { router } = renderRoute("/recall/session");
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Recall" }),
+      await screen.findByRole("heading", { level: 3, name: "Results" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
     expect(
@@ -2626,7 +2617,7 @@ describe("authenticated app shell", () => {
     ).toBeNull();
   });
 
-  it("returns completed recall sessions to /recall and shows the new session in recent results", async () => {
+  it("returns completed recall sessions to /recall and opens the new result", async () => {
     const { labelsContext, notesContext, recallContext } =
       createDeterministicRecallTestContexts();
     const userId = "user-placeholder";
@@ -2658,11 +2649,15 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Nailed it" }));
 
     await expectReturnedToRecall(router);
-    expect(screen.getByText("1 attempted question")).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByRole("region", { name: "Selected session result" }),
+      ).getByText("1 attempted question"),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("Nailed 1 · Partial 0 · Missed 0"),
     ).toBeInTheDocument();
-    expect(screen.queryByText("Spacing effect")).toBeNull();
+    expect(screen.getByText("Spacing effect")).toBeInTheDocument();
     expect(recallContext.listSessionResults({ userId })).toMatchObject([
       {
         attempts: [{ noteId: note.id, rating: "nailed" }],
@@ -2671,7 +2666,7 @@ describe("authenticated app shell", () => {
     ]);
   });
 
-  it("returns attempted early-ended recall sessions to /recall and shows the new session in recent results", async () => {
+  it("returns attempted early-ended recall sessions to /recall and opens the new result", async () => {
     const { labelsContext, notesContext, recallContext } =
       createDeterministicRecallTestContexts();
     const userId = "user-placeholder";
@@ -2705,11 +2700,15 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "End session" }));
 
     await expectReturnedToRecall(router);
-    expect(screen.getByText("1 attempted question")).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByRole("region", { name: "Selected session result" }),
+      ).getByText("1 attempted question"),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("Nailed 0 · Partial 1 · Missed 0"),
     ).toBeInTheDocument();
-    expect(screen.queryByText("Retrieval strength")).toBeNull();
+    expect(screen.getByText("Retrieval strength")).toBeInTheDocument();
     expect(recallContext.listSessionResults({ userId })).toMatchObject([
       {
         attempts: [{ noteId: firstNote.id, rating: "partial" }],
@@ -2746,12 +2745,12 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "End session" }));
 
     await expectReturnedToRecall(router);
-    expect(screen.getByText("No recent results yet")).toBeInTheDocument();
+    expect(screen.getByText("No results yet")).toBeInTheDocument();
     expect(recallContext.listSessionResults({ userId })).toHaveLength(0);
   });
 
   it("shows a true empty results state with a recall CTA", async () => {
-    renderRoute("/recall/results");
+    renderRoute("/recall");
 
     expect(
       await screen.findByRole("heading", { name: "No results yet" }),
@@ -2761,9 +2760,9 @@ describe("authenticated app shell", () => {
         "Complete a recall session to build reviewable results.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Go to Recall" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Start Recall" })).toHaveAttribute(
       "href",
-      "/recall",
+      "/recall/select",
     );
     expect(
       screen.queryByText(
@@ -2772,7 +2771,9 @@ describe("authenticated app shell", () => {
     ).toBeNull();
   });
 
-  it("shows recent results as a compact session-level preview on /recall", async () => {
+  it("shows /recall as the canonical results workspace with newest result selected by default", async () => {
+    vi.useFakeTimers();
+
     const { labelsContext, notesContext, recallContext } =
       createLearningLoopTestContexts({
         shuffleNotes: (sessionNotes) => [...sessionNotes],
@@ -2782,27 +2783,43 @@ describe("authenticated app shell", () => {
       name: "Science",
       userId,
     });
-    const note = notesContext.createNote(userId, {
+    const firstNote = notesContext.createNote(userId, {
       acronyms: [],
       body: "Stored snapshots should stay inside full results review.",
       labelIds: [science.id],
       metaphors: [],
       title: "Testing effect",
     });
-    const session = recallContext.startFlashCardSession({
-      noteIds: [note.id],
-      userId,
+    const secondNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Newest results should open directly in the detail pane.",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Spacing effect",
     });
 
-    recallContext.revealFlashCardAnswer({
-      sessionId: session.id,
-      userId,
-    });
-    recallContext.rateFlashCardAnswer({
-      rating: "nailed",
-      sessionId: session.id,
-      userId,
-    });
+    for (const [timestamp, noteId, rating] of [
+      ["2026-04-01T09:00:00.000Z", firstNote.id, "nailed"],
+      ["2026-04-02T09:00:00.000Z", secondNote.id, "partial"],
+    ] as const) {
+      vi.setSystemTime(new Date(timestamp));
+      const session = recallContext.startFlashCardSession({
+        noteIds: [noteId],
+        userId,
+      });
+
+      recallContext.revealFlashCardAnswer({
+        sessionId: session.id,
+        userId,
+      });
+      recallContext.rateFlashCardAnswer({
+        rating,
+        sessionId: session.id,
+        userId,
+      });
+    }
+
+    vi.useRealTimers();
 
     renderRoute("/recall", {
       labelsContext,
@@ -2810,19 +2827,44 @@ describe("authenticated app shell", () => {
       recallContext,
     });
 
-    expect(await screen.findByText("1 attempted question")).toBeInTheDocument();
     expect(
-      screen.getByText("Nailed 1 · Partial 0 · Missed 0"),
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Results",
+      }),
     ).toBeInTheDocument();
-    expect(screen.queryByText("Testing effect")).toBeNull();
+    expect(screen.getByRole("link", { name: "Start Recall" })).toHaveAttribute(
+      "href",
+      "/recall/select",
+    );
+
+    const resultsList = screen.getByRole("region", {
+      name: "Session results list",
+    });
+    const selectedResult = screen.getByRole("region", {
+      name: "Selected session result",
+    });
+
+    const sessionButtons = within(resultsList).getAllByRole("button", {
+      name: "Review session",
+    });
+
+    expect(sessionButtons).toHaveLength(2);
+    expect(sessionButtons[0]).toHaveAttribute("aria-pressed", "true");
+    expect(sessionButtons[1]).toHaveAttribute("aria-pressed", "false");
+    expect(within(selectedResult).getByText("Spacing effect")).toBeInTheDocument();
     expect(
-      screen.queryByText(
-        "Stored snapshots should stay inside full results review.",
+      within(selectedResult).getByText(
+        "Newest results should open directly in the detail pane.",
       ),
-    ).toBeNull();
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("Rating: Partly recalled"),
+    ).toBeInTheDocument();
+    expect(within(selectedResult).queryByText("Testing effect")).toBeNull();
   });
 
-  it("shows persisted session results with label filtering and stored note snapshots", async () => {
+  it("shows persisted session results with stored note snapshots", async () => {
     const labelsContext = createAppLabelsContext({
       keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -2842,10 +2884,6 @@ describe("authenticated app shell", () => {
     const userId = "user-placeholder";
     const science = labelsContext.createLabel({
       name: "Alpha Science",
-      userId,
-    });
-    const historyLabel = labelsContext.createLabel({
-      name: "World History",
       userId,
     });
     const note = notesContext.createNote(userId, {
@@ -2881,7 +2919,7 @@ describe("authenticated app shell", () => {
 
     cleanup();
 
-    renderRoute("/recall/results", {
+    renderRoute("/recall", {
       labelsContext,
       notesContext,
       recallContext,
@@ -2901,17 +2939,6 @@ describe("authenticated app shell", () => {
       screen.getByText("Nailed 1 · Partial 0 · Missed 0"),
     ).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Filter by label"), {
-      target: { value: historyLabel.id },
-    });
-
-    expect(
-      screen.getByText("No sessions match the current label filter."),
-    ).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("Filter by label"), {
-      target: { value: "" },
-    });
     fireEvent.click(screen.getByRole("button", { name: "Review session" }));
 
     expect(
@@ -2922,7 +2949,7 @@ describe("authenticated app shell", () => {
     expect(screen.queryByText("Edited live note")).toBeNull();
   });
 
-  it("toggles results by note and updates the drill-down pane", async () => {
+  it("switches the selected result without changing the route", async () => {
     vi.useFakeTimers();
 
     const labelsContext = createAppLabelsContext({
@@ -2985,7 +3012,7 @@ describe("authenticated app shell", () => {
 
     vi.useRealTimers();
 
-    renderRoute("/recall/results", {
+    const { router } = renderRoute("/recall", {
       labelsContext,
       notesContext,
       recallContext,
@@ -3001,46 +3028,28 @@ describe("authenticated app shell", () => {
       screen.getAllByRole("button", { name: "Review session" }).length,
     ).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole("button", { name: "By note" }));
-
-    expect(
-      screen.queryByRole("button", { name: "Review session" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Review note Neural pathways/i }),
-    ).toBeInTheDocument();
-
     fireEvent.click(
-      screen.getByRole("button", { name: /Review note Retrieval practice/i }),
+      screen.getAllByRole("button", { name: "Review session" })[1],
     );
 
     const resultsPane = screen.getByRole("region", {
-      name: "Inspect Results",
+      name: "Selected session result",
     });
 
     expect(
       within(resultsPane).getAllByRole("heading", {
-        name: "Retrieval practice",
+        name: "Neural pathways",
       }).length,
     ).toBeGreaterThan(0);
-    expect(screen.queryByText("Recall history")).toBeNull();
     expect(
-      within(resultsPane).getByText("Retrieval practice snapshot"),
+      within(resultsPane).getByText("Neural pathways original snapshot"),
     ).toBeInTheDocument();
     expect(
-      within(resultsPane).getByText("Rating: Partly recalled"),
+      within(resultsPane).getByText("Rating: Missed it"),
     ).toBeInTheDocument();
     expect(
-      within(resultsPane).queryByText("Neural pathways original snapshot"),
+      within(resultsPane).queryByText("Retrieval practice snapshot"),
     ).toBeNull();
-
-    fireEvent.change(screen.getByLabelText("Filter by label"), {
-      target: { value: science.id },
-    });
-
-    expect(
-      screen.getByRole("button", { name: /Review note Neural pathways/i }),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("Retrieval practice")).toBeNull();
+    expect(router.state.location.pathname).toBe("/recall");
   });
 });

@@ -13,29 +13,13 @@ import {
   searchNoteResults,
 } from "../domain/note-search";
 import { type AppNote, listNotesForUser } from "../domain/notes";
-import {
-  AppRecallError,
-  type FlashCardSessionResult,
-  summarizeAttempts,
-} from "../domain/recall";
+import { AppRecallError } from "../domain/recall";
 
 const NOTE_DATE_FORMATTER = new Intl.DateTimeFormat("en", {
   day: "numeric",
   month: "short",
   year: "numeric",
 });
-
-function formatCompletedAt(timestamp: string) {
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "UTC",
-  }).format(new Date(timestamp));
-}
-
-function formatAttemptCount(count: number) {
-  return `${count} attempted ${count === 1 ? "question" : "questions"}`;
-}
 
 function formatNoteDate(value: string): string {
   return NOTE_DATE_FORMATTER.format(new Date(value));
@@ -66,98 +50,6 @@ function EmptyRecallSelectionPage() {
 
 export function RecallRouteShell() {
   return <Outlet />;
-}
-
-function StartRecallCard({
-  hasRecallableNotes,
-}: {
-  hasRecallableNotes: boolean;
-}) {
-  if (!hasRecallableNotes) {
-    return (
-      <article className="recall-panel">
-        <p className="section-label">Start</p>
-        <h4>Start Recall</h4>
-        <p>Create notes first, then start your first recall session.</p>
-        <Link className="notes-action notes-action-primary" to="/notes">
-          Go to Notes
-        </Link>
-      </article>
-    );
-  }
-
-  return (
-    <article className="recall-panel">
-      <p className="section-label">Start</p>
-      <h4>Start Recall</h4>
-      <p>Select notes and move straight into focused flashcard practice.</p>
-      <Link className="notes-action notes-action-primary" to="/recall/select">
-        Start Recall
-      </Link>
-    </article>
-  );
-}
-
-function RecentResultsPreview({
-  hasRecallableNotes,
-  recentResults,
-}: {
-  hasRecallableNotes: boolean;
-  recentResults: FlashCardSessionResult[];
-}) {
-  if (!hasRecallableNotes) {
-    return (
-      <article className="recall-panel">
-        <p className="section-label">Recent Results</p>
-        <h4>No notes yet</h4>
-        <p className="muted">
-          Create notes first, then come back to start recall.
-        </p>
-        <Link className="notes-action" to="/notes">
-          Go to Notes
-        </Link>
-      </article>
-    );
-  }
-
-  if (recentResults.length === 0) {
-    return (
-      <article className="recall-panel">
-        <p className="section-label">Recent Results</p>
-        <h4>No recent results yet</h4>
-        <p className="muted">
-          Your completed and attempted recall sessions will appear here.
-        </p>
-      </article>
-    );
-  }
-
-  return (
-    <article className="recall-panel">
-      <p className="section-label">Recent Results</p>
-      <div className="stack">
-        {recentResults.map((result) => {
-          const summary = summarizeAttempts(result.attempts);
-
-          return (
-            <article className="recall-session-card stack" key={result.id}>
-              <p className="section-label">{result.labelName}</p>
-              <p>{formatCompletedAt(result.completedAt)}</p>
-              <div className="tag-row">
-                <span className="tag">
-                  {formatAttemptCount(result.attempts.length)}
-                </span>
-              </div>
-              <p className="muted">
-                Nailed {summary.nailed} · Partial {summary.partial} · Missed{" "}
-                {summary.missed}
-              </p>
-            </article>
-          );
-        })}
-      </div>
-    </article>
-  );
 }
 
 function RecallSelectionControls({
@@ -281,102 +173,6 @@ function SelectableRecallNotes({
         })}
       </ul>
     </article>
-  );
-}
-
-export function RecallHomePage() {
-  const notesContext = useRouteContext({
-    from: "/_protected",
-    select: (context) => context.notes,
-  });
-  const recallContext = useRouteContext({
-    from: "/_protected",
-    select: (context) => context.recall,
-  });
-  const sessionContext = useRouteContext({
-    from: "/_protected",
-    select: (context) => context.session,
-  });
-  const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
-    sessionContext.subscribe,
-    sessionContext.getSnapshot,
-    sessionContext.getSnapshot,
-  );
-  useSyncExternalStore(
-    recallContext.subscribe,
-    recallContext.getSessionResultsSnapshot,
-    recallContext.getSessionResultsSnapshot,
-  );
-  const notesSnapshot = useSyncExternalStore(
-    notesContext.subscribe,
-    notesContext.getSnapshot,
-    notesContext.getSnapshot,
-  );
-  const userId = sessionSnapshot.user?.id ?? null;
-  const notes = listNotesForUser(notesSnapshot, userId);
-  const hasRecallableNotes = notes.length > 0;
-  const recentResults =
-    userId === null
-      ? []
-      : recallContext.listSessionResults({ userId }).slice(0, 3);
-  const noteCountLabel = `${notes.length} ${notes.length === 1 ? "note" : "notes"}`;
-  const resultCountLabel = `${recentResults.length} recent ${
-    recentResults.length === 1 ? "result" : "results"
-  }`;
-
-  return (
-    <section aria-label="Recall workspace surface" className="recall-workspace">
-      <section
-        aria-label="Recall workspace toolbar"
-        className="recall-workspace__toolbar"
-      >
-        <div className="recall-toolbar__summary">
-          <span className="tag">{noteCountLabel}</span>
-          <span className="tag">{resultCountLabel}</span>
-        </div>
-        <div className="recall-toolbar__actions">
-          <Link className="notes-action" to="/recall/results">
-            Results
-          </Link>
-          <Link
-            className="notes-action notes-action-primary notes-recall-entry-action"
-            to={hasRecallableNotes ? "/recall/select" : "/notes"}
-          >
-            {hasRecallableNotes ? "New session" : "Go to Notes"}
-          </Link>
-        </div>
-      </section>
-
-      <article className="recall-surface">
-        <header className="recall-surface__header">
-          <div className="notes-editor__title-stack">
-            <p className="section-label">Study workspace</p>
-            <h3>Recall</h3>
-            <p className="muted notes-editor__meta">
-              Start recall, review results, and pick up your latest study work.
-            </p>
-          </div>
-        </header>
-
-        <div className="recall-dashboard">
-          <StartRecallCard hasRecallableNotes={hasRecallableNotes} />
-
-          <article className="recall-panel">
-            <p className="section-label">Review</p>
-            <h4>Results</h4>
-            <p>Inspect completed sessions by session or by note.</p>
-            <Link className="notes-action" to="/recall/results">
-              Open Results
-            </Link>
-          </article>
-
-          <RecentResultsPreview
-            hasRecallableNotes={hasRecallableNotes}
-            recentResults={recentResults}
-          />
-        </div>
-      </article>
-    </section>
   );
 }
 

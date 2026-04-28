@@ -23,7 +23,6 @@ import { Route as AuthForgotPasswordRouteImport } from './routes/_auth.forgot-pa
 import { Route as ProtectedRecallIndexRouteImport } from './routes/_protected.recall.index'
 import { Route as ProtectedRecallSessionRouteImport } from './routes/_protected.recall.session'
 import { Route as ProtectedRecallSelectRouteImport } from './routes/_protected.recall.select'
-import { Route as ProtectedRecallResultsRouteImport } from './routes/_protected.recall.results'
 
 const PublicRoute = PublicRouteImport.update({
   id: '/_public',
@@ -92,11 +91,6 @@ const ProtectedRecallSelectRoute = ProtectedRecallSelectRouteImport.update({
   path: '/select',
   getParentRoute: () => ProtectedRecallRoute,
 } as any)
-const ProtectedRecallResultsRoute = ProtectedRecallResultsRouteImport.update({
-  id: '/results',
-  path: '/results',
-  getParentRoute: () => ProtectedRecallRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
@@ -107,7 +101,6 @@ export interface FileRoutesByFullPath {
   '/notes': typeof ProtectedNotesRoute
   '/recall': typeof ProtectedRecallRouteWithChildren
   '/settings': typeof ProtectedSettingsRoute
-  '/recall/results': typeof ProtectedRecallResultsRoute
   '/recall/select': typeof ProtectedRecallSelectRoute
   '/recall/session': typeof ProtectedRecallSessionRoute
   '/recall/': typeof ProtectedRecallIndexRoute
@@ -120,7 +113,6 @@ export interface FileRoutesByTo {
   '/labels': typeof ProtectedLabelsRoute
   '/notes': typeof ProtectedNotesRoute
   '/settings': typeof ProtectedSettingsRoute
-  '/recall/results': typeof ProtectedRecallResultsRoute
   '/recall/select': typeof ProtectedRecallSelectRoute
   '/recall/session': typeof ProtectedRecallSessionRoute
   '/recall': typeof ProtectedRecallIndexRoute
@@ -138,7 +130,6 @@ export interface FileRoutesById {
   '/_protected/recall': typeof ProtectedRecallRouteWithChildren
   '/_protected/settings': typeof ProtectedSettingsRoute
   '/_public/': typeof PublicIndexRoute
-  '/_protected/recall/results': typeof ProtectedRecallResultsRoute
   '/_protected/recall/select': typeof ProtectedRecallSelectRoute
   '/_protected/recall/session': typeof ProtectedRecallSessionRoute
   '/_protected/recall/': typeof ProtectedRecallIndexRoute
@@ -154,7 +145,6 @@ export interface FileRouteTypes {
     | '/notes'
     | '/recall'
     | '/settings'
-    | '/recall/results'
     | '/recall/select'
     | '/recall/session'
     | '/recall/'
@@ -167,7 +157,6 @@ export interface FileRouteTypes {
     | '/labels'
     | '/notes'
     | '/settings'
-    | '/recall/results'
     | '/recall/select'
     | '/recall/session'
     | '/recall'
@@ -184,7 +173,6 @@ export interface FileRouteTypes {
     | '/_protected/recall'
     | '/_protected/settings'
     | '/_public/'
-    | '/_protected/recall/results'
     | '/_protected/recall/select'
     | '/_protected/recall/session'
     | '/_protected/recall/'
@@ -296,13 +284,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedRecallSelectRouteImport
       parentRoute: typeof ProtectedRecallRoute
     }
-    '/_protected/recall/results': {
-      id: '/_protected/recall/results'
-      path: '/results'
-      fullPath: '/recall/results'
-      preLoaderRoute: typeof ProtectedRecallResultsRouteImport
-      parentRoute: typeof ProtectedRecallRoute
-    }
   }
 }
 
@@ -321,14 +302,12 @@ const AuthRouteChildren: AuthRouteChildren = {
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 interface ProtectedRecallRouteChildren {
-  ProtectedRecallResultsRoute: typeof ProtectedRecallResultsRoute
   ProtectedRecallSelectRoute: typeof ProtectedRecallSelectRoute
   ProtectedRecallSessionRoute: typeof ProtectedRecallSessionRoute
   ProtectedRecallIndexRoute: typeof ProtectedRecallIndexRoute
 }
 
 const ProtectedRecallRouteChildren: ProtectedRecallRouteChildren = {
-  ProtectedRecallResultsRoute: ProtectedRecallResultsRoute,
   ProtectedRecallSelectRoute: ProtectedRecallSelectRoute,
   ProtectedRecallSessionRoute: ProtectedRecallSessionRoute,
   ProtectedRecallIndexRoute: ProtectedRecallIndexRoute,

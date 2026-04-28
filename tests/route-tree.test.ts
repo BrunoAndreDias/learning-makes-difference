@@ -19,7 +19,7 @@ describe("route tree", () => {
     expect(generatedRouteTree).toContain(
       "'/recall': typeof ProtectedRecallRoute",
     );
-    expect(generatedRouteTree).toContain(
+    expect(generatedRouteTree).not.toContain(
       "'/recall/results': typeof ProtectedRecallResultsRoute",
     );
     expect(generatedRouteTree).toContain(
