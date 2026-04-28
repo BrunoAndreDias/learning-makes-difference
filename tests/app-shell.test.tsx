@@ -3072,6 +3072,85 @@ describe("authenticated app shell", () => {
     );
   });
 
+  it("shows a structural Recall / Session breadcrumb for an active recall session", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const recallContext = createAppRecallContext({
+      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+    const note = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Session progress should stay out of the breadcrumb.",
+      labelIds: [],
+      metaphors: [],
+      title: "Recall session route",
+    });
+
+    recallContext.startFlashCardSession({
+      noteIds: [note.id],
+      userId,
+    });
+
+    renderRoute("/recall/session", {
+      notesContext,
+      recallContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "FlashCard session" }),
+    ).toBeInTheDocument();
+
+    const breadcrumb = screen.getByRole("navigation", {
+      name: "Workspace breadcrumb",
+    });
+
+    expect(
+      within(breadcrumb).getByRole("link", { name: "Recall" }),
+    ).toHaveAttribute("href", "/recall");
+    expect(within(breadcrumb).getByText("Session")).toBeInTheDocument();
+    expect(
+      within(breadcrumb).queryByText("Completed 0 of 1 questions"),
+    ).toBeNull();
+    expect(screen.getByText("Completed 0 of 1 questions")).toBeInTheDocument();
+  });
+
+  it("redirects direct recall session visits without an active session back to recall", async () => {
+    const { router } = renderRoute("/recall/session", {
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Recall" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall");
+    expect(
+      screen.queryByRole("heading", { name: "FlashCard session" }),
+    ).toBeNull();
+  });
+
   it("shows a true empty results state with a recall CTA", async () => {
     renderRoute("/recall/results");
 
