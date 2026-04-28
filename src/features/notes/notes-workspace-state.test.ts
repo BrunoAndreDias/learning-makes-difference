@@ -9,13 +9,7 @@ import type { AppNote } from "./notes";
 import {
   activateNotesWorkspaceNote,
   discardPendingNotesWorkspaceTransition,
-  requestNotesWorkspaceRecallStart,
 } from "./notes-workspace-state";
-import {
-  createInitialRecallSelectionState,
-  enterRecallSelectionMode,
-  toggleRecallSelectionNote,
-} from "./recall-selection";
 
 const createKey = (() => {
   let index = 0;
@@ -57,14 +51,13 @@ function buildSearchResult(note: AppNote): AppNoteSearchResult {
 }
 
 describe("Notes Workspace state", () => {
-  it("activates Notes as editor transitions until Recall Selection Mode is active", () => {
+  it("activates Notes as editor transitions", () => {
     const notes = [
       buildNote({ id: "note-1", title: "First" }),
       buildNote({ id: "note-2", title: "Second" }),
     ];
     const initialState = {
       noteEditor: createInitialNoteEditorState(notes, createKey),
-      recallSelection: createInitialRecallSelectionState(),
     };
 
     const opened = activateNotesWorkspaceNote(
@@ -76,23 +69,6 @@ describe("Notes Workspace state", () => {
 
     expect(opened.status).toBe("activated");
     expect(opened.state.noteEditor.selectedNoteId).toBe("note-2");
-
-    const selectingState = {
-      ...opened.state,
-      recallSelection: enterRecallSelectionMode(opened.state.recallSelection),
-    };
-    const selectedForRecall = activateNotesWorkspaceNote(
-      selectingState,
-      { noteId: "note-1", type: "note" },
-      notes,
-      createKey,
-    );
-
-    expect(selectedForRecall.status).toBe("selectedForRecall");
-    expect(selectedForRecall.state.noteEditor.selectedNoteId).toBe("note-2");
-    expect(selectedForRecall.state.recallSelection.selectedNoteIds).toEqual([
-      "note-1",
-    ]);
   });
 
   it("keeps dirty Note activation pending until the User discards changes", () => {
@@ -106,7 +82,6 @@ describe("Notes Workspace state", () => {
         "body",
         "Unsaved body",
       ),
-      recallSelection: createInitialRecallSelectionState(),
     };
 
     const pending = activateNotesWorkspaceNote(
@@ -133,46 +108,5 @@ describe("Notes Workspace state", () => {
       note: { id: "note-2" },
     });
     expect(discarded.state.noteEditor.selectedNoteId).toBe("note-2");
-  });
-
-  it("guards RecallSession start behind the same dirty Note discard rule", () => {
-    const notes = [
-      buildNote({ body: "Original body", id: "note-1", title: "First" }),
-    ];
-    const selectingState = {
-      noteEditor: updateNoteEditorDraftField(
-        createInitialNoteEditorState(notes, createKey),
-        "body",
-        "Unsaved body",
-      ),
-      recallSelection: toggleRecallSelectionNote(
-        enterRecallSelectionMode(createInitialRecallSelectionState()),
-        "note-1",
-      ),
-    };
-
-    const pendingStart = requestNotesWorkspaceRecallStart(selectingState);
-
-    expect(pendingStart.status).toBe("pending");
-    expect(pendingStart.noteIds).toEqual([]);
-    expect(pendingStart.state.recallSelection.pendingStart).toBe(true);
-    expect(pendingStart.state.recallSelection.selectedNoteIds).toEqual([
-      "note-1",
-    ]);
-
-    const discarded = discardPendingNotesWorkspaceTransition(
-      pendingStart.state,
-      notes,
-      createKey,
-    );
-
-    expect(discarded.status).toBe("recallStart");
-    expect(discarded.noteIds).toEqual(["note-1"]);
-    expect(discarded.state.recallSelection).toMatchObject({
-      isSelectingForRecall: false,
-      pendingStart: false,
-      selectedNoteIds: [],
-    });
-    expect(discarded.state.noteEditor.draft.body).toBe("Original body");
   });
 });

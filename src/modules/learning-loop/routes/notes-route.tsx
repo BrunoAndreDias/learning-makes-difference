@@ -460,7 +460,7 @@ export function NotesWorkspace() {
     searchInputRef.current?.focus();
   }
 
-  async function handleDiscardGuardedWorkspaceTransition() {
+  function handleDiscardGuardedWorkspaceTransition() {
     const transitionResult = discardPendingWorkspaceTransition(notes);
 
     if (transitionResult.completedSearchJump !== null) {
@@ -784,15 +784,8 @@ export function NotesWorkspace() {
     return <Outlet />;
   }
 
-  async function handleOpenRecall() {
-    await navigate({ to: "/recall" });
-  }
-
   return (
-    <section
-      aria-label="Notes workspace surface"
-      className="notes-workspace"
-    >
+    <section aria-label="Notes workspace surface" className="notes-workspace">
       <section
         aria-label="Notes workspace toolbar"
         className="notes-workspace__toolbar"
@@ -842,7 +835,7 @@ export function NotesWorkspace() {
         </form>
         <button
           className="notes-action notes-action-primary notes-recall-entry-action"
-          onClick={() => void handleOpenRecall()}
+          onClick={() => void navigate({ to: "/recall" })}
           type="button"
         >
           Start Recall
