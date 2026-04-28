@@ -79,25 +79,36 @@ export function RecallResultsPage() {
     recallContext.getSessionResultsSnapshot,
     recallContext.getSessionResultsSnapshot,
   );
-  const labelsSnapshot = useSyncExternalStore(
-    labelsContext.subscribe,
-    () => labelsContext,
-    () => labelsContext,
-  );
   const userId = sessionSnapshot.user?.id ?? null;
-  const availableLabels =
-    userId === null ? [] : labelsSnapshot.getLabelsForUser(userId);
+  const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
   const [selectedLabelId, setSelectedLabelId] = useState("");
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null,
   );
+  const selectedLabelFilter =
+    selectedLabelId.length === 0 ? undefined : selectedLabelId;
   const sessionResults =
     userId === null
       ? []
       : recallContext.listSessionResults({
-          labelId: selectedLabelId || undefined,
+          labelId: selectedLabelFilter,
           userId,
         });
+
+  useEffect(() => {
+    function syncAvailableLabels() {
+      if (userId === null) {
+        setAvailableLabels([]);
+        return;
+      }
+
+      setAvailableLabels(labelsContext.getLabelsForUser(userId));
+    }
+
+    syncAvailableLabels();
+
+    return labelsContext.subscribe(syncAvailableLabels);
+  }, [labelsContext, userId]);
 
   useEffect(() => {
     if (
@@ -168,7 +179,9 @@ export function RecallResultsPage() {
             </div>
 
             {sessionResults.length === 0 ? (
-              <NoResultsState hasActiveFilter={selectedLabelId.length > 0} />
+              <NoResultsState
+                hasActiveFilter={selectedLabelFilter !== undefined}
+              />
             ) : (
               <SessionResultsList
                 onSelectSession={setSelectedSessionId}
@@ -330,11 +343,7 @@ function SelectedSessionResult({
   );
 }
 
-function NoResultsState({
-  hasActiveFilter,
-}: {
-  hasActiveFilter: boolean;
-}) {
+function NoResultsState({ hasActiveFilter }: { hasActiveFilter: boolean }) {
   if (hasActiveFilter) {
     return (
       <div className="stack">

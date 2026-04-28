@@ -171,6 +171,32 @@ function createRecallNote(
   });
 }
 
+function createCompletedRecallSession(
+  recallContext: AppRecallContext,
+  input: {
+    noteId: string;
+    rating: "missed" | "nailed" | "partial";
+    timestamp: string;
+    userId: string;
+  },
+) {
+  vi.setSystemTime(new Date(input.timestamp));
+  const session = recallContext.startFlashCardSession({
+    noteIds: [input.noteId],
+    userId: input.userId,
+  });
+
+  recallContext.revealFlashCardAnswer({
+    sessionId: session.id,
+    userId: input.userId,
+  });
+  recallContext.rateFlashCardAnswer({
+    rating: input.rating,
+    sessionId: session.id,
+    userId: input.userId,
+  });
+}
+
 async function renderRecallSelection(contexts: LearningLoopTestContexts) {
   const routeRender = renderRoute("/recall/select", contexts);
 
@@ -3218,18 +3244,14 @@ describe("authenticated app shell", () => {
       name: "Unmatched",
       userId,
     });
-    const scienceNote = notesContext.createNote(userId, {
-      acronyms: [],
+    const scienceNote = createRecallNote(notesContext, userId, {
       body: "Science snapshot",
       labelIds: [science.id],
-      metaphors: [],
       title: "Science result",
     });
-    const historyNote = notesContext.createNote(userId, {
-      acronyms: [],
+    const historyNote = createRecallNote(notesContext, userId, {
       body: "History snapshot",
       labelIds: [history.id],
-      metaphors: [],
       title: "History result",
     });
 
@@ -3237,15 +3259,10 @@ describe("authenticated app shell", () => {
       ["2026-04-01T09:00:00.000Z", scienceNote.id],
       ["2026-04-02T09:00:00.000Z", historyNote.id],
     ] as const) {
-      vi.setSystemTime(new Date(timestamp));
-      const session = recallContext.startFlashCardSession({
-        noteIds: [noteId],
-        userId,
-      });
-      recallContext.revealFlashCardAnswer({ sessionId: session.id, userId });
-      recallContext.rateFlashCardAnswer({
+      createCompletedRecallSession(recallContext, {
+        noteId,
         rating: "partial",
-        sessionId: session.id,
+        timestamp,
         userId,
       });
     }
@@ -3277,15 +3294,23 @@ describe("authenticated app shell", () => {
       });
     }
 
-    expect(within(resultsList).getAllByRole("button", { name: "Review session" })).toHaveLength(2);
-    expect(within(getQuestionReview()).getByText("History result")).toBeInTheDocument();
+    expect(
+      within(resultsList).getAllByRole("button", { name: "Review session" }),
+    ).toHaveLength(2);
+    expect(
+      within(getQuestionReview()).getByText("History result"),
+    ).toBeInTheDocument();
 
     fireEvent.change(labelFilter, {
       target: { value: science.id },
     });
 
-    expect(within(resultsList).getAllByRole("button", { name: "Review session" })).toHaveLength(1);
-    expect(within(getQuestionReview()).getByText("Science result")).toBeInTheDocument();
+    expect(
+      within(resultsList).getAllByRole("button", { name: "Review session" }),
+    ).toHaveLength(1);
+    expect(
+      within(getQuestionReview()).getByText("Science result"),
+    ).toBeInTheDocument();
 
     fireEvent.change(labelFilter, {
       target: { value: unmatched.id },
@@ -3313,6 +3338,8 @@ describe("authenticated app shell", () => {
     });
     expect(restoredButtons).toHaveLength(2);
     expect(restoredButtons[0]).toHaveAttribute("aria-pressed", "true");
-    expect(within(getQuestionReview()).getByText("History result")).toBeInTheDocument();
+    expect(
+      within(getQuestionReview()).getByText("History result"),
+    ).toBeInTheDocument();
   });
 });
