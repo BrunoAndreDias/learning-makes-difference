@@ -3167,7 +3167,7 @@ describe("authenticated app shell", () => {
     );
 
     const resultsPane = screen.getByRole("region", {
-      name: "Inspect results",
+      name: "Inspect Results",
     });
 
     expect(
@@ -3175,6 +3175,7 @@ describe("authenticated app shell", () => {
         name: "Retrieval practice",
       }).length,
     ).toBeGreaterThan(0);
+    expect(screen.queryByText("Recall history")).toBeNull();
     expect(
       within(resultsPane).getByText("Retrieval practice snapshot"),
     ).toBeInTheDocument();

@@ -1,5 +1,10 @@
 import { Link, useRouteContext } from "@tanstack/react-router";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import type { AppLabel } from "../../../features/labels/labels";
 import type { AppSessionSnapshot } from "../../../features/session/session";
@@ -8,6 +13,8 @@ import {
   type FlashCardSessionResult,
   summarizeAttempts,
 } from "../domain/recall";
+
+type ResultsView = "note" | "session";
 
 function formatAttemptCount(count: number) {
   return `${count} attempted ${count === 1 ? "question" : "questions"}`;
@@ -36,7 +43,7 @@ function formatCompletedAt(timestamp: string) {
   }).format(new Date(timestamp));
 }
 
-export function SessionResultsPage() {
+export function RecallResultsPage() {
   const labelsContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.labels,
@@ -62,7 +69,7 @@ export function SessionResultsPage() {
   const userId = sessionSnapshot.user?.id ?? null;
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
   const [selectedLabelId, setSelectedLabelId] = useState("");
-  const [resultsView, setResultsView] = useState<"note" | "session">("session");
+  const [resultsView, setResultsView] = useState<ResultsView>("session");
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null,
   );
@@ -135,6 +142,88 @@ export function SessionResultsPage() {
     selectedSessionId,
   );
   const selectedNote = getSelectedNoteResult(noteResults, selectedNoteId);
+  const hasLabelFilter = selectedLabelFilter !== undefined;
+
+  let resultsListContent: ReactNode;
+
+  if (resultsView === "session") {
+    resultsListContent =
+      sessionResults.length === 0 ? (
+        <EmptyResultsMessage
+          hasLabelFilter={hasLabelFilter}
+          message="No sessions match the current label filter."
+        />
+      ) : (
+        <SessionResultsList
+          onSelectSession={setSelectedSessionId}
+          results={sessionResults}
+          selectedSessionId={selectedSessionId}
+        />
+      );
+  } else {
+    resultsListContent =
+      noteResults.length === 0 ? (
+        <EmptyResultsMessage
+          hasLabelFilter={hasLabelFilter}
+          message="No notes match the current label filter."
+        />
+      ) : (
+        <NoteResultsList
+          onSelectNote={setSelectedNoteId}
+          results={noteResults}
+          selectedNoteId={selectedNoteId}
+        />
+      );
+  }
+
+  let inspectContent: ReactNode;
+
+  if (resultsView === "session") {
+    inspectContent =
+      selectedSession === null ? (
+        <p className="muted">
+          Pick a stored session to review its questions, answers, and ratings.
+        </p>
+      ) : (
+        <>
+          <h4>{selectedSession.labelName}</h4>
+          <p>{formatCompletedAt(selectedSession.completedAt)}</p>
+          <div className="tag-row">
+            <span className="tag">
+              {formatAttemptCount(selectedSession.attempts.length)}
+            </span>
+            <span className="tag">
+              {formatQuestionCount(selectedSession.notes.length)}
+            </span>
+          </div>
+
+          <ResultsSessionReview sessionResult={selectedSession} />
+        </>
+      );
+  } else {
+    inspectContent =
+      selectedNote === null ? (
+        <p className="muted">
+          Pick a stored note to review its sessions, snapshots, and ratings.
+        </p>
+      ) : (
+        <>
+          <h4>
+            {selectedNote.currentTitle ?? selectedNote.snapshotTitle}
+            {selectedNote.currentTitle === null ? (
+              <span className="muted"> (deleted)</span>
+            ) : null}
+          </h4>
+          <div className="tag-row">
+            <span className="tag">
+              {formatAttemptCount(selectedNote.totalAttempts)}
+            </span>
+          </div>
+
+          <NoteAttemptResults noteResult={selectedNote} />
+        </>
+      );
+  }
 
   return (
     <section className="recall-page">
@@ -154,7 +243,7 @@ export function SessionResultsPage() {
 
       <div className="placeholder-grid recall-layout">
         <article className="card stack">
-          <p className="section-label">Filter results</p>
+          <p className="section-label">Filter Results</p>
           <fieldset className="tag-row">
             <legend className="section-label">Results view</legend>
             <button
@@ -190,148 +279,114 @@ export function SessionResultsPage() {
             </select>
           </label>
 
-          {resultsView === "session" && sessionResults.length === 0 ? (
-            selectedLabelFilter === undefined ? (
-              <NoResultsState />
-            ) : (
-              <p className="muted">
-                No sessions match the current label filter.
-              </p>
-            )
-          ) : resultsView === "session" ? (
-            <div className="stack">
-              {sessionResults.map((result) => {
-                const isSelected = result.id === selectedSessionId;
-                const summary = summarizeAttempts(result.attempts);
-
-                return (
-                  <article
-                    className="recall-session-card stack"
-                    key={result.id}
-                  >
-                    <p className="section-label">{result.labelName}</p>
-                    <p>{formatCompletedAt(result.completedAt)}</p>
-                    <div className="tag-row">
-                      <span className="tag">
-                        {formatAttemptCount(result.attempts.length)}
-                      </span>
-                      <span className="tag">
-                        {formatQuestionCount(result.notes.length)}
-                      </span>
-                    </div>
-                    <p className="muted">
-                      Nailed {summary.nailed} · Partial {summary.partial} ·
-                      Missed {summary.missed}
-                    </p>
-                    <button
-                      aria-pressed={isSelected}
-                      className="notes-action"
-                      onClick={() => setSelectedSessionId(result.id)}
-                      type="button"
-                    >
-                      Review session
-                    </button>
-                  </article>
-                );
-              })}
-            </div>
-          ) : noteResults.length === 0 ? (
-            selectedLabelFilter === undefined ? (
-              <NoResultsState />
-            ) : (
-              <p className="muted">No notes match the current label filter.</p>
-            )
-          ) : (
-            <div className="stack">
-              {noteResults.map((result) => {
-                const isSelected = result.noteId === selectedNoteId;
-                const title = result.currentTitle ?? result.snapshotTitle;
-                const deletedSuffix =
-                  result.currentTitle === null ? " (deleted)" : "";
-
-                return (
-                  <article
-                    className="recall-session-card stack"
-                    key={result.noteId}
-                  >
-                    <p className="section-label">Note performance</p>
-                    <h4>
-                      {title}
-                      {result.currentTitle === null ? (
-                        <span className="muted"> (deleted)</span>
-                      ) : null}
-                    </h4>
-                    <div className="tag-row">
-                      <span className="tag">
-                        {formatAttemptCount(result.totalAttempts)}
-                      </span>
-                    </div>
-                    <p className="muted">
-                      Nailed {result.nailed} · Partial {result.partial} · Missed{" "}
-                      {result.missed}
-                    </p>
-                    <button
-                      aria-label={`Review note ${title}${deletedSuffix}`}
-                      aria-pressed={isSelected}
-                      className="notes-action"
-                      onClick={() => setSelectedNoteId(result.noteId)}
-                      type="button"
-                    >
-                      Review note
-                    </button>
-                  </article>
-                );
-              })}
-            </div>
-          )}
+          {resultsListContent}
         </article>
 
-        <section aria-label="Inspect results" className="card stack">
-          <p className="section-label">Inspect results</p>
-          {resultsView === "session" && selectedSession === null ? (
-            <p className="muted">
-              Pick a stored session to review its questions, answers, and
-              ratings.
-            </p>
-          ) : resultsView === "session" && selectedSession !== null ? (
-            <>
-              <h4>{selectedSession.labelName}</h4>
-              <p>{formatCompletedAt(selectedSession.completedAt)}</p>
-              <div className="tag-row">
-                <span className="tag">
-                  {formatAttemptCount(selectedSession.attempts.length)}
-                </span>
-                <span className="tag">
-                  {formatQuestionCount(selectedSession.notes.length)}
-                </span>
-              </div>
-
-              <SessionReview sessionResult={selectedSession} />
-            </>
-          ) : selectedNote === null ? (
-            <p className="muted">
-              Pick a stored note to review its sessions, snapshots, and ratings.
-            </p>
-          ) : (
-            <>
-              <h4>
-                {selectedNote.currentTitle ?? selectedNote.snapshotTitle}
-                {selectedNote.currentTitle === null ? (
-                  <span className="muted"> (deleted)</span>
-                ) : null}
-              </h4>
-              <div className="tag-row">
-                <span className="tag">
-                  {formatAttemptCount(selectedNote.totalAttempts)}
-                </span>
-              </div>
-
-              <NoteAttemptHistory noteResult={selectedNote} />
-            </>
-          )}
+        <section aria-label="Inspect Results" className="card stack">
+          <p className="section-label">Inspect Results</p>
+          {inspectContent}
         </section>
       </div>
     </section>
+  );
+}
+
+function EmptyResultsMessage(props: {
+  hasLabelFilter: boolean;
+  message: string;
+}) {
+  if (!props.hasLabelFilter) {
+    return <NoResultsState />;
+  }
+
+  return <p className="muted">{props.message}</p>;
+}
+
+function SessionResultsList(props: {
+  onSelectSession: (sessionId: string) => void;
+  results: readonly FlashCardSessionResult[];
+  selectedSessionId: string | null;
+}) {
+  return (
+    <div className="stack">
+      {props.results.map((result) => {
+        const isSelected = result.id === props.selectedSessionId;
+        const summary = summarizeAttempts(result.attempts);
+
+        return (
+          <article className="recall-session-card stack" key={result.id}>
+            <p className="section-label">{result.labelName}</p>
+            <p>{formatCompletedAt(result.completedAt)}</p>
+            <div className="tag-row">
+              <span className="tag">
+                {formatAttemptCount(result.attempts.length)}
+              </span>
+              <span className="tag">
+                {formatQuestionCount(result.notes.length)}
+              </span>
+            </div>
+            <p className="muted">
+              Nailed {summary.nailed} · Partial {summary.partial} · Missed{" "}
+              {summary.missed}
+            </p>
+            <button
+              aria-pressed={isSelected}
+              className="notes-action"
+              onClick={() => props.onSelectSession(result.id)}
+              type="button"
+            >
+              Review session
+            </button>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function NoteResultsList(props: {
+  onSelectNote: (noteId: string) => void;
+  results: readonly FlashCardRecallAttemptsByNote[];
+  selectedNoteId: string | null;
+}) {
+  return (
+    <div className="stack">
+      {props.results.map((result) => {
+        const isSelected = result.noteId === props.selectedNoteId;
+        const title = result.currentTitle ?? result.snapshotTitle;
+        const deletedSuffix = result.currentTitle === null ? " (deleted)" : "";
+
+        return (
+          <article className="recall-session-card stack" key={result.noteId}>
+            <p className="section-label">Note performance</p>
+            <h4>
+              {title}
+              {result.currentTitle === null ? (
+                <span className="muted"> (deleted)</span>
+              ) : null}
+            </h4>
+            <div className="tag-row">
+              <span className="tag">
+                {formatAttemptCount(result.totalAttempts)}
+              </span>
+            </div>
+            <p className="muted">
+              Nailed {result.nailed} · Partial {result.partial} · Missed{" "}
+              {result.missed}
+            </p>
+            <button
+              aria-label={`Review note ${title}${deletedSuffix}`}
+              aria-pressed={isSelected}
+              className="notes-action"
+              onClick={() => props.onSelectNote(result.noteId)}
+              type="button"
+            >
+              Review note
+            </button>
+          </article>
+        );
+      })}
+    </div>
   );
 }
 
@@ -373,7 +428,7 @@ function getSelectedNoteResult(
   return noteResults.find((result) => result.noteId === selectedNoteId) ?? null;
 }
 
-function NoteAttemptHistory(props: {
+function NoteAttemptResults(props: {
   noteResult: FlashCardRecallAttemptsByNote;
 }) {
   return (
@@ -397,7 +452,9 @@ function NoteAttemptHistory(props: {
   );
 }
 
-function SessionReview(props: { sessionResult: FlashCardSessionResult }) {
+function ResultsSessionReview(props: {
+  sessionResult: FlashCardSessionResult;
+}) {
   const attemptsByNoteId = new Map(
     props.sessionResult.attempts.map((attempt) => [attempt.noteId, attempt]),
   );
