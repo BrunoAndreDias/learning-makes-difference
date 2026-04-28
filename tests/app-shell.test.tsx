@@ -23,6 +23,7 @@ import {
 import {
   type AppNotesContext,
   createAppNotesContext,
+  listNotesForUser,
 } from "../src/features/notes/notes";
 import {
   type AppRecallContext,
@@ -242,7 +243,10 @@ describe("authenticated app shell", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Sign in form" }));
 
     expect(
-      await screen.findByRole("heading", { name: "Study history" }),
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Recall history",
+      }),
     ).toBeInTheDocument();
     expect(screen.getByText("Jordan Review")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/history");
@@ -335,16 +339,22 @@ describe("authenticated app shell", () => {
     expect(within(sidebar).queryByText("Learning Makes Difference")).toBeNull();
 
     expect(
-      screen.queryByRole("navigation", { name: "App sections" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: "Labels" }),
-    ).not.toBeInTheDocument();
-    expect(
       screen.queryByRole("link", { name: "Recall" }),
     ).not.toBeInTheDocument();
+    const appSections = within(sidebar).getByRole("navigation", {
+      name: "App sections",
+    });
     expect(
-      screen.queryByRole("link", { name: "History" }),
+      within(appSections).getByRole("link", { name: "Notes" }),
+    ).toBeInTheDocument();
+    expect(
+      within(appSections).getByRole("link", { name: "Labels" }),
+    ).toBeInTheDocument();
+    expect(
+      within(appSections).getByRole("link", { name: "Recall history" }),
+    ).toBeInTheDocument();
+    expect(
+      within(appSections).queryByRole("link", { name: "Settings" }),
     ).not.toBeInTheDocument();
 
     openAccountMenu();
@@ -416,6 +426,59 @@ describe("authenticated app shell", () => {
 
     expect(mobileToggle).toHaveAttribute("aria-expanded", "false");
     expect(sidebar).toHaveAttribute("data-mobile-open", "false");
+  });
+
+  it("renders global workspace navigation and updates the active link when navigating", async () => {
+    const { router } = renderRoute("/notes");
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const sidebar = screen.getByRole("complementary", {
+      name: "Notes workspace",
+    });
+    const appSections = within(sidebar).getByRole("navigation", {
+      name: "App sections",
+    });
+    const notesLink = within(appSections).getByRole("link", { name: "Notes" });
+    const labelsLink = within(appSections).getByRole("link", {
+      name: "Labels",
+    });
+    const historyLink = within(appSections).getByRole("link", {
+      name: "Recall history",
+    });
+
+    expect(within(appSections).getAllByRole("link")).toEqual([
+      notesLink,
+      labelsLink,
+      historyLink,
+    ]);
+    expect(notesLink).toHaveAttribute("href", "/notes");
+    expect(labelsLink).toHaveAttribute("href", "/labels");
+    expect(historyLink).toHaveAttribute("href", "/history");
+    expect(notesLink).toHaveAttribute("aria-current", "page");
+
+    fireEvent.click(labelsLink);
+
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Labels" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/labels");
+    expect(labelsLink).toHaveAttribute("aria-current", "page");
+    expect(notesLink).not.toHaveAttribute("aria-current");
+
+    fireEvent.click(historyLink);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 2,
+        name: "Recall history",
+      }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/history");
+    expect(historyLink).toHaveAttribute("aria-current", "page");
+    expect(labelsLink).not.toHaveAttribute("aria-current");
   });
 
   it("supports skip navigation and manages focus when the mobile menu opens and closes", async () => {
@@ -510,8 +573,8 @@ describe("authenticated app shell", () => {
       within(sidebar).getByRole("button", { name: "New note" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("navigation", { name: "App sections" }),
-    ).not.toBeInTheDocument();
+      within(sidebar).getByRole("navigation", { name: "App sections" }),
+    ).toBeInTheDocument();
     expect(
       within(sidebar).getByRole("button", { name: /account menu/i }),
     ).toBeInTheDocument();
@@ -586,7 +649,7 @@ describe("authenticated app shell", () => {
     });
     fireEvent.click(
       within(notesList).getByRole("button", {
-        name: /Older protected note/,
+        name: "Older protected note",
       }),
     );
 
@@ -657,7 +720,9 @@ describe("authenticated app shell", () => {
     const notesNavigation = within(sidebar).getByRole("navigation", {
       name: "Notes list",
     });
-    const notesLinks = within(notesNavigation).getAllByRole("button");
+    const notesLinks = within(notesNavigation).getAllByRole("button", {
+      name: /^(Neural pathways|Second note)$/,
+    });
 
     expect(
       within(sidebar).getByRole("button", { name: "New note" }),
@@ -666,6 +731,11 @@ describe("authenticated app shell", () => {
     expect(notesLinks[0]).toHaveTextContent("Neural pathways");
     expect(notesLinks[1]).toHaveTextContent("Second note");
     expect(notesLinks[0]).toHaveAttribute("aria-current", "page");
+    expect(
+      within(notesNavigation).getAllByRole("button", {
+        name: /^Delete (Neural pathways|Second note)$/,
+      }),
+    ).toHaveLength(2);
     const shellHeader = screen.getByLabelText("Notes workspace toolbar");
 
     expect(
@@ -677,6 +747,75 @@ describe("authenticated app shell", () => {
     expect(screen.queryByLabelText("Notes catalog")).not.toBeInTheDocument();
     expect(screen.getAllByText("Biology").length).toBeGreaterThan(0);
     expect(firstNote.title).toBe("Neural pathways");
+  });
+
+  it("lets an authenticated user delete notes from the sidebar notes list", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "One note should remain after deleting the other.",
+      labelIds: [],
+      metaphors: [],
+      title: "Remaining note",
+    });
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "This note can be removed from the sidebar list.",
+      labelIds: [],
+      metaphors: [],
+      title: "Disposable note",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const notesNavigation = screen.getByRole("navigation", {
+      name: "Notes list",
+    });
+    const disposableNoteRow = within(notesNavigation)
+      .getByRole("button", { name: "Disposable note" })
+      .closest("li");
+
+    expect(disposableNoteRow).not.toBeNull();
+
+    fireEvent.click(
+      within(disposableNoteRow as HTMLElement).getByRole("button", {
+        name: "Delete Disposable note",
+      }),
+    );
+
+    expect(
+      within(notesNavigation).queryByRole("button", {
+        name: "Disposable note",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(notesNavigation).getByRole("button", { name: "Remaining note" }),
+    ).toBeInTheDocument();
+    expect(
+      listNotesForUser(notesContext.getSnapshot(), userId).map(
+        (note) => note.title,
+      ),
+    ).not.toContain("Disposable note");
   });
 
   it("renders every note in the sidebar notes list without a fixed item cap", async () => {
@@ -719,7 +858,11 @@ describe("authenticated app shell", () => {
       name: "Notes list",
     });
 
-    expect(within(notesNavigation).getAllByRole("button")).toHaveLength(12);
+    expect(
+      within(notesNavigation).getAllByRole("button", {
+        name: /^Study note \d+$/,
+      }),
+    ).toHaveLength(12);
     expect(
       within(notesNavigation).getByRole("button", { name: "Study note 12" }),
     ).toBeInTheDocument();
@@ -775,7 +918,7 @@ describe("authenticated app shell", () => {
 
     expect(notesList).toBeVisible();
     fireEvent.click(
-      within(sidebar).getByRole("button", { name: /Spaced repetition/ }),
+      within(sidebar).getByRole("button", { name: "Spaced repetition" }),
     );
     expect(
       screen.getByDisplayValue(
@@ -823,7 +966,7 @@ describe("authenticated app shell", () => {
       within(sidebar).getByRole("navigation", { name: "Notes list" }),
     ).toBeVisible();
     expect(
-      within(sidebar).getByRole("button", { name: /Retrieval practice/ }),
+      within(sidebar).getByRole("button", { name: "Retrieval practice" }),
     ).toHaveAttribute("aria-current", "page");
   });
 
@@ -871,8 +1014,8 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      screen.queryByRole("navigation", { name: "App sections" }),
-    ).not.toBeInTheDocument();
+      within(sidebar).getByRole("navigation", { name: "App sections" }),
+    ).toBeInTheDocument();
     expect(
       within(notesList).getByRole("button", { name: longTitle }),
     ).toBeInTheDocument();
@@ -944,7 +1087,7 @@ describe("authenticated app shell", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
 
     expect(
-      await screen.findByRole("button", { name: /Spaced repetition/ }),
+      await screen.findByRole("button", { name: "Spaced repetition" }),
     ).toBeInTheDocument();
     expect(screen.getByDisplayValue("Spaced repetition")).toBeInTheDocument();
     expect(
@@ -965,7 +1108,7 @@ describe("authenticated app shell", () => {
         screen.getByRole("complementary", { name: "Notes workspace" }),
       ).getByRole("button", { name: "New note" }),
     );
-    fireEvent.click(screen.getByRole("button", { name: /Spaced repetition/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Spaced repetition" }));
 
     expect(
       screen.getByDisplayValue(
@@ -1122,10 +1265,10 @@ describe("authenticated app shell", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      notesList.getByRole("button", { name: /Working memory/ }),
+      notesList.getByRole("button", { name: "Working memory" }),
     ).toBeInTheDocument();
     expect(
-      notesList.getByRole("button", { name: /Synaptic plasticity/ }),
+      notesList.getByRole("button", { name: "Synaptic plasticity" }),
     ).toBeInTheDocument();
     expect(
       screen.getByDisplayValue("Short-term storage supports active reasoning."),
@@ -1151,7 +1294,7 @@ describe("authenticated app shell", () => {
 
     expect(screen.getByText("No notes found")).toBeInTheDocument();
     expect(
-      notesList.getByRole("button", { name: /Working memory/ }),
+      notesList.getByRole("button", { name: "Working memory" }),
     ).toBeInTheDocument();
     expect(
       screen.getByDisplayValue("Short-term storage supports active reasoning."),
@@ -1493,10 +1636,10 @@ describe("authenticated app shell", () => {
       screen.getByRole("navigation", { name: "Notes list" }),
     );
     const currentSidebarNote = notesList.getByRole("button", {
-      name: /Current note/,
+      name: "Current note",
     });
     const targetSidebarNote = notesList.getByRole("button", {
-      name: /Older target note/,
+      name: "Older target note",
     });
     const scrollIntoView = vi.mocked(HTMLElement.prototype.scrollIntoView);
 
@@ -1793,6 +1936,89 @@ describe("authenticated app shell", () => {
     ]);
   });
 
+  it("guards starting a RecallSession when the selected Note has unsaved edits", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const recallContext = createAppRecallContext({
+      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+    const note = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Original recall answer.",
+      labelIds: [],
+      metaphors: [],
+      title: "Guarded recall start",
+    });
+
+    const { router } = renderRoute("/notes", {
+      notesContext,
+      recallContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    const bodyEditor = await screen.findByDisplayValue(
+      "Original recall answer.",
+    );
+
+    fireEvent.change(bodyEditor, {
+      target: { value: "Unsaved recall answer." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Select for recall" }));
+    fireEvent.click(
+      within(screen.getByRole("navigation", { name: "Notes list" })).getByRole(
+        "button",
+        { name: "Guarded recall start" },
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
+
+    const dialog = screen.getByRole("dialog", {
+      name: "Discard unsaved changes?",
+    });
+
+    expect(router.state.location.pathname).toBe("/notes");
+    expect(recallContext.getSnapshot()).toBeNull();
+    expect(
+      screen.getByDisplayValue("Unsaved recall answer."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(
+      screen.queryByRole("dialog", { name: "Discard unsaved changes?" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start recall" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
+    fireEvent.click(
+      within(
+        screen.getByRole("dialog", { name: "Discard unsaved changes?" }),
+      ).getByRole("button", { name: "Discard changes" }),
+    );
+
+    expect(router.state.location.pathname).toBe("/notes/recall");
+    expect(
+      await screen.findByRole("heading", { name: "FlashCard session" }),
+    ).toBeInTheDocument();
+    expect(recallContext.getSnapshot()).toMatchObject({
+      notes: [{ id: note.id, title: "Guarded recall start" }],
+    });
+  });
+
   it("completes the searched Notes recall loop while keeping recall mode and utilities clear", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
@@ -1878,8 +2104,8 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "FlashCard session" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("navigation", { name: "App sections" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("navigation", { name: "App sections" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /account menu/i }),
     ).toBeInTheDocument();
@@ -2606,6 +2832,28 @@ describe("authenticated app shell", () => {
     ).toBeNull();
   });
 
+  it("shows a true empty recall history state with a notes CTA", async () => {
+    renderRoute("/history");
+
+    expect(
+      await screen.findByRole("heading", { name: "No recall history yet" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Complete a recall session from Notes to build a reviewable history.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Go to Notes" })).toHaveAttribute(
+      "href",
+      "/notes",
+    );
+    expect(
+      screen.queryByText(
+        "No session results yet. Complete at least one attempted recall session to build history.",
+      ),
+    ).toBeNull();
+  });
+
   it("shows persisted session history with label filtering and stored note snapshots", async () => {
     const labelsContext = createAppLabelsContext({
       keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
@@ -2672,12 +2920,18 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Study history" }),
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Recall history",
+      }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Review session" }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("button", { name: "Review session" }).length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText("1 attempted question")).toHaveLength(2);
+    expect(
+      screen.getByText("Nailed 1 · Partial 0 · Missed 0"),
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Filter by label"), {
       target: { value: historyLabel.id },
@@ -2698,5 +2952,126 @@ describe("authenticated app shell", () => {
     expect(screen.getByText("Original study snapshot")).toBeInTheDocument();
     expect(screen.getByText("Rating: Nailed it")).toBeInTheDocument();
     expect(screen.queryByText("Edited live note")).toBeNull();
+  });
+
+  it("toggles recall history by note and updates the drill-down pane", async () => {
+    vi.useFakeTimers();
+
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labelsContext.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    let sessionCounter = 0;
+    const recallContext = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `session-by-note-ui-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+    const userId = "user-placeholder";
+    const science = labelsContext.createLabel({
+      name: "Alpha Science",
+      userId,
+    });
+    const neuralNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Neural pathways original snapshot",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Neural pathways",
+    });
+    const retrievalNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Retrieval practice snapshot",
+      labelIds: [],
+      metaphors: [],
+      title: "Retrieval practice",
+    });
+
+    for (const [timestamp, noteId, rating] of [
+      ["2026-04-01T09:00:00.000Z", neuralNote.id, "missed"],
+      ["2026-04-02T09:00:00.000Z", retrievalNote.id, "partial"],
+    ] as const) {
+      vi.setSystemTime(new Date(timestamp));
+      const session = recallContext.startFlashCardSession({
+        noteIds: [noteId],
+        userId,
+      });
+      recallContext.revealFlashCardAnswer({ sessionId: session.id, userId });
+      recallContext.rateFlashCardAnswer({
+        rating,
+        sessionId: session.id,
+        userId,
+      });
+    }
+
+    vi.useRealTimers();
+
+    renderRoute("/history", {
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Recall history",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: "Review session" }).length,
+    ).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "By note" }));
+
+    expect(
+      screen.queryByRole("button", { name: "Review session" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Review note Neural pathways/i }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Review note Retrieval practice/i }),
+    );
+
+    const resultsPane = screen.getByRole("region", {
+      name: "Inspect results",
+    });
+
+    expect(
+      within(resultsPane).getAllByRole("heading", {
+        name: "Retrieval practice",
+      }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(resultsPane).getByText("Retrieval practice snapshot"),
+    ).toBeInTheDocument();
+    expect(
+      within(resultsPane).getByText("Rating: Partly recalled"),
+    ).toBeInTheDocument();
+    expect(
+      within(resultsPane).queryByText("Neural pathways original snapshot"),
+    ).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("Filter by label"), {
+      target: { value: science.id },
+    });
+
+    expect(
+      screen.getByRole("button", { name: /Review note Neural pathways/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Retrieval practice")).toBeNull();
   });
 });

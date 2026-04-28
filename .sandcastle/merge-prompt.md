@@ -1,3 +1,16 @@
+# COMMUNICATION STYLE
+
+Use Caveman Ultra for all natural-language status and final output inside Sandcastle orchestration:
+short fragments, no filler, abbreviations allowed.
+
+Do not compress:
+- code
+- shell commands
+- JSON/XML/structured output
+- commit messages
+- security/risk warnings
+- issue comments where clarity matters
+
 # TASK
 
 Merge the following branches into the current branch:

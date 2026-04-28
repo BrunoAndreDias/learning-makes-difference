@@ -26,6 +26,9 @@ RUN corepack enable
 # Install Codex CLI (run as root before USER agent)
 RUN npm install -g @openai/codex
 
+# Prepare Codex home config directory for mounted auth/config files.
+RUN mkdir -p /home/agent/.codex && chmod -R a+rwX /home/agent/.codex
+
 USER agent
 
 WORKDIR /home/agent

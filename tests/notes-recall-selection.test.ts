@@ -38,6 +38,7 @@ describe("notes recall selection", () => {
       noteIds: ["note-3"],
       state: {
         isSelectingForRecall: false,
+        pendingStart: false,
         selectedCount: 0,
         selectedNoteIds: [],
       },

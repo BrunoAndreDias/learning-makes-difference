@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'CAVEMAN LITE MODE ACTIVE. Rules: Cut filler/pleasantries/hedging. Keep normal grammar. Be concise. Code/commits/security: write normal. User says stop caveman or normal mode to deactivate.'",
+            "timeout": 5,
+            "statusMessage": "Loading caveman lite mode"
+          }
+        ]
+      }
+    ]
+  }
+}
