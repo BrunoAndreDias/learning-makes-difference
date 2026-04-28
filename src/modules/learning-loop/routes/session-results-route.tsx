@@ -27,12 +27,6 @@ function formatRatingLabel(rating: "missed" | "nailed" | "partial") {
   }
 }
 
-function formatAttemptBreakdown(attempts: FlashCardSessionResult["attempts"]) {
-  const summary = summarizeAttempts(attempts);
-
-  return `Nailed ${summary.nailed} · Partial ${summary.partial} · Missed ${summary.missed}`;
-}
-
 function formatCompletedAt(timestamp: string) {
   return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
@@ -109,11 +103,12 @@ export function SessionResultsPage() {
     }
   }, [selectedSessionId, sessionResults]);
 
-  const selectedSession =
-    selectedSessionId === null
-      ? null
-      : (sessionResults.find((result) => result.id === selectedSessionId) ??
-        null);
+  let selectedSession: FlashCardSessionResult | null = null;
+
+  if (selectedSessionId !== null) {
+    selectedSession =
+      sessionResults.find((result) => result.id === selectedSessionId) ?? null;
+  }
 
   return (
     <section className="recall-page">
@@ -171,6 +166,7 @@ export function SessionResultsPage() {
             <div className="stack">
               {sessionResults.map((result) => {
                 const isSelected = result.id === selectedSessionId;
+                const summary = summarizeAttempts(result.attempts);
 
                 return (
                   <article
@@ -188,7 +184,8 @@ export function SessionResultsPage() {
                       </span>
                     </div>
                     <p className="muted">
-                      {formatAttemptBreakdown(result.attempts)}
+                      Nailed {summary.nailed} · Partial {summary.partial} ·
+                      Missed {summary.missed}
                     </p>
                     <button
                       aria-pressed={isSelected}
