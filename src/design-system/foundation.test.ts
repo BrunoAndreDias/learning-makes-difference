@@ -37,7 +37,10 @@ describe("foundationTokens", () => {
 
   it("keeps the app sidebar account row pinned above the flexible notes body", () => {
     const css = readFileSync(
-      new URL("../styles/app.css", import.meta.url),
+      new URL(
+        "../modules/workspace-shell/workspace-shell.css",
+        import.meta.url,
+      ),
       "utf8",
     );
 

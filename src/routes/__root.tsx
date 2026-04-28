@@ -13,12 +13,12 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { type ReactNode, useSyncExternalStore } from "react";
 import appLogo from "../../docs/layout/logo.svg";
 import type { AppLabelsContext } from "../features/labels/labels";
-import type { AppNotesContext } from "../features/notes/notes";
-import type { AppRecallContext } from "../features/recall/recall";
 import {
   type AppSessionContext,
   hasActiveSession,
 } from "../features/session/session";
+import type { AppNotesContext } from "../modules/learning-loop/domain/notes";
+import type { AppRecallContext } from "../modules/learning-loop/domain/recall";
 import appCss from "../styles/app.css?url";
 
 const authRoutePaths = new Set(["/forgot-password", "/login", "/register"]);
