@@ -2813,8 +2813,31 @@ describe("authenticated app shell", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders recall as the primary route shell", async () => {
-    const { router } = renderRoute("/recall");
+  it("renders recall entry points with a stable empty recent-results preview", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labelsContext.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-placeholder";
+
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Retrieval practice compounds through repeated effort.",
+      labelIds: [],
+      metaphors: [],
+      title: "Retrieval practice",
+    });
+
+    const { router } = renderRoute("/recall", {
+      labelsContext,
+      notesContext,
+    });
 
     expect(
       await screen.findByRole("heading", { level: 3, name: "Recall" }),
@@ -2828,6 +2851,35 @@ describe("authenticated app shell", () => {
       "href",
       "/recall/results",
     );
+    expect(
+      screen.getByRole("heading", { level: 4, name: "Results" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("No recent results yet"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Your completed and attempted recall sessions will appear here."),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps no-note users on /recall with a path back to notes", async () => {
+    const { router } = renderRoute("/recall");
+
+    expect(
+      await screen.findByRole("heading", { level: 4, name: "No notes yet" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall");
+    expect(
+      screen.getByText("Create notes first, then come back to start recall."),
+    ).toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole("link", { name: "Go to Notes" })
+        .every((link) => link.getAttribute("href") === "/notes"),
+    ).toBe(true);
+    expect(
+      screen.queryByRole("link", { name: "Start Recall" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows a true empty results state with a recall CTA", async () => {
@@ -2848,6 +2900,70 @@ describe("authenticated app shell", () => {
     expect(
       screen.queryByText(
         "No session results yet. Complete at least one attempted recall session to build history.",
+      ),
+    ).toBeNull();
+  });
+
+  it("shows recent results as a compact session-level preview on /recall", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labelsContext.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const recallContext = createAppRecallContext({
+      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+    const userId = "user-placeholder";
+    const science = labelsContext.createLabel({
+      name: "Science",
+      userId,
+    });
+    const note = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Stored snapshots should stay inside full results review.",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Testing effect",
+    });
+    const session = recallContext.startFlashCardSession({
+      noteIds: [note.id],
+      userId,
+    });
+
+    recallContext.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId,
+    });
+    recallContext.rateFlashCardAnswer({
+      rating: "nailed",
+      sessionId: session.id,
+      userId,
+    });
+
+    renderRoute("/recall", {
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    expect(
+      await screen.findByText("1 attempted question"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Nailed 1 · Partial 0 · Missed 0"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Testing effect")).toBeNull();
+    expect(
+      screen.queryByText(
+        "Stored snapshots should stay inside full results review.",
       ),
     ).toBeNull();
   });

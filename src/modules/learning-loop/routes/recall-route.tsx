@@ -51,6 +51,7 @@ export function RecallHomePage() {
   );
   const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
+  const hasRecallableNotes = notes.length > 0;
   const recentResults =
     userId === null
       ? []
@@ -61,10 +62,10 @@ export function RecallHomePage() {
       <article className="card stack panel-protected">
         <p className="section-label">Recall</p>
         <h3>Recall</h3>
-        <p>Start a session, review results, and revisit recent study work.</p>
+        <p>Start recall, review results, and pick up your latest study work.</p>
         <div className="tag-row">
           <span className="tag">Primary section</span>
-          <span className="tag">Route shell</span>
+          <span className="tag">Start recall</span>
           <span className="tag">Recent results</span>
         </div>
       </article>
@@ -73,16 +74,30 @@ export function RecallHomePage() {
         <article className="card stack">
           <p className="section-label">Start</p>
           <h4>Start Recall</h4>
-          <p>
-            Open the new Recall route flow and choose the notes for your next
-            session.
-          </p>
-          <Link
-            className="notes-action notes-action-primary"
-            to="/recall/select"
-          >
-            Start Recall
-          </Link>
+          {hasRecallableNotes ? (
+            <>
+              <p>
+                Open the new Recall route flow and choose the notes for your
+                next session.
+              </p>
+              <Link
+                className="notes-action notes-action-primary"
+                to="/recall/select"
+              >
+                Start Recall
+              </Link>
+            </>
+          ) : (
+            <>
+              <p>Create notes first, then start your first recall session.</p>
+              <Link
+                className="notes-action notes-action-primary"
+                to="/notes"
+              >
+                Go to Notes
+              </Link>
+            </>
+          )}
         </article>
 
         <article className="card stack">
@@ -108,9 +123,9 @@ export function RecallHomePage() {
             </>
           ) : recentResults.length === 0 ? (
             <>
-              <h4>No results yet</h4>
+              <h4>No recent results yet</h4>
               <p className="muted">
-                Completed or attempted recall sessions will appear here.
+                Your completed and attempted recall sessions will appear here.
               </p>
             </>
           ) : (
