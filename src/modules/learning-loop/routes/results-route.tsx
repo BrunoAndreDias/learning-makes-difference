@@ -29,6 +29,35 @@ function formatScoreSummary(summary: FlashCardRecallAttemptSummary) {
   return `Nailed ${summary.nailed} · Partial ${summary.partial} · Missed ${summary.missed}`;
 }
 
+type ResultsStartAction = {
+  label: "Go to Notes" | "Start Recall";
+  to: "/notes" | "/recall/select";
+};
+
+type NoResultsStateKind = "needs-notes" | "needs-results";
+
+function getResultsStartAction(
+  hasNotesAvailableForRecall: boolean,
+): ResultsStartAction {
+  if (hasNotesAvailableForRecall) {
+    return {
+      label: "Start Recall",
+      to: "/recall/select",
+    };
+  }
+
+  return {
+    label: "Go to Notes",
+    to: "/notes",
+  };
+}
+
+function getNoResultsStateKind(
+  hasNotesAvailableForRecall: boolean,
+): NoResultsStateKind {
+  return hasNotesAvailableForRecall ? "needs-results" : "needs-notes";
+}
+
 function formatStoredNoteSnapshotSummary(note: FlashCardRecallNote) {
   return [
     formatSummaryCount(note.acronyms.length, "acronym"),
@@ -90,9 +119,11 @@ export function RecallResultsPage() {
   );
   const sessionResults =
     userId === null ? [] : recallContext.listSessionResults({ userId });
-  const recallableNotes =
+  const notesAvailableForRecall =
     userId === null ? [] : listNotesForUser(notesSnapshot, userId);
-  const hasRecallableNotes = recallableNotes.length > 0;
+  const hasNotesAvailableForRecall = notesAvailableForRecall.length > 0;
+  const startAction = getResultsStartAction(hasNotesAvailableForRecall);
+  const noResultsStateKind = getNoResultsStateKind(hasNotesAvailableForRecall);
 
   useEffect(() => {
     if (sessionResults.length === 0) {
@@ -133,23 +164,13 @@ export function RecallResultsPage() {
             <div className="notes-list__header">
               <div className="stack">
                 <p className="section-label">Start</p>
-                {hasRecallableNotes ? (
-                  <Link
-                    aria-label="Start Recall"
-                    className="notes-action notes-action-primary notes-recall-entry-action"
-                    to="/recall/select"
-                  >
-                    Start Recall
-                  </Link>
-                ) : (
-                  <Link
-                    aria-label="Go to Notes"
-                    className="notes-action notes-action-primary notes-recall-entry-action"
-                    to="/notes"
-                  >
-                    Go to Notes
-                  </Link>
-                )}
+                <Link
+                  aria-label={startAction.label}
+                  className="notes-action notes-action-primary notes-recall-entry-action"
+                  to={startAction.to}
+                >
+                  {startAction.label}
+                </Link>
               </div>
               <span className="tag">
                 {formatResultCount(sessionResults.length)}
@@ -157,7 +178,7 @@ export function RecallResultsPage() {
             </div>
 
             {sessionResults.length === 0 ? (
-              <NoResultsState hasRecallableNotes={hasRecallableNotes} />
+              <NoResultsState state={noResultsStateKind} />
             ) : (
               <SessionResultsList
                 onSelectSession={setSelectedSessionId}
@@ -290,12 +311,8 @@ function SelectedSessionResult({
   );
 }
 
-function NoResultsState({
-  hasRecallableNotes,
-}: {
-  hasRecallableNotes: boolean;
-}) {
-  if (!hasRecallableNotes) {
+function NoResultsState({ state }: { state: NoResultsStateKind }) {
+  if (state === "needs-notes") {
     return (
       <div className="stack">
         <h4>No recallable notes yet</h4>
