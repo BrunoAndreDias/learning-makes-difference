@@ -282,6 +282,15 @@
   border: 0;
 }
 
+.recall-selection-layout {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+}
+
+.recall-selection-controls {
+  align-items: center;
+  justify-content: end;
+}
+
 .notes-list,
 .notes-editor {
   min-width: 0;

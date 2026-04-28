@@ -2902,6 +2902,177 @@ describe("authenticated app shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("runs dedicated recall selection mode from /recall/select without opening the note editor", async () => {
+    const { labelsContext, notesContext, recallContext } =
+      createLearningLoopTestContexts({
+        shuffleNotes: (sessionNotes) => [...sessionNotes],
+      });
+    const userId = "user-placeholder";
+    const titleNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "The title carries this selection cue.",
+      labelIds: [],
+      metaphors: [],
+      title: "Encoding specificity",
+    });
+    const bodyNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "A distinctive body cue should be searchable for recall.",
+      labelIds: [],
+      metaphors: [],
+      title: "Retrieval cues",
+    });
+    const metaphorNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Visual aids support concept recall.",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation: "The lighthouse beam points back to the safe harbor.",
+          title: "Lighthouse harbor",
+        },
+      ],
+      title: "Context reinstatement",
+    });
+    const acronymNote = notesContext.createNote(userId, {
+      acronyms: [
+        {
+          expansion: "Plan Organize Monitor Evaluate",
+          shortForm: "POME",
+        },
+      ],
+      body: "Acronyms can carry a recall selection cue.",
+      labelIds: [],
+      metaphors: [],
+      title: "Metacognition",
+    });
+
+    const { router } = renderRoute("/recall/select", {
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Select Notes" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall/select");
+    expect(screen.queryByRole("form", { name: "Note editor" })).toBeNull();
+    let recallControls = within(
+      screen.getByLabelText("Recall selection controls"),
+    );
+    expect(recallControls.getByText("0 notes selected")).toBeInTheDocument();
+    expect(
+      recallControls.getByRole("button", { name: "Start recall" }),
+    ).toBeDisabled();
+
+    const searchInput = screen.getByLabelText("Search notes");
+    const searchResults = () =>
+      within(screen.getByRole("listbox", { name: "Recall selection matches" }));
+
+    fireEvent.change(searchInput, {
+      target: { value: "encoding specificity" },
+    });
+    fireEvent.click(
+      searchResults().getByRole("option", {
+        name: /Encoding specificity Title/,
+      }),
+    );
+    expect(recallControls.getByText("1 note selected")).toBeInTheDocument();
+
+    fireEvent.change(searchInput, {
+      target: { value: "distinctive body cue" },
+    });
+    fireEvent.click(
+      searchResults().getByRole("option", {
+        name: /Retrieval cues Body/,
+      }),
+    );
+    expect(recallControls.getByText("2 notes selected")).toBeInTheDocument();
+
+    fireEvent.change(searchInput, {
+      target: { value: "safe harbor" },
+    });
+    fireEvent.click(
+      searchResults().getByRole("option", {
+        name: /Context reinstatement Metaphor/,
+      }),
+    );
+    expect(recallControls.getByText("3 notes selected")).toBeInTheDocument();
+
+    fireEvent.change(searchInput, {
+      target: { value: "plan organize monitor" },
+    });
+    fireEvent.click(
+      searchResults().getByRole("option", {
+        name: /Metacognition Acronym/,
+      }),
+    );
+    expect(recallControls.getByText("4 notes selected")).toBeInTheDocument();
+
+    fireEvent.change(searchInput, {
+      target: { value: "lighthouse harbor" },
+    });
+    fireEvent.click(
+      searchResults().getByRole("option", {
+        name: /Context reinstatement Metaphor/,
+      }),
+    );
+    expect(recallControls.getByText("3 notes selected")).toBeInTheDocument();
+
+    fireEvent.click(recallControls.getByRole("button", { name: "Cancel" }));
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Recall" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall");
+
+    fireEvent.click(screen.getByRole("link", { name: "Start Recall" }));
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Select Notes" }),
+    ).toBeInTheDocument();
+    recallControls = within(screen.getByLabelText("Recall selection controls"));
+    expect(recallControls.getByText("0 notes selected")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Search notes"), {
+      target: { value: "encoding specificity" },
+    });
+    fireEvent.click(
+      searchResults().getByRole("option", {
+        name: /Encoding specificity Title/,
+      }),
+    );
+    fireEvent.change(screen.getByLabelText("Search notes"), {
+      target: { value: "plan organize monitor" },
+    });
+    fireEvent.click(
+      searchResults().getByRole("option", {
+        name: /Metacognition Acronym/,
+      }),
+    );
+
+    fireEvent.click(recallControls.getByRole("button", { name: "Start recall" }));
+
+    expect(router.state.location.pathname).toBe("/recall/session");
+    expect(
+      await screen.findByRole("heading", { name: "FlashCard session" }),
+    ).toBeInTheDocument();
+    expect(recallContext.getSnapshot()).toMatchObject({
+      labelId: null,
+      notes: [
+        { id: titleNote.id, title: "Encoding specificity" },
+        { id: acronymNote.id, title: "Metacognition" },
+      ],
+    });
+    expect(recallContext.getSnapshot()?.notes).not.toEqual(
+      expect.arrayContaining([
+        { id: bodyNote.id },
+        { id: metaphorNote.id },
+      ]),
+    );
+  });
+
   it("shows a true empty results state with a recall CTA", async () => {
     renderRoute("/recall/results");
 
