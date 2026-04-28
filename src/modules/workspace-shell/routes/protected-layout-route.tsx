@@ -7,7 +7,6 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import {
-  Fragment,
   type KeyboardEvent,
   useEffect,
   useId,
@@ -23,7 +22,7 @@ import {
   NotesWorkspaceSidebar,
 } from "../../learning-loop";
 
-type NavigationIconName = "note" | "settings";
+type NavigationIconName = "history" | "label" | "note" | "settings";
 
 function getWorkspaceTitle(pathname: string) {
   if (pathname === "/labels" || pathname.startsWith("/labels/")) {
@@ -35,7 +34,7 @@ function getWorkspaceTitle(pathname: string) {
   }
 
   if (pathname === "/history" || pathname.startsWith("/history/")) {
-    return "History";
+    return "Recall history";
   }
 
   if (pathname === "/settings" || pathname.startsWith("/settings/")) {
@@ -138,12 +137,8 @@ export function AppLayout() {
     }
   }, [isMobileSidebarOpen, shouldRestoreMobileToggleFocus]);
 
-  const WorkspaceProvider = isNotesWorkspaceRoute
-    ? LearningLoopWorkspaceProvider
-    : Fragment;
-
   return (
-    <WorkspaceProvider>
+    <LearningLoopWorkspaceProvider>
       <section
         className="authenticated-shell"
         data-sidebar-state={sidebarState}
@@ -175,6 +170,8 @@ export function AppLayout() {
               <SidebarCollapseIcon />
             </button>
           </div>
+
+          <GlobalNavigation onNavigate={() => closeMobileSidebar(true)} />
 
           <div className="app-sidebar__body app-sidebar__body--notes">
             {isNotesWorkspaceRoute ? (
@@ -228,7 +225,65 @@ export function AppLayout() {
           </div>
         </div>
       </section>
-    </WorkspaceProvider>
+    </LearningLoopWorkspaceProvider>
+  );
+}
+
+function GlobalNavigation({
+  onNavigate,
+}: Readonly<{
+  onNavigate: () => void;
+}>) {
+  return (
+    <nav aria-label="App sections" className="app-sidebar__nav">
+      <ul className="app-sidebar__list">
+        <li>
+          <Link
+            activeProps={{
+              className: "app-sidebar__link app-sidebar__link-active",
+            }}
+            className="app-sidebar__link"
+            onClick={onNavigate}
+            to="/notes"
+          >
+            <span aria-hidden="true" className="app-sidebar__icon">
+              <NavigationIcon name="note" />
+            </span>
+            <span className="app-sidebar__label">Notes</span>
+          </Link>
+        </li>
+        <li>
+          <Link
+            activeProps={{
+              className: "app-sidebar__link app-sidebar__link-active",
+            }}
+            className="app-sidebar__link"
+            onClick={onNavigate}
+            to="/labels"
+          >
+            <span aria-hidden="true" className="app-sidebar__icon">
+              <NavigationIcon name="label" />
+            </span>
+            <span className="app-sidebar__label">Labels</span>
+          </Link>
+        </li>
+        <li>
+          <Link
+            activeProps={{
+              className: "app-sidebar__link app-sidebar__link-active",
+            }}
+            className="app-sidebar__link"
+            onClick={onNavigate}
+            to="/history"
+          >
+            <span aria-hidden="true" className="app-sidebar__icon">
+              <NavigationIcon name="history" />
+            </span>
+            <span className="app-sidebar__label">Recall history</span>
+          </Link>
+        </li>
+      </ul>
+    </nav>
   );
 }
 
@@ -385,6 +440,21 @@ function NavigationIcon({
   name: NavigationIconName;
 }>) {
   switch (name) {
+    case "history":
+      return (
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M4 5v6h6" />
+          <path d="M5.5 15a7 7 0 1 0 .9-7.9L4 11" />
+          <path d="M12 8v4l3 2" />
+        </svg>
+      );
+    case "label":
+      return (
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M4 5h9l7 7-7 7H4V5Z" />
+          <path d="M9 12h.01" />
+        </svg>
+      );
     case "settings":
       return (
         <svg aria-hidden="true" viewBox="0 0 24 24">

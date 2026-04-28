@@ -109,8 +109,8 @@ export function SessionResultsPage() {
   return (
     <section className="recall-page">
       <article className="card stack panel-protected">
-        <p className="section-label">History</p>
-        <h3>Study history</h3>
+        <p className="section-label">Recall history</p>
+        <h3>Recall history</h3>
         <p>
           Review completed recall work by target label, attempted questions, and
           stored note snapshots from the time of study.

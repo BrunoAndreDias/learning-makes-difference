@@ -242,7 +242,10 @@ describe("authenticated app shell", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Sign in form" }));
 
     expect(
-      await screen.findByRole("heading", { name: "Study history" }),
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Recall history",
+      }),
     ).toBeInTheDocument();
     expect(screen.getByText("Jordan Review")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/history");
@@ -335,16 +338,22 @@ describe("authenticated app shell", () => {
     expect(within(sidebar).queryByText("Learning Makes Difference")).toBeNull();
 
     expect(
-      screen.queryByRole("navigation", { name: "App sections" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: "Labels" }),
-    ).not.toBeInTheDocument();
-    expect(
       screen.queryByRole("link", { name: "Recall" }),
     ).not.toBeInTheDocument();
+    const appSections = within(sidebar).getByRole("navigation", {
+      name: "App sections",
+    });
     expect(
-      screen.queryByRole("link", { name: "History" }),
+      within(appSections).getByRole("link", { name: "Notes" }),
+    ).toBeInTheDocument();
+    expect(
+      within(appSections).getByRole("link", { name: "Labels" }),
+    ).toBeInTheDocument();
+    expect(
+      within(appSections).getByRole("link", { name: "Recall history" }),
+    ).toBeInTheDocument();
+    expect(
+      within(appSections).queryByRole("link", { name: "Settings" }),
     ).not.toBeInTheDocument();
 
     openAccountMenu();
@@ -416,6 +425,59 @@ describe("authenticated app shell", () => {
 
     expect(mobileToggle).toHaveAttribute("aria-expanded", "false");
     expect(sidebar).toHaveAttribute("data-mobile-open", "false");
+  });
+
+  it("renders global workspace navigation and updates the active link when navigating", async () => {
+    const { router } = renderRoute("/notes");
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const sidebar = screen.getByRole("complementary", {
+      name: "Notes workspace",
+    });
+    const appSections = within(sidebar).getByRole("navigation", {
+      name: "App sections",
+    });
+    const notesLink = within(appSections).getByRole("link", { name: "Notes" });
+    const labelsLink = within(appSections).getByRole("link", {
+      name: "Labels",
+    });
+    const historyLink = within(appSections).getByRole("link", {
+      name: "Recall history",
+    });
+
+    expect(within(appSections).getAllByRole("link")).toEqual([
+      notesLink,
+      labelsLink,
+      historyLink,
+    ]);
+    expect(notesLink).toHaveAttribute("href", "/notes");
+    expect(labelsLink).toHaveAttribute("href", "/labels");
+    expect(historyLink).toHaveAttribute("href", "/history");
+    expect(notesLink).toHaveAttribute("aria-current", "page");
+
+    fireEvent.click(labelsLink);
+
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Labels" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/labels");
+    expect(labelsLink).toHaveAttribute("aria-current", "page");
+    expect(notesLink).not.toHaveAttribute("aria-current");
+
+    fireEvent.click(historyLink);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 2,
+        name: "Recall history",
+      }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/history");
+    expect(historyLink).toHaveAttribute("aria-current", "page");
+    expect(labelsLink).not.toHaveAttribute("aria-current");
   });
 
   it("supports skip navigation and manages focus when the mobile menu opens and closes", async () => {
@@ -510,8 +572,8 @@ describe("authenticated app shell", () => {
       within(sidebar).getByRole("button", { name: "New note" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("navigation", { name: "App sections" }),
-    ).not.toBeInTheDocument();
+      within(sidebar).getByRole("navigation", { name: "App sections" }),
+    ).toBeInTheDocument();
     expect(
       within(sidebar).getByRole("button", { name: /account menu/i }),
     ).toBeInTheDocument();
@@ -871,8 +933,8 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      screen.queryByRole("navigation", { name: "App sections" }),
-    ).not.toBeInTheDocument();
+      within(sidebar).getByRole("navigation", { name: "App sections" }),
+    ).toBeInTheDocument();
     expect(
       within(notesList).getByRole("button", { name: longTitle }),
     ).toBeInTheDocument();
@@ -1961,8 +2023,8 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "FlashCard session" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("navigation", { name: "App sections" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("navigation", { name: "App sections" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /account menu/i }),
     ).toBeInTheDocument();
@@ -2755,7 +2817,10 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Study history" }),
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Recall history",
+      }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Review session" }),
