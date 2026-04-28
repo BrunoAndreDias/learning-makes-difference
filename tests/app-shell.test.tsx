@@ -3192,4 +3192,127 @@ describe("authenticated app shell", () => {
     ).toBeNull();
     expect(router.state.location.pathname).toBe("/recall");
   });
+
+  it("keeps secondary label filtering on recall results", async () => {
+    vi.useFakeTimers();
+
+    let sessionCounter = 0;
+    const { labelsContext, notesContext, recallContext } =
+      createLearningLoopTestContexts({
+        crypto: {
+          randomUUID: () =>
+            `session-label-filter-ui-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+        },
+        shuffleNotes: (sessionNotes) => [...sessionNotes],
+      });
+    const userId = "user-placeholder";
+    const science = labelsContext.createLabel({
+      name: "Science",
+      userId,
+    });
+    const history = labelsContext.createLabel({
+      name: "History",
+      userId,
+    });
+    const unmatched = labelsContext.createLabel({
+      name: "Unmatched",
+      userId,
+    });
+    const scienceNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Science snapshot",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Science result",
+    });
+    const historyNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "History snapshot",
+      labelIds: [history.id],
+      metaphors: [],
+      title: "History result",
+    });
+
+    for (const [timestamp, noteId] of [
+      ["2026-04-01T09:00:00.000Z", scienceNote.id],
+      ["2026-04-02T09:00:00.000Z", historyNote.id],
+    ] as const) {
+      vi.setSystemTime(new Date(timestamp));
+      const session = recallContext.startFlashCardSession({
+        noteIds: [noteId],
+        userId,
+      });
+      recallContext.revealFlashCardAnswer({ sessionId: session.id, userId });
+      recallContext.rateFlashCardAnswer({
+        rating: "partial",
+        sessionId: session.id,
+        userId,
+      });
+    }
+
+    vi.useRealTimers();
+
+    renderRoute("/recall", {
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Results" }),
+    ).toBeInTheDocument();
+
+    const resultsList = screen.getByRole("region", {
+      name: "Session results list",
+    });
+    const labelFilter = screen.getByLabelText("Filter results by label");
+
+    function getQuestionReview() {
+      return within(
+        screen.getByRole("region", {
+          name: "Selected session result",
+        }),
+      ).getByRole("region", {
+        name: "Question review",
+      });
+    }
+
+    expect(within(resultsList).getAllByRole("button", { name: "Review session" })).toHaveLength(2);
+    expect(within(getQuestionReview()).getByText("History result")).toBeInTheDocument();
+
+    fireEvent.change(labelFilter, {
+      target: { value: science.id },
+    });
+
+    expect(within(resultsList).getAllByRole("button", { name: "Review session" })).toHaveLength(1);
+    expect(within(getQuestionReview()).getByText("Science result")).toBeInTheDocument();
+
+    fireEvent.change(labelFilter, {
+      target: { value: unmatched.id },
+    });
+
+    expect(
+      within(resultsList).getByText("No results match this label yet."),
+    ).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByRole("region", {
+          name: "Selected session result",
+        }),
+      ).getByText(
+        "Complete a recall session to review stored note snapshots and question ratings.",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.change(labelFilter, {
+      target: { value: "" },
+    });
+
+    const restoredButtons = within(resultsList).getAllByRole("button", {
+      name: "Review session",
+    });
+    expect(restoredButtons).toHaveLength(2);
+    expect(restoredButtons[0]).toHaveAttribute("aria-pressed", "true");
+    expect(within(getQuestionReview()).getByText("History result")).toBeInTheDocument();
+  });
 });
