@@ -1,5 +1,6 @@
 import { Link, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useState, useSyncExternalStore } from "react";
+import type { AppLabel } from "../../../features/labels/labels";
 import type { AppSessionSnapshot } from "../../../features/session/session";
 import { listNotesForUser } from "../domain/notes";
 import {
@@ -86,6 +87,10 @@ function formatDateTime(timestamp: string) {
 }
 
 export function RecallResultsPage() {
+  const labelsContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.labels,
+  });
   const recallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.recall,
@@ -114,16 +119,49 @@ export function RecallResultsPage() {
     notesContext.getSnapshot,
   );
   const userId = sessionSnapshot.user?.id ?? null;
+  const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
+  const [selectedLabelId, setSelectedLabelId] = useState("");
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null,
   );
+  const selectedLabelFilter =
+    selectedLabelId.length === 0 ? undefined : selectedLabelId;
   const sessionResults =
-    userId === null ? [] : recallContext.listSessionResults({ userId });
+    userId === null
+      ? []
+      : recallContext.listSessionResults({
+          labelId: selectedLabelFilter,
+          userId,
+        });
   const notesAvailableForRecall =
     userId === null ? [] : listNotesForUser(notesSnapshot, userId);
   const hasNotesAvailableForRecall = notesAvailableForRecall.length > 0;
   const startAction = getResultsStartAction(hasNotesAvailableForRecall);
   const noResultsStateKind = getNoResultsStateKind(hasNotesAvailableForRecall);
+
+  useEffect(() => {
+    function syncAvailableLabels() {
+      if (userId === null) {
+        setAvailableLabels([]);
+        return;
+      }
+
+      setAvailableLabels(labelsContext.getLabelsForUser(userId));
+    }
+
+    syncAvailableLabels();
+
+    return labelsContext.subscribe(syncAvailableLabels);
+  }, [labelsContext, userId]);
+
+  useEffect(() => {
+    if (
+      selectedLabelId.length > 0 &&
+      !availableLabels.some((label) => label.id === selectedLabelId)
+    ) {
+      setSelectedLabelId("");
+    }
+  }, [availableLabels, selectedLabelId]);
 
   useEffect(() => {
     if (sessionResults.length === 0) {
@@ -171,6 +209,13 @@ export function RecallResultsPage() {
                 >
                   {startAction.label}
                 </Link>
+                {availableLabels.length > 0 ? (
+                  <LabelFilter
+                    labels={availableLabels}
+                    selectedLabelId={selectedLabelId}
+                    onChange={setSelectedLabelId}
+                  />
+                ) : null}
               </div>
               <span className="tag">
                 {formatResultCount(sessionResults.length)}
@@ -178,7 +223,10 @@ export function RecallResultsPage() {
             </div>
 
             {sessionResults.length === 0 ? (
-              <NoResultsState state={noResultsStateKind} />
+              <NoResultsState
+                state={noResultsStateKind}
+                hasActiveFilter={selectedLabelFilter !== undefined}
+              />
             ) : (
               <SessionResultsList
                 onSelectSession={setSelectedSessionId}
@@ -198,6 +246,35 @@ export function RecallResultsPage() {
         </div>
       </article>
     </section>
+  );
+}
+
+function LabelFilter({
+  labels,
+  onChange,
+  selectedLabelId,
+}: {
+  labels: readonly AppLabel[];
+  onChange: (labelId: string) => void;
+  selectedLabelId: string;
+}) {
+  return (
+    <label className="stack" htmlFor="recall-results-label-filter">
+      <span className="section-label">Label filter</span>
+      <select
+        aria-label="Filter results by label"
+        id="recall-results-label-filter"
+        onChange={(event) => onChange(event.target.value)}
+        value={selectedLabelId}
+      >
+        <option value="">All labels</option>
+        {labels.map((label) => (
+          <option key={label.id} value={label.id}>
+            {label.name}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -311,7 +388,22 @@ function SelectedSessionResult({
   );
 }
 
-function NoResultsState({ state }: { state: NoResultsStateKind }) {
+function NoResultsState({
+  hasActiveFilter,
+  state,
+}: {
+  hasActiveFilter: boolean;
+  state: NoResultsStateKind;
+}) {
+  if (hasActiveFilter) {
+    return (
+      <div className="stack">
+        <h4>No matching results</h4>
+        <p className="muted">No results match this label yet.</p>
+      </div>
+    );
+  }
+
   if (state === "needs-notes") {
     return (
       <div className="stack">
