@@ -28,6 +28,7 @@ import {
 import {
   type AppRecallContext,
   createAppRecallContext,
+  type FlashCardRecallRating,
 } from "../src/features/recall/recall";
 import {
   type AppSessionContext,
@@ -175,7 +176,7 @@ function createCompletedRecallSession(
   recallContext: AppRecallContext,
   input: {
     noteId: string;
-    rating: "missed" | "nailed" | "partial";
+    rating: FlashCardRecallRating;
     timestamp: string;
     userId: string;
   },
@@ -194,6 +195,27 @@ function createCompletedRecallSession(
     rating: input.rating,
     sessionId: session.id,
     userId: input.userId,
+  });
+}
+
+function completeRecallSessionAt({
+  noteId,
+  rating,
+  recallContext,
+  timestamp,
+  userId,
+}: {
+  noteId: string;
+  rating: FlashCardRecallRating;
+  recallContext: AppRecallContext;
+  timestamp: string;
+  userId: string;
+}) {
+  createCompletedRecallSession(recallContext, {
+    noteId,
+    rating,
+    timestamp,
+    userId,
   });
 }
 
@@ -2723,6 +2745,197 @@ describe("authenticated app shell", () => {
         notes: [{ id: note.id, title: "Spacing effect" }],
       },
     ]);
+  });
+
+  it("returns completed recall sessions to the newest selected result when older results already exist", async () => {
+    vi.useFakeTimers();
+
+    const { labelsContext, notesContext, recallContext } =
+      createLearningLoopTestContexts({
+        shuffleNotes: (sessionNotes) => [...sessionNotes],
+      });
+    const userId = "user-placeholder";
+    const olderNote = createRecallNote(notesContext, userId, {
+      body: "Older result should not stay selected after a new completion.",
+      title: "Older spacing note",
+    });
+    const newerExistingNote = createRecallNote(notesContext, userId, {
+      body: "Existing newest result should be replaced by the just-finished one.",
+      title: "Existing newest note",
+    });
+    createRecallNote(notesContext, userId, {
+      body: "Fresh completion should be selected on return to Recall.",
+      title: "Returned newest note",
+    });
+
+    for (const [timestamp, noteId, rating] of [
+      ["2026-04-01T09:00:00.000Z", olderNote.id, "missed"],
+      ["2026-04-02T09:00:00.000Z", newerExistingNote.id, "partial"],
+    ] as const) {
+      completeRecallSessionAt({
+        noteId,
+        rating,
+        recallContext,
+        timestamp,
+        userId,
+      });
+    }
+
+    vi.setSystemTime(new Date("2026-04-03T09:00:00.000Z"));
+    vi.useRealTimers();
+
+    const { router } = renderRoute("/recall", {
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Results",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Review session" })[1],
+    );
+
+    const selectedOlderResult = getSelectedSessionResultRegion();
+    const olderQuestionReview = within(selectedOlderResult).getByRole(
+      "region",
+      {
+        name: "Question review",
+      },
+    );
+    expect(
+      within(olderQuestionReview).getByRole("heading", {
+        name: "Older spacing note",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Start Recall" }));
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Select Notes" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall/select");
+
+    selectRecallableNote(
+      "Returned newest note",
+      "Fresh completion should be selected on return to Recall.",
+    );
+    await startSelectedRecallSession();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reveal answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Nailed it" }));
+
+    await expectReturnedToRecall(router);
+    const selectedReturnedResult = getSelectedSessionResultRegion();
+    const returnedQuestionReview = within(selectedReturnedResult).getByRole(
+      "region",
+      {
+        name: "Question review",
+      },
+    );
+    expect(
+      within(returnedQuestionReview).getByRole("heading", {
+        name: "Returned newest note",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedReturnedResult).queryByText("Older spacing note"),
+    ).toBeNull();
+  });
+
+  it("selects the newest result when a fresh SessionResult is added after an older result was selected", async () => {
+    vi.useFakeTimers();
+
+    const { labelsContext, notesContext, recallContext } =
+      createLearningLoopTestContexts({
+        shuffleNotes: (sessionNotes) => [...sessionNotes],
+      });
+    const userId = "user-placeholder";
+    const olderNote = createRecallNote(notesContext, userId, {
+      body: "Older result starts selected after manual switch.",
+      title: "Earlier note",
+    });
+    const newerExistingNote = createRecallNote(notesContext, userId, {
+      body: "This is the existing newest result before the fresh completion.",
+      title: "Current newest note",
+    });
+    const freshNote = createRecallNote(notesContext, userId, {
+      body: "Fresh result should take selection when it lands at the top.",
+      title: "Fresh result note",
+    });
+
+    for (const [timestamp, noteId, rating] of [
+      ["2026-04-01T09:00:00.000Z", olderNote.id, "missed"],
+      ["2026-04-02T09:00:00.000Z", newerExistingNote.id, "partial"],
+    ] as const) {
+      completeRecallSessionAt({
+        noteId,
+        rating,
+        recallContext,
+        timestamp,
+        userId,
+      });
+    }
+
+    vi.useRealTimers();
+
+    renderRoute("/recall", {
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Results",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Review session" })[1],
+    );
+
+    const selectedOlderResult = getSelectedSessionResultRegion();
+    expect(
+      within(
+        within(selectedOlderResult).getByRole("region", {
+          name: "Question review",
+        }),
+      ).getByRole("heading", {
+        name: "Earlier note",
+      }),
+    ).toBeInTheDocument();
+
+    const session = recallContext.startFlashCardSession({
+      noteIds: [freshNote.id],
+      userId,
+    });
+    recallContext.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId,
+    });
+    recallContext.rateFlashCardAnswer({
+      rating: "nailed",
+      sessionId: session.id,
+      userId,
+    });
+
+    const selectedFreshResult = getSelectedSessionResultRegion();
+    expect(
+      await within(
+        within(selectedFreshResult).getByRole("region", {
+          name: "Question review",
+        }),
+      ).findByRole("heading", {
+        name: "Fresh result note",
+      }),
+    ).toBeInTheDocument();
+    expect(within(selectedFreshResult).queryByText("Earlier note")).toBeNull();
   });
 
   it("returns attempted early-ended recall sessions to /recall and opens the new result", async () => {

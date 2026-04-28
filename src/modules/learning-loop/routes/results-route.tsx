@@ -1,5 +1,5 @@
 import { Link, useRouteContext } from "@tanstack/react-router";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { AppLabel } from "../../../features/labels/labels";
 import type { AppSessionSnapshot } from "../../../features/session/session";
 import { listNotesForUser } from "../domain/notes";
@@ -9,6 +9,11 @@ import {
   type FlashCardSessionResult,
   summarizeAttempts,
 } from "../domain/recall";
+
+type SessionResultsSnapshot = {
+  newestSessionId: string | null;
+  resultCount: number;
+};
 
 function formatAttemptCount(count: number) {
   return `${count} attempted ${count === 1 ? "question" : "questions"}`;
@@ -138,6 +143,10 @@ export function RecallResultsPage() {
   const hasNotesAvailableForRecall = notesAvailableForRecall.length > 0;
   const startAction = getResultsStartAction(hasNotesAvailableForRecall);
   const noResultsStateKind = getNoResultsStateKind(hasNotesAvailableForRecall);
+  const previousSessionResultsRef = useRef<SessionResultsSnapshot>({
+    newestSessionId: null,
+    resultCount: 0,
+  });
 
   useEffect(() => {
     function syncAvailableLabels() {
@@ -164,18 +173,26 @@ export function RecallResultsPage() {
   }, [availableLabels, selectedLabelId]);
 
   useEffect(() => {
+    const currentSessionResults = getSessionResultsSnapshot(sessionResults);
+
     if (sessionResults.length === 0) {
       setSelectedSessionId(null);
+      previousSessionResultsRef.current = currentSessionResults;
       return;
     }
 
-    const hasSelectedSession = sessionResults.some((result) => {
-      return result.id === selectedSessionId;
-    });
-
-    if (!hasSelectedSession) {
-      setSelectedSessionId(sessionResults[0].id);
+    if (
+      shouldSelectNewestSessionResult({
+        currentSessionResults,
+        previousSessionResults: previousSessionResultsRef.current,
+        selectedSessionId,
+        sessionResults,
+      })
+    ) {
+      setSelectedSessionId(currentSessionResults.newestSessionId);
     }
+
+    previousSessionResultsRef.current = currentSessionResults;
   }, [selectedSessionId, sessionResults]);
 
   const selectedSession = getSelectedSessionResult(
@@ -224,8 +241,8 @@ export function RecallResultsPage() {
 
             {sessionResults.length === 0 ? (
               <NoResultsState
-                state={noResultsStateKind}
                 hasActiveFilter={selectedLabelFilter !== undefined}
+                state={noResultsStateKind}
               />
             ) : (
               <SessionResultsList
@@ -435,6 +452,53 @@ function getSelectedSessionResult(
 
   return (
     sessionResults.find((result) => result.id === selectedSessionId) ?? null
+  );
+}
+
+function getSessionResultsSnapshot(
+  sessionResults: readonly FlashCardSessionResult[],
+): SessionResultsSnapshot {
+  return {
+    newestSessionId: sessionResults[0]?.id ?? null,
+    resultCount: sessionResults.length,
+  };
+}
+
+function shouldSelectNewestSessionResult({
+  currentSessionResults,
+  previousSessionResults,
+  selectedSessionId,
+  sessionResults,
+}: {
+  currentSessionResults: SessionResultsSnapshot;
+  previousSessionResults: SessionResultsSnapshot;
+  selectedSessionId: string | null;
+  sessionResults: readonly FlashCardSessionResult[];
+}) {
+  const selectedSessionStillExists = sessionResults.some((result) => {
+    return result.id === selectedSessionId;
+  });
+
+  if (!selectedSessionStillExists) {
+    return true;
+  }
+
+  return hasAddedNewNewestSessionResult(
+    previousSessionResults,
+    currentSessionResults,
+  );
+}
+
+function hasAddedNewNewestSessionResult(
+  previousSessionResults: SessionResultsSnapshot,
+  currentSessionResults: SessionResultsSnapshot,
+) {
+  return (
+    previousSessionResults.newestSessionId !== null &&
+    currentSessionResults.newestSessionId !== null &&
+    currentSessionResults.newestSessionId !==
+      previousSessionResults.newestSessionId &&
+    currentSessionResults.resultCount > previousSessionResults.resultCount
   );
 }
 
