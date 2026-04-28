@@ -3052,7 +3052,9 @@ describe("authenticated app shell", () => {
       }),
     );
 
-    fireEvent.click(recallControls.getByRole("button", { name: "Start recall" }));
+    fireEvent.click(
+      recallControls.getByRole("button", { name: "Start recall" }),
+    );
 
     expect(router.state.location.pathname).toBe("/recall/session");
     expect(
@@ -3066,10 +3068,7 @@ describe("authenticated app shell", () => {
       ],
     });
     expect(recallContext.getSnapshot()?.notes).not.toEqual(
-      expect.arrayContaining([
-        { id: bodyNote.id },
-        { id: metaphorNote.id },
-      ]),
+      expect.arrayContaining([{ id: bodyNote.id }, { id: metaphorNote.id }]),
     );
   });
 
