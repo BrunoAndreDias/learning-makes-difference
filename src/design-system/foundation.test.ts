@@ -44,7 +44,7 @@ describe("foundationTokens", () => {
       "utf8",
     );
 
-    expect(css).toContain("grid-template-rows: auto minmax(0, 1fr);");
+    expect(css).toContain("grid-template-rows: auto auto minmax(0, 1fr);");
     expect(css).toContain("align-content: start;");
   });
 });
