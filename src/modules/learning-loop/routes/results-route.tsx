@@ -226,67 +226,87 @@ export function RecallResultsPage() {
   }
 
   return (
-    <section className="recall-page">
-      <article className="card stack panel-protected">
-        <p className="section-label">Results</p>
-        <h3>Results</h3>
-        <p>
-          Review completed recall work by target label, attempted questions, and
-          stored note snapshots from the time of study.
-        </p>
-        <div className="tag-row">
-          <span className="tag">Results</span>
-          <span className="tag">Label filter</span>
-          <span className="tag">Snapshot review</span>
+    <section aria-label="Recall results workspace" className="recall-workspace">
+      <section
+        aria-label="Recall results toolbar"
+        className="recall-workspace__toolbar"
+      >
+        <div className="recall-toolbar__summary">
+          <span className="tag">{`${sessionResults.length} sessions`}</span>
+          <span className="tag">{`${noteResults.length} notes`}</span>
+        </div>
+        <div className="recall-toolbar__actions">
+          <Link className="notes-action" to="/recall">
+            Recall
+          </Link>
+          <Link
+            className="notes-action notes-action-primary notes-recall-entry-action"
+            to="/recall/select"
+          >
+            Start Recall
+          </Link>
+        </div>
+      </section>
+
+      <article className="recall-surface">
+        <header className="recall-surface__header">
+          <div className="notes-editor__title-stack">
+            <p className="section-label">Recall</p>
+            <h3>Results</h3>
+            <p className="muted notes-editor__meta">
+              Review completed recall work by label, attempted questions, and
+              stored note snapshots.
+            </p>
+          </div>
+        </header>
+
+        <div className="recall-results-layout">
+          <article className="recall-panel">
+            <p className="section-label">Filter Results</p>
+            <fieldset className="tag-row">
+              <legend className="section-label">Results view</legend>
+              <button
+                aria-pressed={resultsView === "session"}
+                className="notes-action"
+                onClick={() => setResultsView("session")}
+                type="button"
+              >
+                By session
+              </button>
+              <button
+                aria-pressed={resultsView === "note"}
+                className="notes-action"
+                onClick={() => setResultsView("note")}
+                type="button"
+              >
+                By note
+              </button>
+            </fieldset>
+            <label className="auth-form__field">
+              <span>Filter by label</span>
+              <select
+                className="auth-form__control"
+                onChange={(event) => setSelectedLabelId(event.target.value)}
+                value={selectedLabelId}
+              >
+                <option value="">All labels</option>
+                {availableLabels.map((label) => (
+                  <option key={label.id} value={label.id}>
+                    {label.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {resultsListContent}
+          </article>
+
+          <section aria-label="Inspect Results" className="recall-panel">
+            <p className="section-label">Inspect Results</p>
+            {inspectContent}
+          </section>
         </div>
       </article>
-
-      <div className="placeholder-grid recall-layout">
-        <article className="card stack">
-          <p className="section-label">Filter Results</p>
-          <fieldset className="tag-row">
-            <legend className="section-label">Results view</legend>
-            <button
-              aria-pressed={resultsView === "session"}
-              className="notes-action"
-              onClick={() => setResultsView("session")}
-              type="button"
-            >
-              By session
-            </button>
-            <button
-              aria-pressed={resultsView === "note"}
-              className="notes-action"
-              onClick={() => setResultsView("note")}
-              type="button"
-            >
-              By note
-            </button>
-          </fieldset>
-          <label className="auth-form__field">
-            <span>Filter by label</span>
-            <select
-              className="auth-form__control"
-              onChange={(event) => setSelectedLabelId(event.target.value)}
-              value={selectedLabelId}
-            >
-              <option value="">All labels</option>
-              {availableLabels.map((label) => (
-                <option key={label.id} value={label.id}>
-                  {label.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {resultsListContent}
-        </article>
-
-        <section aria-label="Inspect Results" className="card stack">
-          <p className="section-label">Inspect Results</p>
-          {inspectContent}
-        </section>
-      </div>
     </section>
   );
 }

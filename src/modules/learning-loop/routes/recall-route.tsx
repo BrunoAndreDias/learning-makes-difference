@@ -51,10 +51,10 @@ function getSearchResultLabel(result: AppNoteSearchResult) {
 
 function EmptyRecallSelectionPage() {
   return (
-    <section className="recall-page">
-      <article className="card stack panel-protected">
+    <section className="recall-workspace">
+      <article className="recall-surface">
         <p className="section-label">Recall</p>
-        <h3>Select Notes</h3>
+        <h3>No recallable notes yet</h3>
         <p>Create notes first, then come back to build a recall session.</p>
         <Link className="notes-action notes-action-primary" to="/notes">
           Go to Notes
@@ -75,7 +75,7 @@ function StartRecallCard({
 }) {
   if (!hasRecallableNotes) {
     return (
-      <article className="card stack">
+      <article className="recall-panel">
         <p className="section-label">Start</p>
         <h4>Start Recall</h4>
         <p>Create notes first, then start your first recall session.</p>
@@ -87,13 +87,10 @@ function StartRecallCard({
   }
 
   return (
-    <article className="card stack">
+    <article className="recall-panel">
       <p className="section-label">Start</p>
       <h4>Start Recall</h4>
-      <p>
-        Open the new Recall route flow and choose the notes for your next
-        session.
-      </p>
+      <p>Select notes and move straight into focused flashcard practice.</p>
       <Link className="notes-action notes-action-primary" to="/recall/select">
         Start Recall
       </Link>
@@ -110,7 +107,7 @@ function RecentResultsPreview({
 }) {
   if (!hasRecallableNotes) {
     return (
-      <article className="card stack">
+      <article className="recall-panel">
         <p className="section-label">Recent Results</p>
         <h4>No notes yet</h4>
         <p className="muted">
@@ -125,7 +122,7 @@ function RecentResultsPreview({
 
   if (recentResults.length === 0) {
     return (
-      <article className="card stack">
+      <article className="recall-panel">
         <p className="section-label">Recent Results</p>
         <h4>No recent results yet</h4>
         <p className="muted">
@@ -136,7 +133,7 @@ function RecentResultsPreview({
   }
 
   return (
-    <article className="card stack">
+    <article className="recall-panel">
       <p className="section-label">Recent Results</p>
       <div className="stack">
         {recentResults.map((result) => {
@@ -221,7 +218,7 @@ function RecallSelectionSearchResults({
   return (
     <div
       aria-label="Recall selection matches"
-      className="notes-search__results"
+      className="notes-search__results recall-search-results"
       role="listbox"
     >
       {searchResults.map((result) => (
@@ -255,7 +252,7 @@ function SelectableRecallNotes({
   selectedNoteIds: ReadonlySet<string>;
 }) {
   return (
-    <article className="card stack">
+    <article className="recall-panel notes-list">
       <div className="notes-list__header">
         <div className="stack">
           <p className="section-label">Notes</p>
@@ -322,37 +319,63 @@ export function RecallHomePage() {
     userId === null
       ? []
       : recallContext.listSessionResults({ userId }).slice(0, 3);
+  const noteCountLabel = `${notes.length} ${notes.length === 1 ? "note" : "notes"}`;
+  const resultCountLabel = `${recentResults.length} recent ${
+    recentResults.length === 1 ? "result" : "results"
+  }`;
 
   return (
-    <section className="recall-page">
-      <article className="card stack panel-protected">
-        <p className="section-label">Recall</p>
-        <h3>Recall</h3>
-        <p>Start recall, review results, and pick up your latest study work.</p>
-        <div className="tag-row">
-          <span className="tag">Primary section</span>
-          <span className="tag">Start recall</span>
-          <span className="tag">Recent results</span>
+    <section aria-label="Recall workspace surface" className="recall-workspace">
+      <section
+        aria-label="Recall workspace toolbar"
+        className="recall-workspace__toolbar"
+      >
+        <div className="recall-toolbar__summary">
+          <span className="tag">{noteCountLabel}</span>
+          <span className="tag">{resultCountLabel}</span>
+        </div>
+        <div className="recall-toolbar__actions">
+          <Link className="notes-action" to="/recall/results">
+            Results
+          </Link>
+          <Link
+            className="notes-action notes-action-primary notes-recall-entry-action"
+            to={hasRecallableNotes ? "/recall/select" : "/notes"}
+          >
+            {hasRecallableNotes ? "New session" : "Go to Notes"}
+          </Link>
+        </div>
+      </section>
+
+      <article className="recall-surface">
+        <header className="recall-surface__header">
+          <div className="notes-editor__title-stack">
+            <p className="section-label">Study workspace</p>
+            <h3>Recall</h3>
+            <p className="muted notes-editor__meta">
+              Start recall, review results, and pick up your latest study work.
+            </p>
+          </div>
+        </header>
+
+        <div className="recall-dashboard">
+          <StartRecallCard hasRecallableNotes={hasRecallableNotes} />
+
+          <article className="recall-panel">
+            <p className="section-label">Review</p>
+            <h4>Results</h4>
+            <p>Inspect completed sessions by session or by note.</p>
+            <Link className="notes-action" to="/recall/results">
+              Open Results
+            </Link>
+          </article>
+
+          <RecentResultsPreview
+            hasRecallableNotes={hasRecallableNotes}
+            recentResults={recentResults}
+          />
         </div>
       </article>
-
-      <div className="placeholder-grid recall-layout">
-        <StartRecallCard hasRecallableNotes={hasRecallableNotes} />
-
-        <article className="card stack">
-          <p className="section-label">Review</p>
-          <h4>Results</h4>
-          <p>Inspect completed sessions by session or by note.</p>
-          <Link className="notes-action" to="/recall/results">
-            Open Results
-          </Link>
-        </article>
-
-        <RecentResultsPreview
-          hasRecallableNotes={hasRecallableNotes}
-          recentResults={recentResults}
-        />
-      </div>
     </section>
   );
 }
@@ -391,6 +414,7 @@ export function RecallSelectionPage() {
   const selectedCountLabel = formatSelectedCount(selectedNoteIds.length);
   const hasSearchQuery = searchQuery.trim().length > 0;
   const selectedNoteIdSet = new Set(selectedNoteIds);
+  const noteCountLabel = `${notes.length} ${notes.length === 1 ? "note" : "notes"}`;
 
   function toggleSelectedNote(noteId: string) {
     setSelectedNoteIds((currentNoteIds) =>
@@ -435,63 +459,84 @@ export function RecallSelectionPage() {
   }
 
   return (
-    <section className="recall-page">
-      <article className="card stack panel-protected">
-        <p className="section-label">Recall</p>
-        <h3>Select Notes</h3>
-        <p>
-          Search recallable notes, toggle the ones you want, then start a
-          focused session without opening the editor.
-        </p>
-        <div className="tag-row">
-          <span className="tag">Dedicated selection mode</span>
-          <span className="tag">{selectedCountLabel}</span>
-        </div>
-      </article>
-
-      <div className="placeholder-grid recall-layout recall-selection-layout">
-        <article className="card stack">
-          <div className="notes-list__header">
-            <div className="stack">
-              <p className="section-label">Search</p>
-              <h4>Find recall targets</h4>
-              <p className="muted">
-                Search titles, bodies, metaphors, and acronyms. Selecting a
-                match toggles the owning note.
-              </p>
-            </div>
-            <RecallSelectionControls
-              hasSelectedNotes={selectedNoteIds.length > 0}
-              onCancel={() => void handleCancel()}
-              onStartRecall={() => void handleStartRecall()}
-              selectedCountLabel={selectedCountLabel}
-            />
-          </div>
-
-          <label className="notes-form__field">
-            <span>Search notes</span>
-            <input
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search notes"
-              type="search"
-              value={searchQuery}
-            />
+    <section
+      aria-label="Recall selection workspace"
+      className="recall-workspace"
+    >
+      <section
+        aria-label="Recall selection toolbar"
+        className="recall-workspace__toolbar"
+      >
+        <form
+          className="notes-search"
+          onSubmit={(event) => event.preventDefault()}
+        >
+          <span className="notes-search__icon" aria-hidden="true">
+            <SearchIcon />
+          </span>
+          <label className="sr-only" htmlFor="recall-selection-search">
+            Search notes
           </label>
+          <input
+            id="recall-selection-search"
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search notes"
+            type="search"
+            value={searchQuery}
+          />
+        </form>
+        <RecallSelectionControls
+          hasSelectedNotes={selectedNoteIds.length > 0}
+          onCancel={() => void handleCancel()}
+          onStartRecall={() => void handleStartRecall()}
+          selectedCountLabel={selectedCountLabel}
+        />
+      </section>
 
-          <RecallSelectionSearchResults
-            hasSearchQuery={hasSearchQuery}
+      <article className="recall-surface">
+        <header className="recall-surface__header">
+          <div className="notes-editor__title-stack">
+            <p className="section-label">Recall</p>
+            <h3>Select Notes</h3>
+            <p className="muted notes-editor__meta">
+              Search recallable notes, toggle the ones you want, then start a
+              focused session.
+            </p>
+            <div className="tag-row notes-editor__labels">
+              <span className="tag">{noteCountLabel}</span>
+              <span className="tag">{selectedCountLabel}</span>
+            </div>
+          </div>
+        </header>
+
+        <div className="recall-selection-layout">
+          <article className="recall-panel">
+            <div className="notes-list__header">
+              <div className="stack">
+                <p className="section-label">Search</p>
+                <h4>Find recall targets</h4>
+                <p className="muted">
+                  Search titles, bodies, metaphors, and acronyms. Selecting a
+                  match toggles the owning note.
+                </p>
+              </div>
+            </div>
+
+            <RecallSelectionSearchResults
+              hasSearchQuery={hasSearchQuery}
+              onToggleNote={toggleSelectedNote}
+              searchResults={searchResults}
+              selectedNoteIds={selectedNoteIdSet}
+            />
+          </article>
+
+          <SelectableRecallNotes
+            filteredNotes={filteredNotes}
             onToggleNote={toggleSelectedNote}
-            searchResults={searchResults}
             selectedNoteIds={selectedNoteIdSet}
           />
-        </article>
-
-        <SelectableRecallNotes
-          filteredNotes={filteredNotes}
-          onToggleNote={toggleSelectedNote}
-          selectedNoteIds={selectedNoteIdSet}
-        />
-      </div>
+        </div>
+      </article>
 
       {errorMessage !== null ? (
         <p className="auth-form__error" role="alert">
@@ -499,5 +544,14 @@ export function RecallSelectionPage() {
         </p>
       ) : null}
     </section>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+      <circle cx="10.5" cy="10.5" r="6" />
+      <path d="m15 15 4.5 4.5" />
+    </svg>
   );
 }
