@@ -262,7 +262,7 @@ describe("authenticated app shell", () => {
     expect(router.state.location.pathname).toBe("/notes");
   });
 
-  it("keeps /recall/results absent instead of redirecting it into /recall", async () => {
+  it("redirects the removed /recall/results route to the notes workspace", async () => {
     const { router } = renderRoute("/recall/results");
 
     expect(
