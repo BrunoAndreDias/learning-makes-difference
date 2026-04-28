@@ -1,5 +1,5 @@
 import { Link, useRouteContext } from "@tanstack/react-router";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { AppSessionSnapshot } from "../../../features/session/session";
 import {
   type FlashCardRecallAttemptSummary,
@@ -80,20 +80,34 @@ export function RecallResultsPage() {
   );
   const sessionResults =
     userId === null ? [] : recallContext.listSessionResults({ userId });
+  const previousNewestSessionIdRef = useRef<string | null>(null);
+  const previousResultCountRef = useRef(0);
 
   useEffect(() => {
     if (sessionResults.length === 0) {
       setSelectedSessionId(null);
+      previousNewestSessionIdRef.current = null;
+      previousResultCountRef.current = 0;
       return;
     }
 
+    const newestSessionId = sessionResults[0]?.id ?? null;
     const hasSelectedSession = sessionResults.some((result) => {
       return result.id === selectedSessionId;
     });
 
-    if (!hasSelectedSession) {
-      setSelectedSessionId(sessionResults[0].id);
+    const hasFreshNewestSession =
+      newestSessionId !== null &&
+      previousNewestSessionIdRef.current !== null &&
+      newestSessionId !== previousNewestSessionIdRef.current &&
+      sessionResults.length > previousResultCountRef.current;
+
+    if (!hasSelectedSession || hasFreshNewestSession) {
+      setSelectedSessionId(newestSessionId);
     }
+
+    previousNewestSessionIdRef.current = newestSessionId;
+    previousResultCountRef.current = sessionResults.length;
   }, [selectedSessionId, sessionResults]);
 
   const selectedSession = getSelectedSessionResult(
