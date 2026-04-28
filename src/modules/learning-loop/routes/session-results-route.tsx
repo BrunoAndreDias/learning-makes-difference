@@ -4,6 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import type { AppLabel } from "../../../features/labels/labels";
 import type { AppSessionSnapshot } from "../../../features/session/session";
 import {
+  type FlashCardRecallAttemptsByNote,
   type FlashCardSessionResult,
   summarizeAttempts,
 } from "../domain/recall";
@@ -61,9 +62,11 @@ export function SessionResultsPage() {
   const userId = sessionSnapshot.user?.id ?? null;
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
   const [selectedLabelId, setSelectedLabelId] = useState("");
+  const [historyView, setHistoryView] = useState<"note" | "session">("session");
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null,
   );
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
 
   useEffect(() => {
     function syncLabels() {
@@ -87,6 +90,13 @@ export function SessionResultsPage() {
           labelId: selectedLabelId === "" ? undefined : selectedLabelId,
           userId,
         });
+  const noteResults =
+    userId === null
+      ? []
+      : recallContext.listAttemptsByNote({
+          labelId: selectedLabelId === "" ? undefined : selectedLabelId,
+          userId,
+        });
 
   useEffect(() => {
     if (sessionResults.length === 0) {
@@ -103,11 +113,33 @@ export function SessionResultsPage() {
     }
   }, [selectedSessionId, sessionResults]);
 
+  useEffect(() => {
+    if (noteResults.length === 0) {
+      setSelectedNoteId(null);
+      return;
+    }
+
+    const hasSelectedNote = noteResults.some((result) => {
+      return result.noteId === selectedNoteId;
+    });
+
+    if (!hasSelectedNote) {
+      setSelectedNoteId(noteResults[0].noteId);
+    }
+  }, [selectedNoteId, noteResults]);
+
   let selectedSession: FlashCardSessionResult | null = null;
 
   if (selectedSessionId !== null) {
     selectedSession =
       sessionResults.find((result) => result.id === selectedSessionId) ?? null;
+  }
+
+  let selectedNote: FlashCardRecallAttemptsByNote | null = null;
+
+  if (selectedNoteId !== null) {
+    selectedNote =
+      noteResults.find((result) => result.noteId === selectedNoteId) ?? null;
   }
 
   return (
@@ -129,6 +161,25 @@ export function SessionResultsPage() {
       <div className="placeholder-grid recall-layout">
         <article className="card stack">
           <p className="section-label">Filter history</p>
+          <fieldset className="tag-row">
+            <legend className="section-label">History view</legend>
+            <button
+              aria-pressed={historyView === "session"}
+              className="notes-action"
+              onClick={() => setHistoryView("session")}
+              type="button"
+            >
+              By session
+            </button>
+            <button
+              aria-pressed={historyView === "note"}
+              className="notes-action"
+              onClick={() => setHistoryView("note")}
+              type="button"
+            >
+              By note
+            </button>
+          </fieldset>
           <label className="auth-form__field">
             <span>Filter by label</span>
             <select
@@ -145,7 +196,7 @@ export function SessionResultsPage() {
             </select>
           </label>
 
-          {sessionResults.length === 0 ? (
+          {historyView === "session" && sessionResults.length === 0 ? (
             selectedLabelId === "" ? (
               <div className="stack">
                 <h4>No recall history yet</h4>
@@ -162,7 +213,7 @@ export function SessionResultsPage() {
                 No sessions match the current label filter.
               </p>
             )
-          ) : (
+          ) : historyView === "session" ? (
             <div className="stack">
               {sessionResults.map((result) => {
                 const isSelected = result.id === selectedSessionId;
@@ -199,17 +250,74 @@ export function SessionResultsPage() {
                 );
               })}
             </div>
+          ) : noteResults.length === 0 ? (
+            selectedLabelId === "" ? (
+              <div className="stack">
+                <h4>No recall history yet</h4>
+                <p className="muted">
+                  Complete a recall session from Notes to build a reviewable
+                  history.
+                </p>
+                <Link className="notes-action" to="/notes">
+                  Go to Notes
+                </Link>
+              </div>
+            ) : (
+              <p className="muted">No notes match the current label filter.</p>
+            )
+          ) : (
+            <div className="stack">
+              {noteResults.map((result) => {
+                const isSelected = result.noteId === selectedNoteId;
+                const title = result.currentTitle ?? result.snapshotTitle;
+                const deletedSuffix =
+                  result.currentTitle === null ? " (deleted)" : "";
+
+                return (
+                  <article
+                    className="recall-session-card stack"
+                    key={result.noteId}
+                  >
+                    <p className="section-label">Note performance</p>
+                    <h4>
+                      {title}
+                      {result.currentTitle === null ? (
+                        <span className="muted"> (deleted)</span>
+                      ) : null}
+                    </h4>
+                    <div className="tag-row">
+                      <span className="tag">
+                        {formatAttemptCount(result.totalAttempts)}
+                      </span>
+                    </div>
+                    <p className="muted">
+                      Nailed {result.nailed} · Partial {result.partial} · Missed{" "}
+                      {result.missed}
+                    </p>
+                    <button
+                      aria-label={`Review note ${title}${deletedSuffix}`}
+                      aria-pressed={isSelected}
+                      className="notes-action"
+                      onClick={() => setSelectedNoteId(result.noteId)}
+                      type="button"
+                    >
+                      Review note
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
           )}
         </article>
 
-        <article className="card stack">
+        <section aria-label="Inspect results" className="card stack">
           <p className="section-label">Inspect results</p>
-          {selectedSession === null ? (
+          {historyView === "session" && selectedSession === null ? (
             <p className="muted">
               Pick a stored session to review its questions, answers, and
               ratings.
             </p>
-          ) : (
+          ) : historyView === "session" && selectedSession !== null ? (
             <>
               <h4>{selectedSession.labelName}</h4>
               <p>{formatCompletedAt(selectedSession.completedAt)}</p>
@@ -224,10 +332,54 @@ export function SessionResultsPage() {
 
               <SessionReview sessionResult={selectedSession} />
             </>
+          ) : selectedNote === null ? (
+            <p className="muted">
+              Pick a stored note to review its sessions, snapshots, and ratings.
+            </p>
+          ) : (
+            <>
+              <h4>
+                {selectedNote.currentTitle ?? selectedNote.snapshotTitle}
+                {selectedNote.currentTitle === null ? (
+                  <span className="muted"> (deleted)</span>
+                ) : null}
+              </h4>
+              <div className="tag-row">
+                <span className="tag">
+                  {formatAttemptCount(selectedNote.totalAttempts)}
+                </span>
+              </div>
+
+              <NoteAttemptHistory noteResult={selectedNote} />
+            </>
           )}
-        </article>
+        </section>
       </div>
     </section>
+  );
+}
+
+function NoteAttemptHistory(props: {
+  noteResult: FlashCardRecallAttemptsByNote;
+}) {
+  return (
+    <div className="stack">
+      {props.noteResult.attempts.map((attempt) => {
+        return (
+          <article
+            className="recall-session-card stack"
+            key={`${attempt.sessionId}-${attempt.completedAt}-${attempt.snapshotTitle}`}
+          >
+            <p className="section-label">
+              {formatCompletedAt(attempt.completedAt)}
+            </p>
+            <h4>{attempt.snapshotTitle}</h4>
+            <p>{attempt.bodySnapshot}</p>
+            <p>{`Rating: ${formatRatingLabel(attempt.rating)}`}</p>
+          </article>
+        );
+      })}
+    </div>
   );
 }
 

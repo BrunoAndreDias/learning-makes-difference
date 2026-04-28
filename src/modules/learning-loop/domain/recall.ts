@@ -80,6 +80,24 @@ type ListSessionResultsInput = {
   userId: string;
 };
 
+type ListAttemptsByNoteInput = ListSessionResultsInput;
+
+export type FlashCardRecallAttemptHistoryEntry = {
+  bodySnapshot: string;
+  completedAt: string;
+  rating: FlashCardRecallRating;
+  sessionId: string;
+  snapshotTitle: string;
+};
+
+export type FlashCardRecallAttemptsByNote = FlashCardRecallAttemptSummary & {
+  attempts: FlashCardRecallAttemptHistoryEntry[];
+  currentTitle: string | null;
+  noteId: string;
+  snapshotTitle: string;
+  totalAttempts: number;
+};
+
 type RateFlashCardAnswerInput = UpdateFlashCardSessionInput & {
   rating: FlashCardRecallRating;
 };
@@ -127,6 +145,9 @@ export type AppRecallContext = {
   listSessionResults: (
     input: ListSessionResultsInput,
   ) => FlashCardSessionResult[];
+  listAttemptsByNote: (
+    input: ListAttemptsByNoteInput,
+  ) => FlashCardRecallAttemptsByNote[];
   rateFlashCardAnswer: (
     input: RateFlashCardAnswerInput,
   ) => FlashCardRecallSession | null;
@@ -331,6 +352,33 @@ function cloneFlashCardSessionResult(
   };
 }
 
+function resultMatchesLabel(
+  result: StoredFlashCardSessionResult,
+  labelId: string | undefined,
+): boolean {
+  if (labelId === undefined) {
+    return true;
+  }
+
+  return (
+    result.labelId === labelId ||
+    result.notes.some((note) => note.labelIds.includes(labelId))
+  );
+}
+
+function listFilteredSessionResults(input: {
+  labelId?: string;
+  sessionResults: readonly StoredFlashCardSessionResult[];
+  userId: string;
+}): StoredFlashCardSessionResult[] {
+  return input.sessionResults.filter((result) => {
+    return (
+      result.userId === input.userId &&
+      resultMatchesLabel(result, input.labelId)
+    );
+  });
+}
+
 export function resolveRecallableNotesFromSelection(input: {
   noteIds: readonly string[];
   notes: AppNotesContext;
@@ -488,13 +536,7 @@ export function createAppRecallContext(
     getSessionResultsSnapshot: () => sessionResultsSnapshot,
     getSnapshot: () => snapshot,
     listSessionResults: ({ labelId, userId }) => {
-      return sessionResults
-        .filter((result) => {
-          return (
-            result.userId === userId &&
-            (labelId === undefined || result.labelId === labelId)
-          );
-        })
+      return listFilteredSessionResults({ labelId, sessionResults, userId })
         .sort((left, right) => {
           return (
             right.completedAt.localeCompare(left.completedAt) ||
@@ -502,6 +544,104 @@ export function createAppRecallContext(
           );
         })
         .map(cloneFlashCardSessionResult);
+    },
+    listAttemptsByNote: ({ labelId, userId }) => {
+      const currentNotesById = new Map(
+        listNotesForUser(options.notes.getSnapshot(), userId).map((note) => [
+          note.id,
+          note,
+        ]),
+      );
+      const groups = new Map<
+        string,
+        {
+          attempts: FlashCardRecallAttemptHistoryEntry[];
+          latestCompletedAt: string;
+          snapshotTitle: string;
+        }
+      >();
+
+      for (const result of listFilteredSessionResults({
+        labelId,
+        sessionResults,
+        userId,
+      })) {
+        const notesById = new Map(result.notes.map((note) => [note.id, note]));
+
+        for (const attempt of result.attempts) {
+          const noteSnapshot = notesById.get(attempt.noteId);
+
+          if (
+            noteSnapshot === undefined ||
+            (labelId !== undefined &&
+              result.labelId !== labelId &&
+              !noteSnapshot.labelIds.includes(labelId))
+          ) {
+            continue;
+          }
+
+          const existingGroup = groups.get(attempt.noteId);
+          const historyEntry: FlashCardRecallAttemptHistoryEntry = {
+            bodySnapshot: noteSnapshot.body,
+            completedAt: result.completedAt,
+            rating: attempt.rating,
+            sessionId: result.id,
+            snapshotTitle: noteSnapshot.title,
+          };
+
+          if (existingGroup === undefined) {
+            groups.set(attempt.noteId, {
+              attempts: [historyEntry],
+              latestCompletedAt: result.completedAt,
+              snapshotTitle: noteSnapshot.title,
+            });
+            continue;
+          }
+
+          existingGroup.attempts.push(historyEntry);
+
+          if (result.completedAt >= existingGroup.latestCompletedAt) {
+            existingGroup.latestCompletedAt = result.completedAt;
+            existingGroup.snapshotTitle = noteSnapshot.title;
+          }
+        }
+      }
+
+      return [...groups.entries()]
+        .map(([noteId, group]) => {
+          const summary = summarizeAttempts(
+            group.attempts.map((attempt) => ({
+              noteId,
+              rating: attempt.rating,
+            })),
+          );
+
+          return {
+            ...summary,
+            attempts: group.attempts.sort((left, right) => {
+              return (
+                left.completedAt.localeCompare(right.completedAt) ||
+                left.sessionId.localeCompare(right.sessionId)
+              );
+            }),
+            currentTitle: currentNotesById.get(noteId)?.title ?? null,
+            noteId,
+            snapshotTitle: group.snapshotTitle,
+            totalAttempts: group.attempts.length,
+          };
+        })
+        .sort((left, right) => {
+          const leftLatestCompletedAt =
+            left.attempts[left.attempts.length - 1]?.completedAt ?? "";
+          const rightLatestCompletedAt =
+            right.attempts[right.attempts.length - 1]?.completedAt ?? "";
+
+          return (
+            right.totalAttempts - left.totalAttempts ||
+            rightLatestCompletedAt.localeCompare(leftLatestCompletedAt) ||
+            right.noteId.localeCompare(left.noteId)
+          );
+        });
     },
     rateFlashCardAnswer: ({ rating, sessionId, userId }) => {
       const activeSession = getActiveSessionForUser({ sessionId, userId });

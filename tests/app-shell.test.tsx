@@ -2845,8 +2845,8 @@ describe("authenticated app shell", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Review session" }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("button", { name: "Review session" }).length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText("1 attempted question")).toHaveLength(2);
     expect(
       screen.getByText("Nailed 1 · Partial 0 · Missed 0"),
@@ -2871,5 +2871,126 @@ describe("authenticated app shell", () => {
     expect(screen.getByText("Original study snapshot")).toBeInTheDocument();
     expect(screen.getByText("Rating: Nailed it")).toBeInTheDocument();
     expect(screen.queryByText("Edited live note")).toBeNull();
+  });
+
+  it("toggles recall history by note and updates the drill-down pane", async () => {
+    vi.useFakeTimers();
+
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labelsContext.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    let sessionCounter = 0;
+    const recallContext = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `session-by-note-ui-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+    const userId = "user-placeholder";
+    const science = labelsContext.createLabel({
+      name: "Alpha Science",
+      userId,
+    });
+    const neuralNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Neural pathways original snapshot",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Neural pathways",
+    });
+    const retrievalNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Retrieval practice snapshot",
+      labelIds: [],
+      metaphors: [],
+      title: "Retrieval practice",
+    });
+
+    for (const [timestamp, noteId, rating] of [
+      ["2026-04-01T09:00:00.000Z", neuralNote.id, "missed"],
+      ["2026-04-02T09:00:00.000Z", retrievalNote.id, "partial"],
+    ] as const) {
+      vi.setSystemTime(new Date(timestamp));
+      const session = recallContext.startFlashCardSession({
+        noteIds: [noteId],
+        userId,
+      });
+      recallContext.revealFlashCardAnswer({ sessionId: session.id, userId });
+      recallContext.rateFlashCardAnswer({
+        rating,
+        sessionId: session.id,
+        userId,
+      });
+    }
+
+    vi.useRealTimers();
+
+    renderRoute("/history", {
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Recall history",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: "Review session" }).length,
+    ).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "By note" }));
+
+    expect(
+      screen.queryByRole("button", { name: "Review session" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Review note Neural pathways/i }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Review note Retrieval practice/i }),
+    );
+
+    const resultsPane = screen.getByRole("region", {
+      name: "Inspect results",
+    });
+
+    expect(
+      within(resultsPane).getAllByRole("heading", {
+        name: "Retrieval practice",
+      }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(resultsPane).getByText("Retrieval practice snapshot"),
+    ).toBeInTheDocument();
+    expect(
+      within(resultsPane).getByText("Rating: Partly recalled"),
+    ).toBeInTheDocument();
+    expect(
+      within(resultsPane).queryByText("Neural pathways original snapshot"),
+    ).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("Filter by label"), {
+      target: { value: science.id },
+    });
+
+    expect(
+      screen.getByRole("button", { name: /Review note Neural pathways/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Retrieval practice")).toBeNull();
   });
 });

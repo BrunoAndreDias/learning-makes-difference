@@ -233,6 +233,12 @@
   align-items: start;
 }
 
+.recall-layout fieldset.tag-row {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 .notes-list,
 .notes-editor {
   min-width: 0;

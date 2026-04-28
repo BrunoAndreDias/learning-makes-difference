@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createAppLabelsContext } from "../src/features/labels/labels";
 import { createAppNotesContext } from "../src/features/notes/notes";
@@ -82,6 +82,284 @@ describe("recall attempt summaries", () => {
       nailed: 125,
       partial: 75,
     });
+  });
+});
+
+describe("recall attempts by note", () => {
+  it("returns an empty list when the user has no attempted notes", () => {
+    const storage = createMemoryStorage();
+    const notes = createAppNotesContext({
+      keyPrefix: "recall-test-by-note-empty-notes",
+      storage,
+    });
+    const recall = createAppRecallContext({
+      keyPrefix: "recall-test-by-note-empty-session",
+      notes,
+      storage,
+    });
+
+    expect(recall.listAttemptsByNote({ userId: "owner" })).toEqual([]);
+  });
+
+  it("aggregates attempts for the same note across multiple sessions", () => {
+    const storage = createMemoryStorage();
+    const notes = createAppNotesContext({
+      keyPrefix: "recall-test-by-note-aggregation-notes",
+      storage,
+    });
+    let sessionCounter = 0;
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `session-by-note-aggregation-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "recall-test-by-note-aggregation-session",
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+    });
+    const userId = "owner";
+    const note = notes.createNote(userId, {
+      acronyms: [],
+      body: "Original body",
+      labelIds: [],
+      metaphors: [],
+      title: "Original title",
+    });
+
+    const firstSession = recall.startFlashCardSession({
+      noteIds: [note.id],
+      userId,
+    });
+    recall.revealFlashCardAnswer({ sessionId: firstSession.id, userId });
+    recall.rateFlashCardAnswer({
+      rating: "partial",
+      sessionId: firstSession.id,
+      userId,
+    });
+
+    notes.updateNote(userId, note.id, {
+      acronyms: [],
+      body: "Updated body",
+      labelIds: [],
+      metaphors: [],
+      title: "Updated title",
+    });
+
+    const secondSession = recall.startFlashCardSession({
+      noteIds: [note.id],
+      userId,
+    });
+    recall.revealFlashCardAnswer({ sessionId: secondSession.id, userId });
+    recall.rateFlashCardAnswer({
+      rating: "nailed",
+      sessionId: secondSession.id,
+      userId,
+    });
+
+    expect(recall.listAttemptsByNote({ userId })).toMatchObject([
+      {
+        currentTitle: "Updated title",
+        missed: 0,
+        nailed: 1,
+        noteId: note.id,
+        partial: 1,
+        snapshotTitle: "Updated title",
+        totalAttempts: 2,
+        attempts: [
+          {
+            bodySnapshot: "Original body",
+            rating: "partial",
+            sessionId: firstSession.id,
+            snapshotTitle: "Original title",
+          },
+          {
+            bodySnapshot: "Updated body",
+            rating: "nailed",
+            sessionId: secondSession.id,
+            snapshotTitle: "Updated title",
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("sorts notes by attempts then most recent attempt and filters by stored note labels", () => {
+    vi.useFakeTimers();
+
+    try {
+      const storage = createMemoryStorage();
+      const labels = createAppLabelsContext({
+        keyPrefix: "recall-test-by-note-filter-labels",
+        storage,
+      });
+      const notes = createAppNotesContext({
+        getOwnedLabelIdsForUser: (userId) =>
+          labels.getLabelsForUser(userId).map((label) => label.id),
+        keyPrefix: "recall-test-by-note-filter-notes",
+        storage,
+      });
+      let sessionCounter = 0;
+      const recall = createAppRecallContext({
+        crypto: {
+          randomUUID: () =>
+            `session-by-note-filter-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+        },
+        keyPrefix: "recall-test-by-note-filter-session",
+        notes,
+        shuffleNotes: (sessionNotes) => [...sessionNotes],
+        storage,
+      });
+      const userId = "owner";
+      const science = labels.createLabel({ name: "Science", userId });
+      const history = labels.createLabel({ name: "History", userId });
+      const highVolumeNote = notes.createNote(userId, {
+        acronyms: [],
+        body: "Science body",
+        labelIds: [science.id],
+        metaphors: [],
+        title: "Science note",
+      });
+      const recentTieNote = notes.createNote(userId, {
+        acronyms: [],
+        body: "Recent body",
+        labelIds: [history.id],
+        metaphors: [],
+        title: "Recent history note",
+      });
+      const olderTieNote = notes.createNote(userId, {
+        acronyms: [],
+        body: "Older body",
+        labelIds: [history.id],
+        metaphors: [],
+        title: "Older history note",
+      });
+      const otherUsersNote = notes.createNote("other-user", {
+        acronyms: [],
+        body: "Private body",
+        labelIds: [],
+        metaphors: [],
+        title: "Private note",
+      });
+
+      for (const [timestamp, noteId, rating, owner] of [
+        ["2026-04-01T10:00:00.000Z", highVolumeNote.id, "partial", userId],
+        ["2026-04-02T10:00:00.000Z", olderTieNote.id, "missed", userId],
+        ["2026-04-03T10:00:00.000Z", highVolumeNote.id, "nailed", userId],
+        ["2026-04-04T10:00:00.000Z", recentTieNote.id, "partial", userId],
+        ["2026-04-05T10:00:00.000Z", otherUsersNote.id, "nailed", "other-user"],
+      ] as const) {
+        vi.setSystemTime(new Date(timestamp));
+        const session = recall.startFlashCardSession({
+          noteIds: [noteId],
+          userId: owner,
+        });
+        recall.revealFlashCardAnswer({ sessionId: session.id, userId: owner });
+        recall.rateFlashCardAnswer({
+          rating,
+          sessionId: session.id,
+          userId: owner,
+        });
+      }
+
+      expect(
+        recall.listAttemptsByNote({ userId }).map((entry) => entry.noteId),
+      ).toEqual([highVolumeNote.id, recentTieNote.id, olderTieNote.id]);
+      expect(recall.listAttemptsByNote({ userId })[0]).toMatchObject({
+        missed: 0,
+        nailed: 1,
+        partial: 1,
+        totalAttempts: 2,
+      });
+      expect(
+        recall
+          .listAttemptsByNote({ labelId: history.id, userId })
+          .map((entry) => entry.noteId),
+      ).toEqual([recentTieNote.id, olderTieNote.id]);
+      expect(
+        recall
+          .listAttemptsByNote({ userId })[0]
+          .attempts.map((attempt) => attempt.completedAt),
+      ).toEqual(["2026-04-01T10:00:00.000Z", "2026-04-03T10:00:00.000Z"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("uses null current titles and the latest snapshot title for deleted notes", () => {
+    const storage = createMemoryStorage();
+    const notes = createAppNotesContext({
+      keyPrefix: "recall-test-by-note-deleted-notes",
+      storage,
+    });
+    let sessionCounter = 0;
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `session-by-note-deleted-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "recall-test-by-note-deleted-session",
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+    });
+    const userId = "owner";
+    const note = notes.createNote(userId, {
+      acronyms: [],
+      body: "First deleted body",
+      labelIds: [],
+      metaphors: [],
+      title: "First deleted title",
+    });
+
+    const firstSession = recall.startFlashCardSession({
+      noteIds: [note.id],
+      userId,
+    });
+    recall.revealFlashCardAnswer({ sessionId: firstSession.id, userId });
+    recall.rateFlashCardAnswer({
+      rating: "missed",
+      sessionId: firstSession.id,
+      userId,
+    });
+
+    notes.updateNote(userId, note.id, {
+      acronyms: [],
+      body: "Latest deleted body",
+      labelIds: [],
+      metaphors: [],
+      title: "Latest deleted title",
+    });
+
+    const secondSession = recall.startFlashCardSession({
+      noteIds: [note.id],
+      userId,
+    });
+    recall.revealFlashCardAnswer({ sessionId: secondSession.id, userId });
+    recall.rateFlashCardAnswer({
+      rating: "partial",
+      sessionId: secondSession.id,
+      userId,
+    });
+
+    const emptyNotes = createAppNotesContext({
+      keyPrefix: "recall-test-by-note-deleted-empty-notes",
+      storage,
+    });
+    const reloadedRecall = createAppRecallContext({
+      keyPrefix: "recall-test-by-note-deleted-session",
+      notes: emptyNotes,
+      storage,
+    });
+
+    expect(reloadedRecall.listAttemptsByNote({ userId })).toMatchObject([
+      {
+        currentTitle: null,
+        noteId: note.id,
+        snapshotTitle: "Latest deleted title",
+        totalAttempts: 2,
+      },
+    ]);
   });
 });
 
@@ -653,7 +931,7 @@ describe("recall session setup", () => {
     });
   });
 
-  it("lists selected-note session results by account and leaves label filters empty", () => {
+  it("lists selected-note session results by account and stored note labels", () => {
     const storage = createMemoryStorage();
     const labels = createAppLabelsContext({
       keyPrefix: "recall-test-filter-labels",
@@ -733,7 +1011,7 @@ describe("recall session setup", () => {
         .map((result) => {
           return result.labelName;
         }),
-    ).toEqual([]);
+    ).toEqual(["Selected notes"]);
     expect(recall.listSessionResults({ userId })).toHaveLength(2);
     expect(recall.listSessionResults({ userId: "user-2" })).toHaveLength(1);
   });
