@@ -1,5 +1,5 @@
 import { useNavigate, useRouteContext } from "@tanstack/react-router";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { AppSessionSnapshot } from "../../../features/session/session";
 import { listNotesForUser } from "../domain/notes";
 import { useNotesWorkspace } from "../domain/notes-workspace";
@@ -128,13 +128,18 @@ export function NotesWorkspaceSidebar({
     closeMobileSidebar();
   }
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: activeNoteId changes which button owns the ref and must retrigger the scroll.
-  useEffect(() => {
-    if (!isSidebarVisible) {
+  useLayoutEffect(() => {
+    if (!isSidebarVisible || activeNoteId === null) {
       return;
     }
 
-    activeNoteRef.current?.scrollIntoView({
+    const activeButton = activeNoteRef.current;
+
+    if (activeButton === null) {
+      return;
+    }
+
+    activeButton.scrollIntoView({
       block: "nearest",
       inline: "nearest",
     });

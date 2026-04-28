@@ -388,6 +388,14 @@ export function NotesWorkspace() {
     }
   }
 
+  function handleSelectActiveSearchResult() {
+    const result = searchResults[activeSearchResultIndex];
+
+    if (result !== undefined) {
+      handleSelectSearchResult(result);
+    }
+  }
+
   function handleCancelGuardedWorkspaceTransition() {
     cancelPendingWorkspaceTransition();
     searchInputRef.current?.focus();
@@ -412,11 +420,12 @@ export function NotesWorkspace() {
   }
 
   function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (!isSearchOpen || searchResults.length === 0) {
-      if (event.key === "Escape") {
-        setIsSearchOpen(false);
-      }
+    if (event.key === "Escape") {
+      setIsSearchOpen(false);
+      return;
+    }
 
+    if (!isSearchOpen || searchResults.length === 0) {
       return;
     }
 
@@ -439,28 +448,14 @@ export function NotesWorkspace() {
 
     if (event.key === "Enter") {
       event.preventDefault();
-      const result = searchResults[activeSearchResultIndex];
-
-      if (result !== undefined) {
-        handleSelectSearchResult(result);
-      }
+      handleSelectActiveSearchResult();
       return;
-    }
-
-    if (event.key === "Escape") {
-      event.preventDefault();
-      setIsSearchOpen(false);
     }
   }
 
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    const result = searchResults[activeSearchResultIndex];
-
-    if (result !== undefined) {
-      handleSelectSearchResult(result);
-    }
+    handleSelectActiveSearchResult();
   }
 
   function handleSearchPointerDown(event: ReactPointerEvent<HTMLFormElement>) {
