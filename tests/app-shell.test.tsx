@@ -544,7 +544,7 @@ describe("authenticated app shell", () => {
     ]);
     expect(
       within(appSections).queryByRole("link", { name: "Recall history" }),
-    ).toBeNull();
+    ).not.toBeInTheDocument();
     expect(notesLink).toHaveAttribute("href", "/notes");
     expect(labelsLink).toHaveAttribute("href", "/labels");
     expect(recallLink).toHaveAttribute("href", "/recall");
