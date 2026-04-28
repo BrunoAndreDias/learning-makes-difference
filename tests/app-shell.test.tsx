@@ -2689,6 +2689,28 @@ describe("authenticated app shell", () => {
     ).toBeNull();
   });
 
+  it("shows a true empty recall history state with a notes CTA", async () => {
+    renderRoute("/history");
+
+    expect(
+      await screen.findByRole("heading", { name: "No recall history yet" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Complete a recall session from Notes to build a reviewable history.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Go to Notes" })).toHaveAttribute(
+      "href",
+      "/notes",
+    );
+    expect(
+      screen.queryByText(
+        "No session results yet. Complete at least one attempted recall session to build history.",
+      ),
+    ).toBeNull();
+  });
+
   it("shows persisted session history with label filtering and stored note snapshots", async () => {
     const labelsContext = createAppLabelsContext({
       keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
@@ -2761,6 +2783,9 @@ describe("authenticated app shell", () => {
       screen.getByRole("button", { name: "Review session" }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("1 attempted question")).toHaveLength(2);
+    expect(
+      screen.getByText("Nailed 1 · Partial 0 · Missed 0"),
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Filter by label"), {
       target: { value: historyLabel.id },

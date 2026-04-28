@@ -11,6 +11,12 @@ export type FlashCardRecallAttempt = {
   rating: FlashCardRecallRating;
 };
 
+export type FlashCardRecallAttemptSummary = {
+  missed: number;
+  nailed: number;
+  partial: number;
+};
+
 export type FlashCardRecallSession = {
   attempts: FlashCardRecallAttempt[];
   createdAt: string;
@@ -93,6 +99,22 @@ export class AppRecallError extends Error {
     super(message);
     this.code = code;
   }
+}
+
+export function summarizeAttempts(
+  attempts: readonly FlashCardRecallAttempt[],
+): FlashCardRecallAttemptSummary {
+  const summary: FlashCardRecallAttemptSummary = {
+    missed: 0,
+    nailed: 0,
+    partial: 0,
+  };
+
+  for (const attempt of attempts) {
+    summary[attempt.rating] += 1;
+  }
+
+  return summary;
 }
 
 export type AppRecallContext = {
