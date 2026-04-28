@@ -2,6 +2,8 @@ import { Link, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { AppSessionSnapshot } from "../../../features/session/session";
 import {
+  type FlashCardRecallAttemptSummary,
+  type FlashCardRecallNote,
   type FlashCardSessionResult,
   summarizeAttempts,
 } from "../domain/recall";
@@ -22,6 +24,18 @@ function formatSummaryCount(count: number, noun: string) {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
+function formatScoreSummary(summary: FlashCardRecallAttemptSummary) {
+  return `Nailed ${summary.nailed} · Partial ${summary.partial} · Missed ${summary.missed}`;
+}
+
+function formatStoredNoteSnapshotSummary(note: FlashCardRecallNote) {
+  return [
+    formatSummaryCount(note.acronyms.length, "acronym"),
+    formatSummaryCount(note.metaphors.length, "metaphor"),
+    formatSummaryCount(note.labelIds.length, "label"),
+  ].join(" · ");
+}
+
 function formatRatingLabel(rating: "missed" | "nailed" | "partial") {
   switch (rating) {
     case "missed":
@@ -33,7 +47,7 @@ function formatRatingLabel(rating: "missed" | "nailed" | "partial") {
   }
 }
 
-function formatCompletedAt(timestamp: string) {
+function formatDateTime(timestamp: string) {
   return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -161,16 +175,13 @@ function SessionResultsList({
         return (
           <article className="recall-session-card stack" key={result.id}>
             <p className="section-label">SessionResult</p>
-            <p>{formatCompletedAt(result.completedAt)}</p>
+            <p>{formatDateTime(result.completedAt)}</p>
             <div className="tag-row">
               <span className="tag">
                 {formatAttemptCount(result.attempts.length)}
               </span>
             </div>
-            <p className="muted">
-              Nailed {summary.nailed} · Partial {summary.partial} · Missed{" "}
-              {summary.missed}
-            </p>
+            <p className="muted">{formatScoreSummary(summary)}</p>
             <button
               aria-pressed={isSelected}
               className="notes-action"
@@ -209,11 +220,14 @@ function SelectedSessionResult({
         <h4>{sessionResult.labelName}</h4>
       </header>
 
-      <section className="stack" aria-label="Session details">
-        <h4>Session details</h4>
+      <section
+        aria-labelledby="selected-session-details-heading"
+        className="stack"
+      >
+        <h4 id="selected-session-details-heading">Session details</h4>
         <p>Mode: {sessionResult.mode}</p>
-        <p>Started: {formatCompletedAt(sessionResult.createdAt)}</p>
-        <p>Completed: {formatCompletedAt(sessionResult.completedAt)}</p>
+        <p>Started: {formatDateTime(sessionResult.createdAt)}</p>
+        <p>Completed: {formatDateTime(sessionResult.completedAt)}</p>
         <div className="tag-row">
           <span className="tag">
             {formatAttemptCount(sessionResult.attempts.length)}
@@ -224,22 +238,30 @@ function SelectedSessionResult({
         </div>
       </section>
 
-      <section className="stack" aria-label="Score summary">
-        <h4>Score summary</h4>
-        <p>
-          Nailed {summary.nailed} · Partial {summary.partial} · Missed{" "}
-          {summary.missed}
-        </p>
+      <section
+        aria-labelledby="selected-score-summary-heading"
+        className="stack"
+      >
+        <h4 id="selected-score-summary-heading">Score summary</h4>
+        <p>{formatScoreSummary(summary)}</p>
       </section>
 
-      <section className="stack" aria-label="Question review">
-        <h4>Question review</h4>
+      <section
+        aria-labelledby="selected-question-review-heading"
+        className="stack"
+      >
+        <h4 id="selected-question-review-heading">Question review</h4>
         <ResultsSessionReview sessionResult={sessionResult} />
       </section>
 
-      <section className="stack" aria-label="Stored note snapshots">
-        <h4>Stored note snapshots</h4>
-        <StoredNoteSnapshotSummary sessionResult={sessionResult} />
+      <section
+        aria-labelledby="selected-stored-note-snapshots-heading"
+        className="stack"
+      >
+        <h4 id="selected-stored-note-snapshots-heading">
+          Stored note snapshots
+        </h4>
+        <StoredNoteSnapshotSummary notes={sessionResult.notes} />
       </section>
     </div>
   );
@@ -301,22 +323,18 @@ function ResultsSessionReview({
 }
 
 function StoredNoteSnapshotSummary({
-  sessionResult,
+  notes,
 }: {
-  sessionResult: FlashCardSessionResult;
+  notes: readonly FlashCardRecallNote[];
 }) {
   return (
     <div className="stack">
-      {sessionResult.notes.map((note) => {
+      {notes.map((note) => {
         return (
           <article className="recall-session-card stack" key={note.id}>
             <h5>{note.title}</h5>
             <p>{note.body}</p>
-            <p className="muted">
-              {formatSummaryCount(note.acronyms.length, "acronym")} ·{" "}
-              {formatSummaryCount(note.metaphors.length, "metaphor")} ·{" "}
-              {formatSummaryCount(note.labelIds.length, "label")}
-            </p>
+            <p className="muted">{formatStoredNoteSnapshotSummary(note)}</p>
           </article>
         );
       })}
