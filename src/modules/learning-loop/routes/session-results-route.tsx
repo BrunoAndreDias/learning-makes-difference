@@ -1,9 +1,12 @@
-import { useRouteContext } from "@tanstack/react-router";
+import { Link, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 import type { AppLabel } from "../../../features/labels/labels";
 import type { AppSessionSnapshot } from "../../../features/session/session";
-import type { FlashCardSessionResult } from "../domain/recall";
+import {
+  type FlashCardSessionResult,
+  summarizeAttempts,
+} from "../domain/recall";
 
 function formatAttemptCount(count: number) {
   return `${count} attempted ${count === 1 ? "question" : "questions"}`;
@@ -100,11 +103,12 @@ export function SessionResultsPage() {
     }
   }, [selectedSessionId, sessionResults]);
 
-  const selectedSession =
-    selectedSessionId === null
-      ? null
-      : (sessionResults.find((result) => result.id === selectedSessionId) ??
-        null);
+  let selectedSession: FlashCardSessionResult | null = null;
+
+  if (selectedSessionId !== null) {
+    selectedSession =
+      sessionResults.find((result) => result.id === selectedSessionId) ?? null;
+  }
 
   return (
     <section className="recall-page">
@@ -142,15 +146,27 @@ export function SessionResultsPage() {
           </label>
 
           {sessionResults.length === 0 ? (
-            <p className="muted">
-              {selectedLabelId === ""
-                ? "No session results yet. Complete at least one attempted recall session to build history."
-                : "No sessions match the current label filter."}
-            </p>
+            selectedLabelId === "" ? (
+              <div className="stack">
+                <h4>No recall history yet</h4>
+                <p className="muted">
+                  Complete a recall session from Notes to build a reviewable
+                  history.
+                </p>
+                <Link className="notes-action" to="/notes">
+                  Go to Notes
+                </Link>
+              </div>
+            ) : (
+              <p className="muted">
+                No sessions match the current label filter.
+              </p>
+            )
           ) : (
             <div className="stack">
               {sessionResults.map((result) => {
                 const isSelected = result.id === selectedSessionId;
+                const summary = summarizeAttempts(result.attempts);
 
                 return (
                   <article
@@ -167,6 +183,10 @@ export function SessionResultsPage() {
                         {formatQuestionCount(result.notes.length)}
                       </span>
                     </div>
+                    <p className="muted">
+                      Nailed {summary.nailed} · Partial {summary.partial} ·
+                      Missed {summary.missed}
+                    </p>
                     <button
                       aria-pressed={isSelected}
                       className="notes-action"

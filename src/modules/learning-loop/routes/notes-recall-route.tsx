@@ -5,27 +5,8 @@ import {
   AppRecallError,
   type AppRecallSnapshot,
   type FlashCardRecallRating,
+  summarizeAttempts,
 } from "../domain/recall";
-
-function countRatings(
-  attempts: ReadonlyArray<{ rating: FlashCardRecallRating }>,
-) {
-  let nailed = 0;
-  let partial = 0;
-  let missed = 0;
-
-  for (const attempt of attempts) {
-    if (attempt.rating === "nailed") {
-      nailed += 1;
-    } else if (attempt.rating === "partial") {
-      partial += 1;
-    } else {
-      missed += 1;
-    }
-  }
-
-  return { missed, nailed, partial };
-}
 
 export function NotesRecallSessionPage() {
   const navigate = useNavigate();
@@ -140,7 +121,7 @@ export function NotesRecallSessionPage() {
   const completedLabel = `Completed ${completedCount} of ${totalCount} questions`;
   const progressPercent =
     totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
-  const ratingTotals = countRatings(activeSession.attempts);
+  const ratingTotals = summarizeAttempts(activeSession.attempts);
 
   return (
     <section className="recall-shell" aria-label="FlashCard recall session">

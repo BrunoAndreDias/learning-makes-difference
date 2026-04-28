@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { createAppLabelsContext } from "../src/features/labels/labels";
 import { createAppNotesContext } from "../src/features/notes/notes";
-import { createAppRecallContext } from "../src/features/recall/recall";
+import {
+  createAppRecallContext,
+  summarizeAttempts,
+} from "../src/features/recall/recall";
 
 function createMemoryStorage() {
   const values = new Map<string, string>();
@@ -19,6 +22,68 @@ function createMemoryStorage() {
     },
   };
 }
+
+describe("recall attempt summaries", () => {
+  it("returns zero counts for empty input", () => {
+    expect(summarizeAttempts([])).toEqual({
+      missed: 0,
+      nailed: 0,
+      partial: 0,
+    });
+  });
+
+  it("returns explicit zeros for ratings outside a single bucket", () => {
+    expect(
+      summarizeAttempts([
+        { noteId: "note-1", rating: "missed" },
+        { noteId: "note-2", rating: "missed" },
+        { noteId: "note-3", rating: "missed" },
+      ]),
+    ).toEqual({
+      missed: 3,
+      nailed: 0,
+      partial: 0,
+    });
+  });
+
+  it("counts mixed rating buckets", () => {
+    expect(
+      summarizeAttempts([
+        { noteId: "note-1", rating: "nailed" },
+        { noteId: "note-2", rating: "partial" },
+        { noteId: "note-3", rating: "missed" },
+        { noteId: "note-4", rating: "partial" },
+      ]),
+    ).toEqual({
+      missed: 1,
+      nailed: 1,
+      partial: 2,
+    });
+  });
+
+  it("handles large counts", () => {
+    const attempts = [
+      ...Array.from({ length: 125 }, (_, index) => ({
+        noteId: `nailed-${index}`,
+        rating: "nailed" as const,
+      })),
+      ...Array.from({ length: 75 }, (_, index) => ({
+        noteId: `partial-${index}`,
+        rating: "partial" as const,
+      })),
+      ...Array.from({ length: 50 }, (_, index) => ({
+        noteId: `missed-${index}`,
+        rating: "missed" as const,
+      })),
+    ];
+
+    expect(summarizeAttempts(attempts)).toEqual({
+      missed: 50,
+      nailed: 125,
+      partial: 75,
+    });
+  });
+});
 
 describe("recall session setup", () => {
   it("does not start FlashCard sessions from label targets", () => {
