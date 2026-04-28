@@ -57,6 +57,8 @@ For multiple-choice Questions, distractors should be context-bound and plausible
 **SessionResult**:
 The persistent record of a completed RecallSession — when it happened, which Notes were targeted, and the full list of Questions with answers and scores.
 _Avoid_: History, log, summary
+Use "Results" for user-facing UI copy that refers to completed recall work.
+A selectable Results list item represents one SessionResult, not a Note, Label, or saved recall set.
 A RecallSession is considered completed and gets a SessionResult when the user has attempted at least one Question, even if they end the session early before covering every Note. A session with zero attempted Questions is discarded.
 Each stored Question in a SessionResult preserves the Note title and Note body snapshot used at the time of the session, so later Note edits do not change historical results.
 
@@ -102,23 +104,27 @@ The current premium access model. A User supplies their own AI provider API key;
 ### Workspace Navigation
 
 **Notes Workspace**:
-The primary authenticated workspace where the User captures Notes, searches/selects Notes, and starts RecallSessions.
+The primary authenticated workspace where the User captures, searches, selects, and edits Notes.
 _Avoid_: Product menu, notes page
+
+**Recall Section**:
+The primary authenticated section that acts as the base entry point for recall capabilities, including starting RecallSessions and reviewing SessionResults.
+_Avoid_: Recall dashboard, Recall home, Practice (possible future user-facing label), Recall history, quiz area
 
 **Account Dock**:
 A fixed bottom utility area for User/account actions such as logout and settings access.
 _Avoid_: Product menu, primary navigation
 
 **Recall Selection Mode**:
-A temporary Notes Workspace state where the User searches/filters Notes and selects the Notes for a new RecallSession.
+A temporary Recall Section route, such as `/recall/select`, with a dedicated recall picker where the User searches/filters Notes and selects the Notes for a new RecallSession.
 _Avoid_: Bulk edit mode, saved set builder, deck builder
 
 **Recall Session View**:
-The focused route shown after a RecallSession starts, nested under the Notes Workspace.
-_Avoid_: Separate Recall workspace, quiz page
+The focused current-session route shown after a RecallSession starts, such as `/recall/session`.
+_Avoid_: Quiz page
 
 **Workspace Breadcrumb**:
-A small navigational trail that shows where the User is inside the Notes-centered workflow.
+A small navigational trail that shows where the User is inside a workspace section.
 _Avoid_: Product menu, sidebar navigation
 
 ## Relationships
@@ -128,7 +134,7 @@ _Avoid_: Product menu, sidebar navigation
 - A **Note** has zero or more **Metaphors** (cannot exist without their Note)
 - A **Note** has zero or more **Acronyms** (cannot exist without their Note)
 - The **Learning Loop** is centered on **Notes** and **RecallSessions**; **Metaphors** and **Acronyms** support Notes but are not standalone workspace destinations.
-- In v1, the **Learning Loop** is entered through the Notes workspace: the User searches/selects Notes and starts a **RecallSession** from that Notes-centered surface.
+- In v1, the **Learning Loop** has two primary sections: the **Notes Workspace** and the **Recall Section**.
 - Searching for a **Note** includes its own title and body plus the titles/content of its attached **Metaphors** and **Acronyms**, but the search result is still the **Note**.
 - Searching/filtering Notes for a **RecallSession** includes the Note title/body and attached **Metaphors** and **Acronyms**, but selecting a result always selects the owning **Note**.
 - A **RecallSession** targets one or more **Notes** selected by the **User**
@@ -158,18 +164,47 @@ _Avoid_: Product menu, sidebar navigation
 - A **User** owns all their **Notes**, **Labels**, **Metaphors**, **Acronyms**, **RecallSessions**, and **FocusSessions**
 - All relationships are ownership-local to a single **User**. A **Note** can only be assigned to **Labels** owned by the same **User**, and a **RecallSession** can only target Notes owned by that User.
 - In v1, deleting active **Notes**, **Labels**, **Metaphors**, and **Acronyms** is a hard delete. Historical study records remain available only through the snapshots stored in **SessionResult**.
-- In v1, authenticated study work happens in the **Notes Workspace** rather than through a product-menu sidebar.
-- The **Notes Workspace** owns Note search/filter, Note selection, Note editing, and starting a **RecallSession**.
+- In v1, authenticated study work happens through the **Notes Workspace** and the **Recall Section** rather than a generic product-menu sidebar.
+- The **Notes Workspace** owns Note search/filter, Note selection, and Note editing.
+- The **Recall Section** owns starting **RecallSessions** and reviewing **SessionResults**.
+- The **Notes Workspace** may provide a lightweight "Start Recall" entry point for convenience, but it only opens the **Recall Section**; Note selection happens inside Recall.
+- In v1, the primary navigation label for the **Recall Section** is "Recall".
+- The default `/recall` screen does not need a separate domain term; it is the base **Recall Section**.
+- The base **Recall Section** presents completed **SessionResults** in a master-detail layout by default, similar to the **Notes Workspace**.
+- The base **Recall Section** includes a persistent selectable list of **SessionResults**, sorted newest first.
+- The base **Recall Section** does not use separate choice cards for Start Recall, Results, or Recent Results in this version.
+- Selecting a **SessionResult** in the base **Recall Section** opens its details in the main review area.
+- Selecting a **SessionResult** does not change the route in v1; selected result state is local to the base **Recall Section**.
+- When **SessionResults** exist, the newest **SessionResult** is selected by default.
+- After a **RecallSession** creates a **SessionResult**, returning to the base **Recall Section** shows that newest **SessionResult** selected.
+- In the first version of the base **Recall Section** master-detail layout, the selectable list is by **SessionResult** only; note-level performance review is deferred.
+- A **SessionResult** list item shows the completion date/time, attempted Question count, and score summary.
+- The selected **SessionResult** detail shows the stored Note snapshots used in that RecallSession.
+- In this version, stored Notes inside a selected **SessionResult** are shown as a summary section only; nested Note selection inside Results is deferred.
+- The selected **SessionResult** detail is read-only historical review; editing or deleting past Results is out of scope for this change.
+- Starting a new **RecallSession** remains a prominent action in the base **Recall Section**.
+- The base **Recall Section** places **Start Recall** above the **SessionResult** list, mirroring the **Notes Workspace** list action placement while keeping recall-specific wording.
+- **Start Recall** opens **Recall Selection Mode**.
+- The base **Recall Section** supports filtering **SessionResults** by **Label**, but **Labels** remain grouping/filtering aids rather than the foundation of **RecallSession** targeting.
+- The base **Recall Section** remains available when there are no **SessionResults** and shows an empty Results workspace with **Start Recall** prominent.
+- If the **Recall Section** has no recallable **Notes**, it owns the empty state and provides a path to the **Notes Workspace** to create Notes.
+- User-facing copy for completed recall work should say "Results", not "History".
+- The old `/history` route should be removed rather than redirected; v1 does not preserve a standalone history route.
+- The active **Recall Session View** uses a current-session route, such as `/recall/session`, rather than a per-session addressable route.
 - The **Account Dock** owns utility account actions and should not contain product destinations.
-- The **Notes Workspace** enters **Recall Selection Mode** when the User chooses to select Notes for recall.
+- The **Recall Section** enters **Recall Selection Mode** when the User chooses to select Notes for recall.
+- **Recall Selection Mode** has its own route inside the **Recall Section**, such as `/recall/select`, rather than being an in-page mode on `/recall`.
+- **Recall Selection Mode** reuses Note search/filter semantics but does not include Note editing.
 - In **Recall Selection Mode**, selecting a Note toggles it into the temporary RecallSession selection instead of opening it for editing.
 - Exiting **Recall Selection Mode** clears the temporary selected Notes unless a **RecallSession** has already been started.
-- Starting a **RecallSession** takes the User from the **Notes Workspace** to a **Recall Session View** under the Notes route.
-- Ending a **RecallSession** returns the User to the **Notes Workspace**.
-- The **Recall Session View** is only valid while there is an active **RecallSession**; without one, the User returns to the **Notes Workspace**.
-- The **Workspace Breadcrumb** shows the User whether they are in the base **Notes Workspace** or an active **Recall Session View**.
-- The **Workspace Breadcrumb** is structural, such as Notes / Recall; RecallSession progress belongs inside the **Recall Session View**, not in the breadcrumb.
-- Recall history is not a primary v1 destination; where broader **SessionResult** history belongs is deferred.
+- Cancelling **Recall Selection Mode** returns the User to the base **Recall Section** and clears the temporary selected Notes.
+- Starting a **RecallSession** takes the User from the **Recall Section** to a **Recall Session View**.
+- Ending or completing a **RecallSession** returns the User to the base **Recall Section**.
+- A completed **RecallSession** creates a **SessionResult** and appears in the base **Recall Section** after returning there.
+- A **RecallSession** ended early after at least one attempted Question creates a **SessionResult** and appears in the base **Recall Section** like any completed session.
+- The **Recall Session View** is only valid while there is an active **RecallSession**; without one, the User returns to the **Recall Section**.
+- The **Workspace Breadcrumb** shows the User whether they are in the **Notes Workspace**, the base **Recall Section**, or an active **Recall Session View**.
+- The **Workspace Breadcrumb** is structural, such as Recall / Session; RecallSession progress belongs inside the **Recall Session View**, not in the breadcrumb.
 
 ## Example dialogue
 
@@ -177,7 +212,7 @@ _Avoid_: Product menu, sidebar navigation
 > **Domain expert:** "No — in v1 they search/filter Notes and explicitly select the Notes they want to recall."
 
 > **Dev:** "Is **Recall** a separate primary destination beside **Notes** in v1?"
-> **Domain expert:** "No — the User starts a **RecallSession** from the Notes-centered workspace after finding and selecting Notes."
+> **Domain expert:** "Yes — **Notes Workspace** and **Recall Section** are the two primary parts of the **Learning Loop**."
 
 > **Dev:** "Should **Metaphors** and **Acronyms** have their own main workspace screens?"
 > **Domain expert:** "No — they help a **Note** stick in memory, but the primary learning work is capturing **Notes** and doing **RecallSessions**."
@@ -237,22 +272,79 @@ _Avoid_: Product menu, sidebar navigation
 > **Domain expert:** "In v1 we only record that those **FocusTargets** appeared in the **FocusSession**; exact per-target minute splitting is deferred."
 
 > **Dev:** "Does v1 need a product-menu sidebar with Notes, Recall, Labels, History, and Settings?"
-> **Domain expert:** "No — v1 is a **Notes Workspace**. Account utilities belong in the **Account Dock**, not in primary product navigation."
+> **Domain expert:** "No — v1 has **Notes Workspace** and **Recall Section** as primary Learning Loop sections. Account utilities belong in the **Account Dock**, not in primary product navigation."
 
 > **Dev:** "Should Recall checkboxes always be visible in the **Notes Workspace**?"
-> **Domain expert:** "No — the User enters **Recall Selection Mode** first, then searches/filters and selects the Notes for the new **RecallSession**."
+> **Domain expert:** "No — the User enters **Recall Selection Mode** from the **Recall Section**, then searches/filters and selects the Notes for the new **RecallSession**."
+
+> **Dev:** "Can the **Notes Workspace** still offer a way to start recall?"
+> **Domain expert:** "Yes — it can provide a lightweight Start Recall entry point, but it only opens the **Recall Section**; the User selects Notes for recall there."
+
+> **Dev:** "Should Start Recall from Notes carry the currently selected Note into Recall?"
+> **Domain expert:** "No — starting from Notes opens Recall without preselection. Selection happens in the **Recall Section**."
+
+> **Dev:** "Should **Recall Selection Mode** show the full Note editor?"
+> **Domain expert:** "No — it is a dedicated recall picker. It can reuse Note search/filter behaviour, but selection means adding a Note to the RecallSession target set."
 
 > **Dev:** "After the User starts a **RecallSession**, does the session stay on the same Notes screen?"
-> **Domain expert:** "No — the active session opens in a **Recall Session View** under Notes, and ending the session returns to the **Notes Workspace**."
+> **Domain expert:** "No — the active session opens in a **Recall Session View**, and ending the session returns to the **Recall Section**."
+
+> **Dev:** "After a **RecallSession** completes, should the User go directly to full **Results**?"
+> **Domain expert:** "Return to the base **Recall Section**, where the completed session appears as a **SessionResult** in the selectable Results list."
+
+> **Dev:** "If the User ends a **RecallSession** early after one attempted Question, does it appear in **Results**?"
+> **Domain expert:** "Yes — it created a **SessionResult**, so it appears anywhere SessionResults are shown."
 
 > **Dev:** "Can the User open the **Recall Session View** directly when no **RecallSession** is active?"
-> **Domain expert:** "No — without an active **RecallSession**, they return to the **Notes Workspace**."
+> **Domain expert:** "No — without an active **RecallSession**, they return to the **Recall Section**."
+
+> **Dev:** "Should an active **RecallSession** use a route like `/recall/sessions/:sessionId`?"
+> **Domain expert:** "No — in v1 the active session uses a current-session route such as `/recall/session`; per-session routes are deferred until sessions are resumable or otherwise addressable."
 
 > **Dev:** "Should the **Workspace Breadcrumb** show RecallSession progress like '3 of 10'?"
-> **Domain expert:** "No — the breadcrumb stays structural, such as Notes / Recall, while progress belongs in the **Recall Session View**."
+> **Domain expert:** "No — the breadcrumb stays structural, such as Recall / Session, while progress belongs in the **Recall Session View**."
 
 > **Dev:** "Where does broader **SessionResult** history live in v1 navigation?"
-> **Domain expert:** "It is not a primary destination in v1; its placement is deferred until the product needs it."
+> **Domain expert:** "It belongs in the **Recall Section** because reviewing completed recall work is part of the core recall workflow."
+
+> **Dev:** "When the User opens the **Recall Section**, is it mainly for starting recall or reviewing old results?"
+> **Domain expert:** "It opens on persistent **SessionResult** review by default, with starting a new **RecallSession** still prominent."
+
+> **Dev:** "Should the base **Recall Section** immediately enter **Recall Selection Mode**?"
+> **Domain expert:** "No — the base section presents **SessionResults**. The User enters **Recall Selection Mode** when they choose to start a RecallSession."
+
+> **Dev:** "Should **Recall Selection Mode** live inside `/recall`?"
+> **Domain expert:** "No — use a dedicated route such as `/recall/select` so the base **Recall Section** remains the entry point."
+
+> **Dev:** "What happens when the User cancels **Recall Selection Mode**?"
+> **Domain expert:** "They return to the base **Recall Section**, and the temporary selected Notes are cleared."
+
+> **Dev:** "Should base **Results** support filtering by **Label**?"
+> **Domain expert:** "Yes — **Labels** are useful for filtering Results, but they do not define RecallSession targets."
+
+> **Dev:** "Should **Results** be hidden when there are no **SessionResults**?"
+> **Domain expert:** "No — keep **Results** available and show an empty Results state."
+
+> **Dev:** "If there are no **Notes**, should Recall redirect to Notes?"
+> **Domain expert:** "No — stay in the **Recall Section**, explain that recall needs Notes, and provide a path to the **Notes Workspace**."
+
+> **Dev:** "Should the base **Recall Section** show every **SessionResult** immediately?"
+> **Domain expert:** "Yes — it uses a Notes-like master-detail layout with a selectable **SessionResult** list and a detail review pane."
+
+> **Dev:** "Is full **SessionResult** review a mode in the base **Recall Section**?"
+> **Domain expert:** "Yes — the base **Recall Section** is the canonical **SessionResult** review workspace."
+
+> **Dev:** "Should old `/history` links redirect to `/recall`?"
+> **Domain expert:** "No — remove `/history`; completed recall work is reviewed only through the **Recall Section**."
+
+> **Dev:** "Should the UI still say 'history' for completed recall work?"
+> **Domain expert:** "No — use 'Results' in UI copy. The domain term is **SessionResult**."
+
+> **Dev:** "Do we need a separate term like Recall Dashboard for `/recall`?"
+> **Domain expert:** "No — `/recall` is just the base **Recall Section**."
+
+> **Dev:** "Should the primary navigation label say 'Recall' or 'Practice'?"
+> **Domain expert:** "Use 'Recall' in v1 because it matches the domain language, but revisit 'Practice' if general users do not recognize active recall terminology."
 
 ## Flagged ambiguities
 
@@ -261,13 +353,16 @@ _Avoid_: Product menu, sidebar navigation
 - "Recall target" previously meant a chosen **Label** and its descendants — resolved for v1: a **RecallSession** targets explicitly selected **Notes**.
 - "Unlabeled Notes" were previously excluded from recall — resolved for v1: they are recallable because selection is Note-based.
 - "Saved recall set" could have introduced a new grouping concept — resolved for v1: Recall note selection is temporary and not reusable.
-- "Recall" could have meant a separate primary workspace destination — resolved for v1: starting a **RecallSession** is a Notes-centered action.
-- "Selecting Notes" could mean opening a Note for editing or choosing Notes for recall — resolved: in **Recall Selection Mode**, selection toggles Notes into the temporary RecallSession target set.
-- "Recall view" could have meant a separate product destination — resolved: the active **Recall Session View** is nested under the Notes-centered workflow.
-- "Recall route" could have meant a setup destination — resolved: the **Recall Session View** route only represents an active **RecallSession**.
-- "Breadcrumb" could have acted like primary navigation — resolved: the **Workspace Breadcrumb** indicates position inside the Notes-centered workflow, not product sections.
-- "History" could have stayed a primary product destination — resolved for v1: broader **SessionResult** history placement is deferred.
-- "App Sidebar" previously meant the primary authenticated product navigation — resolved for v1: use **Notes Workspace** plus an **Account Dock** instead of a product-menu sidebar.
+- "Recall" could have meant only an action started from Notes — resolved for v1: the **Recall Section** is a primary Learning Loop section beside the **Notes Workspace**.
+- "Start Recall" in the **Notes Workspace** could have meant Notes owns recall setup or passes selected Notes into Recall — resolved for v1: it only opens the **Recall Section** without preselection.
+- "Recall" may be less familiar than "Practice" to general users — resolved for v1: keep "Recall" as the navigation label and revisit after user feedback.
+- "Selecting Notes" could mean opening a Note for editing or choosing Notes for recall — resolved: in the **Notes Workspace**, selection opens a Note for editing; in **Recall Selection Mode**, selection toggles Notes into the temporary RecallSession target set.
+- "Recall view" could have meant either the base **Recall Section** or an active **Recall Session View** — resolved: the base section reviews SessionResults and starts RecallSessions; the session view only represents an active RecallSession.
+- "Recall route" could have meant only an active session route — resolved: `/recall` is the base **Recall Section** and canonical **SessionResult** review workspace, `/recall/select` is **Recall Selection Mode**, `/recall/session` is the active **Recall Session View**, and `/recall/results` is removed.
+- "Recall Dashboard" or "Recall Home" could have named the default `/recall` screen — resolved: use **Recall Section** only; its default surface is the Results master-detail workspace.
+- "Breadcrumb" could have acted like primary navigation — resolved: the **Workspace Breadcrumb** indicates position inside the current workspace section, not product sections.
+- "History" could have stayed a separate product destination, compatibility route, or UI label — resolved for v1: remove `/history`; completed recall work is reviewed as **SessionResults** inside the **Recall Section**, with UI copy using "Results".
+- "App Sidebar" previously meant the primary authenticated product navigation — resolved for v1: use **Notes Workspace**, **Recall Section**, and an **Account Dock**.
 - "Premium" was initially vague — resolved: premium features require **BYOK** now; per-use credits in the future.
 - "Pomodoro" was used as if it were part of **RecallSession** — resolved: the canonical term is **FocusSession**, which is a separate concept.
 - "Pomodoro" was used as the root timer concept — resolved: it is the default **FocusMethod**, not the umbrella term.

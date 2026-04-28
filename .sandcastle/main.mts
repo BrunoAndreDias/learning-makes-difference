@@ -199,7 +199,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           name: "implementer",
           maxIterations: 100,
           idleTimeoutSeconds: IMPLEMENTER_IDLE_TIMEOUT_SECONDS,
-          agent: sandcastle.codex("gpt-5.5",{ effort: "medium" }),
+          agent: sandcastle.codex("gpt-5.4",{ effort: "medium" }),
           promptFile: "./.sandcastle/implement-prompt.md",
           promptArgs: {
             TASK_ID: issue.id,
@@ -214,7 +214,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
             name: "reviewer",
             maxIterations: 1,
             idleTimeoutSeconds: REVIEWER_IDLE_TIMEOUT_SECONDS,
-            agent: sandcastle.codex("gpt-5.4-mini"),
+            agent: sandcastle.codex("gpt-5.5", { effort: "medium" }),
             promptFile: "./.sandcastle/review-prompt.md",
             promptArgs: {
               BRANCH: issue.branch,

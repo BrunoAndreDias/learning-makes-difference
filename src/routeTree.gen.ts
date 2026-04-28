@@ -104,7 +104,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
   '/labels': typeof ProtectedLabelsRoute
-  '/notes': typeof ProtectedNotesRouteWithChildren
+  '/notes': typeof ProtectedNotesRoute
   '/recall': typeof ProtectedRecallRouteWithChildren
   '/settings': typeof ProtectedSettingsRoute
   '/recall/results': typeof ProtectedRecallResultsRoute
@@ -118,7 +118,7 @@ export interface FileRoutesByTo {
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
   '/labels': typeof ProtectedLabelsRoute
-  '/notes': typeof ProtectedNotesRouteWithChildren
+  '/notes': typeof ProtectedNotesRoute
   '/settings': typeof ProtectedSettingsRoute
   '/recall/results': typeof ProtectedRecallResultsRoute
   '/recall/select': typeof ProtectedRecallSelectRoute
@@ -134,7 +134,7 @@ export interface FileRoutesById {
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/register': typeof AuthRegisterRoute
   '/_protected/labels': typeof ProtectedLabelsRoute
-  '/_protected/notes': typeof ProtectedNotesRouteWithChildren
+  '/_protected/notes': typeof ProtectedNotesRoute
   '/_protected/recall': typeof ProtectedRecallRouteWithChildren
   '/_protected/settings': typeof ProtectedSettingsRoute
   '/_public/': typeof PublicIndexRoute
@@ -320,8 +320,6 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
-const ProtectedNotesRouteWithChildren = ProtectedNotesRoute
-
 interface ProtectedRecallRouteChildren {
   ProtectedRecallResultsRoute: typeof ProtectedRecallResultsRoute
   ProtectedRecallSelectRoute: typeof ProtectedRecallSelectRoute
@@ -342,14 +340,14 @@ const ProtectedRecallRouteWithChildren = ProtectedRecallRoute._addFileChildren(
 
 interface ProtectedRouteChildren {
   ProtectedLabelsRoute: typeof ProtectedLabelsRoute
-  ProtectedNotesRoute: typeof ProtectedNotesRouteWithChildren
+  ProtectedNotesRoute: typeof ProtectedNotesRoute
   ProtectedRecallRoute: typeof ProtectedRecallRouteWithChildren
   ProtectedSettingsRoute: typeof ProtectedSettingsRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedLabelsRoute: ProtectedLabelsRoute,
-  ProtectedNotesRoute: ProtectedNotesRouteWithChildren,
+  ProtectedNotesRoute: ProtectedNotesRoute,
   ProtectedRecallRoute: ProtectedRecallRouteWithChildren,
   ProtectedSettingsRoute: ProtectedSettingsRoute,
 }
