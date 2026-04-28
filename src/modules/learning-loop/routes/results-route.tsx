@@ -14,6 +14,10 @@ function formatQuestionCount(count: number) {
   return `${count} ${count === 1 ? "question" : "questions"} in session`;
 }
 
+function formatResultCount(count: number) {
+  return `${count} ${count === 1 ? "result" : "results"}`;
+}
+
 function formatRatingLabel(rating: "missed" | "nailed" | "partial") {
   switch (rating) {
     case "missed":
@@ -57,14 +61,7 @@ export function RecallResultsPage() {
     null,
   );
   const sessionResults =
-    userId === null
-      ? []
-      : [...recallContext.listSessionResults({ userId })].sort((left, right) => {
-          return (
-            new Date(right.completedAt).getTime() -
-            new Date(left.completedAt).getTime()
-          );
-        });
+    userId === null ? [] : recallContext.listSessionResults({ userId });
 
   useEffect(() => {
     if (sessionResults.length === 0) {
@@ -113,7 +110,9 @@ export function RecallResultsPage() {
                   Start Recall
                 </Link>
               </div>
-              <span className="tag">{`${sessionResults.length} ${sessionResults.length === 1 ? "result" : "results"}`}</span>
+              <span className="tag">
+                {formatResultCount(sessionResults.length)}
+              </span>
             </div>
 
             {sessionResults.length === 0 ? (
@@ -127,29 +126,12 @@ export function RecallResultsPage() {
             )}
           </section>
 
-          <section aria-label="Selected session result" className="recall-panel">
+          <section
+            aria-label="Selected session result"
+            className="recall-panel"
+          >
             <p className="section-label">Selected Result</p>
-            {selectedSession === null ? (
-              <p className="muted">
-                Complete a recall session to review stored note snapshots and
-                question ratings.
-              </p>
-            ) : (
-              <>
-                <h4>{selectedSession.labelName}</h4>
-                <p>{formatCompletedAt(selectedSession.completedAt)}</p>
-                <div className="tag-row">
-                  <span className="tag">
-                    {formatAttemptCount(selectedSession.attempts.length)}
-                  </span>
-                  <span className="tag">
-                    {formatQuestionCount(selectedSession.notes.length)}
-                  </span>
-                </div>
-
-                <ResultsSessionReview sessionResult={selectedSession} />
-              </>
-            )}
+            <SelectedSessionResult sessionResult={selectedSession} />
           </section>
         </div>
       </article>
@@ -157,15 +139,19 @@ export function RecallResultsPage() {
   );
 }
 
-function SessionResultsList(props: {
+function SessionResultsList({
+  onSelectSession,
+  results,
+  selectedSessionId,
+}: {
   onSelectSession: (sessionId: string) => void;
   results: readonly FlashCardSessionResult[];
   selectedSessionId: string | null;
 }) {
   return (
     <div className="stack">
-      {props.results.map((result) => {
-        const isSelected = result.id === props.selectedSessionId;
+      {results.map((result) => {
+        const isSelected = result.id === selectedSessionId;
         const summary = summarizeAttempts(result.attempts);
 
         return (
@@ -184,7 +170,7 @@ function SessionResultsList(props: {
             <button
               aria-pressed={isSelected}
               className="notes-action"
-              onClick={() => props.onSelectSession(result.id)}
+              onClick={() => onSelectSession(result.id)}
               type="button"
             >
               Review session
@@ -193,6 +179,38 @@ function SessionResultsList(props: {
         );
       })}
     </div>
+  );
+}
+
+function SelectedSessionResult({
+  sessionResult,
+}: {
+  sessionResult: FlashCardSessionResult | null;
+}) {
+  if (sessionResult === null) {
+    return (
+      <p className="muted">
+        Complete a recall session to review stored note snapshots and question
+        ratings.
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <h4>{sessionResult.labelName}</h4>
+      <p>{formatCompletedAt(sessionResult.completedAt)}</p>
+      <div className="tag-row">
+        <span className="tag">
+          {formatAttemptCount(sessionResult.attempts.length)}
+        </span>
+        <span className="tag">
+          {formatQuestionCount(sessionResult.notes.length)}
+        </span>
+      </div>
+
+      <ResultsSessionReview sessionResult={sessionResult} />
+    </>
   );
 }
 
@@ -220,16 +238,18 @@ function getSelectedSessionResult(
   );
 }
 
-function ResultsSessionReview(props: {
+function ResultsSessionReview({
+  sessionResult,
+}: {
   sessionResult: FlashCardSessionResult;
 }) {
   const attemptsByNoteId = new Map(
-    props.sessionResult.attempts.map((attempt) => [attempt.noteId, attempt]),
+    sessionResult.attempts.map((attempt) => [attempt.noteId, attempt]),
   );
 
   return (
     <div className="stack">
-      {props.sessionResult.notes.map((note, index) => {
+      {sessionResult.notes.map((note, index) => {
         const attempt = attemptsByNoteId.get(note.id);
 
         return (

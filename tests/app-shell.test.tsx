@@ -1952,7 +1952,7 @@ describe("authenticated app shell", () => {
       storage: window.localStorage,
     });
     const userId = "user-jordan";
-    const note = notesContext.createNote(userId, {
+    notesContext.createNote(userId, {
       acronyms: [],
       body: "Retrieval is strengthened by effortful recall.",
       labelIds: [],
@@ -2375,7 +2375,9 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
     expect(
-      screen.getByText("Complete a recall session to build reviewable results."),
+      screen.getByText(
+        "Complete a recall session to build reviewable results.",
+      ),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Start Recall" })).toHaveAttribute(
       "href",
@@ -2852,7 +2854,9 @@ describe("authenticated app shell", () => {
     expect(sessionButtons).toHaveLength(2);
     expect(sessionButtons[0]).toHaveAttribute("aria-pressed", "true");
     expect(sessionButtons[1]).toHaveAttribute("aria-pressed", "false");
-    expect(within(selectedResult).getByText("Spacing effect")).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("Spacing effect"),
+    ).toBeInTheDocument();
     expect(
       within(selectedResult).getByText(
         "Newest results should open directly in the detail pane.",
