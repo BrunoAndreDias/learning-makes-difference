@@ -73,6 +73,7 @@ export class AppNotesError extends Error {
 
 export type AppNotesContext = {
   createNote: (userId: string | null, input: CreateNoteInput) => AppNote;
+  deleteNote: (userId: string | null, noteId: string) => void;
   getSnapshot: () => readonly AppStoredNote[];
   subscribe: (listener: NotesListener) => () => void;
   updateNote: (
@@ -347,6 +348,22 @@ export function createAppNotesContext(
       writeSnapshot([nextNote, ...snapshot]);
 
       return toPublicNote(nextNote);
+    },
+    deleteNote: (userId, noteId) => {
+      const validatedUserId = validateUserId(userId);
+      const existingNote = snapshot.find((note) => note.id === noteId);
+
+      if (
+        existingNote === undefined ||
+        existingNote.userId !== validatedUserId
+      ) {
+        throw new AppNotesError(
+          "not_found",
+          "The requested note could not be found for this account.",
+        );
+      }
+
+      writeSnapshot(snapshot.filter((note) => note.id !== noteId));
     },
     getSnapshot: () => snapshot,
     subscribe: (listener) => {

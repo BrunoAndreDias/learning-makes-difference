@@ -23,6 +23,7 @@ import {
 import {
   type AppNotesContext,
   createAppNotesContext,
+  listNotesForUser,
 } from "../src/features/notes/notes";
 import {
   type AppRecallContext,
@@ -648,7 +649,7 @@ describe("authenticated app shell", () => {
     });
     fireEvent.click(
       within(notesList).getByRole("button", {
-        name: /Older protected note/,
+        name: "Older protected note",
       }),
     );
 
@@ -719,7 +720,9 @@ describe("authenticated app shell", () => {
     const notesNavigation = within(sidebar).getByRole("navigation", {
       name: "Notes list",
     });
-    const notesLinks = within(notesNavigation).getAllByRole("button");
+    const notesLinks = within(notesNavigation).getAllByRole("button", {
+      name: /^(Neural pathways|Second note)$/,
+    });
 
     expect(
       within(sidebar).getByRole("button", { name: "New note" }),
@@ -728,6 +731,11 @@ describe("authenticated app shell", () => {
     expect(notesLinks[0]).toHaveTextContent("Neural pathways");
     expect(notesLinks[1]).toHaveTextContent("Second note");
     expect(notesLinks[0]).toHaveAttribute("aria-current", "page");
+    expect(
+      within(notesNavigation).getAllByRole("button", {
+        name: /^Delete (Neural pathways|Second note)$/,
+      }),
+    ).toHaveLength(2);
     const shellHeader = screen.getByLabelText("Notes workspace toolbar");
 
     expect(
@@ -739,6 +747,75 @@ describe("authenticated app shell", () => {
     expect(screen.queryByLabelText("Notes catalog")).not.toBeInTheDocument();
     expect(screen.getAllByText("Biology").length).toBeGreaterThan(0);
     expect(firstNote.title).toBe("Neural pathways");
+  });
+
+  it("lets an authenticated user delete notes from the sidebar notes list", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "One note should remain after deleting the other.",
+      labelIds: [],
+      metaphors: [],
+      title: "Remaining note",
+    });
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "This note can be removed from the sidebar list.",
+      labelIds: [],
+      metaphors: [],
+      title: "Disposable note",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const notesNavigation = screen.getByRole("navigation", {
+      name: "Notes list",
+    });
+    const disposableNoteRow = within(notesNavigation)
+      .getByRole("button", { name: "Disposable note" })
+      .closest("li");
+
+    expect(disposableNoteRow).not.toBeNull();
+
+    fireEvent.click(
+      within(disposableNoteRow as HTMLElement).getByRole("button", {
+        name: "Delete Disposable note",
+      }),
+    );
+
+    expect(
+      within(notesNavigation).queryByRole("button", {
+        name: "Disposable note",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(notesNavigation).getByRole("button", { name: "Remaining note" }),
+    ).toBeInTheDocument();
+    expect(
+      listNotesForUser(notesContext.getSnapshot(), userId).map(
+        (note) => note.title,
+      ),
+    ).not.toContain("Disposable note");
   });
 
   it("renders every note in the sidebar notes list without a fixed item cap", async () => {
@@ -781,7 +858,11 @@ describe("authenticated app shell", () => {
       name: "Notes list",
     });
 
-    expect(within(notesNavigation).getAllByRole("button")).toHaveLength(12);
+    expect(
+      within(notesNavigation).getAllByRole("button", {
+        name: /^Study note \d+$/,
+      }),
+    ).toHaveLength(12);
     expect(
       within(notesNavigation).getByRole("button", { name: "Study note 12" }),
     ).toBeInTheDocument();
@@ -837,7 +918,7 @@ describe("authenticated app shell", () => {
 
     expect(notesList).toBeVisible();
     fireEvent.click(
-      within(sidebar).getByRole("button", { name: /Spaced repetition/ }),
+      within(sidebar).getByRole("button", { name: "Spaced repetition" }),
     );
     expect(
       screen.getByDisplayValue(
@@ -885,7 +966,7 @@ describe("authenticated app shell", () => {
       within(sidebar).getByRole("navigation", { name: "Notes list" }),
     ).toBeVisible();
     expect(
-      within(sidebar).getByRole("button", { name: /Retrieval practice/ }),
+      within(sidebar).getByRole("button", { name: "Retrieval practice" }),
     ).toHaveAttribute("aria-current", "page");
   });
 
@@ -1006,7 +1087,7 @@ describe("authenticated app shell", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
 
     expect(
-      await screen.findByRole("button", { name: /Spaced repetition/ }),
+      await screen.findByRole("button", { name: "Spaced repetition" }),
     ).toBeInTheDocument();
     expect(screen.getByDisplayValue("Spaced repetition")).toBeInTheDocument();
     expect(
@@ -1027,7 +1108,7 @@ describe("authenticated app shell", () => {
         screen.getByRole("complementary", { name: "Notes workspace" }),
       ).getByRole("button", { name: "New note" }),
     );
-    fireEvent.click(screen.getByRole("button", { name: /Spaced repetition/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Spaced repetition" }));
 
     expect(
       screen.getByDisplayValue(
@@ -1184,10 +1265,10 @@ describe("authenticated app shell", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      notesList.getByRole("button", { name: /Working memory/ }),
+      notesList.getByRole("button", { name: "Working memory" }),
     ).toBeInTheDocument();
     expect(
-      notesList.getByRole("button", { name: /Synaptic plasticity/ }),
+      notesList.getByRole("button", { name: "Synaptic plasticity" }),
     ).toBeInTheDocument();
     expect(
       screen.getByDisplayValue("Short-term storage supports active reasoning."),
@@ -1213,7 +1294,7 @@ describe("authenticated app shell", () => {
 
     expect(screen.getByText("No notes found")).toBeInTheDocument();
     expect(
-      notesList.getByRole("button", { name: /Working memory/ }),
+      notesList.getByRole("button", { name: "Working memory" }),
     ).toBeInTheDocument();
     expect(
       screen.getByDisplayValue("Short-term storage supports active reasoning."),
@@ -1555,10 +1636,10 @@ describe("authenticated app shell", () => {
       screen.getByRole("navigation", { name: "Notes list" }),
     );
     const currentSidebarNote = notesList.getByRole("button", {
-      name: /Current note/,
+      name: "Current note",
     });
     const targetSidebarNote = notesList.getByRole("button", {
-      name: /Older target note/,
+      name: "Older target note",
     });
     const scrollIntoView = vi.mocked(HTMLElement.prototype.scrollIntoView);
 

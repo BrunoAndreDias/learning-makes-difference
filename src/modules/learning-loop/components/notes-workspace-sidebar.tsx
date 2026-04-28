@@ -128,6 +128,14 @@ export function NotesWorkspaceSidebar({
     closeMobileSidebar();
   }
 
+  function handleDeleteNote(noteId: string) {
+    if (userId === null) {
+      return;
+    }
+
+    notesContext.deleteNote(userId, noteId);
+  }
+
   useLayoutEffect(() => {
     if (!isSidebarVisible || activeNoteId === null) {
       return;
@@ -214,7 +222,7 @@ export function NotesWorkspaceSidebar({
               const isRecallSelected = recalledNoteIds.has(note.id);
 
               return (
-                <li key={note.id}>
+                <li className="app-sidebar__workspace-item" key={note.id}>
                   <button
                     aria-label={note.title}
                     aria-current={
@@ -243,6 +251,16 @@ export function NotesWorkspaceSidebar({
                       {formatSidebarNoteDate(note.updatedAt)}
                     </span>
                   </button>
+                  {!isSelectingForRecall ? (
+                    <button
+                      aria-label={`Delete ${note.title}`}
+                      className="app-sidebar__workspace-delete"
+                      onClick={() => handleDeleteNote(note.id)}
+                      type="button"
+                    >
+                      <TrashIcon />
+                    </button>
+                  ) : null}
                 </li>
               );
             })}
@@ -250,5 +268,18 @@ export function NotesWorkspaceSidebar({
         )}
       </nav>
     </section>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M9 4h6" />
+      <path d="M10 4l.5-1h3L14 4" />
+      <path d="M5 7h14" />
+      <path d="M8 7l.7 13h6.6L16 7" />
+      <path d="M10.5 10.5v6" />
+      <path d="M13.5 10.5v6" />
+    </svg>
   );
 }
