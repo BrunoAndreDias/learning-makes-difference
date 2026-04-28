@@ -1993,9 +1993,14 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start Recall" }));
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Results" }),
+      await screen.findByRole("heading", { level: 3, name: "Select Notes" }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall");
+    expect(router.state.location.pathname).toBe("/recall/select");
+    expect(
+      within(screen.getByLabelText("Recall selection controls")).getByText(
+        "0 notes selected",
+      ),
+    ).toBeInTheDocument();
     expect(recallContext.getSnapshot()).toBeNull();
     expect(recallContext.listSessionResults({ userId })).toHaveLength(0);
   });
@@ -2044,9 +2049,14 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start Recall" }));
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Results" }),
+      await screen.findByRole("heading", { level: 3, name: "Select Notes" }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall");
+    expect(router.state.location.pathname).toBe("/recall/select");
+    expect(
+      within(screen.getByLabelText("Recall selection controls")).getByText(
+        "0 notes selected",
+      ),
+    ).toBeInTheDocument();
     expect(recallContext.getSnapshot()).toBeNull();
     expect(
       listNotesForUser(notesContext.getSnapshot(), userId).find(
@@ -2376,7 +2386,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
   });
 
-  it("keeps no-note users on /recall with the empty results workspace", async () => {
+  it("keeps no-note users on /recall with note-creation guidance", async () => {
     const { router } = renderRoute("/recall");
 
     expect(
@@ -2384,13 +2394,19 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
     expect(
+      screen.getByRole("heading", {
+        level: 4,
+        name: "No recallable notes yet",
+      }),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText(
-        "Complete a recall session to build reviewable results.",
+        "Create notes first, then come back to start recall and build results.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Start Recall" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Go to Notes" })).toHaveAttribute(
       "href",
-      "/recall/select",
+      "/notes",
     );
   });
 
@@ -2773,7 +2789,18 @@ describe("authenticated app shell", () => {
   });
 
   it("shows a true empty results state with a recall CTA", async () => {
-    renderRoute("/recall");
+    const { labelsContext, notesContext } = createLearningLoopTestContexts();
+    const userId = "user-placeholder";
+
+    createRecallNote(notesContext, userId, {
+      body: "A note exists, but recall results do not.",
+      title: "Fresh note",
+    });
+
+    renderRoute("/recall", {
+      labelsContext,
+      notesContext,
+    });
 
     expect(
       await screen.findByRole("heading", { name: "No results yet" }),

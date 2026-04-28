@@ -835,7 +835,7 @@ export function NotesWorkspace() {
         </form>
         <button
           className="notes-action notes-action-primary notes-recall-entry-action"
-          onClick={() => void navigate({ to: "/recall" })}
+          onClick={() => void navigate({ to: "/recall/select" })}
           type="button"
         >
           Start Recall

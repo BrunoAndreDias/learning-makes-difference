@@ -1,6 +1,7 @@
 import { Link, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { AppSessionSnapshot } from "../../../features/session/session";
+import { listNotesForUser } from "../domain/notes";
 import {
   type FlashCardRecallAttemptSummary,
   type FlashCardRecallNote,
@@ -60,6 +61,10 @@ export function RecallResultsPage() {
     from: "/_protected",
     select: (context) => context.recall,
   });
+  const notesContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.notes,
+  });
   const sessionContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.session,
@@ -74,12 +79,20 @@ export function RecallResultsPage() {
     recallContext.getSessionResultsSnapshot,
     recallContext.getSessionResultsSnapshot,
   );
+  const notesSnapshot = useSyncExternalStore(
+    notesContext.subscribe,
+    notesContext.getSnapshot,
+    notesContext.getSnapshot,
+  );
   const userId = sessionSnapshot.user?.id ?? null;
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null,
   );
   const sessionResults =
     userId === null ? [] : recallContext.listSessionResults({ userId });
+  const recallableNotes =
+    userId === null ? [] : listNotesForUser(notesSnapshot, userId);
+  const hasRecallableNotes = recallableNotes.length > 0;
 
   useEffect(() => {
     if (sessionResults.length === 0) {
@@ -120,13 +133,23 @@ export function RecallResultsPage() {
             <div className="notes-list__header">
               <div className="stack">
                 <p className="section-label">Start</p>
-                <Link
-                  aria-label="Start Recall"
-                  className="notes-action notes-action-primary notes-recall-entry-action"
-                  to="/recall/select"
-                >
-                  Start Recall
-                </Link>
+                {hasRecallableNotes ? (
+                  <Link
+                    aria-label="Start Recall"
+                    className="notes-action notes-action-primary notes-recall-entry-action"
+                    to="/recall/select"
+                  >
+                    Start Recall
+                  </Link>
+                ) : (
+                  <Link
+                    aria-label="Go to Notes"
+                    className="notes-action notes-action-primary notes-recall-entry-action"
+                    to="/notes"
+                  >
+                    Go to Notes
+                  </Link>
+                )}
               </div>
               <span className="tag">
                 {formatResultCount(sessionResults.length)}
@@ -134,7 +157,7 @@ export function RecallResultsPage() {
             </div>
 
             {sessionResults.length === 0 ? (
-              <NoResultsState />
+              <NoResultsState hasRecallableNotes={hasRecallableNotes} />
             ) : (
               <SessionResultsList
                 onSelectSession={setSelectedSessionId}
@@ -267,7 +290,22 @@ function SelectedSessionResult({
   );
 }
 
-function NoResultsState() {
+function NoResultsState({
+  hasRecallableNotes,
+}: {
+  hasRecallableNotes: boolean;
+}) {
+  if (!hasRecallableNotes) {
+    return (
+      <div className="stack">
+        <h4>No recallable notes yet</h4>
+        <p className="muted">
+          Create notes first, then come back to start recall and build results.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="stack">
       <h4>No results yet</h4>
