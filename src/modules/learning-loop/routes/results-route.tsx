@@ -8,6 +8,11 @@ import {
   summarizeAttempts,
 } from "../domain/recall";
 
+type SessionResultsSnapshot = {
+  newestSessionId: string | null;
+  resultCount: number;
+};
+
 function formatAttemptCount(count: number) {
   return `${count} attempted ${count === 1 ? "question" : "questions"}`;
 }
@@ -80,34 +85,32 @@ export function RecallResultsPage() {
   );
   const sessionResults =
     userId === null ? [] : recallContext.listSessionResults({ userId });
-  const previousNewestSessionIdRef = useRef<string | null>(null);
-  const previousResultCountRef = useRef(0);
+  const previousSessionResultsRef = useRef<SessionResultsSnapshot>({
+    newestSessionId: null,
+    resultCount: 0,
+  });
 
   useEffect(() => {
+    const currentSessionResults = getSessionResultsSnapshot(sessionResults);
+
     if (sessionResults.length === 0) {
       setSelectedSessionId(null);
-      previousNewestSessionIdRef.current = null;
-      previousResultCountRef.current = 0;
+      previousSessionResultsRef.current = currentSessionResults;
       return;
     }
 
-    const newestSessionId = sessionResults[0]?.id ?? null;
-    const hasSelectedSession = sessionResults.some((result) => {
-      return result.id === selectedSessionId;
-    });
-
-    const hasFreshNewestSession =
-      newestSessionId !== null &&
-      previousNewestSessionIdRef.current !== null &&
-      newestSessionId !== previousNewestSessionIdRef.current &&
-      sessionResults.length > previousResultCountRef.current;
-
-    if (!hasSelectedSession || hasFreshNewestSession) {
-      setSelectedSessionId(newestSessionId);
+    if (
+      shouldSelectNewestSessionResult({
+        currentSessionResults,
+        previousSessionResults: previousSessionResultsRef.current,
+        selectedSessionId,
+        sessionResults,
+      })
+    ) {
+      setSelectedSessionId(currentSessionResults.newestSessionId);
     }
 
-    previousNewestSessionIdRef.current = newestSessionId;
-    previousResultCountRef.current = sessionResults.length;
+    previousSessionResultsRef.current = currentSessionResults;
   }, [selectedSessionId, sessionResults]);
 
   const selectedSession = getSelectedSessionResult(
@@ -302,6 +305,53 @@ function getSelectedSessionResult(
 
   return (
     sessionResults.find((result) => result.id === selectedSessionId) ?? null
+  );
+}
+
+function getSessionResultsSnapshot(
+  sessionResults: readonly FlashCardSessionResult[],
+): SessionResultsSnapshot {
+  return {
+    newestSessionId: sessionResults[0]?.id ?? null,
+    resultCount: sessionResults.length,
+  };
+}
+
+function shouldSelectNewestSessionResult({
+  currentSessionResults,
+  previousSessionResults,
+  selectedSessionId,
+  sessionResults,
+}: {
+  currentSessionResults: SessionResultsSnapshot;
+  previousSessionResults: SessionResultsSnapshot;
+  selectedSessionId: string | null;
+  sessionResults: readonly FlashCardSessionResult[];
+}) {
+  const selectedSessionStillExists = sessionResults.some((result) => {
+    return result.id === selectedSessionId;
+  });
+
+  if (!selectedSessionStillExists) {
+    return true;
+  }
+
+  return hasAddedNewNewestSessionResult(
+    previousSessionResults,
+    currentSessionResults,
+  );
+}
+
+function hasAddedNewNewestSessionResult(
+  previousSessionResults: SessionResultsSnapshot,
+  currentSessionResults: SessionResultsSnapshot,
+) {
+  return (
+    previousSessionResults.newestSessionId !== null &&
+    currentSessionResults.newestSessionId !== null &&
+    currentSessionResults.newestSessionId !==
+      previousSessionResults.newestSessionId &&
+    currentSessionResults.resultCount > previousSessionResults.resultCount
   );
 }
 

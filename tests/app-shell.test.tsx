@@ -28,6 +28,7 @@ import {
 import {
   type AppRecallContext,
   createAppRecallContext,
+  type FlashCardRecallRating,
 } from "../src/features/recall/recall";
 import {
   type AppSessionContext,
@@ -168,6 +169,36 @@ function createRecallNote(
     labelIds: input.labelIds ?? [],
     metaphors: [],
     title: input.title,
+  });
+}
+
+function completeRecallSessionAt({
+  noteId,
+  rating,
+  recallContext,
+  timestamp,
+  userId,
+}: {
+  noteId: string;
+  rating: FlashCardRecallRating;
+  recallContext: AppRecallContext;
+  timestamp: string;
+  userId: string;
+}) {
+  vi.setSystemTime(new Date(timestamp));
+  const session = recallContext.startFlashCardSession({
+    noteIds: [noteId],
+    userId,
+  });
+
+  recallContext.revealFlashCardAnswer({
+    sessionId: session.id,
+    userId,
+  });
+  recallContext.rateFlashCardAnswer({
+    rating,
+    sessionId: session.id,
+    userId,
   });
 }
 
@@ -2699,7 +2730,7 @@ describe("authenticated app shell", () => {
       body: "Existing newest result should be replaced by the just-finished one.",
       title: "Existing newest note",
     });
-    const returningNote = createRecallNote(notesContext, userId, {
+    createRecallNote(notesContext, userId, {
       body: "Fresh completion should be selected on return to Recall.",
       title: "Returned newest note",
     });
@@ -2708,19 +2739,11 @@ describe("authenticated app shell", () => {
       ["2026-04-01T09:00:00.000Z", olderNote.id, "missed"],
       ["2026-04-02T09:00:00.000Z", newerExistingNote.id, "partial"],
     ] as const) {
-      vi.setSystemTime(new Date(timestamp));
-      const session = recallContext.startFlashCardSession({
-        noteIds: [noteId],
-        userId,
-      });
-
-      recallContext.revealFlashCardAnswer({
-        sessionId: session.id,
-        userId,
-      });
-      recallContext.rateFlashCardAnswer({
+      completeRecallSessionAt({
+        noteId,
         rating,
-        sessionId: session.id,
+        recallContext,
+        timestamp,
         userId,
       });
     }
@@ -2741,12 +2764,17 @@ describe("authenticated app shell", () => {
       }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Review session" })[1]);
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Review session" })[1],
+    );
 
     const selectedOlderResult = getSelectedSessionResultRegion();
-    const olderQuestionReview = within(selectedOlderResult).getByRole("region", {
-      name: "Question review",
-    });
+    const olderQuestionReview = within(selectedOlderResult).getByRole(
+      "region",
+      {
+        name: "Question review",
+      },
+    );
     expect(
       within(olderQuestionReview).getByRole("heading", {
         name: "Older spacing note",
@@ -2781,7 +2809,9 @@ describe("authenticated app shell", () => {
         name: "Returned newest note",
       }),
     ).toBeInTheDocument();
-    expect(within(selectedReturnedResult).queryByText("Older spacing note")).toBeNull();
+    expect(
+      within(selectedReturnedResult).queryByText("Older spacing note"),
+    ).toBeNull();
   });
 
   it("selects the newest result when a fresh SessionResult is added after an older result was selected", async () => {
@@ -2809,19 +2839,11 @@ describe("authenticated app shell", () => {
       ["2026-04-01T09:00:00.000Z", olderNote.id, "missed"],
       ["2026-04-02T09:00:00.000Z", newerExistingNote.id, "partial"],
     ] as const) {
-      vi.setSystemTime(new Date(timestamp));
-      const session = recallContext.startFlashCardSession({
-        noteIds: [noteId],
-        userId,
-      });
-
-      recallContext.revealFlashCardAnswer({
-        sessionId: session.id,
-        userId,
-      });
-      recallContext.rateFlashCardAnswer({
+      completeRecallSessionAt({
+        noteId,
         rating,
-        sessionId: session.id,
+        recallContext,
+        timestamp,
         userId,
       });
     }
@@ -2841,7 +2863,9 @@ describe("authenticated app shell", () => {
       }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Review session" })[1]);
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Review session" })[1],
+    );
 
     const selectedOlderResult = getSelectedSessionResultRegion();
     expect(
