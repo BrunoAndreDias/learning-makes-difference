@@ -310,6 +310,18 @@ describe("authenticated app shell", () => {
     expect(router.state.location.pathname).toBe("/notes");
   });
 
+  it("redirects the removed /recall/results route to the notes workspace", async () => {
+    const { router } = renderRoute("/recall/results");
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/notes");
+    expect(
+      screen.queryByRole("heading", { level: 3, name: "Results" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("redirects unauthenticated protected navigation into the public login area", async () => {
     const { router } = renderRoute("/settings", { session: { user: null } });
 

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { RecallResultsPage } from "../modules/learning-loop/routes/results-route";
+import { RecallResultsWorkspacePage } from "../modules/learning-loop/routes/recall-results-workspace-route";
 
 export const Route = createFileRoute("/_protected/recall/")({
-  component: RecallResultsPage,
+  component: RecallResultsWorkspacePage,
 });
