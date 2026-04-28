@@ -37,10 +37,6 @@ function getWorkspaceTitle(pathname: string) {
     return "Settings";
   }
 
-  if (pathname === "/notes/recall" || pathname.startsWith("/notes/recall/")) {
-    return "Recall";
-  }
-
   return "Notes";
 }
 

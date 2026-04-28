@@ -24,7 +24,6 @@ import { Route as ProtectedRecallIndexRouteImport } from './routes/_protected.re
 import { Route as ProtectedRecallSessionRouteImport } from './routes/_protected.recall.session'
 import { Route as ProtectedRecallSelectRouteImport } from './routes/_protected.recall.select'
 import { Route as ProtectedRecallResultsRouteImport } from './routes/_protected.recall.results'
-import { Route as ProtectedNotesRecallRouteImport } from './routes/_protected.notes.recall'
 
 const PublicRoute = PublicRouteImport.update({
   id: '/_public',
@@ -98,11 +97,6 @@ const ProtectedRecallResultsRoute = ProtectedRecallResultsRouteImport.update({
   path: '/results',
   getParentRoute: () => ProtectedRecallRoute,
 } as any)
-const ProtectedNotesRecallRoute = ProtectedNotesRecallRouteImport.update({
-  id: '/recall',
-  path: '/recall',
-  getParentRoute: () => ProtectedNotesRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
@@ -113,7 +107,6 @@ export interface FileRoutesByFullPath {
   '/notes': typeof ProtectedNotesRouteWithChildren
   '/recall': typeof ProtectedRecallRouteWithChildren
   '/settings': typeof ProtectedSettingsRoute
-  '/notes/recall': typeof ProtectedNotesRecallRoute
   '/recall/results': typeof ProtectedRecallResultsRoute
   '/recall/select': typeof ProtectedRecallSelectRoute
   '/recall/session': typeof ProtectedRecallSessionRoute
@@ -127,7 +120,6 @@ export interface FileRoutesByTo {
   '/labels': typeof ProtectedLabelsRoute
   '/notes': typeof ProtectedNotesRouteWithChildren
   '/settings': typeof ProtectedSettingsRoute
-  '/notes/recall': typeof ProtectedNotesRecallRoute
   '/recall/results': typeof ProtectedRecallResultsRoute
   '/recall/select': typeof ProtectedRecallSelectRoute
   '/recall/session': typeof ProtectedRecallSessionRoute
@@ -146,7 +138,6 @@ export interface FileRoutesById {
   '/_protected/recall': typeof ProtectedRecallRouteWithChildren
   '/_protected/settings': typeof ProtectedSettingsRoute
   '/_public/': typeof PublicIndexRoute
-  '/_protected/notes/recall': typeof ProtectedNotesRecallRoute
   '/_protected/recall/results': typeof ProtectedRecallResultsRoute
   '/_protected/recall/select': typeof ProtectedRecallSelectRoute
   '/_protected/recall/session': typeof ProtectedRecallSessionRoute
@@ -163,7 +154,6 @@ export interface FileRouteTypes {
     | '/notes'
     | '/recall'
     | '/settings'
-    | '/notes/recall'
     | '/recall/results'
     | '/recall/select'
     | '/recall/session'
@@ -177,7 +167,6 @@ export interface FileRouteTypes {
     | '/labels'
     | '/notes'
     | '/settings'
-    | '/notes/recall'
     | '/recall/results'
     | '/recall/select'
     | '/recall/session'
@@ -195,7 +184,6 @@ export interface FileRouteTypes {
     | '/_protected/recall'
     | '/_protected/settings'
     | '/_public/'
-    | '/_protected/notes/recall'
     | '/_protected/recall/results'
     | '/_protected/recall/select'
     | '/_protected/recall/session'
@@ -315,13 +303,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedRecallResultsRouteImport
       parentRoute: typeof ProtectedRecallRoute
     }
-    '/_protected/notes/recall': {
-      id: '/_protected/notes/recall'
-      path: '/recall'
-      fullPath: '/notes/recall'
-      preLoaderRoute: typeof ProtectedNotesRecallRouteImport
-      parentRoute: typeof ProtectedNotesRoute
-    }
   }
 }
 
@@ -339,17 +320,7 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
-interface ProtectedNotesRouteChildren {
-  ProtectedNotesRecallRoute: typeof ProtectedNotesRecallRoute
-}
-
-const ProtectedNotesRouteChildren: ProtectedNotesRouteChildren = {
-  ProtectedNotesRecallRoute: ProtectedNotesRecallRoute,
-}
-
-const ProtectedNotesRouteWithChildren = ProtectedNotesRoute._addFileChildren(
-  ProtectedNotesRouteChildren,
-)
+const ProtectedNotesRouteWithChildren = ProtectedNotesRoute
 
 interface ProtectedRecallRouteChildren {
   ProtectedRecallResultsRoute: typeof ProtectedRecallResultsRoute
