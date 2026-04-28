@@ -36,7 +36,7 @@ function formatCompletedAt(timestamp: string) {
   }).format(new Date(timestamp));
 }
 
-export function SessionResultsPage() {
+export function RecallResultsPage() {
   const labelsContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.labels,
@@ -154,7 +154,7 @@ export function SessionResultsPage() {
 
       <div className="placeholder-grid recall-layout">
         <article className="card stack">
-          <p className="section-label">Filter results</p>
+          <p className="section-label">Filter Results</p>
           <fieldset className="tag-row">
             <legend className="section-label">Results view</legend>
             <button
@@ -286,8 +286,8 @@ export function SessionResultsPage() {
           )}
         </article>
 
-        <section aria-label="Inspect results" className="card stack">
-          <p className="section-label">Inspect results</p>
+        <section aria-label="Inspect Results" className="card stack">
+          <p className="section-label">Inspect Results</p>
           {resultsView === "session" && selectedSession === null ? (
             <p className="muted">
               Pick a stored session to review its questions, answers, and
@@ -306,7 +306,7 @@ export function SessionResultsPage() {
                 </span>
               </div>
 
-              <SessionReview sessionResult={selectedSession} />
+              <ResultsSessionReview sessionResult={selectedSession} />
             </>
           ) : selectedNote === null ? (
             <p className="muted">
@@ -326,7 +326,7 @@ export function SessionResultsPage() {
                 </span>
               </div>
 
-              <NoteAttemptHistory noteResult={selectedNote} />
+              <NoteAttemptResults noteResult={selectedNote} />
             </>
           )}
         </section>
@@ -373,7 +373,7 @@ function getSelectedNoteResult(
   return noteResults.find((result) => result.noteId === selectedNoteId) ?? null;
 }
 
-function NoteAttemptHistory(props: {
+function NoteAttemptResults(props: {
   noteResult: FlashCardRecallAttemptsByNote;
 }) {
   return (
@@ -397,7 +397,9 @@ function NoteAttemptHistory(props: {
   );
 }
 
-function SessionReview(props: { sessionResult: FlashCardSessionResult }) {
+function ResultsSessionReview(props: {
+  sessionResult: FlashCardSessionResult;
+}) {
   const attemptsByNoteId = new Map(
     props.sessionResult.attempts.map((attempt) => [attempt.noteId, attempt]),
   );
