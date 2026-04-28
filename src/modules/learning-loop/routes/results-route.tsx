@@ -18,6 +18,10 @@ function formatResultCount(count: number) {
   return `${count} ${count === 1 ? "result" : "results"}`;
 }
 
+function formatSummaryCount(count: number, noun: string) {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
 function formatRatingLabel(rating: "missed" | "nailed" | "partial") {
   switch (rating) {
     case "missed":
@@ -196,21 +200,48 @@ function SelectedSessionResult({
     );
   }
 
-  return (
-    <>
-      <h4>{sessionResult.labelName}</h4>
-      <p>{formatCompletedAt(sessionResult.completedAt)}</p>
-      <div className="tag-row">
-        <span className="tag">
-          {formatAttemptCount(sessionResult.attempts.length)}
-        </span>
-        <span className="tag">
-          {formatQuestionCount(sessionResult.notes.length)}
-        </span>
-      </div>
+  const summary = summarizeAttempts(sessionResult.attempts);
 
-      <ResultsSessionReview sessionResult={sessionResult} />
-    </>
+  return (
+    <div className="stack">
+      <header className="stack">
+        <p className="section-label">SessionResult</p>
+        <h4>{sessionResult.labelName}</h4>
+      </header>
+
+      <section className="stack" aria-label="Session details">
+        <h4>Session details</h4>
+        <p>Mode: {sessionResult.mode}</p>
+        <p>Started: {formatCompletedAt(sessionResult.createdAt)}</p>
+        <p>Completed: {formatCompletedAt(sessionResult.completedAt)}</p>
+        <div className="tag-row">
+          <span className="tag">
+            {formatAttemptCount(sessionResult.attempts.length)}
+          </span>
+          <span className="tag">
+            {formatQuestionCount(sessionResult.notes.length)}
+          </span>
+        </div>
+      </section>
+
+      <section className="stack" aria-label="Score summary">
+        <h4>Score summary</h4>
+        <p>
+          Nailed {summary.nailed} · Partial {summary.partial} · Missed{" "}
+          {summary.missed}
+        </p>
+      </section>
+
+      <section className="stack" aria-label="Question review">
+        <h4>Question review</h4>
+        <ResultsSessionReview sessionResult={sessionResult} />
+      </section>
+
+      <section className="stack" aria-label="Stored note snapshots">
+        <h4>Stored note snapshots</h4>
+        <StoredNoteSnapshotSummary sessionResult={sessionResult} />
+      </section>
+    </div>
   );
 }
 
@@ -261,6 +292,30 @@ function ResultsSessionReview({
               {attempt === undefined
                 ? "Rating: Not attempted"
                 : `Rating: ${formatRatingLabel(attempt.rating)}`}
+            </p>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function StoredNoteSnapshotSummary({
+  sessionResult,
+}: {
+  sessionResult: FlashCardSessionResult;
+}) {
+  return (
+    <div className="stack">
+      {sessionResult.notes.map((note) => {
+        return (
+          <article className="recall-session-card stack" key={note.id}>
+            <h5>{note.title}</h5>
+            <p>{note.body}</p>
+            <p className="muted">
+              {formatSummaryCount(note.acronyms.length, "acronym")} ·{" "}
+              {formatSummaryCount(note.metaphors.length, "metaphor")} ·{" "}
+              {formatSummaryCount(note.labelIds.length, "label")}
             </p>
           </article>
         );

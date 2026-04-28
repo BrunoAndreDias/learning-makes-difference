@@ -2651,15 +2651,20 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Nailed it" }));
 
     await expectReturnedToRecall(router);
+    const selectedResult = screen.getByRole("region", {
+      name: "Selected session result",
+    });
     expect(
-      within(
-        screen.getByRole("region", { name: "Selected session result" }),
-      ).getByText("1 attempted question"),
+      within(selectedResult).getByText("1 attempted question"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Nailed 1 · Partial 0 · Missed 0"),
+      within(selectedResult).getByText("Nailed 1 · Partial 0 · Missed 0"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Spacing effect")).toBeInTheDocument();
+    expect(
+      within(selectedResult).getAllByRole("heading", {
+        name: "Spacing effect",
+      }).length,
+    ).toBeGreaterThan(0);
     expect(recallContext.listSessionResults({ userId })).toMatchObject([
       {
         attempts: [{ noteId: note.id, rating: "nailed" }],
@@ -2702,15 +2707,20 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "End session" }));
 
     await expectReturnedToRecall(router);
+    const selectedResult = screen.getByRole("region", {
+      name: "Selected session result",
+    });
     expect(
-      within(
-        screen.getByRole("region", { name: "Selected session result" }),
-      ).getByText("1 attempted question"),
+      within(selectedResult).getByText("1 attempted question"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Nailed 0 · Partial 1 · Missed 0"),
+      within(selectedResult).getByText("Nailed 0 · Partial 1 · Missed 0"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Retrieval strength")).toBeInTheDocument();
+    expect(
+      within(selectedResult).getAllByRole("heading", {
+        name: "Retrieval strength",
+      }).length,
+    ).toBeGreaterThan(0);
     expect(recallContext.listSessionResults({ userId })).toMatchObject([
       {
         attempts: [{ noteId: firstNote.id, rating: "partial" }],
@@ -2855,15 +2865,20 @@ describe("authenticated app shell", () => {
     expect(sessionButtons[0]).toHaveAttribute("aria-pressed", "true");
     expect(sessionButtons[1]).toHaveAttribute("aria-pressed", "false");
     expect(
-      within(selectedResult).getByText("Spacing effect"),
-    ).toBeInTheDocument();
+      within(selectedResult).getAllByRole("heading", {
+        name: "Spacing effect",
+      }).length,
+    ).toBeGreaterThan(0);
+    const questionReview = within(selectedResult).getByRole("region", {
+      name: "Question review",
+    });
     expect(
-      within(selectedResult).getByText(
+      within(questionReview).getByText(
         "Newest results should open directly in the detail pane.",
       ),
     ).toBeInTheDocument();
     expect(
-      within(selectedResult).getByText("Rating: Partly recalled"),
+      within(questionReview).getByText("Rating: Partly recalled"),
     ).toBeInTheDocument();
     expect(within(selectedResult).queryByText("Testing effect")).toBeNull();
   });
@@ -2940,17 +2955,157 @@ describe("authenticated app shell", () => {
     ).toBeGreaterThan(0);
     expect(screen.getAllByText("1 attempted question")).toHaveLength(2);
     expect(
-      screen.getByText("Nailed 1 · Partial 0 · Missed 0"),
+      within(screen.getByRole("region", { name: "Selected session result" })).getByText(
+        "Nailed 1 · Partial 0 · Missed 0",
+      ),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Review session" }));
 
+    const selectedResult = screen.getByRole("region", {
+      name: "Selected session result",
+    });
     expect(
-      await screen.findByRole("heading", { name: "Original prompt" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Original study snapshot")).toBeInTheDocument();
-    expect(screen.getByText("Rating: Nailed it")).toBeInTheDocument();
+      within(selectedResult).getAllByRole("heading", {
+        name: "Original prompt",
+      }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(selectedResult).getAllByText("Original study snapshot").length,
+    ).toBeGreaterThan(0);
+    expect(within(selectedResult).getByText("Rating: Nailed it")).toBeInTheDocument();
     expect(screen.queryByText("Edited live note")).toBeNull();
+  });
+
+  it("shows read-only selected SessionResult details with stored note snapshot summaries", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labelsContext.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const recallContext = createAppRecallContext({
+      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+    const userId = "user-placeholder";
+    const science = labelsContext.createLabel({
+      name: "Alpha Science",
+      userId,
+    });
+    const promptedNote = notesContext.createNote(userId, {
+      acronyms: [{ expansion: "Long term potentiation", shortForm: "LTP" }],
+      body: "Original study snapshot",
+      labelIds: [science.id],
+      metaphors: [
+        {
+          explanation: "Neurons that wire together stay together.",
+          title: "Wiring path",
+        },
+      ],
+      title: "Original prompt",
+    });
+    const unattemptedNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Stored but not attempted in this session",
+      labelIds: [],
+      metaphors: [],
+      title: "Second stored prompt",
+    });
+
+    const session = recallContext.startFlashCardSession({
+      noteIds: [promptedNote.id, unattemptedNote.id],
+      userId,
+    });
+
+    recallContext.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId,
+    });
+    recallContext.rateFlashCardAnswer({
+      rating: "nailed",
+      sessionId: session.id,
+      userId,
+    });
+    recallContext.endFlashCardSession({
+      sessionId: session.id,
+      userId,
+    });
+
+    notesContext.updateNote(userId, promptedNote.id, {
+      acronyms: [{ expansion: "Live edited acronym", shortForm: "LEA" }],
+      body: "Edited live note",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Edited live prompt",
+    });
+
+    renderRoute("/recall", {
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    const selectedResult = await screen.findByRole("region", {
+      name: "Selected session result",
+    });
+
+    expect(
+      within(selectedResult).getByRole("heading", {
+        level: 4,
+        name: "Session details",
+      }),
+    ).toBeInTheDocument();
+    expect(within(selectedResult).getByText("Mode: FlashCard")).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("1 attempted question"),
+    ).toBeInTheDocument();
+    expect(within(selectedResult).getByText("2 questions in session")).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("Nailed 1 · Partial 0 · Missed 0"),
+    ).toBeInTheDocument();
+
+    expect(
+      within(selectedResult).getByRole("heading", {
+        level: 4,
+        name: "Question review",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByRole("heading", {
+        level: 4,
+        name: "Stored note snapshots",
+      }),
+    ).toBeInTheDocument();
+    const snapshotSummary = within(selectedResult).getByRole("region", {
+      name: "Stored note snapshots",
+    });
+    expect(
+      within(snapshotSummary).getByText("Original study snapshot"),
+    ).toBeInTheDocument();
+    expect(
+      within(snapshotSummary).getByText(
+        "Stored but not attempted in this session",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(snapshotSummary).getByText(
+        /1 acronym\s+·\s+1 metaphor\s+·\s+1 label/,
+      ),
+    ).toBeInTheDocument();
+    expect(within(selectedResult).queryByText("Edited live note")).toBeNull();
+    expect(
+      within(selectedResult).queryByRole("button", { name: /edit/i }),
+    ).toBeNull();
+    expect(
+      within(selectedResult).queryByRole("button", { name: /delete/i }),
+    ).toBeNull();
   });
 
   it("switches the selected result without changing the route", async () => {
@@ -3046,8 +3201,9 @@ describe("authenticated app shell", () => {
       }).length,
     ).toBeGreaterThan(0);
     expect(
-      within(resultsPane).getByText("Neural pathways original snapshot"),
-    ).toBeInTheDocument();
+      within(resultsPane).getAllByText("Neural pathways original snapshot")
+        .length,
+    ).toBeGreaterThan(0);
     expect(
       within(resultsPane).getByText("Rating: Missed it"),
     ).toBeInTheDocument();
