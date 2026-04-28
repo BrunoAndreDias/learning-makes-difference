@@ -3,7 +3,10 @@ import { useSyncExternalStore } from "react";
 
 import type { AppSessionSnapshot } from "../../../features/session/session";
 import { listNotesForUser } from "../domain/notes";
-import { summarizeAttempts } from "../domain/recall";
+import {
+  type FlashCardSessionResult,
+  summarizeAttempts,
+} from "../domain/recall";
 
 function formatCompletedAt(timestamp: string) {
   return new Intl.DateTimeFormat("en", {
@@ -19,6 +22,101 @@ function formatAttemptCount(count: number) {
 
 export function RecallRouteShell() {
   return <Outlet />;
+}
+
+function StartRecallCard({
+  hasRecallableNotes,
+}: {
+  hasRecallableNotes: boolean;
+}) {
+  if (!hasRecallableNotes) {
+    return (
+      <article className="card stack">
+        <p className="section-label">Start</p>
+        <h4>Start Recall</h4>
+        <p>Create notes first, then start your first recall session.</p>
+        <Link className="notes-action notes-action-primary" to="/notes">
+          Go to Notes
+        </Link>
+      </article>
+    );
+  }
+
+  return (
+    <article className="card stack">
+      <p className="section-label">Start</p>
+      <h4>Start Recall</h4>
+      <p>
+        Open the new Recall route flow and choose the notes for your next
+        session.
+      </p>
+      <Link className="notes-action notes-action-primary" to="/recall/select">
+        Start Recall
+      </Link>
+    </article>
+  );
+}
+
+function RecentResultsPreview({
+  hasRecallableNotes,
+  recentResults,
+}: {
+  hasRecallableNotes: boolean;
+  recentResults: FlashCardSessionResult[];
+}) {
+  if (!hasRecallableNotes) {
+    return (
+      <article className="card stack">
+        <p className="section-label">Recent Results</p>
+        <h4>No notes yet</h4>
+        <p className="muted">
+          Create notes first, then come back to start recall.
+        </p>
+        <Link className="notes-action" to="/notes">
+          Go to Notes
+        </Link>
+      </article>
+    );
+  }
+
+  if (recentResults.length === 0) {
+    return (
+      <article className="card stack">
+        <p className="section-label">Recent Results</p>
+        <h4>No recent results yet</h4>
+        <p className="muted">
+          Your completed and attempted recall sessions will appear here.
+        </p>
+      </article>
+    );
+  }
+
+  return (
+    <article className="card stack">
+      <p className="section-label">Recent Results</p>
+      <div className="stack">
+        {recentResults.map((result) => {
+          const summary = summarizeAttempts(result.attempts);
+
+          return (
+            <article className="recall-session-card stack" key={result.id}>
+              <p className="section-label">{result.labelName}</p>
+              <p>{formatCompletedAt(result.completedAt)}</p>
+              <div className="tag-row">
+                <span className="tag">
+                  {formatAttemptCount(result.attempts.length)}
+                </span>
+              </div>
+              <p className="muted">
+                Nailed {summary.nailed} · Partial {summary.partial} · Missed{" "}
+                {summary.missed}
+              </p>
+            </article>
+          );
+        })}
+      </div>
+    </article>
+  );
 }
 
 export function RecallHomePage() {
@@ -71,34 +169,7 @@ export function RecallHomePage() {
       </article>
 
       <div className="placeholder-grid recall-layout">
-        <article className="card stack">
-          <p className="section-label">Start</p>
-          <h4>Start Recall</h4>
-          {hasRecallableNotes ? (
-            <>
-              <p>
-                Open the new Recall route flow and choose the notes for your
-                next session.
-              </p>
-              <Link
-                className="notes-action notes-action-primary"
-                to="/recall/select"
-              >
-                Start Recall
-              </Link>
-            </>
-          ) : (
-            <>
-              <p>Create notes first, then start your first recall session.</p>
-              <Link
-                className="notes-action notes-action-primary"
-                to="/notes"
-              >
-                Go to Notes
-              </Link>
-            </>
-          )}
-        </article>
+        <StartRecallCard hasRecallableNotes={hasRecallableNotes} />
 
         <article className="card stack">
           <p className="section-label">Review</p>
@@ -109,52 +180,10 @@ export function RecallHomePage() {
           </Link>
         </article>
 
-        <article className="card stack">
-          <p className="section-label">Recent Results</p>
-          {notes.length === 0 ? (
-            <>
-              <h4>No notes yet</h4>
-              <p className="muted">
-                Create notes first, then come back to start recall.
-              </p>
-              <Link className="notes-action" to="/notes">
-                Go to Notes
-              </Link>
-            </>
-          ) : recentResults.length === 0 ? (
-            <>
-              <h4>No recent results yet</h4>
-              <p className="muted">
-                Your completed and attempted recall sessions will appear here.
-              </p>
-            </>
-          ) : (
-            <div className="stack">
-              {recentResults.map((result) => {
-                const summary = summarizeAttempts(result.attempts);
-
-                return (
-                  <article
-                    className="recall-session-card stack"
-                    key={result.id}
-                  >
-                    <p className="section-label">{result.labelName}</p>
-                    <p>{formatCompletedAt(result.completedAt)}</p>
-                    <div className="tag-row">
-                      <span className="tag">
-                        {formatAttemptCount(result.attempts.length)}
-                      </span>
-                    </div>
-                    <p className="muted">
-                      Nailed {summary.nailed} · Partial {summary.partial} ·
-                      Missed {summary.missed}
-                    </p>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </article>
+        <RecentResultsPreview
+          hasRecallableNotes={hasRecallableNotes}
+          recentResults={recentResults}
+        />
       </div>
     </section>
   );

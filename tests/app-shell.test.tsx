@@ -110,6 +110,35 @@ function renderRoute(
   };
 }
 
+function createLearningLoopTestContexts(
+  recallOptions: Partial<
+    Pick<Parameters<typeof createAppRecallContext>[0], "shuffleNotes">
+  > = {},
+) {
+  const labelsContext = createAppLabelsContext({
+    keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+    storage: window.localStorage,
+  });
+  const notesContext = createAppNotesContext({
+    getOwnedLabelIdsForUser: (userId) =>
+      labelsContext.getLabelsForUser(userId).map((label) => label.id),
+    keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+    storage: window.localStorage,
+  });
+  const recallContext = createAppRecallContext({
+    keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+    notes: notesContext,
+    storage: window.localStorage,
+    ...recallOptions,
+  });
+
+  return {
+    labelsContext,
+    notesContext,
+    recallContext,
+  };
+}
+
 function openAccountMenu() {
   fireEvent.click(screen.getByRole("button", { name: /account menu/i }));
 }
@@ -2814,16 +2843,7 @@ describe("authenticated app shell", () => {
   });
 
   it("renders recall entry points with a stable empty recent-results preview", async () => {
-    const labelsContext = createAppLabelsContext({
-      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
-      storage: window.localStorage,
-    });
-    const notesContext = createAppNotesContext({
-      getOwnedLabelIdsForUser: (userId) =>
-        labelsContext.getLabelsForUser(userId).map((label) => label.id),
-      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
-      storage: window.localStorage,
-    });
+    const { labelsContext, notesContext } = createLearningLoopTestContexts();
     const userId = "user-placeholder";
 
     notesContext.createNote(userId, {
@@ -2854,11 +2874,11 @@ describe("authenticated app shell", () => {
     expect(
       screen.getByRole("heading", { level: 4, name: "Results" }),
     ).toBeInTheDocument();
+    expect(screen.getByText("No recent results yet")).toBeInTheDocument();
     expect(
-      screen.getByText("No recent results yet"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Your completed and attempted recall sessions will appear here."),
+      screen.getByText(
+        "Your completed and attempted recall sessions will appear here.",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -2905,22 +2925,10 @@ describe("authenticated app shell", () => {
   });
 
   it("shows recent results as a compact session-level preview on /recall", async () => {
-    const labelsContext = createAppLabelsContext({
-      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
-      storage: window.localStorage,
-    });
-    const notesContext = createAppNotesContext({
-      getOwnedLabelIdsForUser: (userId) =>
-        labelsContext.getLabelsForUser(userId).map((label) => label.id),
-      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
-      storage: window.localStorage,
-    });
-    const recallContext = createAppRecallContext({
-      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
-      notes: notesContext,
-      shuffleNotes: (sessionNotes) => [...sessionNotes],
-      storage: window.localStorage,
-    });
+    const { labelsContext, notesContext, recallContext } =
+      createLearningLoopTestContexts({
+        shuffleNotes: (sessionNotes) => [...sessionNotes],
+      });
     const userId = "user-placeholder";
     const science = labelsContext.createLabel({
       name: "Science",
@@ -2954,9 +2962,7 @@ describe("authenticated app shell", () => {
       recallContext,
     });
 
-    expect(
-      await screen.findByText("1 attempted question"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("1 attempted question")).toBeInTheDocument();
     expect(
       screen.getByText("Nailed 1 · Partial 0 · Missed 0"),
     ).toBeInTheDocument();
