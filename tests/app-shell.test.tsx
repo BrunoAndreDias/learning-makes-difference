@@ -3073,16 +3073,10 @@ describe("authenticated app shell", () => {
   });
 
   it("shows a structural Recall / Session breadcrumb for an active recall session", async () => {
-    const notesContext = createAppNotesContext({
-      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
-      storage: window.localStorage,
-    });
-    const recallContext = createAppRecallContext({
-      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
-      notes: notesContext,
-      shuffleNotes: (sessionNotes) => [...sessionNotes],
-      storage: window.localStorage,
-    });
+    const { labelsContext, notesContext, recallContext } =
+      createLearningLoopTestContexts({
+        shuffleNotes: (sessionNotes) => [...sessionNotes],
+      });
     const userId = "user-jordan";
     const note = notesContext.createNote(userId, {
       acronyms: [],
@@ -3098,6 +3092,7 @@ describe("authenticated app shell", () => {
     });
 
     renderRoute("/recall/session", {
+      labelsContext,
       notesContext,
       recallContext,
       session: {
@@ -3130,17 +3125,7 @@ describe("authenticated app shell", () => {
   });
 
   it("redirects direct recall session visits without an active session back to recall", async () => {
-    const { router } = renderRoute("/recall/session", {
-      session: {
-        user: {
-          displayName: "Jordan Review",
-          email: "jordan@example.com",
-          id: "user-jordan",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
-        },
-      },
-    });
+    const { router } = renderRoute("/recall/session");
 
     expect(
       await screen.findByRole("heading", { level: 3, name: "Recall" }),
