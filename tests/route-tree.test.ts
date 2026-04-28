@@ -31,6 +31,9 @@ describe("route tree", () => {
     expect(generatedRouteTree).not.toContain(
       "'/history': typeof ProtectedHistoryRoute",
     );
+    expect(generatedRouteTree).not.toContain(
+      "'/notes/recall': typeof ProtectedNotesRecallRoute",
+    );
     expect(generatedRouteTree).toContain(
       "'/settings': typeof ProtectedSettingsRoute",
     );
