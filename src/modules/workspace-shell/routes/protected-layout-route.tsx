@@ -20,6 +20,7 @@ import type { AppSessionSnapshot } from "../../../features/session/session";
 import {
   LearningLoopWorkspaceProvider,
   NotesWorkspaceSidebar,
+  RecallResultsSidebar,
 } from "../../learning-loop";
 
 type NavigationIconName = "label" | "note" | "recall" | "settings";
@@ -42,6 +43,10 @@ function getWorkspaceTitle(pathname: string) {
 
 function isNotesWorkspacePath(pathname: string) {
   return pathname === "/notes" || pathname.startsWith("/notes/");
+}
+
+function isRecallResultsWorkspacePath(pathname: string) {
+  return pathname === "/recall";
 }
 
 export function AppLayout() {
@@ -68,6 +73,9 @@ export function AppLayout() {
   );
   const workspaceTitle = getWorkspaceTitle(location.pathname);
   const isNotesWorkspaceRoute = isNotesWorkspacePath(location.pathname);
+  const isRecallResultsWorkspaceRoute = isRecallResultsWorkspacePath(
+    location.pathname,
+  );
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
   const sidebarToggleLabel = isSidebarCollapsed
     ? "Expand sidebar"
@@ -172,6 +180,9 @@ export function AppLayout() {
                 isMobileSidebarOpen={isMobileSidebarOpen}
                 isSidebarVisible={!isSidebarCollapsed}
               />
+            ) : null}
+            {isRecallResultsWorkspaceRoute ? (
+              <RecallResultsSidebar closeMobileSidebar={closeMobileSidebar} />
             ) : null}
           </div>
         </aside>

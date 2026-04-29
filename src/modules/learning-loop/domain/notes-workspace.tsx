@@ -53,6 +53,8 @@ type NotesWorkspaceContextValue = {
   markEditorSaved: (note: AppNote) => void;
   noteEditor: NoteEditorState;
   pendingSearchJump: NotesWorkspaceActivationResult["completedSearchJump"];
+  selectedRecallLabelId: string;
+  selectedRecallSessionId: string | null;
   removeEditorAcronym: (index: number) => void;
   removeEditorMetaphor: (index: number) => void;
   requestEditorFocus: () => void;
@@ -61,6 +63,8 @@ type NotesWorkspaceContextValue = {
     notes: readonly AppNote[],
   ) => NotesWorkspaceActivationResult;
   startNewNoteDraft: () => void;
+  selectRecallLabel: (labelId: string) => void;
+  selectRecallSession: (sessionId: string | null) => void;
   syncEditorWithNotes: (notes: readonly AppNote[]) => void;
   toggleEditorLabel: (labelId: string, checked: boolean) => void;
   updateEditorAcronym: <K extends keyof AppAcronym>(
@@ -92,6 +96,10 @@ export function NotesWorkspaceProvider({
   const [pendingSearchJump, setPendingSearchJump] =
     useState<NotesWorkspaceActivationResult["completedSearchJump"]>(null);
   const [editorFocusRequestNonce, setEditorFocusRequestNonce] = useState(0);
+  const [selectedRecallLabelId, setSelectedRecallLabelId] = useState("");
+  const [selectedRecallSessionId, setSelectedRecallSessionId] = useState<
+    string | null
+  >(null);
   const hasInitializedEditorRef = useRef(false);
 
   const getWorkspaceState = useCallback(
@@ -249,6 +257,14 @@ export function NotesWorkspaceProvider({
     setPendingSearchJump(null);
   }, []);
 
+  const selectRecallLabel = useCallback((labelId: string) => {
+    setSelectedRecallLabelId(labelId);
+  }, []);
+
+  const selectRecallSession = useCallback((sessionId: string | null) => {
+    setSelectedRecallSessionId(sessionId);
+  }, []);
+
   const value: NotesWorkspaceContextValue = {
     activeNoteId: noteEditor.selectedNoteId,
     activateNoteTarget,
@@ -266,9 +282,13 @@ export function NotesWorkspaceProvider({
     markEditorSaved: markSaved,
     noteEditor,
     pendingSearchJump,
+    selectedRecallLabelId,
+    selectedRecallSessionId,
     removeEditorAcronym,
     removeEditorMetaphor,
     requestEditorFocus,
+    selectRecallLabel,
+    selectRecallSession,
     startNewNoteDraft: startDraft,
     syncEditorWithNotes,
     toggleEditorLabel,

@@ -63,7 +63,7 @@ export function NotesWorkspaceSidebar({
   }
 
   function handleNoteClick(noteId: string) {
-    const result = activateNoteTarget(
+    activateNoteTarget(
       {
         noteId,
         type: "note",

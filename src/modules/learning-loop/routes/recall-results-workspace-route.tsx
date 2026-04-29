@@ -1,10 +1,8 @@
-import { Link, useRouteContext } from "@tanstack/react-router";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { AppLabel } from "../../../features/labels/labels";
+import { useRouteContext } from "@tanstack/react-router";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import type { AppSessionSnapshot } from "../../../features/session/session";
-import { listNotesForUser } from "../domain/notes";
+import { useNotesWorkspace } from "../domain/notes-workspace";
 import {
-  type FlashCardRecallAttemptSummary,
   type FlashCardRecallNote,
   type FlashCardSessionResult,
   summarizeAttempts,
@@ -23,45 +21,12 @@ function formatQuestionCount(count: number) {
   return `${count} ${count === 1 ? "question" : "questions"} in session`;
 }
 
-function formatResultCount(count: number) {
-  return `${count} ${count === 1 ? "result" : "results"}`;
-}
-
 function formatSummaryCount(count: number, noun: string) {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
-function formatScoreSummary(summary: FlashCardRecallAttemptSummary) {
+function formatScoreSummary(summary: ReturnType<typeof summarizeAttempts>) {
   return `Nailed ${summary.nailed} · Partial ${summary.partial} · Missed ${summary.missed}`;
-}
-
-type ResultsStartAction = {
-  label: "Go to Notes" | "Start Recall";
-  to: "/notes" | "/recall/select";
-};
-
-type NoResultsStateKind = "needs-notes" | "needs-results";
-
-function getResultsStartAction(
-  hasNotesAvailableForRecall: boolean,
-): ResultsStartAction {
-  if (hasNotesAvailableForRecall) {
-    return {
-      label: "Start Recall",
-      to: "/recall/select",
-    };
-  }
-
-  return {
-    label: "Go to Notes",
-    to: "/notes",
-  };
-}
-
-function getNoResultsStateKind(
-  hasNotesAvailableForRecall: boolean,
-): NoResultsStateKind {
-  return hasNotesAvailableForRecall ? "needs-results" : "needs-notes";
 }
 
 function formatStoredNoteSnapshotSummary(note: FlashCardRecallNote) {
@@ -92,22 +57,19 @@ function formatDateTime(timestamp: string) {
 }
 
 export function RecallResultsWorkspacePage() {
-  const labelsContext = useRouteContext({
-    from: "/_protected",
-    select: (context) => context.labels,
-  });
   const recallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.recall,
-  });
-  const notesContext = useRouteContext({
-    from: "/_protected",
-    select: (context) => context.notes,
   });
   const sessionContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.session,
   });
+  const {
+    selectedRecallLabelId,
+    selectedRecallSessionId,
+    selectRecallSession,
+  } = useNotesWorkspace();
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
     sessionContext.subscribe,
     sessionContext.getSnapshot,
@@ -118,19 +80,9 @@ export function RecallResultsWorkspacePage() {
     recallContext.getSessionResultsSnapshot,
     recallContext.getSessionResultsSnapshot,
   );
-  const notesSnapshot = useSyncExternalStore(
-    notesContext.subscribe,
-    notesContext.getSnapshot,
-    notesContext.getSnapshot,
-  );
   const userId = sessionSnapshot.user?.id ?? null;
-  const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
-  const [selectedLabelId, setSelectedLabelId] = useState("");
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
-    null,
-  );
   const selectedLabelFilter =
-    selectedLabelId.length === 0 ? undefined : selectedLabelId;
+    selectedRecallLabelId.length === 0 ? undefined : selectedRecallLabelId;
   const sessionResults =
     userId === null
       ? []
@@ -138,45 +90,16 @@ export function RecallResultsWorkspacePage() {
           labelId: selectedLabelFilter,
           userId,
         });
-  const notesAvailableForRecall =
-    userId === null ? [] : listNotesForUser(notesSnapshot, userId);
-  const hasNotesAvailableForRecall = notesAvailableForRecall.length > 0;
-  const startAction = getResultsStartAction(hasNotesAvailableForRecall);
-  const noResultsStateKind = getNoResultsStateKind(hasNotesAvailableForRecall);
   const previousSessionResultsRef = useRef<SessionResultsSnapshot>({
     newestSessionId: null,
     resultCount: 0,
   });
 
   useEffect(() => {
-    function syncAvailableLabels() {
-      if (userId === null) {
-        setAvailableLabels([]);
-        return;
-      }
-
-      setAvailableLabels(labelsContext.getLabelsForUser(userId));
-    }
-
-    syncAvailableLabels();
-
-    return labelsContext.subscribe(syncAvailableLabels);
-  }, [labelsContext, userId]);
-
-  useEffect(() => {
-    if (
-      selectedLabelId.length > 0 &&
-      !availableLabels.some((label) => label.id === selectedLabelId)
-    ) {
-      setSelectedLabelId("");
-    }
-  }, [availableLabels, selectedLabelId]);
-
-  useEffect(() => {
     const currentSessionResults = getSessionResultsSnapshot(sessionResults);
 
     if (sessionResults.length === 0) {
-      setSelectedSessionId(null);
+      selectRecallSession(null);
       previousSessionResultsRef.current = currentSessionResults;
       return;
     }
@@ -185,19 +108,19 @@ export function RecallResultsWorkspacePage() {
       shouldSelectNewestSessionResult({
         currentSessionResults,
         previousSessionResults: previousSessionResultsRef.current,
-        selectedSessionId,
+        selectedSessionId: selectedRecallSessionId,
         sessionResults,
       })
     ) {
-      setSelectedSessionId(currentSessionResults.newestSessionId);
+      selectRecallSession(currentSessionResults.newestSessionId);
     }
 
     previousSessionResultsRef.current = currentSessionResults;
-  }, [selectedSessionId, sessionResults]);
+  }, [selectRecallSession, selectedRecallSessionId, sessionResults]);
 
   const selectedSession = getSelectedSessionResult(
     sessionResults,
-    selectedSessionId,
+    selectedRecallSessionId,
   );
 
   return (
@@ -214,45 +137,7 @@ export function RecallResultsWorkspacePage() {
           </div>
         </header>
 
-        <div className="recall-results-layout">
-          <section aria-label="Session results list" className="recall-panel">
-            <div className="notes-list__header">
-              <div className="stack">
-                <p className="section-label">Start</p>
-                <Link
-                  aria-label={startAction.label}
-                  className="notes-action notes-action-primary notes-recall-entry-action"
-                  to={startAction.to}
-                >
-                  {startAction.label}
-                </Link>
-                {availableLabels.length > 0 ? (
-                  <LabelFilter
-                    labels={availableLabels}
-                    selectedLabelId={selectedLabelId}
-                    onChange={setSelectedLabelId}
-                  />
-                ) : null}
-              </div>
-              <span className="tag">
-                {formatResultCount(sessionResults.length)}
-              </span>
-            </div>
-
-            {sessionResults.length === 0 ? (
-              <NoResultsState
-                hasActiveFilter={selectedLabelFilter !== undefined}
-                state={noResultsStateKind}
-              />
-            ) : (
-              <SessionResultsList
-                onSelectSession={setSelectedSessionId}
-                results={sessionResults}
-                selectedSessionId={selectedSessionId}
-              />
-            )}
-          </section>
-
+        <div className="recall-results-layout recall-results-layout--details-only">
           <section
             aria-label="Selected session result"
             className="recall-panel"
@@ -263,75 +148,6 @@ export function RecallResultsWorkspacePage() {
         </div>
       </article>
     </section>
-  );
-}
-
-function LabelFilter({
-  labels,
-  onChange,
-  selectedLabelId,
-}: {
-  labels: readonly AppLabel[];
-  onChange: (labelId: string) => void;
-  selectedLabelId: string;
-}) {
-  return (
-    <label className="stack" htmlFor="recall-results-label-filter">
-      <span className="section-label">Label filter</span>
-      <select
-        aria-label="Filter results by label"
-        id="recall-results-label-filter"
-        onChange={(event) => onChange(event.target.value)}
-        value={selectedLabelId}
-      >
-        <option value="">All labels</option>
-        {labels.map((label) => (
-          <option key={label.id} value={label.id}>
-            {label.name}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function SessionResultsList({
-  onSelectSession,
-  results,
-  selectedSessionId,
-}: {
-  onSelectSession: (sessionId: string) => void;
-  results: readonly FlashCardSessionResult[];
-  selectedSessionId: string | null;
-}) {
-  return (
-    <div className="stack">
-      {results.map((result) => {
-        const isSelected = result.id === selectedSessionId;
-        const summary = summarizeAttempts(result.attempts);
-
-        return (
-          <article className="recall-session-card stack" key={result.id}>
-            <p className="section-label">SessionResult</p>
-            <p>{formatDateTime(result.completedAt)}</p>
-            <div className="tag-row">
-              <span className="tag">
-                {formatAttemptCount(result.attempts.length)}
-              </span>
-            </div>
-            <p className="muted">{formatScoreSummary(summary)}</p>
-            <button
-              aria-pressed={isSelected}
-              className="notes-action"
-              onClick={() => onSelectSession(result.id)}
-              type="button"
-            >
-              Review session
-            </button>
-          </article>
-        );
-      })}
-    </div>
   );
 }
 
@@ -405,43 +221,6 @@ function SelectedSessionResult({
   );
 }
 
-function NoResultsState({
-  hasActiveFilter,
-  state,
-}: {
-  hasActiveFilter: boolean;
-  state: NoResultsStateKind;
-}) {
-  if (hasActiveFilter) {
-    return (
-      <div className="stack">
-        <h4>No matching results</h4>
-        <p className="muted">No results match this label yet.</p>
-      </div>
-    );
-  }
-
-  if (state === "needs-notes") {
-    return (
-      <div className="stack">
-        <h4>No recallable notes yet</h4>
-        <p className="muted">
-          Create notes first, then come back to start recall and build results.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="stack">
-      <h4>No results yet</h4>
-      <p className="muted">
-        Complete a recall session to build reviewable results.
-      </p>
-    </div>
-  );
-}
-
 function getSelectedSessionResult(
   sessionResults: readonly FlashCardSessionResult[],
   selectedSessionId: string | null,
@@ -480,6 +259,13 @@ function shouldSelectNewestSessionResult({
   });
 
   if (!selectedSessionStillExists) {
+    return true;
+  }
+
+  if (
+    previousSessionResults.resultCount === 0 &&
+    currentSessionResults.newestSessionId !== selectedSessionId
+  ) {
     return true;
   }
 
