@@ -17,9 +17,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-
-import type { AppLabel } from "../../../features/labels/labels";
-import type { AppSessionSnapshot } from "../../../features/session/session";
+import type { AppSessionSnapshot } from "../../access/domain/session";
+import type { AppLabel } from "../../labels/domain/labels";
 import {
   getNoteEditorSaveInput,
   getSelectedNote,

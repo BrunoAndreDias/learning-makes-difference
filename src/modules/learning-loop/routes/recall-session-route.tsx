@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
-import type { AppSessionSnapshot } from "../../../features/session/session";
+import type { AppSessionSnapshot } from "../../access/domain/session";
 import {
   AppRecallError,
   type AppRecallSnapshot,

@@ -17,14 +17,14 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
-  type AppLabelsContext,
-  createAppLabelsContext,
-} from "../../features/labels/labels";
-import {
   type AppSessionContext,
   type AppSessionSnapshot,
   createAppSessionContext,
-} from "../../features/session/session";
+} from "../../modules/access/domain/session";
+import {
+  type AppLabelsContext,
+  createAppLabelsContext,
+} from "../../modules/labels/domain/labels";
 import {
   type AppNotesContext,
   createAppNotesContext,

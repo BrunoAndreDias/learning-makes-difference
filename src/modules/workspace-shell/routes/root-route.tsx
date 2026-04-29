@@ -12,12 +12,12 @@ import {
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { type ReactNode, useSyncExternalStore } from "react";
 import appLogo from "../../../../docs/layout/logo.svg";
-import type { AppLabelsContext } from "../../../features/labels/labels";
+import appCss from "../../../styles/app.css?url";
 import {
   type AppSessionContext,
   hasActiveSession,
-} from "../../../features/session/session";
-import appCss from "../../../styles/app.css?url";
+} from "../../access/domain/session";
+import type { AppLabelsContext } from "../../labels/domain/labels";
 import type { AppNotesContext } from "../../learning-loop/domain/notes";
 import type { AppRecallContext } from "../../learning-loop/domain/recall";
 

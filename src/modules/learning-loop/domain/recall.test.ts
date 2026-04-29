@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createAppLabelsContext } from "../../../features/labels/labels";
+import { createAppLabelsContext } from "../../labels/domain/labels";
 import { createAppNotesContext } from "./notes";
 import { createAppRecallContext, summarizeAttempts } from "./recall";
 

@@ -12,7 +12,7 @@ import {
   type AppLanguagePreference,
   type AppSessionSnapshot,
   appLanguagePreferences,
-} from "../../../features/session/session";
+} from "../domain/session";
 
 export const Route = createFileRoute("/_protected/settings")({
   component: SettingsPage,

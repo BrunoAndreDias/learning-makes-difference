@@ -1,6 +1,6 @@
 import { useRouteContext } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
-import type { AppSessionSnapshot } from "../../../features/session/session";
+import type { AppSessionSnapshot } from "../../access/domain/session";
 import { listNotesForUser } from "../domain/notes";
 import { useNotesWorkspace } from "../domain/notes-workspace";
 

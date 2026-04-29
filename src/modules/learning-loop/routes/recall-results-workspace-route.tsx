@@ -1,6 +1,6 @@
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import type { AppSessionSnapshot } from "../../../features/session/session";
+import type { AppSessionSnapshot } from "../../access/domain/session";
 import { useNotesWorkspace } from "../domain/notes-workspace";
 import {
   type FlashCardRecallNote,

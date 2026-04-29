@@ -1,7 +1,7 @@
 import { Link, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import type { AppLabel } from "../../../features/labels/labels";
-import type { AppSessionSnapshot } from "../../../features/session/session";
+import type { AppSessionSnapshot } from "../../access/domain/session";
+import type { AppLabel } from "../../labels/domain/labels";
 import { listNotesForUser } from "../domain/notes";
 import { useNotesWorkspace } from "../domain/notes-workspace";
 import type { FlashCardSessionResult } from "../domain/recall";
