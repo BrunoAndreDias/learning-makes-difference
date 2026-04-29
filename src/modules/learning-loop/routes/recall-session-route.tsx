@@ -1,4 +1,9 @@
-import { Link, useNavigate, useRouteContext } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  useNavigate,
+  useRouteContext,
+} from "@tanstack/react-router";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 import type { AppSessionSnapshot } from "../../../features/session/session";
@@ -16,6 +21,10 @@ type RecallSessionRouteOptions = {
   breadcrumbTo: "/notes" | "/recall";
   returnTo: "/notes" | "/recall";
 };
+
+export const Route = createFileRoute("/_protected/recall/session")({
+  component: RecallSessionPage,
+});
 
 export function RecallSessionPage() {
   return (

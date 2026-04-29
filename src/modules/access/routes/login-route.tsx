@@ -8,7 +8,10 @@ import {
 import { type FormEvent, useState } from "react";
 import { z } from "zod";
 
-import { AppAuthError, hasActiveSession } from "../features/session/session";
+import {
+  AppAuthError,
+  hasActiveSession,
+} from "../../../features/session/session";
 
 export const Route = createFileRoute("/_auth/login")({
   validateSearch: z.object({

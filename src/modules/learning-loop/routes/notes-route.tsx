@@ -1,4 +1,5 @@
 import {
+  createFileRoute,
   Outlet,
   useLocation,
   useNavigate,
@@ -43,6 +44,10 @@ const notesSearchListboxId = "notes-search-results";
 const noteEditorFormId = "note-editor-form";
 const minNoteBodyFraction = 0.35;
 const maxNoteBodyFraction = 0.95;
+
+export const Route = createFileRoute("/_protected/notes")({
+  component: NotesWorkspace,
+});
 
 function formatNoteDate(value: string): string {
   return new Intl.DateTimeFormat("en", {

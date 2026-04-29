@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 
-import appLogo from "../../docs/layout/logo.svg";
+import appLogo from "../../../../docs/layout/logo.svg";
 
 export const Route = createFileRoute("/_auth")({
   component: AuthLayout,

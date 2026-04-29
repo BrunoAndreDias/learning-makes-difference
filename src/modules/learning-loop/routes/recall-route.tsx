@@ -1,5 +1,7 @@
 import {
+  createFileRoute,
   Link,
+  Navigate,
   Outlet,
   useNavigate,
   useRouteContext,
@@ -20,6 +22,15 @@ const NOTE_DATE_FORMATTER = new Intl.DateTimeFormat("en", {
   month: "short",
   year: "numeric",
 });
+
+export const Route = createFileRoute("/_protected/recall")({
+  component: RecallRouteShell,
+  notFoundComponent: RecallRouteNotFoundRedirect,
+});
+
+function RecallRouteNotFoundRedirect() {
+  return <Navigate to="/notes" />;
+}
 
 function formatNoteDate(value: string): string {
   return NOTE_DATE_FORMATTER.format(new Date(value));
@@ -48,7 +59,7 @@ function EmptyRecallSelectionPage() {
   );
 }
 
-export function RecallRouteShell() {
+function RecallRouteShell() {
   return <Outlet />;
 }
 

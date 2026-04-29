@@ -1,4 +1,4 @@
-import { useRouteContext } from "@tanstack/react-router";
+import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import type { AppSessionSnapshot } from "../../../features/session/session";
 import { useNotesWorkspace } from "../domain/notes-workspace";
@@ -12,6 +12,10 @@ type SessionResultsSnapshot = {
   newestSessionId: string | null;
   resultCount: number;
 };
+
+export const Route = createFileRoute("/_protected/recall/")({
+  component: RecallResultsWorkspacePage,
+});
 
 function formatAttemptCount(count: number) {
   return `${count} attempted ${count === 1 ? "question" : "questions"}`;

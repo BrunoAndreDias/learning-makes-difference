@@ -2,31 +2,50 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("route tree", () => {
-  it("includes the public and protected placeholder areas", () => {
+  it("includes the public and protected areas from module-owned route files", () => {
     const generatedRouteTree = readFileSync(
       new URL("../routeTree.gen.ts", import.meta.url),
       "utf8",
     );
 
-    expect(generatedRouteTree).toContain("'/': typeof PublicIndexRoute");
-    expect(generatedRouteTree).toContain("'/login': typeof AuthLoginRoute");
     expect(generatedRouteTree).toContain(
-      "'/notes': typeof ProtectedNotesRoute",
+      "modules/access/routes/public-index-route",
+    );
+    expect(generatedRouteTree).toContain("modules/access/routes/login-route");
+    expect(generatedRouteTree).toContain(
+      "modules/learning-loop/routes/notes-route",
+    );
+    expect(generatedRouteTree).toContain("modules/labels/routes/labels-route");
+    expect(generatedRouteTree).toContain(
+      "modules/learning-loop/routes/recall-route",
     );
     expect(generatedRouteTree).toContain(
-      "'/labels': typeof ProtectedLabelsRoute",
+      "modules/access/routes/settings-route",
+    );
+
+    expect(generatedRouteTree).toContain(
+      "'/': typeof modulesAccessRoutesPublicIndexRouteRoute",
     );
     expect(generatedRouteTree).toContain(
-      "'/recall': typeof ProtectedRecallRoute",
+      "'/login': typeof modulesAccessRoutesLoginRouteRoute",
+    );
+    expect(generatedRouteTree).toContain(
+      "'/notes': typeof modulesLearningLoopRoutesNotesRouteRoute",
+    );
+    expect(generatedRouteTree).toContain(
+      "'/labels': typeof modulesLabelsRoutesLabelsRouteRoute",
+    );
+    expect(generatedRouteTree).toContain(
+      "'/recall': typeof modulesLearningLoopRoutesRecallRouteRouteWithChildren",
     );
     expect(generatedRouteTree).not.toContain(
       "'/recall/results': typeof ProtectedRecallResultsRoute",
     );
     expect(generatedRouteTree).toContain(
-      "'/recall/select': typeof ProtectedRecallSelectRoute",
+      "'/recall/select': typeof modulesLearningLoopRoutesRecallSelectionRouteRoute",
     );
     expect(generatedRouteTree).toContain(
-      "'/recall/session': typeof ProtectedRecallSessionRoute",
+      "'/recall/session': typeof modulesLearningLoopRoutesRecallSessionRouteRoute",
     );
     expect(generatedRouteTree).not.toContain(
       "'/history': typeof ProtectedHistoryRoute",
@@ -35,7 +54,7 @@ describe("route tree", () => {
       "'/notes/recall': typeof ProtectedNotesRecallRoute",
     );
     expect(generatedRouteTree).toContain(
-      "'/settings': typeof ProtectedSettingsRoute",
+      "'/settings': typeof modulesAccessRoutesSettingsRouteRoute",
     );
   });
 });
