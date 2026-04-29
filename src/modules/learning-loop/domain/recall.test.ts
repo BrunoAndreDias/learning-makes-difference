@@ -1,11 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createAppLabelsContext } from "../src/features/labels/labels";
-import { createAppNotesContext } from "../src/features/notes/notes";
-import {
-  createAppRecallContext,
-  summarizeAttempts,
-} from "../src/features/recall/recall";
+import { createAppLabelsContext } from "../../../features/labels/labels";
+import { createAppNotesContext } from "./notes";
+import { createAppRecallContext, summarizeAttempts } from "./recall";
 
 function createMemoryStorage() {
   const values = new Map<string, string>();

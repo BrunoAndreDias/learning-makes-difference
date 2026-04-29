@@ -1,14 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  filterNotesByQuery,
-  searchNoteResults,
-} from "../src/features/notes/note-search";
-import type { AppNote } from "../src/features/notes/notes";
-import {
-  createAppNotesContext,
-  listNotesForUser,
-} from "../src/features/notes/notes";
+import { filterNotesByQuery, searchNoteResults } from "./note-search";
+import type { AppNote } from "./notes";
+import { createAppNotesContext, listNotesForUser } from "./notes";
 
 function createMemoryStorage() {
   const values = new Map<string, string>();

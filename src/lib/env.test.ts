@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { loadAppEnv } from "../src/lib/env";
+import { loadAppEnv } from "./env";
 
 describe("loadAppEnv", () => {
   it("parses the expected runtime variables", () => {

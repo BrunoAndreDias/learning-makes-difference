@@ -4,7 +4,7 @@ import {
   type AppNotesError,
   createAppNotesContext,
   listNotesForUser,
-} from "../src/features/notes/notes";
+} from "./notes";
 
 function createMemoryStorage() {
   const values = new Map<string, string>();

@@ -19,23 +19,23 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   type AppLabelsContext,
   createAppLabelsContext,
-} from "../src/features/labels/labels";
-import {
-  type AppNotesContext,
-  createAppNotesContext,
-  listNotesForUser,
-} from "../src/features/notes/notes";
-import {
-  type AppRecallContext,
-  createAppRecallContext,
-  type FlashCardRecallRating,
-} from "../src/features/recall/recall";
+} from "../../features/labels/labels";
 import {
   type AppSessionContext,
   type AppSessionSnapshot,
   createAppSessionContext,
-} from "../src/features/session/session";
-import { routeTree } from "../src/routeTree.gen";
+} from "../../features/session/session";
+import {
+  type AppNotesContext,
+  createAppNotesContext,
+  listNotesForUser,
+} from "../../modules/learning-loop/domain/notes";
+import {
+  type AppRecallContext,
+  createAppRecallContext,
+  type FlashCardRecallRating,
+} from "../../modules/learning-loop/domain/recall";
+import { routeTree } from "../../routeTree.gen";
 
 function renderRoute(
   initialPath: string,

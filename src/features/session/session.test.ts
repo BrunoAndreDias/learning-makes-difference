@@ -4,7 +4,7 @@ import {
   createAppSessionContext,
   createGuestSessionContext,
   hasActiveSession,
-} from "../src/features/session/session";
+} from "./session";
 
 function createMemoryStorage() {
   const values = new Map<string, string>();

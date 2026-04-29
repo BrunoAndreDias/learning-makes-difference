@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 describe("route tree", () => {
   it("includes the public and protected placeholder areas", () => {
     const generatedRouteTree = readFileSync(
-      new URL("../src/routeTree.gen.ts", import.meta.url),
+      new URL("../routeTree.gen.ts", import.meta.url),
       "utf8",
     );
 
