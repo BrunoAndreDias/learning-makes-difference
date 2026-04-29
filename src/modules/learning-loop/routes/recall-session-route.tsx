@@ -5,6 +5,7 @@ import type { AppSessionSnapshot } from "../../../features/session/session";
 import {
   AppRecallError,
   type AppRecallSnapshot,
+  type FlashCardRecallNote,
   type FlashCardRecallRating,
   summarizeAttempts,
 } from "../domain/recall";
@@ -14,7 +15,6 @@ type RecallSessionRouteOptions = {
   breadcrumbLabel: string;
   breadcrumbTo: "/notes" | "/recall";
   returnTo: "/notes" | "/recall";
-  subtitle: string;
 };
 
 export function RecallSessionPage() {
@@ -24,7 +24,6 @@ export function RecallSessionPage() {
       breadcrumbLabel="Recall"
       breadcrumbTo="/recall"
       returnTo="/recall"
-      subtitle="Recall the note from memory before revealing the answer. Rate honestly - your ratings shape future practice."
     />
   );
 }
@@ -59,6 +58,9 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
       ? (activeSession.notes[activeSession.currentIndex] ?? null)
       : null;
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [selectedSnapshotNoteId, setSelectedSnapshotNoteId] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     if (activeSession !== null) {
@@ -143,28 +145,32 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
   const progressPercent =
     totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
   const ratingTotals = summarizeAttempts(activeSession.attempts);
+  const selectedSnapshotNote =
+    selectedSnapshotNoteId === null
+      ? null
+      : (activeSession.notes.find(
+          (note) => note.id === selectedSnapshotNoteId,
+        ) ?? null);
 
   return (
     <section className="recall-shell" aria-label="FlashCard recall session">
       <header className="recall-shell__header">
-        <nav
-          aria-label="Workspace breadcrumb"
-          className="workspace-breadcrumb recall-shell__breadcrumb"
-        >
-          <ol>
-            <li>
-              <Link to={props.breadcrumbTo}>{props.breadcrumbLabel}</Link>
-            </li>
-            <li aria-hidden="true">/</li>
-            <li aria-current="page">{props.breadcrumbCurrent}</li>
-          </ol>
-        </nav>
-
-        <div className="recall-shell__title-row">
-          <div className="recall-shell__title-stack">
-            <p className="eyebrow">{activeSession.labelName}</p>
-            <h2>FlashCard session</h2>
-            <p className="muted recall-shell__subtitle">{props.subtitle}</p>
+        <div className="recall-shell__bar">
+          <div className="recall-shell__context">
+            <nav
+              aria-label="Workspace breadcrumb"
+              className="workspace-breadcrumb recall-shell__breadcrumb"
+            >
+              <ol>
+                <li>
+                  <Link to={props.breadcrumbTo}>{props.breadcrumbLabel}</Link>
+                </li>
+                <li aria-hidden="true">/</li>
+                <li aria-current="page">{props.breadcrumbCurrent}</li>
+              </ol>
+            </nav>
+            <h2 className="sr-only">FlashCard session</h2>
+            <p className="recall-shell__label">{activeSession.labelName}</p>
           </div>
           <button
             className="notes-action recall-shell__end"
@@ -222,70 +228,139 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
         </p>
       ) : null}
 
-      <article
-        className="recall-card"
-        data-revealed={activeSession.isAnswerRevealed}
-      >
-        <div className="recall-card__top">
-          <div className="recall-card__face recall-card__face--prompt">
-            <p className="section-label">Prompt</p>
-            <h3 className="recall-card__title">{currentNote.title}</h3>
+      <div className="recall-session-layout">
+        <article
+          className="recall-card"
+          data-revealed={activeSession.isAnswerRevealed}
+        >
+          <div className="recall-card__top">
+            <div className="recall-card__face recall-card__face--prompt">
+              <button
+                aria-label={`Show note snapshot for ${currentNote.title}`}
+                className="recall-card__question"
+                onClick={() => setSelectedSnapshotNoteId(currentNote.id)}
+                type="button"
+              >
+                {currentNote.title}
+              </button>
+              {!activeSession.isAnswerRevealed ? (
+                <p className="muted recall-card__hint">
+                  Recall the answer, then reveal it to compare.
+                </p>
+              ) : null}
+            </div>
+
             {!activeSession.isAnswerRevealed ? (
-              <p className="muted recall-card__hint">
-                Hold the answer in mind, then reveal it to compare.
-              </p>
+              <div className="recall-card__actions">
+                <button
+                  className="notes-action notes-action-primary recall-card__reveal"
+                  onClick={handleRevealAnswer}
+                  type="button"
+                >
+                  Reveal answer
+                </button>
+              </div>
             ) : null}
           </div>
 
-          {!activeSession.isAnswerRevealed ? (
-            <div className="recall-card__actions">
-              <button
-                className="notes-action notes-action-primary recall-card__reveal"
-                onClick={handleRevealAnswer}
-                type="button"
-              >
-                Reveal answer
-              </button>
-            </div>
-          ) : null}
-        </div>
-
-        {activeSession.isAnswerRevealed ? (
-          <div className="recall-card__face recall-card__face--answer">
-            <p className="section-label">Answer</p>
+          {activeSession.isAnswerRevealed ? (
             <p className="recall-card__body">{currentNote.body}</p>
-          </div>
-        ) : null}
+          ) : null}
 
-        {activeSession.isAnswerRevealed ? (
-          <footer className="recall-card__footer">
-            <fieldset className="recall-rating-row">
-              <legend className="sr-only">Rate your recall</legend>
-              <button
-                className="notes-action recall-rating recall-rating--missed"
-                onClick={() => void handleRateAnswer("missed")}
-                type="button"
-              >
-                Missed it
-              </button>
-              <button
-                className="notes-action recall-rating recall-rating--partial"
-                onClick={() => void handleRateAnswer("partial")}
-                type="button"
-              >
-                Partly recalled
-              </button>
-              <button
-                className="notes-action recall-rating recall-rating--nailed"
-                onClick={() => void handleRateAnswer("nailed")}
-                type="button"
-              >
-                Nailed it
-              </button>
-            </fieldset>
-          </footer>
-        ) : null}
-      </article>
+          {activeSession.isAnswerRevealed ? (
+            <footer className="recall-card__footer">
+              <fieldset className="recall-rating-row">
+                <legend className="sr-only">Rate your recall</legend>
+                <button
+                  className="notes-action recall-rating recall-rating--missed"
+                  onClick={() => void handleRateAnswer("missed")}
+                  type="button"
+                >
+                  Missed it
+                </button>
+                <button
+                  className="notes-action recall-rating recall-rating--partial"
+                  onClick={() => void handleRateAnswer("partial")}
+                  type="button"
+                >
+                  Partly recalled
+                </button>
+                <button
+                  className="notes-action recall-rating recall-rating--nailed"
+                  onClick={() => void handleRateAnswer("nailed")}
+                  type="button"
+                >
+                  Nailed it
+                </button>
+              </fieldset>
+            </footer>
+          ) : null}
+        </article>
+
+        <aside
+          aria-label="Session questions and note snapshot"
+          className="recall-session-side"
+        >
+          <ol aria-label="Session questions" className="recall-question-list">
+            {activeSession.notes.map((note, index) => {
+              const attempt = activeSession.attempts.find(
+                (entry) => entry.noteId === note.id,
+              );
+              const isCurrent = note.id === currentNote.id;
+              const isSelected = note.id === selectedSnapshotNote?.id;
+
+              return (
+                <li key={note.id}>
+                  <button
+                    aria-current={isCurrent ? "step" : undefined}
+                    aria-pressed={isSelected}
+                    className="recall-question-list__button"
+                    data-current={isCurrent}
+                    data-selected={isSelected}
+                    onClick={() => setSelectedSnapshotNoteId(note.id)}
+                    type="button"
+                  >
+                    <span className="recall-question-list__index">
+                      {index + 1}
+                    </span>
+                    <span className="recall-question-list__title">
+                      {note.title}
+                    </span>
+                    {attempt !== undefined ? (
+                      <span
+                        className="recall-question-list__rating"
+                        data-rating={attempt.rating}
+                      >
+                        {attempt.rating}
+                      </span>
+                    ) : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+
+          <NoteSnapshotPanel note={selectedSnapshotNote} />
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+function NoteSnapshotPanel({ note }: { note: FlashCardRecallNote | null }) {
+  if (note === null) {
+    return (
+      <section className="recall-note-snapshot recall-note-snapshot--empty">
+        <p>Select a question to see its note snapshot.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section aria-label="Note snapshot" className="recall-note-snapshot">
+      <p className="recall-note-snapshot__label">Note snapshot</p>
+      <h3>{note.title}</h3>
+      <p>{note.body}</p>
     </section>
   );
 }
