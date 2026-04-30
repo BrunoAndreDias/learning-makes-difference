@@ -2214,6 +2214,79 @@ describe("authenticated app shell", () => {
     });
   });
 
+  it("restores an active FocusSession after a reload for the same user", async () => {
+    const keyPrefix = `test-focus-reload-${Math.random().toString(36).slice(2)}`;
+    const userId = "user-focus-reload";
+    const firstFocusContext = createAppFocusContext({
+      keyPrefix,
+      storage: window.localStorage,
+    });
+    const session = {
+      user: {
+        displayName: "Casey Reload",
+        email: "casey.reload@example.com",
+        id: userId,
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+      },
+    } satisfies AppSessionSnapshot;
+
+    const firstRender = renderRoute("/notes", {
+      focusContext: firstFocusContext,
+      session,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
+
+    const focusControls = screen.getByRole("form", {
+      name: "Focus session start",
+    });
+    fireEvent.change(within(focusControls).getByLabelText("Focus minutes"), {
+      target: { value: "35" },
+    });
+    fireEvent.change(within(focusControls).getByLabelText("Break minutes"), {
+      target: { value: "7" },
+    });
+    fireEvent.change(
+      within(focusControls).getByLabelText("Planned focus intervals"),
+      {
+        target: { value: "5" },
+      },
+    );
+    fireEvent.submit(focusControls);
+
+    expect(
+      screen.getByRole("button", { name: "Focus active" }),
+    ).toBeInTheDocument();
+
+    firstRender.unmount();
+
+    const reloadedFocusContext = createAppFocusContext({
+      keyPrefix,
+      storage: window.localStorage,
+    });
+
+    renderRoute("/notes", {
+      focusContext: reloadedFocusContext,
+      session,
+    });
+
+    expect(
+      await screen.findByRole("button", { name: "Focus active" }),
+    ).toBeInTheDocument();
+    expect(reloadedFocusContext.getActiveSession({ userId })).toMatchObject({
+      breakIntervalMinutes: 7,
+      currentInterval: "Focus",
+      focusIntervalMinutes: 35,
+      method: "Pomodoro",
+      plannedFocusIntervalCount: 5,
+    });
+  });
+
   it("manages note metaphors inside the note workflow", async () => {
     renderRoute("/notes", {
       session: {

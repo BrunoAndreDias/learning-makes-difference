@@ -69,6 +69,33 @@ describe("focus sessions", () => {
     });
   });
 
+  it("rehydrates a configured active FocusSession from storage", () => {
+    const storage = createMemoryStorage();
+    const focus = createAppFocusContext({
+      crypto: {
+        randomUUID: () =>
+          "focus-session-rehydrated-1" as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "focus-test-rehydrated",
+      storage,
+    });
+
+    const session = focus.startFocusSession({
+      breakIntervalMinutes: 15,
+      focusIntervalMinutes: 45,
+      plannedFocusIntervalCount: 3,
+      userId: "owner",
+    });
+    const reloadedFocus = createAppFocusContext({
+      keyPrefix: "focus-test-rehydrated",
+      storage,
+    });
+
+    expect(reloadedFocus.getActiveSession({ userId: "owner" })).toEqual(
+      session,
+    );
+  });
+
   it("rejects invalid timing configuration", () => {
     const focus = createAppFocusContext({
       keyPrefix: "focus-test-invalid",
