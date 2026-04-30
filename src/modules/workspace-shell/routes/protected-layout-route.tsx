@@ -7,7 +7,6 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import {
-  type FormEvent,
   type KeyboardEvent,
   useEffect,
   useId,
@@ -36,8 +35,6 @@ type FocusSessionStartValues = {
   focusMinutes: string;
   plannedFocusIntervals: string;
 };
-
-type FocusSessionStartField = keyof FocusSessionStartValues;
 
 const DEFAULT_FOCUS_MINUTES = "25";
 const DEFAULT_BREAK_MINUTES = "5";
@@ -280,18 +277,10 @@ function FocusSessionStartControl({
   focus: AppFocusContext;
   userId: string | null;
 }>) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [startValues, setStartValues] = useState<FocusSessionStartValues>(
-    DEFAULT_FOCUS_SESSION_START_VALUES,
-  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const errorId = useId();
-  const formId = useId();
-  const openTimingButtonRef = useRef<HTMLButtonElement | null>(null);
-  const focusMinutesInputRef = useRef<HTMLInputElement | null>(null);
   const endFocusButtonRef = useRef<HTMLButtonElement | null>(null);
   const focusActionButtonRef = useRef<HTMLButtonElement | null>(null);
-  const shouldRestoreTimingButtonFocusRef = useRef(false);
   const previousSessionStateRef = useRef<FocusSession["intervalState"] | null>(
     null,
   );
@@ -301,26 +290,8 @@ function FocusSessionStartControl({
       return;
     }
 
-    setIsOpen(false);
     setErrorMessage(null);
   }, [activeFocusSession]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    focusMinutesInputRef.current?.focus();
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!shouldRestoreTimingButtonFocusRef.current || isOpen) {
-      return;
-    }
-
-    shouldRestoreTimingButtonFocusRef.current = false;
-    openTimingButtonRef.current?.focus();
-  }, [isOpen]);
 
   useEffect(() => {
     if (activeFocusSession === null) {
@@ -416,10 +387,6 @@ function FocusSessionStartControl({
         userId,
       });
       setErrorMessage(null);
-      setStartValues((currentValues) => ({
-        ...currentValues,
-        plannedFocusIntervals: EMPTY_PLANNED_FOCUS_INTERVALS,
-      }));
     } catch (error) {
       if (error instanceof AppFocusError) {
         setErrorMessage(error.message);
@@ -434,104 +401,21 @@ function FocusSessionStartControl({
     startFocusSessionFromValues(DEFAULT_FOCUS_SESSION_START_VALUES);
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    startFocusSessionFromValues(startValues);
-  }
-
-  function updateStartValue(field: FocusSessionStartField, value: string) {
-    setStartValues((currentValues) => ({
-      ...currentValues,
-      [field]: value,
-    }));
-    setErrorMessage(null);
-  }
-
-  function closeTimingForm() {
-    shouldRestoreTimingButtonFocusRef.current = true;
-    setIsOpen(false);
-    setErrorMessage(null);
-  }
-
-  if (!isOpen) {
-    return (
-      <div className="app-focus-session-start tag-row">
-        <button
-          className="notes-action notes-action-primary"
-          onClick={startDefaultFocusSession}
-          type="button"
-        >
-          Start Focus
-        </button>
-        <button
-          aria-controls={formId}
-          aria-expanded="false"
-          className="notes-action"
-          onClick={() => setIsOpen(true)}
-          ref={openTimingButtonRef}
-          type="button"
-        >
-          Focus timing
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <form
-      aria-describedby={errorMessage === null ? undefined : errorId}
-      aria-label="Focus session start"
-      className="app-focus-session-start tag-row"
-      id={formId}
-      onSubmit={handleSubmit}
-    >
-      <label>
-        <span className="sr-only">Focus minutes</span>
-        <input
-          inputMode="numeric"
-          onChange={(event) =>
-            updateStartValue("focusMinutes", event.target.value)
-          }
-          ref={focusMinutesInputRef}
-          type="number"
-          value={startValues.focusMinutes}
-        />
-      </label>
-      <label>
-        <span className="sr-only">Break minutes</span>
-        <input
-          inputMode="numeric"
-          onChange={(event) =>
-            updateStartValue("breakMinutes", event.target.value)
-          }
-          type="number"
-          value={startValues.breakMinutes}
-        />
-      </label>
-      <label>
-        <span className="sr-only">Planned focus intervals</span>
-        <input
-          inputMode="numeric"
-          onChange={(event) =>
-            updateStartValue("plannedFocusIntervals", event.target.value)
-          }
-          placeholder="Optional rounds"
-          type="number"
-          value={startValues.plannedFocusIntervals}
-        />
-      </label>
-      <button className="notes-action notes-action-primary" type="submit">
+    <div className="app-focus-session-start tag-row">
+      <button
+        className="notes-action notes-action-primary"
+        onClick={startDefaultFocusSession}
+        type="button"
+      >
         Start Focus
-      </button>
-      <button className="notes-action" onClick={closeTimingForm} type="button">
-        Cancel
       </button>
       {errorMessage === null ? null : (
         <span id={errorId} role="status">
           {errorMessage}
         </span>
       )}
-    </form>
+    </div>
   );
 }
 

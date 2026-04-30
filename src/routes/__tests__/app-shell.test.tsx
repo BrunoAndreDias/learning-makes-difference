@@ -2321,13 +2321,13 @@ describe("authenticated app shell", () => {
     expect(screen.queryByLabelText("Recall selection controls")).toBeNull();
   });
 
-  it("starts a FocusSession from notes without leaving the current screen", async () => {
+  it("starts a configured FocusSession from the focus route without leaving the current screen", async () => {
     const focusContext = createAppFocusContext({
       keyPrefix: `test-focus-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
     });
     const userId = "user-focus";
-    const { router } = renderRoute("/notes", {
+    const { router } = renderRoute("/focus", {
       focusContext,
       session: {
         user: {
@@ -2341,10 +2341,8 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 3, name: "Focus records" }),
     ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Focus timing" }));
 
     const focusControls = screen.getByRole("form", {
       name: "Focus session start",
@@ -2363,7 +2361,7 @@ describe("authenticated app shell", () => {
     );
     fireEvent.submit(focusControls);
 
-    expect(router.state.location.pathname).toBe("/notes");
+    expect(router.state.location.pathname).toBe("/focus");
     expect(
       screen.getByRole("button", { name: "Focus active" }),
     ).toBeInTheDocument();
@@ -2489,16 +2487,14 @@ describe("authenticated app shell", () => {
       },
     } satisfies AppSessionSnapshot;
 
-    const firstRender = renderRoute("/notes", {
+    const firstRender = renderRoute("/focus", {
       focusContext: firstFocusContext,
       session,
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 3, name: "Focus records" }),
     ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Focus timing" }));
 
     const focusControls = screen.getByRole("form", {
       name: "Focus session start",
@@ -2580,50 +2576,28 @@ describe("authenticated app shell", () => {
         keyPrefix,
         storage: window.localStorage,
       });
-      const initialRender = renderRoute("/notes", {
+      const initialRender = renderRoute("/focus", {
         focusContext: initialFocusContext,
         session,
       });
 
       expect(
-        await screen.findByRole("heading", { name: "Notes workspace" }),
+        await screen.findByRole("heading", {
+          level: 3,
+          name: "Focus records",
+        }),
       ).toBeInTheDocument();
-
-      const openTimingButton = screen.getByRole("button", {
-        name: "Focus timing",
-      });
-      fireEvent.click(openTimingButton);
 
       const focusControls = screen.getByRole("form", {
         name: "Focus session start",
       });
-      const focusMinutesField = within(focusControls).getByLabelText(
-        "Focus minutes",
-      );
-      expect(focusMinutesField).toHaveFocus();
-
-      fireEvent.click(
-        within(focusControls).getByRole("button", { name: "Cancel" }),
-      );
-      expect(screen.getByRole("button", { name: "Focus timing" })).toHaveFocus();
-
-      fireEvent.click(screen.getByRole("button", { name: "Focus timing" }));
-      const reopenedFocusControls = screen.getByRole("form", {
-        name: "Focus session start",
+      fireEvent.change(within(focusControls).getByLabelText("Focus minutes"), {
+        target: { value: "25" },
       });
-      fireEvent.change(
-        within(reopenedFocusControls).getByLabelText("Focus minutes"),
-        {
-          target: { value: "25" },
-        },
-      );
-      fireEvent.change(
-        within(reopenedFocusControls).getByLabelText("Break minutes"),
-        {
-          target: { value: "5" },
-        },
-      );
-      fireEvent.submit(reopenedFocusControls);
+      fireEvent.change(within(focusControls).getByLabelText("Break minutes"), {
+        target: { value: "5" },
+      });
+      fireEvent.submit(focusControls);
 
       const activeStatus = screen.getByRole("status", {
         name: "Focus session status",

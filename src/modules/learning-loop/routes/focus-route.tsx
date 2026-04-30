@@ -1,7 +1,33 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import {
+  type FormEvent,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
-import type { FocusRecord, FocusSession, FocusTarget } from "../domain/focus";
+import {
+  type AppFocusContext,
+  AppFocusError,
+  type FocusRecord,
+  type FocusSession,
+  type FocusTarget,
+} from "../domain/focus";
+
+type FocusSessionStartValues = {
+  breakMinutes: string;
+  focusMinutes: string;
+  plannedFocusIntervals: string;
+};
+
+type FocusSessionStartField = keyof FocusSessionStartValues;
+
+const DEFAULT_FOCUS_SESSION_START_VALUES: FocusSessionStartValues = {
+  breakMinutes: "5",
+  focusMinutes: "25",
+  plannedFocusIntervals: "",
+};
 
 export const Route = createFileRoute("/_protected/focus")({
   component: FocusPage,
@@ -75,6 +101,12 @@ function FocusPage() {
       </article>
 
       <div className="placeholder-grid settings-grid">
+        <FocusSessionConfig
+          activeSession={activeSession}
+          focus={focus}
+          userId={userId}
+        />
+
         <article className="card stack">
           <p className="section-label">Recent completed focus</p>
           <dl className="settings-summary" aria-label="Recent completed focus">
@@ -150,6 +182,126 @@ function FocusPage() {
   );
 }
 
+function FocusSessionConfig({
+  activeSession,
+  focus,
+  userId,
+}: Readonly<{
+  activeSession: FocusSession | null;
+  focus: AppFocusContext;
+  userId: string | null;
+}>) {
+  const [startValues, setStartValues] = useState<FocusSessionStartValues>(
+    DEFAULT_FOCUS_SESSION_START_VALUES,
+  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  function updateStartValue(field: FocusSessionStartField, value: string) {
+    setStartValues((currentValues) => ({
+      ...currentValues,
+      [field]: value,
+    }));
+    setErrorMessage(null);
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (userId === null || activeSession !== null) {
+      return;
+    }
+
+    try {
+      focus.startFocusSession({
+        breakIntervalMinutes: Number(startValues.breakMinutes),
+        focusIntervalMinutes: Number(startValues.focusMinutes),
+        plannedFocusIntervalCount: parseOptionalNumber(
+          startValues.plannedFocusIntervals,
+        ),
+        userId,
+      });
+      setErrorMessage(null);
+      setStartValues((currentValues) => ({
+        ...currentValues,
+        plannedFocusIntervals: "",
+      }));
+    } catch (error) {
+      if (error instanceof AppFocusError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    }
+  }
+
+  return (
+    <article className="card stack">
+      <p className="section-label">Focus config</p>
+      <p>Pomodoro timer</p>
+      <form
+        aria-label="Focus session start"
+        className="focus-config-form"
+        onSubmit={handleSubmit}
+      >
+        <label>
+          <span>Focus minutes</span>
+          <input
+            disabled={activeSession !== null}
+            inputMode="numeric"
+            min="1"
+            onChange={(event) =>
+              updateStartValue("focusMinutes", event.target.value)
+            }
+            type="number"
+            value={startValues.focusMinutes}
+          />
+        </label>
+        <label>
+          <span>Break minutes</span>
+          <input
+            disabled={activeSession !== null}
+            inputMode="numeric"
+            min="0"
+            onChange={(event) =>
+              updateStartValue("breakMinutes", event.target.value)
+            }
+            type="number"
+            value={startValues.breakMinutes}
+          />
+        </label>
+        <label>
+          <span>Planned focus intervals</span>
+          <input
+            disabled={activeSession !== null}
+            inputMode="numeric"
+            min="1"
+            onChange={(event) =>
+              updateStartValue("plannedFocusIntervals", event.target.value)
+            }
+            placeholder="Optional"
+            type="number"
+            value={startValues.plannedFocusIntervals}
+          />
+        </label>
+        <button
+          className="notes-action notes-action-primary"
+          disabled={activeSession !== null}
+          type="submit"
+        >
+          Start Focus
+        </button>
+        {activeSession === null ? null : (
+          <span className="muted">Timer already running.</span>
+        )}
+        {errorMessage === null ? null : (
+          <span role="status">{errorMessage}</span>
+        )}
+      </form>
+    </article>
+  );
+}
+
 function getPrimaryMetricLabel(record: FocusRecord) {
   const focusMinutes =
     record.completedFocusIntervalCount * record.focusIntervalMinutes;
@@ -204,4 +356,14 @@ function describeTarget(target: FocusTarget) {
   return `Note: ${target.note.title} | Labels: ${target.labels
     .map((label) => label.name)
     .join(", ")}`;
+}
+
+function parseOptionalNumber(value: string) {
+  const trimmedValue = value.trim();
+
+  if (trimmedValue.length === 0) {
+    return null;
+  }
+
+  return Number(trimmedValue);
 }
