@@ -287,6 +287,14 @@ function FocusSessionStartControl({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const errorId = useId();
   const formId = useId();
+  const openTimingButtonRef = useRef<HTMLButtonElement | null>(null);
+  const focusMinutesInputRef = useRef<HTMLInputElement | null>(null);
+  const endFocusButtonRef = useRef<HTMLButtonElement | null>(null);
+  const focusActionButtonRef = useRef<HTMLButtonElement | null>(null);
+  const shouldRestoreTimingButtonFocusRef = useRef(false);
+  const previousSessionStateRef = useRef<FocusSession["intervalState"] | null>(
+    null,
+  );
 
   useEffect(() => {
     if (activeFocusSession === null) {
@@ -295,6 +303,54 @@ function FocusSessionStartControl({
 
     setIsOpen(false);
     setErrorMessage(null);
+  }, [activeFocusSession]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    focusMinutesInputRef.current?.focus();
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!shouldRestoreTimingButtonFocusRef.current || isOpen) {
+      return;
+    }
+
+    shouldRestoreTimingButtonFocusRef.current = false;
+    openTimingButtonRef.current?.focus();
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (activeFocusSession === null) {
+      previousSessionStateRef.current = null;
+      return;
+    }
+
+    const previousSessionState = previousSessionStateRef.current;
+    previousSessionStateRef.current = activeFocusSession.intervalState;
+
+    if (
+      previousSessionState === activeFocusSession.intervalState &&
+      previousSessionState !== null
+    ) {
+      return;
+    }
+
+    if (
+      activeFocusSession.intervalState === "Transition" ||
+      activeFocusSession.intervalState === "AwaitingNextFocus"
+    ) {
+      focusActionButtonRef.current?.focus();
+      return;
+    }
+
+    if (activeFocusSession.intervalState === "Break") {
+      return;
+    }
+
+    endFocusButtonRef.current?.focus();
   }, [activeFocusSession]);
 
   if (activeFocusSession !== null) {
@@ -310,7 +366,9 @@ function FocusSessionStartControl({
         >
           Focus active
         </button>
-        <span role="status">{getFocusStatusMessage(activeFocusSession)}</span>
+        <span aria-label="Focus session status" role="status">
+          {getFocusStatusMessage(activeFocusSession)}
+        </span>
         {userId === null ? null : (
           <button
             className="notes-action"
@@ -319,6 +377,7 @@ function FocusSessionStartControl({
                 userId,
               });
             }}
+            ref={endFocusButtonRef}
             type="button"
           >
             End focus
@@ -332,6 +391,7 @@ function FocusSessionStartControl({
                 userId,
               });
             }}
+            ref={focusActionButtonRef}
             type="button"
           >
             {actionLabel}
@@ -410,6 +470,7 @@ function FocusSessionStartControl({
           aria-expanded="false"
           className="notes-action"
           onClick={() => setIsOpen(true)}
+          ref={openTimingButtonRef}
           type="button"
         >
           Focus timing
@@ -431,6 +492,7 @@ function FocusSessionStartControl({
         <input
           inputMode="numeric"
           onChange={(event) => updateFocusMinutes(event.target.value)}
+          ref={focusMinutesInputRef}
           type="number"
           value={focusMinutes}
         />
@@ -460,6 +522,7 @@ function FocusSessionStartControl({
       <button
         className="notes-action"
         onClick={() => {
+          shouldRestoreTimingButtonFocusRef.current = true;
           setIsOpen(false);
           setErrorMessage(null);
         }}

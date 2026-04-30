@@ -6,6 +6,7 @@ export function BreakIntervalOverlay({
   return (
     <section
       aria-label="Break interval reminder"
+      aria-live="assertive"
       className="focus-break-overlay"
     >
       <div className="focus-break-overlay__panel">
@@ -14,6 +15,7 @@ export function BreakIntervalOverlay({
           Rest first. Skip the break to start the next focus interval.
         </p>
         <button
+          autoFocus
           className="notes-action notes-action-primary"
           onClick={onSkipBreak}
           type="button"

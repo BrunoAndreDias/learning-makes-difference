@@ -2545,6 +2545,163 @@ describe("authenticated app shell", () => {
     });
   });
 
+  it("polishes FocusSession controls for keyboard, status, focus handoff, and quiet interval changes", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    const notificationSpy = vi.fn();
+    const audioSpy = vi.fn();
+    const originalNotification = window.Notification;
+    const originalAudio = window.Audio;
+
+    Object.defineProperty(window, "Notification", {
+      configurable: true,
+      value: notificationSpy,
+    });
+    Object.defineProperty(window, "Audio", {
+      configurable: true,
+      value: audioSpy,
+    });
+    try {
+      const keyPrefix = `test-focus-a11y-${Math.random().toString(36).slice(2)}`;
+      const userId = "user-focus-a11y";
+      const session = {
+        user: {
+          displayName: "Casey Focus A11y",
+          email: "casey.focus.a11y@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      } satisfies AppSessionSnapshot;
+
+      vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+      const initialFocusContext = createAppFocusContext({
+        keyPrefix,
+        storage: window.localStorage,
+      });
+      const initialRender = renderRoute("/notes", {
+        focusContext: initialFocusContext,
+        session,
+      });
+
+      expect(
+        await screen.findByRole("heading", { name: "Notes workspace" }),
+      ).toBeInTheDocument();
+
+      const openTimingButton = screen.getByRole("button", {
+        name: "Focus timing",
+      });
+      fireEvent.click(openTimingButton);
+
+      const focusControls = screen.getByRole("form", {
+        name: "Focus session start",
+      });
+      const focusMinutesField = within(focusControls).getByLabelText(
+        "Focus minutes",
+      );
+      expect(focusMinutesField).toHaveFocus();
+
+      fireEvent.click(
+        within(focusControls).getByRole("button", { name: "Cancel" }),
+      );
+      expect(screen.getByRole("button", { name: "Focus timing" })).toHaveFocus();
+
+      fireEvent.click(screen.getByRole("button", { name: "Focus timing" }));
+      const reopenedFocusControls = screen.getByRole("form", {
+        name: "Focus session start",
+      });
+      fireEvent.change(
+        within(reopenedFocusControls).getByLabelText("Focus minutes"),
+        {
+          target: { value: "25" },
+        },
+      );
+      fireEvent.change(
+        within(reopenedFocusControls).getByLabelText("Break minutes"),
+        {
+          target: { value: "5" },
+        },
+      );
+      fireEvent.submit(reopenedFocusControls);
+
+      const activeStatus = screen.getByRole("status", {
+        name: "Focus session status",
+      });
+      expect(activeStatus).toHaveTextContent("Focus:");
+      expect(screen.getByRole("button", { name: "End focus" })).toHaveFocus();
+
+      initialRender.unmount();
+
+      vi.setSystemTime(new Date("2026-04-30T10:25:12.000Z"));
+
+      const transitionFocusContext = createAppFocusContext({
+        keyPrefix,
+        storage: window.localStorage,
+      });
+      const transitionRender = renderRoute("/notes", {
+        focusContext: transitionFocusContext,
+        session,
+      });
+
+      const continueFocusButton = await screen.findByRole("button", {
+        name: "Continue focus",
+      });
+      expect(continueFocusButton).toHaveFocus();
+      expect(
+        screen.getByRole("status", { name: "Focus session status" }),
+      ).toHaveTextContent("Transition window:");
+
+      fireEvent.click(continueFocusButton);
+      transitionRender.unmount();
+
+      vi.setSystemTime(new Date("2026-04-30T10:50:50.000Z"));
+
+      const breakFocusContext = createAppFocusContext({
+        keyPrefix,
+        storage: window.localStorage,
+      });
+      const breakRender = renderRoute("/notes", {
+        focusContext: breakFocusContext,
+        session,
+      });
+
+      const breakOverlay = await screen.findByRole("region", {
+        name: "Break interval reminder",
+      });
+      const skipBreakButton = within(breakOverlay).getByRole("button", {
+        name: "Skip break",
+      });
+      expect(skipBreakButton).toHaveFocus();
+      expect(breakOverlay).toHaveAttribute("aria-live", "assertive");
+
+      fireEvent.click(skipBreakButton);
+      breakRender.unmount();
+
+      renderRoute("/focus", {
+        focusContext: breakFocusContext,
+        session,
+      });
+
+      const focusReviewHeading = await screen.findByRole("heading", {
+        level: 3,
+        name: "Focus records",
+      });
+      expect(focusReviewHeading).toHaveFocus();
+      expect(notificationSpy).not.toHaveBeenCalled();
+      expect(audioSpy).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(window, "Notification", {
+        configurable: true,
+        value: originalNotification,
+      });
+      Object.defineProperty(window, "Audio", {
+        configurable: true,
+        value: originalAudio,
+      });
+    }
+  });
+
   it("lets the user continue from transition and skip an active break", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
 

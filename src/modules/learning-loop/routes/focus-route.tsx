@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 
 import type { FocusRecord, FocusSession, FocusTarget } from "../domain/focus";
 
@@ -29,6 +29,7 @@ function FocusPage() {
   const userId = sessionSnapshot.user?.id ?? null;
   const activeSession =
     userId === null ? null : focus.getActiveSession({ userId });
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
   const records =
     userId === null
       ? []
@@ -47,11 +48,17 @@ function FocusPage() {
     0,
   );
 
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
+
   return (
     <section className="settings-layout">
       <article className="card stack panel-protected">
         <p className="section-label">Focus review</p>
-        <h3>Focus records</h3>
+        <h3 ref={headingRef} tabIndex={-1}>
+          Focus records
+        </h3>
         <p>Review completed FocusRecords and recent completed-focus totals.</p>
         <div className="tag-row">
           <span className="tag">Read-only v1</span>
