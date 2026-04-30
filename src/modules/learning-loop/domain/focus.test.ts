@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppFocusError, createAppFocusContext } from "./focus";
 
@@ -16,6 +16,10 @@ function createMemoryStorage() {
 }
 
 describe("focus sessions", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("starts a FocusSession with default Pomodoro timing", () => {
     const focus = createAppFocusContext({
       crypto: {
@@ -30,14 +34,21 @@ describe("focus sessions", () => {
       userId: "owner",
     });
 
-    expect(session).toEqual({
+    expect(session).toMatchObject({
       breakIntervalMinutes: 5,
+      completedBreakIntervalCount: 0,
+      completedFocusIntervalCount: 0,
       createdAt: session.createdAt,
       currentInterval: "Focus",
       focusIntervalMinutes: 25,
       id: "focus-session-default-1",
+      intervalState: "Focus",
+      isStale: false,
       method: "Pomodoro",
       plannedFocusIntervalCount: null,
+      remainingSeconds: 1500,
+      stateEndsAt: session.stateEndsAt,
+      stateStartedAt: session.createdAt,
     });
     expect(focus.getActiveSession({ userId: "owner" })).toEqual(session);
   });
@@ -177,5 +188,190 @@ describe("focus sessions", () => {
     expect(reloadedFocus.getActiveSession({ userId: "other-user" })).toEqual(
       otherUsersSession,
     );
+  });
+
+  it("derives focus completion from elapsed wall-clock time", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    const focus = createAppFocusContext({
+      crypto: {
+        randomUUID: () =>
+          "focus-session-timer-1" as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "focus-test-timer",
+      storage: createMemoryStorage(),
+    });
+
+    focus.startFocusSession({
+      focusIntervalMinutes: 25,
+      userId: "owner",
+    });
+
+    vi.setSystemTime(new Date("2026-04-30T10:25:12.000Z"));
+
+    expect(focus.getActiveSession({ userId: "owner" })).toMatchObject({
+      completedBreakIntervalCount: 0,
+      completedFocusIntervalCount: 1,
+      currentInterval: "Focus",
+      intervalState: "Transition",
+      isStale: false,
+      remainingSeconds: 18,
+    });
+  });
+
+  it("starts a BreakInterval after the transition window elapses", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    const focus = createAppFocusContext({
+      keyPrefix: "focus-test-break-start",
+      storage: createMemoryStorage(),
+    });
+
+    focus.startFocusSession({
+      focusIntervalMinutes: 25,
+      userId: "owner",
+    });
+
+    vi.setSystemTime(new Date("2026-04-30T10:25:31.000Z"));
+
+    expect(focus.getActiveSession({ userId: "owner" })).toMatchObject({
+      completedBreakIntervalCount: 0,
+      completedFocusIntervalCount: 1,
+      currentInterval: "Break",
+      intervalState: "Break",
+      isStale: false,
+      remainingSeconds: 299,
+    });
+  });
+
+  it("starts the next FocusInterval explicitly from the transition window", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    const focus = createAppFocusContext({
+      keyPrefix: "focus-test-transition-continue",
+      storage: createMemoryStorage(),
+    });
+
+    focus.startFocusSession({
+      focusIntervalMinutes: 25,
+      userId: "owner",
+    });
+
+    vi.setSystemTime(new Date("2026-04-30T10:25:12.000Z"));
+
+    const session = focus.startNextFocusInterval({
+      userId: "owner",
+    });
+
+    expect(session).toMatchObject({
+      completedBreakIntervalCount: 0,
+      completedFocusIntervalCount: 1,
+      currentInterval: "Focus",
+      intervalState: "Focus",
+      isStale: false,
+      remainingSeconds: 1500,
+    });
+    expect(session.stateStartedAt).toBe("2026-04-30T10:25:12.000Z");
+  });
+
+  it("waits for explicit action after a completed BreakInterval", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    const focus = createAppFocusContext({
+      keyPrefix: "focus-test-break-complete",
+      storage: createMemoryStorage(),
+    });
+
+    focus.startFocusSession({
+      breakIntervalMinutes: 5,
+      focusIntervalMinutes: 25,
+      userId: "owner",
+    });
+
+    vi.setSystemTime(new Date("2026-04-30T10:30:30.000Z"));
+
+    expect(focus.getActiveSession({ userId: "owner" })).toMatchObject({
+      completedBreakIntervalCount: 1,
+      completedFocusIntervalCount: 1,
+      currentInterval: "Break",
+      intervalState: "AwaitingNextFocus",
+      isStale: false,
+      remainingSeconds: null,
+      stateEndsAt: null,
+    });
+
+    vi.setSystemTime(new Date("2026-04-30T10:40:30.000Z"));
+
+    expect(focus.getActiveSession({ userId: "owner" })).toMatchObject({
+      completedBreakIntervalCount: 1,
+      completedFocusIntervalCount: 1,
+      intervalState: "AwaitingNextFocus",
+      isStale: true,
+    });
+  });
+
+  it("waits instead of starting a break when the planned focus count is reached", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    const focus = createAppFocusContext({
+      keyPrefix: "focus-test-planned-count",
+      storage: createMemoryStorage(),
+    });
+
+    focus.startFocusSession({
+      focusIntervalMinutes: 25,
+      plannedFocusIntervalCount: 1,
+      userId: "owner",
+    });
+
+    vi.setSystemTime(new Date("2026-04-30T10:25:31.000Z"));
+
+    expect(focus.getActiveSession({ userId: "owner" })).toMatchObject({
+      completedBreakIntervalCount: 0,
+      completedFocusIntervalCount: 1,
+      currentInterval: "Focus",
+      intervalState: "AwaitingNextFocus",
+      isStale: true,
+      remainingSeconds: null,
+      stateEndsAt: null,
+    });
+  });
+
+  it("rehydrates with wall-clock-derived resume state", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    const storage = createMemoryStorage();
+    const focus = createAppFocusContext({
+      keyPrefix: "focus-test-wall-clock-resume",
+      storage,
+    });
+
+    focus.startFocusSession({
+      breakIntervalMinutes: 5,
+      focusIntervalMinutes: 25,
+      userId: "owner",
+    });
+
+    vi.setSystemTime(new Date("2026-04-30T10:27:00.000Z"));
+
+    const reloadedFocus = createAppFocusContext({
+      keyPrefix: "focus-test-wall-clock-resume",
+      storage,
+    });
+
+    expect(reloadedFocus.getActiveSession({ userId: "owner" })).toMatchObject({
+      completedBreakIntervalCount: 0,
+      completedFocusIntervalCount: 1,
+      currentInterval: "Break",
+      intervalState: "Break",
+      isStale: false,
+      remainingSeconds: 210,
+    });
   });
 });

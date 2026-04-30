@@ -36,27 +36,6 @@ const DEFAULT_FOCUS_MINUTES = "25";
 const DEFAULT_BREAK_MINUTES = "5";
 const EMPTY_PLANNED_FOCUS_INTERVALS = "";
 
-function getActiveFocusSession(
-  focusSnapshot: AppFocusSnapshot,
-  userId: string | null,
-): FocusSession | null {
-  if (userId === null) {
-    return null;
-  }
-
-  const storedSession =
-    focusSnapshot.find((sessionEntry) => sessionEntry.userId === userId) ??
-    null;
-
-  if (storedSession === null) {
-    return null;
-  }
-
-  const { userId: _userId, ...session } = storedSession;
-
-  return session;
-}
-
 function getWorkspaceTitle(pathname: string) {
   if (pathname === "/labels" || pathname.startsWith("/labels/")) {
     return "Labels";
@@ -125,7 +104,8 @@ export function AppLayout() {
     ? "Close navigation menu"
     : "Open navigation menu";
   const userId = sessionSnapshot.user?.id ?? null;
-  const activeFocusSession = getActiveFocusSession(focusSnapshot, userId);
+  const activeFocusSession =
+    userId === null ? null : focus.getActiveSession({ userId });
 
   function closeMobileSidebar(shouldRestoreFocus = false) {
     setShouldRestoreMobileToggleFocus(shouldRestoreFocus);
@@ -307,14 +287,32 @@ function FocusSessionStartControl({
   }, [activeFocusSession]);
 
   if (activeFocusSession !== null) {
+    const actionLabel = getFocusActionLabel(activeFocusSession);
+
     return (
-      <button
-        className="notes-action notes-action-primary"
-        disabled
-        type="button"
-      >
-        Focus active
-      </button>
+      <div aria-label="Active focus session" className="tag-row" role="group">
+        <button
+          className="notes-action notes-action-primary"
+          disabled
+          type="button"
+        >
+          Focus active
+        </button>
+        <span role="status">{getFocusStatusMessage(activeFocusSession)}</span>
+        {actionLabel === null || userId === null ? null : (
+          <button
+            className="notes-action"
+            onClick={() => {
+              focus.startNextFocusInterval({
+                userId,
+              });
+            }}
+            type="button"
+          >
+            {actionLabel}
+          </button>
+        )}
+      </div>
     );
   }
 
@@ -420,6 +418,38 @@ function FocusSessionStartControl({
       )}
     </form>
   );
+}
+
+function getFocusActionLabel(session: FocusSession) {
+  if (session.intervalState === "Transition") {
+    return "Continue focus";
+  }
+
+  if (session.intervalState === "Break") {
+    return "Skip break";
+  }
+
+  if (session.intervalState === "AwaitingNextFocus") {
+    return "Start next focus";
+  }
+
+  return null;
+}
+
+function getFocusStatusMessage(session: FocusSession) {
+  if (session.intervalState === "Transition") {
+    return `Transition window: ${session.remainingSeconds ?? 0}s left`;
+  }
+
+  if (session.intervalState === "Break") {
+    return `Break: ${session.remainingSeconds ?? 0}s left`;
+  }
+
+  if (session.intervalState === "AwaitingNextFocus") {
+    return session.isStale ? "Focus session stale" : "Ready for next focus";
+  }
+
+  return `Focus: ${session.remainingSeconds ?? 0}s left`;
 }
 
 function parseOptionalNumber(value: string) {

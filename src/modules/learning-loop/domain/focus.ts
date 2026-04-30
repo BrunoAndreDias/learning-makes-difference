@@ -2,7 +2,37 @@ export type FocusMethod = "Pomodoro";
 
 export type FocusSessionInterval = "Break" | "Focus";
 
+export type FocusSessionState =
+  | "AwaitingNextFocus"
+  | "Break"
+  | "Focus"
+  | "Transition";
+
 export type FocusSession = {
+  breakIntervalMinutes: number;
+  completedBreakIntervalCount: number;
+  completedFocusIntervalCount: number;
+  createdAt: string;
+  currentInterval: FocusSessionInterval;
+  focusIntervalMinutes: number;
+  id: string;
+  intervalState: FocusSessionState;
+  isStale: boolean;
+  method: FocusMethod;
+  plannedFocusIntervalCount: number | null;
+  remainingSeconds: number | null;
+  stateEndsAt: string | null;
+  stateStartedAt: string;
+};
+
+type StoredFocusSession = Omit<
+  FocusSession,
+  "isStale" | "remainingSeconds" | "stateEndsAt"
+> & {
+  userId: string;
+};
+
+type LegacyStoredFocusSession = {
   breakIntervalMinutes: number;
   createdAt: string;
   currentInterval: FocusSessionInterval;
@@ -10,9 +40,6 @@ export type FocusSession = {
   id: string;
   method: FocusMethod;
   plannedFocusIntervalCount: number | null;
-};
-
-type StoredFocusSession = FocusSession & {
   userId: string;
 };
 
@@ -35,10 +62,19 @@ type GetActiveFocusSessionInput = {
   userId: string;
 };
 
+type StartNextFocusIntervalInput = {
+  userId: string;
+};
+
 type CreateAppFocusContextOptions = {
   crypto?: FocusCrypto;
   keyPrefix?: string;
   storage?: FocusStorageAdapter;
+};
+
+type DerivedFocusSession = {
+  isStale: boolean;
+  session: StoredFocusSession;
 };
 
 export class AppFocusError extends Error {
@@ -54,6 +90,9 @@ export type AppFocusContext = {
   getActiveSession: (input: GetActiveFocusSessionInput) => FocusSession | null;
   getSnapshot: () => AppFocusSnapshot;
   startFocusSession: (input: StartFocusSessionInput) => FocusSession;
+  startNextFocusInterval: (
+    input: StartNextFocusIntervalInput,
+  ) => FocusSession;
   subscribe: (listener: FocusListener) => () => void;
 };
 
@@ -62,6 +101,8 @@ const DEFAULT_FOCUS_INTERVAL_MINUTES = 25;
 const DEFAULT_BREAK_INTERVAL_MINUTES = 5;
 const SUPPORTED_FOCUS_METHOD: FocusMethod = "Pomodoro";
 const INITIAL_FOCUS_INTERVAL: FocusSessionInterval = "Focus";
+const INITIAL_INTERVAL_STATE: FocusSessionState = "Focus";
+const TRANSITION_WINDOW_SECONDS = 30;
 const ACTIVE_SESSIONS_STORAGE_KEY = "active-sessions";
 
 function getDefaultStorage(): FocusStorageAdapter | undefined {
@@ -88,12 +129,14 @@ function cloneStoredFocusSession(
   };
 }
 
-function isStoredFocusSession(entry: unknown): entry is StoredFocusSession {
+function isLegacyStoredFocusSession(
+  entry: unknown,
+): entry is LegacyStoredFocusSession {
   if (typeof entry !== "object" || entry === null) {
     return false;
   }
 
-  const candidate = entry as Partial<StoredFocusSession>;
+  const candidate = entry as Partial<LegacyStoredFocusSession>;
 
   return (
     typeof candidate.id === "string" &&
@@ -109,6 +152,42 @@ function isStoredFocusSession(entry: unknown): entry is StoredFocusSession {
   );
 }
 
+function isStoredFocusSession(entry: unknown): entry is StoredFocusSession {
+  if (typeof entry !== "object" || entry === null) {
+    return false;
+  }
+
+  const candidate = entry as Partial<StoredFocusSession>;
+
+  return (
+    isLegacyStoredFocusSession(entry) &&
+    (candidate.intervalState === "AwaitingNextFocus" ||
+      candidate.intervalState === "Break" ||
+      candidate.intervalState === "Focus" ||
+      candidate.intervalState === "Transition") &&
+    typeof candidate.stateStartedAt === "string" &&
+    typeof candidate.completedFocusIntervalCount === "number" &&
+    typeof candidate.completedBreakIntervalCount === "number"
+  );
+}
+
+function upgradeStoredFocusSession(
+  session: LegacyStoredFocusSession,
+): StoredFocusSession {
+  if (isStoredFocusSession(session)) {
+    return cloneStoredFocusSession(session);
+  }
+
+  return {
+    ...session,
+    completedBreakIntervalCount: 0,
+    completedFocusIntervalCount: 0,
+    intervalState:
+      session.currentInterval === "Break" ? "Break" : INITIAL_INTERVAL_STATE,
+    stateStartedAt: session.createdAt,
+  };
+}
+
 function parseFocusSnapshot(value: string | null): AppFocusSnapshot {
   if (value === null) {
     return [];
@@ -122,8 +201,8 @@ function parseFocusSnapshot(value: string | null): AppFocusSnapshot {
     }
 
     return parsedValue
-      .filter(isStoredFocusSession)
-      .map(cloneStoredFocusSession);
+      .filter(isLegacyStoredFocusSession)
+      .map(upgradeStoredFocusSession);
   } catch {
     return [];
   }
@@ -135,15 +214,142 @@ function assertPositiveInteger(value: number, message: string) {
   }
 }
 
-function toPublicSession(session: StoredFocusSession): FocusSession {
+function getDurationMs(minutes: number) {
+  return minutes * 60 * 1000;
+}
+
+function toIsoString(timestampMs: number) {
+  return new Date(timestampMs).toISOString();
+}
+
+function getTransitionWindowMs() {
+  return TRANSITION_WINDOW_SECONDS * 1000;
+}
+
+function getStateEndTimestamp(session: StoredFocusSession) {
+  const stateStartedAtMs = Date.parse(session.stateStartedAt);
+
+  switch (session.intervalState) {
+    case "Focus":
+      return stateStartedAtMs + getDurationMs(session.focusIntervalMinutes);
+    case "Break":
+      return stateStartedAtMs + getDurationMs(session.breakIntervalMinutes);
+    case "Transition":
+      return stateStartedAtMs + getTransitionWindowMs();
+    case "AwaitingNextFocus":
+      return null;
+  }
+}
+
+function hasReachedPlannedIntervalCount(session: StoredFocusSession) {
+  return (
+    session.plannedFocusIntervalCount !== null &&
+    session.completedFocusIntervalCount >= session.plannedFocusIntervalCount
+  );
+}
+
+function deriveStoredFocusSession(
+  session: StoredFocusSession,
+  now: Date,
+): DerivedFocusSession {
+  const nowMs = now.getTime();
+  let derivedSession = cloneStoredFocusSession(session);
+
+  while (true) {
+    const stateEndTimestamp = getStateEndTimestamp(derivedSession);
+
+    if (stateEndTimestamp === null || nowMs < stateEndTimestamp) {
+      return {
+        isStale:
+          derivedSession.intervalState === "AwaitingNextFocus" &&
+          nowMs > Date.parse(derivedSession.stateStartedAt),
+        session: derivedSession,
+      };
+    }
+
+    if (derivedSession.intervalState === "Focus") {
+      derivedSession = {
+        ...derivedSession,
+        completedFocusIntervalCount:
+          derivedSession.completedFocusIntervalCount + 1,
+        currentInterval: "Focus",
+        intervalState: "Transition",
+        stateStartedAt: toIsoString(stateEndTimestamp),
+      };
+      continue;
+    }
+
+    if (derivedSession.intervalState === "Transition") {
+      if (hasReachedPlannedIntervalCount(derivedSession)) {
+        return {
+          isStale: nowMs > stateEndTimestamp,
+          session: {
+            ...derivedSession,
+            currentInterval: "Focus",
+            intervalState: "AwaitingNextFocus",
+            stateStartedAt: toIsoString(stateEndTimestamp),
+          },
+        };
+      }
+
+      derivedSession = {
+        ...derivedSession,
+        currentInterval: "Break",
+        intervalState: "Break",
+        stateStartedAt: toIsoString(stateEndTimestamp),
+      };
+      continue;
+    }
+
+    if (derivedSession.intervalState === "Break") {
+      return {
+        isStale: nowMs > stateEndTimestamp,
+        session: {
+          ...derivedSession,
+          completedBreakIntervalCount:
+            derivedSession.completedBreakIntervalCount + 1,
+          currentInterval: "Break",
+          intervalState: "AwaitingNextFocus",
+          stateStartedAt: toIsoString(stateEndTimestamp),
+        },
+      };
+    }
+
+    return {
+      isStale: nowMs > Date.parse(derivedSession.stateStartedAt),
+      session: derivedSession,
+    };
+  }
+}
+
+function toPublicSession(
+  session: StoredFocusSession,
+  now: Date = new Date(),
+): FocusSession {
+  const derivedSession = deriveStoredFocusSession(session, now);
+  const stateEndTimestamp = getStateEndTimestamp(derivedSession.session);
+
   return {
-    breakIntervalMinutes: session.breakIntervalMinutes,
-    createdAt: session.createdAt,
-    currentInterval: session.currentInterval,
-    focusIntervalMinutes: session.focusIntervalMinutes,
-    id: session.id,
-    method: session.method,
-    plannedFocusIntervalCount: session.plannedFocusIntervalCount,
+    breakIntervalMinutes: derivedSession.session.breakIntervalMinutes,
+    completedBreakIntervalCount:
+      derivedSession.session.completedBreakIntervalCount,
+    completedFocusIntervalCount:
+      derivedSession.session.completedFocusIntervalCount,
+    createdAt: derivedSession.session.createdAt,
+    currentInterval: derivedSession.session.currentInterval,
+    focusIntervalMinutes: derivedSession.session.focusIntervalMinutes,
+    id: derivedSession.session.id,
+    intervalState: derivedSession.session.intervalState,
+    isStale: derivedSession.isStale,
+    method: derivedSession.session.method,
+    plannedFocusIntervalCount: derivedSession.session.plannedFocusIntervalCount,
+    remainingSeconds:
+      stateEndTimestamp === null
+        ? null
+        : Math.ceil((stateEndTimestamp - now.getTime()) / 1000),
+    stateEndsAt:
+      stateEndTimestamp === null ? null : toIsoString(stateEndTimestamp),
+    stateStartedAt: derivedSession.session.stateStartedAt,
   };
 }
 
@@ -156,6 +362,10 @@ function getActiveStoredSession(
 
 function getPlannedFocusIntervalCount(input: StartFocusSessionInput) {
   return input.plannedFocusIntervalCount ?? null;
+}
+
+function getCurrentDate() {
+  return new Date();
 }
 
 export function createAppFocusContext(
@@ -193,7 +403,7 @@ export function createAppFocusContext(
   function getActiveSession({ userId }: GetActiveFocusSessionInput) {
     const session = getActiveStoredSession(activeSessions, userId);
 
-    return session === null ? null : toPublicSession(session);
+    return session === null ? null : toPublicSession(session, getCurrentDate());
   }
 
   function startFocusSession(input: StartFocusSessionInput) {
@@ -226,20 +436,58 @@ export function createAppFocusContext(
       );
     }
 
+    const now = getCurrentDate();
     const nextSession: StoredFocusSession = {
       breakIntervalMinutes,
-      createdAt: new Date().toISOString(),
+      completedBreakIntervalCount: 0,
+      completedFocusIntervalCount: 0,
+      createdAt: now.toISOString(),
       currentInterval: INITIAL_FOCUS_INTERVAL,
       focusIntervalMinutes,
       id: cryptoProvider.randomUUID(),
+      intervalState: INITIAL_INTERVAL_STATE,
       method: SUPPORTED_FOCUS_METHOD,
       plannedFocusIntervalCount,
+      stateStartedAt: now.toISOString(),
       userId: input.userId,
     };
 
     writeSnapshot([...activeSessions, nextSession]);
 
-    return toPublicSession(nextSession);
+    return toPublicSession(nextSession, now);
+  }
+
+  function startNextFocusInterval(input: StartNextFocusIntervalInput) {
+    const session = getActiveStoredSession(activeSessions, input.userId);
+
+    if (session === null) {
+      throw new AppFocusError("invalid_input", "User has no active FocusSession.");
+    }
+
+    const now = getCurrentDate();
+    const derivedSession = deriveStoredFocusSession(session, now).session;
+
+    if (derivedSession.intervalState === "Focus") {
+      throw new AppFocusError(
+        "invalid_input",
+        "Current FocusInterval is already running.",
+      );
+    }
+
+    const nextSession: StoredFocusSession = {
+      ...derivedSession,
+      currentInterval: "Focus",
+      intervalState: "Focus",
+      stateStartedAt: now.toISOString(),
+    };
+
+    writeSnapshot(
+      activeSessions.map((activeSession) =>
+        activeSession.userId === input.userId ? nextSession : activeSession,
+      ),
+    );
+
+    return toPublicSession(nextSession, now);
   }
 
   function subscribe(listener: FocusListener) {
@@ -254,6 +502,7 @@ export function createAppFocusContext(
     getActiveSession,
     getSnapshot,
     startFocusSession,
+    startNextFocusInterval,
     subscribe,
   };
 }

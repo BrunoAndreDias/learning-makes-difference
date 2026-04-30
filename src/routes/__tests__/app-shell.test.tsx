@@ -2287,6 +2287,187 @@ describe("authenticated app shell", () => {
     });
   });
 
+  it("lets the user continue from transition and skip an active break", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    const keyPrefix = `test-focus-actions-${Math.random().toString(36).slice(2)}`;
+    const userId = "user-focus-actions";
+    const session = {
+      user: {
+        displayName: "Casey Actions",
+        email: "casey.actions@example.com",
+        id: userId,
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+      },
+    } satisfies AppSessionSnapshot;
+
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    const initialFocusContext = createAppFocusContext({
+      keyPrefix,
+      storage: window.localStorage,
+    });
+    const initialRender = renderRoute("/notes", {
+      focusContext: initialFocusContext,
+      session,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
+    fireEvent.submit(
+      screen.getByRole("form", {
+        name: "Focus session start",
+      }),
+    );
+
+    initialRender.unmount();
+
+    vi.setSystemTime(new Date("2026-04-30T10:25:12.000Z"));
+
+    const transitionFocusContext = createAppFocusContext({
+      keyPrefix,
+      storage: window.localStorage,
+    });
+    const transitionRender = renderRoute("/notes", {
+      focusContext: transitionFocusContext,
+      session,
+    });
+
+    expect(
+      await screen.findByRole("button", { name: "Continue focus" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Transition window:/),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue focus" }));
+
+    expect(transitionFocusContext.getActiveSession({ userId })).toMatchObject({
+      completedBreakIntervalCount: 0,
+      completedFocusIntervalCount: 1,
+      currentInterval: "Focus",
+      intervalState: "Focus",
+    });
+
+    transitionRender.unmount();
+
+    vi.setSystemTime(new Date("2026-04-30T10:50:50.000Z"));
+
+    const breakFocusContext = createAppFocusContext({
+      keyPrefix,
+      storage: window.localStorage,
+    });
+    renderRoute("/notes", {
+      focusContext: breakFocusContext,
+      session,
+    });
+
+    expect(
+      await screen.findByRole("button", { name: "Skip break" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Break:/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Skip break" }));
+
+    expect(breakFocusContext.getActiveSession({ userId })).toMatchObject({
+      completedBreakIntervalCount: 0,
+      completedFocusIntervalCount: 2,
+      currentInterval: "Focus",
+      intervalState: "Focus",
+    });
+  });
+
+  it("shows completed-break waiting state and stale-session prompt without ending the session", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    const keyPrefix = `test-focus-stale-${Math.random().toString(36).slice(2)}`;
+    const userId = "user-focus-stale";
+    const session = {
+      user: {
+        displayName: "Casey Stale",
+        email: "casey.stale@example.com",
+        id: userId,
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+      },
+    } satisfies AppSessionSnapshot;
+
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    const initialFocusContext = createAppFocusContext({
+      keyPrefix,
+      storage: window.localStorage,
+    });
+    const initialRender = renderRoute("/notes", {
+      focusContext: initialFocusContext,
+      session,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
+    fireEvent.submit(
+      screen.getByRole("form", {
+        name: "Focus session start",
+      }),
+    );
+
+    initialRender.unmount();
+
+    vi.setSystemTime(new Date("2026-04-30T10:30:30.000Z"));
+
+    const completedBreakFocusContext = createAppFocusContext({
+      keyPrefix,
+      storage: window.localStorage,
+    });
+    const completedBreakRender = renderRoute("/notes", {
+      focusContext: completedBreakFocusContext,
+      session,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+    expect(
+      completedBreakFocusContext.getActiveSession({ userId }),
+    ).toMatchObject({
+      completedBreakIntervalCount: 1,
+      completedFocusIntervalCount: 1,
+      intervalState: "AwaitingNextFocus",
+    });
+
+    completedBreakRender.unmount();
+
+    vi.setSystemTime(new Date("2026-04-30T10:40:30.000Z"));
+
+    const staleFocusContext = createAppFocusContext({
+      keyPrefix,
+      storage: window.localStorage,
+    });
+    renderRoute("/notes", {
+      focusContext: staleFocusContext,
+      session,
+    });
+
+    expect(await screen.findByText("Focus session stale")).toBeInTheDocument();
+
+    staleFocusContext.startNextFocusInterval({ userId });
+
+    expect(staleFocusContext.getActiveSession({ userId })).toMatchObject({
+      completedBreakIntervalCount: 1,
+      completedFocusIntervalCount: 1,
+      currentInterval: "Focus",
+      intervalState: "Focus",
+      isStale: false,
+    });
+  });
+
   it("manages note metaphors inside the note workflow", async () => {
     renderRoute("/notes", {
       session: {
