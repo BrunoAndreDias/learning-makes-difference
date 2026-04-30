@@ -13,15 +13,20 @@ export function getRouter() {
     getOwnedLabelIdsForUser: (userId) =>
       labels.getLabelsForUser(userId).map((label) => label.id),
   });
+  const focus = createAppFocusContext({
+    getLabelsForUser: (userId) => labels.getLabelsForUser(userId),
+  });
+  const recall = createAppRecallContext({
+    notes,
+    onStudyActivity: focus.captureRecallSessionStudyActivity,
+  });
 
   return createRouter({
     context: {
-      focus: createAppFocusContext(),
+      focus,
       labels,
       notes,
-      recall: createAppRecallContext({
-        notes,
-      }),
+      recall,
       session: createAppSessionContext(),
     },
     routeTree,

@@ -1,4 +1,5 @@
 import { type AppNote, type AppNotesContext, listNotesForUser } from "./notes";
+import type { RecallStudyActivitySession } from "./focus";
 
 export type RecallMode = "AiAssisted" | "AiGraded" | "FlashCard";
 
@@ -121,6 +122,10 @@ type CreateAppRecallContextOptions = {
   crypto?: RecallCrypto;
   keyPrefix?: string;
   notes: AppNotesContext;
+  onStudyActivity?: (input: {
+    recallSession: RecallStudyActivitySession;
+    userId: string;
+  }) => void;
   shuffleNotes?: ShuffleNotes;
   storage?: RecallStorageAdapter;
 };
@@ -541,6 +546,18 @@ export function createAppRecallContext(
     notifyListeners();
   }
 
+  function emitStudyActivity(session: StoredRecallSession) {
+    options.onStudyActivity?.({
+      recallSession: {
+        createdAt: session.createdAt,
+        id: session.id,
+        mode: session.mode,
+        notes: cloneRecallNoteSnapshots(session.notes),
+      },
+      userId: session.userId,
+    });
+  }
+
   function getActiveSessionForUser({
     sessionId,
     userId,
@@ -656,12 +673,14 @@ export function createAppRecallContext(
     };
 
     if (nextSession.currentQuestionIndex >= nextSession.notes.length) {
+      emitStudyActivity(nextSession);
       persistSessionResult(nextSession);
       writeSnapshot(null);
       return null;
     }
 
     writeSnapshot(nextSession);
+    emitStudyActivity(nextSession);
 
     return nextSession;
   }
@@ -702,6 +721,7 @@ export function createAppRecallContext(
     };
 
     writeSnapshot(nextSession);
+    emitStudyActivity(nextSession);
 
     return nextSession;
   }
