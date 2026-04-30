@@ -7,6 +7,8 @@ import {
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 import type { AppSessionSnapshot } from "../../access/domain/session";
+import { BreakIntervalOverlay } from "../components/break-interval-overlay";
+import { isBreakIntervalActive } from "../domain/focus";
 import {
   AppRecallError,
   type AppRecallSnapshot,
@@ -39,6 +41,10 @@ export function RecallSessionPage() {
 
 export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
   const navigate = useNavigate();
+  const focusContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.focus,
+  });
   const recallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.recall,
@@ -57,7 +63,15 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
     recallContext.getSnapshot,
     recallContext.getSnapshot,
   );
+  useSyncExternalStore(
+    focusContext.subscribe,
+    focusContext.getSnapshot,
+    focusContext.getSnapshot,
+  );
   const userId = sessionSnapshot.user?.id ?? null;
+  const activeFocusSession =
+    userId === null ? null : focusContext.getActiveSession({ userId });
+  const isBreakActive = isBreakIntervalActive(activeFocusSession);
   const activeSession =
     userId !== null && recallSnapshot?.userId === userId
       ? recallSnapshot
@@ -89,7 +103,7 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
   }
 
   function handleRevealAnswer() {
-    if (userId === null || activeSession === null) {
+    if (userId === null || activeSession === null || isBreakActive) {
       return;
     }
 
@@ -105,7 +119,7 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
   }
 
   async function handleRateAnswer(rating: FlashCardRecallRating) {
-    if (userId === null || activeSession === null) {
+    if (userId === null || activeSession === null || isBreakActive) {
       return;
     }
 
@@ -242,7 +256,9 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
           className="recall-card"
           data-revealed={activeSession.isAnswerRevealed}
         >
-          <div className="recall-card__top">
+          <fieldset className="recall-card__study-surface" disabled={isBreakActive}>
+            <legend className="sr-only">Recall study surface</legend>
+            <div className="recall-card__top">
             <div className="recall-card__face recall-card__face--prompt">
               <button
                 aria-label={`Show note snapshot for ${currentNote.title}`}
@@ -270,39 +286,43 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
                 </button>
               </div>
             ) : null}
-          </div>
+            </div>
 
-          {activeSession.isAnswerRevealed ? (
-            <p className="recall-card__body">{currentNote.body}</p>
-          ) : null}
+            {activeSession.isAnswerRevealed ? (
+              <p className="recall-card__body">{currentNote.body}</p>
+            ) : null}
 
-          {activeSession.isAnswerRevealed ? (
-            <footer className="recall-card__footer">
-              <fieldset className="recall-rating-row">
-                <legend className="sr-only">Rate your recall</legend>
-                <button
-                  className="notes-action recall-rating recall-rating--missed"
-                  onClick={() => void handleRateAnswer("missed")}
-                  type="button"
-                >
-                  Missed it
-                </button>
-                <button
-                  className="notes-action recall-rating recall-rating--partial"
-                  onClick={() => void handleRateAnswer("partial")}
-                  type="button"
-                >
-                  Partly recalled
-                </button>
-                <button
-                  className="notes-action recall-rating recall-rating--nailed"
-                  onClick={() => void handleRateAnswer("nailed")}
-                  type="button"
-                >
-                  Nailed it
-                </button>
-              </fieldset>
-            </footer>
+            {activeSession.isAnswerRevealed ? (
+              <footer className="recall-card__footer">
+                <fieldset className="recall-rating-row">
+                  <legend className="sr-only">Rate your recall</legend>
+                  <button
+                    className="notes-action recall-rating recall-rating--missed"
+                    onClick={() => void handleRateAnswer("missed")}
+                    type="button"
+                  >
+                    Missed it
+                  </button>
+                  <button
+                    className="notes-action recall-rating recall-rating--partial"
+                    onClick={() => void handleRateAnswer("partial")}
+                    type="button"
+                  >
+                    Partly recalled
+                  </button>
+                  <button
+                    className="notes-action recall-rating recall-rating--nailed"
+                    onClick={() => void handleRateAnswer("nailed")}
+                    type="button"
+                  >
+                    Nailed it
+                  </button>
+                </fieldset>
+              </footer>
+            ) : null}
+          </fieldset>
+          {isBreakActive && userId !== null ? (
+            <BreakIntervalOverlay focus={focusContext} userId={userId} />
           ) : null}
         </article>
 

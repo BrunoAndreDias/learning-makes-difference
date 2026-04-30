@@ -17,8 +17,10 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { BreakIntervalOverlay } from "../components/break-interval-overlay";
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import type { AppLabel } from "../../labels/domain/labels";
+import { isBreakIntervalActive } from "../domain/focus";
 import {
   getNoteEditorSaveInput,
   getSelectedNote,
@@ -153,6 +155,9 @@ export function NotesWorkspace() {
   const noteFormRef = useRef<HTMLFormElement>(null);
   const isInspectorHidden = bodyFraction >= 0.88;
   const selectedNote = getSelectedNote(noteEditor, notes);
+  const activeFocusSession =
+    userId === null ? null : focusContext.getActiveSession({ userId });
+  const isBreakActive = isBreakIntervalActive(activeFocusSession);
   const isCreating = selectedNote === null;
   const editorIdentity =
     noteEditor.mode === "draft" ? "draft" : noteEditor.selectedNoteId;
@@ -963,7 +968,9 @@ export function NotesWorkspace() {
 
       <div className="notes-layout">
         <article aria-label="Note editor surface" className="notes-editor">
-          <header className="notes-editor__header">
+          <fieldset className="notes-editor__study-surface" disabled={isBreakActive}>
+            <legend className="sr-only">Note study surface</legend>
+            <header className="notes-editor__header">
             <div className="notes-editor__title-stack">
               <label className="notes-title-editor">
                 <span className="sr-only">Title</span>
@@ -1042,17 +1049,17 @@ export function NotesWorkspace() {
                 {isCreating ? "Create note" : "Save changes"}
               </button>
             ) : null}
-          </header>
+            </header>
 
-          <form
-            aria-label="Note editor"
-            className="notes-form"
-            data-inspector-hidden={isInspectorHidden ? "true" : undefined}
-            id={noteEditorFormId}
-            onSubmit={handleSubmit}
-            ref={noteFormRef}
-            style={{ "--notes-body-fraction": bodyFraction } as CSSProperties}
-          >
+            <form
+              aria-label="Note editor"
+              className="notes-form"
+              data-inspector-hidden={isInspectorHidden ? "true" : undefined}
+              id={noteEditorFormId}
+              onSubmit={handleSubmit}
+              ref={noteFormRef}
+              style={{ "--notes-body-fraction": bodyFraction } as CSSProperties}
+            >
             <div className="notes-form__primary">
               <label className="notes-form__field notes-form__body-field">
                 <span className="sr-only">Body</span>
@@ -1262,7 +1269,11 @@ export function NotesWorkspace() {
                 )}
               </section>
             </aside>
-          </form>
+            </form>
+          </fieldset>
+          {isBreakActive && userId !== null ? (
+            <BreakIntervalOverlay focus={focusContext} userId={userId} />
+          ) : null}
         </article>
       </div>
       {hasPendingWorkspaceTransition ? (
