@@ -14,6 +14,9 @@ import { type ReactNode, useSyncExternalStore } from "react";
 import appLogo from "../../../../docs/layout/logo.svg";
 import appCss from "../../../styles/app.css?url";
 import {
+  type AppFocusContext,
+} from "../../learning-loop/domain/focus";
+import {
   type AppSessionContext,
   hasActiveSession,
 } from "../../access/domain/session";
@@ -37,6 +40,7 @@ function isProtectedPath(pathname: string): boolean {
 }
 
 export const Route = createRootRouteWithContext<{
+  focus: AppFocusContext;
   labels: AppLabelsContext;
   notes: AppNotesContext;
   recall: AppRecallContext;

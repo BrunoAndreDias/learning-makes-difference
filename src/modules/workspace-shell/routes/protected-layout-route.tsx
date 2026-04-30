@@ -7,6 +7,7 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import {
+  type FormEvent,
   type KeyboardEvent,
   useEffect,
   useId,
@@ -17,6 +18,11 @@ import {
 
 import appLogo from "../../../../docs/layout/logo.svg";
 import type { AppSessionSnapshot } from "../../access/domain/session";
+import {
+  AppFocusError,
+  type AppFocusContext,
+  type AppFocusSnapshot,
+} from "../../learning-loop/domain/focus";
 import {
   LearningLoopWorkspaceProvider,
   NotesWorkspaceSidebar,
@@ -50,6 +56,10 @@ function isRecallResultsWorkspacePath(pathname: string) {
 }
 
 export function AppLayout() {
+  const focus = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.focus,
+  });
   const session = useRouteContext({
     from: "/_protected",
     select: (context) => context.session,
@@ -71,6 +81,11 @@ export function AppLayout() {
     session.getSnapshot,
     session.getSnapshot,
   );
+  const focusSnapshot = useSyncExternalStore<AppFocusSnapshot>(
+    focus.subscribe,
+    focus.getSnapshot,
+    focus.getSnapshot,
+  );
   const workspaceTitle = getWorkspaceTitle(location.pathname);
   const isNotesWorkspaceRoute = isNotesWorkspacePath(location.pathname);
   const isRecallResultsWorkspaceRoute = isRecallResultsWorkspacePath(
@@ -83,6 +98,12 @@ export function AppLayout() {
   const mobileToggleLabel = isMobileSidebarOpen
     ? "Close navigation menu"
     : "Open navigation menu";
+  const userId = sessionSnapshot.user?.id ?? null;
+  const activeFocusSession =
+    userId === null
+      ? null
+      : focusSnapshot.find((sessionEntry) => sessionEntry.userId === userId) ??
+        null;
 
   function closeMobileSidebar(shouldRestoreFocus = false) {
     setShouldRestoreMobileToggleFocus(shouldRestoreFocus);
@@ -208,6 +229,11 @@ export function AppLayout() {
               <h2>{workspaceTitle}</h2>
             </div>
             <div className="app-frame__actions">
+              <FocusSessionStartControl
+                activeFocusSession={activeFocusSession}
+                focus={focus}
+                userId={userId}
+              />
               <button
                 aria-controls={navigationId}
                 aria-expanded={isMobileSidebarOpen}
@@ -219,7 +245,6 @@ export function AppLayout() {
               >
                 {isMobileSidebarOpen ? "Close menu" : "Open menu"}
               </button>
-              <span className="tag">Shell ready for future modules</span>
             </div>
           </header>
 
@@ -229,6 +254,147 @@ export function AppLayout() {
         </div>
       </section>
     </LearningLoopWorkspaceProvider>
+  );
+}
+
+function FocusSessionStartControl({
+  activeFocusSession,
+  focus,
+  userId,
+}: Readonly<{
+  activeFocusSession: AppFocusSnapshot[number] | null;
+  focus: AppFocusContext;
+  userId: string | null;
+}>) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [focusMinutes, setFocusMinutes] = useState("25");
+  const [breakMinutes, setBreakMinutes] = useState("5");
+  const [plannedFocusIntervals, setPlannedFocusIntervals] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeFocusSession === null) {
+      return;
+    }
+
+    setIsOpen(false);
+    setErrorMessage(null);
+  }, [activeFocusSession]);
+
+  if (activeFocusSession !== null) {
+    return (
+      <button className="notes-action notes-action-primary" disabled type="button">
+        Focus active
+      </button>
+    );
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (userId === null) {
+      return;
+    }
+
+    const parsedFocusMinutes = Number(focusMinutes);
+    const parsedBreakMinutes = Number(breakMinutes);
+    const parsedPlannedFocusIntervals =
+      plannedFocusIntervals.trim().length === 0
+        ? null
+        : Number(plannedFocusIntervals);
+
+    try {
+      focus.startFocusSession({
+        breakIntervalMinutes: parsedBreakMinutes,
+        focusIntervalMinutes: parsedFocusMinutes,
+        plannedFocusIntervalCount: parsedPlannedFocusIntervals,
+        userId,
+      });
+      setErrorMessage(null);
+      setPlannedFocusIntervals("");
+    } catch (error) {
+      if (error instanceof AppFocusError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    }
+  }
+
+  if (!isOpen) {
+    return (
+      <button
+        className="notes-action notes-action-primary"
+        onClick={() => setIsOpen(true)}
+        type="button"
+      >
+        Start Focus
+      </button>
+    );
+  }
+
+  return (
+    <form
+      aria-label="Focus session start"
+      className="tag-row"
+      onSubmit={handleSubmit}
+    >
+      <label>
+        <span className="sr-only">Focus minutes</span>
+        <input
+          aria-label="Focus minutes"
+          inputMode="numeric"
+          onChange={(event) => {
+            setFocusMinutes(event.target.value);
+            setErrorMessage(null);
+          }}
+          type="number"
+          value={focusMinutes}
+        />
+      </label>
+      <label>
+        <span className="sr-only">Break minutes</span>
+        <input
+          aria-label="Break minutes"
+          inputMode="numeric"
+          onChange={(event) => {
+            setBreakMinutes(event.target.value);
+            setErrorMessage(null);
+          }}
+          type="number"
+          value={breakMinutes}
+        />
+      </label>
+      <label>
+        <span className="sr-only">Planned focus intervals</span>
+        <input
+          aria-label="Planned focus intervals"
+          inputMode="numeric"
+          onChange={(event) => {
+            setPlannedFocusIntervals(event.target.value);
+            setErrorMessage(null);
+          }}
+          placeholder="Optional rounds"
+          type="number"
+          value={plannedFocusIntervals}
+        />
+      </label>
+      <button className="notes-action notes-action-primary" type="submit">
+        Start Focus
+      </button>
+      <button
+        className="notes-action"
+        onClick={() => {
+          setIsOpen(false);
+          setErrorMessage(null);
+        }}
+        type="button"
+      >
+        Cancel
+      </button>
+      {errorMessage === null ? null : <span role="status">{errorMessage}</span>}
+    </form>
   );
 }
 

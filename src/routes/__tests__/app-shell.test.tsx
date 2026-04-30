@@ -26,6 +26,10 @@ import {
   createAppLabelsContext,
 } from "../../modules/labels/domain/labels";
 import {
+  type AppFocusContext,
+  createAppFocusContext,
+} from "../../modules/learning-loop/domain/focus";
+import {
   type AppNotesContext,
   createAppNotesContext,
   listNotesForUser,
@@ -40,6 +44,7 @@ import { routeTree } from "../../routeTree.gen";
 function renderRoute(
   initialPath: string,
   options: {
+    focusContext?: AppFocusContext;
     labelsContext?: AppLabelsContext;
     notesContext?: AppNotesContext;
     recallContext?: AppRecallContext;
@@ -90,12 +95,19 @@ function renderRoute(
       notes: notesContext,
       storage: window.localStorage,
     });
+  const focusContext =
+    options.focusContext ??
+    createAppFocusContext({
+      keyPrefix: `test-focus-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({
       initialEntries: [initialPath],
     }),
     context: {
+      focus: focusContext,
       labels: labelsContext,
       notes: notesContext,
       recall: recallContext,
@@ -135,8 +147,13 @@ function createLearningLoopTestContexts(
     storage: window.localStorage,
     ...recallOptions,
   });
+  const focusContext = createAppFocusContext({
+    keyPrefix: `test-focus-${Math.random().toString(36).slice(2)}`,
+    storage: window.localStorage,
+  });
 
   return {
+    focusContext,
     labelsContext,
     notesContext,
     recallContext,
@@ -144,6 +161,7 @@ function createLearningLoopTestContexts(
 }
 
 type AppShellRouter = ReturnType<typeof renderRoute>["router"];
+type RenderRouteOptions = NonNullable<Parameters<typeof renderRoute>[1]>;
 type LearningLoopTestContexts = ReturnType<
   typeof createLearningLoopTestContexts
 >;
@@ -219,7 +237,7 @@ function completeRecallSessionAt({
   });
 }
 
-async function renderRecallSelection(contexts: LearningLoopTestContexts) {
+async function renderRecallSelection(contexts: RenderRouteOptions) {
   const routeRender = renderRoute("/recall/select", contexts);
 
   expect(
@@ -2142,6 +2160,61 @@ describe("authenticated app shell", () => {
     ).toBeNull();
     expect(screen.queryByText("Selecting for recall")).toBeNull();
     expect(screen.queryByLabelText("Recall selection controls")).toBeNull();
+  });
+
+  it("starts a FocusSession from notes without leaving the current screen", async () => {
+    const focusContext = createAppFocusContext({
+      keyPrefix: `test-focus-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-focus";
+    const { router } = renderRoute("/notes", {
+      focusContext,
+      session: {
+        user: {
+          displayName: "Casey Focus",
+          email: "casey@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
+
+    const focusControls = screen.getByRole("form", {
+      name: "Focus session start",
+    });
+    fireEvent.change(within(focusControls).getByLabelText("Focus minutes"), {
+      target: { value: "30" },
+    });
+    fireEvent.change(within(focusControls).getByLabelText("Break minutes"), {
+      target: { value: "10" },
+    });
+    fireEvent.change(
+      within(focusControls).getByLabelText("Planned focus intervals"),
+      {
+        target: { value: "4" },
+      },
+    );
+    fireEvent.submit(focusControls);
+
+    expect(router.state.location.pathname).toBe("/notes");
+    expect(
+      screen.getByRole("button", { name: "Focus active" }),
+    ).toBeInTheDocument();
+    expect(focusContext.getActiveSession({ userId })).toMatchObject({
+      breakIntervalMinutes: 10,
+      currentInterval: "Focus",
+      focusIntervalMinutes: 30,
+      method: "Pomodoro",
+      plannedFocusIntervalCount: 4,
+    });
   });
 
   it("manages note metaphors inside the note workflow", async () => {

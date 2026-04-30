@@ -2,6 +2,7 @@ import { createRouter } from "@tanstack/react-router";
 
 import { createAppSessionContext } from "./modules/access/domain/session";
 import { createAppLabelsContext } from "./modules/labels/domain/labels";
+import { createAppFocusContext } from "./modules/learning-loop/domain/focus";
 import { createAppNotesContext } from "./modules/learning-loop/domain/notes";
 import { createAppRecallContext } from "./modules/learning-loop/domain/recall";
 import { routeTree } from "./routeTree.gen";
@@ -15,6 +16,7 @@ export function getRouter() {
 
   return createRouter({
     context: {
+      focus: createAppFocusContext(),
       labels,
       notes,
       recall: createAppRecallContext({
