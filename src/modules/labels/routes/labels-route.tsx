@@ -1,17 +1,20 @@
-import { useRouteContext } from "@tanstack/react-router";
+import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import {
   type FormEvent,
   useEffect,
   useState,
   useSyncExternalStore,
 } from "react";
-
+import type { AppSessionSnapshot } from "../../access/domain/session";
 import {
   type AppLabel,
   AppLabelError,
   type AppLabelsContext,
-} from "../../../features/labels/labels";
-import type { AppSessionSnapshot } from "../../../features/session/session";
+} from "../domain/labels";
+
+export const Route = createFileRoute("/_protected/labels")({
+  component: LabelsPage,
+});
 
 export function LabelsPage() {
   const labels = useRouteContext({

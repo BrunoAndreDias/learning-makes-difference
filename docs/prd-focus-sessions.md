@@ -6,7 +6,7 @@ Learners need more than Notes and recall practice to study effectively. They als
 
 ## Solution
 
-A Focus Session capability that lets users run pomodoro-style study blocks alongside note-taking and recall. A FocusSession is separate from a RecallSession, can contain multiple completed focus and break intervals, captures study context automatically from meaningful in-app activity, and produces a FocusRecord only after at least one full focus interval is completed. In v1, `Pomodoro` is the default FocusMethod, focus history is snapshot-based, and analytics emphasize completed focus time plus which study targets appeared during the session.
+A Focus Session capability that lets users run pomodoro-style study blocks alongside note-taking and recall. A FocusSession is separate from a RecallSession, is available globally across the authenticated workspace, can contain multiple completed focus and break intervals, captures study context automatically from meaningful in-app activity, and produces a FocusRecord only after at least one full focus interval is completed. In v1, `Pomodoro` is the default FocusMethod, focus history is snapshot-based, and analytics emphasize completed focus time plus which study targets appeared during the session.
 
 ## User Stories
 
@@ -46,6 +46,15 @@ A Focus Session capability that lets users run pomodoro-style study blocks along
 34. As a learner, I want long-break or inactivity auto-ending to be deferred until the product has real usage feedback, so that v1 stays predictable.
 35. As a learner, I want FocusSession data scoped to my account only, so that my study history remains private and ownership-safe.
 36. As a learner using keyboard navigation or assistive technology, I want to control FocusSessions accessibly, so that timed study remains usable under WCAG requirements.
+37. As a learner, I want at most one active FocusSession at a time, so that focus time is not double-counted.
+38. As a learner, I want to configure Pomodoro timing before starting when needed, so that the default rhythm can fit my study block.
+39. As a learner, I want a short decision window after each completed FocusInterval, so that I can continue directly into another work round or enter the planned break.
+40. As a learner, I want BreakIntervals to be intentional rest periods rather than pauses, so that study analytics do not mix rest and work time.
+41. As a learner, I want to skip a BreakInterval when I decide to keep working, so that the next FocusInterval starts immediately and my work counts correctly.
+42. As a learner, I want the active FocusSession to survive refresh or reopening the app, so that a browser event does not discard my focus work.
+43. As a learner, I want FocusRecords reviewed from a Focus section, so that focus history and analytics are not buried inside Notes or Recall.
+44. As a learner, I want starting focus to keep me on my current screen, so that the timer does not interrupt note-taking or recall.
+45. As a learner, I want minimal in-app visual changes for interval changes, so that the FocusSession guides me without distracting me.
 
 ## Implementation Decisions
 
@@ -54,17 +63,21 @@ A Focus Session capability that lets users run pomodoro-style study blocks along
 **Focus Module**
 - Owns FocusSession lifecycle: start, advance intervals, transition between focus and break, and explicit end.
 - Persists FocusRecord only when at least one full FocusInterval completes.
+- Enforces one active FocusSession per User.
+- Supports persisted active FocusSession resume using real elapsed wall-clock time.
 - Keeps FocusSession distinct from RecallSession while allowing overlap.
 
 **Focus Analytics Module**
 - Produces user-facing summaries from FocusRecord data.
 - Treats completed FocusInterval time as the primary metric.
 - Exposes which FocusTargets appeared during a FocusSession without assigning exact minutes per target in v1.
+- Supports a lightweight Focus Section at `/focus` with completed FocusRecords newest first and a basic recent completed-focus aggregate.
 
 **Study Activity Capture Module**
 - Observes meaningful in-app study behaviour and turns it into FocusTargets.
 - Must distinguish StudyActivity from incidental navigation.
 - Must support Label-based work, RecallSession activity, and unlabeled Note work.
+- Counts Note review after 30 seconds with the Note selected while the app is visible during an active FocusInterval.
 
 **Recall Module**
 - Emits or exposes enough lifecycle signals for FocusSessions to recognize RecallSession activity as nested study work.
@@ -76,20 +89,37 @@ A Focus Session capability that lets users run pomodoro-style study blocks along
 ### Architectural Decisions
 
 - FocusSession is a separate domain concept from RecallSession.
+- FocusSession controls are globally available across the authenticated workspace and do not belong to one workspace screen.
+- A User can have at most one active FocusSession at a time.
 - `Pomodoro` is the default FocusMethod in v1, but the model must allow future FocusMethods.
+- In v1, configurable Pomodoro timing values are limited to FocusInterval duration, BreakInterval duration, and an optional planned number of FocusIntervals.
 - A FocusSession may contain multiple FocusIntervals and BreakIntervals.
+- BreakIntervals are intentional rest periods only; pausing an in-progress FocusInterval is not supported in v1.
+- After a FocusInterval completes, a 30-second IntervalTransitionWindow lets the User start another FocusInterval immediately; if no action is taken, the next BreakInterval starts automatically.
+- If the planned number of FocusIntervals has been reached, no action during the IntervalTransitionWindow completes the FocusSession instead of starting a BreakInterval.
+- The planned number of FocusIntervals is guidance, not a hard cap; the User can extend the same FocusSession.
+- When a BreakInterval completes, the next FocusInterval starts only through explicit User action.
+- Skipping a BreakInterval immediately starts the next FocusInterval.
 - In v1, FocusSession ends only through explicit user action; automatic ending after inactivity or long breaks is deferred.
+- Long inactivity may produce a stale-session prompt, but must not automatically end the FocusSession.
+- Active FocusSession resume uses real elapsed wall-clock time rather than freezing while the app was closed.
 - FocusSession may run even when study happens partly outside the app, but only in-app StudyActivity can generate automatic FocusTargets in v1.
 - Focus history is snapshot-based in v1; later Label or Note changes do not rewrite past FocusRecords.
+- Note-based FocusTargets snapshot both the touched Note and its attached Labels.
+- Recall-based FocusTargets snapshot the RecallSession plus the Note and Label context used inside that RecallSession.
 - A FocusSession may accumulate multiple FocusTargets over time.
 - FocusTargets are captured automatically in v1 rather than manually entered by the user.
 - Analytics record which FocusTargets appeared in the FocusSession, but not exact minute allocation per target in v1.
 - Recall work inside a FocusSession is nested study activity, not extra additive time.
+- Completed FocusRecords are reviewed in a lightweight Focus Section at `/focus`; active controls remain global.
+- The primary navigation label is "Focus".
+- FocusRecords are read-only in v1.
 
 ### Schema Changes
 
 - Add persistence for active FocusSessions, including current FocusMethod, current interval state, and explicit lifecycle timestamps.
 - Add persistence for FocusIntervals and BreakIntervals belonging to a FocusSession.
+- Add persistence for IntervalTransitionWindow state or enough interval boundary data to derive it from wall-clock time.
 - Add persistence for FocusRecord as the completed historical record of a FocusSession.
 - Add persistence for FocusTargets associated with a FocusRecord.
 - Keep all focus-related records ownership-scoped to a single User.
@@ -97,11 +127,15 @@ A Focus Session capability that lets users run pomodoro-style study blocks along
 
 ### API and Interaction Decisions
 
-- Starting a FocusSession should require minimal input in v1.
+- Starting a FocusSession should be default-first but allow supported Pomodoro timing configuration before start.
+- Starting a FocusSession from the global control should not navigate the User away from the current workspace screen.
+- The Focus Section may show the same active FocusSession state, but must not create a second active-session control model.
 - Focus target classification must be automatic-first and should not interrupt the user during timed work.
 - History views should clearly distinguish active FocusSession state from completed FocusRecord history.
 - Reporting should distinguish completed focus time from break time.
 - Reporting should allow users to see which Labels, RecallSessions, or unlabeled Note work appeared in a completed FocusSession.
+- Interval changes should use minimal in-app visual state changes only in v1.
+- During a BreakInterval, study edits should require explicitly skipping the break first, which starts the next FocusInterval.
 
 ## Testing Decisions
 
@@ -111,15 +145,17 @@ A good test verifies externally observable behavior: what a user or calling boun
 
 **Focus Module**
 - Highest priority.
-- Test FocusSession start, interval progression, explicit ending, persistence rules, and rejection of incomplete-session history.
+- Test FocusSession start, configuration, single-active-session enforcement, interval progression, IntervalTransitionWindow defaults, skip-break behavior, explicit ending, persistence rules, resume from wall-clock time, and rejection of incomplete-session history.
 - Unit test interval transition rules and integration test persistence against a real database.
 
 **Study Activity Capture Module**
 - Test which in-app events count as StudyActivity and which do not.
 - Verify that meaningful Label work, RecallSession activity, and unlabeled Note work produce FocusTargets, while incidental navigation does not.
+- Verify that Note review requires the 30-second visible-app threshold.
 
 **Focus Analytics Module**
 - Test that completed FocusInterval time is the primary metric, BreakIntervals are preserved for secondary analysis, and per-target minute allocation is intentionally absent in v1.
+- Test the `/focus` review surface against completed FocusRecords newest first, touched FocusTargets, secondary break details, and the recent completed-focus aggregate.
 
 **Recall Module Integration**
 - Test that RecallSession activity nested inside FocusSession contributes to FocusTargets and does not create double-counted time.
@@ -137,9 +173,13 @@ A good test verifies externally observable behavior: what a user or calling boun
 - Retroactive reclassification of past FocusRecords after later Note or Label changes
 - Exact minute allocation across multiple FocusTargets within a single FocusSession
 - Automatic FocusSession ending after inactivity, device sleep, or oversized breaks
+- Pausing an in-progress FocusInterval
 - Manual target tagging as a required part of starting or running a FocusSession
 - Additional FocusMethods beyond the default Pomodoro method
 - Notifications, reminders, or cross-device timer synchronization
+- Browser notifications and sounds
+- Chart-based focus analytics
+- Editing or deleting FocusRecords
 - Mobile-native background timer behavior
 - Out-of-app activity classification beyond the fact that the FocusSession itself can continue running
 

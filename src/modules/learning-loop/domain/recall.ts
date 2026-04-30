@@ -1,54 +1,69 @@
+import type { RecallStudyActivitySession } from "./focus";
 import { type AppNote, type AppNotesContext, listNotesForUser } from "./notes";
 
-export type FlashCardRecallMode = "FlashCard";
+export type RecallMode = "AiAssisted" | "AiGraded" | "FlashCard";
 
-export type FlashCardRecallNote = AppNote;
+export type RecallNoteSnapshot = AppNote;
 
-export type FlashCardRecallRating = "missed" | "partial" | "nailed";
+export type RecallSelfRating = "missed" | "partial" | "nailed";
 
-export type FlashCardRecallAttempt = {
+export type RecallAttempt = {
   noteId: string;
-  rating: FlashCardRecallRating;
+  rating: RecallSelfRating;
 };
 
-export type FlashCardRecallAttemptSummary = {
+export type RecallAttemptSummary = {
   missed: number;
   nailed: number;
   partial: number;
 };
 
-export type FlashCardRecallSession = {
-  attempts: FlashCardRecallAttempt[];
-  createdAt: string;
-  currentIndex: number;
-  id: string;
+export type RecallQuestion = {
   isAnswerRevealed: boolean;
-  labelId: string | null;
-  labelName: string;
-  mode: FlashCardRecallMode;
-  notes: FlashCardRecallNote[];
+  noteId: string;
+  noteSnapshot: RecallNoteSnapshot;
+  selfRating: RecallSelfRating | null;
 };
 
-export type FlashCardSessionResult = {
-  attempts: FlashCardRecallAttempt[];
+export type RecallSession = {
+  attempts: RecallAttempt[];
+  createdAt: string;
+  currentIndex: number;
+  currentQuestionIndex: number;
+  id: string;
+  isAnswerRevealed: boolean;
+  mode: RecallMode;
+  notes: RecallNoteSnapshot[];
+  questions: RecallQuestion[];
+};
+
+export type SessionResult = {
+  attempts: RecallAttempt[];
   completedAt: string;
   createdAt: string;
   id: string;
-  labelId: string | null;
-  labelName: string;
-  mode: FlashCardRecallMode;
-  notes: FlashCardRecallNote[];
+  mode: RecallMode;
+  notes: RecallNoteSnapshot[];
+  questions: RecallQuestion[];
 };
 
-type StoredFlashCardRecallSession = FlashCardRecallSession & {
+export type FlashCardRecallMode = "FlashCard";
+export type FlashCardRecallNote = RecallNoteSnapshot;
+export type FlashCardRecallRating = RecallSelfRating;
+export type FlashCardRecallAttempt = RecallAttempt;
+export type FlashCardRecallAttemptSummary = RecallAttemptSummary;
+export type FlashCardRecallSession = RecallSession;
+export type FlashCardSessionResult = SessionResult;
+
+type StoredRecallSession = RecallSession & {
   userId: string;
 };
 
-type StoredFlashCardSessionResult = FlashCardSessionResult & {
+type StoredSessionResult = SessionResult & {
   userId: string;
 };
 
-export type AppRecallSnapshot = StoredFlashCardRecallSession | null;
+export type AppRecallSnapshot = StoredRecallSession | null;
 
 type RecallListener = () => void;
 
@@ -57,15 +72,16 @@ type RecallStorageAdapter = Pick<Storage, "getItem" | "setItem">;
 type RecallCrypto = Pick<Crypto, "randomUUID">;
 
 type ShuffleNotes = (
-  notes: readonly FlashCardRecallNote[],
-) => FlashCardRecallNote[];
+  notes: readonly RecallNoteSnapshot[],
+) => RecallNoteSnapshot[];
 
-type StartFlashCardSessionInput = {
+type StartRecallSessionInput = {
+  mode?: RecallMode;
   noteIds: string[];
   userId: string;
 };
 
-type UpdateFlashCardSessionInput = {
+type UpdateRecallSessionInput = {
   sessionId: string;
   userId: string;
 };
@@ -98,14 +114,18 @@ export type FlashCardRecallAttemptsByNote = FlashCardRecallAttemptSummary & {
   totalAttempts: number;
 };
 
-type RateFlashCardAnswerInput = UpdateFlashCardSessionInput & {
-  rating: FlashCardRecallRating;
+type AnswerQuestionInput = UpdateRecallSessionInput & {
+  rating: RecallSelfRating;
 };
 
 type CreateAppRecallContextOptions = {
   crypto?: RecallCrypto;
   keyPrefix?: string;
   notes: AppNotesContext;
+  onStudyActivity?: (input: {
+    recallSession: RecallStudyActivitySession;
+    userId: string;
+  }) => void;
   shuffleNotes?: ShuffleNotes;
   storage?: RecallStorageAdapter;
 };
@@ -136,27 +156,21 @@ export function summarizeAttempts(
 }
 
 export type AppRecallContext = {
-  endFlashCardSession: (
-    input: UpdateFlashCardSessionInput,
-  ) => FlashCardRecallSession;
-  getSessionResult: (input: GetSessionResultInput) => FlashCardSessionResult;
-  getSessionResultsSnapshot: () => readonly FlashCardSessionResult[];
+  answerQuestion: (input: AnswerQuestionInput) => RecallSession | null;
+  endRecallSession: (input: UpdateRecallSessionInput) => RecallSession;
+  getSessionResult: (input: GetSessionResultInput) => SessionResult;
+  getSessionResultsSnapshot: () => readonly SessionResult[];
   getSnapshot: () => AppRecallSnapshot;
-  listSessionResults: (
-    input: ListSessionResultsInput,
-  ) => FlashCardSessionResult[];
+  listSessionResults: (input: ListSessionResultsInput) => SessionResult[];
   listAttemptsByNote: (
     input: ListAttemptsByNoteInput,
   ) => FlashCardRecallAttemptsByNote[];
-  rateFlashCardAnswer: (
-    input: RateFlashCardAnswerInput,
-  ) => FlashCardRecallSession | null;
-  revealFlashCardAnswer: (
-    input: UpdateFlashCardSessionInput,
-  ) => FlashCardRecallSession;
-  startFlashCardSession: (
-    input: StartFlashCardSessionInput,
-  ) => FlashCardRecallSession;
+  revealAnswer: (input: UpdateRecallSessionInput) => RecallSession;
+  startRecallSession: (input: StartRecallSessionInput) => RecallSession;
+  endFlashCardSession: (input: UpdateRecallSessionInput) => RecallSession;
+  rateFlashCardAnswer: (input: AnswerQuestionInput) => RecallSession | null;
+  revealFlashCardAnswer: (input: UpdateRecallSessionInput) => RecallSession;
+  startFlashCardSession: (input: StartRecallSessionInput) => RecallSession;
   subscribe: (listener: RecallListener) => () => void;
 };
 
@@ -182,7 +196,7 @@ function getSessionResultsStorageKey(prefix: string) {
   return `${prefix}:session-results`;
 }
 
-function isFlashCardRecallNote(note: unknown): note is FlashCardRecallNote {
+function isRecallNoteSnapshot(note: unknown): note is RecallNoteSnapshot {
   const candidate =
     typeof note === "object" && note !== null
       ? (note as Record<string, unknown>)
@@ -202,9 +216,7 @@ function isFlashCardRecallNote(note: unknown): note is FlashCardRecallNote {
   );
 }
 
-function isFlashCardRecallAttempt(
-  attempt: unknown,
-): attempt is FlashCardRecallAttempt {
+function isRecallAttempt(attempt: unknown): attempt is RecallAttempt {
   const candidate =
     typeof attempt === "object" && attempt !== null
       ? (attempt as Record<string, unknown>)
@@ -219,8 +231,73 @@ function isFlashCardRecallAttempt(
   );
 }
 
-function isNullableLabelId(value: unknown): value is string | null {
-  return value === null || typeof value === "string";
+function getFirstAttemptByNoteId(attempts: readonly RecallAttempt[]) {
+  const attemptsByNoteId = new Map<string, RecallAttempt>();
+
+  for (const attempt of attempts) {
+    if (!attemptsByNoteId.has(attempt.noteId)) {
+      attemptsByNoteId.set(attempt.noteId, attempt);
+    }
+  }
+
+  return attemptsByNoteId;
+}
+
+function createQuestionsFromProgress(input: {
+  attempts: readonly RecallAttempt[];
+  isAnswerRevealed: boolean;
+  notes: readonly RecallNoteSnapshot[];
+  questionIndex: number;
+}) {
+  return createQuestionsFromSessionState({
+    attempts: input.attempts,
+    currentIndex: input.questionIndex,
+    isAnswerRevealed: input.isAnswerRevealed,
+    notes: input.notes,
+  });
+}
+
+function getRecallQuestionState(
+  input: {
+    currentIndex: number;
+    isAnswerRevealed: boolean;
+    note: RecallNoteSnapshot;
+    noteIndex: number;
+  },
+  attemptsByNoteId: ReadonlyMap<string, RecallAttempt>,
+): RecallQuestion {
+  const attempt = attemptsByNoteId.get(input.note.id);
+
+  return {
+    isAnswerRevealed:
+      attempt === undefined &&
+      input.noteIndex === input.currentIndex &&
+      input.isAnswerRevealed,
+    noteId: input.note.id,
+    noteSnapshot: cloneRecallNoteSnapshot(input.note),
+    selfRating: attempt?.rating ?? null,
+  };
+}
+
+function createQuestionsFromSessionState(input: {
+  attempts: readonly RecallAttempt[];
+  currentIndex: number;
+  isAnswerRevealed: boolean;
+  notes: readonly RecallNoteSnapshot[];
+}): RecallQuestion[] {
+  const attemptsByNoteId = getFirstAttemptByNoteId(input.attempts);
+
+  return input.notes.map((note, noteIndex) =>
+    getRecallQuestionState(
+      {
+        currentIndex: input.currentIndex,
+        isAnswerRevealed: input.isAnswerRevealed,
+        note,
+        noteIndex,
+      },
+      attemptsByNoteId,
+    ),
+  );
 }
 
 function parseStoredRecallSession(value: string | null): AppRecallSnapshot {
@@ -236,8 +313,6 @@ function parseStoredRecallSession(value: string | null): AppRecallSnapshot {
       parsedValue === null ||
       typeof parsedValue.id !== "string" ||
       typeof parsedValue.userId !== "string" ||
-      !isNullableLabelId(parsedValue.labelId) ||
-      typeof parsedValue.labelName !== "string" ||
       parsedValue.mode !== "FlashCard" ||
       typeof parsedValue.createdAt !== "string" ||
       typeof parsedValue.currentIndex !== "number" ||
@@ -245,22 +320,30 @@ function parseStoredRecallSession(value: string | null): AppRecallSnapshot {
       ("attempts" in parsedValue &&
         (!Array.isArray(parsedValue.attempts) ||
           parsedValue.attempts.some((attempt: unknown) => {
-            return !isFlashCardRecallAttempt(attempt);
+            return !isRecallAttempt(attempt);
           }))) ||
       !Array.isArray(parsedValue.notes)
     ) {
       return null;
     }
 
-    const notes = parsedValue.notes.filter(isFlashCardRecallNote);
+    const notes = parsedValue.notes.filter(isRecallNoteSnapshot);
     const attempts = Array.isArray(parsedValue.attempts)
       ? parsedValue.attempts
       : [];
+    const questions = createQuestionsFromProgress({
+      attempts,
+      isAnswerRevealed: parsedValue.isAnswerRevealed,
+      notes,
+      questionIndex: parsedValue.currentIndex,
+    });
 
     return {
       ...parsedValue,
       attempts,
+      currentQuestionIndex: parsedValue.currentIndex,
       notes,
+      questions,
     };
   } catch {
     return null;
@@ -269,7 +352,7 @@ function parseStoredRecallSession(value: string | null): AppRecallSnapshot {
 
 function parseStoredSessionResults(
   value: string | null,
-): StoredFlashCardSessionResult[] {
+): StoredSessionResult[] {
   if (value === null) {
     return [];
   }
@@ -282,27 +365,34 @@ function parseStoredSessionResults(
     }
 
     return parsedValue
-      .filter((result): result is StoredFlashCardSessionResult => {
+      .filter((result): result is StoredSessionResult => {
         return (
           typeof result === "object" &&
           result !== null &&
           typeof result.id === "string" &&
           typeof result.userId === "string" &&
-          isNullableLabelId(result.labelId) &&
-          typeof result.labelName === "string" &&
           result.mode === "FlashCard" &&
           typeof result.createdAt === "string" &&
           typeof result.completedAt === "string" &&
           Array.isArray(result.attempts) &&
           result.attempts.every((attempt: unknown) =>
-            isFlashCardRecallAttempt(attempt),
+            isRecallAttempt(attempt),
           ) &&
           Array.isArray(result.notes)
         );
       })
       .map((result) => ({
         ...result,
-        notes: result.notes.filter(isFlashCardRecallNote),
+        notes: result.notes.filter(isRecallNoteSnapshot),
+      }))
+      .map((result) => ({
+        ...result,
+        questions: createQuestionsFromProgress({
+          attempts: result.attempts,
+          isAnswerRevealed: false,
+          notes: result.notes,
+          questionIndex: result.notes.length,
+        }),
       }));
   } catch {
     return [];
@@ -310,8 +400,8 @@ function parseStoredSessionResults(
 }
 
 function defaultShuffleNotes(
-  notes: readonly FlashCardRecallNote[],
-): FlashCardRecallNote[] {
+  notes: readonly RecallNoteSnapshot[],
+): RecallNoteSnapshot[] {
   const shuffledNotes = [...notes];
 
   for (let index = shuffledNotes.length - 1; index > 0; index -= 1) {
@@ -325,9 +415,7 @@ function defaultShuffleNotes(
   return shuffledNotes;
 }
 
-function cloneFlashCardRecallNote(
-  note: FlashCardRecallNote,
-): FlashCardRecallNote {
+function cloneRecallNoteSnapshot(note: RecallNoteSnapshot): RecallNoteSnapshot {
   return {
     ...note,
     acronyms: note.acronyms.map((acronym) => ({ ...acronym })),
@@ -336,41 +424,44 @@ function cloneFlashCardRecallNote(
   };
 }
 
-function cloneFlashCardRecallNotes(
-  notes: readonly FlashCardRecallNote[],
-): FlashCardRecallNote[] {
-  return notes.map(cloneFlashCardRecallNote);
+function cloneRecallNoteSnapshots(
+  notes: readonly RecallNoteSnapshot[],
+): RecallNoteSnapshot[] {
+  return notes.map(cloneRecallNoteSnapshot);
 }
 
-function cloneFlashCardSessionResult(
-  result: StoredFlashCardSessionResult,
-): StoredFlashCardSessionResult {
+function cloneRecallQuestion(question: RecallQuestion): RecallQuestion {
+  return {
+    ...question,
+    noteSnapshot: cloneRecallNoteSnapshot(question.noteSnapshot),
+  };
+}
+
+function cloneSessionResult(result: StoredSessionResult): StoredSessionResult {
   return {
     ...result,
     attempts: result.attempts.map((attempt) => ({ ...attempt })),
-    notes: cloneFlashCardRecallNotes(result.notes),
+    notes: cloneRecallNoteSnapshots(result.notes),
+    questions: result.questions.map(cloneRecallQuestion),
   };
 }
 
 function resultMatchesLabel(
-  result: StoredFlashCardSessionResult,
+  result: StoredSessionResult,
   labelId: string | undefined,
 ): boolean {
   if (labelId === undefined) {
     return true;
   }
 
-  return (
-    result.labelId === labelId ||
-    result.notes.some((note) => note.labelIds.includes(labelId))
-  );
+  return result.notes.some((note) => note.labelIds.includes(labelId));
 }
 
 function listFilteredSessionResults(input: {
   labelId?: string;
-  sessionResults: readonly StoredFlashCardSessionResult[];
+  sessionResults: readonly StoredSessionResult[];
   userId: string;
-}): StoredFlashCardSessionResult[] {
+}): StoredSessionResult[] {
   return input.sessionResults.filter((result) => {
     return (
       result.userId === input.userId &&
@@ -383,7 +474,7 @@ export function resolveRecallableNotesFromSelection(input: {
   noteIds: readonly string[];
   notes: AppNotesContext;
   userId: string;
-}): FlashCardRecallNote[] {
+}): RecallNoteSnapshot[] {
   if (!Array.isArray(input.noteIds)) {
     throw new AppRecallError(
       "invalid_input",
@@ -443,7 +534,7 @@ export function createAppRecallContext(
   let sessionResults = parseStoredSessionResults(
     storage?.getItem(getSessionResultsStorageKey(keyPrefix)) ?? null,
   );
-  let sessionResultsSnapshot = sessionResults.map(cloneFlashCardSessionResult);
+  let sessionResultsSnapshot = sessionResults.map(cloneSessionResult);
 
   function notifyListeners() {
     for (const listener of listeners) {
@@ -451,17 +542,15 @@ export function createAppRecallContext(
     }
   }
 
-  function writeSnapshot(nextSnapshot: StoredFlashCardRecallSession | null) {
+  function writeSnapshot(nextSnapshot: StoredRecallSession | null) {
     snapshot = nextSnapshot;
     storage?.setItem(getRecallStorageKey(keyPrefix), JSON.stringify(snapshot));
     notifyListeners();
   }
 
-  function writeSessionResults(
-    nextSessionResults: StoredFlashCardSessionResult[],
-  ) {
+  function writeSessionResults(nextSessionResults: StoredSessionResult[]) {
     sessionResults = nextSessionResults;
-    sessionResultsSnapshot = sessionResults.map(cloneFlashCardSessionResult);
+    sessionResultsSnapshot = sessionResults.map(cloneSessionResult);
     storage?.setItem(
       getSessionResultsStorageKey(keyPrefix),
       JSON.stringify(sessionResults),
@@ -469,10 +558,22 @@ export function createAppRecallContext(
     notifyListeners();
   }
 
+  function emitStudyActivity(session: StoredRecallSession) {
+    options.onStudyActivity?.({
+      recallSession: {
+        createdAt: session.createdAt,
+        id: session.id,
+        mode: session.mode,
+        notes: cloneRecallNoteSnapshots(session.notes),
+      },
+      userId: session.userId,
+    });
+  }
+
   function getActiveSessionForUser({
     sessionId,
     userId,
-  }: UpdateFlashCardSessionInput): StoredFlashCardRecallSession {
+  }: UpdateRecallSessionInput): StoredRecallSession {
     if (
       snapshot === null ||
       snapshot.userId !== userId ||
@@ -484,23 +585,20 @@ export function createAppRecallContext(
     return snapshot;
   }
 
-  function toSessionResult(
-    session: StoredFlashCardRecallSession,
-  ): StoredFlashCardSessionResult {
+  function toSessionResult(session: StoredRecallSession): StoredSessionResult {
     return {
       attempts: [...session.attempts],
       completedAt: new Date().toISOString(),
       createdAt: session.createdAt,
       id: session.id,
-      labelId: session.labelId,
-      labelName: session.labelName,
       mode: session.mode,
-      notes: cloneFlashCardRecallNotes(session.notes),
+      notes: cloneRecallNoteSnapshots(session.notes),
+      questions: session.questions.map(cloneRecallQuestion),
       userId: session.userId,
     };
   }
 
-  function persistSessionResult(session: StoredFlashCardRecallSession) {
+  function persistSessionResult(session: StoredRecallSession) {
     if (session.attempts.length === 0) {
       return;
     }
@@ -513,15 +611,137 @@ export function createAppRecallContext(
     ]);
   }
 
-  return {
-    endFlashCardSession: ({ sessionId, userId }) => {
-      const activeSession = getActiveSessionForUser({ sessionId, userId });
+  function endRecallSession({ sessionId, userId }: UpdateRecallSessionInput) {
+    const activeSession = getActiveSessionForUser({ sessionId, userId });
 
-      persistSessionResult(activeSession);
-      writeSnapshot(null);
+    persistSessionResult(activeSession);
+    writeSnapshot(null);
 
+    return activeSession;
+  }
+
+  function revealAnswer({ sessionId, userId }: UpdateRecallSessionInput) {
+    const activeSession = getActiveSessionForUser({ sessionId, userId });
+
+    if (activeSession.notes[activeSession.currentQuestionIndex] === undefined) {
+      throw new AppRecallError("invalid_input", "Recall session is complete.");
+    }
+
+    if (activeSession.isAnswerRevealed) {
       return activeSession;
-    },
+    }
+
+    const nextSession: StoredRecallSession = {
+      ...activeSession,
+      isAnswerRevealed: true,
+      questions: createQuestionsFromProgress({
+        attempts: activeSession.attempts,
+        isAnswerRevealed: true,
+        notes: activeSession.notes,
+        questionIndex: activeSession.currentQuestionIndex,
+      }),
+    };
+
+    writeSnapshot(nextSession);
+
+    return nextSession;
+  }
+
+  function answerQuestion({ rating, sessionId, userId }: AnswerQuestionInput) {
+    const activeSession = getActiveSessionForUser({ sessionId, userId });
+    const currentNote = activeSession.notes[activeSession.currentQuestionIndex];
+
+    if (currentNote === undefined) {
+      throw new AppRecallError("invalid_input", "Recall session is complete.");
+    }
+
+    if (!activeSession.isAnswerRevealed) {
+      throw new AppRecallError(
+        "invalid_input",
+        "Reveal the answer before rating recall.",
+      );
+    }
+
+    const attempts: RecallAttempt[] = [
+      ...activeSession.attempts,
+      {
+        noteId: currentNote.id,
+        rating,
+      },
+    ];
+    const currentQuestionIndex = activeSession.currentQuestionIndex + 1;
+    const nextSession: StoredRecallSession = {
+      ...activeSession,
+      attempts,
+      currentIndex: currentQuestionIndex,
+      currentQuestionIndex,
+      isAnswerRevealed: false,
+      questions: createQuestionsFromProgress({
+        attempts,
+        isAnswerRevealed: false,
+        notes: activeSession.notes,
+        questionIndex: currentQuestionIndex,
+      }),
+    };
+
+    if (nextSession.currentQuestionIndex >= nextSession.notes.length) {
+      emitStudyActivity(nextSession);
+      persistSessionResult(nextSession);
+      writeSnapshot(null);
+      return null;
+    }
+
+    writeSnapshot(nextSession);
+    emitStudyActivity(nextSession);
+
+    return nextSession;
+  }
+
+  function startRecallSession(input: StartRecallSessionInput) {
+    const mode = input.mode ?? "FlashCard";
+
+    if (mode !== "FlashCard") {
+      throw new AppRecallError(
+        "invalid_input",
+        "This RecallMode is not available yet.",
+      );
+    }
+
+    const notes = resolveRecallableNotesFromSelection({
+      noteIds: input.noteIds,
+      notes: options.notes,
+      userId: input.userId,
+    });
+    const shuffledNotes = cloneRecallNoteSnapshots(shuffleNotes(notes));
+
+    const nextSession: StoredRecallSession = {
+      attempts: [],
+      createdAt: new Date().toISOString(),
+      currentIndex: 0,
+      currentQuestionIndex: 0,
+      id: cryptoProvider.randomUUID(),
+      isAnswerRevealed: false,
+      mode,
+      notes: shuffledNotes,
+      questions: createQuestionsFromProgress({
+        attempts: [],
+        isAnswerRevealed: false,
+        notes: shuffledNotes,
+        questionIndex: 0,
+      }),
+      userId: input.userId,
+    };
+
+    writeSnapshot(nextSession);
+    emitStudyActivity(nextSession);
+
+    return nextSession;
+  }
+
+  return {
+    answerQuestion,
+    endRecallSession,
+    endFlashCardSession: endRecallSession,
     getSessionResult: ({ sessionResultId, userId }) => {
       const result = sessionResults.find((candidate) => {
         return candidate.userId === userId && candidate.id === sessionResultId;
@@ -531,7 +751,7 @@ export function createAppRecallContext(
         throw new AppRecallError("not_found", "Session result not found.");
       }
 
-      return cloneFlashCardSessionResult(result);
+      return cloneSessionResult(result);
     },
     getSessionResultsSnapshot: () => sessionResultsSnapshot,
     getSnapshot: () => snapshot,
@@ -543,7 +763,7 @@ export function createAppRecallContext(
             right.id.localeCompare(left.id)
           );
         })
-        .map(cloneFlashCardSessionResult);
+        .map(cloneSessionResult);
     },
     listAttemptsByNote: ({ labelId, userId }) => {
       const currentNotesById = new Map(
@@ -573,9 +793,7 @@ export function createAppRecallContext(
 
           if (
             noteSnapshot === undefined ||
-            (labelId !== undefined &&
-              result.labelId !== labelId &&
-              !noteSnapshot.labelIds.includes(labelId))
+            (labelId !== undefined && !noteSnapshot.labelIds.includes(labelId))
           ) {
             continue;
           }
@@ -643,94 +861,11 @@ export function createAppRecallContext(
           );
         });
     },
-    rateFlashCardAnswer: ({ rating, sessionId, userId }) => {
-      const activeSession = getActiveSessionForUser({ sessionId, userId });
-      const currentNote = activeSession.notes[activeSession.currentIndex];
-
-      if (currentNote === undefined) {
-        throw new AppRecallError(
-          "invalid_input",
-          "Recall session is complete.",
-        );
-      }
-
-      if (!activeSession.isAnswerRevealed) {
-        throw new AppRecallError(
-          "invalid_input",
-          "Reveal the answer before rating recall.",
-        );
-      }
-
-      const nextSession: StoredFlashCardRecallSession = {
-        ...activeSession,
-        attempts: [
-          ...activeSession.attempts,
-          {
-            noteId: currentNote.id,
-            rating,
-          },
-        ],
-        currentIndex: activeSession.currentIndex + 1,
-        isAnswerRevealed: false,
-      };
-
-      if (nextSession.currentIndex >= nextSession.notes.length) {
-        persistSessionResult(nextSession);
-        writeSnapshot(null);
-        return null;
-      }
-
-      writeSnapshot(nextSession);
-
-      return nextSession;
-    },
-    revealFlashCardAnswer: ({ sessionId, userId }) => {
-      const activeSession = getActiveSessionForUser({ sessionId, userId });
-
-      if (activeSession.notes[activeSession.currentIndex] === undefined) {
-        throw new AppRecallError(
-          "invalid_input",
-          "Recall session is complete.",
-        );
-      }
-
-      if (activeSession.isAnswerRevealed) {
-        return activeSession;
-      }
-
-      const nextSession: StoredFlashCardRecallSession = {
-        ...activeSession,
-        isAnswerRevealed: true,
-      };
-
-      writeSnapshot(nextSession);
-
-      return nextSession;
-    },
-    startFlashCardSession: (input) => {
-      const notes = resolveRecallableNotesFromSelection({
-        noteIds: input.noteIds,
-        notes: options.notes,
-        userId: input.userId,
-      });
-
-      const nextSession: StoredFlashCardRecallSession = {
-        attempts: [],
-        createdAt: new Date().toISOString(),
-        currentIndex: 0,
-        id: cryptoProvider.randomUUID(),
-        isAnswerRevealed: false,
-        labelId: null,
-        labelName: "Selected notes",
-        mode: "FlashCard",
-        notes: cloneFlashCardRecallNotes(shuffleNotes(notes)),
-        userId: input.userId,
-      };
-
-      writeSnapshot(nextSession);
-
-      return nextSession;
-    },
+    rateFlashCardAnswer: answerQuestion,
+    revealAnswer,
+    revealFlashCardAnswer: revealAnswer,
+    startFlashCardSession: startRecallSession,
+    startRecallSession,
     subscribe: (listener) => {
       listeners.add(listener);
 

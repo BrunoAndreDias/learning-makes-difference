@@ -70,6 +70,7 @@ _Avoid_: Pomodoro session, timer, recall timer
 
 **FocusMethod**:
 The timing pattern used by a FocusSession, with `Pomodoro` as the default method in v1.
+In v1, configurable `Pomodoro` timing settings are limited to FocusInterval duration, BreakInterval duration, and an optional planned number of FocusIntervals.
 _Avoid_: Timer type, mode
 
 **FocusInterval**:
@@ -80,16 +81,26 @@ _Avoid_: Pomodoro session, round, streak
 A timed rest period between FocusIntervals inside a FocusSession.
 _Avoid_: Pause, idle time
 
+**IntervalTransitionWindow**:
+A short decision window after a FocusInterval completes where the User may skip the next BreakInterval and immediately start another FocusInterval. If the User takes no action, the FocusSession enters the BreakInterval automatically.
+In v1, the IntervalTransitionWindow lasts 30 seconds.
+_Avoid_: Pause, idle time, blocked screen
+
 **FocusRecord**:
 The persistent record of a completed FocusSession, including its time boundaries and the study context the User says they worked on.
+In v1, FocusRecords are read-only after creation.
 _Avoid_: Log, history, timer log
 
 **FocusTarget**:
 A study context associated with a FocusSession, such as a Label, a RecallSession, or unlabeled Note work.
+When Note work creates a FocusTarget in v1, the FocusRecord snapshots both the touched Note and the Labels attached to that Note at the time. Unlabeled Note work remains a valid FocusTarget.
+When RecallSession work creates a FocusTarget in v1, the FocusRecord snapshots the RecallSession plus the Note snapshots and Label snapshots used inside that RecallSession.
 _Avoid_: Goal, task, bucket
 
 **StudyActivity**:
 An interaction that counts as meaningful work during a FocusSession and can produce or reinforce a FocusTarget.
+In v1, StudyActivity includes creating or editing a Note, adding or editing Metaphors or Acronyms, reviewing an existing Note for at least 30 seconds while the app is visible during an active FocusInterval, starting or answering inside a RecallSession, and working inside a Label-filtered Notes or Recall context.
+In v1, StudyActivity excludes opening settings, navigating between pages, typing search text by itself, briefly selecting a Note, and idle time.
 _Avoid_: Click, page view, navigation event
 
 ### Users & Access
@@ -110,6 +121,13 @@ _Avoid_: Product menu, notes page
 **Recall Section**:
 The primary authenticated section that acts as the base entry point for recall capabilities, including starting RecallSessions and reviewing SessionResults.
 _Avoid_: Recall dashboard, Recall home, Practice (possible future user-facing label), Recall history, quiz area
+
+**Focus Section**:
+The authenticated workspace section for reviewing FocusRecords and focus analytics. Active FocusSession controls remain globally available across the authenticated workspace.
+In v1, the Focus Section shows completed FocusRecords newest first, completed FocusInterval time, BreakInterval count and duration as secondary detail, touched FocusTargets, and a basic recent completed-focus aggregate.
+In v1, the primary navigation label for the Focus Section is "Focus".
+In v1, the Focus Section route is `/focus`.
+_Avoid_: Timer page, Pomodoro page, focus history
 
 **Account Dock**:
 A fixed bottom utility area for User/account actions such as logout and settings access.
@@ -146,18 +164,41 @@ _Avoid_: Product menu, sidebar navigation
 - A **Question** belongs to exactly one **RecallSession** and one **Note**
 - A **Question** stores the user's answer and a score (self-rated or AI-graded depending on RecallMode)
 - A **FocusSession** is separate from a **RecallSession** and may overlap with Note-taking, Note review, or a **RecallSession**
+- A **FocusSession** is available across the authenticated workspace rather than belonging to a single workspace screen
+- A **User** can have at most one active **FocusSession** at a time
 - A **FocusSession** has exactly one **FocusMethod**
 - A **FocusSession** may contain multiple completed **FocusIntervals** and **BreakIntervals**
+- In v1, **BreakIntervals** are intentional rest periods only; pausing an in-progress **FocusInterval** is not supported
+- In v1, an active **FocusSession** resumes from persisted active session state after browser refresh or app reopen
+- When resuming an active **FocusSession**, v1 uses real elapsed wall-clock time rather than freezing the timer while the app was closed
+- In v1, after a **FocusInterval** completes, the **FocusSession** enters a 30-second **IntervalTransitionWindow** before the next **BreakInterval**
+- During an **IntervalTransitionWindow**, the **User** may skip the next **BreakInterval** and immediately start another **FocusInterval**
+- If the **User** takes no action during the **IntervalTransitionWindow**, the **FocusSession** enters the **BreakInterval** automatically
+- If the **FocusSession** has reached its planned number of **FocusIntervals**, no action during the **IntervalTransitionWindow** completes the **FocusSession** instead of starting a **BreakInterval**
+- A **User** may extend a **FocusSession** beyond its planned number of **FocusIntervals** by choosing to start another **FocusInterval** during the **IntervalTransitionWindow**
+- When a **BreakInterval** completes, the next **FocusInterval** starts only when the **User** explicitly starts it
+- Time after a completed **BreakInterval** and before the next **FocusInterval** is waiting time, not focus time or break time
+- In v1, the app strongly presents the **BreakInterval** as rest time, but the **User** may explicitly skip the break
+- Skipping a **BreakInterval** immediately starts the next **FocusInterval**; study work after skipping counts as **StudyActivity**
+- Study edits should not be counted as **StudyActivity** while the **FocusSession** is still in a **BreakInterval**
 - A **FocusSession** may exist without a linked **RecallSession**, **Note**, or **Label**
 - A **FocusSession** may have multiple **FocusTargets**
 - A **FocusTarget** may refer to a **Label**, a **RecallSession**, or unlabeled Note work
 - In v1, **FocusTargets** are captured automatically from the User's observed study activity during the **FocusSession**
+- In v1, starting a **FocusSession** uses the default **FocusMethod** quickly, but the User may adjust supported timing settings before starting
+- In v1, **FocusSession** configuration does not include manual **FocusTarget** selection or additional **FocusMethods**
 - A **StudyActivity** must reflect meaningful study engagement, not incidental navigation
 - A **FocusSession** may include study work done outside the app, but in v1 only in-app **StudyActivity** creates automatic **FocusTargets**
 - A completed **FocusSession** has a **FocusRecord**
 - In v1, a **FocusRecord** snapshots its **FocusTargets** as they were during the **FocusSession**; later Note or Label changes do not rewrite past focus history
+- In v1, Note-based **FocusTargets** preserve both the touched **Note** snapshot and the **Label** snapshots attached to that **Note** during the **FocusSession**
+- In v1, Recall-based **FocusTargets** preserve the **RecallSession** plus the **Note** snapshots and **Label** snapshots used inside that **RecallSession**
 - In v1, a **FocusRecord** is created only when the User completes at least one full focus interval; abandoned or early-stopped sessions are discarded
+- A **FocusRecord** cannot contain only **BreakIntervals**; at least one completed **FocusInterval** is required
+- If a **User** ends a **FocusSession** after at least one completed **FocusInterval**, the **FocusRecord** includes completed **FocusIntervals** and completed **BreakIntervals** only; any in-progress interval is discarded
 - In v1, a **FocusSession** ends only when the User explicitly ends it; automatic ending after long inactivity or long breaks is deferred
+- In v1, long inactivity may produce a stale-session prompt, but it must not automatically end the **FocusSession**
+- In v1, FocusSession interval changes use minimal in-app visual state changes only; browser notifications and sounds are out of scope
 - Analytics primarily measure completed **FocusInterval** time; **BreakIntervals** are stored for secondary analysis
 - A **RecallSession** that happens during a **FocusSession** counts as study activity inside that **FocusSession**, not as separate extra time on top of it
 - In v1, analytics record which **FocusTargets** appeared in a **FocusSession**, but do not assign exact minutes to each target
@@ -165,6 +206,14 @@ _Avoid_: Product menu, sidebar navigation
 - All relationships are ownership-local to a single **User**. A **Note** can only be assigned to **Labels** owned by the same **User**, and a **RecallSession** can only target Notes owned by that User.
 - In v1, deleting active **Notes**, **Labels**, **Metaphors**, and **Acronyms** is a hard delete. Historical study records remain available only through the snapshots stored in **SessionResult**.
 - In v1, authenticated study work happens through the **Notes Workspace** and the **Recall Section** rather than a generic product-menu sidebar.
+- In v1, completed **FocusRecords** are reviewed in a lightweight **Focus Section**, separate from the **Notes Workspace** and **Recall Section**
+- Active **FocusSession** controls remain globally available across the authenticated workspace rather than belonging to the **Focus Section**
+- Starting a **FocusSession** from the global control does not navigate the **User** away from their current workspace screen
+- The **Focus Section** may show the same active **FocusSession** state, but it must not create a separate active-session control model
+- In v1, the **Focus Section** does not need chart-based analytics
+- In v1, the primary navigation label for the **Focus Section** is "Focus"
+- In v1, the **Focus Section** route is `/focus`
+- In v1, **FocusRecords** are not editable or deletable
 - The **Notes Workspace** owns Note search/filter, Note selection, and Note editing.
 - The **Recall Section** owns starting **RecallSessions** and reviewing **SessionResults**.
 - The **Notes Workspace** may provide a lightweight "Start Recall" entry point for convenience, but it only opens the **Recall Section**; Note selection happens inside Recall.
@@ -377,4 +426,33 @@ _Avoid_: Product menu, sidebar navigation
 - "Study time" could have mixed focus and breaks equally — resolved: completed **FocusInterval** time is the primary analytic metric.
 - "Automatic focus classification" could have covered all study time everywhere — resolved: in v1, only in-app **StudyActivity** creates automatic **FocusTargets**.
 - "Recall time" could have been added on top of focus time — resolved: recall is nested study activity inside a **FocusSession**, not double-counted extra time.
+- "Pause" could have meant freezing a **FocusInterval** — resolved: in v1, it means an intentional **BreakInterval** only, and pausing a running **FocusInterval** is not supported.
+- "Focus timer placement" could have been scoped to Notes or Recall only — resolved: **FocusSessions** are available across the authenticated workspace.
+- "Multiple timers" could have meant overlapping **FocusSessions** — resolved: a **User** can have at most one active **FocusSession** at a time.
+- "Minimal input" could have meant no configuration at all — resolved: starting should be default-first, while still allowing supported timing configuration before the **FocusSession** starts.
+- "Configuration" could have included targets or alternate methods — resolved: v1 configuration is limited to `Pomodoro` timing values: **FocusInterval** duration, **BreakInterval** duration, and an optional planned number of **FocusIntervals**.
+- "Automatic break" could have meant an immediate transition — resolved: in v1, a completed **FocusInterval** starts a 30-second **IntervalTransitionWindow** where the **User** can continue into another **FocusInterval**; otherwise the **BreakInterval** starts automatically.
+- "Block the screen" is UI behavior for enforcing a **BreakInterval**, not a separate domain concept.
+- "Planned intervals" could have forced a hard stop — resolved: the plan controls the no-action default after the final planned **FocusInterval**, but the **User** may continue and extend the same **FocusSession**.
+- "Break completion" could have automatically resumed focus — resolved: after a **BreakInterval**, the next **FocusInterval** requires explicit **User** action.
+- "Break blocking" could have made the app unusable — resolved: v1 strongly presents rest time but allows the **User** to skip the **BreakInterval**.
+- "Studying during break" could have counted as break and work at once — resolved: study work counts only after the **User** skips the **BreakInterval** and starts the next **FocusInterval**.
+- "Skip break" could have returned to waiting state — resolved: skipping a **BreakInterval** immediately starts the next **FocusInterval**.
+- "Study activity" could have counted incidental app usage — resolved: v1 counts meaningful Note, Metaphor, Acronym, Recall, review, and Label-context work, while excluding settings, simple navigation, search typing alone, brief Note selection, and idle time.
+- "Reviewing a Note" could have meant a brief selection — resolved: in v1, Note review counts as **StudyActivity** after 30 seconds with the Note selected while the app is visible during an active **FocusInterval**.
+- "FocusTarget from Note work" could have meant only the Note or only its Labels — resolved: v1 snapshots both the touched **Note** and its attached **Labels**, with unlabeled Note work remaining valid.
+- "FocusTarget from Recall work" could have meant only the **RecallSession** — resolved: v1 snapshots the **RecallSession** plus its **Note** and **Label** context.
+- "Ending midway" could have discarded the whole **FocusSession** — resolved: if at least one **FocusInterval** was completed, v1 saves completed intervals and discards only the in-progress interval.
+- "Break-only history" could have been allowed — resolved: a **FocusRecord** requires at least one completed **FocusInterval**.
+- "Refresh" could have lost active focus work — resolved: v1 resumes an active **FocusSession** from persisted active session state after browser refresh or app reopen.
+- "Resume timing" could have frozen while the app was closed — resolved: v1 uses real elapsed wall-clock time when resuming an active **FocusSession**.
+- "Long inactivity" could have automatically ended the **FocusSession** — resolved: v1 may show a stale-session prompt, but ending remains explicit.
+- "Interval notifications" could have meant sounds or browser notifications — resolved: v1 uses minimal in-app visual state changes only.
+- "Focus history" could have been buried inside Notes or Recall — resolved: completed **FocusRecords** are reviewed in a lightweight **Focus Section**, while active controls remain global.
+- "Focus analytics" could have required charts immediately — resolved: v1 starts with a list of **FocusRecords**, interval details, touched **FocusTargets**, and a basic recent completed-focus aggregate.
+- "FocusRecord management" could have included editing or deletion — resolved: v1 **FocusRecords** are read-only after creation.
+- "Focus Timer" could have been used as the section label — resolved: the primary navigation label is "Focus"; timer wording is reserved for compact active controls if needed.
+- "Focus route" could have used timer or history wording — resolved: the **Focus Section** route is `/focus`.
+- "Starting focus" could have navigated to the **Focus Section** — resolved: starting a **FocusSession** from the global control keeps the **User** on the current workspace screen.
+- "Focus Section controls" could have diverged from the global controls — resolved: `/focus` may show the same active **FocusSession** state, but there is still one control model and one active **FocusSession**.
 - "Per-target analytics" could have implied exact time allocation — resolved: in v1, target presence is recorded without minute-level attribution.

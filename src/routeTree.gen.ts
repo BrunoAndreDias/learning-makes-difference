@@ -8,131 +8,155 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root'
-import { Route as PublicRouteImport } from './routes/_public'
-import { Route as ProtectedRouteImport } from './routes/_protected'
-import { Route as AuthRouteImport } from './routes/_auth'
-import { Route as PublicIndexRouteImport } from './routes/_public.index'
-import { Route as ProtectedSettingsRouteImport } from './routes/_protected.settings'
-import { Route as ProtectedRecallRouteImport } from './routes/_protected.recall'
-import { Route as ProtectedNotesRouteImport } from './routes/_protected.notes'
-import { Route as ProtectedLabelsRouteImport } from './routes/_protected.labels'
-import { Route as AuthRegisterRouteImport } from './routes/_auth.register'
-import { Route as AuthLoginRouteImport } from './routes/_auth.login'
-import { Route as AuthForgotPasswordRouteImport } from './routes/_auth.forgot-password'
-import { Route as ProtectedRecallIndexRouteImport } from './routes/_protected.recall.index'
-import { Route as ProtectedRecallSessionRouteImport } from './routes/_protected.recall.session'
-import { Route as ProtectedRecallSelectRouteImport } from './routes/_protected.recall.select'
+import { Route as rootRouteImport } from './modules/workspace-shell/routes/root-route'
+import { Route as modulesAccessRoutesPublicLayoutRouteRouteImport } from './modules/access/routes/public-layout-route'
+import { Route as modulesWorkspaceShellRoutesProtectedRouteRouteImport } from './modules/workspace-shell/routes/protected-route'
+import { Route as modulesAccessRoutesAuthLayoutRouteRouteImport } from './modules/access/routes/auth-layout-route'
+import { Route as modulesAccessRoutesSettingsRouteRouteImport } from './modules/access/routes/settings-route'
+import { Route as modulesLearningLoopRoutesRecallRouteRouteImport } from './modules/learning-loop/routes/recall-route'
+import { Route as modulesLearningLoopRoutesFocusRouteRouteImport } from './modules/learning-loop/routes/focus-route'
+import { Route as modulesLearningLoopRoutesNotesRouteRouteImport } from './modules/learning-loop/routes/notes-route'
+import { Route as modulesLabelsRoutesLabelsRouteRouteImport } from './modules/labels/routes/labels-route'
+import { Route as modulesAccessRoutesRegisterRouteRouteImport } from './modules/access/routes/register-route'
+import { Route as modulesAccessRoutesLoginRouteRouteImport } from './modules/access/routes/login-route'
+import { Route as modulesAccessRoutesForgotPasswordRouteRouteImport } from './modules/access/routes/forgot-password-route'
+import { Route as modulesAccessRoutesPublicIndexRouteRouteImport } from './modules/access/routes/public-index-route'
+import { Route as modulesLearningLoopRoutesRecallSessionRouteRouteImport } from './modules/learning-loop/routes/recall-session-route'
+import { Route as modulesLearningLoopRoutesRecallSelectionRouteRouteImport } from './modules/learning-loop/routes/recall-selection-route'
+import { Route as modulesLearningLoopRoutesRecallResultsWorkspaceRouteRouteImport } from './modules/learning-loop/routes/recall-results-workspace-route'
 
-const PublicRoute = PublicRouteImport.update({
-  id: '/_public',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProtectedRoute = ProtectedRouteImport.update({
-  id: '/_protected',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/_auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PublicIndexRoute = PublicIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => PublicRoute,
-} as any)
-const ProtectedSettingsRoute = ProtectedSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => ProtectedRoute,
-} as any)
-const ProtectedRecallRoute = ProtectedRecallRouteImport.update({
-  id: '/recall',
-  path: '/recall',
-  getParentRoute: () => ProtectedRoute,
-} as any)
-const ProtectedNotesRoute = ProtectedNotesRouteImport.update({
-  id: '/notes',
-  path: '/notes',
-  getParentRoute: () => ProtectedRoute,
-} as any)
-const ProtectedLabelsRoute = ProtectedLabelsRouteImport.update({
-  id: '/labels',
-  path: '/labels',
-  getParentRoute: () => ProtectedRoute,
-} as any)
-const AuthRegisterRoute = AuthRegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
-  getParentRoute: () => AuthRoute,
-} as any)
-const AuthLoginRoute = AuthLoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => AuthRoute,
-} as any)
-const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
-  id: '/forgot-password',
-  path: '/forgot-password',
-  getParentRoute: () => AuthRoute,
-} as any)
-const ProtectedRecallIndexRoute = ProtectedRecallIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => ProtectedRecallRoute,
-} as any)
-const ProtectedRecallSessionRoute = ProtectedRecallSessionRouteImport.update({
-  id: '/session',
-  path: '/session',
-  getParentRoute: () => ProtectedRecallRoute,
-} as any)
-const ProtectedRecallSelectRoute = ProtectedRecallSelectRouteImport.update({
-  id: '/select',
-  path: '/select',
-  getParentRoute: () => ProtectedRecallRoute,
-} as any)
+const modulesAccessRoutesPublicLayoutRouteRoute =
+  modulesAccessRoutesPublicLayoutRouteRouteImport.update({
+    id: '/_public',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const modulesWorkspaceShellRoutesProtectedRouteRoute =
+  modulesWorkspaceShellRoutesProtectedRouteRouteImport.update({
+    id: '/_protected',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const modulesAccessRoutesAuthLayoutRouteRoute =
+  modulesAccessRoutesAuthLayoutRouteRouteImport.update({
+    id: '/_auth',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const modulesAccessRoutesSettingsRouteRoute =
+  modulesAccessRoutesSettingsRouteRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => modulesWorkspaceShellRoutesProtectedRouteRoute,
+  } as any)
+const modulesLearningLoopRoutesRecallRouteRoute =
+  modulesLearningLoopRoutesRecallRouteRouteImport.update({
+    id: '/recall',
+    path: '/recall',
+    getParentRoute: () => modulesWorkspaceShellRoutesProtectedRouteRoute,
+  } as any)
+const modulesLearningLoopRoutesFocusRouteRoute =
+  modulesLearningLoopRoutesFocusRouteRouteImport.update({
+    id: '/focus',
+    path: '/focus',
+    getParentRoute: () => modulesWorkspaceShellRoutesProtectedRouteRoute,
+  } as any)
+const modulesLearningLoopRoutesNotesRouteRoute =
+  modulesLearningLoopRoutesNotesRouteRouteImport.update({
+    id: '/notes',
+    path: '/notes',
+    getParentRoute: () => modulesWorkspaceShellRoutesProtectedRouteRoute,
+  } as any)
+const modulesLabelsRoutesLabelsRouteRoute =
+  modulesLabelsRoutesLabelsRouteRouteImport.update({
+    id: '/labels',
+    path: '/labels',
+    getParentRoute: () => modulesWorkspaceShellRoutesProtectedRouteRoute,
+  } as any)
+const modulesAccessRoutesRegisterRouteRoute =
+  modulesAccessRoutesRegisterRouteRouteImport.update({
+    id: '/register',
+    path: '/register',
+    getParentRoute: () => modulesAccessRoutesAuthLayoutRouteRoute,
+  } as any)
+const modulesAccessRoutesLoginRouteRoute =
+  modulesAccessRoutesLoginRouteRouteImport.update({
+    id: '/login',
+    path: '/login',
+    getParentRoute: () => modulesAccessRoutesAuthLayoutRouteRoute,
+  } as any)
+const modulesAccessRoutesForgotPasswordRouteRoute =
+  modulesAccessRoutesForgotPasswordRouteRouteImport.update({
+    id: '/forgot-password',
+    path: '/forgot-password',
+    getParentRoute: () => modulesAccessRoutesAuthLayoutRouteRoute,
+  } as any)
+const modulesAccessRoutesPublicIndexRouteRoute =
+  modulesAccessRoutesPublicIndexRouteRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => modulesAccessRoutesPublicLayoutRouteRoute,
+  } as any)
+const modulesLearningLoopRoutesRecallSessionRouteRoute =
+  modulesLearningLoopRoutesRecallSessionRouteRouteImport.update({
+    id: '/session',
+    path: '/session',
+    getParentRoute: () => modulesLearningLoopRoutesRecallRouteRoute,
+  } as any)
+const modulesLearningLoopRoutesRecallSelectionRouteRoute =
+  modulesLearningLoopRoutesRecallSelectionRouteRouteImport.update({
+    id: '/select',
+    path: '/select',
+    getParentRoute: () => modulesLearningLoopRoutesRecallRouteRoute,
+  } as any)
+const modulesLearningLoopRoutesRecallResultsWorkspaceRouteRoute =
+  modulesLearningLoopRoutesRecallResultsWorkspaceRouteRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => modulesLearningLoopRoutesRecallRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof PublicIndexRoute
-  '/forgot-password': typeof AuthForgotPasswordRoute
-  '/login': typeof AuthLoginRoute
-  '/register': typeof AuthRegisterRoute
-  '/labels': typeof ProtectedLabelsRoute
-  '/notes': typeof ProtectedNotesRoute
-  '/recall': typeof ProtectedRecallRouteWithChildren
-  '/settings': typeof ProtectedSettingsRoute
-  '/recall/select': typeof ProtectedRecallSelectRoute
-  '/recall/session': typeof ProtectedRecallSessionRoute
-  '/recall/': typeof ProtectedRecallIndexRoute
+  '/': typeof modulesAccessRoutesPublicIndexRouteRoute
+  '/forgot-password': typeof modulesAccessRoutesForgotPasswordRouteRoute
+  '/login': typeof modulesAccessRoutesLoginRouteRoute
+  '/register': typeof modulesAccessRoutesRegisterRouteRoute
+  '/focus': typeof modulesLearningLoopRoutesFocusRouteRoute
+  '/labels': typeof modulesLabelsRoutesLabelsRouteRoute
+  '/notes': typeof modulesLearningLoopRoutesNotesRouteRoute
+  '/recall': typeof modulesLearningLoopRoutesRecallRouteRouteWithChildren
+  '/settings': typeof modulesAccessRoutesSettingsRouteRoute
+  '/recall/': typeof modulesLearningLoopRoutesRecallResultsWorkspaceRouteRoute
+  '/recall/select': typeof modulesLearningLoopRoutesRecallSelectionRouteRoute
+  '/recall/session': typeof modulesLearningLoopRoutesRecallSessionRouteRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof PublicIndexRoute
-  '/forgot-password': typeof AuthForgotPasswordRoute
-  '/login': typeof AuthLoginRoute
-  '/register': typeof AuthRegisterRoute
-  '/labels': typeof ProtectedLabelsRoute
-  '/notes': typeof ProtectedNotesRoute
-  '/settings': typeof ProtectedSettingsRoute
-  '/recall/select': typeof ProtectedRecallSelectRoute
-  '/recall/session': typeof ProtectedRecallSessionRoute
-  '/recall': typeof ProtectedRecallIndexRoute
+  '/': typeof modulesAccessRoutesPublicIndexRouteRoute
+  '/forgot-password': typeof modulesAccessRoutesForgotPasswordRouteRoute
+  '/login': typeof modulesAccessRoutesLoginRouteRoute
+  '/register': typeof modulesAccessRoutesRegisterRouteRoute
+  '/focus': typeof modulesLearningLoopRoutesFocusRouteRoute
+  '/labels': typeof modulesLabelsRoutesLabelsRouteRoute
+  '/notes': typeof modulesLearningLoopRoutesNotesRouteRoute
+  '/settings': typeof modulesAccessRoutesSettingsRouteRoute
+  '/recall': typeof modulesLearningLoopRoutesRecallResultsWorkspaceRouteRoute
+  '/recall/select': typeof modulesLearningLoopRoutesRecallSelectionRouteRoute
+  '/recall/session': typeof modulesLearningLoopRoutesRecallSessionRouteRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/_auth': typeof AuthRouteWithChildren
-  '/_protected': typeof ProtectedRouteWithChildren
-  '/_public': typeof PublicRouteWithChildren
-  '/_auth/forgot-password': typeof AuthForgotPasswordRoute
-  '/_auth/login': typeof AuthLoginRoute
-  '/_auth/register': typeof AuthRegisterRoute
-  '/_protected/labels': typeof ProtectedLabelsRoute
-  '/_protected/notes': typeof ProtectedNotesRoute
-  '/_protected/recall': typeof ProtectedRecallRouteWithChildren
-  '/_protected/settings': typeof ProtectedSettingsRoute
-  '/_public/': typeof PublicIndexRoute
-  '/_protected/recall/select': typeof ProtectedRecallSelectRoute
-  '/_protected/recall/session': typeof ProtectedRecallSessionRoute
-  '/_protected/recall/': typeof ProtectedRecallIndexRoute
+  '/_auth': typeof modulesAccessRoutesAuthLayoutRouteRouteWithChildren
+  '/_protected': typeof modulesWorkspaceShellRoutesProtectedRouteRouteWithChildren
+  '/_public': typeof modulesAccessRoutesPublicLayoutRouteRouteWithChildren
+  '/_public/': typeof modulesAccessRoutesPublicIndexRouteRoute
+  '/_auth/forgot-password': typeof modulesAccessRoutesForgotPasswordRouteRoute
+  '/_auth/login': typeof modulesAccessRoutesLoginRouteRoute
+  '/_auth/register': typeof modulesAccessRoutesRegisterRouteRoute
+  '/_protected/focus': typeof modulesLearningLoopRoutesFocusRouteRoute
+  '/_protected/labels': typeof modulesLabelsRoutesLabelsRouteRoute
+  '/_protected/notes': typeof modulesLearningLoopRoutesNotesRouteRoute
+  '/_protected/recall': typeof modulesLearningLoopRoutesRecallRouteRouteWithChildren
+  '/_protected/settings': typeof modulesAccessRoutesSettingsRouteRoute
+  '/_protected/recall/': typeof modulesLearningLoopRoutesRecallResultsWorkspaceRouteRoute
+  '/_protected/recall/select': typeof modulesLearningLoopRoutesRecallSelectionRouteRoute
+  '/_protected/recall/session': typeof modulesLearningLoopRoutesRecallSessionRouteRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -141,47 +165,50 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/register'
+    | '/focus'
     | '/labels'
     | '/notes'
     | '/recall'
     | '/settings'
+    | '/recall/'
     | '/recall/select'
     | '/recall/session'
-    | '/recall/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/forgot-password'
     | '/login'
     | '/register'
+    | '/focus'
     | '/labels'
     | '/notes'
     | '/settings'
+    | '/recall'
     | '/recall/select'
     | '/recall/session'
-    | '/recall'
   id:
     | '__root__'
     | '/_auth'
     | '/_protected'
     | '/_public'
+    | '/_public/'
     | '/_auth/forgot-password'
     | '/_auth/login'
     | '/_auth/register'
+    | '/_protected/focus'
     | '/_protected/labels'
     | '/_protected/notes'
     | '/_protected/recall'
     | '/_protected/settings'
-    | '/_public/'
+    | '/_protected/recall/'
     | '/_protected/recall/select'
     | '/_protected/recall/session'
-    | '/_protected/recall/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  AuthRoute: typeof AuthRouteWithChildren
-  ProtectedRoute: typeof ProtectedRouteWithChildren
-  PublicRoute: typeof PublicRouteWithChildren
+  modulesAccessRoutesAuthLayoutRouteRoute: typeof modulesAccessRoutesAuthLayoutRouteRouteWithChildren
+  modulesWorkspaceShellRoutesProtectedRouteRoute: typeof modulesWorkspaceShellRoutesProtectedRouteRouteWithChildren
+  modulesAccessRoutesPublicLayoutRouteRoute: typeof modulesAccessRoutesPublicLayoutRouteRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -190,166 +217,199 @@ declare module '@tanstack/react-router' {
       id: '/_public'
       path: ''
       fullPath: '/'
-      preLoaderRoute: typeof PublicRouteImport
+      preLoaderRoute: typeof modulesAccessRoutesPublicLayoutRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_protected': {
       id: '/_protected'
       path: ''
       fullPath: '/'
-      preLoaderRoute: typeof ProtectedRouteImport
+      preLoaderRoute: typeof modulesWorkspaceShellRoutesProtectedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_auth': {
       id: '/_auth'
       path: ''
       fullPath: '/'
-      preLoaderRoute: typeof AuthRouteImport
+      preLoaderRoute: typeof modulesAccessRoutesAuthLayoutRouteRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_public/': {
-      id: '/_public/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof PublicIndexRouteImport
-      parentRoute: typeof PublicRoute
     }
     '/_protected/settings': {
       id: '/_protected/settings'
       path: '/settings'
       fullPath: '/settings'
-      preLoaderRoute: typeof ProtectedSettingsRouteImport
-      parentRoute: typeof ProtectedRoute
+      preLoaderRoute: typeof modulesAccessRoutesSettingsRouteRouteImport
+      parentRoute: typeof modulesWorkspaceShellRoutesProtectedRouteRoute
     }
     '/_protected/recall': {
       id: '/_protected/recall'
       path: '/recall'
       fullPath: '/recall'
-      preLoaderRoute: typeof ProtectedRecallRouteImport
-      parentRoute: typeof ProtectedRoute
+      preLoaderRoute: typeof modulesLearningLoopRoutesRecallRouteRouteImport
+      parentRoute: typeof modulesWorkspaceShellRoutesProtectedRouteRoute
+    }
+    '/_protected/focus': {
+      id: '/_protected/focus'
+      path: '/focus'
+      fullPath: '/focus'
+      preLoaderRoute: typeof modulesLearningLoopRoutesFocusRouteRouteImport
+      parentRoute: typeof modulesWorkspaceShellRoutesProtectedRouteRoute
     }
     '/_protected/notes': {
       id: '/_protected/notes'
       path: '/notes'
       fullPath: '/notes'
-      preLoaderRoute: typeof ProtectedNotesRouteImport
-      parentRoute: typeof ProtectedRoute
+      preLoaderRoute: typeof modulesLearningLoopRoutesNotesRouteRouteImport
+      parentRoute: typeof modulesWorkspaceShellRoutesProtectedRouteRoute
     }
     '/_protected/labels': {
       id: '/_protected/labels'
       path: '/labels'
       fullPath: '/labels'
-      preLoaderRoute: typeof ProtectedLabelsRouteImport
-      parentRoute: typeof ProtectedRoute
+      preLoaderRoute: typeof modulesLabelsRoutesLabelsRouteRouteImport
+      parentRoute: typeof modulesWorkspaceShellRoutesProtectedRouteRoute
     }
     '/_auth/register': {
       id: '/_auth/register'
       path: '/register'
       fullPath: '/register'
-      preLoaderRoute: typeof AuthRegisterRouteImport
-      parentRoute: typeof AuthRoute
+      preLoaderRoute: typeof modulesAccessRoutesRegisterRouteRouteImport
+      parentRoute: typeof modulesAccessRoutesAuthLayoutRouteRoute
     }
     '/_auth/login': {
       id: '/_auth/login'
       path: '/login'
       fullPath: '/login'
-      preLoaderRoute: typeof AuthLoginRouteImport
-      parentRoute: typeof AuthRoute
+      preLoaderRoute: typeof modulesAccessRoutesLoginRouteRouteImport
+      parentRoute: typeof modulesAccessRoutesAuthLayoutRouteRoute
     }
     '/_auth/forgot-password': {
       id: '/_auth/forgot-password'
       path: '/forgot-password'
       fullPath: '/forgot-password'
-      preLoaderRoute: typeof AuthForgotPasswordRouteImport
-      parentRoute: typeof AuthRoute
+      preLoaderRoute: typeof modulesAccessRoutesForgotPasswordRouteRouteImport
+      parentRoute: typeof modulesAccessRoutesAuthLayoutRouteRoute
     }
-    '/_protected/recall/': {
-      id: '/_protected/recall/'
+    '/_public/': {
+      id: '/_public/'
       path: '/'
-      fullPath: '/recall/'
-      preLoaderRoute: typeof ProtectedRecallIndexRouteImport
-      parentRoute: typeof ProtectedRecallRoute
+      fullPath: '/'
+      preLoaderRoute: typeof modulesAccessRoutesPublicIndexRouteRouteImport
+      parentRoute: typeof modulesAccessRoutesPublicLayoutRouteRoute
     }
     '/_protected/recall/session': {
       id: '/_protected/recall/session'
       path: '/session'
       fullPath: '/recall/session'
-      preLoaderRoute: typeof ProtectedRecallSessionRouteImport
-      parentRoute: typeof ProtectedRecallRoute
+      preLoaderRoute: typeof modulesLearningLoopRoutesRecallSessionRouteRouteImport
+      parentRoute: typeof modulesLearningLoopRoutesRecallRouteRoute
     }
     '/_protected/recall/select': {
       id: '/_protected/recall/select'
       path: '/select'
       fullPath: '/recall/select'
-      preLoaderRoute: typeof ProtectedRecallSelectRouteImport
-      parentRoute: typeof ProtectedRecallRoute
+      preLoaderRoute: typeof modulesLearningLoopRoutesRecallSelectionRouteRouteImport
+      parentRoute: typeof modulesLearningLoopRoutesRecallRouteRoute
+    }
+    '/_protected/recall/': {
+      id: '/_protected/recall/'
+      path: '/'
+      fullPath: '/recall/'
+      preLoaderRoute: typeof modulesLearningLoopRoutesRecallResultsWorkspaceRouteRouteImport
+      parentRoute: typeof modulesLearningLoopRoutesRecallRouteRoute
     }
   }
 }
 
-interface AuthRouteChildren {
-  AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
-  AuthLoginRoute: typeof AuthLoginRoute
-  AuthRegisterRoute: typeof AuthRegisterRoute
+interface modulesAccessRoutesAuthLayoutRouteRouteChildren {
+  modulesAccessRoutesForgotPasswordRouteRoute: typeof modulesAccessRoutesForgotPasswordRouteRoute
+  modulesAccessRoutesLoginRouteRoute: typeof modulesAccessRoutesLoginRouteRoute
+  modulesAccessRoutesRegisterRouteRoute: typeof modulesAccessRoutesRegisterRouteRoute
 }
 
-const AuthRouteChildren: AuthRouteChildren = {
-  AuthForgotPasswordRoute: AuthForgotPasswordRoute,
-  AuthLoginRoute: AuthLoginRoute,
-  AuthRegisterRoute: AuthRegisterRoute,
+const modulesAccessRoutesAuthLayoutRouteRouteChildren: modulesAccessRoutesAuthLayoutRouteRouteChildren =
+  {
+    modulesAccessRoutesForgotPasswordRouteRoute:
+      modulesAccessRoutesForgotPasswordRouteRoute,
+    modulesAccessRoutesLoginRouteRoute: modulesAccessRoutesLoginRouteRoute,
+    modulesAccessRoutesRegisterRouteRoute:
+      modulesAccessRoutesRegisterRouteRoute,
+  }
+
+const modulesAccessRoutesAuthLayoutRouteRouteWithChildren =
+  modulesAccessRoutesAuthLayoutRouteRoute._addFileChildren(
+    modulesAccessRoutesAuthLayoutRouteRouteChildren,
+  )
+
+interface modulesLearningLoopRoutesRecallRouteRouteChildren {
+  modulesLearningLoopRoutesRecallResultsWorkspaceRouteRoute: typeof modulesLearningLoopRoutesRecallResultsWorkspaceRouteRoute
+  modulesLearningLoopRoutesRecallSelectionRouteRoute: typeof modulesLearningLoopRoutesRecallSelectionRouteRoute
+  modulesLearningLoopRoutesRecallSessionRouteRoute: typeof modulesLearningLoopRoutesRecallSessionRouteRoute
 }
 
-const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
+const modulesLearningLoopRoutesRecallRouteRouteChildren: modulesLearningLoopRoutesRecallRouteRouteChildren =
+  {
+    modulesLearningLoopRoutesRecallResultsWorkspaceRouteRoute:
+      modulesLearningLoopRoutesRecallResultsWorkspaceRouteRoute,
+    modulesLearningLoopRoutesRecallSelectionRouteRoute:
+      modulesLearningLoopRoutesRecallSelectionRouteRoute,
+    modulesLearningLoopRoutesRecallSessionRouteRoute:
+      modulesLearningLoopRoutesRecallSessionRouteRoute,
+  }
 
-interface ProtectedRecallRouteChildren {
-  ProtectedRecallSelectRoute: typeof ProtectedRecallSelectRoute
-  ProtectedRecallSessionRoute: typeof ProtectedRecallSessionRoute
-  ProtectedRecallIndexRoute: typeof ProtectedRecallIndexRoute
+const modulesLearningLoopRoutesRecallRouteRouteWithChildren =
+  modulesLearningLoopRoutesRecallRouteRoute._addFileChildren(
+    modulesLearningLoopRoutesRecallRouteRouteChildren,
+  )
+
+interface modulesWorkspaceShellRoutesProtectedRouteRouteChildren {
+  modulesLearningLoopRoutesFocusRouteRoute: typeof modulesLearningLoopRoutesFocusRouteRoute
+  modulesLabelsRoutesLabelsRouteRoute: typeof modulesLabelsRoutesLabelsRouteRoute
+  modulesLearningLoopRoutesNotesRouteRoute: typeof modulesLearningLoopRoutesNotesRouteRoute
+  modulesLearningLoopRoutesRecallRouteRoute: typeof modulesLearningLoopRoutesRecallRouteRouteWithChildren
+  modulesAccessRoutesSettingsRouteRoute: typeof modulesAccessRoutesSettingsRouteRoute
 }
 
-const ProtectedRecallRouteChildren: ProtectedRecallRouteChildren = {
-  ProtectedRecallSelectRoute: ProtectedRecallSelectRoute,
-  ProtectedRecallSessionRoute: ProtectedRecallSessionRoute,
-  ProtectedRecallIndexRoute: ProtectedRecallIndexRoute,
+const modulesWorkspaceShellRoutesProtectedRouteRouteChildren: modulesWorkspaceShellRoutesProtectedRouteRouteChildren =
+  {
+    modulesLearningLoopRoutesFocusRouteRoute:
+      modulesLearningLoopRoutesFocusRouteRoute,
+    modulesLabelsRoutesLabelsRouteRoute: modulesLabelsRoutesLabelsRouteRoute,
+    modulesLearningLoopRoutesNotesRouteRoute:
+      modulesLearningLoopRoutesNotesRouteRoute,
+    modulesLearningLoopRoutesRecallRouteRoute:
+      modulesLearningLoopRoutesRecallRouteRouteWithChildren,
+    modulesAccessRoutesSettingsRouteRoute:
+      modulesAccessRoutesSettingsRouteRoute,
+  }
+
+const modulesWorkspaceShellRoutesProtectedRouteRouteWithChildren =
+  modulesWorkspaceShellRoutesProtectedRouteRoute._addFileChildren(
+    modulesWorkspaceShellRoutesProtectedRouteRouteChildren,
+  )
+
+interface modulesAccessRoutesPublicLayoutRouteRouteChildren {
+  modulesAccessRoutesPublicIndexRouteRoute: typeof modulesAccessRoutesPublicIndexRouteRoute
 }
 
-const ProtectedRecallRouteWithChildren = ProtectedRecallRoute._addFileChildren(
-  ProtectedRecallRouteChildren,
-)
+const modulesAccessRoutesPublicLayoutRouteRouteChildren: modulesAccessRoutesPublicLayoutRouteRouteChildren =
+  {
+    modulesAccessRoutesPublicIndexRouteRoute:
+      modulesAccessRoutesPublicIndexRouteRoute,
+  }
 
-interface ProtectedRouteChildren {
-  ProtectedLabelsRoute: typeof ProtectedLabelsRoute
-  ProtectedNotesRoute: typeof ProtectedNotesRoute
-  ProtectedRecallRoute: typeof ProtectedRecallRouteWithChildren
-  ProtectedSettingsRoute: typeof ProtectedSettingsRoute
-}
-
-const ProtectedRouteChildren: ProtectedRouteChildren = {
-  ProtectedLabelsRoute: ProtectedLabelsRoute,
-  ProtectedNotesRoute: ProtectedNotesRoute,
-  ProtectedRecallRoute: ProtectedRecallRouteWithChildren,
-  ProtectedSettingsRoute: ProtectedSettingsRoute,
-}
-
-const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(
-  ProtectedRouteChildren,
-)
-
-interface PublicRouteChildren {
-  PublicIndexRoute: typeof PublicIndexRoute
-}
-
-const PublicRouteChildren: PublicRouteChildren = {
-  PublicIndexRoute: PublicIndexRoute,
-}
-
-const PublicRouteWithChildren =
-  PublicRoute._addFileChildren(PublicRouteChildren)
+const modulesAccessRoutesPublicLayoutRouteRouteWithChildren =
+  modulesAccessRoutesPublicLayoutRouteRoute._addFileChildren(
+    modulesAccessRoutesPublicLayoutRouteRouteChildren,
+  )
 
 const rootRouteChildren: RootRouteChildren = {
-  AuthRoute: AuthRouteWithChildren,
-  ProtectedRoute: ProtectedRouteWithChildren,
-  PublicRoute: PublicRouteWithChildren,
+  modulesAccessRoutesAuthLayoutRouteRoute:
+    modulesAccessRoutesAuthLayoutRouteRouteWithChildren,
+  modulesWorkspaceShellRoutesProtectedRouteRoute:
+    modulesWorkspaceShellRoutesProtectedRouteRouteWithChildren,
+  modulesAccessRoutesPublicLayoutRouteRoute:
+    modulesAccessRoutesPublicLayoutRouteRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

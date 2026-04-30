@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-router";
 import {
   type KeyboardEvent,
+  type RefObject,
   useEffect,
   useId,
   useRef,
@@ -16,14 +17,16 @@ import {
 } from "react";
 
 import appLogo from "../../../../docs/layout/logo.svg";
-import type { AppSessionSnapshot } from "../../../features/session/session";
+import type { AppSessionSnapshot } from "../../access/domain/session";
 import {
+  FocusSessionStartControl,
   LearningLoopWorkspaceProvider,
   NotesWorkspaceSidebar,
   RecallResultsSidebar,
 } from "../../learning-loop";
+import { RecallResultsSearch } from "../../learning-loop/components/recall-results-search";
 
-type NavigationIconName = "label" | "note" | "recall" | "settings";
+type NavigationIconName = "focus" | "label" | "note" | "recall" | "settings";
 
 function getWorkspaceTitle(pathname: string) {
   if (pathname === "/labels" || pathname.startsWith("/labels/")) {
@@ -32,6 +35,10 @@ function getWorkspaceTitle(pathname: string) {
 
   if (pathname === "/recall" || pathname.startsWith("/recall/")) {
     return "Recall";
+  }
+
+  if (pathname === "/focus" || pathname.startsWith("/focus/")) {
+    return "Focus";
   }
 
   if (pathname === "/settings" || pathname.startsWith("/settings/")) {
@@ -50,6 +57,10 @@ function isRecallResultsWorkspacePath(pathname: string) {
 }
 
 export function AppLayout() {
+  const focus = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.focus,
+  });
   const session = useRouteContext({
     from: "/_protected",
     select: (context) => context.session,
@@ -59,18 +70,14 @@ export function AppLayout() {
   const router = useRouter();
   const navigationId = useId();
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [shouldRestoreMobileToggleFocus, setShouldRestoreMobileToggleFocus] =
-    useState(false);
   const [isLoggingOut, setLoggingOut] = useState(false);
-  const sidebarRef = useRef<HTMLElement | null>(null);
   const collapsedSidebarToggleRef = useRef<HTMLButtonElement | null>(null);
-  const mobileToggleRef = useRef<HTMLButtonElement | null>(null);
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
     session.subscribe,
     session.getSnapshot,
     session.getSnapshot,
   );
+  useSyncExternalStore(focus.subscribe, focus.getSnapshot, focus.getSnapshot);
   const workspaceTitle = getWorkspaceTitle(location.pathname);
   const isNotesWorkspaceRoute = isNotesWorkspacePath(location.pathname);
   const isRecallResultsWorkspaceRoute = isRecallResultsWorkspacePath(
@@ -80,29 +87,12 @@ export function AppLayout() {
   const sidebarToggleLabel = isSidebarCollapsed
     ? "Expand sidebar"
     : "Collapse sidebar";
-  const mobileToggleLabel = isMobileSidebarOpen
-    ? "Close navigation menu"
-    : "Open navigation menu";
+  const userId = sessionSnapshot.user?.id ?? null;
+  const activeFocusSession =
+    userId === null ? null : focus.getActiveSession({ userId });
 
-  function closeMobileSidebar(shouldRestoreFocus = false) {
-    setShouldRestoreMobileToggleFocus(shouldRestoreFocus);
-    setMobileSidebarOpen(false);
-  }
-
-  function toggleMobileSidebar() {
-    setShouldRestoreMobileToggleFocus(false);
-    setMobileSidebarOpen((value) => !value);
-  }
-
-  function handleMobileSidebarAction() {
-    if (isMobileSidebarOpen) {
-      closeMobileSidebar(true);
-      return;
-    }
-
-    setSidebarCollapsed(false);
-
-    toggleMobileSidebar();
+  function closeMobileSidebar() {
+    return;
   }
 
   async function handleLogout() {
@@ -125,18 +115,6 @@ export function AppLayout() {
     }
   }, [isSidebarCollapsed]);
 
-  useEffect(() => {
-    if (isMobileSidebarOpen) {
-      sidebarRef.current?.focus();
-      return;
-    }
-
-    if (shouldRestoreMobileToggleFocus) {
-      mobileToggleRef.current?.focus();
-      setShouldRestoreMobileToggleFocus(false);
-    }
-  }, [isMobileSidebarOpen, shouldRestoreMobileToggleFocus]);
-
   return (
     <LearningLoopWorkspaceProvider>
       <section
@@ -146,11 +124,10 @@ export function AppLayout() {
         <aside
           aria-label="Notes workspace"
           className="app-sidebar shell-panel"
-          data-mobile-open={isMobileSidebarOpen}
+          data-mobile-open="false"
           data-sidebar-state={sidebarState}
           hidden={isSidebarCollapsed}
           id={navigationId}
-          ref={sidebarRef}
           tabIndex={-1}
         >
           <div className="app-sidebar__header">
@@ -171,13 +148,13 @@ export function AppLayout() {
             </button>
           </div>
 
-          <GlobalNavigation onNavigate={() => closeMobileSidebar(true)} />
+          <GlobalNavigation onNavigate={closeMobileSidebar} />
 
           <div className="app-sidebar__body app-sidebar__body--notes">
             {isNotesWorkspaceRoute ? (
               <NotesWorkspaceSidebar
                 closeMobileSidebar={closeMobileSidebar}
-                isMobileSidebarOpen={isMobileSidebarOpen}
+                isMobileSidebarOpen={false}
                 isSidebarVisible={!isSidebarCollapsed}
               />
             ) : null}
@@ -189,39 +166,26 @@ export function AppLayout() {
 
         <div
           className="app-frame"
-          data-workspace={isNotesWorkspaceRoute ? "notes" : undefined}
+          data-workspace={
+            isNotesWorkspaceRoute
+              ? "notes"
+              : isRecallResultsWorkspaceRoute
+                ? "recall-results"
+                : undefined
+          }
         >
-          <header className="app-frame__mobile-header">
-            <div className="app-frame__titlebar">
-              {isSidebarCollapsed ? (
-                <button
-                  aria-controls={navigationId}
-                  aria-label="Expand sidebar"
-                  className="sidebar-header-toggle"
-                  onClick={() => setSidebarCollapsed(false)}
-                  ref={collapsedSidebarToggleRef}
-                  type="button"
-                >
-                  <SidebarReopenIcon />
-                </button>
-              ) : null}
-              <h2>{workspaceTitle}</h2>
-            </div>
-            <div className="app-frame__actions">
-              <button
-                aria-controls={navigationId}
-                aria-expanded={isMobileSidebarOpen}
-                aria-label={mobileToggleLabel}
-                className="sidebar-mobile-toggle"
-                onClick={handleMobileSidebarAction}
-                ref={mobileToggleRef}
-                type="button"
-              >
-                {isMobileSidebarOpen ? "Close menu" : "Open menu"}
-              </button>
-              <span className="tag">Shell ready for future modules</span>
-            </div>
-          </header>
+          <WorkspaceHeader
+            activeFocusSession={activeFocusSession}
+            collapsedSidebarToggleRef={collapsedSidebarToggleRef}
+            focus={focus}
+            isNotesWorkspaceRoute={isNotesWorkspaceRoute}
+            isRecallResultsWorkspaceRoute={isRecallResultsWorkspaceRoute}
+            isSidebarCollapsed={isSidebarCollapsed}
+            navigationId={navigationId}
+            onExpandSidebar={() => setSidebarCollapsed(false)}
+            userId={userId}
+            workspaceTitle={workspaceTitle}
+          />
 
           <div className="app-frame__content">
             <Outlet />
@@ -229,6 +193,66 @@ export function AppLayout() {
         </div>
       </section>
     </LearningLoopWorkspaceProvider>
+  );
+}
+
+function WorkspaceHeader({
+  activeFocusSession,
+  collapsedSidebarToggleRef,
+  focus,
+  isNotesWorkspaceRoute,
+  isRecallResultsWorkspaceRoute,
+  isSidebarCollapsed,
+  navigationId,
+  onExpandSidebar,
+  userId,
+  workspaceTitle,
+}: {
+  activeFocusSession: Parameters<
+    typeof FocusSessionStartControl
+  >[0]["activeFocusSession"];
+  collapsedSidebarToggleRef: RefObject<HTMLButtonElement | null>;
+  focus: Parameters<typeof FocusSessionStartControl>[0]["focus"];
+  isNotesWorkspaceRoute: boolean;
+  isRecallResultsWorkspaceRoute: boolean;
+  isSidebarCollapsed: boolean;
+  navigationId: string;
+  onExpandSidebar: () => void;
+  userId: string | null;
+  workspaceTitle: string;
+}) {
+  return (
+    <header className="app-frame__workspace-header">
+      <div className="app-frame__titlebar">
+        {isSidebarCollapsed ? (
+          <button
+            aria-controls={navigationId}
+            aria-label="Expand sidebar"
+            className="sidebar-header-toggle"
+            onClick={onExpandSidebar}
+            ref={collapsedSidebarToggleRef}
+            type="button"
+          >
+            <SidebarReopenIcon />
+          </button>
+        ) : null}
+        <h2>{workspaceTitle}</h2>
+      </div>
+      {isRecallResultsWorkspaceRoute ? (
+        <div className="app-frame__search">
+          <RecallResultsSearch userId={userId} />
+        </div>
+      ) : null}
+      <div className="app-frame__actions">
+        {isNotesWorkspaceRoute ? null : (
+          <FocusSessionStartControl
+            activeFocusSession={activeFocusSession}
+            focus={focus}
+            userId={userId}
+          />
+        )}
+      </div>
+    </header>
   );
 }
 
@@ -262,6 +286,21 @@ function GlobalNavigation({
             }}
             className="app-sidebar__link"
             onClick={onNavigate}
+            to="/recall"
+          >
+            <span aria-hidden="true" className="app-sidebar__icon">
+              <NavigationIcon name="recall" />
+            </span>
+            <span className="app-sidebar__label">Recall</span>
+          </Link>
+        </li>
+        <li>
+          <Link
+            activeProps={{
+              className: "app-sidebar__link app-sidebar__link-active",
+            }}
+            className="app-sidebar__link"
+            onClick={onNavigate}
             to="/labels"
           >
             <span aria-hidden="true" className="app-sidebar__icon">
@@ -277,12 +316,12 @@ function GlobalNavigation({
             }}
             className="app-sidebar__link"
             onClick={onNavigate}
-            to="/recall"
+            to="/focus"
           >
             <span aria-hidden="true" className="app-sidebar__icon">
-              <NavigationIcon name="recall" />
+              <NavigationIcon name="focus" />
             </span>
-            <span className="app-sidebar__label">Recall</span>
+            <span className="app-sidebar__label">Focus</span>
           </Link>
         </li>
       </ul>
@@ -443,6 +482,20 @@ function NavigationIcon({
   name: NavigationIconName;
 }>) {
   switch (name) {
+    case "focus":
+      return (
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M12 3v4" />
+          <path d="M18.4 5.6 16 8" />
+          <path d="M21 12h-4" />
+          <path d="M18.4 18.4 16 16" />
+          <path d="M12 21v-4" />
+          <path d="M5.6 18.4 8 16" />
+          <path d="M3 12h4" />
+          <path d="M5.6 5.6 8 8" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      );
     case "recall":
       return (
         <svg aria-hidden="true" viewBox="0 0 24 24">
