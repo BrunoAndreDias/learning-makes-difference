@@ -19,17 +19,20 @@ import {
 import appLogo from "../../../../docs/layout/logo.svg";
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import {
-  AppFocusError,
-  type AppFocusContext,
-  type AppFocusSnapshot,
-} from "../../learning-loop/domain/focus";
-import {
   LearningLoopWorkspaceProvider,
   NotesWorkspaceSidebar,
   RecallResultsSidebar,
 } from "../../learning-loop";
+import {
+  type AppFocusContext,
+  AppFocusError,
+  type AppFocusSnapshot,
+} from "../../learning-loop/domain/focus";
 
 type NavigationIconName = "label" | "note" | "recall" | "settings";
+
+const DEFAULT_FOCUS_MINUTES = "25";
+const DEFAULT_BREAK_MINUTES = "5";
 
 function getWorkspaceTitle(pathname: string) {
   if (pathname === "/labels" || pathname.startsWith("/labels/")) {
@@ -102,8 +105,8 @@ export function AppLayout() {
   const activeFocusSession =
     userId === null
       ? null
-      : focusSnapshot.find((sessionEntry) => sessionEntry.userId === userId) ??
-        null;
+      : (focusSnapshot.find((sessionEntry) => sessionEntry.userId === userId) ??
+        null);
 
   function closeMobileSidebar(shouldRestoreFocus = false) {
     setShouldRestoreMobileToggleFocus(shouldRestoreFocus);
@@ -267,8 +270,8 @@ function FocusSessionStartControl({
   userId: string | null;
 }>) {
   const [isOpen, setIsOpen] = useState(false);
-  const [focusMinutes, setFocusMinutes] = useState("25");
-  const [breakMinutes, setBreakMinutes] = useState("5");
+  const [focusMinutes, setFocusMinutes] = useState(DEFAULT_FOCUS_MINUTES);
+  const [breakMinutes, setBreakMinutes] = useState(DEFAULT_BREAK_MINUTES);
   const [plannedFocusIntervals, setPlannedFocusIntervals] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -283,7 +286,11 @@ function FocusSessionStartControl({
 
   if (activeFocusSession !== null) {
     return (
-      <button className="notes-action notes-action-primary" disabled type="button">
+      <button
+        className="notes-action notes-action-primary"
+        disabled
+        type="button"
+      >
         Focus active
       </button>
     );
@@ -296,18 +303,14 @@ function FocusSessionStartControl({
       return;
     }
 
-    const parsedFocusMinutes = Number(focusMinutes);
-    const parsedBreakMinutes = Number(breakMinutes);
-    const parsedPlannedFocusIntervals =
-      plannedFocusIntervals.trim().length === 0
-        ? null
-        : Number(plannedFocusIntervals);
-
     try {
       focus.startFocusSession({
-        breakIntervalMinutes: parsedBreakMinutes,
-        focusIntervalMinutes: parsedFocusMinutes,
-        plannedFocusIntervalCount: parsedPlannedFocusIntervals,
+        breakIntervalMinutes: Number(breakMinutes),
+        focusIntervalMinutes: Number(focusMinutes),
+        plannedFocusIntervalCount:
+          plannedFocusIntervals.trim().length === 0
+            ? null
+            : Number(plannedFocusIntervals),
         userId,
       });
       setErrorMessage(null);

@@ -60,6 +60,8 @@ export type AppFocusContext = {
 const DEFAULT_STORAGE_KEY_PREFIX = "learning-makes-difference-focus";
 const DEFAULT_FOCUS_INTERVAL_MINUTES = 25;
 const DEFAULT_BREAK_INTERVAL_MINUTES = 5;
+const SUPPORTED_FOCUS_METHOD: FocusMethod = "Pomodoro";
+const INITIAL_FOCUS_INTERVAL: FocusSessionInterval = "Focus";
 
 function getDefaultStorage(): FocusStorageAdapter | undefined {
   if (typeof window === "undefined") {
@@ -83,6 +85,27 @@ function cloneFocusSession(session: StoredFocusSession): StoredFocusSession {
   };
 }
 
+function isStoredFocusSession(entry: unknown): entry is StoredFocusSession {
+  if (typeof entry !== "object" || entry === null) {
+    return false;
+  }
+
+  const candidate = entry as Partial<StoredFocusSession>;
+
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.userId === "string" &&
+    typeof candidate.createdAt === "string" &&
+    typeof candidate.focusIntervalMinutes === "number" &&
+    typeof candidate.breakIntervalMinutes === "number" &&
+    candidate.method === SUPPORTED_FOCUS_METHOD &&
+    (candidate.currentInterval === "Focus" ||
+      candidate.currentInterval === "Break") &&
+    (candidate.plannedFocusIntervalCount === null ||
+      typeof candidate.plannedFocusIntervalCount === "number")
+  );
+}
+
 function parseFocusSnapshot(value: string | null): AppFocusSnapshot {
   if (value === null) {
     return [];
@@ -95,38 +118,7 @@ function parseFocusSnapshot(value: string | null): AppFocusSnapshot {
       return [];
     }
 
-    return parsedValue.flatMap((entry) => {
-      if (
-        typeof entry !== "object" ||
-        entry === null ||
-        typeof entry.id !== "string" ||
-        typeof entry.userId !== "string" ||
-        typeof entry.createdAt !== "string" ||
-        typeof entry.focusIntervalMinutes !== "number" ||
-        typeof entry.breakIntervalMinutes !== "number" ||
-        typeof entry.method !== "string" ||
-        typeof entry.currentInterval !== "string"
-      ) {
-        return [];
-      }
-
-      if (entry.method !== "Pomodoro") {
-        return [];
-      }
-
-      if (entry.currentInterval !== "Focus" && entry.currentInterval !== "Break") {
-        return [];
-      }
-
-      if (
-        entry.plannedFocusIntervalCount !== null &&
-        typeof entry.plannedFocusIntervalCount !== "number"
-      ) {
-        return [];
-      }
-
-      return [cloneFocusSession(entry as StoredFocusSession)];
-    });
+    return parsedValue.filter(isStoredFocusSession).map(cloneFocusSession);
   } catch {
     return [];
   }
@@ -183,7 +175,9 @@ export function createAppFocusContext(
   }
 
   function getActiveSession({ userId }: GetActiveFocusSessionInput) {
-    const session = activeSessions.find((candidate) => candidate.userId === userId);
+    const session = activeSessions.find(
+      (candidate) => candidate.userId === userId,
+    );
 
     return session === undefined ? null : toPublicSession(session);
   }
@@ -193,8 +187,7 @@ export function createAppFocusContext(
       input.focusIntervalMinutes ?? DEFAULT_FOCUS_INTERVAL_MINUTES;
     const breakIntervalMinutes =
       input.breakIntervalMinutes ?? DEFAULT_BREAK_INTERVAL_MINUTES;
-    const plannedFocusIntervalCount =
-      input.plannedFocusIntervalCount ?? null;
+    const plannedFocusIntervalCount = input.plannedFocusIntervalCount ?? null;
 
     assertPositiveInteger(
       focusIntervalMinutes,
@@ -222,10 +215,10 @@ export function createAppFocusContext(
     const nextSession: StoredFocusSession = {
       breakIntervalMinutes,
       createdAt: new Date().toISOString(),
-      currentInterval: "Focus",
+      currentInterval: INITIAL_FOCUS_INTERVAL,
       focusIntervalMinutes,
       id: cryptoProvider.randomUUID(),
-      method: "Pomodoro",
+      method: SUPPORTED_FOCUS_METHOD,
       plannedFocusIntervalCount,
       userId: input.userId,
     };

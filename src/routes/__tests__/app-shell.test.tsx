@@ -162,9 +162,6 @@ function createLearningLoopTestContexts(
 
 type AppShellRouter = ReturnType<typeof renderRoute>["router"];
 type RenderRouteOptions = NonNullable<Parameters<typeof renderRoute>[1]>;
-type LearningLoopTestContexts = ReturnType<
-  typeof createLearningLoopTestContexts
->;
 
 function createDeterministicRecallTestContexts() {
   return createLearningLoopTestContexts({

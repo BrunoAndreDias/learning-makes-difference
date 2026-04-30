@@ -14,13 +14,11 @@ import { type ReactNode, useSyncExternalStore } from "react";
 import appLogo from "../../../../docs/layout/logo.svg";
 import appCss from "../../../styles/app.css?url";
 import {
-  type AppFocusContext,
-} from "../../learning-loop/domain/focus";
-import {
   type AppSessionContext,
   hasActiveSession,
 } from "../../access/domain/session";
 import type { AppLabelsContext } from "../../labels/domain/labels";
+import type { AppFocusContext } from "../../learning-loop/domain/focus";
 import type { AppNotesContext } from "../../learning-loop/domain/notes";
 import type { AppRecallContext } from "../../learning-loop/domain/recall";
 

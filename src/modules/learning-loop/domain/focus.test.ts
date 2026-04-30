@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createAppFocusContext, AppFocusError } from "./focus";
+import { AppFocusError, createAppFocusContext } from "./focus";
 
 function createMemoryStorage() {
   const values = new Map<string, string>();
@@ -118,9 +118,7 @@ describe("focus sessions", () => {
 
     focus.startFocusSession({ userId: "owner" });
 
-    expect(() =>
-      focus.startFocusSession({ userId: "owner" }),
-    ).toThrowError(
+    expect(() => focus.startFocusSession({ userId: "owner" })).toThrowError(
       new AppFocusError(
         "invalid_input",
         "User already has an active FocusSession.",
