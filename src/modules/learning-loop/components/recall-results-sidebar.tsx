@@ -4,7 +4,10 @@ import type { AppSessionSnapshot } from "../../access/domain/session";
 import type { AppLabel } from "../../labels/domain/labels";
 import { listNotesForUser } from "../domain/notes";
 import { useNotesWorkspace } from "../domain/notes-workspace";
-import type { FlashCardSessionResult } from "../domain/recall";
+import {
+  type RecallSessionSearchResult,
+  searchRecallSessionResults,
+} from "../domain/recall-session-search";
 
 function formatAttemptCount(count: number) {
   return `${count} attempted ${count === 1 ? "question" : "questions"}`;
@@ -91,6 +94,7 @@ export function RecallResultsSidebar({
   );
   const userId = sessionSnapshot.user?.id ?? null;
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const selectedLabelFilter =
     selectedRecallLabelId.length === 0 ? undefined : selectedRecallLabelId;
   const sessionResults =
@@ -100,6 +104,12 @@ export function RecallResultsSidebar({
           labelId: selectedLabelFilter,
           userId,
         });
+  const hasSearchQuery = searchQuery.trim().length > 0;
+  const searchResults = searchRecallSessionResults({
+    labels: availableLabels,
+    query: searchQuery,
+    sessionResults,
+  });
   const notesAvailableForRecall =
     userId === null ? [] : listNotesForUser(notesSnapshot, userId);
   const hasNotesAvailableForRecall = notesAvailableForRecall.length > 0;
@@ -148,6 +158,24 @@ export function RecallResultsSidebar({
       </div>
 
       <div className="app-sidebar__workspace-controls">
+        <form
+          className="notes-search recall-results-search"
+          onSubmit={(event) => event.preventDefault()}
+        >
+          <span className="notes-search__icon" aria-hidden="true">
+            <SearchIcon />
+          </span>
+          <label className="sr-only" htmlFor="recall-results-search">
+            Search recall sessions
+          </label>
+          <input
+            id="recall-results-search"
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search sessions"
+            type="search"
+            value={searchQuery}
+          />
+        </form>
         {availableLabels.length > 0 ? (
           <LabelFilter
             labels={availableLabels}
@@ -166,13 +194,15 @@ export function RecallResultsSidebar({
             hasActiveFilter={selectedLabelFilter !== undefined}
             state={noResultsStateKind}
           />
+        ) : hasSearchQuery && searchResults.length === 0 ? (
+          <NoSearchResultsState />
         ) : (
           <SessionResultsList
             onSelectSession={(sessionId) => {
               selectRecallSession(sessionId);
               closeMobileSidebar();
             }}
-            results={sessionResults}
+            results={searchResults}
             selectedSessionId={selectedRecallSessionId}
           />
         )}
@@ -219,33 +249,57 @@ function SessionResultsList({
   selectedSessionId,
 }: {
   onSelectSession: (sessionId: string) => void;
-  results: readonly FlashCardSessionResult[];
+  results: readonly RecallSessionSearchResult[];
   selectedSessionId: string | null;
 }) {
   return (
     <ul className="app-sidebar__workspace-list">
       {results.map((result) => {
-        const isSelected = result.id === selectedSessionId;
+        const isSelected = result.sessionResult.id === selectedSessionId;
 
         return (
-          <li className="app-sidebar__workspace-item" key={result.id}>
+          <li
+            className="app-sidebar__workspace-item"
+            key={result.sessionResult.id}
+          >
             <button
               aria-current={isSelected ? "page" : undefined}
               aria-label="Review session"
               aria-pressed={isSelected}
               className="app-sidebar__workspace-link app-sidebar__workspace-link--recall"
-              onClick={() => onSelectSession(result.id)}
+              onClick={() => onSelectSession(result.sessionResult.id)}
               type="button"
             >
-              <span>{formatDateTime(result.completedAt)}</span>
-              <span className="app-sidebar__workspace-meta">
-                {formatAttemptCount(result.attempts.length)}
+              <span className="recall-results-sidebar__summary">
+                <span>{formatDateTime(result.sessionResult.completedAt)}</span>
+                <span className="app-sidebar__workspace-meta">
+                  {result.matchedNoteTitle}
+                </span>
+              </span>
+              <span className="recall-results-sidebar__meta">
+                <span className="notes-search__match-chip">
+                  {result.matchChip}
+                </span>
+                <span className="app-sidebar__workspace-meta">
+                  {formatAttemptCount(result.sessionResult.attempts.length)}
+                </span>
               </span>
             </button>
           </li>
         );
       })}
     </ul>
+  );
+}
+
+function NoSearchResultsState() {
+  return (
+    <div className="stack">
+      <h4>No matching sessions</h4>
+      <p className="muted">
+        No completed sessions used a matching note, metaphor, acronym, or label.
+      </p>
+    </div>
   );
 }
 
@@ -283,5 +337,14 @@ function NoResultsState({
         Complete a recall session to build reviewable results.
       </p>
     </div>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <circle cx="10.5" cy="10.5" r="6" />
+      <path d="m15 15 4.5 4.5" />
+    </svg>
   );
 }
