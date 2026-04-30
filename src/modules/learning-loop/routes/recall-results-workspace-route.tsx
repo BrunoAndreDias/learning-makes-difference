@@ -33,6 +33,10 @@ function formatScoreSummary(summary: ReturnType<typeof summarizeAttempts>) {
   return `Nailed ${summary.nailed} · Partial ${summary.partial} · Missed ${summary.missed}`;
 }
 
+function formatPercent(value: number) {
+  return `${Math.round(value * 100)}%`;
+}
+
 function formatStoredNoteSnapshotSummary(note: FlashCardRecallNote) {
   return [
     formatSummaryCount(note.acronyms.length, "acronym"),
@@ -49,6 +53,19 @@ function formatRatingLabel(rating: "missed" | "nailed" | "partial") {
       return "Partly recalled";
     case "nailed":
       return "Nailed it";
+  }
+}
+
+function getRatingTone(rating: "missed" | "nailed" | "partial" | null) {
+  switch (rating) {
+    case "missed":
+      return "missed";
+    case "partial":
+      return "partial";
+    case "nailed":
+      return "nailed";
+    case null:
+      return "unattempted";
   }
 }
 
@@ -162,65 +179,142 @@ function SelectedSessionResult({
 }) {
   if (sessionResult === null) {
     return (
-      <p className="muted">
-        Complete a recall session to review stored note snapshots and question
-        ratings.
-      </p>
+      <div className="recall-results-empty">
+        <p className="section-label">Nothing selected</p>
+        <h4>No session result selected</h4>
+        <p className="muted">
+          Complete a recall session to review stored note snapshots and question
+          ratings.
+        </p>
+      </div>
     );
   }
 
   const summary = summarizeAttempts(sessionResult.attempts);
+  const attemptedCount = sessionResult.attempts.length;
+  const questionCount = sessionResult.notes.length;
+  const completionRate =
+    questionCount === 0 ? 0 : attemptedCount / questionCount;
 
   return (
-    <div className="stack">
-      <header className="stack">
-        <p className="section-label">SessionResult</p>
-        <h4>Selected notes</h4>
-      </header>
+    <div className="recall-results-detail">
+      <div className="recall-results-primary-grid">
+        <div className="recall-results-summary">
+          <header className="recall-results-hero">
+            <div className="notes-editor__title-stack">
+              <p className="section-label">SessionResult</p>
+              <h4>Session overview</h4>
+              <p className="muted">
+                Completed {formatDateTime(sessionResult.completedAt)}
+              </p>
+            </div>
+            <div className="recall-results-score">
+              <strong>{formatPercent(completionRate)}</strong>
+              <span>answered</span>
+            </div>
+          </header>
 
-      <section
-        aria-labelledby="selected-session-details-heading"
-        className="stack"
-      >
-        <h4 id="selected-session-details-heading">Session details</h4>
-        <p>Mode: {sessionResult.mode}</p>
-        <p>Started: {formatDateTime(sessionResult.createdAt)}</p>
-        <p>Completed: {formatDateTime(sessionResult.completedAt)}</p>
-        <div className="tag-row">
-          <span className="tag">
-            {formatAttemptCount(sessionResult.attempts.length)}
-          </span>
-          <span className="tag">
-            {formatQuestionCount(sessionResult.notes.length)}
-          </span>
+          <section
+            aria-labelledby="selected-session-details-heading"
+            className="recall-results-section"
+          >
+            <h4 id="selected-session-details-heading">Session details</h4>
+            <div className="recall-results-metrics">
+              <div className="recall-results-metric">
+                <span className="section-label">Mode</span>
+                <strong>{sessionResult.mode}</strong>
+                <p className="sr-only">Mode: {sessionResult.mode}</p>
+              </div>
+              <div className="recall-results-metric">
+                <span className="section-label">Started</span>
+                <strong>{formatDateTime(sessionResult.createdAt)}</strong>
+                <p className="sr-only">
+                  Started: {formatDateTime(sessionResult.createdAt)}
+                </p>
+              </div>
+              <div className="recall-results-metric">
+                <span className="section-label">Completed</span>
+                <strong>{formatDateTime(sessionResult.completedAt)}</strong>
+                <p className="sr-only">
+                  Completed: {formatDateTime(sessionResult.completedAt)}
+                </p>
+              </div>
+            </div>
+            <div className="recall-results-chips">
+              <span className="tag">{formatAttemptCount(attemptedCount)}</span>
+              <span className="tag">{formatQuestionCount(questionCount)}</span>
+            </div>
+          </section>
+
+          <section
+            aria-labelledby="selected-score-summary-heading"
+            className="recall-results-section"
+          >
+            <h4 id="selected-score-summary-heading">Score summary</h4>
+            <div className="recall-rating-summary">
+              <RatingSummaryItem
+                count={summary.nailed}
+                label="Nailed"
+                tone="nailed"
+              />
+              <RatingSummaryItem
+                count={summary.partial}
+                label="Partial"
+                tone="partial"
+              />
+              <RatingSummaryItem
+                count={summary.missed}
+                label="Missed"
+                tone="missed"
+              />
+            </div>
+            <p className="recall-results-score-copy">
+              {formatScoreSummary(summary)}
+            </p>
+          </section>
         </div>
-      </section>
 
-      <section
-        aria-labelledby="selected-score-summary-heading"
-        className="stack"
-      >
-        <h4 id="selected-score-summary-heading">Score summary</h4>
-        <p>{formatScoreSummary(summary)}</p>
-      </section>
-
-      <section
-        aria-labelledby="selected-question-review-heading"
-        className="stack"
-      >
-        <h4 id="selected-question-review-heading">Question review</h4>
-        <ResultsSessionReview sessionResult={sessionResult} />
-      </section>
+        <section
+          aria-labelledby="selected-question-review-heading"
+          className="recall-results-section recall-results-section--review"
+        >
+          <h4 id="selected-question-review-heading">Question review</h4>
+          <ResultsSessionReview sessionResult={sessionResult} />
+        </section>
+      </div>
 
       <section
         aria-labelledby="selected-stored-note-snapshots-heading"
-        className="stack"
+        className="recall-results-section recall-results-section--snapshots"
       >
-        <h4 id="selected-stored-note-snapshots-heading">
-          Stored note snapshots
-        </h4>
+        <div className="notes-editor__title-stack">
+          <p className="section-label">Selected notes</p>
+          <h4 id="selected-stored-note-snapshots-heading">
+            Stored note snapshots
+          </h4>
+          <p className="muted">
+            Snapshot content stays pinned to what was reviewed in this session.
+          </p>
+        </div>
         <StoredNoteSnapshotSummary notes={sessionResult.notes} />
       </section>
+    </div>
+  );
+}
+
+function RatingSummaryItem({
+  count,
+  label,
+  tone,
+}: {
+  count: number;
+  label: string;
+  tone: "missed" | "nailed" | "partial";
+}) {
+  return (
+    <div className="recall-rating-summary__item" data-tone={tone}>
+      <strong>{count}</strong>
+      <span>{label}</span>
     </div>
   );
 }
@@ -302,16 +396,28 @@ function ResultsSessionReview({
   );
 
   return (
-    <div className="stack">
+    <div className="recall-question-review-list">
       {sessionResult.notes.map((note, index) => {
         const attempt = attemptsByNoteId.get(note.id);
+        const ratingTone = getRatingTone(attempt?.rating ?? null);
 
         return (
-          <article className="recall-session-card stack" key={note.id}>
-            <p className="section-label">{`Question ${index + 1}`}</p>
-            <h4>{note.title}</h4>
+          <article
+            className="recall-session-card recall-question-card"
+            data-tone={ratingTone}
+            key={note.id}
+          >
+            <div className="recall-question-card__header">
+              <p className="section-label">{`Question ${index + 1}`}</p>
+              <span className="recall-rating-pill" data-tone={ratingTone}>
+                {attempt === undefined
+                  ? "Not attempted"
+                  : formatRatingLabel(attempt.rating)}
+              </span>
+            </div>
+            <h5>{note.title}</h5>
             <p>{note.body}</p>
-            <p>
+            <p className="recall-question-card__rating">
               {attempt === undefined
                 ? "Rating: Not attempted"
                 : `Rating: ${formatRatingLabel(attempt.rating)}`}
@@ -329,10 +435,13 @@ function StoredNoteSnapshotSummary({
   notes: readonly FlashCardRecallNote[];
 }) {
   return (
-    <div className="stack">
+    <div className="recall-snapshot-grid">
       {notes.map((note) => {
         return (
-          <article className="recall-session-card stack" key={note.id}>
+          <article
+            className="recall-session-card recall-snapshot-card"
+            key={note.id}
+          >
             <h5>{note.title}</h5>
             <p>{note.body}</p>
             <p className="muted">{formatStoredNoteSnapshotSummary(note)}</p>
