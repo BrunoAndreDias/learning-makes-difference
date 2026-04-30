@@ -625,13 +625,11 @@ function toPublicFocusRecord(record: StoredFocusRecord): FocusRecord {
   };
 }
 
-function getRecallTargetLabelSnapshots(
-  input: {
-    getLabelsForUser?: (userId: string) => readonly AppLabel[];
-    noteSnapshots: readonly AppNote[];
-    userId: string;
-  },
-) {
+function getRecallTargetLabelSnapshots(input: {
+  getLabelsForUser?: (userId: string) => readonly AppLabel[];
+  noteSnapshots: readonly AppNote[];
+  userId: string;
+}) {
   const labelsById = new Map(
     (input.getLabelsForUser?.(input.userId) ?? []).map((label) => [
       label.id,
@@ -753,6 +751,17 @@ export function createAppFocusContext(
     return session === null ? null : toPublicSession(session, getCurrentDate());
   }
 
+  function replaceActiveSession(
+    userId: string,
+    nextSession: StoredFocusSession,
+  ) {
+    writeSnapshot(
+      activeSessions.map((activeSession) =>
+        activeSession.userId === userId ? nextSession : activeSession,
+      ),
+    );
+  }
+
   function getFocusRecords({ userId }: GetFocusRecordsInput) {
     return focusRecords
       .filter((record) => record.userId === userId)
@@ -839,11 +848,7 @@ export function createAppFocusContext(
       stateStartedAt: now.toISOString(),
     };
 
-    writeSnapshot(
-      activeSessions.map((activeSession) =>
-        activeSession.userId === input.userId ? nextSession : activeSession,
-      ),
-    );
+    replaceActiveSession(input.userId, nextSession);
 
     return toPublicSession(nextSession, now);
   }
@@ -936,11 +941,7 @@ export function createAppFocusContext(
       focusTargets: nextFocusTargets,
     };
 
-    writeSnapshot(
-      activeSessions.map((activeSession) =>
-        activeSession.userId === input.userId ? nextSession : activeSession,
-      ),
-    );
+    replaceActiveSession(input.userId, nextSession);
   }
 
   function subscribe(listener: FocusListener) {

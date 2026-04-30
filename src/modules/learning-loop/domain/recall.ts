@@ -1,5 +1,5 @@
-import { type AppNote, type AppNotesContext, listNotesForUser } from "./notes";
 import type { RecallStudyActivitySession } from "./focus";
+import { type AppNote, type AppNotesContext, listNotesForUser } from "./notes";
 
 export type RecallMode = "AiAssisted" | "AiGraded" | "FlashCard";
 
@@ -196,7 +196,7 @@ function getSessionResultsStorageKey(prefix: string) {
   return `${prefix}:session-results`;
 }
 
-function isFlashCardRecallNote(note: unknown): note is FlashCardRecallNote {
+function isRecallNoteSnapshot(note: unknown): note is RecallNoteSnapshot {
   const candidate =
     typeof note === "object" && note !== null
       ? (note as Record<string, unknown>)
@@ -216,9 +216,7 @@ function isFlashCardRecallNote(note: unknown): note is FlashCardRecallNote {
   );
 }
 
-function isFlashCardRecallAttempt(
-  attempt: unknown,
-): attempt is FlashCardRecallAttempt {
+function isRecallAttempt(attempt: unknown): attempt is RecallAttempt {
   const candidate =
     typeof attempt === "object" && attempt !== null
       ? (attempt as Record<string, unknown>)
@@ -243,6 +241,20 @@ function getFirstAttemptByNoteId(attempts: readonly RecallAttempt[]) {
   }
 
   return attemptsByNoteId;
+}
+
+function createQuestionsFromProgress(input: {
+  attempts: readonly RecallAttempt[];
+  isAnswerRevealed: boolean;
+  notes: readonly RecallNoteSnapshot[];
+  questionIndex: number;
+}) {
+  return createQuestionsFromSessionState({
+    attempts: input.attempts,
+    currentIndex: input.questionIndex,
+    isAnswerRevealed: input.isAnswerRevealed,
+    notes: input.notes,
+  });
 }
 
 function getRecallQuestionState(
@@ -308,22 +320,22 @@ function parseStoredRecallSession(value: string | null): AppRecallSnapshot {
       ("attempts" in parsedValue &&
         (!Array.isArray(parsedValue.attempts) ||
           parsedValue.attempts.some((attempt: unknown) => {
-            return !isFlashCardRecallAttempt(attempt);
+            return !isRecallAttempt(attempt);
           }))) ||
       !Array.isArray(parsedValue.notes)
     ) {
       return null;
     }
 
-    const notes = parsedValue.notes.filter(isFlashCardRecallNote);
+    const notes = parsedValue.notes.filter(isRecallNoteSnapshot);
     const attempts = Array.isArray(parsedValue.attempts)
       ? parsedValue.attempts
       : [];
-    const questions = createQuestionsFromSessionState({
+    const questions = createQuestionsFromProgress({
       attempts,
-      currentIndex: parsedValue.currentIndex,
       isAnswerRevealed: parsedValue.isAnswerRevealed,
       notes,
+      questionIndex: parsedValue.currentIndex,
     });
 
     return {
@@ -364,22 +376,22 @@ function parseStoredSessionResults(
           typeof result.completedAt === "string" &&
           Array.isArray(result.attempts) &&
           result.attempts.every((attempt: unknown) =>
-            isFlashCardRecallAttempt(attempt),
+            isRecallAttempt(attempt),
           ) &&
           Array.isArray(result.notes)
         );
       })
       .map((result) => ({
         ...result,
-        notes: result.notes.filter(isFlashCardRecallNote),
+        notes: result.notes.filter(isRecallNoteSnapshot),
       }))
       .map((result) => ({
         ...result,
-        questions: createQuestionsFromSessionState({
+        questions: createQuestionsFromProgress({
           attempts: result.attempts,
-          currentIndex: result.notes.length,
           isAnswerRevealed: false,
           notes: result.notes,
+          questionIndex: result.notes.length,
         }),
       }));
   } catch {
@@ -622,11 +634,11 @@ export function createAppRecallContext(
     const nextSession: StoredRecallSession = {
       ...activeSession,
       isAnswerRevealed: true,
-      questions: createQuestionsFromSessionState({
+      questions: createQuestionsFromProgress({
         attempts: activeSession.attempts,
-        currentIndex: activeSession.currentQuestionIndex,
         isAnswerRevealed: true,
         notes: activeSession.notes,
+        questionIndex: activeSession.currentQuestionIndex,
       }),
     };
 
@@ -664,11 +676,11 @@ export function createAppRecallContext(
       currentIndex: currentQuestionIndex,
       currentQuestionIndex,
       isAnswerRevealed: false,
-      questions: createQuestionsFromSessionState({
+      questions: createQuestionsFromProgress({
         attempts,
-        currentIndex: currentQuestionIndex,
         isAnswerRevealed: false,
         notes: activeSession.notes,
+        questionIndex: currentQuestionIndex,
       }),
     };
 
@@ -711,11 +723,11 @@ export function createAppRecallContext(
       isAnswerRevealed: false,
       mode,
       notes: shuffledNotes,
-      questions: createQuestionsFromSessionState({
+      questions: createQuestionsFromProgress({
         attempts: [],
-        currentIndex: 0,
         isAnswerRevealed: false,
         notes: shuffledNotes,
+        questionIndex: 0,
       }),
       userId: input.userId,
     };
