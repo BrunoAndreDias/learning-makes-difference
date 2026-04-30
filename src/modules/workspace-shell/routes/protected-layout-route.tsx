@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-router";
 import {
   type KeyboardEvent,
+  type RefObject,
   useEffect,
   useId,
   useRef,
@@ -23,6 +24,7 @@ import {
   NotesWorkspaceSidebar,
   RecallResultsSidebar,
 } from "../../learning-loop";
+import { RecallResultsSearch } from "../../learning-loop/components/recall-results-search";
 
 type NavigationIconName = "focus" | "label" | "note" | "recall" | "settings";
 
@@ -164,34 +166,26 @@ export function AppLayout() {
 
         <div
           className="app-frame"
-          data-workspace={isNotesWorkspaceRoute ? "notes" : undefined}
+          data-workspace={
+            isNotesWorkspaceRoute
+              ? "notes"
+              : isRecallResultsWorkspaceRoute
+                ? "recall-results"
+                : undefined
+          }
         >
-          <header className="app-frame__workspace-header">
-            <div className="app-frame__titlebar">
-              {isSidebarCollapsed ? (
-                <button
-                  aria-controls={navigationId}
-                  aria-label="Expand sidebar"
-                  className="sidebar-header-toggle"
-                  onClick={() => setSidebarCollapsed(false)}
-                  ref={collapsedSidebarToggleRef}
-                  type="button"
-                >
-                  <SidebarReopenIcon />
-                </button>
-              ) : null}
-              <h2>{workspaceTitle}</h2>
-            </div>
-            <div className="app-frame__actions">
-              {isNotesWorkspaceRoute ? null : (
-                <FocusSessionStartControl
-                  activeFocusSession={activeFocusSession}
-                  focus={focus}
-                  userId={userId}
-                />
-              )}
-            </div>
-          </header>
+          <WorkspaceHeader
+            activeFocusSession={activeFocusSession}
+            collapsedSidebarToggleRef={collapsedSidebarToggleRef}
+            focus={focus}
+            isNotesWorkspaceRoute={isNotesWorkspaceRoute}
+            isRecallResultsWorkspaceRoute={isRecallResultsWorkspaceRoute}
+            isSidebarCollapsed={isSidebarCollapsed}
+            navigationId={navigationId}
+            onExpandSidebar={() => setSidebarCollapsed(false)}
+            userId={userId}
+            workspaceTitle={workspaceTitle}
+          />
 
           <div className="app-frame__content">
             <Outlet />
@@ -199,6 +193,66 @@ export function AppLayout() {
         </div>
       </section>
     </LearningLoopWorkspaceProvider>
+  );
+}
+
+function WorkspaceHeader({
+  activeFocusSession,
+  collapsedSidebarToggleRef,
+  focus,
+  isNotesWorkspaceRoute,
+  isRecallResultsWorkspaceRoute,
+  isSidebarCollapsed,
+  navigationId,
+  onExpandSidebar,
+  userId,
+  workspaceTitle,
+}: {
+  activeFocusSession: Parameters<
+    typeof FocusSessionStartControl
+  >[0]["activeFocusSession"];
+  collapsedSidebarToggleRef: RefObject<HTMLButtonElement | null>;
+  focus: Parameters<typeof FocusSessionStartControl>[0]["focus"];
+  isNotesWorkspaceRoute: boolean;
+  isRecallResultsWorkspaceRoute: boolean;
+  isSidebarCollapsed: boolean;
+  navigationId: string;
+  onExpandSidebar: () => void;
+  userId: string | null;
+  workspaceTitle: string;
+}) {
+  return (
+    <header className="app-frame__workspace-header">
+      <div className="app-frame__titlebar">
+        {isSidebarCollapsed ? (
+          <button
+            aria-controls={navigationId}
+            aria-label="Expand sidebar"
+            className="sidebar-header-toggle"
+            onClick={onExpandSidebar}
+            ref={collapsedSidebarToggleRef}
+            type="button"
+          >
+            <SidebarReopenIcon />
+          </button>
+        ) : null}
+        <h2>{workspaceTitle}</h2>
+      </div>
+      {isRecallResultsWorkspaceRoute ? (
+        <div className="app-frame__search">
+          <RecallResultsSearch userId={userId} />
+        </div>
+      ) : null}
+      <div className="app-frame__actions">
+        {isNotesWorkspaceRoute ? null : (
+          <FocusSessionStartControl
+            activeFocusSession={activeFocusSession}
+            focus={focus}
+            userId={userId}
+          />
+        )}
+      </div>
+    </header>
   );
 }
 

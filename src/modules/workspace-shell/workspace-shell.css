@@ -620,6 +620,19 @@
   border-bottom: 1px solid #e8edf5;
 }
 
+.app-frame__search {
+  min-width: 0;
+}
+
+.app-frame[data-workspace="recall-results"] .app-frame__search {
+  flex: 1 1 28rem;
+  max-width: 42rem;
+}
+
+.app-frame[data-workspace="recall-results"] .app-frame__search .notes-search {
+  width: 100%;
+}
+
 .app-sidebar[data-sidebar-state="collapsed"] {
   width: 5rem;
 }
@@ -785,6 +798,17 @@
     .app-frame__workspace-header
     .app-frame__actions {
     display: flex;
+  }
+
+  .app-frame[data-workspace="recall-results"] .app-frame__workspace-header {
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+
+  .app-frame[data-workspace="recall-results"] .app-frame__search {
+    flex-basis: 100%;
+    max-width: none;
+    order: 3;
   }
 }
 

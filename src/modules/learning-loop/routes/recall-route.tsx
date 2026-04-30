@@ -270,36 +270,6 @@ export function RecallSelectionPage() {
       aria-label="Recall selection workspace"
       className="recall-workspace"
     >
-      <section
-        aria-label="Recall selection toolbar"
-        className="recall-workspace__toolbar"
-      >
-        <form
-          className="notes-search"
-          onSubmit={(event) => event.preventDefault()}
-        >
-          <span className="notes-search__icon" aria-hidden="true">
-            <SearchIcon />
-          </span>
-          <label className="sr-only" htmlFor="recall-selection-search">
-            Search notes
-          </label>
-          <input
-            id="recall-selection-search"
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search notes"
-            type="search"
-            value={searchQuery}
-          />
-        </form>
-        <RecallSelectionControls
-          hasSelectedNotes={selectedNoteIds.length > 0}
-          onCancel={() => void handleCancel()}
-          onStartRecall={() => void handleStartRecall()}
-          selectedCountLabel={selectedCountLabel}
-        />
-      </section>
-
       <article className="recall-surface">
         <header className="recall-surface__header">
           <div className="notes-editor__title-stack">
@@ -313,6 +283,35 @@ export function RecallSelectionPage() {
               <span className="tag">{noteCountLabel}</span>
               <span className="tag">{selectedCountLabel}</span>
             </div>
+            <section
+              aria-label="Recall selection toolbar"
+              className="recall-selection-toolbar"
+            >
+              <form
+                className="notes-search"
+                onSubmit={(event) => event.preventDefault()}
+              >
+                <span className="notes-search__icon" aria-hidden="true">
+                  <SearchIcon />
+                </span>
+                <label className="sr-only" htmlFor="recall-selection-search">
+                  Search notes
+                </label>
+                <input
+                  id="recall-selection-search"
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search notes"
+                  type="search"
+                  value={searchQuery}
+                />
+              </form>
+              <RecallSelectionControls
+                hasSelectedNotes={selectedNoteIds.length > 0}
+                onCancel={() => void handleCancel()}
+                onStartRecall={() => void handleStartRecall()}
+                selectedCountLabel={selectedCountLabel}
+              />
+            </section>
           </div>
         </header>
 

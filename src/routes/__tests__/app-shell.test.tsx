@@ -3456,6 +3456,9 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { level: 3, name: "Select Notes" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall/select");
+    expect(
+      screen.queryByRole("combobox", { name: "Search recall sessions" }),
+    ).toBeNull();
     expect(screen.queryByRole("form", { name: "Note editor" })).toBeNull();
     let recallControls = within(
       screen.getByLabelText("Recall selection controls"),
@@ -3609,6 +3612,9 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", { name: "FlashCard session" }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Search recall sessions" }),
+    ).toBeNull();
 
     const breadcrumb = screen.getByRole("navigation", {
       name: "Workspace breadcrumb",
@@ -4613,6 +4619,99 @@ describe("authenticated app shell", () => {
     expect(restoredButtons[0]).toHaveAttribute("aria-pressed", "true");
     expect(
       within(getQuestionReview()).getByText("History result"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows recall search matches in the header and selects a session from them", async () => {
+    vi.useFakeTimers();
+
+    let sessionCounter = 0;
+    const { labelsContext, notesContext, recallContext } =
+      createLearningLoopTestContexts({
+        crypto: {
+          randomUUID: () =>
+            `session-search-ui-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+        },
+        shuffleNotes: (sessionNotes) => [...sessionNotes],
+      });
+    const userId = "user-placeholder";
+    const scienceNote = createRecallNote(notesContext, userId, {
+      body: "Science snapshot",
+      labelIds: [],
+      title: "Science result",
+    });
+    const historyNote = createRecallNote(notesContext, userId, {
+      body: "History snapshot",
+      labelIds: [],
+      title: "History result",
+    });
+
+    for (const [timestamp, noteId] of [
+      ["2026-04-01T09:00:00.000Z", scienceNote.id],
+      ["2026-04-02T09:00:00.000Z", historyNote.id],
+    ] as const) {
+      createCompletedRecallSession(recallContext, {
+        noteId,
+        rating: "partial",
+        timestamp,
+        userId,
+      });
+    }
+
+    vi.useRealTimers();
+
+    const { router } = renderRoute("/recall", {
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Results" }),
+    ).toBeInTheDocument();
+
+    const search = screen.getByRole("combobox", {
+      name: "Search recall sessions",
+    });
+    const resultsList = screen.getByRole("region", {
+      name: "Session results list",
+    });
+
+    fireEvent.change(search, {
+      target: { value: "Science" },
+    });
+
+    const searchResults = screen.getByRole("listbox", {
+      name: "Recall search results",
+    });
+
+    expect(
+      within(searchResults).getByText("Science result"),
+    ).toBeInTheDocument();
+    expect(within(searchResults).getByText("Title")).toBeInTheDocument();
+    expect(
+      within(resultsList).getAllByRole("button", { name: "Review session" }),
+    ).toHaveLength(1);
+
+    fireEvent.click(
+      within(searchResults).getByRole("option", { name: /Science result/i }),
+    );
+
+    expect(search).toHaveValue("");
+    expect(
+      screen.queryByRole("listbox", { name: "Recall search results" }),
+    ).toBeNull();
+    expect(router.state.location.pathname).toBe("/recall");
+    expect(
+      within(
+        within(
+          screen.getByRole("region", {
+            name: "Selected session result",
+          }),
+        ).getByRole("region", {
+          name: "Question review",
+        }),
+      ).getByText("Science snapshot"),
     ).toBeInTheDocument();
   });
 });
