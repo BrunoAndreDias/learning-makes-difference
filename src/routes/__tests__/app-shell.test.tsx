@@ -620,10 +620,10 @@ describe("authenticated app shell", () => {
     const focusLink = within(appSections).getByRole("link", { name: "Focus" });
 
     expect(within(appSections).getAllByRole("link")).toEqual([
-      focusLink,
       notesLink,
-      labelsLink,
       recallLink,
+      labelsLink,
+      focusLink,
     ]);
     expect(
       within(appSections).queryByRole("link", { name: "Recall history" }),
@@ -2562,10 +2562,7 @@ describe("authenticated app shell", () => {
       });
       fireEvent.submit(focusControls);
 
-      const activeStatus = screen.getByRole("status", {
-        name: "Focus session status",
-      });
-      expect(activeStatus).toHaveTextContent("Focus:");
+      expect(screen.getByText(/Focus:/)).toHaveClass("sr-only");
       expect(
         screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
       ).toHaveFocus();
@@ -2587,9 +2584,7 @@ describe("authenticated app shell", () => {
         name: /End focus · \d+ mins?/,
       });
       expect(endFocusButton).toHaveFocus();
-      expect(
-        screen.getByRole("status", { name: "Focus session status" }),
-      ).toHaveTextContent("Transition window:");
+      expect(screen.getByText(/Transition window:/)).toHaveClass("sr-only");
 
       transitionFocusContext.startNextFocusInterval({ userId });
       transitionRender.unmount();
@@ -2689,7 +2684,7 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("button", { name: /End focus · \d+ mins?/ }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Transition window:/)).toBeInTheDocument();
+    expect(screen.getByText(/Transition window:/)).toHaveClass("sr-only");
 
     transitionFocusContext.startNextFocusInterval({ userId });
 

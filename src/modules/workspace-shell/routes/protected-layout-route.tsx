@@ -286,7 +286,11 @@ function FocusSessionStartControl({
             {buttonLabel}
           </button>
         )}
-        <span aria-label="Focus session status" role="status">
+        <span
+          aria-label="Focus session status"
+          className="sr-only"
+          role="status"
+        >
           {getFocusStatusMessage(activeFocusSession)}
         </span>
       </fieldset>
@@ -388,12 +392,12 @@ function GlobalNavigation({
             }}
             className="app-sidebar__link"
             onClick={onNavigate}
-            to="/focus"
+            to="/notes"
           >
             <span aria-hidden="true" className="app-sidebar__icon">
-              <NavigationIcon name="focus" />
+              <NavigationIcon name="note" />
             </span>
-            <span className="app-sidebar__label">Focus</span>
+            <span className="app-sidebar__label">Notes</span>
           </Link>
         </li>
         <li>
@@ -403,12 +407,12 @@ function GlobalNavigation({
             }}
             className="app-sidebar__link"
             onClick={onNavigate}
-            to="/notes"
+            to="/recall"
           >
             <span aria-hidden="true" className="app-sidebar__icon">
-              <NavigationIcon name="note" />
+              <NavigationIcon name="recall" />
             </span>
-            <span className="app-sidebar__label">Notes</span>
+            <span className="app-sidebar__label">Recall</span>
           </Link>
         </li>
         <li>
@@ -433,12 +437,12 @@ function GlobalNavigation({
             }}
             className="app-sidebar__link"
             onClick={onNavigate}
-            to="/recall"
+            to="/focus"
           >
             <span aria-hidden="true" className="app-sidebar__icon">
-              <NavigationIcon name="recall" />
+              <NavigationIcon name="focus" />
             </span>
-            <span className="app-sidebar__label">Recall</span>
+            <span className="app-sidebar__label">Focus</span>
           </Link>
         </li>
       </ul>
