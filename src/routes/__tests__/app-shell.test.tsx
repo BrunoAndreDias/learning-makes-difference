@@ -2506,7 +2506,9 @@ describe("authenticated app shell", () => {
     vi.setSystemTime(new Date("2026-04-30T10:25:12.000Z"));
     fireEvent.click(screen.getByRole("button", { name: "End focus" }));
 
-    expect(screen.getByRole("button", { name: "Start Focus" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Start Focus" }),
+    ).toBeInTheDocument();
     expect(focusContext.getActiveSession({ userId })).toBeNull();
     expect(focusContext.getFocusRecords({ userId })).toHaveLength(1);
   });

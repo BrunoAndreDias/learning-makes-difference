@@ -351,6 +351,21 @@ function FocusSessionStartControl({
     }
   }
 
+  function updateFocusMinutes(value: string) {
+    setFocusMinutes(value);
+    setErrorMessage(null);
+  }
+
+  function updateBreakMinutes(value: string) {
+    setBreakMinutes(value);
+    setErrorMessage(null);
+  }
+
+  function updatePlannedFocusIntervals(value: string) {
+    setPlannedFocusIntervals(value);
+    setErrorMessage(null);
+  }
+
   if (!isOpen) {
     return (
       <button
@@ -374,10 +389,7 @@ function FocusSessionStartControl({
         <span className="sr-only">Focus minutes</span>
         <input
           inputMode="numeric"
-          onChange={(event) => {
-            setFocusMinutes(event.target.value);
-            setErrorMessage(null);
-          }}
+          onChange={(event) => updateFocusMinutes(event.target.value)}
           type="number"
           value={focusMinutes}
         />
@@ -386,10 +398,7 @@ function FocusSessionStartControl({
         <span className="sr-only">Break minutes</span>
         <input
           inputMode="numeric"
-          onChange={(event) => {
-            setBreakMinutes(event.target.value);
-            setErrorMessage(null);
-          }}
+          onChange={(event) => updateBreakMinutes(event.target.value)}
           type="number"
           value={breakMinutes}
         />
@@ -398,10 +407,7 @@ function FocusSessionStartControl({
         <span className="sr-only">Planned focus intervals</span>
         <input
           inputMode="numeric"
-          onChange={(event) => {
-            setPlannedFocusIntervals(event.target.value);
-            setErrorMessage(null);
-          }}
+          onChange={(event) => updatePlannedFocusIntervals(event.target.value)}
           placeholder="Optional rounds"
           type="number"
           value={plannedFocusIntervals}

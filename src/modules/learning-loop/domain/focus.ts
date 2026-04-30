@@ -302,7 +302,9 @@ function isStoredFocusRecord(entry: unknown): entry is StoredFocusRecord {
   );
 }
 
-function parseFocusRecordSnapshot(value: string | null): AppFocusRecordSnapshot {
+function parseFocusRecordSnapshot(
+  value: string | null,
+): AppFocusRecordSnapshot {
   if (value === null) {
     return [];
   }
@@ -438,29 +440,28 @@ function toPublicSession(
   now: Date = new Date(),
 ): FocusSession {
   const derivedSession = deriveStoredFocusSession(session, now);
-  const stateEndTimestamp = getStateEndTimestamp(derivedSession.session);
+  const storedSession = derivedSession.session;
+  const stateEndTimestamp = getStateEndTimestamp(storedSession);
 
   return {
-    breakIntervalMinutes: derivedSession.session.breakIntervalMinutes,
-    completedBreakIntervalCount:
-      derivedSession.session.completedBreakIntervalCount,
-    completedFocusIntervalCount:
-      derivedSession.session.completedFocusIntervalCount,
-    createdAt: derivedSession.session.createdAt,
-    currentInterval: derivedSession.session.currentInterval,
-    focusIntervalMinutes: derivedSession.session.focusIntervalMinutes,
-    id: derivedSession.session.id,
-    intervalState: derivedSession.session.intervalState,
+    breakIntervalMinutes: storedSession.breakIntervalMinutes,
+    completedBreakIntervalCount: storedSession.completedBreakIntervalCount,
+    completedFocusIntervalCount: storedSession.completedFocusIntervalCount,
+    createdAt: storedSession.createdAt,
+    currentInterval: storedSession.currentInterval,
+    focusIntervalMinutes: storedSession.focusIntervalMinutes,
+    id: storedSession.id,
+    intervalState: storedSession.intervalState,
     isStale: derivedSession.isStale,
-    method: derivedSession.session.method,
-    plannedFocusIntervalCount: derivedSession.session.plannedFocusIntervalCount,
+    method: storedSession.method,
+    plannedFocusIntervalCount: storedSession.plannedFocusIntervalCount,
     remainingSeconds:
       stateEndTimestamp === null
         ? null
         : Math.ceil((stateEndTimestamp - now.getTime()) / 1000),
     stateEndsAt:
       stateEndTimestamp === null ? null : toIsoString(stateEndTimestamp),
-    stateStartedAt: derivedSession.session.stateStartedAt,
+    stateStartedAt: storedSession.stateStartedAt,
   };
 }
 
@@ -490,29 +491,32 @@ function buildCompletedIntervals(
   session: StoredFocusSession,
 ): FocusRecordInterval[] {
   const intervals: FocusRecordInterval[] = [];
-  let cursor = session.createdAt;
+  let nextIntervalStartsAt = session.createdAt;
 
   for (let index = 0; index < session.completedFocusIntervalCount; index += 1) {
-    const focusEndAt = toIsoString(
-      Date.parse(cursor) + getDurationMs(session.focusIntervalMinutes),
+    const focusStartedAt = nextIntervalStartsAt;
+    const focusEndedAt = toIsoString(
+      Date.parse(focusStartedAt) + getDurationMs(session.focusIntervalMinutes),
     );
     intervals.push({
-      endedAt: focusEndAt,
+      endedAt: focusEndedAt,
       kind: "Focus",
-      startedAt: cursor,
+      startedAt: focusStartedAt,
     });
-    cursor = focusEndAt;
+    nextIntervalStartsAt = focusEndedAt;
 
     if (index < session.completedBreakIntervalCount) {
-      const breakEndAt = toIsoString(
-        Date.parse(cursor) + getDurationMs(session.breakIntervalMinutes),
+      const breakStartedAt = nextIntervalStartsAt;
+      const breakEndedAt = toIsoString(
+        Date.parse(breakStartedAt) +
+          getDurationMs(session.breakIntervalMinutes),
       );
       intervals.push({
-        endedAt: breakEndAt,
+        endedAt: breakEndedAt,
         kind: "Break",
-        startedAt: cursor,
+        startedAt: breakStartedAt,
       });
-      cursor = breakEndAt;
+      nextIntervalStartsAt = breakEndedAt;
     }
   }
 
@@ -612,18 +616,19 @@ export function createAppFocusContext(
     }
 
     const now = getCurrentDate();
+    const startedAt = now.toISOString();
     const nextSession: StoredFocusSession = {
       breakIntervalMinutes,
       completedBreakIntervalCount: 0,
       completedFocusIntervalCount: 0,
-      createdAt: now.toISOString(),
+      createdAt: startedAt,
       currentInterval: INITIAL_FOCUS_INTERVAL,
       focusIntervalMinutes,
       id: cryptoProvider.randomUUID(),
       intervalState: INITIAL_INTERVAL_STATE,
       method: SUPPORTED_FOCUS_METHOD,
       plannedFocusIntervalCount,
-      stateStartedAt: now.toISOString(),
+      stateStartedAt: startedAt,
       userId: input.userId,
     };
 
@@ -687,13 +692,9 @@ export function createAppFocusContext(
 
     writeSnapshot(nextActiveSessions);
 
-    if (derivedSession.completedFocusIntervalCount < 1) {
-      return null;
-    }
-
     const intervals = buildCompletedIntervals(derivedSession);
 
-    if (!intervals.some((interval) => interval.kind === "Focus")) {
+    if (intervals.length === 0) {
       return null;
     }
 

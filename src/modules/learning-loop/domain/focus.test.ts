@@ -503,13 +503,20 @@ describe("focus sessions", () => {
     const ownerRecord = focus.endFocusSession({ userId: "owner" });
     focus.endFocusSession({ userId: "other-user" });
 
+    expect(ownerRecord).not.toBeNull();
     expect(focus.getFocusRecords({ userId: "owner" })).toHaveLength(1);
     expect(focus.getFocusRecords({ userId: "other-user" })).toHaveLength(1);
-    expect(focus.getFocusRecords({ userId: "owner" })).toEqual([ownerRecord!]);
+    expect(focus.getFocusRecords({ userId: "owner" })).toEqual([ownerRecord]);
 
     if (ownerRecord !== null) {
       ownerRecord.completedFocusIntervalCount = 999;
-      ownerRecord.intervals[0]!.kind = "Break";
+      const [firstInterval] = ownerRecord.intervals;
+
+      expect(firstInterval).toBeDefined();
+
+      if (firstInterval !== undefined) {
+        firstInterval.kind = "Break";
+      }
     }
 
     const reloadedFocus = createAppFocusContext({
@@ -527,8 +534,8 @@ describe("focus sessions", () => {
         ],
       },
     ]);
-    expect(reloadedFocus.getFocusRecords({ userId: "other-user" })).toHaveLength(
-      1,
-    );
+    expect(
+      reloadedFocus.getFocusRecords({ userId: "other-user" }),
+    ).toHaveLength(1);
   });
 });
