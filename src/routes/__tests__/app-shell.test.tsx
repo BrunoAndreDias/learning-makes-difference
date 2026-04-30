@@ -88,17 +88,19 @@ function renderRoute(
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
     });
+  const focusContext =
+    options.focusContext ??
+    createAppFocusContext({
+      getLabelsForUser: (userId) => labelsContext.getLabelsForUser(userId),
+      keyPrefix: `test-focus-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
   const recallContext =
     options.recallContext ??
     createAppRecallContext({
       keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
       notes: notesContext,
-      storage: window.localStorage,
-    });
-  const focusContext =
-    options.focusContext ??
-    createAppFocusContext({
-      keyPrefix: `test-focus-${Math.random().toString(36).slice(2)}`,
+      onStudyActivity: focusContext.captureRecallSessionStudyActivity,
       storage: window.localStorage,
     });
   const router = createRouter({
@@ -141,15 +143,17 @@ function createLearningLoopTestContexts(
     keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
     storage: window.localStorage,
   });
+  const focusContext = createAppFocusContext({
+    getLabelsForUser: (userId) => labelsContext.getLabelsForUser(userId),
+    keyPrefix: `test-focus-${Math.random().toString(36).slice(2)}`,
+    storage: window.localStorage,
+  });
   const recallContext = createAppRecallContext({
     keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
     notes: notesContext,
+    onStudyActivity: focusContext.captureRecallSessionStudyActivity,
     storage: window.localStorage,
     ...recallOptions,
-  });
-  const focusContext = createAppFocusContext({
-    keyPrefix: `test-focus-${Math.random().toString(36).slice(2)}`,
-    storage: window.localStorage,
   });
 
   return {

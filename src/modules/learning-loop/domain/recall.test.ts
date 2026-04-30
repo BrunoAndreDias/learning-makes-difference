@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createAppLabelsContext } from "../../labels/domain/labels";
+import { createAppFocusContext } from "./focus";
 import { createAppNotesContext } from "./notes";
 import { createAppRecallContext, summarizeAttempts } from "./recall";
 
@@ -357,6 +358,159 @@ describe("recall attempts by note", () => {
         totalAttempts: 2,
       },
     ]);
+  });
+});
+
+describe("recall focus target capture", () => {
+  it("captures RecallSession study activity as a single FocusTarget snapshot", () => {
+    vi.useFakeTimers();
+
+    try {
+      vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+      const storage = createMemoryStorage();
+      const labels = createAppLabelsContext({
+        keyPrefix: "recall-focus-target-labels",
+        storage,
+      });
+      const notes = createAppNotesContext({
+        getOwnedLabelIdsForUser: (userId) =>
+          labels.getLabelsForUser(userId).map((label) => label.id),
+        keyPrefix: "recall-focus-target-notes",
+        storage,
+      });
+      const focus = createAppFocusContext({
+        getLabelsForUser: (ownerId) => labels.getLabelsForUser(ownerId),
+        keyPrefix: "recall-focus-target-focus",
+        storage,
+      });
+      const recall = createAppRecallContext({
+        keyPrefix: "recall-focus-target-recall",
+        notes,
+        onStudyActivity: focus.captureRecallSessionStudyActivity,
+        shuffleNotes: (sessionNotes) => [...sessionNotes],
+        storage,
+      });
+      const userId = "owner";
+      const biology = labels.createLabel({ name: "Biology", userId });
+      const note = notes.createNote(userId, {
+        acronyms: [],
+        body: "Mitochondria generate ATP.",
+        labelIds: [biology.id],
+        metaphors: [],
+        title: "Cell respiration",
+      });
+
+      focus.startFocusSession({
+        focusIntervalMinutes: 25,
+        userId,
+      });
+
+      const session = recall.startRecallSession({
+        noteIds: [note.id],
+        userId,
+      });
+
+      recall.revealAnswer({ sessionId: session.id, userId });
+      recall.answerQuestion({
+        rating: "nailed",
+        sessionId: session.id,
+        userId,
+      });
+
+      vi.setSystemTime(new Date("2026-04-30T10:25:12.000Z"));
+
+      const record = focus.endFocusSession({ userId });
+
+      expect(record).toMatchObject({
+        completedFocusIntervalCount: 1,
+        focusTargets: [
+          {
+            kind: "RecallSession",
+            recallSession: {
+              id: session.id,
+              mode: "FlashCard",
+            },
+            labels: [{ id: biology.id, name: "Biology" }],
+            notes: [{ id: note.id, title: "Cell respiration" }],
+          },
+        ],
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ignores RecallSession study activity during a BreakInterval", () => {
+    vi.useFakeTimers();
+
+    try {
+      vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+      const storage = createMemoryStorage();
+      const labels = createAppLabelsContext({
+        keyPrefix: "recall-break-exclusion-labels",
+        storage,
+      });
+      const notes = createAppNotesContext({
+        getOwnedLabelIdsForUser: (userId) =>
+          labels.getLabelsForUser(userId).map((label) => label.id),
+        keyPrefix: "recall-break-exclusion-notes",
+        storage,
+      });
+      const focus = createAppFocusContext({
+        getLabelsForUser: (ownerId) => labels.getLabelsForUser(ownerId),
+        keyPrefix: "recall-break-exclusion-focus",
+        storage,
+      });
+      const recall = createAppRecallContext({
+        keyPrefix: "recall-break-exclusion-recall",
+        notes,
+        onStudyActivity: focus.captureRecallSessionStudyActivity,
+        shuffleNotes: (sessionNotes) => [...sessionNotes],
+        storage,
+      });
+      const userId = "owner";
+      const note = notes.createNote(userId, {
+        acronyms: [],
+        body: "Break work should not count.",
+        labelIds: [],
+        metaphors: [],
+        title: "Break exclusion",
+      });
+
+      focus.startFocusSession({
+        breakIntervalMinutes: 5,
+        focusIntervalMinutes: 25,
+        userId,
+      });
+
+      vi.setSystemTime(new Date("2026-04-30T10:25:31.000Z"));
+
+      const session = recall.startRecallSession({
+        noteIds: [note.id],
+        userId,
+      });
+
+      recall.revealAnswer({ sessionId: session.id, userId });
+      recall.answerQuestion({
+        rating: "partial",
+        sessionId: session.id,
+        userId,
+      });
+
+      vi.setSystemTime(new Date("2026-04-30T10:30:31.000Z"));
+
+      const record = focus.endFocusSession({ userId });
+
+      expect(record).toMatchObject({
+        completedBreakIntervalCount: 1,
+        completedFocusIntervalCount: 1,
+        focusTargets: [],
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

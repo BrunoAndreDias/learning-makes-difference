@@ -5,6 +5,7 @@ import { useNotesWorkspace } from "../domain/notes-workspace";
 import {
   type FlashCardRecallNote,
   type FlashCardSessionResult,
+  type RecallQuestion,
   summarizeAttempts,
 } from "../domain/recall";
 
@@ -192,7 +193,7 @@ function SelectedSessionResult({
 
   const summary = summarizeAttempts(sessionResult.attempts);
   const attemptedCount = sessionResult.attempts.length;
-  const questionCount = sessionResult.notes.length;
+  const questionCount = sessionResult.questions.length;
   const completionRate =
     questionCount === 0 ? 0 : attemptedCount / questionCount;
 
@@ -391,42 +392,39 @@ function ResultsSessionReview({
 }: {
   sessionResult: FlashCardSessionResult;
 }) {
-  const attemptsByNoteId = new Map(
-    sessionResult.attempts.map((attempt) => [attempt.noteId, attempt]),
-  );
-
   return (
     <div className="recall-question-review-list">
-      {sessionResult.notes.map((note, index) => {
-        const attempt = attemptsByNoteId.get(note.id);
-        const ratingTone = getRatingTone(attempt?.rating ?? null);
+      {sessionResult.questions.map((question, index) => {
+        const ratingTone = getRatingTone(question.selfRating);
 
         return (
           <article
             className="recall-session-card recall-question-card"
             data-tone={ratingTone}
-            key={note.id}
+            key={question.noteId}
           >
             <div className="recall-question-card__header">
               <p className="section-label">{`Question ${index + 1}`}</p>
               <span className="recall-rating-pill" data-tone={ratingTone}>
-                {attempt === undefined
-                  ? "Not attempted"
-                  : formatRatingLabel(attempt.rating)}
+                {formatQuestionRating(question)}
               </span>
             </div>
-            <h5>{note.title}</h5>
-            <p>{note.body}</p>
+            <h5>{question.noteSnapshot.title}</h5>
+            <p>{question.noteSnapshot.body}</p>
             <p className="recall-question-card__rating">
-              {attempt === undefined
-                ? "Rating: Not attempted"
-                : `Rating: ${formatRatingLabel(attempt.rating)}`}
+              Rating: {formatQuestionRating(question)}
             </p>
           </article>
         );
       })}
     </div>
   );
+}
+
+function formatQuestionRating(question: RecallQuestion) {
+  return question.selfRating === null
+    ? "Not attempted"
+    : formatRatingLabel(question.selfRating);
 }
 
 function StoredNoteSnapshotSummary({

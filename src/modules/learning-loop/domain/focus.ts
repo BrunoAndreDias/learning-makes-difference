@@ -17,13 +17,33 @@ export type FocusRecordInterval = {
   startedAt: string;
 };
 
+export type RecallStudyActivityMode = "AiAssisted" | "AiGraded" | "FlashCard";
+
+export type RecallStudyActivitySession = {
+  createdAt: string;
+  id: string;
+  mode: RecallStudyActivityMode;
+  notes: readonly AppNote[];
+};
+
 export type NoteFocusTarget = {
   kind: "Note";
   labels: readonly AppLabel[];
   note: AppNote;
 };
 
-export type FocusTarget = NoteFocusTarget;
+export type RecallSessionFocusTarget = {
+  kind: "RecallSession";
+  labels: readonly AppLabel[];
+  notes: readonly AppNote[];
+  recallSession: {
+    createdAt: string;
+    id: string;
+    mode: RecallStudyActivityMode;
+  };
+};
+
+export type FocusTarget = NoteFocusTarget | RecallSessionFocusTarget;
 
 export type FocusRecord = {
   breakIntervalMinutes: number;
@@ -32,6 +52,7 @@ export type FocusRecord = {
   createdAt: string;
   endedAt: string;
   focusIntervalMinutes: number;
+  focusTargets: readonly FocusTarget[];
   id: string;
   intervals: readonly FocusRecordInterval[];
   method: FocusMethod;
@@ -47,6 +68,7 @@ export type FocusSession = {
   createdAt: string;
   currentInterval: FocusSessionInterval;
   focusIntervalMinutes: number;
+  focusTargets: readonly FocusTarget[];
   id: string;
   intervalState: FocusSessionState;
   isStale: boolean;
@@ -55,17 +77,20 @@ export type FocusSession = {
   remainingSeconds: number | null;
   stateEndsAt: string | null;
   stateStartedAt: string;
+  targets: readonly FocusTarget[];
 };
 
 type StoredFocusSession = Omit<
   FocusSession,
   "isStale" | "remainingSeconds" | "stateEndsAt"
 > & {
+  focusTargets: FocusTarget[];
   targets: FocusTarget[];
   userId: string;
 };
 
 type StoredFocusRecord = FocusRecord & {
+  focusTargets: FocusTarget[];
   intervals: FocusRecordInterval[];
   targets: FocusTarget[];
   userId: string;
@@ -76,6 +101,7 @@ type LegacyStoredFocusSession = {
   createdAt: string;
   currentInterval: FocusSessionInterval;
   focusIntervalMinutes: number;
+  focusTargets?: FocusTarget[];
   id: string;
   method: FocusMethod;
   plannedFocusIntervalCount: number | null;
@@ -123,6 +149,7 @@ type GetFocusRecordsInput = {
 
 type CreateAppFocusContextOptions = {
   crypto?: FocusCrypto;
+  getLabelsForUser?: (userId: string) => readonly AppLabel[];
   keyPrefix?: string;
   storage?: FocusStorageAdapter;
 };
@@ -143,11 +170,15 @@ export class AppFocusError extends Error {
 
 export type AppFocusContext = {
   captureNoteStudyActivity: (input: CaptureNoteStudyActivityInput) => void;
+  captureRecallSessionStudyActivity: (input: {
+    recallSession: RecallStudyActivitySession;
+    userId: string;
+  }) => void;
+  endFocusSession: (input: EndFocusSessionInput) => FocusRecord | null;
   getActiveSession: (input: GetActiveFocusSessionInput) => FocusSession | null;
   getFocusRecords: (input: GetFocusRecordsInput) => readonly FocusRecord[];
-  getSnapshot: () => AppFocusSnapshot;
   getRecordSnapshot: () => AppFocusRecordSnapshot;
-  endFocusSession: (input: EndFocusSessionInput) => FocusRecord | null;
+  getSnapshot: () => AppFocusSnapshot;
   startFocusSession: (input: StartFocusSessionInput) => FocusSession;
   startNextFocusInterval: (input: StartNextFocusIntervalInput) => FocusSession;
   subscribe: (listener: FocusListener) => () => void;
@@ -173,6 +204,14 @@ function isFocusSessionState(value: unknown): value is FocusSessionState {
     value === "Break" ||
     value === "Focus" ||
     value === "Transition"
+  );
+}
+
+function isRecallStudyActivityMode(
+  value: unknown,
+): value is RecallStudyActivityMode {
+  return (
+    value === "AiAssisted" || value === "AiGraded" || value === "FlashCard"
   );
 }
 
@@ -205,6 +244,7 @@ function cloneStoredFocusSession(
 ): StoredFocusSession {
   return {
     ...session,
+    focusTargets: session.focusTargets.map(cloneFocusTarget),
     targets: session.targets.map(cloneFocusTarget),
   };
 }
@@ -220,6 +260,7 @@ function cloneFocusRecordInterval(
 function cloneStoredFocusRecord(record: StoredFocusRecord): StoredFocusRecord {
   return {
     ...record,
+    focusTargets: record.focusTargets.map(cloneFocusTarget),
     intervals: record.intervals.map(cloneFocusRecordInterval),
     targets: record.targets.map(cloneFocusTarget),
   };
@@ -242,6 +283,17 @@ function cloneNote(note: AppNote): AppNote {
 }
 
 function cloneFocusTarget(target: FocusTarget): FocusTarget {
+  if (target.kind === "RecallSession") {
+    return {
+      kind: "RecallSession",
+      labels: target.labels.map(cloneLabel),
+      notes: target.notes.map(cloneNote),
+      recallSession: {
+        ...target.recallSession,
+      },
+    };
+  }
+
   return {
     kind: "Note",
     labels: target.labels.map(cloneLabel),
@@ -283,6 +335,8 @@ function isStoredFocusSession(entry: unknown): entry is StoredFocusSession {
     typeof candidate.stateStartedAt === "string" &&
     typeof candidate.completedFocusIntervalCount === "number" &&
     typeof candidate.completedBreakIntervalCount === "number" &&
+    Array.isArray(candidate.focusTargets) &&
+    candidate.focusTargets.every(isFocusTarget) &&
     Array.isArray(candidate.targets) &&
     candidate.targets.every(isFocusTarget)
   );
@@ -299,6 +353,9 @@ function upgradeStoredFocusSession(
     ...session,
     completedBreakIntervalCount: 0,
     completedFocusIntervalCount: 0,
+    focusTargets: Array.isArray(session.focusTargets)
+      ? session.focusTargets.map(cloneFocusTarget)
+      : [],
     intervalState:
       session.currentInterval === "Break" ? "Break" : INITIAL_INTERVAL_STATE,
     stateStartedAt: session.createdAt,
@@ -412,6 +469,20 @@ function isFocusTarget(entry: unknown): entry is FocusTarget {
 
   const candidate = entry as Partial<FocusTarget>;
 
+  if (candidate.kind === "RecallSession") {
+    return (
+      Array.isArray(candidate.labels) &&
+      candidate.labels.every(isAppLabel) &&
+      Array.isArray(candidate.notes) &&
+      candidate.notes.every(isAppNote) &&
+      typeof candidate.recallSession === "object" &&
+      candidate.recallSession !== null &&
+      typeof candidate.recallSession.id === "string" &&
+      typeof candidate.recallSession.createdAt === "string" &&
+      isRecallStudyActivityMode(candidate.recallSession.mode)
+    );
+  }
+
   return (
     candidate.kind === "Note" &&
     Array.isArray(candidate.labels) &&
@@ -439,6 +510,9 @@ function isStoredFocusRecord(entry: unknown): entry is StoredFocusRecord {
     typeof candidate.completedBreakIntervalCount === "number" &&
     candidate.method === SUPPORTED_FOCUS_METHOD &&
     isPlannedFocusIntervalCount(candidate.plannedFocusIntervalCount) &&
+    (candidate.focusTargets === undefined ||
+      (Array.isArray(candidate.focusTargets) &&
+        candidate.focusTargets.every(isFocusTarget))) &&
     (candidate.targets === undefined ||
       (Array.isArray(candidate.targets) &&
         candidate.targets.every(isFocusTarget))) &&
@@ -464,6 +538,9 @@ function parseFocusRecordSnapshot(
     return parsedValue.filter(isStoredFocusRecord).map((record) =>
       cloneStoredFocusRecord({
         ...record,
+        focusTargets: Array.isArray(record.focusTargets)
+          ? record.focusTargets
+          : [],
         targets: Array.isArray(record.targets) ? record.targets : [],
       }),
     );
@@ -600,6 +677,7 @@ function toPublicSession(
     createdAt: storedSession.createdAt,
     currentInterval: storedSession.currentInterval,
     focusIntervalMinutes: storedSession.focusIntervalMinutes,
+    focusTargets: storedSession.focusTargets.map(cloneFocusTarget),
     id: storedSession.id,
     intervalState: storedSession.intervalState,
     isStale: derivedSession.isStale,
@@ -612,6 +690,7 @@ function toPublicSession(
     stateEndsAt:
       stateEndTimestamp === null ? null : toIsoString(stateEndTimestamp),
     stateStartedAt: storedSession.stateStartedAt,
+    targets: storedSession.targets.map(cloneFocusTarget),
   };
 }
 
@@ -633,6 +712,7 @@ function getCurrentDate() {
 function toPublicFocusRecord(record: StoredFocusRecord): FocusRecord {
   return {
     ...record,
+    focusTargets: record.focusTargets.map(cloneFocusTarget),
     intervals: record.intervals.map(cloneFocusRecordInterval),
     targets: record.targets.map(cloneFocusTarget),
   };
@@ -681,7 +761,7 @@ function mergeNoteFocusTarget(
     return [...currentTargets.map(cloneFocusTarget), nextTarget];
   }
 
-  const existingTarget = currentTargets[existingTargetIndex];
+  const existingTarget = currentTargets[existingTargetIndex] as NoteFocusTarget;
   const labelsById = new Map(
     existingTarget.labels.map((label) => [label.id, cloneLabel(label)]),
   );
@@ -703,6 +783,40 @@ function mergeNoteFocusTarget(
 
     return cloneFocusTarget(target);
   });
+}
+
+function getRecallTargetLabelSnapshots(input: {
+  getLabelsForUser?: (userId: string) => readonly AppLabel[];
+  noteSnapshots: readonly AppNote[];
+  userId: string;
+}) {
+  const labelsById = new Map(
+    (input.getLabelsForUser?.(input.userId) ?? []).map((label) => [
+      label.id,
+      label,
+    ]),
+  );
+  const seenLabelIds = new Set<string>();
+  const labelSnapshots: AppLabel[] = [];
+
+  for (const note of input.noteSnapshots) {
+    for (const labelId of note.labelIds) {
+      if (seenLabelIds.has(labelId)) {
+        continue;
+      }
+
+      const label = labelsById.get(labelId);
+
+      if (label === undefined) {
+        continue;
+      }
+
+      seenLabelIds.add(labelId);
+      labelSnapshots.push(cloneLabel(label));
+    }
+  }
+
+  return labelSnapshots;
 }
 
 function appendCompletedInterval(
@@ -807,6 +921,15 @@ export function createAppFocusContext(
     return session === null ? null : toPublicSession(session, getCurrentDate());
   }
 
+  function replaceActiveSession(
+    userId: string,
+    nextSession: StoredFocusSession,
+  ) {
+    writeSnapshot(
+      replaceActiveStoredSession(activeSessions, userId, nextSession),
+    );
+  }
+
   function getFocusRecords({ userId }: GetFocusRecordsInput) {
     return focusRecords
       .filter((record) => record.userId === userId)
@@ -852,6 +975,7 @@ export function createAppFocusContext(
       createdAt: startedAt,
       currentInterval: INITIAL_FOCUS_INTERVAL,
       focusIntervalMinutes,
+      focusTargets: [],
       id: cryptoProvider.randomUUID(),
       intervalState: INITIAL_INTERVAL_STATE,
       method: SUPPORTED_FOCUS_METHOD,
@@ -893,9 +1017,7 @@ export function createAppFocusContext(
       stateStartedAt: now.toISOString(),
     };
 
-    writeSnapshot(
-      replaceActiveStoredSession(activeSessions, input.userId, nextSession),
-    );
+    replaceActiveSession(input.userId, nextSession);
 
     return toPublicSession(nextSession, now);
   }
@@ -932,6 +1054,7 @@ export function createAppFocusContext(
       createdAt: endedAt,
       endedAt,
       focusIntervalMinutes: derivedSession.focusIntervalMinutes,
+      focusTargets: derivedSession.focusTargets.map(cloneFocusTarget),
       id: cryptoProvider.randomUUID(),
       intervals,
       method: derivedSession.method,
@@ -944,6 +1067,64 @@ export function createAppFocusContext(
     writeRecordSnapshot([record, ...focusRecords]);
 
     return toPublicFocusRecord(record);
+  }
+
+  function syncInactiveDerivedSession(
+    userId: string,
+    session: StoredFocusSession,
+    derivedSession: StoredFocusSession,
+  ) {
+    if (!areStoredSessionsEqual(session, derivedSession)) {
+      replaceActiveSession(userId, derivedSession);
+    }
+  }
+
+  function captureRecallSessionStudyActivity(input: {
+    recallSession: RecallStudyActivitySession;
+    userId: string;
+  }) {
+    const session = getActiveStoredSession(activeSessions, input.userId);
+
+    if (session === null) {
+      return;
+    }
+
+    const now = getCurrentDate();
+    const derivedSession = deriveStoredFocusSession(session, now).session;
+
+    if (!isRunningFocusInterval(derivedSession)) {
+      syncInactiveDerivedSession(input.userId, session, derivedSession);
+      return;
+    }
+
+    const recallTarget: FocusTarget = {
+      kind: "RecallSession",
+      labels: getRecallTargetLabelSnapshots({
+        getLabelsForUser: options.getLabelsForUser,
+        noteSnapshots: input.recallSession.notes,
+        userId: input.userId,
+      }),
+      notes: input.recallSession.notes.map(cloneNote),
+      recallSession: {
+        createdAt: input.recallSession.createdAt,
+        id: input.recallSession.id,
+        mode: input.recallSession.mode,
+      },
+    };
+    const nextFocusTargets = [
+      ...derivedSession.focusTargets.filter(
+        (target) =>
+          target.kind !== "RecallSession" ||
+          target.recallSession.id !== input.recallSession.id,
+      ),
+      recallTarget,
+    ];
+    const nextSession: StoredFocusSession = {
+      ...derivedSession,
+      focusTargets: nextFocusTargets,
+    };
+
+    replaceActiveSession(input.userId, nextSession);
   }
 
   function subscribe(listener: FocusListener) {
@@ -965,16 +1146,7 @@ export function createAppFocusContext(
     const derivedSession = deriveStoredFocusSession(session, now).session;
 
     if (!isRunningFocusInterval(derivedSession)) {
-      if (!areStoredSessionsEqual(session, derivedSession)) {
-        writeSnapshot(
-          replaceActiveStoredSession(
-            activeSessions,
-            input.userId,
-            derivedSession,
-          ),
-        );
-      }
-
+      syncInactiveDerivedSession(input.userId, session, derivedSession);
       return;
     }
 
@@ -983,13 +1155,12 @@ export function createAppFocusContext(
       targets: mergeNoteFocusTarget(derivedSession.targets, input),
     };
 
-    writeSnapshot(
-      replaceActiveStoredSession(activeSessions, input.userId, nextSession),
-    );
+    replaceActiveSession(input.userId, nextSession);
   }
 
   return {
     captureNoteStudyActivity,
+    captureRecallSessionStudyActivity,
     endFocusSession,
     getActiveSession,
     getFocusRecords,
