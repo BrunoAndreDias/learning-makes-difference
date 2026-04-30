@@ -2617,12 +2617,14 @@ describe("authenticated app shell", () => {
       session,
     });
 
-    expect(
-      await screen.findByRole("button", { name: "Skip break" }),
-    ).toBeInTheDocument();
+    const breakOverlay = await screen.findByRole("region", {
+      name: "Break interval reminder",
+    });
     expect(screen.getByText(/Break:/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Skip break" }));
+    fireEvent.click(
+      within(breakOverlay).getByRole("button", { name: "Skip break" }),
+    );
 
     expect(breakFocusContext.getActiveSession({ userId })).toMatchObject({
       completedBreakIntervalCount: 0,
@@ -2630,6 +2632,95 @@ describe("authenticated app shell", () => {
       currentInterval: "Focus",
       intervalState: "Focus",
     });
+  });
+
+  it("blocks note editing during a BreakInterval until the user skips the break", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    const keyPrefix = `test-focus-break-notes-${Math.random().toString(36).slice(2)}`;
+    const userId = "user-focus-break-notes";
+    const focusContext = createAppFocusContext({
+      keyPrefix,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-break-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const note = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Original body",
+      labelIds: [],
+      metaphors: [],
+      title: "Break editing note",
+    });
+
+    focusContext.startFocusSession({
+      breakIntervalMinutes: 5,
+      focusIntervalMinutes: 25,
+      userId,
+    });
+
+    vi.setSystemTime(new Date("2026-04-30T10:25:31.000Z"));
+
+    renderRoute("/notes", {
+      focusContext,
+      notesContext,
+      session: {
+        user: {
+          displayName: "Casey Break",
+          email: "casey.break@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const overlay = screen.getByRole("region", {
+      name: "Break interval reminder",
+    });
+    const bodyField = screen.getByLabelText("Body");
+    const addMetaphorButton = screen.getByRole("button", {
+      name: "Add metaphor",
+    });
+
+    expect(bodyField).toBeDisabled();
+    expect(addMetaphorButton).toBeDisabled();
+    expect(within(overlay).getByText("Break in progress")).toBeInTheDocument();
+
+    fireEvent.click(
+      within(overlay).getByRole("button", { name: "Skip break" }),
+    );
+
+    expect(focusContext.getActiveSession({ userId })).toMatchObject({
+      completedBreakIntervalCount: 0,
+      completedFocusIntervalCount: 1,
+      currentInterval: "Focus",
+      intervalState: "Focus",
+    });
+    expect(
+      screen.queryByRole("region", { name: "Break interval reminder" }),
+    ).toBeNull();
+    expect(bodyField).not.toBeDisabled();
+    expect(addMetaphorButton).not.toBeDisabled();
+
+    fireEvent.change(bodyField, {
+      target: { value: "Updated after break" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(listNotesForUser(notesContext.getSnapshot(), userId)).toMatchObject([
+      {
+        body: "Updated after break",
+        id: note.id,
+      },
+    ]);
   });
 
   it("shows completed-break waiting state and stale-session prompt without ending the session", async () => {
@@ -3446,6 +3537,95 @@ describe("authenticated app shell", () => {
     expect(
       screen.queryByRole("heading", { name: "FlashCard session" }),
     ).toBeNull();
+  });
+
+  it("blocks recall answers during a BreakInterval until the user skips the break", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    const keyPrefix = `test-focus-break-recall-${Math.random().toString(36).slice(2)}`;
+    const userId = "user-focus-break-recall";
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-break-recall-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const focusContext = createAppFocusContext({
+      keyPrefix,
+      storage: window.localStorage,
+    });
+    const recallContext = createAppRecallContext({
+      keyPrefix: `test-recall-break-${Math.random().toString(36).slice(2)}`,
+      notes: notesContext,
+      onStudyActivity: focusContext.captureRecallSessionStudyActivity,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+    const note = createRecallNote(notesContext, userId, {
+      body: "Break recall body",
+      title: "Break recall note",
+    });
+
+    recallContext.startFlashCardSession({
+      noteIds: [note.id],
+      userId,
+    });
+    focusContext.startFocusSession({
+      breakIntervalMinutes: 5,
+      focusIntervalMinutes: 25,
+      userId,
+    });
+
+    vi.setSystemTime(new Date("2026-04-30T10:25:31.000Z"));
+
+    const { router } = renderRoute("/recall/session", {
+      focusContext,
+      notesContext,
+      recallContext,
+      session: {
+        user: {
+          displayName: "Casey Recall Break",
+          email: "casey.recall.break@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "FlashCard session" }),
+    ).toBeInTheDocument();
+
+    const overlay = screen.getByRole("region", {
+      name: "Break interval reminder",
+    });
+    const revealButton = screen.getByRole("button", { name: "Reveal answer" });
+
+    expect(revealButton).toBeDisabled();
+    fireEvent.click(
+      within(overlay).getByRole("button", { name: "Skip break" }),
+    );
+
+    expect(focusContext.getActiveSession({ userId })).toMatchObject({
+      completedBreakIntervalCount: 0,
+      completedFocusIntervalCount: 1,
+      currentInterval: "Focus",
+      intervalState: "Focus",
+    });
+    expect(revealButton).not.toBeDisabled();
+
+    fireEvent.click(revealButton);
+    fireEvent.click(screen.getByRole("button", { name: "Nailed it" }));
+
+    expect(router.state.location.pathname).toBe("/recall");
+    expect(
+      focusContext.getActiveSession({ userId })?.focusTargets,
+    ).toMatchObject([
+      {
+        kind: "RecallSession",
+        notes: [{ id: note.id, title: "Break recall note" }],
+      },
+    ]);
   });
 
   it("returns completed recall sessions to /recall and opens the new result", async () => {

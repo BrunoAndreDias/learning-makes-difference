@@ -80,6 +80,14 @@ export type FocusSession = {
   targets: readonly FocusTarget[];
 };
 
+export function isBreakIntervalActive(session: FocusSession | null) {
+  return (
+    session !== null &&
+    session.currentInterval === "Break" &&
+    session.intervalState === "Break"
+  );
+}
+
 type StoredFocusSession = Omit<
   FocusSession,
   "isStale" | "remainingSeconds" | "stateEndsAt"

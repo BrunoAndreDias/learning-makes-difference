@@ -839,6 +839,7 @@
 }
 
 .recall-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -1618,9 +1619,51 @@
 }
 
 .notes-editor {
+  position: relative;
   min-width: 0;
   padding: 2.5rem clamp(1.5rem, 4vw, 3rem) 3rem;
   background: var(--color-shell-panel);
+}
+
+.notes-editor__study-surface,
+.recall-card__study-surface {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.focus-break-overlay {
+  position: absolute;
+  inset: 1.25rem;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(248, 250, 252, 0.92);
+  backdrop-filter: blur(4px);
+}
+
+.focus-break-overlay__panel {
+  display: grid;
+  gap: 0.75rem;
+  width: min(26rem, 100%);
+  padding: 1.25rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.9rem;
+  background: var(--color-shell-panel);
+  box-shadow: 0 1.5rem 3rem rgba(15, 23, 42, 0.12);
+}
+
+.focus-break-overlay__eyebrow,
+.focus-break-overlay__copy {
+  margin: 0;
+}
+
+.focus-break-overlay__eyebrow {
+  color: var(--color-content-strong);
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 600;
 }
 
 .notes-editor__header {
