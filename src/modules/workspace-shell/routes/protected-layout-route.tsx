@@ -87,13 +87,8 @@ export function AppLayout() {
   const router = useRouter();
   const navigationId = useId();
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [shouldRestoreMobileToggleFocus, setShouldRestoreMobileToggleFocus] =
-    useState(false);
   const [isLoggingOut, setLoggingOut] = useState(false);
-  const sidebarRef = useRef<HTMLElement | null>(null);
   const collapsedSidebarToggleRef = useRef<HTMLButtonElement | null>(null);
-  const mobileToggleRef = useRef<HTMLButtonElement | null>(null);
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
     session.subscribe,
     session.getSnapshot,
@@ -109,32 +104,12 @@ export function AppLayout() {
   const sidebarToggleLabel = isSidebarCollapsed
     ? "Expand sidebar"
     : "Collapse sidebar";
-  const mobileToggleLabel = isMobileSidebarOpen
-    ? "Close navigation menu"
-    : "Open navigation menu";
   const userId = sessionSnapshot.user?.id ?? null;
   const activeFocusSession =
     userId === null ? null : focus.getActiveSession({ userId });
 
-  function closeMobileSidebar(shouldRestoreFocus = false) {
-    setShouldRestoreMobileToggleFocus(shouldRestoreFocus);
-    setMobileSidebarOpen(false);
-  }
-
-  function toggleMobileSidebar() {
-    setShouldRestoreMobileToggleFocus(false);
-    setMobileSidebarOpen((value) => !value);
-  }
-
-  function handleMobileSidebarAction() {
-    if (isMobileSidebarOpen) {
-      closeMobileSidebar(true);
-      return;
-    }
-
-    setSidebarCollapsed(false);
-
-    toggleMobileSidebar();
+  function closeMobileSidebar() {
+    return;
   }
 
   async function handleLogout() {
@@ -157,18 +132,6 @@ export function AppLayout() {
     }
   }, [isSidebarCollapsed]);
 
-  useEffect(() => {
-    if (isMobileSidebarOpen) {
-      sidebarRef.current?.focus();
-      return;
-    }
-
-    if (shouldRestoreMobileToggleFocus) {
-      mobileToggleRef.current?.focus();
-      setShouldRestoreMobileToggleFocus(false);
-    }
-  }, [isMobileSidebarOpen, shouldRestoreMobileToggleFocus]);
-
   return (
     <LearningLoopWorkspaceProvider>
       <section
@@ -178,11 +141,10 @@ export function AppLayout() {
         <aside
           aria-label="Notes workspace"
           className="app-sidebar shell-panel"
-          data-mobile-open={isMobileSidebarOpen}
+          data-mobile-open="false"
           data-sidebar-state={sidebarState}
           hidden={isSidebarCollapsed}
           id={navigationId}
-          ref={sidebarRef}
           tabIndex={-1}
         >
           <div className="app-sidebar__header">
@@ -203,13 +165,13 @@ export function AppLayout() {
             </button>
           </div>
 
-          <GlobalNavigation onNavigate={() => closeMobileSidebar(true)} />
+          <GlobalNavigation onNavigate={closeMobileSidebar} />
 
           <div className="app-sidebar__body app-sidebar__body--notes">
             {isNotesWorkspaceRoute ? (
               <NotesWorkspaceSidebar
                 closeMobileSidebar={closeMobileSidebar}
-                isMobileSidebarOpen={isMobileSidebarOpen}
+                isMobileSidebarOpen={false}
                 isSidebarVisible={!isSidebarCollapsed}
               />
             ) : null}
@@ -245,17 +207,6 @@ export function AppLayout() {
                 focus={focus}
                 userId={userId}
               />
-              <button
-                aria-controls={navigationId}
-                aria-expanded={isMobileSidebarOpen}
-                aria-label={mobileToggleLabel}
-                className="sidebar-mobile-toggle"
-                onClick={handleMobileSidebarAction}
-                ref={mobileToggleRef}
-                type="button"
-              >
-                {isMobileSidebarOpen ? "Close menu" : "Open menu"}
-              </button>
             </div>
           </header>
 

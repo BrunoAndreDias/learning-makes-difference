@@ -592,23 +592,9 @@ describe("authenticated app shell", () => {
       within(sidebar).getByRole("button", { name: "Collapse sidebar" }),
     ).toBeInTheDocument();
 
-    const mobileToggle = screen.getByRole("button", {
-      name: "Open navigation menu",
-    });
-
-    expect(mobileToggle).toHaveAttribute("aria-expanded", "false");
-
-    fireEvent.click(mobileToggle);
-
-    expect(mobileToggle).toHaveAttribute("aria-expanded", "true");
-    expect(sidebar).toHaveAttribute("data-mobile-open", "true");
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Close navigation menu" }),
-    );
-
-    expect(mobileToggle).toHaveAttribute("aria-expanded", "false");
-    expect(sidebar).toHaveAttribute("data-mobile-open", "false");
+    expect(
+      screen.queryByRole("button", { name: "Open navigation menu" }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders global workspace navigation and updates the active link when navigating", async () => {
@@ -815,7 +801,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
   });
 
-  it("supports skip navigation and manages focus when the mobile menu opens and closes", async () => {
+  it("supports skip navigation without a header menu opener", async () => {
     renderRoute("/notes");
 
     expect(
@@ -828,29 +814,12 @@ describe("authenticated app shell", () => {
     expect(skipLink).toHaveAttribute("href", "#main-content");
     expect(main).toHaveAttribute("id", "main-content");
 
-    const mobileToggle = screen.getByRole("button", {
-      name: "Open navigation menu",
-    });
-
-    mobileToggle.focus();
-    expect(mobileToggle).toHaveFocus();
-
-    fireEvent.click(mobileToggle);
-
-    const sidebar = await screen.findByRole("complementary", {
-      name: "Notes workspace",
-    });
-
-    expect(sidebar).toHaveFocus();
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Close navigation menu" }),
-    );
-
-    expect(mobileToggle).toHaveFocus();
+    expect(
+      screen.queryByRole("button", { name: "Open navigation menu" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("uses the notes sidebar as a mobile drawer and returns focus to the editor after note selection", async () => {
+  it("uses the notes sidebar without a header menu opener", async () => {
     const notesContext = createAppNotesContext({
       getOwnedLabelIdsForUser: () => [],
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
@@ -889,20 +858,15 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "Notes workspace" }),
     ).toBeInTheDocument();
 
-    const mobileToggle = screen.getByRole("button", {
-      name: "Open navigation menu",
-    });
     const sidebar = screen.getByRole("complementary", {
       name: "Notes workspace",
     });
-
-    fireEvent.click(mobileToggle);
 
     const notesList = within(sidebar).getByRole("navigation", {
       name: "Notes list",
     });
 
-    expect(sidebar).toHaveAttribute("data-mobile-open", "true");
+    expect(sidebar).toHaveAttribute("data-mobile-open", "false");
     expect(
       within(sidebar).getByRole("button", { name: "New note" }),
     ).toBeInTheDocument();
@@ -926,7 +890,9 @@ describe("authenticated app shell", () => {
     expect(
       screen.getByDisplayValue("Retrieval cues make later recall easier."),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Title")).toHaveFocus();
+    expect(
+      screen.queryByRole("button", { name: "Open navigation menu" }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps the discard dialog focused when a mobile sidebar note change is guarded", async () => {
@@ -973,9 +939,6 @@ describe("authenticated app shell", () => {
       name: "Notes list",
     });
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Open navigation menu" }),
-    );
     fireEvent.change(bodyEditor, {
       target: {
         value: "Current note has work in progress and should stay guarded.",

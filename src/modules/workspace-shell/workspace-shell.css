@@ -216,10 +216,6 @@
   .app-sidebar[data-sidebar-state="collapsed"] {
     width: 5rem;
   }
-
-  .sidebar-mobile-toggle {
-    display: none;
-  }
 }
 
 @media (max-width: 720px) {
@@ -382,19 +378,6 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2;
-}
-
-.sidebar-mobile-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2.75rem;
-  padding-inline: 1rem;
-  border: 1px solid rgba(215, 222, 234, 0.9);
-  border-radius: var(--radius-md);
-  background: #fffdfa;
-  color: var(--color-content-strong);
-  cursor: pointer;
 }
 
 .app-sidebar__nav {
