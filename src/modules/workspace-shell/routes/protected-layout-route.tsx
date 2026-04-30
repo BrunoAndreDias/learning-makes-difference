@@ -230,8 +230,7 @@ function FocusSessionStartControl({
 }>) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const errorId = useId();
-  const endFocusButtonRef = useRef<HTMLButtonElement | null>(null);
-  const focusActionButtonRef = useRef<HTMLButtonElement | null>(null);
+  const focusSessionButtonRef = useRef<HTMLButtonElement | null>(null);
   const previousSessionStateRef = useRef<FocusSession["intervalState"] | null>(
     null,
   );
@@ -260,65 +259,36 @@ function FocusSessionStartControl({
       return;
     }
 
-    if (
-      activeFocusSession.intervalState === "Transition" ||
-      activeFocusSession.intervalState === "AwaitingNextFocus"
-    ) {
-      focusActionButtonRef.current?.focus();
-      return;
-    }
-
     if (activeFocusSession.intervalState === "Break") {
       return;
     }
 
-    endFocusButtonRef.current?.focus();
+    focusSessionButtonRef.current?.focus();
   }, [activeFocusSession]);
 
   if (activeFocusSession !== null) {
-    const actionLabel = getFocusActionLabel(activeFocusSession);
+    const buttonLabel = `End focus · ${getRemainingMinuteLabel(activeFocusSession)}`;
 
     return (
       <fieldset className="app-focus-session-status tag-row">
         <legend className="sr-only">Active focus session</legend>
-        <button
-          className="notes-action notes-action-primary"
-          disabled
-          type="button"
-        >
-          Focus active
-        </button>
-        <span aria-label="Focus session status" role="status">
-          {getFocusStatusMessage(activeFocusSession)}
-        </span>
         {userId === null ? null : (
           <button
-            className="notes-action"
+            className="notes-action notes-action-primary"
             onClick={() => {
               focus.endFocusSession({
                 userId,
               });
             }}
-            ref={endFocusButtonRef}
+            ref={focusSessionButtonRef}
             type="button"
           >
-            End focus
+            {buttonLabel}
           </button>
         )}
-        {actionLabel === null || userId === null ? null : (
-          <button
-            className="notes-action"
-            onClick={() => {
-              focus.startNextFocusInterval({
-                userId,
-              });
-            }}
-            ref={focusActionButtonRef}
-            type="button"
-          >
-            {actionLabel}
-          </button>
-        )}
+        <span aria-label="Focus session status" role="status">
+          {getFocusStatusMessage(activeFocusSession)}
+        </span>
       </fieldset>
     );
   }
@@ -370,30 +340,27 @@ function FocusSessionStartControl({
   );
 }
 
-function getFocusActionLabel(session: FocusSession) {
-  switch (session.intervalState) {
-    case "Transition":
-      return "Continue focus";
-    case "Break":
-      return "Skip break";
-    case "AwaitingNextFocus":
-      return "Start next focus";
-    case "Focus":
-      return null;
-  }
-}
-
 function getFocusStatusMessage(session: FocusSession) {
+  const remainingLabel = getRemainingMinuteLabel(session);
+
   switch (session.intervalState) {
     case "Transition":
-      return `Transition window: ${session.remainingSeconds ?? 0}s left`;
+      return `Transition window: ${remainingLabel} left`;
     case "Break":
-      return `Break: ${session.remainingSeconds ?? 0}s left`;
+      return `Break: ${remainingLabel} left`;
     case "AwaitingNextFocus":
       return session.isStale ? "Focus session stale" : "Ready for next focus";
     case "Focus":
-      return `Focus: ${session.remainingSeconds ?? 0}s left`;
+      return `Focus: ${remainingLabel} left`;
   }
+}
+
+function getRemainingMinuteLabel(session: FocusSession) {
+  const remainingSeconds = session.remainingSeconds ?? 0;
+  const remainingMinutes =
+    remainingSeconds <= 0 ? 0 : Math.ceil(remainingSeconds / 60);
+
+  return `${remainingMinutes} ${remainingMinutes === 1 ? "min" : "mins"}`;
 }
 
 function parseOptionalNumber(value: string) {

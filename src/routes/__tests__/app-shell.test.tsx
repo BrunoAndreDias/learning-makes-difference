@@ -2326,7 +2326,7 @@ describe("authenticated app shell", () => {
 
     expect(router.state.location.pathname).toBe("/focus");
     expect(
-      screen.getByRole("button", { name: "Focus active" }),
+      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
     ).toBeInTheDocument();
     expect(focusContext.getActiveSession({ userId })).toMatchObject({
       breakIntervalMinutes: 10,
@@ -2364,7 +2364,7 @@ describe("authenticated app shell", () => {
 
     expect(router.state.location.pathname).toBe("/settings");
     expect(
-      screen.getByRole("button", { name: "Focus active" }),
+      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
     ).toBeInTheDocument();
     expect(focusContext.getActiveSession({ userId })).toMatchObject({
       breakIntervalMinutes: 5,
@@ -2401,7 +2401,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
 
     expect(
-      screen.getByRole("button", { name: "Focus active" }),
+      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("link", { name: "Labels" }));
@@ -2410,7 +2410,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/labels");
     expect(
-      screen.getByRole("button", { name: "Focus active" }),
+      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("link", { name: "Notes" }));
@@ -2419,7 +2419,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/notes");
     expect(
-      screen.getByRole("button", { name: "Focus active" }),
+      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /account menu/i }));
@@ -2429,7 +2429,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/settings");
     expect(
-      screen.getByRole("button", { name: "Focus active" }),
+      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
     ).toBeInTheDocument();
   });
 
@@ -2477,7 +2477,7 @@ describe("authenticated app shell", () => {
     fireEvent.submit(focusControls);
 
     expect(
-      screen.getByRole("button", { name: "Focus active" }),
+      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
     ).toBeInTheDocument();
 
     firstRender.unmount();
@@ -2493,7 +2493,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("button", { name: "Focus active" }),
+      await screen.findByRole("button", { name: /End focus · \d+ mins?/ }),
     ).toBeInTheDocument();
     expect(reloadedFocusContext.getActiveSession({ userId })).toMatchObject({
       breakIntervalMinutes: 7,
@@ -2566,7 +2566,9 @@ describe("authenticated app shell", () => {
         name: "Focus session status",
       });
       expect(activeStatus).toHaveTextContent("Focus:");
-      expect(screen.getByRole("button", { name: "End focus" })).toHaveFocus();
+      expect(
+        screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
+      ).toHaveFocus();
 
       initialRender.unmount();
 
@@ -2581,15 +2583,15 @@ describe("authenticated app shell", () => {
         session,
       });
 
-      const continueFocusButton = await screen.findByRole("button", {
-        name: "Continue focus",
+      const endFocusButton = await screen.findByRole("button", {
+        name: /End focus · \d+ mins?/,
       });
-      expect(continueFocusButton).toHaveFocus();
+      expect(endFocusButton).toHaveFocus();
       expect(
         screen.getByRole("status", { name: "Focus session status" }),
       ).toHaveTextContent("Transition window:");
 
-      fireEvent.click(continueFocusButton);
+      transitionFocusContext.startNextFocusInterval({ userId });
       transitionRender.unmount();
 
       vi.setSystemTime(new Date("2026-04-30T10:50:50.000Z"));
@@ -2685,11 +2687,11 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("button", { name: "Continue focus" }),
+      await screen.findByRole("button", { name: /End focus · \d+ mins?/ }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Transition window:/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Continue focus" }));
+    transitionFocusContext.startNextFocusInterval({ userId });
 
     expect(transitionFocusContext.getActiveSession({ userId })).toMatchObject({
       completedBreakIntervalCount: 0,
@@ -2932,7 +2934,9 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
 
     vi.setSystemTime(new Date("2026-04-30T10:25:12.000Z"));
-    fireEvent.click(screen.getByRole("button", { name: "End focus" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
+    );
 
     expect(
       screen.getByRole("button", { name: "Start Focus" }),
@@ -2985,7 +2989,9 @@ describe("authenticated app shell", () => {
       vi.advanceTimersByTime(25 * 60 * 1000 + 12 * 1000);
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "End focus" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
+    );
 
     expect(focusContext.getFocusRecords({ userId })).toMatchObject([
       {
@@ -3056,7 +3062,9 @@ describe("authenticated app shell", () => {
       vi.advanceTimersByTime(24 * 60 * 1000 + 42 * 1000);
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "End focus" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
+    );
 
     expect(focusContext.getFocusRecords({ userId })).toMatchObject([
       {
