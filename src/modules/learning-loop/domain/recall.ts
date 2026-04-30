@@ -228,16 +228,28 @@ function isFlashCardRecallAttempt(
   );
 }
 
-function getRecallQuestionState(input: {
-  attempts: readonly RecallAttempt[];
-  currentIndex: number;
-  isAnswerRevealed: boolean;
-  note: RecallNoteSnapshot;
-  noteIndex: number;
-}): RecallQuestion {
-  const attempt = input.attempts.find(
-    (candidate) => candidate.noteId === input.note.id,
-  );
+function getFirstAttemptByNoteId(attempts: readonly RecallAttempt[]) {
+  const attemptsByNoteId = new Map<string, RecallAttempt>();
+
+  for (const attempt of attempts) {
+    if (!attemptsByNoteId.has(attempt.noteId)) {
+      attemptsByNoteId.set(attempt.noteId, attempt);
+    }
+  }
+
+  return attemptsByNoteId;
+}
+
+function getRecallQuestionState(
+  input: {
+    currentIndex: number;
+    isAnswerRevealed: boolean;
+    note: RecallNoteSnapshot;
+    noteIndex: number;
+  },
+  attemptsByNoteId: ReadonlyMap<string, RecallAttempt>,
+): RecallQuestion {
+  const attempt = attemptsByNoteId.get(input.note.id);
 
   return {
     isAnswerRevealed:
@@ -256,12 +268,18 @@ function createQuestionsFromSessionState(input: {
   isAnswerRevealed: boolean;
   notes: readonly RecallNoteSnapshot[];
 }): RecallQuestion[] {
+  const attemptsByNoteId = getFirstAttemptByNoteId(input.attempts);
+
   return input.notes.map((note, noteIndex) =>
-    getRecallQuestionState({
-      ...input,
-      note,
-      noteIndex,
-    }),
+    getRecallQuestionState(
+      {
+        currentIndex: input.currentIndex,
+        isAnswerRevealed: input.isAnswerRevealed,
+        note,
+        noteIndex,
+      },
+      attemptsByNoteId,
+    ),
   );
 }
 

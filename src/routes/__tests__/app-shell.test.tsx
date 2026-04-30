@@ -2340,9 +2340,7 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("button", { name: "Continue focus" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Transition window:/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Transition window:/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Continue focus" }));
 

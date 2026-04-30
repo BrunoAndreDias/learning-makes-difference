@@ -26,7 +26,6 @@ import {
 import {
   type AppFocusContext,
   AppFocusError,
-  type AppFocusSnapshot,
   type FocusSession,
 } from "../../learning-loop/domain/focus";
 
@@ -86,11 +85,7 @@ export function AppLayout() {
     session.getSnapshot,
     session.getSnapshot,
   );
-  const focusSnapshot = useSyncExternalStore<AppFocusSnapshot>(
-    focus.subscribe,
-    focus.getSnapshot,
-    focus.getSnapshot,
-  );
+  useSyncExternalStore(focus.subscribe, focus.getSnapshot, focus.getSnapshot);
   const workspaceTitle = getWorkspaceTitle(location.pathname);
   const isNotesWorkspaceRoute = isNotesWorkspacePath(location.pathname);
   const isRecallResultsWorkspaceRoute = isRecallResultsWorkspacePath(
@@ -290,7 +285,8 @@ function FocusSessionStartControl({
     const actionLabel = getFocusActionLabel(activeFocusSession);
 
     return (
-      <div aria-label="Active focus session" className="tag-row" role="group">
+      <fieldset className="app-focus-session-status tag-row">
+        <legend className="sr-only">Active focus session</legend>
         <button
           className="notes-action notes-action-primary"
           disabled
@@ -312,7 +308,7 @@ function FocusSessionStartControl({
             {actionLabel}
           </button>
         )}
-      </div>
+      </fieldset>
     );
   }
 
@@ -421,35 +417,29 @@ function FocusSessionStartControl({
 }
 
 function getFocusActionLabel(session: FocusSession) {
-  if (session.intervalState === "Transition") {
-    return "Continue focus";
+  switch (session.intervalState) {
+    case "Transition":
+      return "Continue focus";
+    case "Break":
+      return "Skip break";
+    case "AwaitingNextFocus":
+      return "Start next focus";
+    case "Focus":
+      return null;
   }
-
-  if (session.intervalState === "Break") {
-    return "Skip break";
-  }
-
-  if (session.intervalState === "AwaitingNextFocus") {
-    return "Start next focus";
-  }
-
-  return null;
 }
 
 function getFocusStatusMessage(session: FocusSession) {
-  if (session.intervalState === "Transition") {
-    return `Transition window: ${session.remainingSeconds ?? 0}s left`;
+  switch (session.intervalState) {
+    case "Transition":
+      return `Transition window: ${session.remainingSeconds ?? 0}s left`;
+    case "Break":
+      return `Break: ${session.remainingSeconds ?? 0}s left`;
+    case "AwaitingNextFocus":
+      return session.isStale ? "Focus session stale" : "Ready for next focus";
+    case "Focus":
+      return `Focus: ${session.remainingSeconds ?? 0}s left`;
   }
-
-  if (session.intervalState === "Break") {
-    return `Break: ${session.remainingSeconds ?? 0}s left`;
-  }
-
-  if (session.intervalState === "AwaitingNextFocus") {
-    return session.isStale ? "Focus session stale" : "Ready for next focus";
-  }
-
-  return `Focus: ${session.remainingSeconds ?? 0}s left`;
 }
 
 function parseOptionalNumber(value: string) {

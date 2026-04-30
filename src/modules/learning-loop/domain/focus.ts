@@ -90,9 +90,7 @@ export type AppFocusContext = {
   getActiveSession: (input: GetActiveFocusSessionInput) => FocusSession | null;
   getSnapshot: () => AppFocusSnapshot;
   startFocusSession: (input: StartFocusSessionInput) => FocusSession;
-  startNextFocusInterval: (
-    input: StartNextFocusIntervalInput,
-  ) => FocusSession;
+  startNextFocusInterval: (input: StartNextFocusIntervalInput) => FocusSession;
   subscribe: (listener: FocusListener) => () => void;
 };
 
@@ -267,58 +265,57 @@ function deriveStoredFocusSession(
       };
     }
 
-    if (derivedSession.intervalState === "Focus") {
-      derivedSession = {
-        ...derivedSession,
-        completedFocusIntervalCount:
-          derivedSession.completedFocusIntervalCount + 1,
-        currentInterval: "Focus",
-        intervalState: "Transition",
-        stateStartedAt: toIsoString(stateEndTimestamp),
-      };
-      continue;
-    }
+    const nextStateStartedAt = toIsoString(stateEndTimestamp);
 
-    if (derivedSession.intervalState === "Transition") {
-      if (hasReachedPlannedIntervalCount(derivedSession)) {
+    switch (derivedSession.intervalState) {
+      case "Focus":
+        derivedSession = {
+          ...derivedSession,
+          completedFocusIntervalCount:
+            derivedSession.completedFocusIntervalCount + 1,
+          currentInterval: "Focus",
+          intervalState: "Transition",
+          stateStartedAt: nextStateStartedAt,
+        };
+        continue;
+      case "Transition":
+        if (hasReachedPlannedIntervalCount(derivedSession)) {
+          return {
+            isStale: nowMs > stateEndTimestamp,
+            session: {
+              ...derivedSession,
+              currentInterval: "Focus",
+              intervalState: "AwaitingNextFocus",
+              stateStartedAt: nextStateStartedAt,
+            },
+          };
+        }
+
+        derivedSession = {
+          ...derivedSession,
+          currentInterval: "Break",
+          intervalState: "Break",
+          stateStartedAt: nextStateStartedAt,
+        };
+        continue;
+      case "Break":
         return {
           isStale: nowMs > stateEndTimestamp,
           session: {
             ...derivedSession,
-            currentInterval: "Focus",
+            completedBreakIntervalCount:
+              derivedSession.completedBreakIntervalCount + 1,
+            currentInterval: "Break",
             intervalState: "AwaitingNextFocus",
-            stateStartedAt: toIsoString(stateEndTimestamp),
+            stateStartedAt: nextStateStartedAt,
           },
         };
-      }
-
-      derivedSession = {
-        ...derivedSession,
-        currentInterval: "Break",
-        intervalState: "Break",
-        stateStartedAt: toIsoString(stateEndTimestamp),
-      };
-      continue;
+      case "AwaitingNextFocus":
+        return {
+          isStale: nowMs > Date.parse(derivedSession.stateStartedAt),
+          session: derivedSession,
+        };
     }
-
-    if (derivedSession.intervalState === "Break") {
-      return {
-        isStale: nowMs > stateEndTimestamp,
-        session: {
-          ...derivedSession,
-          completedBreakIntervalCount:
-            derivedSession.completedBreakIntervalCount + 1,
-          currentInterval: "Break",
-          intervalState: "AwaitingNextFocus",
-          stateStartedAt: toIsoString(stateEndTimestamp),
-        },
-      };
-    }
-
-    return {
-      isStale: nowMs > Date.parse(derivedSession.stateStartedAt),
-      session: derivedSession,
-    };
   }
 }
 
@@ -461,7 +458,10 @@ export function createAppFocusContext(
     const session = getActiveStoredSession(activeSessions, input.userId);
 
     if (session === null) {
-      throw new AppFocusError("invalid_input", "User has no active FocusSession.");
+      throw new AppFocusError(
+        "invalid_input",
+        "User has no active FocusSession.",
+      );
     }
 
     const now = getCurrentDate();
