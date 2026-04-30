@@ -157,6 +157,16 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
     }
   }
 
+  function skipBreakInterval() {
+    if (userId === null) {
+      return;
+    }
+
+    focusContext.startNextFocusInterval({
+      userId,
+    });
+  }
+
   if (activeSession === null || currentNote === null) {
     return null;
   }
@@ -256,36 +266,39 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
           className="recall-card"
           data-revealed={activeSession.isAnswerRevealed}
         >
-          <fieldset className="recall-card__study-surface" disabled={isBreakActive}>
+          <fieldset
+            className="recall-card__study-surface"
+            disabled={isBreakActive}
+          >
             <legend className="sr-only">Recall study surface</legend>
             <div className="recall-card__top">
-            <div className="recall-card__face recall-card__face--prompt">
-              <button
-                aria-label={`Show note snapshot for ${currentNote.title}`}
-                className="recall-card__question"
-                onClick={() => setSelectedSnapshotNoteId(currentNote.id)}
-                type="button"
-              >
-                {currentNote.title}
-              </button>
-              {!activeSession.isAnswerRevealed ? (
-                <p className="muted recall-card__hint">
-                  Recall the answer, then reveal it to compare.
-                </p>
-              ) : null}
-            </div>
-
-            {!activeSession.isAnswerRevealed ? (
-              <div className="recall-card__actions">
+              <div className="recall-card__face recall-card__face--prompt">
                 <button
-                  className="notes-action notes-action-primary recall-card__reveal"
-                  onClick={handleRevealAnswer}
+                  aria-label={`Show note snapshot for ${currentNote.title}`}
+                  className="recall-card__question"
+                  onClick={() => setSelectedSnapshotNoteId(currentNote.id)}
                   type="button"
                 >
-                  Reveal answer
+                  {currentNote.title}
                 </button>
+                {!activeSession.isAnswerRevealed ? (
+                  <p className="muted recall-card__hint">
+                    Recall the answer, then reveal it to compare.
+                  </p>
+                ) : null}
               </div>
-            ) : null}
+
+              {!activeSession.isAnswerRevealed ? (
+                <div className="recall-card__actions">
+                  <button
+                    className="notes-action notes-action-primary recall-card__reveal"
+                    onClick={handleRevealAnswer}
+                    type="button"
+                  >
+                    Reveal answer
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             {activeSession.isAnswerRevealed ? (
@@ -322,7 +335,7 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
             ) : null}
           </fieldset>
           {isBreakActive && userId !== null ? (
-            <BreakIntervalOverlay focus={focusContext} userId={userId} />
+            <BreakIntervalOverlay onSkipBreak={skipBreakInterval} />
           ) : null}
         </article>
 

@@ -1,17 +1,12 @@
-import type { AppFocusContext } from "../domain/focus";
-
 export function BreakIntervalOverlay({
-  focus,
-  userId,
+  onSkipBreak,
 }: Readonly<{
-  focus: AppFocusContext;
-  userId: string;
+  onSkipBreak: () => void;
 }>) {
   return (
     <section
       aria-label="Break interval reminder"
       className="focus-break-overlay"
-      role="region"
     >
       <div className="focus-break-overlay__panel">
         <p className="focus-break-overlay__eyebrow">Break in progress</p>
@@ -20,11 +15,7 @@ export function BreakIntervalOverlay({
         </p>
         <button
           className="notes-action notes-action-primary"
-          onClick={() => {
-            focus.startNextFocusInterval({
-              userId,
-            });
-          }}
+          onClick={onSkipBreak}
           type="button"
         >
           Skip break

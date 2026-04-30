@@ -2543,7 +2543,9 @@ describe("authenticated app shell", () => {
     expect(addMetaphorButton).toBeDisabled();
     expect(within(overlay).getByText("Break in progress")).toBeInTheDocument();
 
-    fireEvent.click(within(overlay).getByRole("button", { name: "Skip break" }));
+    fireEvent.click(
+      within(overlay).getByRole("button", { name: "Skip break" }),
+    );
 
     expect(focusContext.getActiveSession({ userId })).toMatchObject({
       completedBreakIntervalCount: 0,
@@ -2551,7 +2553,9 @@ describe("authenticated app shell", () => {
       currentInterval: "Focus",
       intervalState: "Focus",
     });
-    expect(screen.queryByRole("region", { name: "Break interval reminder" })).toBeNull();
+    expect(
+      screen.queryByRole("region", { name: "Break interval reminder" }),
+    ).toBeNull();
     expect(bodyField).not.toBeDisabled();
     expect(addMetaphorButton).not.toBeDisabled();
 
@@ -3447,7 +3451,9 @@ describe("authenticated app shell", () => {
     const revealButton = screen.getByRole("button", { name: "Reveal answer" });
 
     expect(revealButton).toBeDisabled();
-    fireEvent.click(within(overlay).getByRole("button", { name: "Skip break" }));
+    fireEvent.click(
+      within(overlay).getByRole("button", { name: "Skip break" }),
+    );
 
     expect(focusContext.getActiveSession({ userId })).toMatchObject({
       completedBreakIntervalCount: 0,
@@ -3461,7 +3467,9 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Nailed it" }));
 
     expect(router.state.location.pathname).toBe("/recall");
-    expect(focusContext.getActiveSession({ userId })?.focusTargets).toMatchObject([
+    expect(
+      focusContext.getActiveSession({ userId })?.focusTargets,
+    ).toMatchObject([
       {
         kind: "RecallSession",
         notes: [{ id: note.id, title: "Break recall note" }],

@@ -17,9 +17,9 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { BreakIntervalOverlay } from "../components/break-interval-overlay";
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import type { AppLabel } from "../../labels/domain/labels";
+import { BreakIntervalOverlay } from "../components/break-interval-overlay";
 import { isBreakIntervalActive } from "../domain/focus";
 import {
   getNoteEditorSaveInput,
@@ -188,6 +188,16 @@ export function NotesWorkspace() {
     },
     [focusContext, getAttachedLabels, userId],
   );
+
+  const skipBreakInterval = useCallback(() => {
+    if (userId === null) {
+      return;
+    }
+
+    focusContext.startNextFocusInterval({
+      userId,
+    });
+  }, [focusContext, userId]);
 
   useEffect(() => {
     function syncLabels() {
@@ -968,87 +978,91 @@ export function NotesWorkspace() {
 
       <div className="notes-layout">
         <article aria-label="Note editor surface" className="notes-editor">
-          <fieldset className="notes-editor__study-surface" disabled={isBreakActive}>
+          <fieldset
+            className="notes-editor__study-surface"
+            disabled={isBreakActive}
+          >
             <legend className="sr-only">Note study surface</legend>
             <header className="notes-editor__header">
-            <div className="notes-editor__title-stack">
-              <label className="notes-title-editor">
-                <span className="sr-only">Title</span>
-                <input
-                  form={noteEditorFormId}
-                  ref={titleInputRef}
-                  name="title"
-                  onChange={(event) =>
-                    handleEditorChange("title", event.target.value)
-                  }
-                  placeholder="Name this note"
-                  type="text"
-                  value={editorState.title}
-                />
-              </label>
-              <p className="muted notes-editor__meta">
-                {selectedNoteCreatedLabel} <span aria-hidden="true">-</span>{" "}
-                {selectedNoteUpdatedLabel}
-                {hasUnsavedChanges ? (
-                  <>
-                    {" "}
-                    <span aria-hidden="true">·</span>{" "}
+              <div className="notes-editor__title-stack">
+                <label className="notes-title-editor">
+                  <span className="sr-only">Title</span>
+                  <input
+                    form={noteEditorFormId}
+                    ref={titleInputRef}
+                    name="title"
+                    onChange={(event) =>
+                      handleEditorChange("title", event.target.value)
+                    }
+                    placeholder="Name this note"
+                    type="text"
+                    value={editorState.title}
+                  />
+                </label>
+                <p className="muted notes-editor__meta">
+                  {selectedNoteCreatedLabel} <span aria-hidden="true">-</span>{" "}
+                  {selectedNoteUpdatedLabel}
+                  {hasUnsavedChanges ? (
+                    <>
+                      {" "}
+                      <span aria-hidden="true">·</span>{" "}
+                      <button
+                        className="notes-editor__discard"
+                        onClick={() => discardEditorChanges(notes)}
+                        type="button"
+                      >
+                        Discard changes
+                      </button>
+                    </>
+                  ) : null}
+                </p>
+                <section
+                  aria-label="Current labels"
+                  className="notes-editor__labels"
+                >
+                  <div className="notes-editor__label-row">
+                    {selectedLabels.length === 0 ? (
+                      <p className="muted">No labels yet</p>
+                    ) : (
+                      <section aria-label="Assigned labels" className="tag-row">
+                        {selectedLabels.map((label) => (
+                          <span className="tag" key={label.id}>
+                            {label.name}
+                          </span>
+                        ))}
+                      </section>
+                    )}
                     <button
-                      className="notes-editor__discard"
-                      onClick={() => discardEditorChanges(notes)}
+                      aria-expanded={isLabelPickerOpen}
+                      aria-controls={labelPickerPanelId}
+                      aria-label="Add label"
+                      className="notes-inline-action"
+                      onClick={() =>
+                        setIsLabelPickerOpen(
+                          (currentIsLabelPickerOpen) =>
+                            !currentIsLabelPickerOpen,
+                        )
+                      }
                       type="button"
                     >
-                      Discard changes
+                      + Add
                     </button>
-                  </>
-                ) : null}
-              </p>
-              <section
-                aria-label="Current labels"
-                className="notes-editor__labels"
-              >
-                <div className="notes-editor__label-row">
-                  {selectedLabels.length === 0 ? (
-                    <p className="muted">No labels yet</p>
-                  ) : (
-                    <section aria-label="Assigned labels" className="tag-row">
-                      {selectedLabels.map((label) => (
-                        <span className="tag" key={label.id}>
-                          {label.name}
-                        </span>
-                      ))}
-                    </section>
-                  )}
-                  <button
-                    aria-expanded={isLabelPickerOpen}
-                    aria-controls={labelPickerPanelId}
-                    aria-label="Add label"
-                    className="notes-inline-action"
-                    onClick={() =>
-                      setIsLabelPickerOpen(
-                        (currentIsLabelPickerOpen) => !currentIsLabelPickerOpen,
-                      )
-                    }
-                    type="button"
-                  >
-                    + Add
-                  </button>
-                </div>
+                  </div>
 
-                {labelPickerContent === null ? null : (
-                  <div id={labelPickerPanelId}>{labelPickerContent}</div>
-                )}
-              </section>
-            </div>
-            {isCreating || hasUnsavedChanges ? (
-              <button
-                className="notes-action notes-action-primary"
-                form={noteEditorFormId}
-                type="submit"
-              >
-                {isCreating ? "Create note" : "Save changes"}
-              </button>
-            ) : null}
+                  {labelPickerContent === null ? null : (
+                    <div id={labelPickerPanelId}>{labelPickerContent}</div>
+                  )}
+                </section>
+              </div>
+              {isCreating || hasUnsavedChanges ? (
+                <button
+                  className="notes-action notes-action-primary"
+                  form={noteEditorFormId}
+                  type="submit"
+                >
+                  {isCreating ? "Create note" : "Save changes"}
+                </button>
+              ) : null}
             </header>
 
             <form
@@ -1060,219 +1074,219 @@ export function NotesWorkspace() {
               ref={noteFormRef}
               style={{ "--notes-body-fraction": bodyFraction } as CSSProperties}
             >
-            <div className="notes-form__primary">
-              <label className="notes-form__field notes-form__body-field">
-                <span className="sr-only">Body</span>
-                <textarea
-                  ref={bodyTextareaRef}
-                  name="body"
-                  onChange={(event) =>
-                    handleEditorChange("body", event.target.value)
-                  }
-                  onPointerDown={handleBodyTextareaPointerDown}
-                  placeholder="Explain the concept in your own words"
-                  rows={10}
-                  value={editorState.body}
-                />
-              </label>
+              <div className="notes-form__primary">
+                <label className="notes-form__field notes-form__body-field">
+                  <span className="sr-only">Body</span>
+                  <textarea
+                    ref={bodyTextareaRef}
+                    name="body"
+                    onChange={(event) =>
+                      handleEditorChange("body", event.target.value)
+                    }
+                    onPointerDown={handleBodyTextareaPointerDown}
+                    placeholder="Explain the concept in your own words"
+                    rows={10}
+                    value={editorState.body}
+                  />
+                </label>
 
-              {errorMessage === null ? null : (
-                <p className="auth-form__error" role="alert">
-                  {errorMessage}
-                </p>
-              )}
-            </div>
+                {errorMessage === null ? null : (
+                  <p className="auth-form__error" role="alert">
+                    {errorMessage}
+                  </p>
+                )}
+              </div>
 
-            <hr
-              aria-label="Resize note body"
-              aria-orientation="vertical"
-              aria-valuetext={`${Math.round(bodyFraction * 100)}% note body width`}
-              aria-valuemax={95}
-              aria-valuemin={35}
-              aria-valuenow={Math.round(bodyFraction * 100)}
-              className="notes-form__splitter"
-              data-resizing={isBodyResizing ? "true" : undefined}
-              onKeyDown={handleBodyResizeKeyDown}
-              onPointerDown={handleBodyResizePointerDown}
-              tabIndex={0}
-            />
+              <hr
+                aria-label="Resize note body"
+                aria-orientation="vertical"
+                aria-valuetext={`${Math.round(bodyFraction * 100)}% note body width`}
+                aria-valuemax={95}
+                aria-valuemin={35}
+                aria-valuenow={Math.round(bodyFraction * 100)}
+                className="notes-form__splitter"
+                data-resizing={isBodyResizing ? "true" : undefined}
+                onKeyDown={handleBodyResizeKeyDown}
+                onPointerDown={handleBodyResizePointerDown}
+                tabIndex={0}
+              />
 
-            <aside
-              aria-hidden={isInspectorHidden}
-              aria-label="Memory hooks panel"
-              className="notes-form__inspector"
-            >
-              <section
-                aria-label="Memory hooks"
-                className="notes-memory-hooks notes-inspector-card"
+              <aside
+                aria-hidden={isInspectorHidden}
+                aria-label="Memory hooks panel"
+                className="notes-form__inspector"
               >
-                <div className="notes-inspector-card__header">
-                  <h4>Memory hooks</h4>
-                  <div className="notes-inspector-card__actions">
-                    <button
-                      aria-label="Add metaphor"
-                      className="notes-inline-action"
-                      onClick={handleAddMetaphor}
-                      type="button"
-                    >
-                      + Add metaphor
-                    </button>
-                    <button
-                      aria-label="Add acronym"
-                      className="notes-inline-action"
-                      onClick={handleAddAcronym}
-                      type="button"
-                    >
-                      + Add acronym
-                    </button>
-                  </div>
-                </div>
-
-                {editorState.metaphors.length === 0 &&
-                editorState.acronyms.length === 0 ? (
-                  <p className="muted">No hooks yet</p>
-                ) : null}
-
-                {editorState.metaphors.length === 0 ? null : (
-                  <div className="notes-hook-group">
-                    <h5>Metaphors</h5>
-                    <div className="notes-metaphors__list">
-                      {editorState.metaphors.map((metaphor, index) => (
-                        <fieldset
-                          aria-label="Metaphor editor"
-                          className="notes-metaphor"
-                          key={metaphor.key}
-                        >
-                          <legend>{`Metaphor ${index + 1}`}</legend>
-
-                          <label className="notes-form__field">
-                            <span>Metaphor title</span>
-                            <input
-                              aria-label="Metaphor title"
-                              ref={(element) => {
-                                metaphorTitleRefs.current[index] = element;
-                              }}
-                              onChange={(event) =>
-                                handleMetaphorChange(
-                                  index,
-                                  "title",
-                                  event.target.value,
-                                )
-                              }
-                              placeholder="Battery, bridge, map..."
-                              type="text"
-                              value={metaphor.title}
-                            />
-                          </label>
-
-                          <label className="notes-form__field">
-                            <span>Metaphor explanation</span>
-                            <textarea
-                              aria-label="Metaphor explanation"
-                              ref={(element) => {
-                                metaphorExplanationRefs.current[index] =
-                                  element;
-                              }}
-                              onChange={(event) =>
-                                handleMetaphorChange(
-                                  index,
-                                  "explanation",
-                                  event.target.value,
-                                )
-                              }
-                              placeholder="Explain how the metaphor maps to the concept"
-                              rows={4}
-                              value={metaphor.explanation}
-                            />
-                          </label>
-
-                          <div className="notes-metaphor__actions">
-                            <button
-                              className="notes-action"
-                              onClick={() => handleRemoveMetaphor(index)}
-                              type="button"
-                            >
-                              {`Remove metaphor ${index + 1}`}
-                            </button>
-                          </div>
-                        </fieldset>
-                      ))}
+                <section
+                  aria-label="Memory hooks"
+                  className="notes-memory-hooks notes-inspector-card"
+                >
+                  <div className="notes-inspector-card__header">
+                    <h4>Memory hooks</h4>
+                    <div className="notes-inspector-card__actions">
+                      <button
+                        aria-label="Add metaphor"
+                        className="notes-inline-action"
+                        onClick={handleAddMetaphor}
+                        type="button"
+                      >
+                        + Add metaphor
+                      </button>
+                      <button
+                        aria-label="Add acronym"
+                        className="notes-inline-action"
+                        onClick={handleAddAcronym}
+                        type="button"
+                      >
+                        + Add acronym
+                      </button>
                     </div>
                   </div>
-                )}
 
-                {editorState.acronyms.length === 0 ? null : (
-                  <div className="notes-hook-group">
-                    <h5>Acronyms</h5>
-                    <div className="notes-acronyms__list">
-                      {editorState.acronyms.map((acronym, index) => (
-                        <fieldset
-                          aria-label="Acronym editor"
-                          className="notes-acronym"
-                          key={acronym.key}
-                        >
-                          <legend>{`Acronym ${index + 1}`}</legend>
+                  {editorState.metaphors.length === 0 &&
+                  editorState.acronyms.length === 0 ? (
+                    <p className="muted">No hooks yet</p>
+                  ) : null}
 
-                          <label className="notes-form__field">
-                            <span>Acronym</span>
-                            <input
-                              aria-label="Acronym"
-                              ref={(element) => {
-                                acronymShortFormRefs.current[index] = element;
-                              }}
-                              onChange={(event) =>
-                                handleAcronymChange(
-                                  index,
-                                  "shortForm",
-                                  event.target.value,
-                                )
-                              }
-                              placeholder="PEMDAS, FIFO, SMART..."
-                              type="text"
-                              value={acronym.shortForm}
-                            />
-                          </label>
+                  {editorState.metaphors.length === 0 ? null : (
+                    <div className="notes-hook-group">
+                      <h5>Metaphors</h5>
+                      <div className="notes-metaphors__list">
+                        {editorState.metaphors.map((metaphor, index) => (
+                          <fieldset
+                            aria-label="Metaphor editor"
+                            className="notes-metaphor"
+                            key={metaphor.key}
+                          >
+                            <legend>{`Metaphor ${index + 1}`}</legend>
 
-                          <label className="notes-form__field">
-                            <span>What it stands for</span>
-                            <textarea
-                              aria-label="Acronym expansion"
-                              ref={(element) => {
-                                acronymExpansionRefs.current[index] = element;
-                              }}
-                              onChange={(event) =>
-                                handleAcronymChange(
-                                  index,
-                                  "expansion",
-                                  event.target.value,
-                                )
-                              }
-                              placeholder="Preserve what each letter stands for"
-                              rows={4}
-                              value={acronym.expansion}
-                            />
-                          </label>
+                            <label className="notes-form__field">
+                              <span>Metaphor title</span>
+                              <input
+                                aria-label="Metaphor title"
+                                ref={(element) => {
+                                  metaphorTitleRefs.current[index] = element;
+                                }}
+                                onChange={(event) =>
+                                  handleMetaphorChange(
+                                    index,
+                                    "title",
+                                    event.target.value,
+                                  )
+                                }
+                                placeholder="Battery, bridge, map..."
+                                type="text"
+                                value={metaphor.title}
+                              />
+                            </label>
 
-                          <div className="notes-acronym__actions">
-                            <button
-                              className="notes-action"
-                              onClick={() => handleRemoveAcronym(index)}
-                              type="button"
-                            >
-                              {`Remove acronym ${index + 1}`}
-                            </button>
-                          </div>
-                        </fieldset>
-                      ))}
+                            <label className="notes-form__field">
+                              <span>Metaphor explanation</span>
+                              <textarea
+                                aria-label="Metaphor explanation"
+                                ref={(element) => {
+                                  metaphorExplanationRefs.current[index] =
+                                    element;
+                                }}
+                                onChange={(event) =>
+                                  handleMetaphorChange(
+                                    index,
+                                    "explanation",
+                                    event.target.value,
+                                  )
+                                }
+                                placeholder="Explain how the metaphor maps to the concept"
+                                rows={4}
+                                value={metaphor.explanation}
+                              />
+                            </label>
+
+                            <div className="notes-metaphor__actions">
+                              <button
+                                className="notes-action"
+                                onClick={() => handleRemoveMetaphor(index)}
+                                type="button"
+                              >
+                                {`Remove metaphor ${index + 1}`}
+                              </button>
+                            </div>
+                          </fieldset>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </section>
-            </aside>
+                  )}
+
+                  {editorState.acronyms.length === 0 ? null : (
+                    <div className="notes-hook-group">
+                      <h5>Acronyms</h5>
+                      <div className="notes-acronyms__list">
+                        {editorState.acronyms.map((acronym, index) => (
+                          <fieldset
+                            aria-label="Acronym editor"
+                            className="notes-acronym"
+                            key={acronym.key}
+                          >
+                            <legend>{`Acronym ${index + 1}`}</legend>
+
+                            <label className="notes-form__field">
+                              <span>Acronym</span>
+                              <input
+                                aria-label="Acronym"
+                                ref={(element) => {
+                                  acronymShortFormRefs.current[index] = element;
+                                }}
+                                onChange={(event) =>
+                                  handleAcronymChange(
+                                    index,
+                                    "shortForm",
+                                    event.target.value,
+                                  )
+                                }
+                                placeholder="PEMDAS, FIFO, SMART..."
+                                type="text"
+                                value={acronym.shortForm}
+                              />
+                            </label>
+
+                            <label className="notes-form__field">
+                              <span>What it stands for</span>
+                              <textarea
+                                aria-label="Acronym expansion"
+                                ref={(element) => {
+                                  acronymExpansionRefs.current[index] = element;
+                                }}
+                                onChange={(event) =>
+                                  handleAcronymChange(
+                                    index,
+                                    "expansion",
+                                    event.target.value,
+                                  )
+                                }
+                                placeholder="Preserve what each letter stands for"
+                                rows={4}
+                                value={acronym.expansion}
+                              />
+                            </label>
+
+                            <div className="notes-acronym__actions">
+                              <button
+                                className="notes-action"
+                                onClick={() => handleRemoveAcronym(index)}
+                                type="button"
+                              >
+                                {`Remove acronym ${index + 1}`}
+                              </button>
+                            </div>
+                          </fieldset>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </section>
+              </aside>
             </form>
           </fieldset>
           {isBreakActive && userId !== null ? (
-            <BreakIntervalOverlay focus={focusContext} userId={userId} />
+            <BreakIntervalOverlay onSkipBreak={skipBreakInterval} />
           ) : null}
         </article>
       </div>
