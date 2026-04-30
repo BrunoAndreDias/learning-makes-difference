@@ -753,15 +753,15 @@ function mergeNoteFocusTarget(
       .map(cloneLabel),
     note: cloneNote(input.note),
   };
-  const existingTargetIndex = currentTargets.findIndex(
-    (target) => target.kind === "Note" && target.note.id === input.note.id,
+  const existingTarget = currentTargets.find(
+    (target): target is NoteFocusTarget =>
+      target.kind === "Note" && target.note.id === input.note.id,
   );
 
-  if (existingTargetIndex === -1) {
+  if (existingTarget === undefined) {
     return [...currentTargets.map(cloneFocusTarget), nextTarget];
   }
 
-  const existingTarget = currentTargets[existingTargetIndex] as NoteFocusTarget;
   const labelsById = new Map(
     existingTarget.labels.map((label) => [label.id, cloneLabel(label)]),
   );
@@ -776,8 +776,8 @@ function mergeNoteFocusTarget(
     note: cloneNote(nextTarget.note),
   };
 
-  return currentTargets.map((target, index) => {
-    if (index === existingTargetIndex) {
+  return currentTargets.map((target) => {
+    if (target.kind === "Note" && target.note.id === existingTarget.note.id) {
       return mergedTarget;
     }
 

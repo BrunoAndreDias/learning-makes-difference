@@ -16,6 +16,11 @@ function FocusPage() {
   });
 
   useSyncExternalStore(focus.subscribe, focus.getSnapshot, focus.getSnapshot);
+  useSyncExternalStore(
+    focus.subscribe,
+    focus.getRecordSnapshot,
+    focus.getRecordSnapshot,
+  );
   const sessionSnapshot = useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -97,37 +102,41 @@ function FocusPage() {
             <p>Complete a FocusSession to review it here.</p>
           </article>
         ) : (
-          records.map((record) => (
-            <article className="card stack" key={record.id}>
-              <p className="section-label">Completed {record.endedAt}</p>
-              <h4>{getPrimaryMetricLabel(record)}</h4>
-              <dl
-                className="settings-summary"
-                aria-label={`Focus record ${record.id}`}
-              >
-                <div>
-                  <dt>Break detail</dt>
-                  <dd>{getBreakMetricLabel(record)}</dd>
-                </div>
-                <div>
-                  <dt>Targets</dt>
-                  <dd>{record.targets.length + record.focusTargets.length}</dd>
-                </div>
-                <div>
-                  <dt>Method</dt>
-                  <dd>{record.method}</dd>
-                </div>
-              </dl>
-              <ul
-                className="placeholder-list"
-                aria-label={`Touched targets for ${record.id}`}
-              >
-                {getTargetDescriptions(record).map((target) => (
-                  <li key={target}>{target}</li>
-                ))}
-              </ul>
-            </article>
-          ))
+          records.map((record) => {
+            const targetDescriptions = getTargetDescriptions(record);
+
+            return (
+              <article className="card stack" key={record.id}>
+                <p className="section-label">Completed {record.endedAt}</p>
+                <h4>{getPrimaryMetricLabel(record)}</h4>
+                <dl
+                  className="settings-summary"
+                  aria-label={`Focus record ${record.id}`}
+                >
+                  <div>
+                    <dt>Break detail</dt>
+                    <dd>{getBreakMetricLabel(record)}</dd>
+                  </div>
+                  <div>
+                    <dt>Targets</dt>
+                    <dd>{targetDescriptions.length}</dd>
+                  </div>
+                  <div>
+                    <dt>Method</dt>
+                    <dd>{record.method}</dd>
+                  </div>
+                </dl>
+                <ul
+                  className="placeholder-list"
+                  aria-label={`Touched targets for ${record.id}`}
+                >
+                  {targetDescriptions.map((target) => (
+                    <li key={target}>{target}</li>
+                  ))}
+                </ul>
+              </article>
+            );
+          })
         )}
       </section>
     </section>
@@ -167,10 +176,7 @@ function getActiveSessionSummary(session: FocusSession) {
 }
 
 function getTargetDescriptions(record: FocusRecord) {
-  const noteTargets = record.targets.map(describeTarget);
-  const recallTargets = record.focusTargets.map(describeTarget);
-
-  return [...noteTargets, ...recallTargets];
+  return [...record.targets, ...record.focusTargets].map(describeTarget);
 }
 
 function describeTarget(target: FocusTarget) {
