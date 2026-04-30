@@ -295,9 +295,9 @@
 .recall-surface {
   display: grid;
   align-content: start;
-  gap: 1.6rem;
+  gap: 1rem;
   min-width: 0;
-  padding: 2.5rem clamp(1.5rem, 4vw, 3rem) 3rem;
+  padding: clamp(1.25rem, 3vw, 2rem) clamp(1rem, 3vw, 2.25rem) 2rem;
   background: var(--color-shell-panel);
 }
 
@@ -305,8 +305,8 @@
   display: flex;
   justify-content: space-between;
   align-items: start;
-  gap: 1.25rem;
-  padding-bottom: 1.25rem;
+  gap: 1rem;
+  padding-bottom: 1rem;
   border-bottom: 1px solid var(--color-content-border-soft);
 }
 
@@ -337,7 +337,7 @@
   align-content: start;
   gap: var(--space-3);
   min-width: 0;
-  padding: var(--space-4);
+  padding: 0.875rem;
   border: 1px solid var(--color-content-border-soft);
   border-radius: 0.5rem;
   background: var(--color-shell-inset);
@@ -656,7 +656,7 @@
   width: 100%;
   display: grid;
   gap: 0.35rem;
-  padding: 0.875rem 1rem;
+  padding: 0.7rem 0.875rem;
   border: 1px solid rgba(215, 222, 234, 0.9);
   border-radius: var(--radius-lg);
   background: #fffdfa;
@@ -1454,14 +1454,243 @@
   cursor: text;
 }
 
-.focus-config-form {
+.focus-workspace {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  min-height: 100%;
+  padding: 1.25rem;
+  background:
+    linear-gradient(135deg, rgba(248, 251, 255, 0.86), transparent 36rem),
+    var(--color-shell-panel);
+}
+
+.focus-hero,
+.focus-card,
+.focus-record-card,
+.focus-empty-state {
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.75rem;
+  background: var(--color-shell-panel);
+  box-shadow: var(--shadow-card);
+}
+
+.focus-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 21rem);
+  align-items: stretch;
+  gap: 1rem;
+  padding: clamp(1rem, 2.4vw, 1.5rem);
+  background:
+    radial-gradient(
+      32rem 18rem at 8% 0%,
+      rgba(37, 99, 235, 0.08),
+      transparent 72%
+    ),
+    var(--color-shell-panel);
+}
+
+.focus-hero h3,
+.focus-card-title,
+.focus-card h4,
+.focus-section-heading h4,
+.focus-record-card h4,
+.focus-empty-state h4 {
+  margin: 0;
+  color: var(--color-content-strong);
+  font-family: var(--font-heading);
+  line-height: 1.15;
+}
+
+.focus-hero h3 {
+  font-size: clamp(1.55rem, 2.4vw, 2.15rem);
+}
+
+.focus-card-title {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.focus-hero p,
+.focus-card p,
+.focus-empty-state p {
+  margin: 0;
+}
+
+.focus-hero__content {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.focus-hero__tags {
+  align-items: center;
+}
+
+.focus-now-card {
+  display: grid;
+  align-content: center;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  border-radius: 0.65rem;
+  background: rgba(248, 251, 255, 0.82);
+}
+
+.focus-now-card strong {
+  color: var(--color-content-strong);
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
+  line-height: 1.15;
+}
+
+.focus-now-card span:last-child {
+  color: var(--color-content-muted);
+  font-size: 0.875rem;
+}
+
+.focus-now-card__label {
+  color: var(--color-brand-primary-hover);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.focus-grid {
+  display: grid;
+  grid-template-columns: minmax(20rem, 1fr) minmax(16rem, 0.85fr) minmax(
+      16rem,
+      0.85fr
+    );
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.focus-card,
+.focus-empty-state {
+  display: grid;
+  align-content: start;
+  gap: 0.85rem;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.focus-card--quiet {
+  background: var(--color-shell-inset);
+  box-shadow: none;
+}
+
+.focus-card__header,
+.focus-section-heading,
+.focus-record-card__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.focus-card__header > div,
+.focus-section-heading > div,
+.focus-record-card__header > div {
+  min-width: 0;
+}
+
+.focus-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.focus-metrics div {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.65rem;
+  border: 1px solid rgba(215, 222, 234, 0.72);
+  border-radius: 0.5rem;
+  background: rgba(248, 251, 255, 0.72);
+}
+
+.focus-metrics dt {
+  color: var(--color-content-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.focus-metrics dd {
+  margin: 0;
+  color: var(--color-content-strong);
+  font-size: 0.92rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.focus-records {
   display: grid;
   gap: 0.75rem;
+  min-width: 0;
+}
+
+.focus-record-card {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.focus-record-card__header time {
+  flex: 0 0 auto;
+  color: var(--color-content-muted);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.focus-target-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.focus-target-list li {
+  max-width: 100%;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.45rem;
+  background: var(--color-shell-inset);
+  color: var(--color-content-default);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.focus-config-form {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.focus-config-form__fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
 }
 
 .focus-config-form label {
   display: grid;
   gap: 0.35rem;
+  color: var(--color-content-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .focus-config-form input {
@@ -1473,10 +1702,49 @@
   padding: 0.45rem 0.6rem;
   background: var(--color-shell-inset);
   color: var(--color-content-strong);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
-.focus-config-form .notes-action {
-  justify-self: start;
+.focus-config-form input:focus-visible {
+  border-color: var(--color-content-border);
+  background: var(--color-shell-panel);
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+@media (max-width: 68rem) {
+  .focus-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .focus-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 44rem) {
+  .focus-workspace {
+    padding: 0.875rem;
+  }
+
+  .focus-config-form__fields,
+  .focus-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .focus-card__header,
+  .focus-section-heading,
+  .focus-record-card__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .focus-record-card__header time {
+    align-self: start;
+  }
 }
 
 .notes-search__results {
@@ -1530,9 +1798,18 @@
 
 .notes-search__option:hover,
 .notes-search__option:focus-visible,
-.notes-search__option[aria-selected="true"] {
+.notes-search__option[aria-selected="true"],
+.notes-search__option[data-active="true"] {
   background: var(--color-shell-inset);
   outline: 0;
+}
+
+.notes-search__option[data-active="true"] {
+  box-shadow: inset 3px 0 0 var(--color-brand-primary);
+}
+
+.recall-search-results .notes-search__option[aria-selected="true"] {
+  background: rgba(37, 99, 235, 0.08);
 }
 
 .notes-search__option > span:not(.notes-search__option-title),
@@ -1603,6 +1880,10 @@
 .notes-icon-button:hover,
 .notes-action:hover {
   background: var(--color-shell-inset);
+}
+
+.focus-config-form .notes-action {
+  justify-self: start;
 }
 
 .recall-panel .notes-action {
@@ -1681,7 +1962,7 @@
 .notes-editor {
   position: relative;
   min-width: 0;
-  padding: 2.5rem clamp(1.5rem, 4vw, 3rem) 3rem;
+  padding: clamp(1.25rem, 3vw, 2rem) clamp(1rem, 3vw, 2.25rem) 2rem;
   background: var(--color-shell-panel);
 }
 
@@ -1730,8 +2011,8 @@
   display: flex;
   justify-content: space-between;
   align-items: start;
-  gap: 1.25rem;
-  padding-bottom: 1.25rem;
+  gap: 1rem;
+  padding-bottom: 1rem;
   border-bottom: 1px solid var(--color-content-border-soft);
 }
 
@@ -1850,8 +2131,8 @@
     minmax(0, 1fr);
   align-items: start;
   gap: 0;
-  column-gap: 1.25rem;
-  padding-top: 1.6rem;
+  column-gap: 1rem;
+  padding-top: 1rem;
 }
 
 .notes-form__primary {

@@ -6,7 +6,15 @@ import {
   useNavigate,
   useRouteContext,
 } from "@tanstack/react-router";
-import { useState, useSyncExternalStore } from "react";
+import {
+  type FormEvent,
+  type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import {
@@ -22,6 +30,7 @@ const NOTE_DATE_FORMATTER = new Intl.DateTimeFormat("en", {
   month: "short",
   year: "numeric",
 });
+const recallSelectionSearchListboxId = "recall-selection-search-results";
 
 export const Route = createFileRoute("/_protected/recall")({
   component: RecallRouteShell,
@@ -42,6 +51,13 @@ function formatSelectedCount(count: number) {
 
 function getSearchResultLabel(result: AppNoteSearchResult) {
   return `${result.note.title} ${result.matchChip} Updated ${formatNoteDate(result.note.updatedAt)}`;
+}
+
+function getRecallSelectionSearchResultOptionId(
+  result: AppNoteSearchResult,
+  index: number,
+) {
+  return `recall-selection-search-option-${result.note.id}-${result.matchChip}-${index}`;
 }
 
 function EmptyRecallSelectionPage() {
@@ -96,11 +112,13 @@ function RecallSelectionControls({
 }
 
 function RecallSelectionSearchResults({
+  activeSearchResultIndex,
   hasSearchQuery,
   onToggleNote,
   searchResults,
   selectedNoteIds,
 }: {
+  activeSearchResultIndex: number;
   hasSearchQuery: boolean;
   onToggleNote: (noteId: string) => void;
   searchResults: AppNoteSearchResult[];
@@ -122,25 +140,36 @@ function RecallSelectionSearchResults({
     <div
       aria-label="Recall selection matches"
       className="notes-search__results recall-search-results"
+      id={recallSelectionSearchListboxId}
+      aria-multiselectable="true"
       role="listbox"
     >
-      {searchResults.map((result) => (
-        <button
-          aria-label={getSearchResultLabel(result)}
-          aria-selected={selectedNoteIds.has(result.note.id)}
-          className="notes-search__option"
-          key={`${result.note.id}-${result.matchChip}`}
-          onClick={() => onToggleNote(result.note.id)}
-          role="option"
-          type="button"
-        >
-          <span className="notes-search__option-title">
-            <strong>{result.note.title}</strong>
-            <span className="notes-search__match-chip">{result.matchChip}</span>
-          </span>
-          <span>{`Updated ${formatNoteDate(result.note.updatedAt)}`}</span>
-        </button>
-      ))}
+      {searchResults.map((result, index) => {
+        const isSelected = selectedNoteIds.has(result.note.id);
+
+        return (
+          <button
+            aria-label={`${isSelected ? "Selected, " : ""}${getSearchResultLabel(result)}`}
+            aria-selected={isSelected}
+            className="notes-search__option"
+            data-active={index === activeSearchResultIndex ? "true" : undefined}
+            id={getRecallSelectionSearchResultOptionId(result, index)}
+            key={`${result.note.id}-${result.matchChip}`}
+            onClick={() => onToggleNote(result.note.id)}
+            role="option"
+            tabIndex={-1}
+            type="button"
+          >
+            <span className="notes-search__option-title">
+              <strong>{result.note.title}</strong>
+              <span className="notes-search__match-chip">
+                {result.matchChip}
+              </span>
+            </span>
+            <span>{`Updated ${formatNoteDate(result.note.updatedAt)}`}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -216,12 +245,87 @@ export function RecallSelectionPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [activeSearchResultIndex, setActiveSearchResultIndex] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const searchRootRef = useRef<HTMLFormElement | null>(null);
   const filteredNotes = filterNotesByQuery(notes, searchQuery);
   const searchResults = searchNoteResults(notes, searchQuery);
   const selectedCountLabel = formatSelectedCount(selectedNoteIds.length);
   const hasSearchQuery = searchQuery.trim().length > 0;
   const selectedNoteIdSet = new Set(selectedNoteIds);
   const noteCountLabel = `${notes.length} ${notes.length === 1 ? "note" : "notes"}`;
+  const isSearchListboxOpen =
+    hasSearchQuery && isSearchOpen && searchResults.length > 0;
+  const activeSearchResult = searchResults[activeSearchResultIndex];
+  const activeSearchOptionId =
+    isSearchListboxOpen && activeSearchResult !== undefined
+      ? getRecallSelectionSearchResultOptionId(
+          activeSearchResult,
+          activeSearchResultIndex,
+        )
+      : undefined;
+
+  useEffect(() => {
+    if (searchResults.length === 0) {
+      setActiveSearchResultIndex(0);
+      return;
+    }
+
+    setActiveSearchResultIndex((currentIndex) =>
+      Math.min(currentIndex, searchResults.length - 1),
+    );
+  }, [searchResults.length]);
+
+  useEffect(() => {
+    function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key.toLocaleLowerCase() !== "k") {
+        return;
+      }
+
+      if (!event.metaKey && !event.ctrlKey) {
+        return;
+      }
+
+      event.preventDefault();
+      searchInputRef.current?.focus();
+
+      const currentSearchValue = searchInputRef.current?.value ?? "";
+
+      if (currentSearchValue.trim().length > 0) {
+        setActiveSearchResultIndex(0);
+        setIsSearchOpen(true);
+      }
+    }
+
+    document.addEventListener("keydown", handleDocumentKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleDocumentKeyDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    function handleDocumentMouseDown(event: MouseEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (searchRootRef.current?.contains(target)) {
+        return;
+      }
+
+      setIsSearchOpen(false);
+    }
+
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentMouseDown);
+    };
+  }, []);
 
   function toggleSelectedNote(noteId: string) {
     setSelectedNoteIds((currentNoteIds) =>
@@ -232,9 +336,85 @@ export function RecallSelectionPage() {
     setErrorMessage(null);
   }
 
+  function handleSearchChange(value: string) {
+    setSearchQuery(value);
+    setActiveSearchResultIndex(0);
+    setIsSearchOpen(value.trim().length > 0);
+  }
+
+  function handleSelectActiveSearchResult() {
+    const result = searchResults[activeSearchResultIndex];
+
+    if (result !== undefined) {
+      toggleSelectedNote(result.note.id);
+    }
+  }
+
+  function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      setIsSearchOpen(false);
+      return;
+    }
+
+    if (!isSearchOpen || searchResults.length === 0) {
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveSearchResultIndex(
+        (currentIndex) => (currentIndex + 1) % searchResults.length,
+      );
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveSearchResultIndex(
+        (currentIndex) =>
+          (currentIndex - 1 + searchResults.length) % searchResults.length,
+      );
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleSelectActiveSearchResult();
+    }
+  }
+
+  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    handleSelectActiveSearchResult();
+  }
+
+  function handleSearchPointerDown(event: ReactPointerEvent<HTMLFormElement>) {
+    const target = event.target;
+
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    if (target.closest(".notes-search__results")) {
+      return;
+    }
+
+    if (target.closest(".notes-search__icon")) {
+      return;
+    }
+
+    if (target !== searchInputRef.current) {
+      event.preventDefault();
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    }
+  }
+
   async function handleCancel() {
     setSelectedNoteIds([]);
     setSearchQuery("");
+    setIsSearchOpen(false);
+    setActiveSearchResultIndex(0);
     setErrorMessage(null);
     await navigate({ to: "/recall" });
   }
@@ -289,7 +469,9 @@ export function RecallSelectionPage() {
             >
               <form
                 className="notes-search"
-                onSubmit={(event) => event.preventDefault()}
+                onPointerDown={handleSearchPointerDown}
+                onSubmit={handleSearchSubmit}
+                ref={searchRootRef}
               >
                 <span className="notes-search__icon" aria-hidden="true">
                   <SearchIcon />
@@ -298,12 +480,29 @@ export function RecallSelectionPage() {
                   Search notes
                 </label>
                 <input
+                  aria-activedescendant={activeSearchOptionId}
+                  aria-autocomplete="list"
+                  aria-controls={recallSelectionSearchListboxId}
+                  aria-expanded={isSearchListboxOpen}
+                  aria-haspopup="listbox"
+                  autoComplete="off"
                   id="recall-selection-search"
-                  onChange={(event) => setSearchQuery(event.target.value)}
+                  name="search"
+                  onChange={(event) => handleSearchChange(event.target.value)}
+                  onFocus={() => {
+                    if (hasSearchQuery) {
+                      setActiveSearchResultIndex(0);
+                      setIsSearchOpen(true);
+                    }
+                  }}
+                  onKeyDown={handleSearchKeyDown}
                   placeholder="Search notes"
+                  ref={searchInputRef}
+                  role="combobox"
                   type="search"
                   value={searchQuery}
                 />
+                <kbd>Cmd K</kbd>
               </form>
               <RecallSelectionControls
                 hasSelectedNotes={selectedNoteIds.length > 0}
@@ -329,7 +528,8 @@ export function RecallSelectionPage() {
             </div>
 
             <RecallSelectionSearchResults
-              hasSearchQuery={hasSearchQuery}
+              activeSearchResultIndex={activeSearchResultIndex}
+              hasSearchQuery={hasSearchQuery && isSearchOpen}
               onToggleNote={toggleSelectedNote}
               searchResults={searchResults}
               selectedNoteIds={selectedNoteIdSet}
