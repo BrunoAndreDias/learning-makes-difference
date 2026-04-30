@@ -295,6 +295,19 @@ function FocusSessionStartControl({
           Focus active
         </button>
         <span role="status">{getFocusStatusMessage(activeFocusSession)}</span>
+        {userId === null ? null : (
+          <button
+            className="notes-action"
+            onClick={() => {
+              focus.endFocusSession({
+                userId,
+              });
+            }}
+            type="button"
+          >
+            End focus
+          </button>
+        )}
         {actionLabel === null || userId === null ? null : (
           <button
             className="notes-action"

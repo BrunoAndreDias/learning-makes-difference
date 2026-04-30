@@ -374,4 +374,161 @@ describe("focus sessions", () => {
       remainingSeconds: 210,
     });
   });
+
+  it("ends a FocusSession and saves completed intervals as a FocusRecord", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    const focus = createAppFocusContext({
+      keyPrefix: "focus-test-end-record",
+      storage: createMemoryStorage(),
+    });
+
+    focus.startFocusSession({
+      breakIntervalMinutes: 5,
+      focusIntervalMinutes: 25,
+      userId: "owner",
+    });
+
+    vi.setSystemTime(new Date("2026-04-30T10:25:12.000Z"));
+
+    const record = focus.endFocusSession({ userId: "owner" });
+
+    expect(focus.getActiveSession({ userId: "owner" })).toBeNull();
+    expect(record).toMatchObject({
+      breakIntervalMinutes: 5,
+      completedBreakIntervalCount: 0,
+      completedFocusIntervalCount: 1,
+      endedAt: "2026-04-30T10:25:12.000Z",
+      focusIntervalMinutes: 25,
+      intervals: [
+        {
+          endedAt: "2026-04-30T10:25:00.000Z",
+          kind: "Focus",
+          startedAt: "2026-04-30T10:00:00.000Z",
+        },
+      ],
+      startedAt: "2026-04-30T10:00:00.000Z",
+    });
+    expect(focus.getFocusRecords({ userId: "owner" })).toEqual([record]);
+  });
+
+  it("discards a FocusSession ended before any FocusInterval completes", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    const focus = createAppFocusContext({
+      keyPrefix: "focus-test-end-discard",
+      storage: createMemoryStorage(),
+    });
+
+    focus.startFocusSession({
+      focusIntervalMinutes: 25,
+      userId: "owner",
+    });
+
+    vi.setSystemTime(new Date("2026-04-30T10:10:00.000Z"));
+
+    expect(focus.endFocusSession({ userId: "owner" })).toBeNull();
+    expect(focus.getActiveSession({ userId: "owner" })).toBeNull();
+    expect(focus.getFocusRecords({ userId: "owner" })).toEqual([]);
+  });
+
+  it("preserves completed breaks and discards an in-progress break when ending", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    const focus = createAppFocusContext({
+      keyPrefix: "focus-test-end-breaks",
+      storage: createMemoryStorage(),
+    });
+
+    focus.startFocusSession({
+      breakIntervalMinutes: 5,
+      focusIntervalMinutes: 25,
+      userId: "owner",
+    });
+
+    vi.setSystemTime(new Date("2026-04-30T10:30:30.000Z"));
+    focus.startNextFocusInterval({ userId: "owner" });
+
+    vi.setSystemTime(new Date("2026-04-30T10:56:00.000Z"));
+
+    const record = focus.endFocusSession({ userId: "owner" });
+
+    expect(record).toMatchObject({
+      completedBreakIntervalCount: 1,
+      completedFocusIntervalCount: 2,
+      intervals: [
+        {
+          endedAt: "2026-04-30T10:25:00.000Z",
+          kind: "Focus",
+          startedAt: "2026-04-30T10:00:00.000Z",
+        },
+        {
+          endedAt: "2026-04-30T10:30:00.000Z",
+          kind: "Break",
+          startedAt: "2026-04-30T10:25:00.000Z",
+        },
+        {
+          endedAt: "2026-04-30T10:55:00.000Z",
+          kind: "Focus",
+          startedAt: "2026-04-30T10:30:00.000Z",
+        },
+      ],
+    });
+  });
+
+  it("scopes FocusRecords to the owner and keeps stored records isolated from later mutation", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    const storage = createMemoryStorage();
+    const focus = createAppFocusContext({
+      keyPrefix: "focus-test-record-ownership",
+      storage,
+    });
+
+    focus.startFocusSession({
+      focusIntervalMinutes: 25,
+      userId: "owner",
+    });
+    focus.startFocusSession({
+      focusIntervalMinutes: 25,
+      userId: "other-user",
+    });
+
+    vi.setSystemTime(new Date("2026-04-30T10:25:12.000Z"));
+
+    const ownerRecord = focus.endFocusSession({ userId: "owner" });
+    focus.endFocusSession({ userId: "other-user" });
+
+    expect(focus.getFocusRecords({ userId: "owner" })).toHaveLength(1);
+    expect(focus.getFocusRecords({ userId: "other-user" })).toHaveLength(1);
+    expect(focus.getFocusRecords({ userId: "owner" })).toEqual([ownerRecord!]);
+
+    if (ownerRecord !== null) {
+      ownerRecord.completedFocusIntervalCount = 999;
+      ownerRecord.intervals[0]!.kind = "Break";
+    }
+
+    const reloadedFocus = createAppFocusContext({
+      keyPrefix: "focus-test-record-ownership",
+      storage,
+    });
+
+    expect(reloadedFocus.getFocusRecords({ userId: "owner" })).toMatchObject([
+      {
+        completedFocusIntervalCount: 1,
+        intervals: [
+          {
+            kind: "Focus",
+          },
+        ],
+      },
+    ]);
+    expect(reloadedFocus.getFocusRecords({ userId: "other-user" })).toHaveLength(
+      1,
+    );
+  });
 });

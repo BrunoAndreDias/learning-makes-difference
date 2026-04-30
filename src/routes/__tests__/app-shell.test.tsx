@@ -2466,6 +2466,51 @@ describe("authenticated app shell", () => {
     });
   });
 
+  it("ends an active FocusSession explicitly and returns to the start control", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    const keyPrefix = `test-focus-end-${Math.random().toString(36).slice(2)}`;
+    const userId = "user-focus-end";
+    const focusContext = createAppFocusContext({
+      keyPrefix,
+      storage: window.localStorage,
+    });
+    const session = {
+      user: {
+        displayName: "Casey End",
+        email: "casey.end@example.com",
+        id: userId,
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+      },
+    } satisfies AppSessionSnapshot;
+
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    renderRoute("/notes", {
+      focusContext,
+      session,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
+    fireEvent.submit(
+      screen.getByRole("form", {
+        name: "Focus session start",
+      }),
+    );
+
+    vi.setSystemTime(new Date("2026-04-30T10:25:12.000Z"));
+    fireEvent.click(screen.getByRole("button", { name: "End focus" }));
+
+    expect(screen.getByRole("button", { name: "Start Focus" })).toBeInTheDocument();
+    expect(focusContext.getActiveSession({ userId })).toBeNull();
+    expect(focusContext.getFocusRecords({ userId })).toHaveLength(1);
+  });
+
   it("manages note metaphors inside the note workflow", async () => {
     renderRoute("/notes", {
       session: {
