@@ -27,12 +27,35 @@ import {
   type AppFocusContext,
   AppFocusError,
   type AppFocusSnapshot,
+  type FocusSession,
 } from "../../learning-loop/domain/focus";
 
 type NavigationIconName = "label" | "note" | "recall" | "settings";
 
 const DEFAULT_FOCUS_MINUTES = "25";
 const DEFAULT_BREAK_MINUTES = "5";
+const EMPTY_PLANNED_FOCUS_INTERVALS = "";
+
+function getActiveFocusSession(
+  focusSnapshot: AppFocusSnapshot,
+  userId: string | null,
+): FocusSession | null {
+  if (userId === null) {
+    return null;
+  }
+
+  const storedSession =
+    focusSnapshot.find((sessionEntry) => sessionEntry.userId === userId) ??
+    null;
+
+  if (storedSession === null) {
+    return null;
+  }
+
+  const { userId: _userId, ...session } = storedSession;
+
+  return session;
+}
 
 function getWorkspaceTitle(pathname: string) {
   if (pathname === "/labels" || pathname.startsWith("/labels/")) {
@@ -102,11 +125,7 @@ export function AppLayout() {
     ? "Close navigation menu"
     : "Open navigation menu";
   const userId = sessionSnapshot.user?.id ?? null;
-  const activeFocusSession =
-    userId === null
-      ? null
-      : (focusSnapshot.find((sessionEntry) => sessionEntry.userId === userId) ??
-        null);
+  const activeFocusSession = getActiveFocusSession(focusSnapshot, userId);
 
   function closeMobileSidebar(shouldRestoreFocus = false) {
     setShouldRestoreMobileToggleFocus(shouldRestoreFocus);
@@ -265,15 +284,18 @@ function FocusSessionStartControl({
   focus,
   userId,
 }: Readonly<{
-  activeFocusSession: AppFocusSnapshot[number] | null;
+  activeFocusSession: FocusSession | null;
   focus: AppFocusContext;
   userId: string | null;
 }>) {
   const [isOpen, setIsOpen] = useState(false);
   const [focusMinutes, setFocusMinutes] = useState(DEFAULT_FOCUS_MINUTES);
   const [breakMinutes, setBreakMinutes] = useState(DEFAULT_BREAK_MINUTES);
-  const [plannedFocusIntervals, setPlannedFocusIntervals] = useState("");
+  const [plannedFocusIntervals, setPlannedFocusIntervals] = useState(
+    EMPTY_PLANNED_FOCUS_INTERVALS,
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const errorId = useId();
 
   useEffect(() => {
     if (activeFocusSession === null) {
@@ -307,14 +329,11 @@ function FocusSessionStartControl({
       focus.startFocusSession({
         breakIntervalMinutes: Number(breakMinutes),
         focusIntervalMinutes: Number(focusMinutes),
-        plannedFocusIntervalCount:
-          plannedFocusIntervals.trim().length === 0
-            ? null
-            : Number(plannedFocusIntervals),
+        plannedFocusIntervalCount: parseOptionalNumber(plannedFocusIntervals),
         userId,
       });
       setErrorMessage(null);
-      setPlannedFocusIntervals("");
+      setPlannedFocusIntervals(EMPTY_PLANNED_FOCUS_INTERVALS);
     } catch (error) {
       if (error instanceof AppFocusError) {
         setErrorMessage(error.message);
@@ -339,6 +358,7 @@ function FocusSessionStartControl({
 
   return (
     <form
+      aria-describedby={errorMessage === null ? undefined : errorId}
       aria-label="Focus session start"
       className="tag-row"
       onSubmit={handleSubmit}
@@ -346,7 +366,6 @@ function FocusSessionStartControl({
       <label>
         <span className="sr-only">Focus minutes</span>
         <input
-          aria-label="Focus minutes"
           inputMode="numeric"
           onChange={(event) => {
             setFocusMinutes(event.target.value);
@@ -359,7 +378,6 @@ function FocusSessionStartControl({
       <label>
         <span className="sr-only">Break minutes</span>
         <input
-          aria-label="Break minutes"
           inputMode="numeric"
           onChange={(event) => {
             setBreakMinutes(event.target.value);
@@ -372,7 +390,6 @@ function FocusSessionStartControl({
       <label>
         <span className="sr-only">Planned focus intervals</span>
         <input
-          aria-label="Planned focus intervals"
           inputMode="numeric"
           onChange={(event) => {
             setPlannedFocusIntervals(event.target.value);
@@ -396,9 +413,23 @@ function FocusSessionStartControl({
       >
         Cancel
       </button>
-      {errorMessage === null ? null : <span role="status">{errorMessage}</span>}
+      {errorMessage === null ? null : (
+        <span id={errorId} role="status">
+          {errorMessage}
+        </span>
+      )}
     </form>
   );
+}
+
+function parseOptionalNumber(value: string) {
+  const trimmedValue = value.trim();
+
+  if (trimmedValue.length === 0) {
+    return null;
+  }
+
+  return Number(trimmedValue);
 }
 
 function GlobalNavigation({

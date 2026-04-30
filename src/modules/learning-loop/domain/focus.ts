@@ -62,6 +62,7 @@ const DEFAULT_FOCUS_INTERVAL_MINUTES = 25;
 const DEFAULT_BREAK_INTERVAL_MINUTES = 5;
 const SUPPORTED_FOCUS_METHOD: FocusMethod = "Pomodoro";
 const INITIAL_FOCUS_INTERVAL: FocusSessionInterval = "Focus";
+const ACTIVE_SESSIONS_STORAGE_KEY = "active-sessions";
 
 function getDefaultStorage(): FocusStorageAdapter | undefined {
   if (typeof window === "undefined") {
@@ -76,10 +77,12 @@ function getDefaultCrypto(): FocusCrypto {
 }
 
 function getActiveSessionsStorageKey(prefix: string) {
-  return `${prefix}:active-sessions`;
+  return `${prefix}:${ACTIVE_SESSIONS_STORAGE_KEY}`;
 }
 
-function cloneFocusSession(session: StoredFocusSession): StoredFocusSession {
+function cloneStoredFocusSession(
+  session: StoredFocusSession,
+): StoredFocusSession {
   return {
     ...session,
   };
@@ -118,7 +121,9 @@ function parseFocusSnapshot(value: string | null): AppFocusSnapshot {
       return [];
     }
 
-    return parsedValue.filter(isStoredFocusSession).map(cloneFocusSession);
+    return parsedValue
+      .filter(isStoredFocusSession)
+      .map(cloneStoredFocusSession);
   } catch {
     return [];
   }
@@ -142,6 +147,17 @@ function toPublicSession(session: StoredFocusSession): FocusSession {
   };
 }
 
+function getActiveStoredSession(
+  sessions: readonly StoredFocusSession[],
+  userId: string,
+) {
+  return sessions.find((session) => session.userId === userId) ?? null;
+}
+
+function getPlannedFocusIntervalCount(input: StartFocusSessionInput) {
+  return input.plannedFocusIntervalCount ?? null;
+}
+
 export function createAppFocusContext(
   options: CreateAppFocusContextOptions = {},
 ): AppFocusContext {
@@ -152,7 +168,7 @@ export function createAppFocusContext(
   let activeSessions = parseFocusSnapshot(
     storage?.getItem(getActiveSessionsStorageKey(keyPrefix)) ?? null,
   );
-  let snapshot = activeSessions.map(cloneFocusSession);
+  let snapshot = activeSessions.map(cloneStoredFocusSession);
 
   function notifyListeners() {
     for (const listener of listeners) {
@@ -161,8 +177,8 @@ export function createAppFocusContext(
   }
 
   function writeSnapshot(nextSnapshot: readonly StoredFocusSession[]) {
-    activeSessions = nextSnapshot.map(cloneFocusSession);
-    snapshot = activeSessions.map(cloneFocusSession);
+    activeSessions = nextSnapshot.map(cloneStoredFocusSession);
+    snapshot = activeSessions.map(cloneStoredFocusSession);
     storage?.setItem(
       getActiveSessionsStorageKey(keyPrefix),
       JSON.stringify(activeSessions),
@@ -175,11 +191,9 @@ export function createAppFocusContext(
   }
 
   function getActiveSession({ userId }: GetActiveFocusSessionInput) {
-    const session = activeSessions.find(
-      (candidate) => candidate.userId === userId,
-    );
+    const session = getActiveStoredSession(activeSessions, userId);
 
-    return session === undefined ? null : toPublicSession(session);
+    return session === null ? null : toPublicSession(session);
   }
 
   function startFocusSession(input: StartFocusSessionInput) {
@@ -187,7 +201,7 @@ export function createAppFocusContext(
       input.focusIntervalMinutes ?? DEFAULT_FOCUS_INTERVAL_MINUTES;
     const breakIntervalMinutes =
       input.breakIntervalMinutes ?? DEFAULT_BREAK_INTERVAL_MINUTES;
-    const plannedFocusIntervalCount = input.plannedFocusIntervalCount ?? null;
+    const plannedFocusIntervalCount = getPlannedFocusIntervalCount(input);
 
     assertPositiveInteger(
       focusIntervalMinutes,
@@ -205,7 +219,7 @@ export function createAppFocusContext(
       );
     }
 
-    if (getActiveSession({ userId: input.userId }) !== null) {
+    if (getActiveStoredSession(activeSessions, input.userId) !== null) {
       throw new AppFocusError(
         "invalid_input",
         "User already has an active FocusSession.",
