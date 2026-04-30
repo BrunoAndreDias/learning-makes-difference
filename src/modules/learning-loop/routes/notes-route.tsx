@@ -158,23 +158,31 @@ export function NotesWorkspace() {
     noteEditor.mode === "draft" ? "draft" : noteEditor.selectedNoteId;
   const previousEditorIdentityRef = useRef(editorIdentity);
 
-  function getAttachedLabels(noteLabelIds: readonly string[]) {
-    return labelsContext
-      .getLabelsForUser(userId ?? "")
-      .filter((label) => noteLabelIds.includes(label.id));
-  }
+  const getAttachedLabels = useCallback(
+    (noteLabelIds: readonly string[]) => {
+      const attachedLabelIds = new Set(noteLabelIds);
 
-  function captureNoteStudyActivity(note: AppNote) {
-    if (userId === null) {
-      return;
-    }
+      return labelsContext
+        .getLabelsForUser(userId ?? "")
+        .filter((label) => attachedLabelIds.has(label.id));
+    },
+    [labelsContext, userId],
+  );
 
-    focusContext.captureNoteStudyActivity({
-      labels: getAttachedLabels(note.labelIds),
-      note,
-      userId,
-    });
-  }
+  const captureNoteStudyActivity = useCallback(
+    (note: AppNote) => {
+      if (userId === null) {
+        return;
+      }
+
+      focusContext.captureNoteStudyActivity({
+        labels: getAttachedLabels(note.labelIds),
+        note,
+        userId,
+      });
+    },
+    [focusContext, getAttachedLabels, userId],
+  );
 
   useEffect(() => {
     function syncLabels() {
@@ -413,7 +421,13 @@ export function NotesWorkspace() {
       clearReviewTimer();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [focusContext, notesContext, selectedNote, userId]);
+  }, [
+    captureNoteStudyActivity,
+    focusContext,
+    notesContext,
+    selectedNote,
+    userId,
+  ]);
 
   const syncBodyFractionFromTextarea = useCallback(() => {
     const textarea = bodyTextareaRef.current;
