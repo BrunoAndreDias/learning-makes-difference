@@ -54,6 +54,7 @@ type NotesWorkspaceContextValue = {
   noteEditor: NoteEditorState;
   pendingSearchJump: NotesWorkspaceActivationResult["completedSearchJump"];
   selectedRecallLabelId: string;
+  selectedRecallSearchQuery: string;
   selectedRecallSessionId: string | null;
   removeEditorAcronym: (index: number) => void;
   removeEditorMetaphor: (index: number) => void;
@@ -64,6 +65,7 @@ type NotesWorkspaceContextValue = {
   ) => NotesWorkspaceActivationResult;
   startNewNoteDraft: () => void;
   selectRecallLabel: (labelId: string) => void;
+  selectRecallSearchQuery: (query: string) => void;
   selectRecallSession: (sessionId: string | null) => void;
   syncEditorWithNotes: (notes: readonly AppNote[]) => void;
   toggleEditorLabel: (labelId: string, checked: boolean) => void;
@@ -97,6 +99,8 @@ export function NotesWorkspaceProvider({
     useState<NotesWorkspaceActivationResult["completedSearchJump"]>(null);
   const [editorFocusRequestNonce, setEditorFocusRequestNonce] = useState(0);
   const [selectedRecallLabelId, setSelectedRecallLabelId] = useState("");
+  const [selectedRecallSearchQuery, setSelectedRecallSearchQuery] =
+    useState("");
   const [selectedRecallSessionId, setSelectedRecallSessionId] = useState<
     string | null
   >(null);
@@ -261,6 +265,10 @@ export function NotesWorkspaceProvider({
     setSelectedRecallLabelId(labelId);
   }, []);
 
+  const selectRecallSearchQuery = useCallback((query: string) => {
+    setSelectedRecallSearchQuery(query);
+  }, []);
+
   const selectRecallSession = useCallback((sessionId: string | null) => {
     setSelectedRecallSessionId(sessionId);
   }, []);
@@ -283,11 +291,13 @@ export function NotesWorkspaceProvider({
     noteEditor,
     pendingSearchJump,
     selectedRecallLabelId,
+    selectedRecallSearchQuery,
     selectedRecallSessionId,
     removeEditorAcronym,
     removeEditorMetaphor,
     requestEditorFocus,
     selectRecallLabel,
+    selectRecallSearchQuery,
     selectRecallSession,
     startNewNoteDraft: startDraft,
     syncEditorWithNotes,

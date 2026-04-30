@@ -20,6 +20,7 @@ import {
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import type { AppLabel } from "../../labels/domain/labels";
 import { BreakIntervalOverlay } from "../components/break-interval-overlay";
+import { FocusSessionStartControl } from "../components/focus-session-start-control";
 import { isBreakIntervalActive } from "../domain/focus";
 import {
   getNoteEditorSaveInput,
@@ -917,6 +918,7 @@ export function NotesWorkspace() {
       >
         <p className="sr-only">Study workspace</p>
         <span className="sr-only">{noteCountLabel}</span>
+        <h3 className="sr-only">Notes workspace</h3>
         <form
           className="notes-search"
           onPointerDown={handleSearchPointerDown}
@@ -958,17 +960,23 @@ export function NotesWorkspace() {
           <kbd>Cmd K</kbd>
           {searchResultsContent}
         </form>
-        <button
-          className="notes-action notes-action-primary notes-recall-entry-action"
-          onClick={() => void navigate({ to: "/recall/select" })}
-          type="button"
-        >
-          Start Recall
-        </button>
+        <div className="notes-workspace__toolbar-actions">
+          <button
+            className="notes-action notes-action-primary notes-recall-entry-action"
+            onClick={() => void navigate({ to: "/recall/select" })}
+            type="button"
+          >
+            Start Recall
+          </button>
+          <FocusSessionStartControl
+            activeFocusSession={activeFocusSession}
+            focus={focusContext}
+            userId={userId}
+          />
+        </div>
       </section>
 
       <section className="notes-mobile-summary" aria-label="Workspace summary">
-        <h3>Notes workspace</h3>
         <div className="tag-row notes-workspace__tags">
           <span className="tag">{noteCountLabel}</span>
           <span className="tag">{selectedLabelCount}</span>

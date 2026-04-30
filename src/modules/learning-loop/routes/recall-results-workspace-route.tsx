@@ -89,7 +89,9 @@ export function RecallResultsWorkspacePage() {
   });
   const {
     selectedRecallLabelId,
+    selectedRecallSearchQuery,
     selectedRecallSessionId,
+    selectRecallSearchQuery,
     selectRecallSession,
   } = useNotesWorkspace();
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
@@ -147,10 +149,33 @@ export function RecallResultsWorkspacePage() {
 
   return (
     <section aria-label="Recall results workspace" className="recall-workspace">
+      <section
+        aria-label="Recall results toolbar"
+        className="notes-workspace__toolbar"
+      >
+        <form
+          className="notes-search"
+          onSubmit={(event) => event.preventDefault()}
+        >
+          <span className="notes-search__icon" aria-hidden="true">
+            <SearchIcon />
+          </span>
+          <label className="sr-only" htmlFor="recall-results-search">
+            Search recall sessions
+          </label>
+          <input
+            id="recall-results-search"
+            onChange={(event) => selectRecallSearchQuery(event.target.value)}
+            placeholder="Search sessions"
+            type="search"
+            value={selectedRecallSearchQuery}
+          />
+          <kbd>Cmd K</kbd>
+        </form>
+      </section>
       <article className="recall-surface">
         <header className="recall-surface__header">
           <div className="notes-editor__title-stack">
-            <p className="section-label">Recall</p>
             <h3>Results</h3>
             <p className="muted notes-editor__meta">
               Review completed recall work with the latest SessionResult open by
@@ -170,6 +195,15 @@ export function RecallResultsWorkspacePage() {
         </div>
       </article>
     </section>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <circle cx="10.5" cy="10.5" r="6" />
+      <path d="m15 15 4.5 4.5" />
+    </svg>
   );
 }
 

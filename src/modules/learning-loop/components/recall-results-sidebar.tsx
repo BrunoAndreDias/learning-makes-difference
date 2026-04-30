@@ -73,6 +73,7 @@ export function RecallResultsSidebar({
   });
   const {
     selectedRecallLabelId,
+    selectedRecallSearchQuery,
     selectedRecallSessionId,
     selectRecallLabel,
     selectRecallSession,
@@ -94,7 +95,6 @@ export function RecallResultsSidebar({
   );
   const userId = sessionSnapshot.user?.id ?? null;
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
   const selectedLabelFilter =
     selectedRecallLabelId.length === 0 ? undefined : selectedRecallLabelId;
   const sessionResults =
@@ -104,10 +104,10 @@ export function RecallResultsSidebar({
           labelId: selectedLabelFilter,
           userId,
         });
-  const hasSearchQuery = searchQuery.trim().length > 0;
+  const hasSearchQuery = selectedRecallSearchQuery.trim().length > 0;
   const searchResults = searchRecallSessionResults({
     labels: availableLabels,
-    query: searchQuery,
+    query: selectedRecallSearchQuery,
     sessionResults,
   });
   const notesAvailableForRecall =
@@ -158,24 +158,6 @@ export function RecallResultsSidebar({
       </div>
 
       <div className="app-sidebar__workspace-controls">
-        <form
-          className="notes-search recall-results-search"
-          onSubmit={(event) => event.preventDefault()}
-        >
-          <span className="notes-search__icon" aria-hidden="true">
-            <SearchIcon />
-          </span>
-          <label className="sr-only" htmlFor="recall-results-search">
-            Search recall sessions
-          </label>
-          <input
-            id="recall-results-search"
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search sessions"
-            type="search"
-            value={searchQuery}
-          />
-        </form>
         {availableLabels.length > 0 ? (
           <LabelFilter
             labels={availableLabels}
@@ -337,14 +319,5 @@ function NoResultsState({
         Complete a recall session to build reviewable results.
       </p>
     </div>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-      <circle cx="10.5" cy="10.5" r="6" />
-      <path d="m15 15 4.5 4.5" />
-    </svg>
   );
 }
