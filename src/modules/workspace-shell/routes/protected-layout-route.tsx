@@ -31,9 +31,20 @@ import {
 
 type NavigationIconName = "label" | "note" | "recall" | "settings";
 
+type FocusSessionStartValues = {
+  breakMinutes: string;
+  focusMinutes: string;
+  plannedFocusIntervals: string;
+};
+
 const DEFAULT_FOCUS_MINUTES = "25";
 const DEFAULT_BREAK_MINUTES = "5";
 const EMPTY_PLANNED_FOCUS_INTERVALS = "";
+const DEFAULT_FOCUS_SESSION_START_VALUES: FocusSessionStartValues = {
+  breakMinutes: DEFAULT_BREAK_MINUTES,
+  focusMinutes: DEFAULT_FOCUS_MINUTES,
+  plannedFocusIntervals: EMPTY_PLANNED_FOCUS_INTERVALS,
+};
 
 function getWorkspaceTitle(pathname: string) {
   if (pathname === "/labels" || pathname.startsWith("/labels/")) {
@@ -271,6 +282,7 @@ function FocusSessionStartControl({
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const errorId = useId();
+  const formId = useId();
 
   useEffect(() => {
     if (activeFocusSession === null) {
@@ -325,21 +337,17 @@ function FocusSessionStartControl({
     );
   }
 
-  function startFocusSession(input?: {
-    breakMinutes?: string;
-    focusMinutes?: string;
-    plannedFocusIntervals?: string;
-  }) {
+  function startFocusSessionFromValues(input: FocusSessionStartValues) {
     if (userId === null) {
       return;
     }
 
     try {
       focus.startFocusSession({
-        breakIntervalMinutes: Number(input?.breakMinutes ?? breakMinutes),
-        focusIntervalMinutes: Number(input?.focusMinutes ?? focusMinutes),
+        breakIntervalMinutes: Number(input.breakMinutes),
+        focusIntervalMinutes: Number(input.focusMinutes),
         plannedFocusIntervalCount: parseOptionalNumber(
-          input?.plannedFocusIntervals ?? plannedFocusIntervals,
+          input.plannedFocusIntervals,
         ),
         userId,
       });
@@ -355,9 +363,17 @@ function FocusSessionStartControl({
     }
   }
 
+  function startDefaultFocusSession() {
+    startFocusSessionFromValues(DEFAULT_FOCUS_SESSION_START_VALUES);
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    startFocusSession();
+    startFocusSessionFromValues({
+      breakMinutes,
+      focusMinutes,
+      plannedFocusIntervals,
+    });
   }
 
   function updateFocusMinutes(value: string) {
@@ -380,18 +396,13 @@ function FocusSessionStartControl({
       <div className="app-focus-session-start tag-row">
         <button
           className="notes-action notes-action-primary"
-          onClick={() =>
-            startFocusSession({
-              breakMinutes: DEFAULT_BREAK_MINUTES,
-              focusMinutes: DEFAULT_FOCUS_MINUTES,
-              plannedFocusIntervals: EMPTY_PLANNED_FOCUS_INTERVALS,
-            })
-          }
+          onClick={startDefaultFocusSession}
           type="button"
         >
           Start Focus
         </button>
         <button
+          aria-controls={formId}
           aria-expanded="false"
           className="notes-action"
           onClick={() => setIsOpen(true)}
@@ -408,6 +419,7 @@ function FocusSessionStartControl({
       aria-describedby={errorMessage === null ? undefined : errorId}
       aria-label="Focus session start"
       className="app-focus-session-start tag-row"
+      id={formId}
       onSubmit={handleSubmit}
     >
       <label>
@@ -442,7 +454,6 @@ function FocusSessionStartControl({
         Start Focus
       </button>
       <button
-        aria-expanded="true"
         className="notes-action"
         onClick={() => {
           setIsOpen(false);

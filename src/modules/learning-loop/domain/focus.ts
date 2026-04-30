@@ -141,6 +141,23 @@ const TRANSITION_WINDOW_SECONDS = 30;
 const ACTIVE_SESSIONS_STORAGE_KEY = "active-sessions";
 const FOCUS_RECORDS_STORAGE_KEY = "records";
 
+function isFocusSessionInterval(value: unknown): value is FocusSessionInterval {
+  return value === "Focus" || value === "Break";
+}
+
+function isFocusSessionState(value: unknown): value is FocusSessionState {
+  return (
+    value === "AwaitingNextFocus" ||
+    value === "Break" ||
+    value === "Focus" ||
+    value === "Transition"
+  );
+}
+
+function isPlannedFocusIntervalCount(value: unknown): value is number | null {
+  return value === null || typeof value === "number";
+}
+
 function getDefaultStorage(): FocusStorageAdapter | undefined {
   if (typeof window === "undefined") {
     return undefined;
@@ -200,10 +217,8 @@ function isLegacyStoredFocusSession(
     typeof candidate.focusIntervalMinutes === "number" &&
     typeof candidate.breakIntervalMinutes === "number" &&
     candidate.method === SUPPORTED_FOCUS_METHOD &&
-    (candidate.currentInterval === "Focus" ||
-      candidate.currentInterval === "Break") &&
-    (candidate.plannedFocusIntervalCount === null ||
-      typeof candidate.plannedFocusIntervalCount === "number")
+    isFocusSessionInterval(candidate.currentInterval) &&
+    isPlannedFocusIntervalCount(candidate.plannedFocusIntervalCount)
   );
 }
 
@@ -216,10 +231,7 @@ function isStoredFocusSession(entry: unknown): entry is StoredFocusSession {
 
   return (
     isLegacyStoredFocusSession(entry) &&
-    (candidate.intervalState === "AwaitingNextFocus" ||
-      candidate.intervalState === "Break" ||
-      candidate.intervalState === "Focus" ||
-      candidate.intervalState === "Transition") &&
+    isFocusSessionState(candidate.intervalState) &&
     typeof candidate.stateStartedAt === "string" &&
     typeof candidate.completedFocusIntervalCount === "number" &&
     typeof candidate.completedBreakIntervalCount === "number"
@@ -273,7 +285,7 @@ function isFocusRecordInterval(entry: unknown): entry is FocusRecordInterval {
   return (
     typeof candidate.startedAt === "string" &&
     typeof candidate.endedAt === "string" &&
-    (candidate.kind === "Focus" || candidate.kind === "Break")
+    isFocusSessionInterval(candidate.kind)
   );
 }
 
@@ -295,8 +307,7 @@ function isStoredFocusRecord(entry: unknown): entry is StoredFocusRecord {
     typeof candidate.completedFocusIntervalCount === "number" &&
     typeof candidate.completedBreakIntervalCount === "number" &&
     candidate.method === SUPPORTED_FOCUS_METHOD &&
-    (candidate.plannedFocusIntervalCount === null ||
-      typeof candidate.plannedFocusIntervalCount === "number") &&
+    isPlannedFocusIntervalCount(candidate.plannedFocusIntervalCount) &&
     Array.isArray(candidate.intervals) &&
     candidate.intervals.every(isFocusRecordInterval)
   );
