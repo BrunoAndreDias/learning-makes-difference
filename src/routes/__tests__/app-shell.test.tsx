@@ -2182,7 +2182,7 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "Notes workspace" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
+    fireEvent.click(screen.getByRole("button", { name: "Focus timing" }));
 
     const focusControls = screen.getByRole("form", {
       name: "Focus session start",
@@ -2214,6 +2214,102 @@ describe("authenticated app shell", () => {
     });
   });
 
+  it("starts a default FocusSession from settings without leaving the current screen", async () => {
+    const focusContext = createAppFocusContext({
+      keyPrefix: `test-focus-default-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-focus-default";
+    const { router } = renderRoute("/settings", {
+      focusContext,
+      session: {
+        user: {
+          displayName: "Casey Default",
+          email: "casey.default@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Settings" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
+
+    expect(router.state.location.pathname).toBe("/settings");
+    expect(
+      screen.getByRole("button", { name: "Focus active" }),
+    ).toBeInTheDocument();
+    expect(focusContext.getActiveSession({ userId })).toMatchObject({
+      breakIntervalMinutes: 5,
+      currentInterval: "Focus",
+      focusIntervalMinutes: 25,
+      method: "Pomodoro",
+      plannedFocusIntervalCount: null,
+    });
+  });
+
+  it("keeps the global FocusSession control available across notes, labels, recall, and settings", async () => {
+    const focusContext = createAppFocusContext({
+      keyPrefix: `test-focus-global-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-focus-global";
+    const { router } = renderRoute("/recall", {
+      focusContext,
+      session: {
+        user: {
+          displayName: "Casey Global",
+          email: "casey.global@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Results" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
+
+    expect(
+      screen.getByRole("button", { name: "Focus active" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Labels" }));
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Labels" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/labels");
+    expect(
+      screen.getByRole("button", { name: "Focus active" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Notes" }));
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/notes");
+    expect(
+      screen.getByRole("button", { name: "Focus active" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /account menu/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Settings" }));
+    expect(
+      await screen.findByRole("heading", { name: "Settings" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/settings");
+    expect(
+      screen.getByRole("button", { name: "Focus active" }),
+    ).toBeInTheDocument();
+  });
+
   it("restores an active FocusSession after a reload for the same user", async () => {
     const keyPrefix = `test-focus-reload-${Math.random().toString(36).slice(2)}`;
     const userId = "user-focus-reload";
@@ -2240,7 +2336,7 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "Notes workspace" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
+    fireEvent.click(screen.getByRole("button", { name: "Focus timing" }));
 
     const focusControls = screen.getByRole("form", {
       name: "Focus session start",
@@ -2318,11 +2414,6 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
-    fireEvent.submit(
-      screen.getByRole("form", {
-        name: "Focus session start",
-      }),
-    );
 
     initialRender.unmount();
 
@@ -2410,11 +2501,6 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
-    fireEvent.submit(
-      screen.getByRole("form", {
-        name: "Focus session start",
-      }),
-    );
 
     initialRender.unmount();
 
@@ -2497,11 +2583,6 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
-    fireEvent.submit(
-      screen.getByRole("form", {
-        name: "Focus session start",
-      }),
-    );
 
     vi.setSystemTime(new Date("2026-04-30T10:25:12.000Z"));
     fireEvent.click(screen.getByRole("button", { name: "End focus" }));

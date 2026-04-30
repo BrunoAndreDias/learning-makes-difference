@@ -209,7 +209,7 @@ export function AppLayout() {
           className="app-frame"
           data-workspace={isNotesWorkspaceRoute ? "notes" : undefined}
         >
-          <header className="app-frame__mobile-header">
+          <header className="app-frame__workspace-header">
             <div className="app-frame__titlebar">
               {isSidebarCollapsed ? (
                 <button
@@ -325,18 +325,22 @@ function FocusSessionStartControl({
     );
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
+  function startFocusSession(input?: {
+    breakMinutes?: string;
+    focusMinutes?: string;
+    plannedFocusIntervals?: string;
+  }) {
     if (userId === null) {
       return;
     }
 
     try {
       focus.startFocusSession({
-        breakIntervalMinutes: Number(breakMinutes),
-        focusIntervalMinutes: Number(focusMinutes),
-        plannedFocusIntervalCount: parseOptionalNumber(plannedFocusIntervals),
+        breakIntervalMinutes: Number(input?.breakMinutes ?? breakMinutes),
+        focusIntervalMinutes: Number(input?.focusMinutes ?? focusMinutes),
+        plannedFocusIntervalCount: parseOptionalNumber(
+          input?.plannedFocusIntervals ?? plannedFocusIntervals,
+        ),
         userId,
       });
       setErrorMessage(null);
@@ -349,6 +353,11 @@ function FocusSessionStartControl({
 
       throw error;
     }
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    startFocusSession();
   }
 
   function updateFocusMinutes(value: string) {
@@ -368,13 +377,29 @@ function FocusSessionStartControl({
 
   if (!isOpen) {
     return (
-      <button
-        className="notes-action notes-action-primary"
-        onClick={() => setIsOpen(true)}
-        type="button"
-      >
-        Start Focus
-      </button>
+      <div className="app-focus-session-start tag-row">
+        <button
+          className="notes-action notes-action-primary"
+          onClick={() =>
+            startFocusSession({
+              breakMinutes: DEFAULT_BREAK_MINUTES,
+              focusMinutes: DEFAULT_FOCUS_MINUTES,
+              plannedFocusIntervals: EMPTY_PLANNED_FOCUS_INTERVALS,
+            })
+          }
+          type="button"
+        >
+          Start Focus
+        </button>
+        <button
+          aria-expanded="false"
+          className="notes-action"
+          onClick={() => setIsOpen(true)}
+          type="button"
+        >
+          Focus timing
+        </button>
+      </div>
     );
   }
 
@@ -382,7 +407,7 @@ function FocusSessionStartControl({
     <form
       aria-describedby={errorMessage === null ? undefined : errorId}
       aria-label="Focus session start"
-      className="tag-row"
+      className="app-focus-session-start tag-row"
       onSubmit={handleSubmit}
     >
       <label>
@@ -417,6 +442,7 @@ function FocusSessionStartControl({
         Start Focus
       </button>
       <button
+        aria-expanded="true"
         className="notes-action"
         onClick={() => {
           setIsOpen(false);
