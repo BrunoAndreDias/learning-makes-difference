@@ -37,6 +37,8 @@ type FocusSessionStartValues = {
   plannedFocusIntervals: string;
 };
 
+type FocusSessionStartField = keyof FocusSessionStartValues;
+
 const DEFAULT_FOCUS_MINUTES = "25";
 const DEFAULT_BREAK_MINUTES = "5";
 const EMPTY_PLANNED_FOCUS_INTERVALS = "";
@@ -279,10 +281,8 @@ function FocusSessionStartControl({
   userId: string | null;
 }>) {
   const [isOpen, setIsOpen] = useState(false);
-  const [focusMinutes, setFocusMinutes] = useState(DEFAULT_FOCUS_MINUTES);
-  const [breakMinutes, setBreakMinutes] = useState(DEFAULT_BREAK_MINUTES);
-  const [plannedFocusIntervals, setPlannedFocusIntervals] = useState(
-    EMPTY_PLANNED_FOCUS_INTERVALS,
+  const [startValues, setStartValues] = useState<FocusSessionStartValues>(
+    DEFAULT_FOCUS_SESSION_START_VALUES,
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const errorId = useId();
@@ -416,7 +416,10 @@ function FocusSessionStartControl({
         userId,
       });
       setErrorMessage(null);
-      setPlannedFocusIntervals(EMPTY_PLANNED_FOCUS_INTERVALS);
+      setStartValues((currentValues) => ({
+        ...currentValues,
+        plannedFocusIntervals: EMPTY_PLANNED_FOCUS_INTERVALS,
+      }));
     } catch (error) {
       if (error instanceof AppFocusError) {
         setErrorMessage(error.message);
@@ -433,25 +436,20 @@ function FocusSessionStartControl({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    startFocusSessionFromValues({
-      breakMinutes,
-      focusMinutes,
-      plannedFocusIntervals,
-    });
+    startFocusSessionFromValues(startValues);
   }
 
-  function updateFocusMinutes(value: string) {
-    setFocusMinutes(value);
+  function updateStartValue(field: FocusSessionStartField, value: string) {
+    setStartValues((currentValues) => ({
+      ...currentValues,
+      [field]: value,
+    }));
     setErrorMessage(null);
   }
 
-  function updateBreakMinutes(value: string) {
-    setBreakMinutes(value);
-    setErrorMessage(null);
-  }
-
-  function updatePlannedFocusIntervals(value: string) {
-    setPlannedFocusIntervals(value);
+  function closeTimingForm() {
+    shouldRestoreTimingButtonFocusRef.current = true;
+    setIsOpen(false);
     setErrorMessage(null);
   }
 
@@ -491,43 +489,41 @@ function FocusSessionStartControl({
         <span className="sr-only">Focus minutes</span>
         <input
           inputMode="numeric"
-          onChange={(event) => updateFocusMinutes(event.target.value)}
+          onChange={(event) =>
+            updateStartValue("focusMinutes", event.target.value)
+          }
           ref={focusMinutesInputRef}
           type="number"
-          value={focusMinutes}
+          value={startValues.focusMinutes}
         />
       </label>
       <label>
         <span className="sr-only">Break minutes</span>
         <input
           inputMode="numeric"
-          onChange={(event) => updateBreakMinutes(event.target.value)}
+          onChange={(event) =>
+            updateStartValue("breakMinutes", event.target.value)
+          }
           type="number"
-          value={breakMinutes}
+          value={startValues.breakMinutes}
         />
       </label>
       <label>
         <span className="sr-only">Planned focus intervals</span>
         <input
           inputMode="numeric"
-          onChange={(event) => updatePlannedFocusIntervals(event.target.value)}
+          onChange={(event) =>
+            updateStartValue("plannedFocusIntervals", event.target.value)
+          }
           placeholder="Optional rounds"
           type="number"
-          value={plannedFocusIntervals}
+          value={startValues.plannedFocusIntervals}
         />
       </label>
       <button className="notes-action notes-action-primary" type="submit">
         Start Focus
       </button>
-      <button
-        className="notes-action"
-        onClick={() => {
-          shouldRestoreTimingButtonFocusRef.current = true;
-          setIsOpen(false);
-          setErrorMessage(null);
-        }}
-        type="button"
-      >
+      <button className="notes-action" onClick={closeTimingForm} type="button">
         Cancel
       </button>
       {errorMessage === null ? null : (
