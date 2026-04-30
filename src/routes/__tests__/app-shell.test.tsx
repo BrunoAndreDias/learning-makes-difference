@@ -631,8 +631,10 @@ describe("authenticated app shell", () => {
     const recallLink = within(appSections).getByRole("link", {
       name: "Recall",
     });
+    const focusLink = within(appSections).getByRole("link", { name: "Focus" });
 
     expect(within(appSections).getAllByRole("link")).toEqual([
+      focusLink,
       notesLink,
       labelsLink,
       recallLink,
@@ -662,6 +664,155 @@ describe("authenticated app shell", () => {
     expect(router.state.location.pathname).toBe("/recall");
     expect(recallLink).toHaveAttribute("aria-current", "page");
     expect(labelsLink).not.toHaveAttribute("aria-current");
+  });
+
+  it("adds Focus to primary navigation and opens the Focus section", async () => {
+    const { router } = renderRoute("/notes");
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const sidebar = screen.getByRole("complementary", {
+      name: "Notes workspace",
+    });
+    const appSections = within(sidebar).getByRole("navigation", {
+      name: "App sections",
+    });
+    const focusLink = within(appSections).getByRole("link", { name: "Focus" });
+
+    expect(focusLink).toHaveAttribute("href", "/focus");
+
+    fireEvent.click(focusLink);
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Focus records" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/focus");
+    expect(focusLink).toHaveAttribute("aria-current", "page");
+  });
+
+  it("renders completed FocusRecords newest first with metrics, targets, aggregate, and read-only history", async () => {
+    vi.useFakeTimers();
+
+    const userId = "user-focus-history";
+    const { focusContext, labelsContext, notesContext, recallContext } =
+      createLearningLoopTestContexts({
+        shuffleNotes: (sessionNotes) => [...sessionNotes],
+      });
+    const biologyLabel = labelsContext.createLabel({
+      name: "Biology",
+      userId,
+    });
+    const recallLabel = labelsContext.createLabel({
+      name: "Recall label",
+      userId,
+    });
+    const labeledNote = createRecallNote(notesContext, userId, {
+      body: "Cells and systems.",
+      labelIds: [biologyLabel.id],
+      title: "Biology notes",
+    });
+    const unlabeledNote = createRecallNote(notesContext, userId, {
+      body: "Draft ideas without labels.",
+      title: "Loose draft",
+    });
+    const recallNote = createRecallNote(notesContext, userId, {
+      body: "Recall practice body.",
+      labelIds: [recallLabel.id],
+      title: "Recall target note",
+    });
+
+    vi.setSystemTime(new Date("2026-04-30T08:00:00.000Z"));
+    focusContext.startFocusSession({ focusIntervalMinutes: 25, userId });
+    focusContext.captureNoteStudyActivity({
+      labels: labelsContext.getLabelsForUser(userId),
+      note: labeledNote,
+      userId,
+    });
+    vi.setSystemTime(new Date("2026-04-30T08:25:12.000Z"));
+    focusContext.endFocusSession({ userId });
+
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+    focusContext.startFocusSession({
+      breakIntervalMinutes: 5,
+      focusIntervalMinutes: 25,
+      userId,
+    });
+    focusContext.captureNoteStudyActivity({
+      labels: labelsContext.getLabelsForUser(userId),
+      note: unlabeledNote,
+      userId,
+    });
+    vi.setSystemTime(new Date("2026-04-30T10:30:30.000Z"));
+    focusContext.startNextFocusInterval({ userId });
+    createCompletedRecallSession(recallContext, {
+      noteId: recallNote.id,
+      rating: "nailed",
+      timestamp: "2026-04-30T10:31:00.000Z",
+      userId,
+    });
+    vi.setSystemTime(new Date("2026-04-30T10:55:42.000Z"));
+    focusContext.endFocusSession({ userId });
+    vi.useRealTimers();
+
+    renderRoute("/focus", {
+      focusContext,
+      labelsContext,
+      notesContext,
+      recallContext,
+      session: {
+        user: {
+          displayName: "Casey Focus History",
+          email: "casey.focus.history@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Focus records" }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText(/FocusRecords are read-only in v1\./),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /edit focus record/i }),
+    ).toBeNull();
+
+    const metricHeadings = screen.getAllByRole("heading", { level: 4 });
+    expect(metricHeadings.map((heading) => heading.textContent)).toEqual([
+      "50 minutes focused",
+      "25 minutes focused",
+    ]);
+
+    expect(screen.getByText("1 break, 5 minutes")).toBeInTheDocument();
+    expect(screen.getByText("0 breaks, 0 minutes")).toBeInTheDocument();
+    const recentCompletedFocus = screen.getByLabelText(
+      "Recent completed focus",
+    );
+    expect(
+      within(recentCompletedFocus).getByText("75 minutes"),
+    ).toBeInTheDocument();
+    expect(
+      within(recentCompletedFocus).getByText("5 minutes"),
+    ).toBeInTheDocument();
+    expect(within(recentCompletedFocus).getByText("2")).toBeInTheDocument();
+
+    expect(
+      screen.getByText("Note: Loose draft | Unlabeled note work"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Note: Biology notes | Labels: Biology"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "RecallSession: FlashCard | Notes: Recall target note | Labels: Recall label",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("supports skip navigation and manages focus when the mobile menu opens and closes", async () => {

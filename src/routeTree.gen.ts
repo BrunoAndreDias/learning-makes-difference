@@ -14,6 +14,7 @@ import { Route as modulesWorkspaceShellRoutesProtectedRouteRouteImport } from '.
 import { Route as modulesAccessRoutesAuthLayoutRouteRouteImport } from './modules/access/routes/auth-layout-route'
 import { Route as modulesAccessRoutesSettingsRouteRouteImport } from './modules/access/routes/settings-route'
 import { Route as modulesLearningLoopRoutesRecallRouteRouteImport } from './modules/learning-loop/routes/recall-route'
+import { Route as modulesLearningLoopRoutesFocusRouteRouteImport } from './modules/learning-loop/routes/focus-route'
 import { Route as modulesLearningLoopRoutesNotesRouteRouteImport } from './modules/learning-loop/routes/notes-route'
 import { Route as modulesLabelsRoutesLabelsRouteRouteImport } from './modules/labels/routes/labels-route'
 import { Route as modulesAccessRoutesRegisterRouteRouteImport } from './modules/access/routes/register-route'
@@ -49,6 +50,12 @@ const modulesLearningLoopRoutesRecallRouteRoute =
   modulesLearningLoopRoutesRecallRouteRouteImport.update({
     id: '/recall',
     path: '/recall',
+    getParentRoute: () => modulesWorkspaceShellRoutesProtectedRouteRoute,
+  } as any)
+const modulesLearningLoopRoutesFocusRouteRoute =
+  modulesLearningLoopRoutesFocusRouteRouteImport.update({
+    id: '/focus',
+    path: '/focus',
     getParentRoute: () => modulesWorkspaceShellRoutesProtectedRouteRoute,
   } as any)
 const modulesLearningLoopRoutesNotesRouteRoute =
@@ -111,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof modulesAccessRoutesForgotPasswordRouteRoute
   '/login': typeof modulesAccessRoutesLoginRouteRoute
   '/register': typeof modulesAccessRoutesRegisterRouteRoute
+  '/focus': typeof modulesLearningLoopRoutesFocusRouteRoute
   '/labels': typeof modulesLabelsRoutesLabelsRouteRoute
   '/notes': typeof modulesLearningLoopRoutesNotesRouteRoute
   '/recall': typeof modulesLearningLoopRoutesRecallRouteRouteWithChildren
@@ -124,6 +132,7 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof modulesAccessRoutesForgotPasswordRouteRoute
   '/login': typeof modulesAccessRoutesLoginRouteRoute
   '/register': typeof modulesAccessRoutesRegisterRouteRoute
+  '/focus': typeof modulesLearningLoopRoutesFocusRouteRoute
   '/labels': typeof modulesLabelsRoutesLabelsRouteRoute
   '/notes': typeof modulesLearningLoopRoutesNotesRouteRoute
   '/settings': typeof modulesAccessRoutesSettingsRouteRoute
@@ -140,6 +149,7 @@ export interface FileRoutesById {
   '/_auth/forgot-password': typeof modulesAccessRoutesForgotPasswordRouteRoute
   '/_auth/login': typeof modulesAccessRoutesLoginRouteRoute
   '/_auth/register': typeof modulesAccessRoutesRegisterRouteRoute
+  '/_protected/focus': typeof modulesLearningLoopRoutesFocusRouteRoute
   '/_protected/labels': typeof modulesLabelsRoutesLabelsRouteRoute
   '/_protected/notes': typeof modulesLearningLoopRoutesNotesRouteRoute
   '/_protected/recall': typeof modulesLearningLoopRoutesRecallRouteRouteWithChildren
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/register'
+    | '/focus'
     | '/labels'
     | '/notes'
     | '/recall'
@@ -168,6 +179,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/register'
+    | '/focus'
     | '/labels'
     | '/notes'
     | '/settings'
@@ -183,6 +195,7 @@ export interface FileRouteTypes {
     | '/_auth/forgot-password'
     | '/_auth/login'
     | '/_auth/register'
+    | '/_protected/focus'
     | '/_protected/labels'
     | '/_protected/notes'
     | '/_protected/recall'
@@ -233,6 +246,13 @@ declare module '@tanstack/react-router' {
       path: '/recall'
       fullPath: '/recall'
       preLoaderRoute: typeof modulesLearningLoopRoutesRecallRouteRouteImport
+      parentRoute: typeof modulesWorkspaceShellRoutesProtectedRouteRoute
+    }
+    '/_protected/focus': {
+      id: '/_protected/focus'
+      path: '/focus'
+      fullPath: '/focus'
+      preLoaderRoute: typeof modulesLearningLoopRoutesFocusRouteRouteImport
       parentRoute: typeof modulesWorkspaceShellRoutesProtectedRouteRoute
     }
     '/_protected/notes': {
@@ -343,6 +363,7 @@ const modulesLearningLoopRoutesRecallRouteRouteWithChildren =
   )
 
 interface modulesWorkspaceShellRoutesProtectedRouteRouteChildren {
+  modulesLearningLoopRoutesFocusRouteRoute: typeof modulesLearningLoopRoutesFocusRouteRoute
   modulesLabelsRoutesLabelsRouteRoute: typeof modulesLabelsRoutesLabelsRouteRoute
   modulesLearningLoopRoutesNotesRouteRoute: typeof modulesLearningLoopRoutesNotesRouteRoute
   modulesLearningLoopRoutesRecallRouteRoute: typeof modulesLearningLoopRoutesRecallRouteRouteWithChildren
@@ -351,6 +372,8 @@ interface modulesWorkspaceShellRoutesProtectedRouteRouteChildren {
 
 const modulesWorkspaceShellRoutesProtectedRouteRouteChildren: modulesWorkspaceShellRoutesProtectedRouteRouteChildren =
   {
+    modulesLearningLoopRoutesFocusRouteRoute:
+      modulesLearningLoopRoutesFocusRouteRoute,
     modulesLabelsRoutesLabelsRouteRoute: modulesLabelsRoutesLabelsRouteRoute,
     modulesLearningLoopRoutesNotesRouteRoute:
       modulesLearningLoopRoutesNotesRouteRoute,

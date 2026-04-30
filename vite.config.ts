@@ -71,6 +71,11 @@ export default defineConfig({
                 },
                 {
                   type: "route",
+                  path: "/focus",
+                  file: "modules/learning-loop/routes/focus-route.tsx",
+                },
+                {
+                  type: "route",
                   path: "/recall",
                   file: "modules/learning-loop/routes/recall-route.tsx",
                   children: [

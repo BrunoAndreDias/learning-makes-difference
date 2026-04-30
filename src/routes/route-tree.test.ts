@@ -20,6 +20,9 @@ describe("route tree", () => {
       "modules/learning-loop/routes/recall-route",
     );
     expect(generatedRouteTree).toContain(
+      "modules/learning-loop/routes/focus-route",
+    );
+    expect(generatedRouteTree).toContain(
       "modules/access/routes/settings-route",
     );
 
@@ -37,6 +40,9 @@ describe("route tree", () => {
     );
     expect(generatedRouteTree).toContain(
       "'/recall': typeof modulesLearningLoopRoutesRecallRouteRouteWithChildren",
+    );
+    expect(generatedRouteTree).toContain(
+      "'/focus': typeof modulesLearningLoopRoutesFocusRouteRoute",
     );
     expect(generatedRouteTree).not.toContain(
       "'/recall/results': typeof ProtectedRecallResultsRoute",

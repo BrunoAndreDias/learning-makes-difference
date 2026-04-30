@@ -29,7 +29,7 @@ import {
   type FocusSession,
 } from "../../learning-loop/domain/focus";
 
-type NavigationIconName = "label" | "note" | "recall" | "settings";
+type NavigationIconName = "focus" | "label" | "note" | "recall" | "settings";
 
 type FocusSessionStartValues = {
   breakMinutes: string;
@@ -53,6 +53,10 @@ function getWorkspaceTitle(pathname: string) {
 
   if (pathname === "/recall" || pathname.startsWith("/recall/")) {
     return "Recall";
+  }
+
+  if (pathname === "/focus" || pathname.startsWith("/focus/")) {
+    return "Focus";
   }
 
   if (pathname === "/settings" || pathname.startsWith("/settings/")) {
@@ -523,6 +527,21 @@ function GlobalNavigation({
             }}
             className="app-sidebar__link"
             onClick={onNavigate}
+            to="/focus"
+          >
+            <span aria-hidden="true" className="app-sidebar__icon">
+              <NavigationIcon name="focus" />
+            </span>
+            <span className="app-sidebar__label">Focus</span>
+          </Link>
+        </li>
+        <li>
+          <Link
+            activeProps={{
+              className: "app-sidebar__link app-sidebar__link-active",
+            }}
+            className="app-sidebar__link"
+            onClick={onNavigate}
             to="/notes"
           >
             <span aria-hidden="true" className="app-sidebar__icon">
@@ -719,6 +738,20 @@ function NavigationIcon({
   name: NavigationIconName;
 }>) {
   switch (name) {
+    case "focus":
+      return (
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M12 3v4" />
+          <path d="M18.4 5.6 16 8" />
+          <path d="M21 12h-4" />
+          <path d="M18.4 18.4 16 16" />
+          <path d="M12 21v-4" />
+          <path d="M5.6 18.4 8 16" />
+          <path d="M3 12h4" />
+          <path d="M5.6 5.6 8 8" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      );
     case "recall":
       return (
         <svg aria-hidden="true" viewBox="0 0 24 24">
