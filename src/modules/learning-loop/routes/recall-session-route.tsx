@@ -179,7 +179,7 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
               </ol>
             </nav>
             <h2 className="sr-only">FlashCard session</h2>
-            <p className="recall-shell__label">{activeSession.labelName}</p>
+            <p className="recall-shell__label">Selected notes</p>
           </div>
           <button
             className="notes-action recall-shell__end"

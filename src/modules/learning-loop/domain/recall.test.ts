@@ -457,8 +457,6 @@ describe("recall session setup", () => {
 
     expect(session).toMatchObject({
       id: "session-1-1-1-1",
-      labelId: null,
-      labelName: "Selected notes",
       mode: "FlashCard",
     });
     expect(session.notes.map((note) => note.title)).toEqual([
@@ -466,6 +464,87 @@ describe("recall session setup", () => {
       "Biology note",
       "Science note",
     ]);
+  });
+
+  it("exposes RecallSession questions through the mode-ready interface", () => {
+    const storage = createMemoryStorage();
+    const notes = createAppNotesContext({
+      keyPrefix: "recall-test-question-interface-notes",
+      storage,
+    });
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          "session-question-interface" as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "recall-test-question-interface-session",
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+    });
+    const userId = "owner";
+    const note = notes.createNote(userId, {
+      acronyms: [],
+      body: "Question-shaped answer",
+      labelIds: [],
+      metaphors: [],
+      title: "Question-shaped prompt",
+    });
+
+    const session = recall.startRecallSession({
+      mode: "FlashCard",
+      noteIds: [note.id],
+      userId,
+    });
+
+    expect(session).toMatchObject({
+      currentQuestionIndex: 0,
+      mode: "FlashCard",
+      questions: [
+        {
+          isAnswerRevealed: false,
+          noteId: note.id,
+          noteSnapshot: {
+            body: "Question-shaped answer",
+            title: "Question-shaped prompt",
+          },
+          selfRating: null,
+        },
+      ],
+    });
+    expect("labelId" in session).toBe(false);
+    expect("labelName" in session).toBe(false);
+
+    const revealedSession = recall.revealAnswer({
+      sessionId: session.id,
+      userId,
+    });
+
+    expect(revealedSession.questions[0]).toMatchObject({
+      isAnswerRevealed: true,
+      selfRating: null,
+    });
+
+    expect(
+      recall.answerQuestion({
+        rating: "nailed",
+        sessionId: session.id,
+        userId,
+      }),
+    ).toBeNull();
+
+    expect(recall.listSessionResults({ userId })[0]).toMatchObject({
+      mode: "FlashCard",
+      questions: [
+        {
+          isAnswerRevealed: false,
+          noteId: note.id,
+          selfRating: "nailed",
+        },
+      ],
+    });
+    expect("labelId" in recall.listSessionResults({ userId })[0]).toBe(false);
+    expect("labelName" in recall.listSessionResults({ userId })[0]).toBe(false);
   });
 
   it("requires at least one selected note to start a session", () => {
@@ -547,8 +626,6 @@ describe("recall session setup", () => {
 
     expect(session).toMatchObject({
       id: "session-selected-note",
-      labelId: null,
-      labelName: "Selected notes",
       mode: "FlashCard",
       notes: [
         {
@@ -616,8 +693,6 @@ describe("recall session setup", () => {
       {
         attempts: [{ noteId: note.id, rating: "partial" }],
         id: attemptedSession.id,
-        labelId: null,
-        labelName: "Selected notes",
       },
     ]);
 
@@ -780,8 +855,6 @@ describe("recall session setup", () => {
       {
         attempts: [{ noteId: note.id, rating: "nailed" }],
         id: attemptedSession.id,
-        labelId: null,
-        labelName: "Selected notes",
         notes: [
           {
             body: "Original answer",
@@ -1005,10 +1078,8 @@ describe("recall session setup", () => {
     expect(
       recall
         .listSessionResults({ labelId: science.id, userId })
-        .map((result) => {
-          return result.labelName;
-        }),
-    ).toEqual(["Selected notes"]);
+        .map((result) => result.mode),
+    ).toEqual(["FlashCard"]);
     expect(recall.listSessionResults({ userId })).toHaveLength(2);
     expect(recall.listSessionResults({ userId: "user-2" })).toHaveLength(1);
   });

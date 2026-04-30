@@ -175,7 +175,7 @@ function SelectedSessionResult({
     <div className="stack">
       <header className="stack">
         <p className="section-label">SessionResult</p>
-        <h4>{sessionResult.labelName}</h4>
+        <h4>Selected notes</h4>
       </header>
 
       <section

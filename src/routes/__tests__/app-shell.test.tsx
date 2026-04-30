@@ -2629,11 +2629,12 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "FlashCard session" }),
     ).toBeInTheDocument();
     expect(recallContext.getSnapshot()).toMatchObject({
-      labelId: null,
+      mode: "FlashCard",
       notes: [
         { id: titleNote.id, title: "Encoding specificity" },
         { id: acronymNote.id, title: "Metacognition" },
       ],
+      questions: [{ noteId: titleNote.id }, { noteId: acronymNote.id }],
     });
     expect(recallContext.getSnapshot()?.notes).not.toEqual(
       expect.arrayContaining([{ id: bodyNote.id }, { id: metaphorNote.id }]),
