@@ -31,9 +31,20 @@ import {
 
 type NavigationIconName = "label" | "note" | "recall" | "settings";
 
+type FocusSessionStartValues = {
+  breakMinutes: string;
+  focusMinutes: string;
+  plannedFocusIntervals: string;
+};
+
 const DEFAULT_FOCUS_MINUTES = "25";
 const DEFAULT_BREAK_MINUTES = "5";
 const EMPTY_PLANNED_FOCUS_INTERVALS = "";
+const DEFAULT_FOCUS_SESSION_START_VALUES: FocusSessionStartValues = {
+  breakMinutes: DEFAULT_BREAK_MINUTES,
+  focusMinutes: DEFAULT_FOCUS_MINUTES,
+  plannedFocusIntervals: EMPTY_PLANNED_FOCUS_INTERVALS,
+};
 
 function getWorkspaceTitle(pathname: string) {
   if (pathname === "/labels" || pathname.startsWith("/labels/")) {
@@ -209,7 +220,7 @@ export function AppLayout() {
           className="app-frame"
           data-workspace={isNotesWorkspaceRoute ? "notes" : undefined}
         >
-          <header className="app-frame__mobile-header">
+          <header className="app-frame__workspace-header">
             <div className="app-frame__titlebar">
               {isSidebarCollapsed ? (
                 <button
@@ -271,6 +282,7 @@ function FocusSessionStartControl({
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const errorId = useId();
+  const formId = useId();
 
   useEffect(() => {
     if (activeFocusSession === null) {
@@ -325,18 +337,18 @@ function FocusSessionStartControl({
     );
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
+  function startFocusSessionFromValues(input: FocusSessionStartValues) {
     if (userId === null) {
       return;
     }
 
     try {
       focus.startFocusSession({
-        breakIntervalMinutes: Number(breakMinutes),
-        focusIntervalMinutes: Number(focusMinutes),
-        plannedFocusIntervalCount: parseOptionalNumber(plannedFocusIntervals),
+        breakIntervalMinutes: Number(input.breakMinutes),
+        focusIntervalMinutes: Number(input.focusMinutes),
+        plannedFocusIntervalCount: parseOptionalNumber(
+          input.plannedFocusIntervals,
+        ),
         userId,
       });
       setErrorMessage(null);
@@ -349,6 +361,19 @@ function FocusSessionStartControl({
 
       throw error;
     }
+  }
+
+  function startDefaultFocusSession() {
+    startFocusSessionFromValues(DEFAULT_FOCUS_SESSION_START_VALUES);
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    startFocusSessionFromValues({
+      breakMinutes,
+      focusMinutes,
+      plannedFocusIntervals,
+    });
   }
 
   function updateFocusMinutes(value: string) {
@@ -368,13 +393,24 @@ function FocusSessionStartControl({
 
   if (!isOpen) {
     return (
-      <button
-        className="notes-action notes-action-primary"
-        onClick={() => setIsOpen(true)}
-        type="button"
-      >
-        Start Focus
-      </button>
+      <div className="app-focus-session-start tag-row">
+        <button
+          className="notes-action notes-action-primary"
+          onClick={startDefaultFocusSession}
+          type="button"
+        >
+          Start Focus
+        </button>
+        <button
+          aria-controls={formId}
+          aria-expanded="false"
+          className="notes-action"
+          onClick={() => setIsOpen(true)}
+          type="button"
+        >
+          Focus timing
+        </button>
+      </div>
     );
   }
 
@@ -382,7 +418,8 @@ function FocusSessionStartControl({
     <form
       aria-describedby={errorMessage === null ? undefined : errorId}
       aria-label="Focus session start"
-      className="tag-row"
+      className="app-focus-session-start tag-row"
+      id={formId}
       onSubmit={handleSubmit}
     >
       <label>
