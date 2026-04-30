@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppFocusError, createAppFocusContext } from "./focus";
+import type { AppNote } from "./notes";
 
 function createMemoryStorage() {
   const values = new Map<string, string>();
@@ -411,6 +412,186 @@ describe("focus sessions", () => {
       startedAt: "2026-04-30T10:00:00.000Z",
     });
     expect(focus.getFocusRecords({ userId: "owner" })).toEqual([record]);
+  });
+
+  it("captures note study activity and saves note plus label snapshots in the FocusRecord", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    const focus = createAppFocusContext({
+      keyPrefix: "focus-test-note-target",
+      storage: createMemoryStorage(),
+    });
+
+    focus.startFocusSession({
+      focusIntervalMinutes: 25,
+      userId: "owner",
+    });
+
+    focus.captureNoteStudyActivity({
+      labels: [
+        {
+          id: "label-biology",
+          name: "Biology",
+          parentIds: [],
+        },
+      ],
+      note: {
+        acronyms: [],
+        body: "Neurons strengthen through repeated firing.",
+        createdAt: "2026-04-29T10:00:00.000Z",
+        id: "note-1",
+        labelIds: ["label-biology"],
+        metaphors: [],
+        title: "Neural pathways",
+        updatedAt: "2026-04-30T10:05:00.000Z",
+      },
+      userId: "owner",
+    });
+
+    vi.setSystemTime(new Date("2026-04-30T10:25:12.000Z"));
+
+    const record = focus.endFocusSession({ userId: "owner" });
+
+    expect(record).toMatchObject({
+      targets: [
+        {
+          kind: "Note",
+          labels: [
+            {
+              id: "label-biology",
+              name: "Biology",
+              parentIds: [],
+            },
+          ],
+          note: {
+            body: "Neurons strengthen through repeated firing.",
+            id: "note-1",
+            labelIds: ["label-biology"],
+            title: "Neural pathways",
+          },
+        },
+      ],
+    });
+  });
+
+  it("ignores note study activity outside an active FocusInterval", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    const focus = createAppFocusContext({
+      keyPrefix: "focus-test-break-ignore",
+      storage: createMemoryStorage(),
+    });
+
+    focus.startFocusSession({
+      breakIntervalMinutes: 5,
+      focusIntervalMinutes: 25,
+      userId: "owner",
+    });
+
+    vi.setSystemTime(new Date("2026-04-30T10:25:31.000Z"));
+
+    focus.captureNoteStudyActivity({
+      labels: [],
+      note: {
+        acronyms: [],
+        body: "Break work should not count.",
+        createdAt: "2026-04-30T10:20:00.000Z",
+        id: "note-break",
+        labelIds: [],
+        metaphors: [],
+        title: "Break note",
+        updatedAt: "2026-04-30T10:25:31.000Z",
+      },
+      userId: "owner",
+    });
+
+    vi.setSystemTime(new Date("2026-04-30T10:30:40.000Z"));
+
+    const record = focus.endFocusSession({ userId: "owner" });
+
+    expect(record).toMatchObject({
+      completedFocusIntervalCount: 1,
+      targets: [],
+    });
+  });
+
+  it("reinforces an existing note target and keeps unlabeled work valid", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    const focus = createAppFocusContext({
+      keyPrefix: "focus-test-note-reinforce",
+      storage: createMemoryStorage(),
+    });
+
+    focus.startFocusSession({
+      focusIntervalMinutes: 25,
+      userId: "owner",
+    });
+
+    const note: AppNote = {
+      acronyms: [],
+      body: "Initial draft body.",
+      createdAt: "2026-04-30T09:58:00.000Z",
+      id: "note-reinforced",
+      labelIds: [],
+      metaphors: [],
+      title: "Draft note",
+      updatedAt: "2026-04-30T10:02:00.000Z",
+    };
+
+    focus.captureNoteStudyActivity({
+      labels: [],
+      note,
+      userId: "owner",
+    });
+
+    note.body = "Mutated outside the focus context.";
+    note.labelIds = ["label-1"];
+    note.title = "Mutated title";
+
+    focus.captureNoteStudyActivity({
+      labels: [
+        {
+          id: "label-1",
+          name: "Biology",
+          parentIds: [],
+        },
+      ],
+      note: {
+        ...note,
+        body: "Saved note body.",
+        title: "Saved note",
+        updatedAt: "2026-04-30T10:10:00.000Z",
+      },
+      userId: "owner",
+    });
+
+    vi.setSystemTime(new Date("2026-04-30T10:25:12.000Z"));
+
+    const record = focus.endFocusSession({ userId: "owner" });
+
+    expect(record).toMatchObject({
+      targets: [
+        {
+          labels: [
+            {
+              id: "label-1",
+              name: "Biology",
+            },
+          ],
+          note: {
+            body: "Saved note body.",
+            id: "note-reinforced",
+            labelIds: ["label-1"],
+            title: "Saved note",
+          },
+        },
+      ],
+    });
+    expect(record?.targets).toHaveLength(1);
   });
 
   it("discards a FocusSession ended before any FocusInterval completes", () => {

@@ -277,13 +277,20 @@ function getSelectedSessionResultRegion() {
   });
 }
 
+let documentVisibilityState: DocumentVisibilityState = "visible";
+
 beforeAll(() => {
   window.scrollTo = vi.fn();
   HTMLElement.prototype.scrollIntoView = vi.fn();
+  Object.defineProperty(document, "visibilityState", {
+    configurable: true,
+    get: () => documentVisibilityState,
+  });
 });
 
 afterEach(() => {
   cleanup();
+  documentVisibilityState = "visible";
   vi.useRealTimers();
 });
 
@@ -2511,6 +2518,147 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(focusContext.getActiveSession({ userId })).toBeNull();
     expect(focusContext.getFocusRecords({ userId })).toHaveLength(1);
+  });
+
+  it("captures unlabeled note saves as FocusTargets during an active FocusInterval", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    const keyPrefix = `test-focus-note-save-${Math.random().toString(36).slice(2)}`;
+    const userId = "user-focus-note-save";
+    const focusContext = createAppFocusContext({
+      keyPrefix,
+      storage: window.localStorage,
+    });
+    const session = {
+      user: {
+        displayName: "Casey Note Save",
+        email: "casey.note.save@example.com",
+        id: userId,
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+      },
+    } satisfies AppSessionSnapshot;
+
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    renderRoute("/notes", {
+      focusContext,
+      session,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
+    fireEvent.submit(
+      screen.getByRole("form", {
+        name: "Focus session start",
+      }),
+    );
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Focus-captured draft" },
+    });
+    fireEvent.change(screen.getByLabelText("Body"), {
+      target: { value: "Unlabeled note work should still count." },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
+
+    act(() => {
+      vi.advanceTimersByTime(25 * 60 * 1000 + 12 * 1000);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "End focus" }));
+
+    expect(focusContext.getFocusRecords({ userId })).toMatchObject([
+      {
+        targets: [
+          {
+            labels: [],
+            note: {
+              body: "Unlabeled note work should still count.",
+              title: "Focus-captured draft",
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("captures selected note review after 30 visible seconds during an active FocusInterval", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    const keyPrefix = `test-focus-note-review-${Math.random().toString(36).slice(2)}`;
+    const userId = "user-focus-note-review";
+    const focusContext = createAppFocusContext({
+      keyPrefix,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const reviewedNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Selected review time should count after the threshold.",
+      labelIds: [],
+      metaphors: [],
+      title: "Review target",
+    });
+    const session = {
+      user: {
+        displayName: "Casey Note Review",
+        email: "casey.note.review@example.com",
+        id: userId,
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+      },
+    } satisfies AppSessionSnapshot;
+
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    renderRoute("/notes", {
+      focusContext,
+      notesContext,
+      session,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue(
+        "Selected review time should count after the threshold.",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
+    fireEvent.submit(
+      screen.getByRole("form", {
+        name: "Focus session start",
+      }),
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(30 * 1000);
+      vi.advanceTimersByTime(24 * 60 * 1000 + 42 * 1000);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "End focus" }));
+
+    expect(focusContext.getFocusRecords({ userId })).toMatchObject([
+      {
+        targets: [
+          {
+            note: {
+              id: reviewedNote.id,
+              title: "Review target",
+            },
+          },
+        ],
+      },
+    ]);
   });
 
   it("manages note metaphors inside the note workflow", async () => {

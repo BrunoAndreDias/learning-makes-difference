@@ -32,6 +32,7 @@ import { resolveNotesSearchTargetElement } from "../domain/note-search-navigatio
 import {
   type AppAcronym,
   type AppMetaphor,
+  type AppNote,
   AppNotesError,
   type AppStoredNote,
   listNotesForUser,
@@ -43,6 +44,7 @@ const notesSearchListboxId = "notes-search-results";
 const noteEditorFormId = "note-editor-form";
 const minNoteBodyFraction = 0.35;
 const maxNoteBodyFraction = 0.95;
+const noteReviewThresholdMs = 30_000;
 
 export const Route = createFileRoute("/_protected/notes")({
   component: NotesWorkspace,
@@ -66,6 +68,10 @@ function getSearchResultLabel(result: AppNoteSearchResult): string {
 
 export function NotesWorkspace() {
   const location = useLocation();
+  const focusContext = useRouteContext({
+    from: "/_protected/notes",
+    select: (context) => context.focus,
+  });
   const notesContext = useRouteContext({
     from: "/_protected/notes",
     select: (context) => context.notes,
@@ -83,6 +89,11 @@ export function NotesWorkspace() {
     notesContext.subscribe,
     notesContext.getSnapshot,
     notesContext.getSnapshot,
+  );
+  useSyncExternalStore(
+    focusContext.subscribe,
+    focusContext.getSnapshot,
+    focusContext.getSnapshot,
   );
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
     sessionContext.subscribe,
@@ -146,6 +157,24 @@ export function NotesWorkspace() {
   const editorIdentity =
     noteEditor.mode === "draft" ? "draft" : noteEditor.selectedNoteId;
   const previousEditorIdentityRef = useRef(editorIdentity);
+
+  function getAttachedLabels(noteLabelIds: readonly string[]) {
+    return labelsContext
+      .getLabelsForUser(userId ?? "")
+      .filter((label) => noteLabelIds.includes(label.id));
+  }
+
+  function captureNoteStudyActivity(note: AppNote) {
+    if (userId === null) {
+      return;
+    }
+
+    focusContext.captureNoteStudyActivity({
+      labels: getAttachedLabels(note.labelIds),
+      note,
+      userId,
+    });
+  }
 
   useEffect(() => {
     function syncLabels() {
@@ -324,6 +353,67 @@ export function NotesWorkspace() {
 
     titleInputRef.current?.focus();
   }, [editorFocusRequestNonce, hasPendingWorkspaceTransition]);
+
+  useEffect(() => {
+    if (userId === null || selectedNote === null) {
+      return;
+    }
+
+    const currentUserId = userId;
+    const selectedNoteId = selectedNote.id;
+    let reviewTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function clearReviewTimer() {
+      if (reviewTimer !== null) {
+        clearTimeout(reviewTimer);
+        reviewTimer = null;
+      }
+    }
+
+    function scheduleReviewCapture() {
+      clearReviewTimer();
+
+      const activeFocusSession = focusContext.getActiveSession({
+        userId: currentUserId,
+      });
+
+      if (
+        activeFocusSession === null ||
+        activeFocusSession.currentInterval !== "Focus" ||
+        activeFocusSession.intervalState !== "Focus" ||
+        document.visibilityState !== "visible"
+      ) {
+        return;
+      }
+
+      reviewTimer = setTimeout(() => {
+        if (document.visibilityState !== "visible") {
+          return;
+        }
+
+        const latestSelectedNote = listNotesForUser(
+          notesContext.getSnapshot(),
+          currentUserId,
+        ).find((note) => note.id === selectedNoteId);
+
+        if (latestSelectedNote !== undefined) {
+          captureNoteStudyActivity(latestSelectedNote);
+        }
+      }, noteReviewThresholdMs);
+    }
+
+    function handleVisibilityChange() {
+      scheduleReviewCapture();
+    }
+
+    scheduleReviewCapture();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearReviewTimer();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [focusContext, notesContext, selectedNote, userId]);
 
   const syncBodyFractionFromTextarea = useCallback(() => {
     const textarea = bodyTextareaRef.current;
@@ -668,6 +758,7 @@ export function NotesWorkspace() {
           ...getNoteEditorSaveInput(noteEditor),
         });
 
+        captureNoteStudyActivity(createdNote);
         markEditorSaved(createdNote);
         return;
       }
@@ -678,6 +769,7 @@ export function NotesWorkspace() {
         getNoteEditorSaveInput(noteEditor),
       );
 
+      captureNoteStudyActivity(updatedNote);
       markEditorSaved(updatedNote);
     } catch (error) {
       if (error instanceof AppNotesError) {
