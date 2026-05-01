@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_protected/labels")({
   component: LabelsPage,
 });
 
-function formatCount(count: number, singular: string, plural: string) {
+function formatCount(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
@@ -33,7 +33,6 @@ function getVisibleLabels(labels: AppLabel[], searchQuery: string) {
     label.name.toLowerCase().includes(normalizedSearchQuery),
   );
 }
-
 export function LabelsPage() {
   const labels = useRouteContext({
     from: "/_protected/labels",
@@ -58,6 +57,10 @@ export function LabelsPage() {
   const feedbackMessageId = useId();
   const searchInputId = useId();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const createFieldDescription =
+    feedbackMessage === null
+      ? createHintId
+      : `${createHintId} ${feedbackMessageId}`;
 
   useEffect(() => {
     function syncLabelRecords() {
@@ -192,16 +195,12 @@ export function LabelsPage() {
     (total, label) => total + label.parentIds.length,
     0,
   );
-  const labelCountText = formatCount(labelRecords.length, "label", "labels");
-  const rootCountText = formatCount(rootLabelCount, "root", "roots");
-  const relationshipCountText = formatCount(relationshipCount, "link", "links");
+  const labelCountText = formatCount(labelRecords.length, "label");
+  const rootCountText = formatCount(rootLabelCount, "root");
+  const relationshipCountText = formatCount(relationshipCount, "link");
   const visibleCountText = hasSearchQuery
     ? formatCount(visibleLabels.length, "match", "matches")
     : labelCountText;
-  const createFieldDescription =
-    feedbackMessage === null
-      ? createHintId
-      : `${createHintId} ${feedbackMessageId}`;
 
   return (
     <section className="labels-page" aria-labelledby="labels-route-heading">
@@ -443,7 +442,7 @@ function LabelCard({
   }, [label.name]);
 
   const hasRenameChanges = nextName.trim() !== label.name;
-  const parentCountText = formatCount(parentLabels.length, "parent", "parents");
+  const parentCountText = formatCount(parentLabels.length, "parent");
   const descendantCountText = formatCount(
     descendantLabels.length,
     "descendant",

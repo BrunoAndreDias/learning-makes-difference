@@ -1,6 +1,7 @@
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import type { AppSessionSnapshot } from "../../access/domain/session";
+import { formatRecallModeLabel } from "../domain/learner-copy";
 import { useNotesWorkspace } from "../domain/notes-workspace";
 import {
   type FlashCardRecallNote,
@@ -152,18 +153,15 @@ export function RecallResultsWorkspacePage() {
           <div className="notes-editor__title-stack">
             <h3>Results</h3>
             <p className="muted notes-editor__meta">
-              Review completed recall work with the latest SessionResult open by
+              Review completed recall work with the latest session open by
               default.
             </p>
           </div>
         </header>
 
         <div className="recall-results-layout recall-results-layout--details-only">
-          <section
-            aria-label="Selected session result"
-            className="recall-panel"
-          >
-            <p className="section-label">Selected Result</p>
+          <section aria-label="Selected review" className="recall-panel">
+            <p className="section-label">Selected review</p>
             <SelectedSessionResult sessionResult={selectedSession} />
           </section>
         </div>
@@ -181,9 +179,9 @@ function SelectedSessionResult({
     return (
       <div className="recall-results-empty">
         <p className="section-label">Nothing selected</p>
-        <h4>No session result selected</h4>
+        <h4>No review selected</h4>
         <p className="muted">
-          Complete a recall session to review stored note snapshots and question
+          Complete a recall session to review stored note snapshots and prompt
           ratings.
         </p>
       </div>
@@ -202,7 +200,7 @@ function SelectedSessionResult({
         <div className="recall-results-summary">
           <header className="recall-results-hero">
             <div className="notes-editor__title-stack">
-              <p className="section-label">SessionResult</p>
+              <p className="section-label">Session review</p>
               <h4>Session overview</h4>
               <p className="muted">
                 Completed {formatDateTime(sessionResult.completedAt)}
@@ -222,8 +220,10 @@ function SelectedSessionResult({
             <div className="recall-results-metrics">
               <div className="recall-results-metric">
                 <span className="section-label">Mode</span>
-                <strong>{sessionResult.mode}</strong>
-                <p className="sr-only">Mode: {sessionResult.mode}</p>
+                <strong>{formatRecallModeLabel(sessionResult.mode)}</strong>
+                <p className="sr-only">
+                  Mode: {formatRecallModeLabel(sessionResult.mode)}
+                </p>
               </div>
               <div className="recall-results-metric">
                 <span className="section-label">Started</span>
@@ -278,7 +278,7 @@ function SelectedSessionResult({
           aria-labelledby="selected-question-review-heading"
           className="recall-results-section recall-results-section--review"
         >
-          <h4 id="selected-question-review-heading">Question review</h4>
+          <h4 id="selected-question-review-heading">Prompt review</h4>
           <ResultsSessionReview sessionResult={sessionResult} />
         </section>
       </div>
@@ -403,7 +403,7 @@ function ResultsSessionReview({
             key={question.noteId}
           >
             <div className="recall-question-card__header">
-              <p className="section-label">{`Question ${index + 1}`}</p>
+              <p className="section-label">{`Prompt ${index + 1}`}</p>
               <span className="recall-rating-pill" data-tone={ratingTone}>
                 {formatQuestionRating(question)}
               </span>

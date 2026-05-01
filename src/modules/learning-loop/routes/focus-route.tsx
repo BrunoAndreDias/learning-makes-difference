@@ -15,6 +15,10 @@ import {
   type FocusSession,
   type FocusTarget,
 } from "../domain/focus";
+import {
+  formatFocusTargetKindLabel,
+  formatRecallModeLabel,
+} from "../domain/learner-copy";
 
 type FocusSessionStartValues = {
   breakMinutes: string;
@@ -150,18 +154,20 @@ function FocusPage() {
         <article className="focus-card focus-card--quiet">
           <p className="section-label">How capture works</p>
           <p>
-            FocusRecords are read-only in v1. Notes and Recall activity attach
+            Focus records are read-only in v1. Notes and Recall activity attach
             to a running focus block automatically, so records stay useful
             without extra logging.
           </p>
         </article>
       </div>
 
-      <section aria-label="Completed FocusRecords" className="focus-records">
+      <section aria-label="Completed focus records" className="focus-records">
         <div className="focus-section-heading">
           <div>
             <p className="section-label">History</p>
-            <strong className="focus-card-title">Completed FocusRecords</strong>
+            <strong className="focus-card-title">
+              Completed focus records
+            </strong>
           </div>
           <span className="tag">{records.length} total</span>
         </div>
@@ -396,19 +402,16 @@ function getActiveSessionDisplay(session: FocusSession | null) {
 function getActiveSessionSummary(session: FocusSession) {
   const remainingLabel = getRemainingMinuteLabel(session);
 
-  if (session.intervalState === "Focus") {
-    return `${remainingLabel} left in focus`;
+  switch (session.intervalState) {
+    case "Focus":
+      return `${remainingLabel} left in focus`;
+    case "Break":
+      return `${remainingLabel} left in break`;
+    case "Transition":
+      return `${remainingLabel} transition`;
+    case "AwaitingNextFocus":
+      return session.isStale ? "Stale session" : "Ready for next focus";
   }
-
-  if (session.intervalState === "Break") {
-    return `${remainingLabel} left in break`;
-  }
-
-  if (session.intervalState === "Transition") {
-    return `${remainingLabel} transition`;
-  }
-
-  return session.isStale ? "Stale session" : "Ready for next focus";
 }
 
 function getActiveSessionDetail(session: FocusSession) {
@@ -448,7 +451,7 @@ function describeTarget(target: FocusTarget) {
         ? "no labels"
         : target.labels.map((label) => label.name).join(", ");
 
-    return `RecallSession: ${target.recallSession.mode} | Notes: ${noteTitles} | Labels: ${labelNames}`;
+    return `${formatFocusTargetKindLabel(target.kind)}: ${formatRecallModeLabel(target.recallSession.mode)} | Notes: ${noteTitles} | Labels: ${labelNames}`;
   }
 
   if (target.labels.length === 0) {

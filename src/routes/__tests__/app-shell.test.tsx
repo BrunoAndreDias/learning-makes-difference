@@ -260,7 +260,7 @@ async function startSelectedRecallSession() {
   fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
 
   expect(
-    await screen.findByRole("heading", { name: "FlashCard session" }),
+    await screen.findByRole("heading", { name: "Recall session" }),
   ).toBeInTheDocument();
 }
 
@@ -277,7 +277,7 @@ function openAccountMenu() {
 
 function getSelectedSessionResultRegion() {
   return screen.getByRole("region", {
-    name: "Selected session result",
+    name: "Selected review",
   });
 }
 
@@ -731,7 +731,7 @@ describe("authenticated app shell", () => {
     expect(focusLink).toHaveAttribute("aria-current", "page");
   });
 
-  it("renders completed FocusRecords newest first with metrics, targets, aggregate, and read-only history", async () => {
+  it("renders completed focus records newest first with metrics, targets, aggregate, and read-only history", async () => {
     vi.useFakeTimers();
 
     const userId = "user-focus-history";
@@ -816,7 +816,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
 
     expect(
-      screen.getByText(/FocusRecords are read-only in v1\./),
+      screen.getByText(/Focus records are read-only in v1\./),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /edit focus record/i }),
@@ -849,7 +849,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "RecallSession: FlashCard | Notes: Recall target note | Labels: Recall label",
+        "Recall session: Recall | Notes: Recall target note | Labels: Recall label",
       ),
     ).toBeInTheDocument();
   });
@@ -3530,7 +3530,7 @@ describe("authenticated app shell", () => {
     });
     fireEvent.click(
       searchResults().getByRole("option", {
-        name: /Encoding specificity Title/,
+        name: /Encoding specificity Prompt/,
       }),
     );
     expect(recallControls.getByText("1 note selected")).toBeInTheDocument();
@@ -3540,7 +3540,7 @@ describe("authenticated app shell", () => {
     });
     fireEvent.click(
       searchResults().getByRole("option", {
-        name: /Retrieval cues Body/,
+        name: /Retrieval cues Notes/,
       }),
     );
     expect(recallControls.getByText("2 notes selected")).toBeInTheDocument();
@@ -3550,7 +3550,7 @@ describe("authenticated app shell", () => {
     });
     fireEvent.click(
       searchResults().getByRole("option", {
-        name: /Context reinstatement Metaphor/,
+        name: /Context reinstatement Hook/,
       }),
     );
     expect(recallControls.getByText("3 notes selected")).toBeInTheDocument();
@@ -3560,7 +3560,7 @@ describe("authenticated app shell", () => {
     });
     fireEvent.click(
       searchResults().getByRole("option", {
-        name: /Metacognition Acronym/,
+        name: /Metacognition Hook/,
       }),
     );
     expect(recallControls.getByText("4 notes selected")).toBeInTheDocument();
@@ -3570,7 +3570,7 @@ describe("authenticated app shell", () => {
     });
     fireEvent.click(
       searchResults().getByRole("option", {
-        name: /Context reinstatement Metaphor/,
+        name: /Context reinstatement Hook/,
       }),
     );
     expect(recallControls.getByText("3 notes selected")).toBeInTheDocument();
@@ -3595,7 +3595,7 @@ describe("authenticated app shell", () => {
     });
     fireEvent.click(
       searchResults().getByRole("option", {
-        name: /Encoding specificity Title/,
+        name: /Encoding specificity Prompt/,
       }),
     );
     fireEvent.change(screen.getByLabelText("Search notes"), {
@@ -3603,7 +3603,7 @@ describe("authenticated app shell", () => {
     });
     fireEvent.click(
       searchResults().getByRole("option", {
-        name: /Metacognition Acronym/,
+        name: /Metacognition Hook/,
       }),
     );
 
@@ -3613,7 +3613,7 @@ describe("authenticated app shell", () => {
 
     expect(router.state.location.pathname).toBe("/recall/session");
     expect(
-      await screen.findByRole("heading", { name: "FlashCard session" }),
+      await screen.findByRole("heading", { name: "Recall session" }),
     ).toBeInTheDocument();
     expect(recallContext.getSnapshot()).toMatchObject({
       mode: "FlashCard",
@@ -3663,7 +3663,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "FlashCard session" }),
+      await screen.findByRole("heading", { name: "Recall session" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("combobox", { name: "Search recall sessions" }),
@@ -3691,7 +3691,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
     expect(
-      screen.queryByRole("heading", { name: "FlashCard session" }),
+      screen.queryByRole("heading", { name: "Recall session" }),
     ).toBeNull();
   });
 
@@ -3749,7 +3749,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "FlashCard session" }),
+      await screen.findByRole("heading", { name: "Recall session" }),
     ).toBeInTheDocument();
 
     const overlay = screen.getByRole("region", {
@@ -3818,7 +3818,7 @@ describe("authenticated app shell", () => {
     await expectReturnedToRecall(router);
     const selectedResult = getSelectedSessionResultRegion();
     const questionReview = within(selectedResult).getByRole("region", {
-      name: "Question review",
+      name: "Prompt review",
     });
     expect(
       within(selectedResult).getByText("1 attempted question"),
@@ -3889,15 +3889,13 @@ describe("authenticated app shell", () => {
       }),
     ).toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "Review session" })[1],
-    );
+    fireEvent.click(screen.getAllByRole("button", { name: "Open review" })[1]);
 
     const selectedOlderResult = getSelectedSessionResultRegion();
     const olderQuestionReview = within(selectedOlderResult).getByRole(
       "region",
       {
-        name: "Question review",
+        name: "Prompt review",
       },
     );
     expect(
@@ -3926,7 +3924,7 @@ describe("authenticated app shell", () => {
     const returnedQuestionReview = within(selectedReturnedResult).getByRole(
       "region",
       {
-        name: "Question review",
+        name: "Prompt review",
       },
     );
     expect(
@@ -3988,15 +3986,13 @@ describe("authenticated app shell", () => {
       }),
     ).toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "Review session" })[1],
-    );
+    fireEvent.click(screen.getAllByRole("button", { name: "Open review" })[1]);
 
     const selectedOlderResult = getSelectedSessionResultRegion();
     expect(
       within(
         within(selectedOlderResult).getByRole("region", {
-          name: "Question review",
+          name: "Prompt review",
         }),
       ).getByRole("heading", {
         name: "Earlier note",
@@ -4021,7 +4017,7 @@ describe("authenticated app shell", () => {
     expect(
       await within(
         within(selectedFreshResult).getByRole("region", {
-          name: "Question review",
+          name: "Prompt review",
         }),
       ).findByRole("heading", {
         name: "Fresh result note",
@@ -4066,7 +4062,7 @@ describe("authenticated app shell", () => {
     await expectReturnedToRecall(router);
     const selectedResult = getSelectedSessionResultRegion();
     const questionReview = within(selectedResult).getByRole("region", {
-      name: "Question review",
+      name: "Prompt review",
     });
     expect(
       within(selectedResult).getByText("1 attempted question"),
@@ -4220,21 +4216,21 @@ describe("authenticated app shell", () => {
     );
 
     const resultsList = screen.getByRole("region", {
-      name: "Session results list",
+      name: "Review list",
     });
     const selectedResult = screen.getByRole("region", {
-      name: "Selected session result",
+      name: "Selected review",
     });
 
     const sessionButtons = within(resultsList).getAllByRole("button", {
-      name: "Review session",
+      name: "Open review",
     });
 
     expect(sessionButtons).toHaveLength(2);
     expect(sessionButtons[0]).toHaveAttribute("aria-pressed", "true");
     expect(sessionButtons[1]).toHaveAttribute("aria-pressed", "false");
     const questionReview = within(selectedResult).getByRole("region", {
-      name: "Question review",
+      name: "Prompt review",
     });
     expect(
       within(questionReview).getByRole("heading", {
@@ -4306,20 +4302,20 @@ describe("authenticated app shell", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByRole("button", { name: "Review session" }).length,
+      screen.getAllByRole("button", { name: "Open review" }).length,
     ).toBeGreaterThan(0);
-    expect(screen.getAllByText("1 attempted question")).toHaveLength(2);
+    expect(screen.getAllByText(/1 attempted question/)).toHaveLength(2);
     expect(
       within(getSelectedSessionResultRegion()).getByText(
         "Nailed 1 · Partial 0 · Missed 0",
       ),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Review session" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open review" }));
 
     const selectedResult = getSelectedSessionResultRegion();
     const questionReview = within(selectedResult).getByRole("region", {
-      name: "Question review",
+      name: "Prompt review",
     });
     expect(
       within(questionReview).getByRole("heading", {
@@ -4397,7 +4393,7 @@ describe("authenticated app shell", () => {
     });
 
     const selectedResult = await screen.findByRole("region", {
-      name: "Selected session result",
+      name: "Selected review",
     });
 
     expect(
@@ -4407,7 +4403,7 @@ describe("authenticated app shell", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      within(selectedResult).getByText("Mode: FlashCard"),
+      within(selectedResult).getByText("Mode: Recall"),
     ).toBeInTheDocument();
     expect(
       within(selectedResult).getByText("1 attempted question"),
@@ -4422,7 +4418,7 @@ describe("authenticated app shell", () => {
     expect(
       within(selectedResult).getByRole("heading", {
         level: 4,
-        name: "Question review",
+        name: "Prompt review",
       }),
     ).toBeInTheDocument();
     expect(
@@ -4520,18 +4516,16 @@ describe("authenticated app shell", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByRole("button", { name: "Review session" }).length,
+      screen.getAllByRole("button", { name: "Open review" }).length,
     ).toBeGreaterThan(0);
 
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "Review session" })[1],
-    );
+    fireEvent.click(screen.getAllByRole("button", { name: "Open review" })[1]);
 
     const resultsPane = screen.getByRole("region", {
-      name: "Selected session result",
+      name: "Selected review",
     });
     const questionReview = within(resultsPane).getByRole("region", {
-      name: "Question review",
+      name: "Prompt review",
     });
 
     expect(
@@ -4612,22 +4606,22 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
 
     const resultsList = screen.getByRole("region", {
-      name: "Session results list",
+      name: "Review list",
     });
     const labelFilter = screen.getByLabelText("Filter results by label");
 
     function getQuestionReview() {
       return within(
         screen.getByRole("region", {
-          name: "Selected session result",
+          name: "Selected review",
         }),
       ).getByRole("region", {
-        name: "Question review",
+        name: "Prompt review",
       });
     }
 
     expect(
-      within(resultsList).getAllByRole("button", { name: "Review session" }),
+      within(resultsList).getAllByRole("button", { name: "Open review" }),
     ).toHaveLength(2);
     expect(
       within(getQuestionReview()).getByText("History result"),
@@ -4638,7 +4632,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      within(resultsList).getAllByRole("button", { name: "Review session" }),
+      within(resultsList).getAllByRole("button", { name: "Open review" }),
     ).toHaveLength(1);
     expect(
       within(getQuestionReview()).getByText("Science result"),
@@ -4654,10 +4648,10 @@ describe("authenticated app shell", () => {
     expect(
       within(
         screen.getByRole("region", {
-          name: "Selected session result",
+          name: "Selected review",
         }),
       ).getByText(
-        "Complete a recall session to review stored note snapshots and question ratings.",
+        "Complete a recall session to review stored note snapshots and prompt ratings.",
       ),
     ).toBeInTheDocument();
 
@@ -4666,7 +4660,7 @@ describe("authenticated app shell", () => {
     });
 
     const restoredButtons = within(resultsList).getAllByRole("button", {
-      name: "Review session",
+      name: "Open review",
     });
     expect(restoredButtons).toHaveLength(2);
     expect(restoredButtons[0]).toHaveAttribute("aria-pressed", "true");
@@ -4727,7 +4721,7 @@ describe("authenticated app shell", () => {
       name: "Search recall sessions",
     });
     const resultsList = screen.getByRole("region", {
-      name: "Session results list",
+      name: "Review list",
     });
 
     fireEvent.change(search, {
@@ -4741,9 +4735,9 @@ describe("authenticated app shell", () => {
     expect(
       within(searchResults).getByText("Science result"),
     ).toBeInTheDocument();
-    expect(within(searchResults).getByText("Title")).toBeInTheDocument();
+    expect(within(searchResults).getByText("Prompt")).toBeInTheDocument();
     expect(
-      within(resultsList).getAllByRole("button", { name: "Review session" }),
+      within(resultsList).getAllByRole("button", { name: "Open review" }),
     ).toHaveLength(1);
 
     fireEvent.click(
@@ -4759,10 +4753,10 @@ describe("authenticated app shell", () => {
       within(
         within(
           screen.getByRole("region", {
-            name: "Selected session result",
+            name: "Selected review",
           }),
         ).getByRole("region", {
-          name: "Question review",
+          name: "Prompt review",
         }),
       ).getByText("Science snapshot"),
     ).toBeInTheDocument();
