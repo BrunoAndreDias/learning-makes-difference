@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import type { AppLabel } from "../../labels/domain/labels";
+import { formatSearchMatchLabel } from "../domain/learner-copy";
 import { useNotesWorkspace } from "../domain/notes-workspace";
 import {
   type RecallSessionSearchResult,
@@ -32,7 +33,7 @@ function getRecallSearchResultOptionId(sessionId: string) {
 }
 
 function getRecallSearchResultLabel(result: RecallSessionSearchResult) {
-  return `${result.matchedNoteTitle} ${result.matchChip} Completed ${formatRecallResultDate(result.sessionResult.completedAt)}`;
+  return `${result.matchedNoteTitle} ${formatSearchMatchLabel(result.matchChip)} Completed ${formatRecallResultDate(result.sessionResult.completedAt)}`;
 }
 
 export function RecallResultsSearch({
@@ -314,7 +315,7 @@ export function RecallResultsSearch({
                 <span className="notes-search__option-title">
                   <strong>{result.matchedNoteTitle}</strong>
                   <span className="notes-search__match-chip">
-                    {result.matchChip}
+                    {formatSearchMatchLabel(result.matchChip)}
                   </span>
                 </span>
                 <span>{`Completed ${formatRecallResultDate(result.sessionResult.completedAt)}`}</span>

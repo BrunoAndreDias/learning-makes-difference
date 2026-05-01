@@ -8,6 +8,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import { BreakIntervalOverlay } from "../components/break-interval-overlay";
+import { formatRecallModeLabel } from "../domain/learner-copy";
 import { isBreakIntervalActive } from "../domain/focus";
 import {
   AppRecallError,
@@ -186,7 +187,7 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
         ) ?? null);
 
   return (
-    <section className="recall-shell" aria-label="FlashCard recall session">
+    <section className="recall-shell" aria-label="Recall session">
       <header className="recall-shell__header">
         <div className="recall-shell__bar">
           <div className="recall-shell__context">
@@ -202,7 +203,9 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
                 <li aria-current="page">{props.breadcrumbCurrent}</li>
               </ol>
             </nav>
-            <h2 className="sr-only">FlashCard session</h2>
+            <h2 className="sr-only">
+              {formatRecallModeLabel(activeSession.mode)} session
+            </h2>
             <p className="recall-shell__label">Selected notes</p>
           </div>
           <button

@@ -2,6 +2,10 @@ import { Link, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import type { AppLabel } from "../../labels/domain/labels";
+import {
+  formatRecallModeLabel,
+  formatSearchMatchLabel,
+} from "../domain/learner-copy";
 import { listNotesForUser } from "../domain/notes";
 import { useNotesWorkspace } from "../domain/notes-workspace";
 import {
@@ -146,7 +150,7 @@ export function RecallResultsSidebar({
       aria-label="Recall sidebar"
     >
       <div className="app-sidebar__workspace-header">
-        <h3>Recall results</h3>
+        <h3>Reviews</h3>
         <Link
           aria-label={startAction.label}
           className="notes-action notes-action-primary app-sidebar__primary-action"
@@ -168,7 +172,7 @@ export function RecallResultsSidebar({
       </div>
 
       <section
-        aria-label="Session results list"
+        aria-label="Review list"
         className="app-sidebar__workspace-nav"
       >
         {sessionResults.length === 0 ? (
@@ -246,7 +250,7 @@ function SessionResultsList({
           >
             <button
               aria-current={isSelected ? "page" : undefined}
-              aria-label="Review session"
+              aria-label="Open review"
               aria-pressed={isSelected}
               className="app-sidebar__workspace-link app-sidebar__workspace-link--recall"
               onClick={() => onSelectSession(result.sessionResult.id)}
@@ -260,10 +264,10 @@ function SessionResultsList({
               </span>
               <span className="recall-results-sidebar__meta">
                 <span className="notes-search__match-chip">
-                  {result.matchChip}
+                  {formatSearchMatchLabel(result.matchChip)}
                 </span>
                 <span className="app-sidebar__workspace-meta">
-                  {formatAttemptCount(result.sessionResult.attempts.length)}
+                  {`${formatRecallModeLabel(result.sessionResult.mode)} · ${formatAttemptCount(result.sessionResult.attempts.length)}`}
                 </span>
               </span>
             </button>

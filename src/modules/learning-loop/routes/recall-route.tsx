@@ -17,6 +17,7 @@ import {
 } from "react";
 
 import type { AppSessionSnapshot } from "../../access/domain/session";
+import { formatSearchMatchLabel } from "../domain/learner-copy";
 import {
   type AppNoteSearchResult,
   filterNotesByQuery,
@@ -50,7 +51,7 @@ function formatSelectedCount(count: number) {
 }
 
 function getSearchResultLabel(result: AppNoteSearchResult) {
-  return `${result.note.title} ${result.matchChip} Updated ${formatNoteDate(result.note.updatedAt)}`;
+  return `${result.note.title} ${formatSearchMatchLabel(result.matchChip)} Updated ${formatNoteDate(result.note.updatedAt)}`;
 }
 
 function getRecallSelectionSearchResultOptionId(
@@ -163,7 +164,7 @@ function RecallSelectionSearchResults({
             <span className="notes-search__option-title">
               <strong>{result.note.title}</strong>
               <span className="notes-search__match-chip">
-                {result.matchChip}
+                {formatSearchMatchLabel(result.matchChip)}
               </span>
             </span>
             <span>{`Updated ${formatNoteDate(result.note.updatedAt)}`}</span>
@@ -188,7 +189,7 @@ function SelectableRecallNotes({
       <div className="notes-list__header">
         <div className="stack">
           <p className="section-label">Notes</p>
-          <h4>Selectable notes</h4>
+          <h4>Practice notes</h4>
         </div>
         <span className="tag">{`${filteredNotes.length} shown`}</span>
       </div>
