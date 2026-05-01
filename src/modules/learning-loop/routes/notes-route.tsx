@@ -36,6 +36,7 @@ import {
   type NoteEditorDraft,
 } from "../domain/note-editor";
 import {
+  formatNoteSearchResultPreview,
   type AppNoteSearchResult,
   searchNoteResults,
 } from "../domain/note-search";
@@ -75,7 +76,9 @@ function getSearchResultOptionId(noteId: string): string {
 }
 
 function getSearchResultLabel(result: AppNoteSearchResult): string {
-  return `${result.note.title} ${result.matchChip} Updated ${formatNoteDate(result.note.updatedAt)}`;
+  const preview = formatNoteSearchResultPreview(result);
+
+  return `${result.note.title} ${result.matchChip}${preview === null ? "" : ` ${preview}`} Updated ${formatNoteDate(result.note.updatedAt)}`;
 }
 
 function formatHookCountLabel(count: number): string {
@@ -93,6 +96,48 @@ function getLearningStateSummary(status: LearningStateStatus) {
     case "recently_nailed":
       return "This note was recalled well recently.";
   }
+}
+
+type PendingHookRemoval =
+  | {
+      index: number;
+      kind: "acronym";
+      label: string;
+      title: string;
+    }
+  | {
+      index: number;
+      kind: "metaphor";
+      label: string;
+      title: string;
+    };
+
+function formatMetaphorCardTitle(metaphor: AppMetaphor, index: number): string {
+  const title = metaphor.title.trim();
+
+  return title.length > 0 ? title : `Untitled metaphor ${index + 1}`;
+}
+
+function formatAcronymCardTitle(acronym: AppAcronym, index: number): string {
+  const shortForm = acronym.shortForm.trim();
+
+  return shortForm.length > 0 ? shortForm : `Untitled acronym ${index + 1}`;
+}
+
+function formatMetaphorPreview(metaphor: AppMetaphor): string {
+  const explanation = metaphor.explanation.trim();
+
+  return explanation.length > 0
+    ? explanation
+    : "Add a metaphor that maps the concept to something easier to picture.";
+}
+
+function formatAcronymPreview(acronym: AppAcronym): string {
+  const expansion = acronym.expansion.trim();
+
+  return expansion.length > 0
+    ? expansion
+    : "Add what each letter stands for so the mnemonic stays useful later.";
 }
 
 export function NotesWorkspace() {
@@ -188,6 +233,8 @@ export function NotesWorkspace() {
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
   const [bodyFraction, setBodyFraction] = useState(0.62);
   const [isBodyResizing, setIsBodyResizing] = useState(false);
+  const [pendingHookRemoval, setPendingHookRemoval] =
+    useState<PendingHookRemoval | null>(null);
   const noteFormRef = useRef<HTMLFormElement>(null);
   const isInspectorHidden = bodyFraction >= 0.88;
   const selectedNote = getSelectedNote(noteEditor, notes);
@@ -587,11 +634,39 @@ export function NotesWorkspace() {
   }
 
   function handleRemoveMetaphor(index: number) {
-    removeEditorMetaphor(index);
+    setPendingHookRemoval({
+      index,
+      kind: "metaphor",
+      label: "Metaphor",
+      title: formatMetaphorCardTitle(editorState.metaphors[index], index),
+    });
   }
 
   function handleRemoveAcronym(index: number) {
-    removeEditorAcronym(index);
+    setPendingHookRemoval({
+      index,
+      kind: "acronym",
+      label: "Acronym",
+      title: formatAcronymCardTitle(editorState.acronyms[index], index),
+    });
+  }
+
+  function handleCancelHookRemoval() {
+    setPendingHookRemoval(null);
+  }
+
+  function handleConfirmHookRemoval() {
+    if (pendingHookRemoval === null) {
+      return;
+    }
+
+    if (pendingHookRemoval.kind === "metaphor") {
+      removeEditorMetaphor(pendingHookRemoval.index);
+    } else {
+      removeEditorAcronym(pendingHookRemoval.index);
+    }
+
+    setPendingHookRemoval(null);
   }
 
   function resetSearchNavigationState() {
@@ -973,6 +1048,9 @@ export function NotesWorkspace() {
                   {result.matchChip}
                 </span>
               </span>
+              {formatNoteSearchResultPreview(result) === null ? null : (
+                <span>{formatNoteSearchResultPreview(result)}</span>
+              )}
               <span>{`Updated ${formatNoteDate(result.note.updatedAt)}`}</span>
             </button>
           ))}
@@ -1271,29 +1349,60 @@ export function NotesWorkspace() {
                 >
                   <div className="notes-inspector-card__header">
                     <h4>Memory hooks</h4>
-                    <div className="notes-inspector-card__actions">
-                      <button
-                        aria-label="Add metaphor"
-                        className="notes-inline-action"
-                        onClick={handleAddMetaphor}
-                        type="button"
-                      >
-                        + Add metaphor
-                      </button>
-                      <button
-                        aria-label="Add acronym"
-                        className="notes-inline-action"
-                        onClick={handleAddAcronym}
-                        type="button"
-                      >
-                        + Add acronym
-                      </button>
-                    </div>
+                    {editorState.metaphors.length === 0 &&
+                    editorState.acronyms.length === 0 ? null : (
+                      <div className="notes-inspector-card__actions">
+                        <button
+                          aria-label="Add metaphor"
+                          className="notes-inline-action"
+                          onClick={handleAddMetaphor}
+                          type="button"
+                        >
+                          + Add metaphor
+                        </button>
+                        <button
+                          aria-label="Add acronym"
+                          className="notes-inline-action"
+                          onClick={handleAddAcronym}
+                          type="button"
+                        >
+                          + Add acronym
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {editorState.metaphors.length === 0 &&
                   editorState.acronyms.length === 0 ? (
-                    <p className="muted">No hooks yet</p>
+                    <div className="notes-hook-empty-state">
+                      <p className="muted">
+                        Memory hooks turn a note into something easier to
+                        remember during recall.
+                      </p>
+                      <div className="notes-inspector-card__actions">
+                        <button
+                          className="notes-action notes-action-primary"
+                          onClick={handleAddMetaphor}
+                          type="button"
+                        >
+                          Create a hook
+                        </button>
+                        <button
+                          className="notes-action"
+                          onClick={handleAddMetaphor}
+                          type="button"
+                        >
+                          Add metaphor
+                        </button>
+                        <button
+                          className="notes-action"
+                          onClick={handleAddAcronym}
+                          type="button"
+                        >
+                          Add acronym
+                        </button>
+                      </div>
+                    </div>
                   ) : null}
 
                   {editorState.metaphors.length === 0 ? null : (
@@ -1307,6 +1416,13 @@ export function NotesWorkspace() {
                             key={metaphor.key}
                           >
                             <legend>{`Metaphor ${index + 1}`}</legend>
+                            <div className="notes-hook-card__summary">
+                              <span className="tag">Metaphor</span>
+                              <strong>
+                                {formatMetaphorCardTitle(metaphor, index)}
+                              </strong>
+                              <p>{formatMetaphorPreview(metaphor)}</p>
+                            </div>
 
                             <label className="notes-form__field">
                               <span>Metaphor title</span>
@@ -1375,6 +1491,13 @@ export function NotesWorkspace() {
                             key={acronym.key}
                           >
                             <legend>{`Acronym ${index + 1}`}</legend>
+                            <div className="notes-hook-card__summary">
+                              <span className="tag">Acronym</span>
+                              <strong>
+                                {formatAcronymCardTitle(acronym, index)}
+                              </strong>
+                              <p>{formatAcronymPreview(acronym)}</p>
+                            </div>
 
                             <label className="notes-form__field">
                               <span>Acronym</span>
@@ -1475,6 +1598,38 @@ export function NotesWorkspace() {
           </div>
         </div>
       ) : null}
+      {pendingHookRemoval === null ? null : (
+        <div
+          aria-labelledby="notes-remove-hook-title"
+          aria-describedby="notes-remove-hook-description"
+          aria-modal="true"
+          className="notes-unsaved-search-dialog"
+          role="dialog"
+        >
+          <div className="notes-unsaved-search-dialog__panel">
+            <h3 id="notes-remove-hook-title">Remove memory hook?</h3>
+            <p id="notes-remove-hook-description">
+              {`Remove ${pendingHookRemoval.label}: ${pendingHookRemoval.title}? This cannot be undone.`}
+            </p>
+            <div className="notes-unsaved-search-dialog__actions">
+              <button
+                className="notes-action"
+                onClick={handleCancelHookRemoval}
+                type="button"
+              >
+                Keep hook
+              </button>
+              <button
+                className="notes-action notes-action-primary"
+                onClick={handleConfirmHookRemoval}
+                type="button"
+              >
+                Remove hook
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

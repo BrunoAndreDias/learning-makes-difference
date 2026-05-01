@@ -1867,9 +1867,13 @@ describe("authenticated app shell", () => {
     expect(resultButtons).toHaveLength(4);
     expect(resultButtons.map((button) => button.textContent)).toEqual([
       expect.stringMatching(/^Priority cue title resultTitleUpdated /),
-      expect.stringMatching(/^Body resultBodyUpdated /),
-      expect.stringMatching(/^Metaphor resultMetaphorUpdated /),
-      expect.stringMatching(/^Acronym resultAcronymUpdated /),
+      expect.stringMatching(
+        /^Body resultBodyThis body contains a priority cue\.Updated /,
+      ),
+      expect.stringMatching(
+        /^Metaphor resultMetaphorLighthouse A priority cue acts like a lighthouse\.Updated /,
+      ),
+      expect.stringMatching(/^Acronym resultAcronymPC Priority CueUpdated /),
     ]);
   });
 
@@ -1953,7 +1957,9 @@ describe("authenticated app shell", () => {
     expect(searchInput).toHaveAttribute("aria-activedescendant", options[0].id);
     expect(options[0]).toHaveAttribute("aria-selected", "true");
     expect(options[0]).toHaveAccessibleName(
-      expect.stringMatching(/Newer retrieval Body Updated /),
+      expect.stringMatching(
+        /Newer retrieval Body Newer spaced retrieval cue\. Updated /,
+      ),
     );
 
     fireEvent.keyDown(searchInput, { key: "ArrowDown" });
@@ -3374,6 +3380,16 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "Notes workspace" }),
     ).toBeInTheDocument();
 
+    const memoryHooks = screen.getByLabelText("Memory hooks");
+    expect(
+      within(memoryHooks).getByText(
+        "Memory hooks turn a note into something easier to remember during recall.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(memoryHooks).getByRole("button", { name: "Create a hook" }),
+    ).toBeInTheDocument();
+
     fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "Action potentials" },
     });
@@ -3407,6 +3423,13 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add metaphor" }));
 
     expect(screen.getAllByLabelText("Metaphor editor")).toHaveLength(2);
+    expect(within(memoryHooks).getAllByText("Metaphor")).toHaveLength(2);
+    expect(within(memoryHooks).getByText("Domino line")).toBeInTheDocument();
+    expect(
+      within(memoryHooks).getAllByText(
+        "Crossing threshold is like tipping the first domino so the whole line falls.",
+      ),
+    ).toHaveLength(2);
 
     fireEvent.change(screen.getAllByLabelText("Metaphor explanation")[0], {
       target: {
@@ -3423,6 +3446,20 @@ describe("authenticated app shell", () => {
       },
     });
     fireEvent.click(screen.getByRole("button", { name: "Remove metaphor 2" }));
+    expect(
+      screen.getByRole("dialog", { name: "Remove memory hook?" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Remove Metaphor: Fuse? This cannot be undone."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Keep hook" }));
+    expect(
+      screen.queryByRole("dialog", { name: "Remove memory hook?" }),
+    ).toBeNull();
+    expect(screen.getByDisplayValue("Fuse")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove metaphor 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove hook" }));
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
 
     expect(await screen.findByDisplayValue("Domino line")).toBeInTheDocument();
@@ -3501,6 +3538,7 @@ describe("authenticated app shell", () => {
       },
     });
     fireEvent.click(screen.getByRole("button", { name: "Remove acronym 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove hook" }));
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
 
     expect(await screen.findByDisplayValue("PEMDAS")).toBeInTheDocument();
