@@ -5,6 +5,7 @@ import {
   createAppNotesContext,
   listNotesForUser,
 } from "./notes";
+import { createAppLabelsContext } from "../../labels/domain/labels";
 
 function createMemoryStorage() {
   const values = new Map<string, string>();
@@ -12,6 +13,9 @@ function createMemoryStorage() {
   return {
     getItem(key: string) {
       return values.get(key) ?? null;
+    },
+    removeItem(key: string) {
+      values.delete(key);
     },
     setItem(key: string, value: string) {
       values.set(key, value);
@@ -166,6 +170,56 @@ describe("app notes context", () => {
         code: "invalid_input",
       } satisfies Pick<AppNotesError, "code">),
     );
+  });
+
+  it("removes deleted labels from persisted note assignments after refresh", () => {
+    const storage = createMemoryStorage();
+    const labels = createAppLabelsContext({
+      keyPrefix: "notes-test-label-prune-labels",
+      storage,
+    });
+    const userId = "user-casey";
+    const science = labels.createLabel({
+      name: "Science",
+      userId,
+    });
+    const biology = labels.createLabel({
+      name: "Biology",
+      userId,
+    });
+    const notes = createAppNotesContext({
+      keyPrefix: "notes-test-label-prune-notes",
+      storage,
+      getOwnedLabelIdsForUser: (ownerId) =>
+        labels.getLabelsForUser(ownerId).map((label) => label.id),
+    });
+
+    const createdNote = notes.createNote(userId, {
+      acronyms: [],
+      body: "Study notes should not keep orphaned label ids.",
+      labelIds: [science.id, biology.id],
+      metaphors: [],
+      title: "Label cleanup",
+    });
+
+    labels.deleteLabel({
+      labelId: biology.id,
+      userId,
+    });
+
+    const reloadedNotes = createAppNotesContext({
+      keyPrefix: "notes-test-label-prune-notes",
+      storage,
+      getOwnedLabelIdsForUser: (ownerId) =>
+        labels.getLabelsForUser(ownerId).map((label) => label.id),
+    });
+
+    expect(
+      listNotesForUser(reloadedNotes.getSnapshot(), userId)[0],
+    ).toMatchObject({
+      id: createdNote.id,
+      labelIds: [science.id],
+    });
   });
 
   it("stores note-owned metaphors and keeps their lifecycle scoped to the owning account", () => {
