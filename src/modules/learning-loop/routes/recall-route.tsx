@@ -22,6 +22,7 @@ import type { AppLabel } from "../../labels/domain/labels";
 import { formatSearchMatchLabel } from "../domain/learner-copy";
 import {
   type AppNoteSearchResult,
+  formatNoteSearchResultPreview,
   searchNoteResults,
 } from "../domain/note-search";
 import { listNotesForUser } from "../domain/notes";
@@ -64,7 +65,9 @@ function formatSummarySelectedCount(count: number) {
 }
 
 function getSearchResultLabel(result: AppNoteSearchResult) {
-  return `${result.note.title} ${formatSearchMatchLabel(result.matchChip)} Updated ${formatNoteDate(result.note.updatedAt)}`;
+  const preview = formatNoteSearchResultPreview(result);
+
+  return `${result.note.title} ${formatSearchMatchLabel(result.matchChip)}${preview === null ? "" : ` ${preview}`} Updated ${formatNoteDate(result.note.updatedAt)}`;
 }
 
 function getRecallSelectionSearchResultOptionId(noteId: string, index: number) {
@@ -239,6 +242,7 @@ function RecallSelectionSearchResults({
     >
       {searchResults.map((result, index) => {
         const isSelected = selectedNoteIds.has(result.note.id);
+        const preview = formatNoteSearchResultPreview(result);
 
         return (
           <button
@@ -259,6 +263,7 @@ function RecallSelectionSearchResults({
                 {formatSearchMatchLabel(result.matchChip)}
               </span>
             </span>
+            {preview === null ? null : <span>{preview}</span>}
             <span>{`Updated ${formatNoteDate(result.note.updatedAt)}`}</span>
           </button>
         );
