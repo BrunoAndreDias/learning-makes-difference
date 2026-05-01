@@ -22,6 +22,22 @@ function createMemoryStorage() {
   };
 }
 
+function createMemoryCookieStore() {
+  let value: string | null = null;
+
+  return {
+    clear() {
+      value = null;
+    },
+    get() {
+      return value;
+    },
+    set(nextValue: string) {
+      value = nextValue;
+    },
+  };
+}
+
 describe("app session context", () => {
   it("keeps guest sessions unauthenticated", async () => {
     const session = createGuestSessionContext();
@@ -40,7 +56,9 @@ describe("app session context", () => {
 
   it("registers users with hashed credentials and restores the correct account on login", async () => {
     const storage = createMemoryStorage();
+    const cookie = createMemoryCookieStore();
     const session = createAppSessionContext({
+      cookie,
       keyPrefix: "session-test",
       storage,
     });
@@ -53,6 +71,7 @@ describe("app session context", () => {
 
     expect(hasActiveSession(session.getSnapshot())).toBe(true);
     expect(session.getSnapshot().user?.displayName).toBe("Casey Learner");
+    expect(cookie.get()).not.toBe("casey@example.com");
 
     const storedUsers = storage.getItem("session-test:users");
 
@@ -70,6 +89,49 @@ describe("app session context", () => {
     });
 
     expect(session.getSnapshot().user?.email).toBe("casey@example.com");
+  });
+
+  it("restores the active user from an opaque persisted session and clears it on sign-out", async () => {
+    const storage = createMemoryStorage();
+    const cookie = createMemoryCookieStore();
+    const firstSession = createAppSessionContext({
+      cookie,
+      keyPrefix: "session-test-refresh",
+      storage,
+    });
+
+    await firstSession.register({
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      password: "correct horse battery staple",
+    });
+
+    const activeSessionId = cookie.get();
+
+    expect(activeSessionId).toBeTruthy();
+    expect(activeSessionId).not.toBe(firstSession.getSnapshot().user?.id);
+    expect(storage.getItem("session-test-refresh:sessions")).toContain(
+      activeSessionId,
+    );
+
+    const refreshedSession = createAppSessionContext({
+      cookie,
+      keyPrefix: "session-test-refresh",
+      storage,
+    });
+
+    expect(refreshedSession.getSnapshot().user).toMatchObject({
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+    });
+
+    refreshedSession.logout();
+
+    expect(cookie.get()).toBeNull();
+    expect(hasActiveSession(refreshedSession.getSnapshot())).toBe(false);
+    expect(storage.getItem("session-test-refresh:sessions")).not.toContain(
+      activeSessionId,
+    );
   });
 
   it("rejects cross-account access when credentials do not match", async () => {
@@ -102,6 +164,39 @@ describe("app session context", () => {
     } satisfies Pick<AppAuthError, "code">);
 
     expect(hasActiveSession(session.getSnapshot())).toBe(false);
+  });
+
+  it("rejects duplicate email registration without exposing credential fields in the session snapshot", async () => {
+    const storage = createMemoryStorage();
+    const cookie = createMemoryCookieStore();
+    const session = createAppSessionContext({
+      cookie,
+      keyPrefix: "session-test-duplicate-email",
+      storage,
+    });
+
+    await session.register({
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      password: "correct horse battery staple",
+    });
+
+    await expect(
+      session.register({
+        displayName: "Casey Learner Two",
+        email: "CASEY@example.com",
+        password: "another secure password",
+      }),
+    ).rejects.toMatchObject({
+      code: "email_taken",
+    } satisfies Pick<AppAuthError, "code">);
+
+    expect(session.getSnapshot().user).toMatchObject({
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+    });
+    expect(session.getSnapshot().user).not.toHaveProperty("passwordHash");
+    expect(session.getSnapshot().user).not.toHaveProperty("passwordSalt");
   });
 
   it("persists account preferences per user without leaking across accounts", async () => {

@@ -399,6 +399,59 @@ describe("authenticated app shell", () => {
     expect(router.state.location.pathname).toBe("/login");
   });
 
+  it("restores a protected route after refresh until sign-out clears the session", async () => {
+    const keyPrefix = `test-auth-refresh-${Math.random().toString(36).slice(2)}`;
+    const sessionContext = createAppSessionContext({
+      keyPrefix,
+      storage: window.localStorage,
+    });
+
+    await sessionContext.register({
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      password: "correct horse battery staple",
+    });
+
+    const refreshedSessionContext = createAppSessionContext({
+      keyPrefix,
+      storage: window.localStorage,
+    });
+    const refreshedRoute = renderRoute("/settings", {
+      sessionContext: refreshedSessionContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Settings" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Casey Learner")).toBeInTheDocument();
+    expect(refreshedRoute.router.state.location.pathname).toBe("/settings");
+
+    openAccountMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Log out" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Welcome back" }),
+    ).toBeInTheDocument();
+
+    cleanup();
+
+    const loggedOutSessionContext = createAppSessionContext({
+      keyPrefix,
+      storage: window.localStorage,
+    });
+    const loggedOutRoute = renderRoute("/settings", {
+      sessionContext: loggedOutSessionContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Welcome back" }),
+    ).toBeInTheDocument();
+    expect(loggedOutRoute.router.state.location.pathname).toBe("/login");
+    expect(loggedOutRoute.router.state.location.search.redirect).toBe(
+      "/settings",
+    );
+  });
+
   it("logs a returning user into the requested protected route", async () => {
     const sessionContext = createAppSessionContext({
       keyPrefix: `test-auth-${Math.random().toString(36).slice(2)}`,

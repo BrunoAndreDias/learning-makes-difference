@@ -34,7 +34,6 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
   const redirectTarget = search.redirect ?? "/notes";
@@ -46,19 +45,6 @@ function LoginPage() {
 
     try {
       await session.login({ email, password });
-
-      if (!rememberMe && typeof window !== "undefined") {
-        // Session lib persists to localStorage; clear it on tab close so
-        // unchecked "Remember me" doesn't survive a browser close.
-        window.addEventListener(
-          "beforeunload",
-          () => {
-            session.logout();
-          },
-          { once: true },
-        );
-      }
-
       await router.invalidate();
       await navigate({ to: redirectTarget });
     } catch (error) {
@@ -184,15 +170,6 @@ function LoginPage() {
         </div>
 
         <div className="auth-row">
-          <label className="auth-remember">
-            <input
-              checked={rememberMe}
-              name="remember"
-              onChange={(event) => setRememberMe(event.target.checked)}
-              type="checkbox"
-            />
-            <span>Remember me</span>
-          </label>
           <Link className="auth-link" to="/forgot-password">
             Forgot password?
           </Link>
