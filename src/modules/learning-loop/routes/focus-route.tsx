@@ -81,6 +81,7 @@ function FocusPage() {
       total + record.completedBreakIntervalCount * record.breakIntervalMinutes,
     0,
   );
+  const activeSessionDisplay = getActiveSessionDisplay(activeSession);
 
   useEffect(() => {
     headingRef.current?.focus();
@@ -109,18 +110,10 @@ function FocusPage() {
         </div>
         <aside aria-label="Current focus session" className="focus-now-card">
           <span className="focus-now-card__label">
-            {activeSession === null ? "Ready" : activeSession.intervalState}
+            {activeSessionDisplay.label}
           </span>
-          <strong>
-            {activeSession === null
-              ? "No timer running"
-              : getActiveSessionSummary(activeSession)}
-          </strong>
-          <span>
-            {activeSession === null
-              ? "Start a session below when you are ready."
-              : getActiveSessionDetail(activeSession)}
-          </span>
+          <strong>{activeSessionDisplay.summary}</strong>
+          <span>{activeSessionDisplay.detail}</span>
         </aside>
       </header>
 
@@ -384,6 +377,22 @@ function getBreakMetricLabel(record: FocusRecord) {
   return `${record.completedBreakIntervalCount} ${intervalLabel}, ${breakMinutes} minutes`;
 }
 
+function getActiveSessionDisplay(session: FocusSession | null) {
+  if (session === null) {
+    return {
+      detail: "Start a session below when you are ready.",
+      label: "Ready",
+      summary: "No timer running",
+    };
+  }
+
+  return {
+    detail: getActiveSessionDetail(session),
+    label: session.intervalState,
+    summary: getActiveSessionSummary(session),
+  };
+}
+
 function getActiveSessionSummary(session: FocusSession) {
   const remainingLabel = getRemainingMinuteLabel(session);
 
@@ -404,10 +413,11 @@ function getActiveSessionSummary(session: FocusSession) {
 
 function getActiveSessionDetail(session: FocusSession) {
   const completedLabel = `${session.completedFocusIntervalCount} completed`;
-  const plannedLabel =
-    session.plannedFocusIntervalCount === null
-      ? "open-ended"
-      : `${session.plannedFocusIntervalCount} planned`;
+  let plannedLabel = "open-ended";
+
+  if (session.plannedFocusIntervalCount !== null) {
+    plannedLabel = `${session.plannedFocusIntervalCount} planned`;
+  }
 
   return `${completedLabel} · ${plannedLabel}`;
 }

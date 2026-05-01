@@ -18,6 +18,22 @@ export const Route = createFileRoute("/_protected/labels")({
   component: LabelsPage,
 });
 
+function formatCount(count: number, singular: string, plural: string) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function getVisibleLabels(labels: AppLabel[], searchQuery: string) {
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+  if (normalizedSearchQuery.length === 0) {
+    return labels;
+  }
+
+  return labels.filter((label) =>
+    label.name.toLowerCase().includes(normalizedSearchQuery),
+  );
+}
+
 export function LabelsPage() {
   const labels = useRouteContext({
     from: "/_protected/labels",
@@ -40,6 +56,7 @@ export function LabelsPage() {
   const createInputId = useId();
   const createHintId = useId();
   const feedbackMessageId = useId();
+  const searchInputId = useId();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -166,13 +183,8 @@ export function LabelsPage() {
     });
   }
 
-  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
-  const visibleLabels =
-    normalizedSearchQuery.length === 0
-      ? labelRecords
-      : labelRecords.filter((label) =>
-          label.name.toLowerCase().includes(normalizedSearchQuery),
-        );
+  const hasSearchQuery = searchQuery.trim().length > 0;
+  const visibleLabels = getVisibleLabels(labelRecords, searchQuery);
   const rootLabelCount = labelRecords.filter(
     (label) => label.parentIds.length === 0,
   ).length;
@@ -180,21 +192,16 @@ export function LabelsPage() {
     (total, label) => total + label.parentIds.length,
     0,
   );
-  const labelCountText = `${labelRecords.length} ${
-    labelRecords.length === 1 ? "label" : "labels"
-  }`;
-  const rootCountText = `${rootLabelCount} ${
-    rootLabelCount === 1 ? "root" : "roots"
-  }`;
-  const relationshipCountText = `${relationshipCount} ${
-    relationshipCount === 1 ? "link" : "links"
-  }`;
-  const visibleCountText =
-    normalizedSearchQuery.length === 0
-      ? labelCountText
-      : `${visibleLabels.length} ${
-          visibleLabels.length === 1 ? "match" : "matches"
-        }`;
+  const labelCountText = formatCount(labelRecords.length, "label", "labels");
+  const rootCountText = formatCount(rootLabelCount, "root", "roots");
+  const relationshipCountText = formatCount(relationshipCount, "link", "links");
+  const visibleCountText = hasSearchQuery
+    ? formatCount(visibleLabels.length, "match", "matches")
+    : labelCountText;
+  const createFieldDescription =
+    feedbackMessage === null
+      ? createHintId
+      : `${createHintId} ${feedbackMessageId}`;
 
   return (
     <section className="labels-page" aria-labelledby="labels-route-heading">
@@ -250,9 +257,7 @@ export function LabelsPage() {
             <label className="labels-field" htmlFor={createInputId}>
               <span>New label name</span>
               <input
-                aria-describedby={`${createHintId}${
-                  feedbackMessage === null ? "" : ` ${feedbackMessageId}`
-                }`}
+                aria-describedby={createFieldDescription}
                 id={createInputId}
                 name="newLabelName"
                 onChange={(event) => setCreateName(event.target.value)}
@@ -301,12 +306,12 @@ export function LabelsPage() {
                 <path d="m15 15 4.5 4.5" />
               </svg>
             </span>
-            <label className="sr-only" htmlFor="labels-search">
+            <label className="sr-only" htmlFor={searchInputId}>
               Search labels
             </label>
             <input
               autoComplete="off"
-              id="labels-search"
+              id={searchInputId}
               name="search"
               onChange={(event) => setSearchQuery(event.target.value)}
               onKeyDown={(event) => {
@@ -415,27 +420,12 @@ function LabelCard({
   const availableParents = allLabels.filter((candidate) => {
     return candidate.id !== label.id && !label.parentIds.includes(candidate.id);
   });
-  const descendantLabels =
-    userId === null
-      ? []
-      : labels
-          .getDescendantIds({
-            labelId: label.id,
-            userId,
-          })
-          .map((descendantId: string) => {
-            const descendant = allLabels.find(
-              (candidate) => candidate.id === descendantId,
-            );
-
-            return {
-              id: descendantId,
-              name: descendant?.name ?? descendantId,
-            };
-          })
-          .sort((left: { name: string }, right: { name: string }) =>
-            left.name.localeCompare(right.name),
-          );
+  const descendantLabels = getSortedDescendantLabels({
+    allLabels,
+    labelId: label.id,
+    labels,
+    userId,
+  });
 
   function handleRename(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -453,12 +443,12 @@ function LabelCard({
   }, [label.name]);
 
   const hasRenameChanges = nextName.trim() !== label.name;
-  const parentCountText = `${parentLabels.length} ${
-    parentLabels.length === 1 ? "parent" : "parents"
-  }`;
-  const descendantCountText = `${descendantLabels.length} ${
-    descendantLabels.length === 1 ? "descendant" : "descendants"
-  }`;
+  const parentCountText = formatCount(parentLabels.length, "parent", "parents");
+  const descendantCountText = formatCount(
+    descendantLabels.length,
+    "descendant",
+    "descendants",
+  );
   const canAddParent = selectedParentId !== "" && availableParents.length > 0;
 
   return (
@@ -585,4 +575,37 @@ function LabelCard({
       </section>
     </article>
   );
+}
+
+function getSortedDescendantLabels({
+  allLabels,
+  labelId,
+  labels,
+  userId,
+}: {
+  allLabels: AppLabel[];
+  labelId: string;
+  labels: AppLabelsContext;
+  userId: string | null;
+}) {
+  if (userId === null) {
+    return [];
+  }
+
+  return labels
+    .getDescendantIds({
+      labelId,
+      userId,
+    })
+    .map((descendantId) => {
+      const descendant = allLabels.find(
+        (candidate) => candidate.id === descendantId,
+      );
+
+      return {
+        id: descendantId,
+        name: descendant?.name ?? descendantId,
+      };
+    })
+    .sort((left, right) => left.name.localeCompare(right.name));
 }

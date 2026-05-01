@@ -53,11 +53,8 @@ function getSearchResultLabel(result: AppNoteSearchResult) {
   return `${result.note.title} ${result.matchChip} Updated ${formatNoteDate(result.note.updatedAt)}`;
 }
 
-function getRecallSelectionSearchResultOptionId(
-  result: AppNoteSearchResult,
-  index: number,
-) {
-  return `recall-selection-search-option-${result.note.id}-${result.matchChip}-${index}`;
+function getRecallSelectionSearchResultOptionId(noteId: string, index: number) {
+  return `recall-selection-search-option-${noteId}-${index}`;
 }
 
 function EmptyRecallSelectionPage() {
@@ -113,18 +110,18 @@ function RecallSelectionControls({
 
 function RecallSelectionSearchResults({
   activeSearchResultIndex,
-  hasSearchQuery,
+  isOpen,
   onToggleNote,
   searchResults,
   selectedNoteIds,
 }: {
   activeSearchResultIndex: number;
-  hasSearchQuery: boolean;
+  isOpen: boolean;
   onToggleNote: (noteId: string) => void;
   searchResults: AppNoteSearchResult[];
   selectedNoteIds: ReadonlySet<string>;
 }) {
-  if (!hasSearchQuery) {
+  if (!isOpen) {
     return null;
   }
 
@@ -153,7 +150,7 @@ function RecallSelectionSearchResults({
             aria-selected={isSelected}
             className="notes-search__option"
             data-active={index === activeSearchResultIndex ? "true" : undefined}
-            id={getRecallSelectionSearchResultOptionId(result, index)}
+            id={getRecallSelectionSearchResultOptionId(result.note.id, index)}
             key={`${result.note.id}-${result.matchChip}`}
             onClick={() => onToggleNote(result.note.id)}
             role="option"
@@ -261,7 +258,7 @@ export function RecallSelectionPage() {
   const activeSearchOptionId =
     isSearchListboxOpen && activeSearchResult !== undefined
       ? getRecallSelectionSearchResultOptionId(
-          activeSearchResult,
+          activeSearchResult.note.id,
           activeSearchResultIndex,
         )
       : undefined;
@@ -342,6 +339,12 @@ export function RecallSelectionPage() {
     setIsSearchOpen(value.trim().length > 0);
   }
 
+  function resetSearchState() {
+    setSearchQuery("");
+    setIsSearchOpen(false);
+    setActiveSearchResultIndex(0);
+  }
+
   function handleSelectActiveSearchResult() {
     const result = searchResults[activeSearchResultIndex];
 
@@ -412,9 +415,7 @@ export function RecallSelectionPage() {
 
   async function handleCancel() {
     setSelectedNoteIds([]);
-    setSearchQuery("");
-    setIsSearchOpen(false);
-    setActiveSearchResultIndex(0);
+    resetSearchState();
     setErrorMessage(null);
     await navigate({ to: "/recall" });
   }
@@ -529,7 +530,7 @@ export function RecallSelectionPage() {
 
             <RecallSelectionSearchResults
               activeSearchResultIndex={activeSearchResultIndex}
-              hasSearchQuery={hasSearchQuery && isSearchOpen}
+              isOpen={hasSearchQuery && isSearchOpen}
               onToggleNote={toggleSelectedNote}
               searchResults={searchResults}
               selectedNoteIds={selectedNoteIdSet}
