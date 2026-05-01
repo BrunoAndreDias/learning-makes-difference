@@ -25,6 +25,12 @@ _Avoid_: Abbreviation, term definition
 The core study cycle where the User captures knowledge as Notes and reinforces it through RecallSessions.
 _Avoid_: Content workflow, study menu
 
+**Study Layer**:
+The app-based transformation of source study material into Notes, memory aids, RecallSessions, and FocusSessions.
+In the exam-support pilot, the Study Layer is used alongside external exam material rather than replacing it.
+The future product direction is for the app to become the User's primary study workspace when the User trusts it enough for long-term study.
+_Avoid_: Source notes, exam notebook
+
 **Label**:
 A named concept used to group Notes. Labels form a DAG — a Label can have multiple parent Labels and multiple child Labels. A Note can belong to multiple Labels directly.
 _Avoid_: Tag, category, folder, topic, study field
@@ -152,6 +158,9 @@ _Avoid_: Product menu, sidebar navigation
 - A **Note** has zero or more **Metaphors** (cannot exist without their Note)
 - A **Note** has zero or more **Acronyms** (cannot exist without their Note)
 - The **Learning Loop** is centered on **Notes** and **RecallSessions**; **Metaphors** and **Acronyms** support Notes but are not standalone workspace destinations.
+- The **Study Layer** turns external source material into **Notes**, **Metaphors**, **Acronyms**, **RecallSessions**, and **FocusSessions**.
+- During the exam-support pilot, the **Study Layer** must not be the only place where irreplaceable exam material exists.
+- The long-term product direction is for the **Study Layer** to become the **User**'s primary study workspace.
 - In v1, the **Learning Loop** has two primary sections: the **Notes Workspace** and the **Recall Section**.
 - Searching for a **Note** includes its own title and body plus the titles/content of its attached **Metaphors** and **Acronyms**, but the search result is still the **Note**.
 - Searching/filtering Notes for a **RecallSession** includes the Note title/body and attached **Metaphors** and **Acronyms**, but selecting a result always selects the owning **Note**.
@@ -409,6 +418,7 @@ _Avoid_: Product menu, sidebar navigation
 - "Recall view" could have meant either the base **Recall Section** or an active **Recall Session View** — resolved: the base section reviews SessionResults and starts RecallSessions; the session view only represents an active RecallSession.
 - "Recall route" could have meant only an active session route — resolved: `/recall` is the base **Recall Section** and canonical **SessionResult** review workspace, `/recall/select` is **Recall Selection Mode**, `/recall/session` is the active **Recall Session View**, and `/recall/results` is removed.
 - "Recall Dashboard" or "Recall Home" could have named the default `/recall` screen — resolved: use **Recall Section** only; its default surface is the Results master-detail workspace.
+- "Exam notes" could have meant the app is already the primary source of truth for exam material — resolved: for the exam-support pilot, the app is a **Study Layer** over material that remains available elsewhere, while the long-term direction is to become the **User**'s primary study workspace.
 - "Breadcrumb" could have acted like primary navigation — resolved: the **Workspace Breadcrumb** indicates position inside the current workspace section, not product sections.
 - "History" could have stayed a separate product destination, compatibility route, or UI label — resolved for v1: remove `/history`; completed recall work is reviewed as **SessionResults** inside the **Recall Section**, with UI copy using "Results".
 - "App Sidebar" previously meant the primary authenticated product navigation — resolved for v1: use **Notes Workspace**, **Recall Section**, and an **Account Dock**.
