@@ -172,7 +172,9 @@ function FocusPage() {
         <div className="focus-section-heading">
           <div>
             <p className="section-label">History</p>
-            <strong className="focus-card-title">Completed focus records</strong>
+            <strong className="focus-card-title">
+              Completed focus records
+            </strong>
           </div>
           <span className="tag">{records.length} total</span>
         </div>
@@ -391,19 +393,16 @@ function getBreakMetricLabel(record: FocusRecord) {
 function getActiveSessionSummary(session: FocusSession) {
   const remainingLabel = getRemainingMinuteLabel(session);
 
-  if (session.intervalState === "Focus") {
-    return `${remainingLabel} left in focus`;
+  switch (session.intervalState) {
+    case "Focus":
+      return `${remainingLabel} left in focus`;
+    case "Break":
+      return `${remainingLabel} left in break`;
+    case "Transition":
+      return `${remainingLabel} transition`;
+    case "AwaitingNextFocus":
+      return session.isStale ? "Stale session" : "Ready for next focus";
   }
-
-  if (session.intervalState === "Break") {
-    return `${remainingLabel} left in break`;
-  }
-
-  if (session.intervalState === "Transition") {
-    return `${remainingLabel} transition`;
-  }
-
-  return session.isStale ? "Stale session" : "Ready for next focus";
 }
 
 function getActiveSessionDetail(session: FocusSession) {

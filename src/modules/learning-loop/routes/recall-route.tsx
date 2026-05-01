@@ -46,8 +46,12 @@ function formatNoteDate(value: string): string {
   return NOTE_DATE_FORMATTER.format(new Date(value));
 }
 
+function formatCount(count: number, singular: string, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
 function formatSelectedCount(count: number) {
-  return `${count} ${count === 1 ? "note" : "notes"} selected`;
+  return `${formatCount(count, "note")} selected`;
 }
 
 function getSearchResultLabel(result: AppNoteSearchResult) {
@@ -255,7 +259,7 @@ export function RecallSelectionPage() {
   const selectedCountLabel = formatSelectedCount(selectedNoteIds.length);
   const hasSearchQuery = searchQuery.trim().length > 0;
   const selectedNoteIdSet = new Set(selectedNoteIds);
-  const noteCountLabel = `${notes.length} ${notes.length === 1 ? "note" : "notes"}`;
+  const noteCountLabel = formatCount(notes.length, "note");
   const isSearchListboxOpen =
     hasSearchQuery && isSearchOpen && searchResults.length > 0;
   const activeSearchResult = searchResults[activeSearchResultIndex];
@@ -280,7 +284,7 @@ export function RecallSelectionPage() {
 
   useEffect(() => {
     function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
-      if (event.key.toLocaleLowerCase() !== "k") {
+      if (event.key.toLowerCase() !== "k") {
         return;
       }
 
@@ -352,35 +356,41 @@ export function RecallSelectionPage() {
   }
 
   function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Escape") {
-      setIsSearchOpen(false);
-      return;
-    }
+    switch (event.key) {
+      case "Escape":
+        setIsSearchOpen(false);
+        return;
+      case "ArrowDown":
+        if (!isSearchOpen || searchResults.length === 0) {
+          return;
+        }
 
-    if (!isSearchOpen || searchResults.length === 0) {
-      return;
-    }
+        event.preventDefault();
+        setActiveSearchResultIndex(
+          (currentIndex) => (currentIndex + 1) % searchResults.length,
+        );
+        return;
+      case "ArrowUp":
+        if (!isSearchOpen || searchResults.length === 0) {
+          return;
+        }
 
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setActiveSearchResultIndex(
-        (currentIndex) => (currentIndex + 1) % searchResults.length,
-      );
-      return;
-    }
+        event.preventDefault();
+        setActiveSearchResultIndex(
+          (currentIndex) =>
+            (currentIndex - 1 + searchResults.length) % searchResults.length,
+        );
+        return;
+      case "Enter":
+        if (!isSearchOpen || searchResults.length === 0) {
+          return;
+        }
 
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setActiveSearchResultIndex(
-        (currentIndex) =>
-          (currentIndex - 1 + searchResults.length) % searchResults.length,
-      );
-      return;
-    }
-
-    if (event.key === "Enter") {
-      event.preventDefault();
-      handleSelectActiveSearchResult();
+        event.preventDefault();
+        handleSelectActiveSearchResult();
+        return;
+      default:
+        return;
     }
   }
 

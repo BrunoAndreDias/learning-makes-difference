@@ -278,9 +278,9 @@ function SelectedSessionResult({
           aria-labelledby="selected-question-review-heading"
           className="recall-results-section recall-results-section--review"
         >
-            <h4 id="selected-question-review-heading">Prompt review</h4>
-            <ResultsSessionReview sessionResult={sessionResult} />
-          </section>
+          <h4 id="selected-question-review-heading">Prompt review</h4>
+          <ResultsSessionReview sessionResult={sessionResult} />
+        </section>
       </div>
 
       <section

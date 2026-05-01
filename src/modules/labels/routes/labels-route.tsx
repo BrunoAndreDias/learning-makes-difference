@@ -1,6 +1,7 @@
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import {
   type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   useEffect,
   useId,
   useRef,
@@ -17,6 +18,10 @@ import {
 export const Route = createFileRoute("/_protected/labels")({
   component: LabelsPage,
 });
+
+function formatCount(count: number, singular: string, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
 
 export function LabelsPage() {
   const labels = useRouteContext({
@@ -41,6 +46,10 @@ export function LabelsPage() {
   const createHintId = useId();
   const feedbackMessageId = useId();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const createInputDescriptionId =
+    feedbackMessage === null
+      ? createHintId
+      : `${createHintId} ${feedbackMessageId}`;
 
   useEffect(() => {
     function syncLabelRecords() {
@@ -180,21 +189,19 @@ export function LabelsPage() {
     (total, label) => total + label.parentIds.length,
     0,
   );
-  const labelCountText = `${labelRecords.length} ${
-    labelRecords.length === 1 ? "label" : "labels"
-  }`;
-  const rootCountText = `${rootLabelCount} ${
-    rootLabelCount === 1 ? "root" : "roots"
-  }`;
-  const relationshipCountText = `${relationshipCount} ${
-    relationshipCount === 1 ? "link" : "links"
-  }`;
+  const labelCountText = formatCount(labelRecords.length, "label");
+  const rootCountText = formatCount(rootLabelCount, "root");
+  const relationshipCountText = formatCount(relationshipCount, "link");
   const visibleCountText =
     normalizedSearchQuery.length === 0
       ? labelCountText
-      : `${visibleLabels.length} ${
-          visibleLabels.length === 1 ? "match" : "matches"
-        }`;
+      : formatCount(visibleLabels.length, "match", "matches");
+
+  function handleSearchKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      setSearchQuery("");
+    }
+  }
 
   return (
     <section className="labels-page" aria-labelledby="labels-route-heading">
@@ -250,9 +257,7 @@ export function LabelsPage() {
             <label className="labels-field" htmlFor={createInputId}>
               <span>New label name</span>
               <input
-                aria-describedby={`${createHintId}${
-                  feedbackMessage === null ? "" : ` ${feedbackMessageId}`
-                }`}
+                aria-describedby={createInputDescriptionId}
                 id={createInputId}
                 name="newLabelName"
                 onChange={(event) => setCreateName(event.target.value)}
@@ -309,11 +314,7 @@ export function LabelsPage() {
               id="labels-search"
               name="search"
               onChange={(event) => setSearchQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  setSearchQuery("");
-                }
-              }}
+              onKeyDown={handleSearchKeyDown}
               placeholder="Search labels"
               ref={searchInputRef}
               type="search"
@@ -453,12 +454,11 @@ function LabelCard({
   }, [label.name]);
 
   const hasRenameChanges = nextName.trim() !== label.name;
-  const parentCountText = `${parentLabels.length} ${
-    parentLabels.length === 1 ? "parent" : "parents"
-  }`;
-  const descendantCountText = `${descendantLabels.length} ${
-    descendantLabels.length === 1 ? "descendant" : "descendants"
-  }`;
+  const parentCountText = formatCount(parentLabels.length, "parent");
+  const descendantCountText = formatCount(
+    descendantLabels.length,
+    "descendant",
+  );
   const canAddParent = selectedParentId !== "" && availableParents.length > 0;
 
   return (

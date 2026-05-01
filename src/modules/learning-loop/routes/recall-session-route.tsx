@@ -8,8 +8,8 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import { BreakIntervalOverlay } from "../components/break-interval-overlay";
-import { formatRecallModeLabel } from "../domain/learner-copy";
 import { isBreakIntervalActive } from "../domain/focus";
+import { formatRecallModeLabel } from "../domain/learner-copy";
 import {
   AppRecallError,
   type AppRecallSnapshot,

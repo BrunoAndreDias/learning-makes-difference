@@ -171,10 +171,7 @@ export function RecallResultsSidebar({
         ) : null}
       </div>
 
-      <section
-        aria-label="Review list"
-        className="app-sidebar__workspace-nav"
-      >
+      <section aria-label="Review list" className="app-sidebar__workspace-nav">
         {sessionResults.length === 0 ? (
           <NoResultsState
             hasActiveFilter={selectedLabelFilter !== undefined}

@@ -201,9 +201,6 @@
 .notes-workspace {
   display: grid;
   gap: var(--space-4);
-}
-
-.notes-workspace {
   min-height: 100%;
 }
 

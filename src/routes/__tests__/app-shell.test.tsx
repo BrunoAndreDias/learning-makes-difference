@@ -3836,9 +3836,7 @@ describe("authenticated app shell", () => {
       }),
     ).toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "Open review" })[1],
-    );
+    fireEvent.click(screen.getAllByRole("button", { name: "Open review" })[1]);
 
     const selectedOlderResult = getSelectedSessionResultRegion();
     const olderQuestionReview = within(selectedOlderResult).getByRole(
@@ -3935,9 +3933,7 @@ describe("authenticated app shell", () => {
       }),
     ).toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "Open review" })[1],
-    );
+    fireEvent.click(screen.getAllByRole("button", { name: "Open review" })[1]);
 
     const selectedOlderResult = getSelectedSessionResultRegion();
     expect(
@@ -4470,9 +4466,7 @@ describe("authenticated app shell", () => {
       screen.getAllByRole("button", { name: "Open review" }).length,
     ).toBeGreaterThan(0);
 
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "Open review" })[1],
-    );
+    fireEvent.click(screen.getAllByRole("button", { name: "Open review" })[1]);
 
     const resultsPane = screen.getByRole("region", {
       name: "Selected review",
