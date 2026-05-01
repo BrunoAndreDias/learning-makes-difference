@@ -17,6 +17,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { formatCount } from "../../../lib/format-count";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import type { AppLabel } from "../../labels/domain/labels";
@@ -36,8 +37,8 @@ import {
   type NoteEditorDraft,
 } from "../domain/note-editor";
 import {
-  formatNoteSearchResultPreview,
   type AppNoteSearchResult,
+  formatNoteSearchResultPreview,
   searchNoteResults,
 } from "../domain/note-search";
 import { resolveNotesSearchTargetElement } from "../domain/note-search-navigation";
@@ -58,17 +59,18 @@ const noteEditorFormId = "note-editor-form";
 const minNoteBodyFraction = 0.35;
 const maxNoteBodyFraction = 0.95;
 const noteReviewThresholdMs = 30_000;
+const NOTE_DATE_FORMATTER = new Intl.DateTimeFormat("en", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
 
 export const Route = createFileRoute("/_protected/notes")({
   component: NotesWorkspace,
 });
 
 function formatNoteDate(value: string): string {
-  return new Intl.DateTimeFormat("en", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
+  return NOTE_DATE_FORMATTER.format(new Date(value));
 }
 
 function getSearchResultOptionId(noteId: string): string {
@@ -82,7 +84,7 @@ function getSearchResultLabel(result: AppNoteSearchResult): string {
 }
 
 function formatHookCountLabel(count: number): string {
-  return `${count} ${count === 1 ? "hook" : "hooks"}`;
+  return formatCount(count, "hook");
 }
 
 function getLearningStateSummary(status: LearningStateStatus) {
@@ -956,10 +958,8 @@ export function NotesWorkspace() {
   const selectedLabels = availableLabels.filter((label) =>
     editorState.labelIds.includes(label.id),
   );
-  const noteCountLabel = `${notes.length} ${notes.length === 1 ? "note" : "notes"}`;
-  const selectedLabelCount = `${selectedLabels.length} ${
-    selectedLabels.length === 1 ? "label" : "labels"
-  }`;
+  const noteCountLabel = formatCount(notes.length, "note");
+  const selectedLabelCount = formatCount(selectedLabels.length, "label");
   const workspaceModeLabel = isCreating ? "Draft mode" : "Editing note";
   const hasUnsavedChanges = hasUnsavedNoteChanges;
   const selectedNoteUpdatedLabel =
@@ -1030,30 +1030,32 @@ export function NotesWorkspace() {
           id={notesSearchListboxId}
           role="listbox"
         >
-          {searchResults.map((result, index) => (
-            <button
-              aria-label={getSearchResultLabel(result)}
-              aria-selected={index === activeSearchResultIndex}
-              className="notes-search__option"
-              id={getSearchResultOptionId(result.note.id)}
-              key={result.note.id}
-              onClick={() => handleSelectSearchResult(result)}
-              role="option"
-              tabIndex={-1}
-              type="button"
-            >
-              <span className="notes-search__option-title">
-                <strong>{result.note.title}</strong>
-                <span className="notes-search__match-chip">
-                  {result.matchChip}
+          {searchResults.map((result, index) => {
+            const preview = formatNoteSearchResultPreview(result);
+
+            return (
+              <button
+                aria-label={getSearchResultLabel(result)}
+                aria-selected={index === activeSearchResultIndex}
+                className="notes-search__option"
+                id={getSearchResultOptionId(result.note.id)}
+                key={result.note.id}
+                onClick={() => handleSelectSearchResult(result)}
+                role="option"
+                tabIndex={-1}
+                type="button"
+              >
+                <span className="notes-search__option-title">
+                  <strong>{result.note.title}</strong>
+                  <span className="notes-search__match-chip">
+                    {result.matchChip}
+                  </span>
                 </span>
-              </span>
-              {formatNoteSearchResultPreview(result) === null ? null : (
-                <span>{formatNoteSearchResultPreview(result)}</span>
-              )}
-              <span>{`Updated ${formatNoteDate(result.note.updatedAt)}`}</span>
-            </button>
-          ))}
+                {preview === null ? null : <span>{preview}</span>}
+                <span>{`Updated ${formatNoteDate(result.note.updatedAt)}`}</span>
+              </button>
+            );
+          })}
         </div>
       );
     }

@@ -21,8 +21,8 @@ import type { AppSessionSnapshot } from "../../access/domain/session";
 import type { AppLabel } from "../../labels/domain/labels";
 import { formatSearchMatchLabel } from "../domain/learner-copy";
 import {
-  formatNoteSearchResultPreview,
   type AppNoteSearchResult,
+  formatNoteSearchResultPreview,
   searchNoteResults,
 } from "../domain/note-search";
 import { listNotesForUser } from "../domain/notes";

@@ -1,3 +1,4 @@
+import { formatCount } from "../../../lib/format-count";
 import {
   type FlashCardRecallAttemptSummary,
   type FlashCardRecallNote,
@@ -47,23 +48,24 @@ function compareWeakNotes(
   return weakRatingOrder[left.rating] - weakRatingOrder[right.rating];
 }
 
+function toWeakNote(question: FlashCardSessionResult["questions"][number]) {
+  if (!isWeakRating(question.selfRating)) {
+    return null;
+  }
+
+  return {
+    noteId: question.noteId,
+    rating: question.selfRating,
+    title: question.noteSnapshot.title,
+  };
+}
+
 function getWeakNotes(
   sessionResult: Pick<FlashCardSessionResult, "questions">,
 ) {
   return sessionResult.questions
-    .flatMap((question): ResultSummaryWeakNote[] => {
-      if (!isWeakRating(question.selfRating)) {
-        return [];
-      }
-
-      return [
-        {
-          noteId: question.noteId,
-          rating: question.selfRating,
-          title: question.noteSnapshot.title,
-        },
-      ];
-    })
+    .map(toWeakNote)
+    .filter((note): note is ResultSummaryWeakNote => note !== null)
     .sort(compareWeakNotes);
 }
 
@@ -123,8 +125,7 @@ export function summarizeSessionResult(
 export function getResultSummaryNoteCountLabel(
   notes: readonly FlashCardRecallNote[],
 ) {
-  const count = notes.length;
-  return `${count} ${count === 1 ? "note" : "notes"} practiced`;
+  return `${formatCount(notes.length, "note")} practiced`;
 }
 
 export function formatResultSummaryScoreLabel(
