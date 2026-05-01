@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
-
+import { createAppLabelsContext } from "../../labels/domain/labels";
 import {
   type AppNotesError,
   createAppNotesContext,
   listNotesForUser,
 } from "./notes";
-import { createAppLabelsContext } from "../../labels/domain/labels";
 
 function createMemoryStorage() {
   const values = new Map<string, string>();

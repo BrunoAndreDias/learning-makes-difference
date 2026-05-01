@@ -1,7 +1,6 @@
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import {
   type FormEvent,
-  type ReactNode,
   useEffect,
   useId,
   useRef,
@@ -21,6 +20,18 @@ export const Route = createFileRoute("/_protected/labels")({
   component: LabelsPage,
 });
 
+type LabelsListProps = Readonly<{
+  addParent: (labelId: string, parentId: string) => void;
+  allLabels: AppLabel[];
+  deleteLabel: (labelId: string) => void;
+  labels: AppLabelsContext;
+  removeParent: (labelId: string, parentId: string) => void;
+  renameLabel: (labelId: string, name: string) => void;
+  searchQuery: string;
+  userId: string | null;
+  visibleLabels: AppLabel[];
+}>;
+
 function getVisibleLabels(labels: AppLabel[], searchQuery: string) {
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
@@ -31,6 +42,57 @@ function getVisibleLabels(labels: AppLabel[], searchQuery: string) {
   return labels.filter((label) =>
     label.name.toLowerCase().includes(normalizedSearchQuery),
   );
+}
+
+function LabelsList({
+  addParent,
+  allLabels,
+  deleteLabel,
+  labels,
+  removeParent,
+  renameLabel,
+  searchQuery,
+  userId,
+  visibleLabels,
+}: LabelsListProps) {
+  if (allLabels.length === 0) {
+    return (
+      <article className="labels-empty-card">
+        <p className="section-label">No labels yet</p>
+        <h4>Build your first topic</h4>
+        <p className="muted">
+          Start with a broad topic, then add narrower labels and connect them as
+          the graph takes shape.
+        </p>
+      </article>
+    );
+  }
+
+  if (visibleLabels.length === 0) {
+    return (
+      <article className="labels-empty-card">
+        <p className="section-label">No matches</p>
+        <h4>No labels match "{searchQuery}"</h4>
+        <p className="muted">
+          Clear the search or create a new label with this wording.
+        </p>
+      </article>
+    );
+  }
+
+  return visibleLabels.map((label) => (
+    <LabelCard
+      addParent={addParent}
+      allLabels={allLabels}
+      deleteLabel={deleteLabel}
+      key={label.id}
+      label={label}
+      labels={labels}
+      removeParent={removeParent}
+      renameLabel={renameLabel}
+      userId={userId}
+    />
+  ));
 }
 
 export function LabelsPage() {
@@ -198,44 +260,6 @@ export function LabelsPage() {
   const visibleCountText = hasSearchQuery
     ? formatCount(visibleLabels.length, "match", "matches")
     : labelCountText;
-  let labelsListContent: ReactNode;
-
-  if (labelRecords.length === 0) {
-    labelsListContent = (
-      <article className="labels-empty-card">
-        <p className="section-label">No labels yet</p>
-        <h4>Build your first topic</h4>
-        <p className="muted">
-          Start with a broad topic, then add narrower labels and connect them as
-          the graph takes shape.
-        </p>
-      </article>
-    );
-  } else if (visibleLabels.length === 0) {
-    labelsListContent = (
-      <article className="labels-empty-card">
-        <p className="section-label">No matches</p>
-        <h4>No labels match "{searchQuery}"</h4>
-        <p className="muted">
-          Clear the search or create a new label with this wording.
-        </p>
-      </article>
-    );
-  } else {
-    labelsListContent = visibleLabels.map((label) => (
-      <LabelCard
-        addParent={addParent}
-        allLabels={labelRecords}
-        deleteLabel={deleteLabel}
-        key={label.id}
-        label={label}
-        labels={labels}
-        removeParent={removeParent}
-        renameLabel={renameLabel}
-        userId={currentUserId}
-      />
-    ));
-  }
 
   return (
     <section className="labels-page" aria-labelledby="labels-route-heading">
@@ -385,7 +409,17 @@ export function LabelsPage() {
       </section>
 
       <section className="labels-list" aria-label="Labels list">
-        {labelsListContent}
+        <LabelsList
+          addParent={addParent}
+          allLabels={labelRecords}
+          deleteLabel={deleteLabel}
+          labels={labels}
+          removeParent={removeParent}
+          renameLabel={renameLabel}
+          searchQuery={searchQuery}
+          userId={currentUserId}
+          visibleLabels={visibleLabels}
+        />
       </section>
     </section>
   );

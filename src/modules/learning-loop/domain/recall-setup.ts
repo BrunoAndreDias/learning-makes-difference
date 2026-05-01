@@ -57,7 +57,7 @@ export type RecallSetupEmptyState =
   | "no-search-matches"
   | "no-selected-notes";
 
-type RecallSetupAvailableEmptyState = Exclude<
+export type RecallSetupAvailableEmptyState = Exclude<
   RecallSetupEmptyState,
   "no-selected-notes"
 >;

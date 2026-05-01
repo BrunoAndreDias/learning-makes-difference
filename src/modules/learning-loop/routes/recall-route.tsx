@@ -28,6 +28,7 @@ import { listNotesForUser } from "../domain/notes";
 import { AppRecallError } from "../domain/recall";
 import {
   deriveRecallSetupState,
+  type RecallSetupAvailableEmptyState,
   type RecallSetupCandidate,
   type RecallSetupFilter,
   type RecallSetupFilterSummary,
@@ -117,6 +118,27 @@ function toFilter(summary: RecallSetupFilterSummary): RecallSetupFilter {
   return {
     kind: summary.kind,
   };
+}
+
+function getAvailableNotesEmptyMessage({
+  availableEmptyState,
+  hasSearchQuery,
+}: {
+  availableEmptyState: RecallSetupAvailableEmptyState;
+  hasSearchQuery: boolean;
+}): string | null {
+  switch (availableEmptyState) {
+    case "no-search-matches":
+      return "No notes match this search.";
+    case "no-filter-matches":
+      return hasSearchQuery
+        ? "No notes match this search."
+        : "No notes match this filter yet.";
+    case "no-notes":
+      return "No recallable notes yet.";
+    case "none":
+      return null;
+  }
 }
 
 function EmptyRecallSelectionPage() {
@@ -314,31 +336,15 @@ function SelectableRecallNotes({
   hasSearchQuery,
   onToggleNote,
 }: {
-  availableEmptyState:
-    | "no-filter-matches"
-    | "no-notes"
-    | "no-search-matches"
-    | "none";
+  availableEmptyState: RecallSetupAvailableEmptyState;
   candidates: RecallSetupCandidate[];
   hasSearchQuery: boolean;
   onToggleNote: (noteId: string) => void;
 }) {
-  function renderEmptyState() {
-    switch (availableEmptyState) {
-      case "no-search-matches":
-        return "No notes match this search.";
-      case "no-filter-matches":
-        return hasSearchQuery
-          ? "No notes match this search."
-          : "No notes match this filter yet.";
-      case "no-notes":
-        return "No recallable notes yet.";
-      case "none":
-        return null;
-    }
-  }
-
-  const emptyStateMessage = renderEmptyState();
+  const emptyStateMessage = getAvailableNotesEmptyMessage({
+    availableEmptyState,
+    hasSearchQuery,
+  });
 
   return (
     <section aria-label="Available notes" className="recall-panel notes-list">
