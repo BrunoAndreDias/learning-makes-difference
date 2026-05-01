@@ -111,6 +111,25 @@
   overflow-wrap: anywhere;
 }
 
+.app-sidebar__workspace-summary {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.app-sidebar__workspace-summary > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-sidebar__workspace-state {
+  color: var(--color-content-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .app-sidebar__workspace-link:hover {
   background: var(--color-shell-inset);
   border-color: var(--color-content-border-soft);
@@ -2322,6 +2341,23 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--color-content-muted);
+}
+
+.notes-learning-state__tags {
+  margin-top: 0.75rem;
+}
+
+.notes-learning-state__details {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.85rem 0 1rem;
+}
+
+.notes-learning-state__details p {
+  margin: 0;
+  color: var(--color-content-strong);
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
 .notes-inline-action {

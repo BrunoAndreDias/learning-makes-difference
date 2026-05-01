@@ -7,7 +7,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-
+import { formatCount } from "../../../lib/format-count";
 import {
   type AppFocusContext,
   AppFocusError,
@@ -100,14 +100,14 @@ function FocusPage() {
         <div className="focus-hero__content">
           <p className="section-label">Focus review</p>
           <h3 id="focus-records-heading" ref={headingRef} tabIndex={-1}>
-            Focus records
+            Study sessions
           </h3>
           <p>
             Plan a Pomodoro block, keep the timer visible, and review what you
             studied without leaving the workspace.
           </p>
           <div className="tag-row focus-hero__tags">
-            <span className="tag">{records.length} completed records</span>
+            <span className="tag">{records.length} study sessions</span>
             <span className="tag">{recentFocusMinutes} recent focus min</span>
             <span className="tag">{recentBreakMinutes} recent break min</span>
           </div>
@@ -131,11 +131,11 @@ function FocusPage() {
         <article className="focus-card focus-summary-card">
           <div className="focus-card__header">
             <div>
-              <p className="section-label">Recent completed focus</p>
-              <strong className="focus-card-title">Last 7 records</strong>
+              <p className="section-label">Recent study time</p>
+              <strong className="focus-card-title">Last 7 sessions</strong>
             </div>
           </div>
-          <dl className="focus-metrics" aria-label="Recent completed focus">
+          <dl className="focus-metrics" aria-label="Recent study time">
             <div>
               <dt>Focus time</dt>
               <dd>{recentFocusMinutes} minutes</dd>
@@ -145,7 +145,7 @@ function FocusPage() {
               <dd>{recentBreakMinutes} minutes</dd>
             </div>
             <div>
-              <dt>Completed records</dt>
+              <dt>Completed sessions</dt>
               <dd>{recentRecords.length}</dd>
             </div>
           </dl>
@@ -154,26 +154,26 @@ function FocusPage() {
         <article className="focus-card focus-card--quiet">
           <p className="section-label">How capture works</p>
           <p>
-            Focus records are read-only in v1. Notes and Recall activity attach
-            to a running focus block automatically, so records stay useful
-            without extra logging.
+            Study sessions stay read-only in v1. Notes and Recall activity
+            attach to a running focus block automatically, so session history
+            stays useful without extra logging.
           </p>
         </article>
       </div>
 
-      <section aria-label="Completed focus records" className="focus-records">
+      <section aria-label="Completed study sessions" className="focus-records">
         <div className="focus-section-heading">
           <div>
             <p className="section-label">History</p>
             <strong className="focus-card-title">
-              Completed focus records
+              Completed study sessions
             </strong>
           </div>
           <span className="tag">{records.length} total</span>
         </div>
         {records.length === 0 ? (
           <article className="focus-empty-state">
-            <p className="section-label">No completed focus yet</p>
+            <p className="section-label">No completed sessions yet</p>
             <strong className="focus-card-title">
               Finish your first session
             </strong>
@@ -198,7 +198,7 @@ function FocusPage() {
                 </div>
                 <dl
                   className="focus-metrics"
-                  aria-label={`Focus record ${record.id}`}
+                  aria-label={`Study session ${record.id}`}
                 >
                   <div>
                     <dt>Breaks</dt>
@@ -377,10 +377,12 @@ function getPrimaryMetricLabel(record: FocusRecord) {
 function getBreakMetricLabel(record: FocusRecord) {
   const breakMinutes =
     record.completedBreakIntervalCount * record.breakIntervalMinutes;
-  const intervalLabel =
-    record.completedBreakIntervalCount === 1 ? "break" : "breaks";
+  const intervalLabel = formatCount(
+    record.completedBreakIntervalCount,
+    "break",
+  );
 
-  return `${record.completedBreakIntervalCount} ${intervalLabel}, ${breakMinutes} minutes`;
+  return `${intervalLabel}, ${breakMinutes} minutes`;
 }
 
 function getActiveSessionDisplay(session: FocusSession | null) {
@@ -430,7 +432,7 @@ function getRemainingMinuteLabel(session: FocusSession) {
   const remainingMinutes =
     remainingSeconds <= 0 ? 0 : Math.ceil(remainingSeconds / 60);
 
-  return `${remainingMinutes} ${remainingMinutes === 1 ? "min" : "mins"}`;
+  return formatCount(remainingMinutes, "min", "mins");
 }
 
 function getTargetDescriptions(record: FocusRecord) {
@@ -446,10 +448,7 @@ function formatFocusRecordDate(value: string) {
 function describeTarget(target: FocusTarget) {
   if (target.kind === "RecallSession") {
     const noteTitles = target.notes.map((note) => note.title).join(", ");
-    const labelNames =
-      target.labels.length === 0
-        ? "no labels"
-        : target.labels.map((label) => label.name).join(", ");
+    const labelNames = formatFocusTargetLabels(target.labels);
 
     return `${formatFocusTargetKindLabel(target.kind)}: ${formatRecallModeLabel(target.recallSession.mode)} | Notes: ${noteTitles} | Labels: ${labelNames}`;
   }
@@ -461,6 +460,14 @@ function describeTarget(target: FocusTarget) {
   return `Note: ${target.note.title} | Labels: ${target.labels
     .map((label) => label.name)
     .join(", ")}`;
+}
+
+function formatFocusTargetLabels(labels: FocusTarget["labels"]) {
+  if (labels.length === 0) {
+    return "no labels";
+  }
+
+  return labels.map((label) => label.name).join(", ");
 }
 
 function parseOptionalNumber(value: string) {

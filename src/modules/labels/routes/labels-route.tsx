@@ -1,12 +1,15 @@
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import {
   type FormEvent,
+  type ReactNode,
   useEffect,
   useId,
   useRef,
   useState,
   useSyncExternalStore,
 } from "react";
+import { formatCount } from "../../../lib/format-count";
+import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import {
   type AppLabel,
@@ -17,10 +20,6 @@ import {
 export const Route = createFileRoute("/_protected/labels")({
   component: LabelsPage,
 });
-
-function formatCount(count: number, singular: string, plural = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : plural}`;
-}
 
 function getVisibleLabels(labels: AppLabel[], searchQuery: string) {
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
@@ -33,6 +32,7 @@ function getVisibleLabels(labels: AppLabel[], searchQuery: string) {
     label.name.toLowerCase().includes(normalizedSearchQuery),
   );
 }
+
 export function LabelsPage() {
   const labels = useRouteContext({
     from: "/_protected/labels",
@@ -79,10 +79,7 @@ export function LabelsPage() {
 
   useEffect(() => {
     function handleGlobalSearchShortcut(event: KeyboardEvent) {
-      if (
-        !(event.metaKey || event.ctrlKey) ||
-        event.key.toLowerCase() !== "k"
-      ) {
+      if (!isModifiedKeyShortcut(event, "k")) {
         return;
       }
 
@@ -201,6 +198,44 @@ export function LabelsPage() {
   const visibleCountText = hasSearchQuery
     ? formatCount(visibleLabels.length, "match", "matches")
     : labelCountText;
+  let labelsListContent: ReactNode;
+
+  if (labelRecords.length === 0) {
+    labelsListContent = (
+      <article className="labels-empty-card">
+        <p className="section-label">No labels yet</p>
+        <h4>Build your first topic</h4>
+        <p className="muted">
+          Start with a broad topic, then add narrower labels and connect them as
+          the graph takes shape.
+        </p>
+      </article>
+    );
+  } else if (visibleLabels.length === 0) {
+    labelsListContent = (
+      <article className="labels-empty-card">
+        <p className="section-label">No matches</p>
+        <h4>No labels match "{searchQuery}"</h4>
+        <p className="muted">
+          Clear the search or create a new label with this wording.
+        </p>
+      </article>
+    );
+  } else {
+    labelsListContent = visibleLabels.map((label) => (
+      <LabelCard
+        addParent={addParent}
+        allLabels={labelRecords}
+        deleteLabel={deleteLabel}
+        key={label.id}
+        label={label}
+        labels={labels}
+        removeParent={removeParent}
+        renameLabel={renameLabel}
+        userId={currentUserId}
+      />
+    ));
+  }
 
   return (
     <section className="labels-page" aria-labelledby="labels-route-heading">
@@ -350,38 +385,7 @@ export function LabelsPage() {
       </section>
 
       <section className="labels-list" aria-label="Labels list">
-        {labelRecords.length === 0 ? (
-          <article className="labels-empty-card">
-            <p className="section-label">No labels yet</p>
-            <h4>Build your first topic</h4>
-            <p className="muted">
-              Start with a broad topic, then add narrower labels and connect
-              them as the graph takes shape.
-            </p>
-          </article>
-        ) : visibleLabels.length === 0 ? (
-          <article className="labels-empty-card">
-            <p className="section-label">No matches</p>
-            <h4>No labels match "{searchQuery}"</h4>
-            <p className="muted">
-              Clear the search or create a new label with this wording.
-            </p>
-          </article>
-        ) : (
-          visibleLabels.map((label) => (
-            <LabelCard
-              addParent={addParent}
-              allLabels={labelRecords}
-              deleteLabel={deleteLabel}
-              key={label.id}
-              label={label}
-              removeParent={removeParent}
-              renameLabel={renameLabel}
-              labels={labels}
-              userId={currentUserId}
-            />
-          ))
-        )}
+        {labelsListContent}
       </section>
     </section>
   );

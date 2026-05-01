@@ -15,16 +15,24 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-
+import { formatCount } from "../../../lib/format-count";
+import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import type { AppSessionSnapshot } from "../../access/domain/session";
+import type { AppLabel } from "../../labels/domain/labels";
 import { formatSearchMatchLabel } from "../domain/learner-copy";
 import {
   type AppNoteSearchResult,
-  filterNotesByQuery,
   searchNoteResults,
 } from "../domain/note-search";
-import { type AppNote, listNotesForUser } from "../domain/notes";
+import { listNotesForUser } from "../domain/notes";
 import { AppRecallError } from "../domain/recall";
+import {
+  deriveRecallSetupState,
+  type RecallSetupCandidate,
+  type RecallSetupFilter,
+  type RecallSetupFilterSummary,
+  type RecallSetupSelectedSummary,
+} from "../domain/recall-setup";
 
 const NOTE_DATE_FORMATTER = new Intl.DateTimeFormat("en", {
   day: "numeric",
@@ -46,12 +54,12 @@ function formatNoteDate(value: string): string {
   return NOTE_DATE_FORMATTER.format(new Date(value));
 }
 
-function formatCount(count: number, singular: string, plural = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : plural}`;
-}
-
 function formatSelectedCount(count: number) {
   return `${formatCount(count, "note")} selected`;
+}
+
+function formatSummarySelectedCount(count: number) {
+  return `${count} selected`;
 }
 
 function getSearchResultLabel(result: AppNoteSearchResult) {
@@ -60,6 +68,55 @@ function getSearchResultLabel(result: AppNoteSearchResult) {
 
 function getRecallSelectionSearchResultOptionId(noteId: string, index: number) {
   return `recall-selection-search-option-${noteId}-${index}`;
+}
+
+function isSelectedFilter(
+  currentFilter: RecallSetupFilter,
+  candidateFilter: RecallSetupFilter,
+) {
+  if (currentFilter.kind !== candidateFilter.kind) {
+    return false;
+  }
+
+  if (currentFilter.kind !== "label" || candidateFilter.kind !== "label") {
+    return true;
+  }
+
+  return currentFilter.labelId === candidateFilter.labelId;
+}
+
+function getFilterButtonLabel(filterSummary: RecallSetupFilterSummary) {
+  switch (filterSummary.kind) {
+    case "all":
+      return "All notes";
+    case "due":
+      return "Due now";
+    case "recent":
+      return "Recent notes";
+    case "weak":
+      return "Weak notes";
+    case "label":
+      return filterSummary.labelName;
+  }
+}
+
+function getFilterButtonKey(filterSummary: RecallSetupFilterSummary) {
+  return filterSummary.kind === "label"
+    ? `${filterSummary.kind}-${filterSummary.labelId}`
+    : filterSummary.kind;
+}
+
+function toFilter(summary: RecallSetupFilterSummary): RecallSetupFilter {
+  if (summary.kind === "label") {
+    return {
+      kind: "label",
+      labelId: summary.labelId,
+    };
+  }
+
+  return {
+    kind: summary.kind,
+  };
 }
 
 function EmptyRecallSelectionPage() {
@@ -83,33 +140,45 @@ function RecallRouteShell() {
 
 function RecallSelectionControls({
   hasSelectedNotes,
+  startDisabledReason,
   onCancel,
   onStartRecall,
   selectedCountLabel,
 }: {
   hasSelectedNotes: boolean;
+  startDisabledReason: string | null;
   onCancel: () => void;
   onStartRecall: () => void;
   selectedCountLabel: string;
 }) {
   return (
-    <fieldset
-      aria-label="Recall selection controls"
-      className="tag-row recall-selection-controls"
-    >
-      <span className="tag">{selectedCountLabel}</span>
-      <button className="notes-action" onClick={onCancel} type="button">
-        Cancel
-      </button>
-      <button
-        className="notes-action notes-action-primary"
-        disabled={!hasSelectedNotes}
-        onClick={onStartRecall}
-        type="button"
+    <div>
+      <fieldset
+        aria-label="Recall selection controls"
+        className="tag-row recall-selection-controls"
       >
-        Start recall
-      </button>
-    </fieldset>
+        <span className="tag">{selectedCountLabel}</span>
+        <button className="notes-action" onClick={onCancel} type="button">
+          Cancel
+        </button>
+        <button
+          aria-describedby={
+            hasSelectedNotes ? undefined : "recall-start-disabled-reason"
+          }
+          className="notes-action notes-action-primary"
+          disabled={!hasSelectedNotes}
+          onClick={onStartRecall}
+          type="button"
+        >
+          Start recall
+        </button>
+      </fieldset>
+      {startDisabledReason !== null ? (
+        <p className="muted" id="recall-start-disabled-reason">
+          {startDisabledReason}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -176,50 +245,211 @@ function RecallSelectionSearchResults({
   );
 }
 
-function SelectableRecallNotes({
-  filteredNotes,
-  onToggleNote,
-  selectedNoteIds,
+function RecallSelectionFilters({
+  activeFilter,
+  filterSummaries,
+  onSelectFilter,
 }: {
-  filteredNotes: AppNote[];
-  onToggleNote: (noteId: string) => void;
-  selectedNoteIds: ReadonlySet<string>;
+  activeFilter: RecallSetupFilter;
+  filterSummaries: RecallSetupFilterSummary[];
+  onSelectFilter: (filter: RecallSetupFilter) => void;
 }) {
   return (
-    <article className="recall-panel notes-list">
+    <section aria-label="Recall setup filters" className="tag-row">
+      {filterSummaries.map((filterSummary) => {
+        const filter = toFilter(filterSummary);
+        const label = getFilterButtonLabel(filterSummary);
+
+        return (
+          <button
+            aria-pressed={isSelectedFilter(activeFilter, filter)}
+            className="tag"
+            key={getFilterButtonKey(filterSummary)}
+            onClick={() => onSelectFilter(filter)}
+            type="button"
+          >
+            {`${label} (${filterSummary.count})`}
+          </button>
+        );
+      })}
+    </section>
+  );
+}
+
+function RecallSetupSummary({
+  difficultyLabel,
+  estimatedTimeLabel,
+  practiceTypeLabel,
+  selectedCount,
+}: {
+  difficultyLabel: string;
+  estimatedTimeLabel: string;
+  practiceTypeLabel: string;
+  selectedCount: string;
+}) {
+  return (
+    <section aria-label="Session summary" className="recall-panel">
       <div className="notes-list__header">
         <div className="stack">
-          <p className="section-label">Notes</p>
-          <h4>Practice notes</h4>
+          <p className="section-label">Setup</p>
+          <h4>Session summary</h4>
+          <p className="muted">
+            One honest recall prompt per note. Rate yourself after reveal.
+          </p>
         </div>
-        <span className="tag">{`${filteredNotes.length} shown`}</span>
       </div>
-      <ul aria-label="Recallable notes" className="notes-list__items">
-        {filteredNotes.map((note) => {
-          const isSelected = selectedNoteIds.has(note.id);
+      <div className="tag-row notes-editor__labels">
+        <span className="tag">{selectedCount}</span>
+        <span className="tag">{estimatedTimeLabel}</span>
+        <span className="tag">{practiceTypeLabel}</span>
+        <span className="tag">{difficultyLabel}</span>
+      </div>
+    </section>
+  );
+}
 
-          return (
+function SelectableRecallNotes({
+  availableEmptyState,
+  candidates,
+  hasSearchQuery,
+  onToggleNote,
+}: {
+  availableEmptyState:
+    | "no-filter-matches"
+    | "no-notes"
+    | "no-search-matches"
+    | "none";
+  candidates: RecallSetupCandidate[];
+  hasSearchQuery: boolean;
+  onToggleNote: (noteId: string) => void;
+}) {
+  function renderEmptyState() {
+    switch (availableEmptyState) {
+      case "no-search-matches":
+        return "No notes match this search.";
+      case "no-filter-matches":
+        return hasSearchQuery
+          ? "No notes match this search."
+          : "No notes match this filter yet.";
+      case "no-notes":
+        return "No recallable notes yet.";
+      case "none":
+        return null;
+    }
+  }
+
+  const emptyStateMessage = renderEmptyState();
+
+  return (
+    <section aria-label="Available notes" className="recall-panel notes-list">
+      <div className="notes-list__header">
+        <div className="stack">
+          <p className="section-label">Available</p>
+          <h4>Choose notes</h4>
+          <p className="muted">
+            Review what can go into this session. Selected notes stay in the
+            setup tray.
+          </p>
+        </div>
+        <span className="tag">{`${candidates.length} shown`}</span>
+      </div>
+      {emptyStateMessage !== null ? (
+        <p className="notes-search__empty" role="status">
+          {emptyStateMessage}
+        </p>
+      ) : (
+        <ul aria-label="Recallable notes" className="notes-list__items">
+          {candidates.map((candidate) => {
+            const note = candidate.note;
+
+            return (
+              <li key={note.id}>
+                <button
+                  aria-label={`${candidate.isSelected ? "Remove" : "Select"} ${note.title}`}
+                  aria-pressed={candidate.isSelected}
+                  className="notes-list__item"
+                  data-active={candidate.isSelected ? "true" : undefined}
+                  onClick={() => onToggleNote(note.id)}
+                  type="button"
+                >
+                  <span className="notes-search__option-title">
+                    <strong>{note.title}</strong>
+                    <span className="notes-search__match-chip">
+                      {candidate.isSelected ? "Selected" : "Available"}
+                    </span>
+                  </span>
+                  <span>{note.body}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function SelectedRecallNotes({
+  onRemoveNote,
+  selectedEmptyState,
+  selectedNotes,
+}: {
+  onRemoveNote: (noteId: string) => void;
+  selectedEmptyState: "none" | "no-selected-notes";
+  selectedNotes: RecallSetupSelectedSummary[];
+}) {
+  return (
+    <section aria-label="Selected notes" className="recall-panel notes-list">
+      <div className="notes-list__header">
+        <div className="stack">
+          <p className="section-label">Selected</p>
+          <h4>Review the session tray</h4>
+          <p className="muted">
+            Remove anything you do not want before you start.
+          </p>
+        </div>
+        <span className="tag">{formatCount(selectedNotes.length, "note")}</span>
+      </div>
+      {selectedEmptyState === "no-selected-notes" ? (
+        <p className="notes-search__empty" role="status">
+          No notes selected yet.
+        </p>
+      ) : (
+        <ul className="notes-list__items">
+          {selectedNotes.map((note) => (
             <li key={note.id}>
-              <button
-                aria-pressed={isSelected}
-                className="notes-list__item"
-                data-active={isSelected ? "true" : undefined}
-                onClick={() => onToggleNote(note.id)}
-                type="button"
-              >
-                <strong>{note.title}</strong>
-                <span>{note.body}</span>
-              </button>
+              <div className="notes-list__item" data-active="true">
+                <div className="stack">
+                  <strong>{note.title}</strong>
+                  <span>
+                    {note.labelNames.length > 0
+                      ? note.labelNames.join(", ")
+                      : "No label"}
+                  </span>
+                </div>
+                <button
+                  aria-label={`Remove ${note.title} from recall setup`}
+                  className="notes-action"
+                  onClick={() => onRemoveNote(note.id)}
+                  type="button"
+                >
+                  Remove
+                </button>
+              </div>
             </li>
-          );
-        })}
-      </ul>
-    </article>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
 export function RecallSelectionPage() {
   const navigate = useNavigate();
+  const labelsContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.labels,
+  });
   const notesContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.notes,
@@ -237,29 +467,44 @@ export function RecallSelectionPage() {
     sessionContext.getSnapshot,
     sessionContext.getSnapshot,
   );
+  const userId = sessionSnapshot.user?.id ?? null;
   const notesSnapshot = useSyncExternalStore(
     notesContext.subscribe,
     notesContext.getSnapshot,
     notesContext.getSnapshot,
   );
-  const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
+  const labels: readonly AppLabel[] =
+    userId === null ? [] : labelsContext.getLabelsForUser(userId);
+  const sessionResults =
+    userId === null ? [] : recallContext.listSessionResults({ userId });
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedFilter, setSelectedFilter] = useState<RecallSetupFilter>({
+    kind: "all",
+  });
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeSearchResultIndex, setActiveSearchResultIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const searchRootRef = useRef<HTMLFormElement | null>(null);
-  const filteredNotes = filterNotesByQuery(notes, searchQuery);
   const searchResults = searchNoteResults(notes, searchQuery);
+  const setupState = deriveRecallSetupState({
+    labels,
+    notes,
+    now: new Date().toISOString(),
+    searchQuery,
+    selectedFilter,
+    selectedNoteIds,
+    sessionResults,
+  });
   const selectedCountLabel = formatSelectedCount(selectedNoteIds.length);
   const hasSearchQuery = searchQuery.trim().length > 0;
-  const selectedNoteIdSet = new Set(selectedNoteIds);
   const noteCountLabel = formatCount(notes.length, "note");
   const isSearchListboxOpen =
     hasSearchQuery && isSearchOpen && searchResults.length > 0;
   const activeSearchResult = searchResults[activeSearchResultIndex];
+  const selectedNoteIdSet = new Set(selectedNoteIds);
   const activeSearchOptionId =
     isSearchListboxOpen && activeSearchResult !== undefined
       ? getRecallSelectionSearchResultOptionId(
@@ -281,11 +526,7 @@ export function RecallSelectionPage() {
 
   useEffect(() => {
     function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
-      if (event.key.toLowerCase() !== "k") {
-        return;
-      }
-
-      if (!event.metaKey && !event.ctrlKey) {
+      if (!isModifiedKeyShortcut(event, "k")) {
         return;
       }
 
@@ -426,6 +667,7 @@ export function RecallSelectionPage() {
 
   async function handleCancel() {
     setSelectedNoteIds([]);
+    setSelectedFilter({ kind: "all" });
     resetSearchState();
     setErrorMessage(null);
     await navigate({ to: "/recall" });
@@ -466,10 +708,9 @@ export function RecallSelectionPage() {
         <header className="recall-surface__header">
           <div className="notes-editor__title-stack">
             <p className="section-label">Recall</p>
-            <h3>Select Notes</h3>
+            <h3>Recall setup</h3>
             <p className="muted notes-editor__meta">
-              Search recallable notes, toggle the ones you want, then start a
-              focused session.
+              Pick notes, review the setup, then start a focused recall session.
             </p>
             <div className="tag-row notes-editor__labels">
               <span className="tag">{noteCountLabel}</span>
@@ -521,10 +762,26 @@ export function RecallSelectionPage() {
                 onCancel={() => void handleCancel()}
                 onStartRecall={() => void handleStartRecall()}
                 selectedCountLabel={selectedCountLabel}
+                startDisabledReason={setupState.summary.startDisabledReason}
               />
             </section>
           </div>
         </header>
+
+        <RecallSelectionFilters
+          activeFilter={selectedFilter}
+          filterSummaries={setupState.filterSummaries}
+          onSelectFilter={setSelectedFilter}
+        />
+
+        <RecallSetupSummary
+          difficultyLabel={setupState.summary.difficultyLabel}
+          estimatedTimeLabel={setupState.summary.estimatedTimeLabel}
+          practiceTypeLabel={setupState.summary.practiceTypeLabel}
+          selectedCount={formatSummarySelectedCount(
+            setupState.summary.selectedCount,
+          )}
+        />
 
         <div className="recall-selection-layout">
           <article className="recall-panel">
@@ -549,9 +806,15 @@ export function RecallSelectionPage() {
           </article>
 
           <SelectableRecallNotes
-            filteredNotes={filteredNotes}
+            availableEmptyState={setupState.availableEmptyState}
+            candidates={setupState.visibleCandidates}
+            hasSearchQuery={hasSearchQuery}
             onToggleNote={toggleSelectedNote}
-            selectedNoteIds={selectedNoteIdSet}
+          />
+          <SelectedRecallNotes
+            onRemoveNote={toggleSelectedNote}
+            selectedEmptyState={setupState.selectedEmptyState}
+            selectedNotes={setupState.selectedSummaries}
           />
         </div>
       </article>

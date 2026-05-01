@@ -4,7 +4,7 @@ import {
   useNavigate,
   useRouteContext,
 } from "@tanstack/react-router";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import { BreakIntervalOverlay } from "../components/break-interval-overlay";
@@ -24,6 +24,13 @@ type RecallSessionRouteOptions = {
   breadcrumbTo: "/notes" | "/recall";
   returnTo: "/notes" | "/recall";
 };
+
+type RecallQuestionSnapshotState = {
+  isAnswerRevealed: boolean;
+  selfRating: FlashCardRecallRating | null;
+};
+
+type RecallSessionFocusTarget = "missed-rating" | "prompt" | "reveal" | null;
 
 export const Route = createFileRoute("/_protected/recall/session")({
   component: RecallSessionPage,
@@ -85,6 +92,11 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
   const [selectedSnapshotNoteId, setSelectedSnapshotNoteId] = useState<
     string | null
   >(null);
+  const promptButtonRef = useRef<HTMLButtonElement | null>(null);
+  const revealButtonRef = useRef<HTMLButtonElement | null>(null);
+  const missedRatingButtonRef = useRef<HTMLButtonElement | null>(null);
+  const previousCurrentNoteIdRef = useRef<string | null>(null);
+  const previousRevealStateRef = useRef(false);
 
   useEffect(() => {
     if (activeSession !== null) {
@@ -93,6 +105,36 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
 
     void navigate({ replace: true, to: props.returnTo });
   }, [activeSession, navigate, props.returnTo]);
+
+  useEffect(() => {
+    if (currentNote === null) {
+      return;
+    }
+
+    const focusTarget = getRecallSessionFocusTarget({
+      isAnswerRevealed: activeSession?.isAnswerRevealed ?? false,
+      noteId: currentNote.id,
+      previousIsAnswerRevealed: previousRevealStateRef.current,
+      previousNoteId: previousCurrentNoteIdRef.current,
+    });
+
+    switch (focusTarget) {
+      case "missed-rating":
+        missedRatingButtonRef.current?.focus();
+        break;
+      case "prompt":
+        promptButtonRef.current?.focus();
+        break;
+      case "reveal":
+        revealButtonRef.current?.focus();
+        break;
+      case null:
+        break;
+    }
+
+    previousCurrentNoteIdRef.current = currentNote.id;
+    previousRevealStateRef.current = activeSession?.isAnswerRevealed ?? false;
+  }, [activeSession?.isAnswerRevealed, currentNote]);
 
   function handleRecallError(error: unknown) {
     if (error instanceof AppRecallError) {
@@ -184,6 +226,12 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
       ? null
       : (activeSession.notes.find(
           (note) => note.id === selectedSnapshotNoteId,
+        ) ?? null);
+  const selectedSnapshotQuestion =
+    selectedSnapshotNoteId === null
+      ? null
+      : (activeSession.questions.find(
+          (question) => question.noteId === selectedSnapshotNoteId,
         ) ?? null);
 
   return (
@@ -280,6 +328,7 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
                   aria-label={`Show note snapshot for ${currentNote.title}`}
                   className="recall-card__question"
                   onClick={() => setSelectedSnapshotNoteId(currentNote.id)}
+                  ref={promptButtonRef}
                   type="button"
                 >
                   {currentNote.title}
@@ -296,6 +345,7 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
                   <button
                     className="notes-action notes-action-primary recall-card__reveal"
                     onClick={handleRevealAnswer}
+                    ref={revealButtonRef}
                     type="button"
                   >
                     Reveal answer
@@ -305,7 +355,7 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
             </div>
 
             {activeSession.isAnswerRevealed ? (
-              <p className="recall-card__body">{currentNote.body}</p>
+              <RecallNoteDetails note={currentNote} />
             ) : null}
 
             {activeSession.isAnswerRevealed ? (
@@ -315,10 +365,14 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
                   <button
                     className="notes-action recall-rating recall-rating--missed"
                     onClick={() => void handleRateAnswer("missed")}
+                    ref={missedRatingButtonRef}
                     type="button"
                   >
                     Missed it
                   </button>
+                  <p className="muted">
+                    Missed it: Could not recall the answer.
+                  </p>
                   <button
                     className="notes-action recall-rating recall-rating--partial"
                     onClick={() => void handleRateAnswer("partial")}
@@ -326,6 +380,9 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
                   >
                     Partly recalled
                   </button>
+                  <p className="muted">
+                    Partly recalled: Remembered some, missed some.
+                  </p>
                   <button
                     className="notes-action recall-rating recall-rating--nailed"
                     onClick={() => void handleRateAnswer("nailed")}
@@ -333,6 +390,9 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
                   >
                     Nailed it
                   </button>
+                  <p className="muted">
+                    Nailed it: Recalled the answer clearly.
+                  </p>
                 </fieldset>
               </footer>
             ) : null}
@@ -385,18 +445,69 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
             })}
           </ol>
 
-          <NoteSnapshotPanel note={selectedSnapshotNote} />
+          <NoteSnapshotPanel
+            note={selectedSnapshotNote}
+            question={selectedSnapshotQuestion}
+          />
         </aside>
       </div>
     </section>
   );
 }
 
-function NoteSnapshotPanel({ note }: { note: FlashCardRecallNote | null }) {
-  if (note === null) {
+function RecallNoteDetails({ note }: { note: FlashCardRecallNote }) {
+  return (
+    <>
+      <p className="recall-card__body">{note.body}</p>
+      {note.metaphors.length > 0 ? (
+        <section aria-label="Metaphors">
+          <h3>Metaphors</h3>
+          <ul>
+            {note.metaphors.map((metaphor) => (
+              <li key={`${metaphor.title}-${metaphor.explanation}`}>
+                <strong>{metaphor.title}</strong>
+                <p>{metaphor.explanation}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {note.acronyms.length > 0 ? (
+        <section aria-label="Acronyms">
+          <h3>Acronyms</h3>
+          <ul>
+            {note.acronyms.map((acronym) => (
+              <li key={`${acronym.shortForm}-${acronym.expansion}`}>
+                <strong>{acronym.shortForm}</strong>
+                <p>{acronym.expansion}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </>
+  );
+}
+
+function NoteSnapshotPanel({
+  note,
+  question,
+}: {
+  note: FlashCardRecallNote | null;
+  question: RecallQuestionSnapshotState | null;
+}) {
+  if (note === null || question === null) {
     return (
       <section className="recall-note-snapshot recall-note-snapshot--empty">
         <p>Select a question to see its note snapshot.</p>
+      </section>
+    );
+  }
+
+  if (!question.isAnswerRevealed && question.selfRating === null) {
+    return (
+      <section className="recall-note-snapshot recall-note-snapshot--empty">
+        <p>Reveal the answer to review the note snapshot.</p>
       </section>
     );
   }
@@ -405,7 +516,33 @@ function NoteSnapshotPanel({ note }: { note: FlashCardRecallNote | null }) {
     <section aria-label="Note snapshot" className="recall-note-snapshot">
       <p className="recall-note-snapshot__label">Note snapshot</p>
       <h3>{note.title}</h3>
-      <p>{note.body}</p>
+      <RecallNoteDetails note={note} />
     </section>
   );
+}
+
+function getRecallSessionFocusTarget({
+  isAnswerRevealed,
+  noteId,
+  previousIsAnswerRevealed,
+  previousNoteId,
+}: {
+  isAnswerRevealed: boolean;
+  noteId: string;
+  previousIsAnswerRevealed: boolean;
+  previousNoteId: string | null;
+}): RecallSessionFocusTarget {
+  if (!previousIsAnswerRevealed && isAnswerRevealed) {
+    return "missed-rating";
+  }
+
+  if (previousNoteId !== noteId) {
+    return "prompt";
+  }
+
+  if (!isAnswerRevealed) {
+    return "reveal";
+  }
+
+  return null;
 }

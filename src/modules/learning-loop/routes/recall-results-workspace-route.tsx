@@ -1,14 +1,19 @@
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useRef, useSyncExternalStore } from "react";
+import { formatCount } from "../../../lib/format-count";
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import { formatRecallModeLabel } from "../domain/learner-copy";
 import { useNotesWorkspace } from "../domain/notes-workspace";
-import {
-  type FlashCardRecallNote,
-  type FlashCardSessionResult,
-  type RecallQuestion,
-  summarizeAttempts,
+import type {
+  FlashCardRecallNote,
+  FlashCardSessionResult,
+  RecallQuestion,
 } from "../domain/recall";
+import {
+  formatResultSummaryScoreLabel,
+  getResultSummaryNoteCountLabel,
+  summarizeSessionResult,
+} from "../domain/result-summary";
 
 type SessionResultsSnapshot = {
   newestSessionId: string | null;
@@ -20,19 +25,15 @@ export const Route = createFileRoute("/_protected/recall/")({
 });
 
 function formatAttemptCount(count: number) {
-  return `${count} attempted ${count === 1 ? "question" : "questions"}`;
+  return formatCount(count, "attempted question", "attempted questions");
 }
 
 function formatQuestionCount(count: number) {
-  return `${count} ${count === 1 ? "question" : "questions"} in session`;
+  return `${formatCount(count, "question")} in session`;
 }
 
 function formatSummaryCount(count: number, noun: string) {
-  return `${count} ${noun}${count === 1 ? "" : "s"}`;
-}
-
-function formatScoreSummary(summary: ReturnType<typeof summarizeAttempts>) {
-  return `Nailed ${summary.nailed} · Partial ${summary.partial} · Missed ${summary.missed}`;
+  return formatCount(count, noun);
 }
 
 function formatPercent(value: number) {
@@ -188,11 +189,7 @@ function SelectedSessionResult({
     );
   }
 
-  const summary = summarizeAttempts(sessionResult.attempts);
-  const attemptedCount = sessionResult.attempts.length;
-  const questionCount = sessionResult.questions.length;
-  const completionRate =
-    questionCount === 0 ? 0 : attemptedCount / questionCount;
+  const summary = summarizeSessionResult(sessionResult);
 
   return (
     <div className="recall-results-detail">
@@ -207,7 +204,7 @@ function SelectedSessionResult({
               </p>
             </div>
             <div className="recall-results-score">
-              <strong>{formatPercent(completionRate)}</strong>
+              <strong>{formatPercent(summary.completionRate)}</strong>
               <span>answered</span>
             </div>
           </header>
@@ -241,8 +238,15 @@ function SelectedSessionResult({
               </div>
             </div>
             <div className="recall-results-chips">
-              <span className="tag">{formatAttemptCount(attemptedCount)}</span>
-              <span className="tag">{formatQuestionCount(questionCount)}</span>
+              <span className="tag">
+                {getResultSummaryNoteCountLabel(sessionResult.notes)}
+              </span>
+              <span className="tag">
+                {formatAttemptCount(summary.completionCount)}
+              </span>
+              <span className="tag">
+                {formatQuestionCount(summary.questionCount)}
+              </span>
             </div>
           </section>
 
@@ -250,28 +254,44 @@ function SelectedSessionResult({
             aria-labelledby="selected-score-summary-heading"
             className="recall-results-section"
           >
-            <h4 id="selected-score-summary-heading">Score summary</h4>
+            <h4 id="selected-score-summary-heading">Memory summary</h4>
             <div className="recall-rating-summary">
               <RatingSummaryItem
-                count={summary.nailed}
+                count={summary.ratingTotals.nailed}
                 label="Nailed"
                 tone="nailed"
               />
               <RatingSummaryItem
-                count={summary.partial}
+                count={summary.ratingTotals.partial}
                 label="Partial"
                 tone="partial"
               />
               <RatingSummaryItem
-                count={summary.missed}
+                count={summary.ratingTotals.missed}
                 label="Missed"
                 tone="missed"
               />
             </div>
             <p className="recall-results-score-copy">
-              {formatScoreSummary(summary)}
+              {formatResultSummaryScoreLabel(summary.ratingTotals)}
             </p>
           </section>
+
+          {summary.weakNotes.length > 0 ? (
+            <section
+              aria-labelledby="selected-weak-notes-heading"
+              className="recall-results-section"
+            >
+              <h4 id="selected-weak-notes-heading">Weak notes</h4>
+              <div className="recall-results-chips">
+                {summary.weakNotes.map((note) => (
+                  <span className="tag" key={note.noteId}>
+                    {note.title} · {formatRatingLabel(note.rating)}
+                  </span>
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
 
         <section

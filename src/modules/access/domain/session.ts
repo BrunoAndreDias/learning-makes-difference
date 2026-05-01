@@ -48,10 +48,7 @@ type StoredSessionRecord = {
   userId: string;
 };
 
-type SessionStorageAdapter = Pick<
-  Storage,
-  "getItem" | "removeItem" | "setItem"
->;
+type SessionStorageAdapter = Pick<Storage, "getItem" | "setItem">;
 
 type SessionCookieAdapter = {
   clear: () => void;
@@ -101,6 +98,7 @@ export type AppSessionContext = {
 
 const DEFAULT_STORAGE_KEY_PREFIX = "learning-makes-difference-auth";
 const NOT_AUTHENTICATED_MESSAGE = "Sign in to update account preferences.";
+const SESSION_COOKIE_ATTRIBUTES = "Path=/; SameSite=Lax";
 
 function getDefaultStorage(): SessionStorageAdapter | undefined {
   if (typeof window === "undefined") {
@@ -124,7 +122,8 @@ function getDefaultCookie(prefix: string): SessionCookieAdapter | undefined {
 
   return {
     clear() {
-      document.cookie = `${cookieKey}=; Max-Age=0; Path=/; SameSite=Lax`;
+      // biome-ignore lint/suspicious/noDocumentCookie: This adapter needs synchronous cookie access to hydrate session state during context creation.
+      document.cookie = `${cookieKey}=; Max-Age=0; ${SESSION_COOKIE_ATTRIBUTES}`;
     },
     get() {
       const entry = document.cookie
@@ -138,7 +137,10 @@ function getDefaultCookie(prefix: string): SessionCookieAdapter | undefined {
       return decodeURIComponent(entry.slice(encodedPrefix.length));
     },
     set(value: string) {
-      document.cookie = `${cookieKey}=${encodeURIComponent(value)}; Path=/; SameSite=Lax`;
+      // biome-ignore lint/suspicious/noDocumentCookie: This adapter needs synchronous cookie access to keep the session API synchronous after auth.
+      document.cookie = `${cookieKey}=${encodeURIComponent(
+        value,
+      )}; ${SESSION_COOKIE_ATTRIBUTES}`;
     },
   };
 }

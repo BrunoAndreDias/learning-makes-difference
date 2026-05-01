@@ -353,4 +353,44 @@ describe("app notes context", () => {
       } satisfies Pick<AppNotesError, "code">),
     );
   });
+
+  it("restores persisted note timestamps, metaphors, and acronyms for the owning account", () => {
+    const storage = createMemoryStorage();
+    const keyPrefix = "notes-test-persisted-memory-hooks";
+    const initialNotes = createAppNotesContext({
+      keyPrefix,
+      storage,
+    });
+
+    const createdNote = initialNotes.createNote("user-casey", {
+      acronyms: [
+        {
+          expansion: "Long-Term Potentiation",
+          shortForm: "LTP",
+        },
+      ],
+      body: "Repeated activation strengthens the same path.",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation:
+            "It is like cutting a groove into a trail so the next pass follows it more easily.",
+          title: "Forest trail",
+        },
+      ],
+      title: "Synaptic plasticity",
+    });
+
+    const restoredNotes = createAppNotesContext({
+      keyPrefix,
+      storage,
+    });
+
+    expect(listNotesForUser(restoredNotes.getSnapshot(), "user-casey")).toEqual(
+      [createdNote],
+    );
+    expect(
+      listNotesForUser(restoredNotes.getSnapshot(), "user-jordan"),
+    ).toEqual([]);
+  });
 });

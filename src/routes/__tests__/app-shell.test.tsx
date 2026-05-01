@@ -242,16 +242,16 @@ async function renderRecallSelection(contexts: RenderRouteOptions) {
   const routeRender = renderRoute("/recall/select", contexts);
 
   expect(
-    await screen.findByRole("heading", { level: 3, name: "Select Notes" }),
+    await screen.findByRole("heading", { level: 3, name: "Recall setup" }),
   ).toBeInTheDocument();
 
   return routeRender;
 }
 
-function selectRecallableNote(title: string, body: string) {
+function selectRecallableNote(title: string, _body: string) {
   fireEvent.click(
     within(screen.getByLabelText("Recallable notes")).getByRole("button", {
-      name: `${title}${body}`,
+      name: `Select ${title}`,
     }),
   );
 }
@@ -563,6 +563,141 @@ describe("authenticated app shell", () => {
     expect(screen.getByLabelText("Study language")).toHaveValue("es");
   });
 
+  it("restores persisted note metaphors and acronyms after refresh and account sign-in", async () => {
+    const authKeyPrefix = `test-auth-persisted-notes-${Math.random().toString(36).slice(2)}`;
+    const notesKeyPrefix = `test-notes-persisted-memory-hooks-${Math.random().toString(36).slice(2)}`;
+    const sessionContext = createAppSessionContext({
+      keyPrefix: authKeyPrefix,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      keyPrefix: notesKeyPrefix,
+      storage: window.localStorage,
+    });
+
+    const initialRoute = renderRoute("/notes", {
+      notesContext,
+      sessionContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Welcome back" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("link", { name: "Sign up" })[0]);
+    expect(
+      await screen.findByRole("heading", { name: "Create your account" }),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Display name"), {
+      target: { value: "Casey Learner" },
+    });
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "casey@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Sign up form" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Action potentials" },
+    });
+    fireEvent.change(screen.getByLabelText("Body"), {
+      target: {
+        value: "Repeated threshold crossings reinforce the same neural path.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add metaphor" }));
+    fireEvent.change(screen.getByLabelText("Metaphor title"), {
+      target: { value: "Domino line" },
+    });
+    fireEvent.change(screen.getByLabelText("Metaphor explanation"), {
+      target: {
+        value:
+          "Crossing threshold is like tipping the first domino so the whole chain commits.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add acronym" }));
+    fireEvent.change(screen.getByLabelText("Acronym"), {
+      target: { value: "LTP" },
+    });
+    fireEvent.change(screen.getByLabelText("Acronym expansion"), {
+      target: { value: "Long-Term Potentiation" },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
+
+    expect(await screen.findByDisplayValue("Domino line")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("LTP")).toBeInTheDocument();
+
+    openAccountMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Log out" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Welcome back" }),
+    ).toBeInTheDocument();
+
+    initialRoute.unmount();
+
+    const refreshedRoute = renderRoute("/login", {
+      notesContext: createAppNotesContext({
+        keyPrefix: notesKeyPrefix,
+        storage: window.localStorage,
+      }),
+      sessionContext: createAppSessionContext({
+        keyPrefix: authKeyPrefix,
+        storage: window.localStorage,
+      }),
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Welcome back" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "casey@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Sign in form" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Action potentials")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Domino line")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Long-Term Potentiation"),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Search notes" }), {
+      target: { value: "domino" },
+    });
+
+    expect(
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "option",
+        { name: /Action potentials/ },
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Search notes" }), {
+      target: { value: "long-term potentiation" },
+    });
+
+    expect(
+      within(screen.getByLabelText("Notes search results")).getByRole(
+        "option",
+        { name: /Action potentials/ },
+      ),
+    ).toBeInTheDocument();
+    expect(refreshedRoute.router.state.location.pathname).toBe("/notes");
+  });
+
   it("renders a Notes Workspace shell with an account menu instead of product navigation", async () => {
     renderRoute("/settings");
 
@@ -725,7 +860,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(focusLink);
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Focus records" }),
+      await screen.findByRole("heading", { level: 3, name: "Study sessions" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/focus");
     expect(focusLink).toHaveAttribute("aria-current", "page");
@@ -812,11 +947,11 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Focus records" }),
+      await screen.findByRole("heading", { level: 3, name: "Study sessions" }),
     ).toBeInTheDocument();
 
     expect(
-      screen.getByText(/Focus records are read-only in v1\./),
+      screen.getByText(/Study sessions stay read-only in v1\./),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /edit focus record/i }),
@@ -830,9 +965,7 @@ describe("authenticated app shell", () => {
 
     expect(screen.getByText("1 break, 5 minutes")).toBeInTheDocument();
     expect(screen.getByText("0 breaks, 0 minutes")).toBeInTheDocument();
-    const recentCompletedFocus = screen.getByLabelText(
-      "Recent completed focus",
-    );
+    const recentCompletedFocus = screen.getByLabelText("Recent study time");
     expect(
       within(recentCompletedFocus).getByText("75 minutes"),
     ).toBeInTheDocument();
@@ -2246,7 +2379,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start Recall" }));
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Select Notes" }),
+      await screen.findByRole("heading", { level: 3, name: "Recall setup" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall/select");
     expect(
@@ -2302,7 +2435,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start Recall" }));
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Select Notes" }),
+      await screen.findByRole("heading", { level: 3, name: "Recall setup" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall/select");
     expect(
@@ -2319,6 +2452,103 @@ describe("authenticated app shell", () => {
     expect(
       screen.queryByRole("dialog", { name: "Discard unsaved changes?" }),
     ).toBeNull();
+  });
+
+  it("shows learning state in notes and starts practice for the selected note", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const recallContext = createAppRecallContext({
+      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+    const weakNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Original recall answer.",
+      labelIds: [],
+      metaphors: [{ explanation: "Remember the gate", title: "Gate" }],
+      title: "Weak note",
+    });
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Fresh note body.",
+      labelIds: [],
+      metaphors: [],
+      title: "Fresh note",
+    });
+
+    try {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-04-11T09:00:00.000Z"));
+      const session = recallContext.startFlashCardSession({
+        noteIds: [weakNote.id],
+        userId,
+      });
+      recallContext.revealFlashCardAnswer({ sessionId: session.id, userId });
+      recallContext.rateFlashCardAnswer({
+        rating: "partial",
+        sessionId: session.id,
+        userId,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    const { router } = renderRoute("/notes", {
+      notesContext,
+      recallContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const sidebar = screen.getByRole("navigation", { name: "Notes list" });
+    fireEvent.click(within(sidebar).getByRole("button", { name: "Weak note" }));
+
+    expect(
+      await screen.findByDisplayValue("Original recall answer."),
+    ).toBeInTheDocument();
+    expect(within(sidebar).getByText("Weak")).toBeInTheDocument();
+    expect(within(sidebar).getByText("Unpracticed")).toBeInTheDocument();
+
+    const learningState = screen.getByLabelText("Learning state");
+    expect(within(learningState).getByText("Weak")).toBeInTheDocument();
+    expect(
+      within(learningState).getByText("Latest rating: Partial"),
+    ).toBeInTheDocument();
+    expect(
+      within(learningState).getByText("Last practiced: Apr 11, 2026"),
+    ).toBeInTheDocument();
+    expect(
+      within(learningState).getByText("Next review: Apr 14, 2026"),
+    ).toBeInTheDocument();
+    expect(within(learningState).getByText("1 hook")).toBeInTheDocument();
+
+    fireEvent.click(
+      within(learningState).getByRole("button", { name: "Practice this note" }),
+    );
+
+    expect(router.state.location.pathname).toBe("/recall/session");
+    expect(
+      await screen.findByRole("button", { name: "Reveal answer" }),
+    ).toBeInTheDocument();
+    expect(recallContext.getSnapshot()?.notes.map((note) => note.id)).toEqual([
+      weakNote.id,
+    ]);
   });
 
   it("removes notes-owned recall selection controls from notes", async () => {
@@ -2357,7 +2587,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Focus records" }),
+      await screen.findByRole("heading", { level: 3, name: "Study sessions" }),
     ).toBeInTheDocument();
 
     const focusControls = screen.getByRole("form", {
@@ -2379,7 +2609,7 @@ describe("authenticated app shell", () => {
 
     expect(router.state.location.pathname).toBe("/focus");
     expect(
-      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
+      screen.getByRole("button", { name: "End focus" }),
     ).toBeInTheDocument();
     expect(focusContext.getActiveSession({ userId })).toMatchObject({
       breakIntervalMinutes: 10,
@@ -2417,7 +2647,7 @@ describe("authenticated app shell", () => {
 
     expect(router.state.location.pathname).toBe("/settings");
     expect(
-      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
+      screen.getByRole("button", { name: "End focus" }),
     ).toBeInTheDocument();
     expect(focusContext.getActiveSession({ userId })).toMatchObject({
       breakIntervalMinutes: 5,
@@ -2454,7 +2684,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
 
     expect(
-      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
+      screen.getByRole("button", { name: "End focus" }),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("link", { name: "Labels" }));
@@ -2463,7 +2693,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/labels");
     expect(
-      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
+      screen.getByRole("button", { name: "End focus" }),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("link", { name: "Notes" }));
@@ -2472,7 +2702,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/notes");
     expect(
-      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
+      screen.getByRole("button", { name: "End focus" }),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /account menu/i }));
@@ -2482,7 +2712,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/settings");
     expect(
-      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
+      screen.getByRole("button", { name: "End focus" }),
     ).toBeInTheDocument();
   });
 
@@ -2509,7 +2739,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Focus records" }),
+      await screen.findByRole("heading", { level: 3, name: "Study sessions" }),
     ).toBeInTheDocument();
 
     const focusControls = screen.getByRole("form", {
@@ -2530,7 +2760,7 @@ describe("authenticated app shell", () => {
     fireEvent.submit(focusControls);
 
     expect(
-      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
+      screen.getByRole("button", { name: "End focus" }),
     ).toBeInTheDocument();
 
     firstRender.unmount();
@@ -2546,7 +2776,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("button", { name: /End focus · \d+ mins?/ }),
+      await screen.findByRole("button", { name: "End focus" }),
     ).toBeInTheDocument();
     expect(reloadedFocusContext.getActiveSession({ userId })).toMatchObject({
       breakIntervalMinutes: 7,
@@ -2600,7 +2830,7 @@ describe("authenticated app shell", () => {
       expect(
         await screen.findByRole("heading", {
           level: 3,
-          name: "Focus records",
+          name: "Study sessions",
         }),
       ).toBeInTheDocument();
 
@@ -2615,10 +2845,11 @@ describe("authenticated app shell", () => {
       });
       fireEvent.submit(focusControls);
 
-      expect(screen.getByText(/Focus:/)).toHaveClass("sr-only");
+      expect(screen.getByText("25:00 left")).toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
-      ).toHaveFocus();
+        screen.getByRole("status", { name: "Focus timer status" }),
+      ).toHaveTextContent("Focus: 25:00 left");
+      expect(screen.getByRole("button", { name: "End focus" })).toHaveFocus();
 
       initialRender.unmount();
 
@@ -2634,10 +2865,12 @@ describe("authenticated app shell", () => {
       });
 
       const endFocusButton = await screen.findByRole("button", {
-        name: /End focus · \d+ mins?/,
+        name: "End focus",
       });
       expect(endFocusButton).toHaveFocus();
-      expect(screen.getByText(/Transition window:/)).toHaveClass("sr-only");
+      expect(
+        screen.getByRole("status", { name: "Focus timer status" }),
+      ).toHaveTextContent(/Transition window: \d{2}:\d{2} left/);
 
       transitionFocusContext.startNextFocusInterval({ userId });
       transitionRender.unmount();
@@ -2672,7 +2905,7 @@ describe("authenticated app shell", () => {
 
       const focusReviewHeading = await screen.findByRole("heading", {
         level: 3,
-        name: "Focus records",
+        name: "Study sessions",
       });
       expect(focusReviewHeading).toHaveFocus();
       expect(notificationSpy).not.toHaveBeenCalled();
@@ -2735,7 +2968,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("button", { name: /End focus · \d+ mins?/ }),
+      await screen.findByRole("button", { name: "End focus" }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Transition window:/)).toHaveClass("sr-only");
 
@@ -2936,7 +3169,9 @@ describe("authenticated app shell", () => {
       session,
     });
 
-    expect(await screen.findByText("Focus session stale")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("status", { name: "Focus timer status" }),
+    ).toHaveTextContent("Focus session stale");
 
     staleFocusContext.startNextFocusInterval({ userId });
 
@@ -2982,9 +3217,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
 
     vi.setSystemTime(new Date("2026-04-30T10:25:12.000Z"));
-    fireEvent.click(
-      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "End focus" }));
 
     expect(
       screen.getByRole("button", { name: "Start Focus" }),
@@ -3037,9 +3270,7 @@ describe("authenticated app shell", () => {
       vi.advanceTimersByTime(25 * 60 * 1000 + 12 * 1000);
     });
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "End focus" }));
 
     expect(focusContext.getFocusRecords({ userId })).toMatchObject([
       {
@@ -3110,9 +3341,7 @@ describe("authenticated app shell", () => {
       vi.advanceTimersByTime(24 * 60 * 1000 + 42 * 1000);
     });
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /End focus · \d+ mins?/ }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "End focus" }));
 
     expect(focusContext.getFocusRecords({ userId })).toMatchObject([
       {
@@ -3506,7 +3735,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Select Notes" }),
+      await screen.findByRole("heading", { level: 3, name: "Recall setup" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall/select");
     expect(
@@ -3585,7 +3814,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("link", { name: "Start Recall" }));
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Select Notes" }),
+      await screen.findByRole("heading", { level: 3, name: "Recall setup" }),
     ).toBeInTheDocument();
     recallControls = within(screen.getByLabelText("Recall selection controls"));
     expect(recallControls.getByText("0 notes selected")).toBeInTheDocument();
@@ -3626,6 +3855,91 @@ describe("authenticated app shell", () => {
     expect(recallContext.getSnapshot()?.notes).not.toEqual(
       expect.arrayContaining([{ id: bodyNote.id }, { id: metaphorNote.id }]),
     );
+  });
+
+  it("rebuilds recall selection as a setup flow with selected tray, summary, and empty states", async () => {
+    const { labelsContext, notesContext, recallContext } =
+      createDeterministicRecallTestContexts();
+    const userId = "user-placeholder";
+    const science = labelsContext.createLabel({ name: "Science", userId });
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "ATP powers cellular work.",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "ATP",
+    });
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Mitochondria produce ATP.",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Mitochondria",
+    });
+
+    renderRoute("/recall/select", {
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Recall setup" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("form", { name: "Note editor" })).toBeNull();
+
+    const summary = screen.getByRole("region", { name: "Session summary" });
+    expect(within(summary).getByText("0 selected")).toBeInTheDocument();
+    expect(within(summary).getByText("0 min")).toBeInTheDocument();
+    expect(within(summary).getByText("General recall")).toBeInTheDocument();
+    expect(within(summary).getByText("No notes selected")).toBeInTheDocument();
+
+    const startButton = screen.getByRole("button", { name: "Start recall" });
+    expect(startButton).toBeDisabled();
+    expect(
+      screen.getByText("Pick at least one note to start recall."),
+    ).toBeInTheDocument();
+
+    expect(
+      within(screen.getByRole("region", { name: "Selected notes" })).getByText(
+        "No notes selected yet.",
+      ),
+    ).toBeInTheDocument();
+
+    const availableNotes = within(
+      screen.getByRole("region", { name: "Available notes" }),
+    );
+    fireEvent.click(
+      availableNotes.getByRole("button", {
+        name: /Select ATP/i,
+      }),
+    );
+
+    expect(within(summary).getByText("1 selected")).toBeInTheDocument();
+    expect(within(summary).getByText("2 min")).toBeInTheDocument();
+    expect(within(summary).getByText("First-pass recall")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start recall" })).toBeEnabled();
+    expect(availableNotes.getByText("Selected")).toBeInTheDocument();
+
+    const selectedNotes = within(
+      screen.getByRole("region", { name: "Selected notes" }),
+    );
+    expect(selectedNotes.getByText("ATP")).toBeInTheDocument();
+    fireEvent.click(
+      selectedNotes.getByRole("button", {
+        name: "Remove ATP from recall setup",
+      }),
+    );
+
+    expect(
+      selectedNotes.getByText("No notes selected yet."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start recall" })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Search notes"), {
+      target: { value: "zzzzz" },
+    });
+    expect(screen.getByText("No notes match this search.")).toBeInTheDocument();
   });
 
   it("shows a structural Recall / Session breadcrumb for an active recall session", async () => {
@@ -3839,6 +4153,156 @@ describe("authenticated app shell", () => {
     ]);
   });
 
+  it("hides recall answers until reveal, then shows the full note and rating guidance", async () => {
+    const { labelsContext, notesContext, recallContext } =
+      createDeterministicRecallTestContexts();
+    const userId = "user-placeholder";
+    const note = notesContext.createNote(userId, {
+      acronyms: [
+        {
+          expansion: "Cue, routine, reward",
+          shortForm: "CRR",
+        },
+      ],
+      body: "Habit loops reinforce repeated behavior through stable triggers.",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation: "A groove gets easier to follow each time it is used.",
+          title: "Behavior groove",
+        },
+      ],
+      title: "Habit loops",
+    });
+
+    await renderRecallSelection({
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    selectRecallableNote(
+      "Habit loops",
+      "Habit loops reinforce repeated behavior through stable triggers.",
+    );
+    await startSelectedRecallSession();
+
+    expect(
+      screen.queryByText(
+        "Habit loops reinforce repeated behavior through stable triggers.",
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Metaphors")).not.toBeInTheDocument();
+    expect(screen.queryByText("Behavior groove")).not.toBeInTheDocument();
+    expect(screen.queryByText("Acronyms")).not.toBeInTheDocument();
+    expect(screen.queryByText("CRR")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", {
+        name: "Note snapshot",
+      }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Show note snapshot for Habit loops",
+      }),
+    );
+    expect(
+      screen.queryByText(
+        "Habit loops reinforce repeated behavior through stable triggers.",
+      ),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reveal answer" }));
+
+    expect(
+      screen.getAllByText(
+        "Habit loops reinforce repeated behavior through stable triggers.",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("Metaphors").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Behavior groove").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Acronyms").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("CRR").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText("Missed it: Could not recall the answer."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Partly recalled: Remembered some, missed some."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Nailed it: Recalled the answer clearly."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Show note snapshot for Habit loops",
+      }),
+    );
+    const snapshot = screen.getByRole("region", {
+      name: "Note snapshot",
+    });
+    expect(
+      within(snapshot).getByText(
+        "Habit loops reinforce repeated behavior through stable triggers.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(snapshot).getByText("Behavior groove")).toBeInTheDocument();
+    expect(within(snapshot).getByText("CRR")).toBeInTheDocument();
+    expect(recallContext.getSnapshot()?.questions[0]?.isAnswerRevealed).toBe(
+      true,
+    );
+    expect(recallContext.getSnapshot()?.questions[0]?.noteId).toBe(note.id);
+  });
+
+  it("moves keyboard focus through prompt, reveal, rating, and next prompt", async () => {
+    const { labelsContext, notesContext, recallContext } =
+      createDeterministicRecallTestContexts();
+    const userId = "user-placeholder";
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "First note body",
+      labelIds: [],
+      metaphors: [],
+      title: "First note",
+    });
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Second note body",
+      labelIds: [],
+      metaphors: [],
+      title: "Second note",
+    });
+
+    await renderRecallSelection({
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    selectRecallableNote("First note", "First note body");
+    selectRecallableNote("Second note", "Second note body");
+    await startSelectedRecallSession();
+
+    const firstPrompt = screen.getByRole("button", {
+      name: "Show note snapshot for First note",
+    });
+    expect(firstPrompt).toHaveFocus();
+
+    const revealButton = screen.getByRole("button", { name: "Reveal answer" });
+    fireEvent.click(revealButton);
+
+    const missedButton = screen.getByRole("button", { name: "Missed it" });
+    expect(missedButton).toHaveFocus();
+
+    fireEvent.click(screen.getByRole("button", { name: "Nailed it" }));
+
+    const secondPrompt = screen.getByRole("button", {
+      name: "Show note snapshot for Second note",
+    });
+    expect(secondPrompt).toHaveFocus();
+  });
+
   it("returns completed recall sessions to the newest selected result when older results already exist", async () => {
     vi.useFakeTimers();
 
@@ -3906,7 +4370,7 @@ describe("authenticated app shell", () => {
 
     fireEvent.click(screen.getByRole("link", { name: "Start Recall" }));
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Select Notes" }),
+      await screen.findByRole("heading", { level: 3, name: "Recall setup" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall/select");
 
@@ -4229,6 +4693,12 @@ describe("authenticated app shell", () => {
     expect(sessionButtons).toHaveLength(2);
     expect(sessionButtons[0]).toHaveAttribute("aria-pressed", "true");
     expect(sessionButtons[1]).toHaveAttribute("aria-pressed", "false");
+    expect(
+      within(sessionButtons[0]).getByText("1 note practiced"),
+    ).toBeInTheDocument();
+    expect(
+      within(sessionButtons[0]).getByText("Nailed 0 · Partial 1 · Missed 0"),
+    ).toBeInTheDocument();
     const questionReview = within(selectedResult).getByRole("region", {
       name: "Prompt review",
     });
@@ -4304,7 +4774,8 @@ describe("authenticated app shell", () => {
     expect(
       screen.getAllByRole("button", { name: "Open review" }).length,
     ).toBeGreaterThan(0);
-    expect(screen.getAllByText(/1 attempted question/)).toHaveLength(2);
+    expect(screen.getAllByText(/1 attempted question/)).toHaveLength(1);
+    expect(screen.getAllByText(/1 note practiced/)).toHaveLength(2);
     expect(
       within(getSelectedSessionResultRegion()).getByText(
         "Nailed 1 · Partial 0 · Missed 0",
@@ -4351,6 +4822,13 @@ describe("authenticated app shell", () => {
       ],
       title: "Original prompt",
     });
+    const weakNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Weak note snapshot",
+      labelIds: [],
+      metaphors: [],
+      title: "Weak prompt",
+    });
     const unattemptedNote = notesContext.createNote(userId, {
       acronyms: [],
       body: "Stored but not attempted in this session",
@@ -4360,7 +4838,7 @@ describe("authenticated app shell", () => {
     });
 
     const session = recallContext.startFlashCardSession({
-      noteIds: [promptedNote.id, unattemptedNote.id],
+      noteIds: [promptedNote.id, weakNote.id, unattemptedNote.id],
       userId,
     });
 
@@ -4370,6 +4848,15 @@ describe("authenticated app shell", () => {
     });
     recallContext.rateFlashCardAnswer({
       rating: "nailed",
+      sessionId: session.id,
+      userId,
+    });
+    recallContext.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId,
+    });
+    recallContext.rateFlashCardAnswer({
+      rating: "partial",
       sessionId: session.id,
       userId,
     });
@@ -4406,13 +4893,33 @@ describe("authenticated app shell", () => {
       within(selectedResult).getByText("Mode: Recall"),
     ).toBeInTheDocument();
     expect(
-      within(selectedResult).getByText("1 attempted question"),
+      within(selectedResult).getByText("2 attempted questions"),
     ).toBeInTheDocument();
     expect(
-      within(selectedResult).getByText("2 questions in session"),
+      within(selectedResult).getByText("3 questions in session"),
     ).toBeInTheDocument();
     expect(
-      within(selectedResult).getByText("Nailed 1 · Partial 0 · Missed 0"),
+      within(selectedResult).getByText("3 notes practiced"),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("Nailed 1 · Partial 1 · Missed 0"),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByRole("heading", {
+        level: 4,
+        name: "Weak notes",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(
+        within(selectedResult).getByRole("heading", {
+          level: 4,
+          name: "Weak notes",
+        }).parentElement as HTMLElement,
+      ).getByText("Weak prompt · Partly recalled"),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("Partly recalled"),
     ).toBeInTheDocument();
 
     expect(
@@ -4432,6 +4939,9 @@ describe("authenticated app shell", () => {
     });
     expect(
       within(snapshotSummary).getByText("Original study snapshot"),
+    ).toBeInTheDocument();
+    expect(
+      within(snapshotSummary).getByText("Weak note snapshot"),
     ).toBeInTheDocument();
     expect(
       within(snapshotSummary).getByText(

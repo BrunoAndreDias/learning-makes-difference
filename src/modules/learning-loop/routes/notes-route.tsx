@@ -17,11 +17,19 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import type { AppLabel } from "../../labels/domain/labels";
 import { BreakIntervalOverlay } from "../components/break-interval-overlay";
 import { FocusSessionStartControl } from "../components/focus-session-start-control";
 import { isBreakIntervalActive } from "../domain/focus";
+import {
+  deriveLearningStates,
+  formatLearningStateRatingLabel,
+  formatLearningStateStatusLabel,
+  type LearningStateStatus,
+  toNoteRecallHistories,
+} from "../domain/learning-state";
 import {
   getNoteEditorSaveInput,
   getSelectedNote,
@@ -41,6 +49,7 @@ import {
   listNotesForUser,
 } from "../domain/notes";
 import { useNotesWorkspace } from "../domain/notes-workspace";
+import { AppRecallError } from "../domain/recall";
 
 const labelPickerPanelId = "note-label-picker-panel";
 const notesSearchListboxId = "notes-search-results";
@@ -69,11 +78,32 @@ function getSearchResultLabel(result: AppNoteSearchResult): string {
   return `${result.note.title} ${result.matchChip} Updated ${formatNoteDate(result.note.updatedAt)}`;
 }
 
+function formatHookCountLabel(count: number): string {
+  return `${count} ${count === 1 ? "hook" : "hooks"}`;
+}
+
+function getLearningStateSummary(status: LearningStateStatus) {
+  switch (status) {
+    case "unpracticed":
+      return "This note has not been tested in recall yet.";
+    case "weak":
+      return "This note needs another recall pass soon.";
+    case "ready_for_review":
+      return "This note is due for another recall pass.";
+    case "recently_nailed":
+      return "This note was recalled well recently.";
+  }
+}
+
 export function NotesWorkspace() {
   const location = useLocation();
   const focusContext = useRouteContext({
     from: "/_protected/notes",
     select: (context) => context.focus,
+  });
+  const recallContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.recall,
   });
   const notesContext = useRouteContext({
     from: "/_protected/notes",
@@ -92,6 +122,11 @@ export function NotesWorkspace() {
     notesContext.subscribe,
     notesContext.getSnapshot,
     notesContext.getSnapshot,
+  );
+  const recallResultsSnapshot = useSyncExternalStore(
+    recallContext.subscribe,
+    recallContext.getSessionResultsSnapshot,
+    recallContext.getSessionResultsSnapshot,
   );
   useSyncExternalStore(
     focusContext.subscribe,
@@ -160,6 +195,20 @@ export function NotesWorkspace() {
     userId === null ? null : focusContext.getActiveSession({ userId });
   const isBreakActive = isBreakIntervalActive(activeFocusSession);
   const isCreating = selectedNote === null;
+  const noteLearningStates = deriveLearningStates({
+    histories:
+      userId === null || recallResultsSnapshot.length === 0
+        ? []
+        : toNoteRecallHistories(recallContext.listAttemptsByNote({ userId })),
+    notes,
+  });
+  const noteLearningStatesById = new Map(
+    noteLearningStates.map((state) => [state.noteId, state]),
+  );
+  const selectedLearningState =
+    selectedNote === null
+      ? null
+      : (noteLearningStatesById.get(selectedNote.id) ?? null);
   const editorIdentity =
     noteEditor.mode === "draft" ? "draft" : noteEditor.selectedNoteId;
   const previousEditorIdentityRef = useRef(editorIdentity);
@@ -228,11 +277,7 @@ export function NotesWorkspace() {
 
   useEffect(() => {
     function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
-      if (event.key.toLocaleLowerCase() !== "k") {
-        return;
-      }
-
-      if (!event.metaKey && !event.ctrlKey) {
+      if (!isModifiedKeyShortcut(event, "k")) {
         return;
       }
 
@@ -811,6 +856,28 @@ export function NotesWorkspace() {
     }
   }
 
+  async function handlePracticeThisNote() {
+    if (userId === null || selectedNote === null) {
+      return;
+    }
+
+    try {
+      recallContext.startFlashCardSession({
+        noteIds: [selectedNote.id],
+        userId,
+      });
+      setErrorMessage(null);
+      await navigate({ to: "/recall/session" });
+    } catch (error) {
+      if (error instanceof AppRecallError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    }
+  }
+
   const selectedLabels = availableLabels.filter((label) =>
     editorState.labelIds.includes(label.id),
   );
@@ -835,6 +902,14 @@ export function NotesWorkspace() {
     isSearchListboxOpen && activeSearchResult !== undefined
       ? getSearchResultOptionId(activeSearchResult.note.id)
       : undefined;
+  const selectedLearningStateLabel =
+    selectedLearningState === null
+      ? null
+      : formatLearningStateStatusLabel(selectedLearningState.status);
+  const selectedLearningStateRating =
+    selectedLearningState === null
+      ? null
+      : formatLearningStateRatingLabel(selectedLearningState.latestRating);
   let labelPickerContent: ReactNode = null;
 
   if (isLabelPickerOpen) {
@@ -1124,6 +1199,72 @@ export function NotesWorkspace() {
                 aria-label="Memory hooks panel"
                 className="notes-form__inspector"
               >
+                <section
+                  aria-label="Learning state"
+                  className="notes-inspector-card"
+                >
+                  <div className="notes-inspector-card__header">
+                    <h4>Learning state</h4>
+                    {selectedLearningState === null ? null : (
+                      <span className="tag">{selectedLearningStateLabel}</span>
+                    )}
+                  </div>
+
+                  {selectedLearningState === null ? (
+                    <p className="muted">
+                      Save this note to track practice, review timing, and hook
+                      support.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="muted">
+                        {getLearningStateSummary(selectedLearningState.status)}
+                      </p>
+                      <div className="notes-learning-state__tags tag-row">
+                        <span className="tag">
+                          {formatHookCountLabel(
+                            selectedLearningState.hookCount,
+                          )}
+                        </span>
+                        {selectedLearningState.practiced ? (
+                          <span className="tag">Practiced</span>
+                        ) : null}
+                      </div>
+                      <div className="notes-learning-state__details">
+                        <p>
+                          {`Latest rating: ${
+                            selectedLearningStateRating ?? "Not practiced yet"
+                          }`}
+                        </p>
+                        <p>
+                          {`Last practiced: ${
+                            selectedLearningState.lastPracticedAt === null
+                              ? "Not practiced yet"
+                              : formatNoteDate(
+                                  selectedLearningState.lastPracticedAt,
+                                )
+                          }`}
+                        </p>
+                        <p>
+                          {`Next review: ${
+                            selectedLearningState.nextReviewAt === null
+                              ? "Practice when ready"
+                              : formatNoteDate(
+                                  selectedLearningState.nextReviewAt,
+                                )
+                          }`}
+                        </p>
+                      </div>
+                      <button
+                        className="notes-action notes-action-primary"
+                        onClick={() => void handlePracticeThisNote()}
+                        type="button"
+                      >
+                        Practice this note
+                      </button>
+                    </>
+                  )}
+                </section>
                 <section
                   aria-label="Memory hooks"
                   className="notes-memory-hooks notes-inspector-card"

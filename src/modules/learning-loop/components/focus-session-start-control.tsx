@@ -68,11 +68,15 @@ export function FocusSessionStartControl({
   }, [activeFocusSession]);
 
   if (activeFocusSession !== null) {
-    const buttonLabel = `End focus · ${getRemainingMinuteLabel(activeFocusSession)}`;
+    const focusStatus = getFocusStatus(activeFocusSession);
 
     return (
       <fieldset className="app-focus-session-status tag-row">
         <legend className="sr-only">Active focus session</legend>
+        <span aria-atomic="true" aria-label="Focus timer status" role="status">
+          <span className="sr-only">{focusStatus.prefix}</span>
+          {focusStatus.label}
+        </span>
         {userId === null ? null : (
           <button
             className="notes-action notes-action-primary"
@@ -84,16 +88,9 @@ export function FocusSessionStartControl({
             ref={focusSessionButtonRef}
             type="button"
           >
-            {buttonLabel}
+            End focus
           </button>
         )}
-        <span
-          aria-label="Focus session status"
-          className="sr-only"
-          role="status"
-        >
-          {getFocusStatusMessage(activeFocusSession)}
-        </span>
       </fieldset>
     );
   }
@@ -145,27 +142,42 @@ export function FocusSessionStartControl({
   );
 }
 
-function getFocusStatusMessage(session: FocusSession) {
-  const remainingLabel = getRemainingMinuteLabel(session);
+function getFocusStatus(session: FocusSession) {
+  if (session.intervalState === "AwaitingNextFocus") {
+    return {
+      label: session.isStale ? "Focus session stale" : "Ready for next focus",
+      prefix: "",
+    };
+  }
 
   switch (session.intervalState) {
     case "Transition":
-      return `Transition window: ${remainingLabel} left`;
+      return {
+        label: getRemainingTimerLabel(session),
+        prefix: "Transition window: ",
+      };
     case "Break":
-      return `Break: ${remainingLabel} left`;
-    case "AwaitingNextFocus":
-      return session.isStale ? "Focus session stale" : "Ready for next focus";
+      return {
+        label: getRemainingTimerLabel(session),
+        prefix: "Break: ",
+      };
     case "Focus":
-      return `Focus: ${remainingLabel} left`;
+      return {
+        label: getRemainingTimerLabel(session),
+        prefix: "Focus: ",
+      };
   }
 }
 
-function getRemainingMinuteLabel(session: FocusSession) {
+function getRemainingTimerLabel(session: FocusSession) {
   const remainingSeconds = session.remainingSeconds ?? 0;
-  const remainingMinutes =
-    remainingSeconds <= 0 ? 0 : Math.ceil(remainingSeconds / 60);
+  const normalizedSeconds = remainingSeconds <= 0 ? 0 : remainingSeconds;
+  const minutes = Math.floor(normalizedSeconds / 60);
+  const seconds = normalizedSeconds % 60;
 
-  return `${remainingMinutes} ${remainingMinutes === 1 ? "min" : "mins"}`;
+  return `${minutes.toString().padStart(2, "0")}:${seconds
+    .toString()
+    .padStart(2, "0")} left`;
 }
 
 function parseOptionalNumber(value: string) {
