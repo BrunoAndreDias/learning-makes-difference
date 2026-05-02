@@ -19,6 +19,7 @@ import {
 } from "../../access/session/session";
 import type { AppFocusContext } from "../../focus";
 import type { AppLabelsContext } from "../../labels/label-management/labels";
+import type { AppPersistentLabelsContext } from "../../labels/persistent-labels";
 import type { AppNotesContext, AppPersistentNotesContext } from "../../notes";
 import type { AppRecallContext } from "../../recall";
 import { shouldShowRouterDevtools } from "./router-devtools-gate";
@@ -42,6 +43,7 @@ export const Route = createRootRouteWithContext<{
   focus: AppFocusContext;
   labels: AppLabelsContext;
   notes: AppNotesContext;
+  persistentLabels?: AppPersistentLabelsContext;
   persistentNotes?: AppPersistentNotesContext;
   recall: AppRecallContext;
   session: AppSessionContext;

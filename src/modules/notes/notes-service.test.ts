@@ -5,6 +5,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import { migrateDatabase } from "../../lib/db/migrate";
 import { authSchema, usersTable } from "../access/session/auth-schema";
 import {
+  labelsSchema,
+  labelsTable,
+  noteLabelsTable,
+} from "../labels/labels-schema";
+import {
   noteAcronymsTable,
   noteMetaphorsTable,
   notesSchema,
@@ -25,6 +30,7 @@ describe("createNotesService", () => {
     const db = drizzle(client, {
       schema: {
         ...authSchema,
+        ...labelsSchema,
         ...notesSchema,
       },
     });
@@ -36,6 +42,13 @@ describe("createNotesService", () => {
       passwordHash: "hash",
       interfaceLanguage: "en",
       studyLanguage: "en",
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+    await db.insert(labelsTable).values({
+      id: "label-neuroscience",
+      userId: "user-casey",
+      name: "Neuroscience",
       createdAt: new Date("2026-05-02T12:00:00.000Z"),
       updatedAt: new Date("2026-05-02T12:00:00.000Z"),
     });
@@ -71,12 +84,89 @@ describe("createNotesService", () => {
     ).resolves.toEqual([createdNote]);
   });
 
+  it("stores note-label assignments in PostgreSQL join rows", async () => {
+    const client = new PGlite();
+    databases.add(client);
+    const db = drizzle(client, {
+      schema: {
+        ...authSchema,
+        ...labelsSchema,
+        ...notesSchema,
+      },
+    });
+    await migrateDatabase(db, client);
+    await db.insert(usersTable).values({
+      id: "user-casey",
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      passwordHash: "hash",
+      interfaceLanguage: "en",
+      studyLanguage: "en",
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+    await db.insert(labelsTable).values([
+      {
+        id: "label-science",
+        userId: "user-casey",
+        name: "Science",
+        createdAt: new Date("2026-05-02T12:00:00.000Z"),
+        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+      },
+      {
+        id: "label-biology",
+        userId: "user-casey",
+        name: "Biology",
+        createdAt: new Date("2026-05-02T12:00:00.000Z"),
+        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+      },
+    ]);
+
+    const notes = createNotesService({
+      db,
+      now: () => new Date("2026-05-02T12:00:00.000Z"),
+    });
+
+    const createdNote = await notes.createNote({
+      input: {
+        acronyms: [],
+        body: "Repeated activation strengthens the same path.",
+        labelIds: ["label-science", "label-biology"],
+        metaphors: [],
+        title: "Synaptic plasticity",
+      },
+      userId: "user-casey",
+    });
+
+    await expect(
+      Promise.all([
+        notes.listNotes({
+          userId: "user-casey",
+        }),
+        db.select().from(noteLabelsTable).orderBy(noteLabelsTable.labelId),
+      ]),
+    ).resolves.toEqual([
+      [createdNote],
+      [
+        {
+          labelId: "label-biology",
+          noteId: createdNote.id,
+        },
+        {
+          labelId: "label-science",
+          noteId: createdNote.id,
+        },
+      ],
+    ]);
+  });
+
   it("keeps note updates scoped to the owning account", async () => {
     const client = new PGlite();
     databases.add(client);
     const db = drizzle(client, {
       schema: {
         ...authSchema,
+        ...labelsSchema,
         ...notesSchema,
       },
     });
@@ -103,6 +193,13 @@ describe("createNotesService", () => {
         updatedAt: new Date("2026-05-02T12:00:00.000Z"),
       },
     ]);
+    await db.insert(labelsTable).values({
+      id: "label-neuroscience",
+      userId: "user-casey",
+      name: "Neuroscience",
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
 
     const notes = createNotesService({
       db,
@@ -173,12 +270,75 @@ describe("createNotesService", () => {
     });
   });
 
+  it("rejects note-label assignments for labels owned by another account", async () => {
+    const client = new PGlite();
+    databases.add(client);
+    const db = drizzle(client, {
+      schema: {
+        ...authSchema,
+        ...labelsSchema,
+        ...notesSchema,
+      },
+    });
+    await migrateDatabase(db, client);
+    await db.insert(usersTable).values([
+      {
+        id: "user-casey",
+        displayName: "Casey Learner",
+        email: "casey@example.com",
+        passwordHash: "hash",
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+        createdAt: new Date("2026-05-02T12:00:00.000Z"),
+        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+      },
+      {
+        id: "user-jordan",
+        displayName: "Jordan Learner",
+        email: "jordan@example.com",
+        passwordHash: "hash",
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+        createdAt: new Date("2026-05-02T12:00:00.000Z"),
+        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+      },
+    ]);
+    await db.insert(labelsTable).values({
+      id: "label-jordan-private",
+      userId: "user-jordan",
+      name: "Jordan private",
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+
+    const notes = createNotesService({
+      db,
+      now: () => new Date("2026-05-02T12:00:00.000Z"),
+    });
+
+    await expect(
+      notes.createNote({
+        input: {
+          acronyms: [],
+          body: "Repeated activation strengthens the same path.",
+          labelIds: ["label-jordan-private"],
+          metaphors: [],
+          title: "Synaptic plasticity",
+        },
+        userId: "user-casey",
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_input",
+    });
+  });
+
   it("hard-deletes notes and removes their metaphor and acronym child records", async () => {
     const client = new PGlite();
     databases.add(client);
     const db = drizzle(client, {
       schema: {
         ...authSchema,
+        ...labelsSchema,
         ...notesSchema,
       },
     });

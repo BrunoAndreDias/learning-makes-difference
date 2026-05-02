@@ -4,13 +4,13 @@ import postgres from "postgres";
 import { appSchema } from "../../lib/db/schema";
 import { loadAppEnv } from "../../lib/env";
 
-type NotesDatabase = ReturnType<typeof drizzle<typeof appSchema>>;
+type LabelsDatabase = ReturnType<typeof drizzle<typeof appSchema>>;
 
-let cachedDatabase: NotesDatabase | null = null;
+let cachedDatabase: LabelsDatabase | null = null;
 let cachedDatabaseUrl: string | null = null;
 let cachedClient: postgres.Sql | null = null;
 
-export function getNotesDb(): NotesDatabase {
+export function getLabelsDb(): LabelsDatabase {
   const env = loadAppEnv();
 
   if (cachedDatabase !== null && cachedDatabaseUrl === env.DATABASE_URL) {
@@ -29,11 +29,11 @@ export function getNotesDb(): NotesDatabase {
   return cachedDatabase;
 }
 
-export function getNotesSqlClient(): postgres.Sql {
-  getNotesDb();
+export function getLabelsSqlClient(): postgres.Sql {
+  getLabelsDb();
 
   if (cachedClient === null) {
-    throw new Error("Notes SQL client was not initialized.");
+    throw new Error("Labels SQL client was not initialized.");
   }
 
   return cachedClient;

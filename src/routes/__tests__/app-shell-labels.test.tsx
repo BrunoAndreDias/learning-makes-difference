@@ -3,6 +3,10 @@
 import { fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import {
+  createPersistentLabelsContext,
+  createReadonlyLabelsContext,
+} from "../../modules/labels/persistent-labels";
+import {
   createRouteTestSessionContext,
   renderRoute,
   TEST_PILOT_REGISTRATION_CODE,
@@ -117,5 +121,59 @@ describe("authenticated app shell", () => {
     expect(
       screen.queryByRole("heading", { name: "Biology" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("loads labels from the persistent labels service on route entry", async () => {
+    const sessionContext = createRouteTestSessionContext();
+
+    await sessionContext.register({
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      password: "correct horse battery staple",
+      pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
+    });
+
+    const persistentLabelsContext = createPersistentLabelsContext({
+      service: {
+        addParent: async ({ labelId, parentId }) => ({
+          id: labelId,
+          name: "Biology",
+          parentIds: [parentId],
+        }),
+        createLabel: async ({ name }) => ({
+          id: "label-created",
+          name,
+          parentIds: [],
+        }),
+        deleteLabel: async () => undefined,
+        listLabels: async () => [
+          {
+            id: "label-science",
+            name: "Science",
+            parentIds: [],
+          },
+        ],
+        removeParent: async ({ labelId }) => ({
+          id: labelId,
+          name: "Science",
+          parentIds: [],
+        }),
+        renameLabel: async ({ labelId, name }) => ({
+          id: labelId,
+          name,
+          parentIds: [],
+        }),
+      },
+    });
+
+    renderRoute("/labels", {
+      labelsContext: createReadonlyLabelsContext(persistentLabelsContext),
+      persistentLabelsContext,
+      sessionContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Science" }),
+    ).toBeInTheDocument();
   });
 });

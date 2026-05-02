@@ -29,19 +29,41 @@ describe("migrateDatabase PostgreSQL integration", () => {
       {
         name: "0000_pilot_users_and_sessions.sql",
       },
+      {
+        name: "0001_notes_with_metaphors_and_acronyms.sql",
+      },
+      {
+        name: "0002_labels_and_note_label_assignments.sql",
+      },
     ]);
 
     const tables = await database.client.unsafe<Array<{ table_name: string }>>(`
       select table_name
       from information_schema.tables
       where table_schema = 'public'
-        and table_name in ('__drizzle_migrations', 'auth_sessions', 'users')
+        and table_name in (
+          '__drizzle_migrations',
+          'auth_sessions',
+          'label_edges',
+          'labels',
+          'note_acronyms',
+          'note_labels',
+          'note_metaphors',
+          'notes',
+          'users'
+        )
       order by table_name;
     `);
 
     expect(tables.map((table) => table.table_name)).toEqual([
       "__drizzle_migrations",
       "auth_sessions",
+      "label_edges",
+      "labels",
+      "note_acronyms",
+      "note_labels",
+      "note_metaphors",
+      "notes",
       "users",
     ]);
   });

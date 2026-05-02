@@ -1,6 +1,7 @@
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import {
   type FormEvent,
+  useCallback,
   useEffect,
   useId,
   useRef,
@@ -99,6 +100,10 @@ function LabelsPage() {
     from: "/_protected/labels",
     select: (context) => context.session,
   });
+  const persistentLabelsContext = useRouteContext({
+    from: "/_protected/labels",
+    select: (context) => context.persistentLabels,
+  });
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
     session.subscribe,
     session.getSnapshot,
@@ -151,91 +156,136 @@ function LabelsPage() {
     };
   }, []);
 
-  function handleError(error: unknown) {
+  const handleError = useCallback((error: unknown) => {
     if (error instanceof AppLabelError) {
       setFeedbackMessage(error.message);
       return;
     }
 
     setFeedbackMessage("Label update failed. Try again.");
-  }
+  }, []);
 
-  function runLabelAction(action: () => void) {
+  useEffect(() => {
+    if (persistentLabelsContext === undefined) {
+      return;
+    }
+
+    void persistentLabelsContext
+      .refresh(currentUserId)
+      .catch((error: unknown) => {
+        handleError(error);
+      });
+  }, [currentUserId, handleError, persistentLabelsContext]);
+
+  async function runLabelAction(action: () => void | Promise<void>) {
     try {
-      action();
+      await action();
       setFeedbackMessage(null);
     } catch (error) {
       handleError(error);
     }
   }
 
-  function handleCreateLabel(event: FormEvent<HTMLFormElement>) {
+  async function handleCreateLabel(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (currentUserId === null) {
       return;
     }
 
-    runLabelAction(() => {
-      labels.createLabel({
-        name: createName,
-        userId: currentUserId,
-      });
+    await runLabelAction(async () => {
+      if (persistentLabelsContext === undefined) {
+        labels.createLabel({
+          name: createName,
+          userId: currentUserId,
+        });
+      } else {
+        await persistentLabelsContext.createLabel(currentUserId, {
+          name: createName,
+        });
+      }
+
       setCreateName("");
     });
   }
 
-  function renameLabel(labelId: string, name: string) {
+  async function renameLabel(labelId: string, name: string) {
     if (currentUserId === null) {
       return;
     }
 
-    runLabelAction(() => {
-      labels.renameLabel({
-        labelId,
-        name,
-        userId: currentUserId,
-      });
+    await runLabelAction(async () => {
+      if (persistentLabelsContext === undefined) {
+        labels.renameLabel({
+          labelId,
+          name,
+          userId: currentUserId,
+        });
+        return;
+      }
+
+      await persistentLabelsContext.renameLabel(currentUserId, labelId, name);
     });
   }
 
-  function deleteLabel(labelId: string) {
+  async function deleteLabel(labelId: string) {
     if (currentUserId === null) {
       return;
     }
 
-    runLabelAction(() => {
-      labels.deleteLabel({
-        labelId,
-        userId: currentUserId,
-      });
+    await runLabelAction(async () => {
+      if (persistentLabelsContext === undefined) {
+        labels.deleteLabel({
+          labelId,
+          userId: currentUserId,
+        });
+        return;
+      }
+
+      await persistentLabelsContext.deleteLabel(currentUserId, labelId);
     });
   }
 
-  function addParent(labelId: string, parentId: string) {
+  async function addParent(labelId: string, parentId: string) {
     if (currentUserId === null || parentId === "") {
       return;
     }
 
-    runLabelAction(() => {
-      labels.addParent({
+    await runLabelAction(async () => {
+      if (persistentLabelsContext === undefined) {
+        labels.addParent({
+          labelId,
+          parentId,
+          userId: currentUserId,
+        });
+        return;
+      }
+
+      await persistentLabelsContext.addParent(currentUserId, {
         labelId,
         parentId,
-        userId: currentUserId,
       });
     });
   }
 
-  function removeParent(labelId: string, parentId: string) {
+  async function removeParent(labelId: string, parentId: string) {
     if (currentUserId === null) {
       return;
     }
 
-    runLabelAction(() => {
-      labels.removeParent({
+    await runLabelAction(async () => {
+      if (persistentLabelsContext === undefined) {
+        labels.removeParent({
+          labelId,
+          parentId,
+          userId: currentUserId,
+        });
+        return;
+      }
+
+      await persistentLabelsContext.removeParent(currentUserId, {
         labelId,
         parentId,
-        userId: currentUserId,
       });
     });
   }

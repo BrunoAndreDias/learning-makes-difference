@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { PgDatabase } from "drizzle-orm/pg-core/db";
 import type { PgQueryResultHKT } from "drizzle-orm/pg-core/session";
+import { labelsTable, noteLabelsTable } from "../labels/labels-schema";
 import {
   noteAcronymsTable,
   noteMetaphorsTable,
@@ -64,6 +65,37 @@ function validateBody(body: string): string {
 
 function validateLabelIds(labelIds: string[]): string[] {
   return [...new Set(labelIds.filter(Boolean))];
+}
+
+async function validateOwnedLabelIds(input: {
+  db: NotesDatabase<Record<string, unknown>>;
+  labelIds: string[];
+  userId: string;
+}) {
+  if (input.labelIds.length === 0) {
+    return input.labelIds;
+  }
+
+  const ownedLabels = await input.db
+    .select({
+      id: labelsTable.id,
+    })
+    .from(labelsTable)
+    .where(
+      and(
+        eq(labelsTable.userId, input.userId),
+        inArray(labelsTable.id, input.labelIds),
+      ),
+    );
+
+  if (ownedLabels.length !== input.labelIds.length) {
+    throw new AppNotesError(
+      "invalid_input",
+      "Notes can only be assigned to labels owned by this account.",
+    );
+  }
+
+  return input.labelIds;
 }
 
 function validateHookCount(hooks: readonly unknown[], label: string) {
@@ -161,22 +193,35 @@ async function readOwnedNotes(
   }
 
   const noteIds = storedNotes.map((note) => note.id);
-  const [storedMetaphors, storedAcronyms] = await Promise.all([
-    db
-      .select()
-      .from(noteMetaphorsTable)
-      .where(inArray(noteMetaphorsTable.noteId, noteIds)),
-    db
-      .select()
-      .from(noteAcronymsTable)
-      .where(inArray(noteAcronymsTable.noteId, noteIds)),
-  ]);
+  const [storedMetaphors, storedAcronyms, storedNoteLabels] = await Promise.all(
+    [
+      db
+        .select()
+        .from(noteMetaphorsTable)
+        .where(inArray(noteMetaphorsTable.noteId, noteIds)),
+      db
+        .select()
+        .from(noteAcronymsTable)
+        .where(inArray(noteAcronymsTable.noteId, noteIds)),
+      db
+        .select()
+        .from(noteLabelsTable)
+        .where(inArray(noteLabelsTable.noteId, noteIds)),
+    ],
+  );
   const metaphorsByNoteId = new Map(
     storedMetaphors.map((metaphor) => [metaphor.noteId, metaphor.description]),
   );
   const acronymsByNoteId = new Map(
     storedAcronyms.map((acronym) => [acronym.noteId, acronym.description]),
   );
+  const labelIdsByNoteId = new Map<string, string[]>();
+
+  for (const noteLabel of storedNoteLabels) {
+    const labelIds = labelIdsByNoteId.get(noteLabel.noteId) ?? [];
+    labelIds.push(noteLabel.labelId);
+    labelIdsByNoteId.set(noteLabel.noteId, labelIds);
+  }
 
   return storedNotes
     .sort((left, right) => {
@@ -186,11 +231,13 @@ async function readOwnedNotes(
     })
     .map((note) =>
       toAppNote({
+        labelIds: note.labelIds.filter((labelId) =>
+          new Set(labelIdsByNoteId.get(note.id) ?? []).has(labelId),
+        ),
         acronymDescription: acronymsByNoteId.get(note.id) ?? null,
         body: note.body,
         createdAt: note.createdAt,
         id: note.id,
-        labelIds: note.labelIds,
         metaphorDescription: metaphorsByNoteId.get(note.id) ?? null,
         title: note.title,
         updatedAt: note.updatedAt,
@@ -269,6 +316,11 @@ export function createNotesService({
       const timestamp = now();
       const noteId = crypto.randomUUID();
       const safeInput = validateCreateNoteInput(input.input);
+      const safeLabelIds = await validateOwnedLabelIds({
+        db,
+        labelIds: safeInput.labelIds,
+        userId: input.userId,
+      });
 
       await db.transaction(async (tx) => {
         await tx.insert(notesTable).values({
@@ -276,10 +328,19 @@ export function createNotesService({
           userId: input.userId,
           title: safeInput.title,
           body: safeInput.body,
-          labelIds: safeInput.labelIds,
+          labelIds: safeLabelIds,
           createdAt: timestamp,
           updatedAt: timestamp,
         });
+
+        if (safeLabelIds.length > 0) {
+          await tx.insert(noteLabelsTable).values(
+            safeLabelIds.map((labelId) => ({
+              labelId,
+              noteId,
+            })),
+          );
+        }
 
         if (safeInput.metaphors[0] !== undefined) {
           await tx.insert(noteMetaphorsTable).values({
@@ -301,7 +362,7 @@ export function createNotesService({
         body: safeInput.body,
         createdAt: timestamp,
         id: noteId,
-        labelIds: safeInput.labelIds,
+        labelIds: safeLabelIds,
         metaphorDescription: getFirstDescription(safeInput.metaphors),
         title: safeInput.title,
         updatedAt: timestamp,
@@ -330,24 +391,41 @@ export function createNotesService({
       });
       const timestamp = now();
       const safeInput = validateUpdateNoteInput(input.input);
+      const safeLabelIds = await validateOwnedLabelIds({
+        db,
+        labelIds: safeInput.labelIds,
+        userId: input.userId,
+      });
 
       await db.transaction(async (tx) => {
         await tx
           .update(notesTable)
           .set({
             body: safeInput.body,
-            labelIds: safeInput.labelIds,
+            labelIds: safeLabelIds,
             title: safeInput.title,
             updatedAt: timestamp,
           })
           .where(eq(notesTable.id, existingNote.id));
 
         await tx
+          .delete(noteLabelsTable)
+          .where(eq(noteLabelsTable.noteId, existingNote.id));
+        await tx
           .delete(noteMetaphorsTable)
           .where(eq(noteMetaphorsTable.noteId, existingNote.id));
         await tx
           .delete(noteAcronymsTable)
           .where(eq(noteAcronymsTable.noteId, existingNote.id));
+
+        if (safeLabelIds.length > 0) {
+          await tx.insert(noteLabelsTable).values(
+            safeLabelIds.map((labelId) => ({
+              labelId,
+              noteId: existingNote.id,
+            })),
+          );
+        }
 
         if (safeInput.metaphors[0] !== undefined) {
           await tx.insert(noteMetaphorsTable).values({
@@ -369,7 +447,7 @@ export function createNotesService({
         body: safeInput.body,
         createdAt: existingNote.createdAt,
         id: existingNote.id,
-        labelIds: safeInput.labelIds,
+        labelIds: safeLabelIds,
         metaphorDescription: getFirstDescription(safeInput.metaphors),
         title: safeInput.title,
         updatedAt: timestamp,
