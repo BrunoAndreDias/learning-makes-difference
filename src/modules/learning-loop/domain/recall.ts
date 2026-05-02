@@ -506,18 +506,20 @@ function getRecallLabelSnapshots(input: {
   labelIds: readonly string[];
   labelsById: ReadonlyMap<string, AppLabel>;
 }): RecallLabelSnapshot[] {
-  return input.labelIds.flatMap((labelId) => {
+  const snapshots: RecallLabelSnapshot[] = [];
+
+  for (const labelId of input.labelIds) {
     const label = input.labelsById.get(labelId);
 
-    return label === undefined
-      ? []
-      : [
-          {
-            id: label.id,
-            name: label.name,
-          },
-        ];
-  });
+    if (label !== undefined) {
+      snapshots.push({
+        id: label.id,
+        name: label.name,
+      });
+    }
+  }
+
+  return snapshots;
 }
 
 function toRecallNoteSnapshot(input: {

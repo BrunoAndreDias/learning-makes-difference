@@ -1,6 +1,10 @@
 import type { AppLabel } from "../../labels/domain/labels";
 import { type AppNoteSearchMatchChip, searchNoteResults } from "./note-search";
-import type { FlashCardRecallNote, FlashCardSessionResult } from "./recall";
+import type {
+  FlashCardRecallNote,
+  FlashCardSessionResult,
+  RecallLabelSnapshot,
+} from "./recall";
 
 export type RecallSessionSearchMatchChip = AppNoteSearchMatchChip | "Label";
 
@@ -25,54 +29,39 @@ function normalizeSearchQuery(query: string): string {
   return query.trim().toLocaleLowerCase();
 }
 
-function getRecallNoteLabels(input: {
+function listSearchableNoteLabels(input: {
   labelsById: ReadonlyMap<string, AppLabel>;
   note: FlashCardRecallNote;
-}) {
-  if ((input.note.labels ?? []).length > 0) {
-    return input.note.labels ?? [];
+}): RecallLabelSnapshot[] {
+  const storedLabels = input.note.labels ?? [];
+
+  if (storedLabels.length > 0) {
+    return storedLabels;
   }
 
-  return input.note.labelIds.flatMap((labelId) => {
+  const labels: RecallLabelSnapshot[] = [];
+
+  for (const labelId of input.note.labelIds) {
     const label = input.labelsById.get(labelId);
 
-    return label === undefined
-      ? []
-      : [
-          {
-            id: label.id,
-            name: label.name,
-          },
-        ];
-  });
-}
-
-function getLabelSearchMatch(input: {
-  labelsById: ReadonlyMap<string, AppLabel>;
-  normalizedQuery: string;
-  notes: readonly FlashCardRecallNote[];
-}): RecallSessionSearchResult["matchChip"] | null {
-  for (const note of input.notes) {
-    for (const label of getRecallNoteLabels({
-      labelsById: input.labelsById,
-      note,
-    })) {
-      if (label.name.toLocaleLowerCase().includes(input.normalizedQuery)) {
-        return "Label";
-      }
+    if (label !== undefined) {
+      labels.push({
+        id: label.id,
+        name: label.name,
+      });
     }
   }
 
-  return null;
+  return labels;
 }
 
-function getFirstLabelMatchedNoteTitle(input: {
+function getLabelMatchedNoteTitle(input: {
   labelsById: ReadonlyMap<string, AppLabel>;
   normalizedQuery: string;
   notes: readonly FlashCardRecallNote[];
-}): string {
+}): string | null {
   for (const note of input.notes) {
-    for (const label of getRecallNoteLabels({
+    for (const label of listSearchableNoteLabels({
       labelsById: input.labelsById,
       note,
     })) {
@@ -82,7 +71,7 @@ function getFirstLabelMatchedNoteTitle(input: {
     }
   }
 
-  return input.notes[0]?.title ?? "Stored note";
+  return null;
 }
 
 function compareRecallSessionSearchResults(
@@ -137,23 +126,19 @@ export function searchRecallSessionResults(input: {
         };
       }
 
-      const labelMatch = getLabelSearchMatch({
+      const labelMatchedNoteTitle = getLabelMatchedNoteTitle({
         labelsById,
         normalizedQuery,
         notes: sessionResult.notes,
       });
 
-      if (labelMatch === null) {
+      if (labelMatchedNoteTitle === null) {
         return null;
       }
 
       return {
-        matchChip: labelMatch,
-        matchedNoteTitle: getFirstLabelMatchedNoteTitle({
-          labelsById,
-          normalizedQuery,
-          notes: sessionResult.notes,
-        }),
+        matchChip: "Label",
+        matchedNoteTitle: labelMatchedNoteTitle,
         sessionResult,
       };
     })
