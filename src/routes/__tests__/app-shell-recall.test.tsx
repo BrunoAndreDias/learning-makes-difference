@@ -22,6 +22,7 @@ import {
   expectReturnedToRecall,
   getSelectedSessionResultRegion,
   listNotesForUser,
+  rateFlashCardAnswers,
   renderRecallSelection,
   renderRoute,
   selectRecallableNote,
@@ -1857,6 +1858,124 @@ describe("authenticated app shell", () => {
     expect(
       within(selectedResult).queryByRole("button", { name: /delete/i }),
     ).toBeNull();
+  });
+
+  it("starts a weak-note follow-up recall from results with weak notes preselected", async () => {
+    const { labelsContext, notesContext, recallContext } =
+      createDeterministicRecallTestContexts();
+    const userId = "user-placeholder";
+    const strongNote = createRecallNote(notesContext, userId, {
+      body: "Strong note snapshot",
+      title: "Strong prompt",
+    });
+    const partialNote = createRecallNote(notesContext, userId, {
+      body: "Partial note snapshot",
+      title: "Partial prompt",
+    });
+    const missedNote = createRecallNote(notesContext, userId, {
+      body: "Missed note snapshot",
+      title: "Missed prompt",
+    });
+
+    const session = recallContext.startFlashCardSession({
+      noteIds: [strongNote.id, partialNote.id, missedNote.id],
+      userId,
+    });
+
+    rateFlashCardAnswers({
+      ratings: ["nailed", "partial", "missed"],
+      recallContext,
+      sessionId: session.id,
+      userId,
+    });
+
+    const { router } = renderRoute("/recall", {
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    const selectedResult = await screen.findByRole("region", {
+      name: "Selected review",
+    });
+
+    fireEvent.click(
+      within(selectedResult).getByRole("link", {
+        name: "Practice weak notes",
+      }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Recall setup" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall/select");
+
+    const summary = screen.getByRole("region", { name: "Session summary" });
+    expect(within(summary).getByText("2 selected")).toBeInTheDocument();
+    expect(within(summary).getByText("Weak-note review")).toBeInTheDocument();
+
+    const selectedNotes = screen.getByRole("region", {
+      name: "Selected notes",
+    });
+    expect(
+      within(selectedNotes).getByText("Missed prompt"),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedNotes).getByText("Partial prompt"),
+    ).toBeInTheDocument();
+    expect(within(selectedNotes).queryByText("Strong prompt")).toBeNull();
+
+    expect(
+      screen.getByRole("button", { name: "Weak notes (2)" }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("shows a start-next-recall action when results have no weak notes", async () => {
+    const { labelsContext, notesContext, recallContext } =
+      createDeterministicRecallTestContexts();
+    const userId = "user-placeholder";
+    const strongNote = createRecallNote(notesContext, userId, {
+      body: "Strong note snapshot",
+      title: "Strong prompt",
+    });
+
+    const session = recallContext.startFlashCardSession({
+      noteIds: [strongNote.id],
+      userId,
+    });
+
+    rateFlashCardAnswers({
+      ratings: ["nailed"],
+      recallContext,
+      sessionId: session.id,
+      userId,
+    });
+
+    renderRoute("/recall", {
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    const selectedResult = await screen.findByRole("region", {
+      name: "Selected review",
+    });
+
+    expect(
+      within(selectedResult).queryByRole("link", {
+        name: "Practice weak notes",
+      }),
+    ).toBeNull();
+    expect(
+      within(selectedResult).getByRole("link", {
+        name: "Start another recall",
+      }),
+    ).toHaveAttribute("href", "/recall/select");
+    expect(
+      within(selectedResult).getByText(
+        "This session left no weak notes. Pick the next notes to keep the loop going.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("switches the selected result without changing the route", async () => {

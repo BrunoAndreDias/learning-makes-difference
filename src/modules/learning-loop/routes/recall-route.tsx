@@ -492,7 +492,13 @@ function SelectedRecallNotes({
   );
 }
 
-export function RecallSelectionPage() {
+export function RecallSelectionPage({
+  initialSelectedFilter = { kind: "all" },
+  initialSelectedNoteIds = [],
+}: {
+  initialSelectedFilter?: RecallSetupFilter;
+  initialSelectedNoteIds?: readonly string[];
+}) {
   const navigate = useNavigate();
   const focusContext = useRouteContext({
     from: "/_protected",
@@ -538,10 +544,12 @@ export function RecallSelectionPage() {
   const sessionResults =
     userId === null ? [] : recallContext.listSessionResults({ userId });
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState<RecallSetupFilter>({
-    kind: "all",
-  });
-  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
+  const [selectedFilter, setSelectedFilter] = useState<RecallSetupFilter>(
+    initialSelectedFilter,
+  );
+  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>(() => [
+    ...initialSelectedNoteIds,
+  ]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeSearchResultIndex, setActiveSearchResultIndex] = useState(0);
