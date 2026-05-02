@@ -10,6 +10,7 @@ import type { AppLabel } from "../../labels/domain/labels";
 import { formatRecallModeLabel } from "../domain/learner-copy";
 import { listNotesForUser } from "../domain/notes";
 import { useNotesWorkspace } from "../domain/notes-workspace";
+import { listRecallResultLabels } from "../domain/recall-result-labels";
 import {
   type RecallSessionSearchResult,
   searchRecallSessionResults,
@@ -106,9 +107,11 @@ export function RecallResultsSidebar({
     notesContext.getSnapshot,
   );
   const userId = sessionSnapshot.user?.id ?? null;
-  const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
+  const [currentLabels, setCurrentLabels] = useState<AppLabel[]>([]);
   const selectedLabelFilter =
     selectedRecallLabelId.length === 0 ? undefined : selectedRecallLabelId;
+  const allSessionResults =
+    userId === null ? [] : recallContext.listSessionResults({ userId });
   const sessionResults =
     userId === null
       ? []
@@ -116,6 +119,10 @@ export function RecallResultsSidebar({
           labelId: selectedLabelFilter,
           userId,
         });
+  const availableLabels = listRecallResultLabels({
+    currentLabels,
+    sessionResults: allSessionResults,
+  });
   const hasSearchQuery = selectedRecallSearchQuery.trim().length > 0;
   const searchResults = searchRecallSessionResults({
     labels: availableLabels,
@@ -132,11 +139,11 @@ export function RecallResultsSidebar({
   useEffect(() => {
     function syncAvailableLabels() {
       if (userId === null) {
-        setAvailableLabels([]);
+        setCurrentLabels([]);
         return;
       }
 
-      setAvailableLabels(labelsContext.getLabelsForUser(userId));
+      setCurrentLabels(labelsContext.getLabelsForUser(userId));
     }
 
     syncAvailableLabels();

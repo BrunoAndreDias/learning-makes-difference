@@ -98,6 +98,7 @@ export function renderRoute(
   const recallContext =
     options.recallContext ??
     createAppRecallContext({
+      getLabelsForUser: (userId) => labelsContext.getLabelsForUser(userId),
       keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
       notes: notesContext,
       onStudyActivity: focusContext.captureRecallSessionStudyActivity,
@@ -149,6 +150,7 @@ export function createLearningLoopTestContexts(
     storage: window.localStorage,
   });
   const recallContext = createAppRecallContext({
+    getLabelsForUser: (userId) => labelsContext.getLabelsForUser(userId),
     keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
     notes: notesContext,
     onStudyActivity: focusContext.captureRecallSessionStudyActivity,

@@ -2013,6 +2013,131 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps deleted persisted labels available for results filtering after refresh", async () => {
+    vi.useFakeTimers();
+
+    const labelsKeyPrefix = `test-labels-recall-persisted-filter-${Math.random().toString(36).slice(2)}`;
+    const notesKeyPrefix = `test-notes-recall-persisted-filter-${Math.random().toString(36).slice(2)}`;
+    const recallKeyPrefix = `test-recall-persisted-filter-${Math.random().toString(36).slice(2)}`;
+    let sessionCounter = 0;
+    const userId = "user-placeholder";
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: labelsKeyPrefix,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (ownerId) =>
+        labelsContext.getLabelsForUser(ownerId).map((label) => label.id),
+      keyPrefix: notesKeyPrefix,
+      storage: window.localStorage,
+    });
+    const recallContext = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `session-persisted-filter-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      getLabelsForUser: (ownerId) => labelsContext.getLabelsForUser(ownerId),
+      keyPrefix: recallKeyPrefix,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+    const science = labelsContext.createLabel({
+      name: "Science",
+      userId,
+    });
+    const history = labelsContext.createLabel({
+      name: "History",
+      userId,
+    });
+    const scienceNote = createRecallNote(notesContext, userId, {
+      body: "Science snapshot",
+      labelIds: [science.id],
+      title: "Science result",
+    });
+    const historyNote = createRecallNote(notesContext, userId, {
+      body: "History snapshot",
+      labelIds: [history.id],
+      title: "History result",
+    });
+
+    for (const [timestamp, noteId] of [
+      ["2026-04-01T09:00:00.000Z", scienceNote.id],
+      ["2026-04-02T09:00:00.000Z", historyNote.id],
+    ] as const) {
+      createCompletedRecallSession(recallContext, {
+        noteId,
+        rating: "partial",
+        timestamp,
+        userId,
+      });
+    }
+
+    labelsContext.deleteLabel({
+      labelId: science.id,
+      userId,
+    });
+    cleanup();
+
+    const reloadedLabelsContext = createAppLabelsContext({
+      keyPrefix: labelsKeyPrefix,
+      storage: window.localStorage,
+    });
+    const reloadedNotesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (ownerId) =>
+        reloadedLabelsContext
+          .getLabelsForUser(ownerId)
+          .map((label) => label.id),
+      keyPrefix: notesKeyPrefix,
+      storage: window.localStorage,
+    });
+    const reloadedRecallContext = createAppRecallContext({
+      getLabelsForUser: (ownerId) =>
+        reloadedLabelsContext.getLabelsForUser(ownerId),
+      keyPrefix: recallKeyPrefix,
+      notes: reloadedNotesContext,
+      storage: window.localStorage,
+    });
+
+    vi.useRealTimers();
+
+    renderRoute("/recall", {
+      labelsContext: reloadedLabelsContext,
+      notesContext: reloadedNotesContext,
+      recallContext: reloadedRecallContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Results" }),
+    ).toBeInTheDocument();
+
+    const labelFilter = screen.getByLabelText("Filter results by label");
+    const resultsList = screen.getByRole("region", {
+      name: "Review list",
+    });
+
+    expect(
+      within(labelFilter).getByRole("option", { name: "Science" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(labelFilter, {
+      target: { value: science.id },
+    });
+
+    expect(
+      within(resultsList).getAllByRole("button", { name: "Open review" }),
+    ).toHaveLength(1);
+    expect(
+      within(
+        within(getSelectedSessionResultRegion()).getByRole("region", {
+          name: "Prompt review",
+        }),
+      ).getByRole("heading", {
+        name: "Science result",
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("shows recall search matches in the header and selects a session from them", async () => {
     vi.useFakeTimers();
 

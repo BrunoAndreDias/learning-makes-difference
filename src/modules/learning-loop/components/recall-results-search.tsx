@@ -13,6 +13,7 @@ import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import type { AppLabel } from "../../labels/domain/labels";
 import { formatSearchMatchLabel } from "../domain/learner-copy";
 import { useNotesWorkspace } from "../domain/notes-workspace";
+import { listRecallResultLabels } from "../domain/recall-result-labels";
 import {
   type RecallSessionSearchResult,
   searchRecallSessionResults,
@@ -56,7 +57,7 @@ export function RecallResultsSearch({
     selectRecallSearchQuery,
     selectRecallSession,
   } = useNotesWorkspace();
-  const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
+  const [currentLabels, setCurrentLabels] = useState<AppLabel[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeSearchResultIndex, setActiveSearchResultIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -71,11 +72,11 @@ export function RecallResultsSearch({
   useEffect(() => {
     function syncAvailableLabels() {
       if (userId === null) {
-        setAvailableLabels([]);
+        setCurrentLabels([]);
         return;
       }
 
-      setAvailableLabels(labelsContext.getLabelsForUser(userId));
+      setCurrentLabels(labelsContext.getLabelsForUser(userId));
     }
 
     syncAvailableLabels();
@@ -85,6 +86,8 @@ export function RecallResultsSearch({
 
   const selectedLabelFilter =
     selectedRecallLabelId.length === 0 ? undefined : selectedRecallLabelId;
+  const allSessionResults =
+    userId === null ? [] : recallContext.listSessionResults({ userId });
   const sessionResults =
     userId === null
       ? []
@@ -92,6 +95,10 @@ export function RecallResultsSearch({
           labelId: selectedLabelFilter,
           userId,
         });
+  const availableLabels = listRecallResultLabels({
+    currentLabels,
+    sessionResults: allSessionResults,
+  });
   const searchResults = searchRecallSessionResults({
     labels: availableLabels,
     query: selectedRecallSearchQuery,

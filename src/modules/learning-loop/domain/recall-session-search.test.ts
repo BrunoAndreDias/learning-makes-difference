@@ -131,6 +131,41 @@ describe("recall session search", () => {
     ]);
   });
 
+  it("matches stored label snapshots when live labels are no longer available", () => {
+    const sessionResults = [
+      createSessionResult({
+        id: "biology-session",
+        notes: [
+          {
+            acronyms: [],
+            body: "Mitochondria generate ATP.",
+            createdAt: "2026-04-30T09:00:00.000Z",
+            id: "cell-note",
+            labelIds: ["biology"],
+            labels: [{ id: "biology", name: "Biology" }],
+            metaphors: [],
+            title: "Cell respiration",
+            updatedAt: "2026-04-30T09:30:00.000Z",
+          },
+        ],
+      }),
+    ];
+
+    expect(
+      searchRecallSessionResults({
+        labels: [],
+        query: "biology",
+        sessionResults,
+      }),
+    ).toMatchObject([
+      {
+        matchChip: "Label",
+        matchedNoteTitle: "Cell respiration",
+        sessionResult: { id: "biology-session" },
+      },
+    ]);
+  });
+
   it("ranks matches by matched field priority and then newest completed session", () => {
     const sessionResults = [
       createSessionResult({

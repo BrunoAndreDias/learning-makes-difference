@@ -1,9 +1,17 @@
+import type { AppLabel } from "../../labels/domain/labels";
 import type { RecallStudyActivitySession } from "./focus";
 import { type AppNote, type AppNotesContext, listNotesForUser } from "./notes";
 
 export type RecallMode = "AiAssisted" | "AiGraded" | "FlashCard";
 
-export type RecallNoteSnapshot = AppNote;
+export type RecallLabelSnapshot = {
+  id: string;
+  name: string;
+};
+
+export type RecallNoteSnapshot = AppNote & {
+  labels?: RecallLabelSnapshot[];
+};
 
 export type RecallSelfRating = "missed" | "partial" | "nailed";
 
@@ -120,6 +128,7 @@ type AnswerQuestionInput = UpdateRecallSessionInput & {
 
 type CreateAppRecallContextOptions = {
   crypto?: RecallCrypto;
+  getLabelsForUser?: (userId: string) => readonly AppLabel[];
   keyPrefix?: string;
   notes: AppNotesContext;
   onStudyActivity?: (input: {
@@ -202,8 +211,19 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+function isRecallLabelSnapshot(label: unknown): label is RecallLabelSnapshot {
+  const candidate = asRecord(label);
+
+  return (
+    candidate !== null &&
+    typeof candidate.id === "string" &&
+    typeof candidate.name === "string"
+  );
+}
+
 function isRecallNoteSnapshot(note: unknown): note is RecallNoteSnapshot {
   const candidate = asRecord(note);
+  const labels = candidate?.labels;
 
   return (
     candidate !== null &&
@@ -214,6 +234,9 @@ function isRecallNoteSnapshot(note: unknown): note is RecallNoteSnapshot {
     candidate.labelIds.every(
       (labelId: unknown) => typeof labelId === "string",
     ) &&
+    (labels === undefined ||
+      (Array.isArray(labels) &&
+        labels.every((label: unknown) => isRecallLabelSnapshot(label)))) &&
     typeof candidate.createdAt === "string" &&
     typeof candidate.updatedAt === "string"
   );
@@ -450,6 +473,9 @@ function cloneRecallNoteSnapshot(note: RecallNoteSnapshot): RecallNoteSnapshot {
     ...note,
     acronyms: note.acronyms.map((acronym) => ({ ...acronym })),
     labelIds: [...note.labelIds],
+    labels: Array.isArray(note.labels)
+      ? note.labels.map((label) => ({ ...label }))
+      : [],
     metaphors: note.metaphors.map((metaphor) => ({ ...metaphor })),
   };
 }
@@ -473,6 +499,40 @@ function cloneSessionResult(result: StoredSessionResult): StoredSessionResult {
     attempts: result.attempts.map((attempt) => ({ ...attempt })),
     notes: cloneRecallNoteSnapshots(result.notes),
     questions: result.questions.map(cloneRecallQuestion),
+  };
+}
+
+function getRecallLabelSnapshots(input: {
+  labelIds: readonly string[];
+  labelsById: ReadonlyMap<string, AppLabel>;
+}): RecallLabelSnapshot[] {
+  return input.labelIds.flatMap((labelId) => {
+    const label = input.labelsById.get(labelId);
+
+    return label === undefined
+      ? []
+      : [
+          {
+            id: label.id,
+            name: label.name,
+          },
+        ];
+  });
+}
+
+function toRecallNoteSnapshot(input: {
+  labelsById: ReadonlyMap<string, AppLabel>;
+  note: AppNote;
+}): RecallNoteSnapshot {
+  return {
+    ...input.note,
+    acronyms: input.note.acronyms.map((acronym) => ({ ...acronym })),
+    labelIds: [...input.note.labelIds],
+    labels: getRecallLabelSnapshots({
+      labelIds: input.note.labelIds,
+      labelsById: input.labelsById,
+    }),
+    metaphors: input.note.metaphors.map((metaphor) => ({ ...metaphor })),
   };
 }
 
@@ -742,7 +802,19 @@ export function createAppRecallContext(
       notes: options.notes,
       userId: input.userId,
     });
-    const shuffledNotes = cloneRecallNoteSnapshots(shuffleNotes(notes));
+    const labelsById = new Map(
+      (options.getLabelsForUser?.(input.userId) ?? []).map((label) => [
+        label.id,
+        label,
+      ]),
+    );
+    const noteSnapshots = notes.map((note) =>
+      toRecallNoteSnapshot({
+        labelsById,
+        note,
+      }),
+    );
+    const shuffledNotes = cloneRecallNoteSnapshots(shuffleNotes(noteSnapshots));
 
     const nextSession: StoredRecallSession = {
       attempts: [],

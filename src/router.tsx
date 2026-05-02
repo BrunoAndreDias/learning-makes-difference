@@ -17,6 +17,7 @@ export function getRouter() {
     getLabelsForUser: (userId) => labels.getLabelsForUser(userId),
   });
   const recall = createAppRecallContext({
+    getLabelsForUser: (userId) => labels.getLabelsForUser(userId),
     notes,
     onStudyActivity: focus.captureRecallSessionStudyActivity,
   });

@@ -25,19 +25,39 @@ function normalizeSearchQuery(query: string): string {
   return query.trim().toLocaleLowerCase();
 }
 
+function getRecallNoteLabels(input: {
+  labelsById: ReadonlyMap<string, AppLabel>;
+  note: FlashCardRecallNote;
+}) {
+  if ((input.note.labels ?? []).length > 0) {
+    return input.note.labels ?? [];
+  }
+
+  return input.note.labelIds.flatMap((labelId) => {
+    const label = input.labelsById.get(labelId);
+
+    return label === undefined
+      ? []
+      : [
+          {
+            id: label.id,
+            name: label.name,
+          },
+        ];
+  });
+}
+
 function getLabelSearchMatch(input: {
   labelsById: ReadonlyMap<string, AppLabel>;
   normalizedQuery: string;
   notes: readonly FlashCardRecallNote[];
 }): RecallSessionSearchResult["matchChip"] | null {
   for (const note of input.notes) {
-    for (const labelId of note.labelIds) {
-      const label = input.labelsById.get(labelId);
-
-      if (
-        label !== undefined &&
-        label.name.toLocaleLowerCase().includes(input.normalizedQuery)
-      ) {
+    for (const label of getRecallNoteLabels({
+      labelsById: input.labelsById,
+      note,
+    })) {
+      if (label.name.toLocaleLowerCase().includes(input.normalizedQuery)) {
         return "Label";
       }
     }
@@ -52,13 +72,11 @@ function getFirstLabelMatchedNoteTitle(input: {
   notes: readonly FlashCardRecallNote[];
 }): string {
   for (const note of input.notes) {
-    for (const labelId of note.labelIds) {
-      const label = input.labelsById.get(labelId);
-
-      if (
-        label !== undefined &&
-        label.name.toLocaleLowerCase().includes(input.normalizedQuery)
-      ) {
+    for (const label of getRecallNoteLabels({
+      labelsById: input.labelsById,
+      note,
+    })) {
+      if (label.name.toLocaleLowerCase().includes(input.normalizedQuery)) {
         return note.title;
       }
     }
