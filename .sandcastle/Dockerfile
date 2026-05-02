@@ -20,8 +20,15 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
 # --user 1000:1000 (Docker) map to the correct home directory owner.
 RUN usermod -d /home/agent -m -l agent node
 
+# The Sandcastle Docker provider runs containers as the host UID/GID while
+# forcing HOME=/home/agent. Make that home writable for the runtime UID so
+# git config --global and agent CLIs can create their state files there.
+RUN chmod -R a+rwX /home/agent
+
 # Install Codex CLI (run as root before USER agent)
-RUN npm install -g @openai/codex
+RUN corepack enable \
+  && corepack prepare pnpm@10.33.0 --activate \
+  && npm install -g @openai/codex
 
 # Add Codex to PATH
 ENV PATH="/home/agent/.local/bin:$PATH"
