@@ -427,6 +427,7 @@ export function NotesWorkspace() {
   const [pendingHookRemoval, setPendingHookRemoval] =
     useState<PendingHookRemoval | null>(null);
   const noteFormRef = useRef<HTMLFormElement>(null);
+  const labelPickerAnchorRef = useRef<HTMLSpanElement | null>(null);
   const labelPickerTriggerRef = useRef<HTMLButtonElement | null>(null);
   const labelPickerSearchInputRef = useRef<HTMLInputElement | null>(null);
   const labelPickerGoToLabelsRef = useRef<HTMLButtonElement | null>(null);
@@ -681,6 +682,34 @@ export function NotesWorkspace() {
 
     labelPickerSearchInputRef.current?.focus();
   }, [availableLabels.length, isLabelPickerOpen]);
+
+  useEffect(() => {
+    if (!isLabelPickerOpen) {
+      return;
+    }
+
+    function handleDocumentPointerDown(event: PointerEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (labelPickerAnchorRef.current?.contains(target)) {
+        return;
+      }
+
+      setIsLabelPickerOpen(false);
+      setLabelPickerDraftIds([]);
+      setLabelPickerSearchQuery("");
+    }
+
+    document.addEventListener("pointerdown", handleDocumentPointerDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handleDocumentPointerDown);
+    };
+  }, [isLabelPickerOpen]);
 
   useEffect(() => {
     if (userId === null || selectedNote === null) {
@@ -1516,25 +1545,29 @@ export function NotesWorkspace() {
                         ))}
                       </section>
                     )}
-                    <button
-                      aria-expanded={isLabelPickerOpen}
-                      aria-controls={labelPickerPanelId}
-                      aria-haspopup="dialog"
-                      aria-label="Manage labels"
-                      className="notes-inline-action"
-                      onClick={() =>
-                        isLabelPickerOpen
-                          ? handleLabelPickerCancel()
-                          : openLabelPicker()
-                      }
-                      ref={labelPickerTriggerRef}
-                      type="button"
+                    <span
+                      className="notes-editor__label-picker-anchor"
+                      ref={labelPickerAnchorRef}
                     >
-                      Manage labels
-                    </button>
+                      <button
+                        aria-expanded={isLabelPickerOpen}
+                        aria-controls={labelPickerPanelId}
+                        aria-haspopup="dialog"
+                        aria-label="Manage labels"
+                        className="notes-inline-action"
+                        onClick={() =>
+                          isLabelPickerOpen
+                            ? handleLabelPickerCancel()
+                            : openLabelPicker()
+                        }
+                        ref={labelPickerTriggerRef}
+                        type="button"
+                      >
+                        Manage labels
+                      </button>
+                      {labelPickerContent}
+                    </span>
                   </div>
-
-                  {labelPickerContent}
                 </section>
               </div>
               {isCreating || (hasUnsavedChanges && !hasUnsavedHookChanges) ? (

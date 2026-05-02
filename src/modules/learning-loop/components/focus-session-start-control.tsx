@@ -73,31 +73,72 @@ export function FocusSessionStartControl({
   if (currentActiveFocusSession !== null) {
     const focusStatus = getFocusStatus(currentActiveFocusSession);
 
+    function startNewFocusSession() {
+      if (userId === null) {
+        return;
+      }
+
+      try {
+        focus.endFocusSession({ userId });
+        focus.startFocusSession({
+          breakIntervalMinutes: Number(DEFAULT_BREAK_MINUTES),
+          focusIntervalMinutes: Number(DEFAULT_FOCUS_MINUTES),
+          plannedFocusIntervalCount: null,
+          userId,
+        });
+        setErrorMessage(null);
+      } catch (error) {
+        if (error instanceof AppFocusError) {
+          setErrorMessage(error.message);
+          return;
+        }
+
+        throw error;
+      }
+    }
+
     return (
       <fieldset className="app-focus-session-status tag-row">
         <legend className="sr-only">Active focus session</legend>
         {userId === null ? null : (
           <>
-            <button
-              className="notes-action notes-action-primary"
-              onClick={() => {
-                focus.endFocusSession({
-                  userId,
-                });
-              }}
-              ref={focusSessionButtonRef}
-              type="button"
-            >
-              End focus
-              {focusStatus.isPersistentState ? null : (
-                <span aria-hidden="true">{focusStatus.label}</span>
-              )}
-            </button>
-            {focusStatus.isPersistentState ? (
+            {currentActiveFocusSession.isStale ? (
+              <button
+                className="notes-action notes-action-primary"
+                onClick={startNewFocusSession}
+                ref={focusSessionButtonRef}
+                type="button"
+              >
+                Start new focus
+              </button>
+            ) : (
+              <button
+                className="notes-action notes-action-primary"
+                onClick={() => {
+                  focus.endFocusSession({
+                    userId,
+                  });
+                }}
+                ref={focusSessionButtonRef}
+                type="button"
+              >
+                End focus
+                {focusStatus.isPersistentState ? null : (
+                  <span aria-hidden="true">{focusStatus.label}</span>
+                )}
+              </button>
+            )}
+            {focusStatus.isPersistentState &&
+            !currentActiveFocusSession.isStale ? (
               <span className="tag" role="status">
                 {focusStatus.label}
               </span>
             ) : null}
+            {errorMessage === null ? null : (
+              <span id={errorId} role="status">
+                {errorMessage}
+              </span>
+            )}
           </>
         )}
       </fieldset>

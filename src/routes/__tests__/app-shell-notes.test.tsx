@@ -1393,6 +1393,19 @@ describe("authenticated app shell", () => {
     expect(
       screen.queryByRole("button", { name: "Save changes" }),
     ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage labels" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Biology" }));
+    fireEvent.pointerDown(document.body);
+
+    expect(screen.queryByLabelText("Search labels")).not.toBeInTheDocument();
+    expect(within(assignedLabels).getByText("Science")).toBeInTheDocument();
+    expect(
+      within(assignedLabels).queryByText("Biology"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Save changes" }),
+    ).not.toBeInTheDocument();
     expect(listNotesForUser(notesContext.getSnapshot(), userId)).toEqual([
       expect.objectContaining({
         labelIds: [science.id],

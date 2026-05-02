@@ -672,7 +672,7 @@ describe("authenticated app shell", () => {
     ]);
   });
 
-  it("shows completed-break waiting state and stale-session prompt without ending the session", async () => {
+  it("replaces a stale completed-break session with a new FocusSession", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
 
     const keyPrefix = `test-focus-stale-${Math.random().toString(36).slice(2)}`;
@@ -741,22 +741,24 @@ describe("authenticated app shell", () => {
       session,
     });
 
-    const endFocusButton = await screen.findByRole("button", {
-      name: "End focus",
+    const startNewFocusButton = await screen.findByRole("button", {
+      name: "Start new focus",
     });
-    expect(endFocusButton).toHaveTextContent("End focus");
-    expect(endFocusButton).not.toHaveTextContent("Focus session stale");
-    expect(screen.getByRole("status")).toHaveTextContent("Focus session stale");
+    expect(
+      screen.queryByRole("button", { name: "End focus" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
 
-    staleFocusContext.startNextFocusInterval({ userId });
+    fireEvent.click(startNewFocusButton);
 
     expect(staleFocusContext.getActiveSession({ userId })).toMatchObject({
-      completedBreakIntervalCount: 1,
-      completedFocusIntervalCount: 1,
+      completedBreakIntervalCount: 0,
+      completedFocusIntervalCount: 0,
       currentInterval: "Focus",
       intervalState: "Focus",
       isStale: false,
     });
+    expect(staleFocusContext.getFocusRecords({ userId })).toHaveLength(1);
   });
 
   it("ends an active FocusSession explicitly and returns to the start control", async () => {
