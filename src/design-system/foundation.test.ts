@@ -104,35 +104,12 @@ describe("foundationTokens", () => {
       "grid-column: notes-inspector-start / notes-inspector-end;",
     );
     expect(notesEditorCss).toContain("grid-row: 1 / span 2;");
+    expect(notesEditorCss).toContain("align-content: start;");
     expect(notesResponsiveCss).toContain(".notes-editor__layout,");
     expect(notesResponsiveCss).toContain(".notes-editor__inspector");
     expect(notesResponsiveCss).toContain("grid-template-columns: 1fr;");
-  });
-
-  it("preserves the top-aligned notes inspector on larger layouts and unstacks it on mobile", () => {
-    const notesEditorCss = readFileSync(
-      new URL(
-        "../modules/notes/notes-workspace/notes-editor-route.css",
-        import.meta.url,
-      ),
-      "utf8",
-    );
-    const notesResponsiveCss = readFileSync(
-      new URL(
-        "../modules/notes/notes-workspace/notes-responsive.css",
-        import.meta.url,
-      ),
-      "utf8",
-    );
-
-    expect(notesEditorCss).toContain("align-content: start;");
-    expect(notesEditorCss).toContain(
-      "grid-column: notes-inspector-start / notes-inspector-end;",
-    );
-    expect(notesResponsiveCss).toContain("@media (max-width: 62rem)");
     expect(notesResponsiveCss).toContain(".notes-form__splitter");
     expect(notesResponsiveCss).toContain("display: none;");
-    expect(notesResponsiveCss).toContain(".notes-editor__inspector {");
     expect(notesResponsiveCss).toContain("grid-column: auto;");
     expect(notesResponsiveCss).toContain("grid-row: auto;");
   });

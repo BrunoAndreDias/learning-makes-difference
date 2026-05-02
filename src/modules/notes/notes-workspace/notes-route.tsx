@@ -200,6 +200,17 @@ function getMemoryHookSearchTab(
   }
 }
 
+function getRelativeMemoryHookTab(
+  currentTab: MemoryHookTab,
+  offset: -1 | 1,
+): MemoryHookTab {
+  const currentIndex = memoryHookTabs.indexOf(currentTab);
+  const relativeIndex =
+    (currentIndex + offset + memoryHookTabs.length) % memoryHookTabs.length;
+
+  return memoryHookTabs[relativeIndex];
+}
+
 type MemoryHookTabsProps = {
   activeTab: MemoryHookTab;
   onSelect: (tab: MemoryHookTab) => void;
@@ -224,18 +235,13 @@ function MemoryHookTabs({ activeTab, onSelect }: MemoryHookTabsProps) {
       case "ArrowLeft":
       case "ArrowUp": {
         event.preventDefault();
-        const currentIndex = memoryHookTabs.indexOf(tab);
-        const previousIndex =
-          (currentIndex - 1 + memoryHookTabs.length) % memoryHookTabs.length;
-        focusAndSelectTab(memoryHookTabs[previousIndex]);
+        focusAndSelectTab(getRelativeMemoryHookTab(tab, -1));
         return;
       }
       case "ArrowRight":
       case "ArrowDown": {
         event.preventDefault();
-        const currentIndex = memoryHookTabs.indexOf(tab);
-        const nextIndex = (currentIndex + 1) % memoryHookTabs.length;
-        focusAndSelectTab(memoryHookTabs[nextIndex]);
+        focusAndSelectTab(getRelativeMemoryHookTab(tab, 1));
         return;
       }
       case "Home":

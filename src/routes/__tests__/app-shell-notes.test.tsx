@@ -2071,22 +2071,21 @@ describe("authenticated app shell", () => {
     expect(
       screen.queryByRole("button", { name: "Discard changes" }),
     ).not.toBeInTheDocument();
-    expect(
-      notesContext
-        .getSnapshot()
-        .find((note) => note.title === "Hook edits note"),
-    ).toMatchObject({
-      acronyms: [
-        {
-          description: "MAP means Memory Anchor Phrase.",
-        },
-      ],
-      metaphors: [
-        {
-          description: "Updated bridge metaphor.",
-        },
-      ],
-    });
+    expect(listNotesForUser(notesContext.getSnapshot(), userId)).toEqual([
+      expect.objectContaining({
+        acronyms: [
+          {
+            description: "MAP means Memory Anchor Phrase.",
+          },
+        ],
+        metaphors: [
+          {
+            description: "Updated bridge metaphor.",
+          },
+        ],
+        title: "Hook edits note",
+      }),
+    ]);
   });
 
   it("starts focus from the selected note without interrupting note editing", async () => {
