@@ -31,6 +31,7 @@ import {
 } from "../../focus";
 import type { AppLabel } from "../../labels/label-management/labels";
 import { AppRecallError } from "../../recall";
+import type { AppPersistentNotesContext } from "..";
 import {
   deriveLearningStates,
   formatLearningStateRatingLabel,
@@ -53,6 +54,7 @@ import {
   type AppAcronym,
   type AppMetaphor,
   type AppNote,
+  type AppNotesContext,
   AppNotesError,
   type AppStoredNote,
   listNotesForUser,
@@ -615,6 +617,10 @@ function NotesWorkspace() {
     from: "/_protected/notes",
     select: (context) => context.notes,
   });
+  const persistentNotesContext = useRouteContext({
+    from: "/_protected/notes",
+    select: (context) => context.persistentNotes,
+  });
   const sessionContext = useRouteContext({
     from: "/_protected/notes",
     select: (context) => context.session,
@@ -624,10 +630,14 @@ function NotesWorkspace() {
     select: (context) => context.labels,
   });
   const navigate = useNavigate();
+  const notesStore:
+    | Pick<AppNotesContext, "getSnapshot" | "subscribe">
+    | Pick<AppPersistentNotesContext, "getSnapshot" | "subscribe"> =
+    persistentNotesContext ?? notesContext;
   const notesSnapshot = useSyncExternalStore<readonly AppStoredNote[]>(
-    notesContext.subscribe,
-    notesContext.getSnapshot,
-    notesContext.getSnapshot,
+    notesStore.subscribe,
+    notesStore.getSnapshot,
+    notesStore.getSnapshot,
   );
   const recallResultsSnapshot = useSyncExternalStore(
     recallContext.subscribe,
@@ -759,6 +769,21 @@ function NotesWorkspace() {
     },
     [labelsContext, userId],
   );
+
+  useEffect(() => {
+    if (persistentNotesContext === undefined) {
+      return;
+    }
+
+    void persistentNotesContext.refresh(userId).catch((error: unknown) => {
+      if (error instanceof AppNotesError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    });
+  }, [persistentNotesContext, userId]);
 
   const captureNoteStudyActivity = useCallback(
     (note: AppNote) => {
@@ -1637,7 +1662,7 @@ function NotesWorkspace() {
     window.addEventListener("pointercancel", handlePointerUp);
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage(null);
 
@@ -1649,13 +1674,24 @@ function NotesWorkspace() {
       }
 
       const savedNote =
-        saveInstruction.type === "createNote"
-          ? notesContext.createNote(userId, saveInstruction.input)
-          : notesContext.updateNote(
-              userId,
-              saveInstruction.noteId,
-              saveInstruction.input,
-            );
+        persistentNotesContext !== undefined
+          ? saveInstruction.type === "createNote"
+            ? await persistentNotesContext.createNote(
+                userId,
+                saveInstruction.input,
+              )
+            : await persistentNotesContext.updateNote(
+                userId,
+                saveInstruction.noteId,
+                saveInstruction.input,
+              )
+          : saveInstruction.type === "createNote"
+            ? notesContext.createNote(userId, saveInstruction.input)
+            : notesContext.updateNote(
+                userId,
+                saveInstruction.noteId,
+                saveInstruction.input,
+              );
       const saveResult = markEditorSaved(savedNote);
 
       for (const instruction of saveResult.instructions) {

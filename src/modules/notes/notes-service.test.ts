@@ -1,0 +1,253 @@
+import { PGlite } from "@electric-sql/pglite";
+import { drizzle } from "drizzle-orm/pglite";
+import { afterEach, describe, expect, it } from "vitest";
+
+import { migrateDatabase } from "../../lib/db/migrate";
+import { authSchema, usersTable } from "../access/session/auth-schema";
+import {
+  noteAcronymsTable,
+  noteMetaphorsTable,
+  notesSchema,
+} from "./notes-schema";
+import { createNotesService } from "./notes-service";
+
+describe("createNotesService", () => {
+  const databases = new Set<PGlite>();
+
+  afterEach(async () => {
+    await Promise.all(Array.from(databases, (database) => database.close()));
+    databases.clear();
+  });
+
+  it("persists notes with metaphor and acronym child records in PostgreSQL", async () => {
+    const client = new PGlite();
+    databases.add(client);
+    const db = drizzle(client, {
+      schema: {
+        ...authSchema,
+        ...notesSchema,
+      },
+    });
+    await migrateDatabase(db, client);
+    await db.insert(usersTable).values({
+      id: "user-casey",
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      passwordHash: "hash",
+      interfaceLanguage: "en",
+      studyLanguage: "en",
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+
+    const notes = createNotesService({
+      db,
+      now: () => new Date("2026-05-02T12:00:00.000Z"),
+    });
+
+    const createdNote = await notes.createNote({
+      input: {
+        acronyms: [
+          {
+            description: "LTP stands for Long-Term Potentiation.",
+          },
+        ],
+        body: "Repeated activation strengthens the same path.",
+        labelIds: ["label-neuroscience"],
+        metaphors: [
+          {
+            description: "Forest trail: repeated walks carve a clearer path.",
+          },
+        ],
+        title: "Synaptic plasticity",
+      },
+      userId: "user-casey",
+    });
+
+    await expect(
+      notes.listNotes({
+        userId: "user-casey",
+      }),
+    ).resolves.toEqual([createdNote]);
+  });
+
+  it("keeps note updates scoped to the owning account", async () => {
+    const client = new PGlite();
+    databases.add(client);
+    const db = drizzle(client, {
+      schema: {
+        ...authSchema,
+        ...notesSchema,
+      },
+    });
+    await migrateDatabase(db, client);
+    await db.insert(usersTable).values([
+      {
+        id: "user-casey",
+        displayName: "Casey Learner",
+        email: "casey@example.com",
+        passwordHash: "hash",
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+        createdAt: new Date("2026-05-02T12:00:00.000Z"),
+        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+      },
+      {
+        id: "user-jordan",
+        displayName: "Jordan Learner",
+        email: "jordan@example.com",
+        passwordHash: "hash",
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+        createdAt: new Date("2026-05-02T12:00:00.000Z"),
+        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+      },
+    ]);
+
+    const notes = createNotesService({
+      db,
+      now: () => new Date("2026-05-02T12:00:00.000Z"),
+    });
+    const createdNote = await notes.createNote({
+      input: {
+        acronyms: [],
+        body: "Repeated activation strengthens the same path.",
+        labelIds: [],
+        metaphors: [],
+        title: "Synaptic plasticity",
+      },
+      userId: "user-casey",
+    });
+
+    await expect(
+      notes.updateNote({
+        input: {
+          acronyms: [
+            {
+              description: "LTP stands for Long-Term Potentiation.",
+            },
+          ],
+          body: "Repeated activation strengthens a reused path.",
+          labelIds: ["label-neuroscience"],
+          metaphors: [
+            {
+              description: "Forest trail: repeated walks carve a clearer path.",
+            },
+          ],
+          noteId: createdNote.id,
+          title: "Updated synaptic plasticity",
+        },
+        userId: "user-casey",
+      }),
+    ).resolves.toMatchObject({
+      acronyms: [
+        {
+          description: "LTP stands for Long-Term Potentiation.",
+        },
+      ],
+      body: "Repeated activation strengthens a reused path.",
+      id: createdNote.id,
+      labelIds: ["label-neuroscience"],
+      metaphors: [
+        {
+          description: "Forest trail: repeated walks carve a clearer path.",
+        },
+      ],
+      title: "Updated synaptic plasticity",
+    });
+
+    await expect(
+      notes.updateNote({
+        input: {
+          acronyms: [],
+          body: "Cross-account edits must fail.",
+          labelIds: [],
+          metaphors: [],
+          noteId: createdNote.id,
+          title: "Forbidden edit",
+        },
+        userId: "user-jordan",
+      }),
+    ).rejects.toMatchObject({
+      code: "not_found",
+    });
+  });
+
+  it("hard-deletes notes and removes their metaphor and acronym child records", async () => {
+    const client = new PGlite();
+    databases.add(client);
+    const db = drizzle(client, {
+      schema: {
+        ...authSchema,
+        ...notesSchema,
+      },
+    });
+    await migrateDatabase(db, client);
+    await db.insert(usersTable).values({
+      id: "user-casey",
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      passwordHash: "hash",
+      interfaceLanguage: "en",
+      studyLanguage: "en",
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+
+    const notes = createNotesService({
+      db,
+      now: () => new Date("2026-05-02T12:00:00.000Z"),
+    });
+    const createdNote = await notes.createNote({
+      input: {
+        acronyms: [
+          {
+            description: "LTP stands for Long-Term Potentiation.",
+          },
+        ],
+        body: "Repeated activation strengthens the same path.",
+        labelIds: [],
+        metaphors: [
+          {
+            description: "Forest trail: repeated walks carve a clearer path.",
+          },
+        ],
+        title: "Synaptic plasticity",
+      },
+      userId: "user-casey",
+    });
+
+    await expect(
+      Promise.all([
+        db.select().from(noteMetaphorsTable),
+        db.select().from(noteAcronymsTable),
+      ]),
+    ).resolves.toEqual([
+      [
+        {
+          noteId: createdNote.id,
+          description: "Forest trail: repeated walks carve a clearer path.",
+        },
+      ],
+      [
+        {
+          noteId: createdNote.id,
+          description: "LTP stands for Long-Term Potentiation.",
+        },
+      ],
+    ]);
+
+    await notes.deleteNote({
+      noteId: createdNote.id,
+      userId: "user-casey",
+    });
+
+    await expect(
+      Promise.all([
+        notes.listNotes({ userId: "user-casey" }),
+        db.select().from(noteMetaphorsTable),
+        db.select().from(noteAcronymsTable),
+      ]),
+    ).resolves.toEqual([[], [], []]);
+  });
+});

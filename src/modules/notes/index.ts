@@ -35,3 +35,11 @@ export {
   useNotesWorkspace,
 } from "./notes-workspace/notes-workspace";
 export { NotesWorkspaceSidebar } from "./notes-workspace/notes-workspace-sidebar";
+export type {
+  AppPersistentNotesContext,
+  AppPersistentNotesService,
+} from "./persistent-notes";
+export {
+  createPersistentNotesContext,
+  createReadonlyNotesContext,
+} from "./persistent-notes";

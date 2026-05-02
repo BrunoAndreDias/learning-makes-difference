@@ -34,6 +34,7 @@ import {
 } from "../../modules/labels/label-management/labels";
 import {
   type AppNotesContext,
+  type AppPersistentNotesContext,
   createAppNotesContext,
   listNotesForUser,
 } from "../../modules/notes";
@@ -52,6 +53,7 @@ export function renderRoute(
     focusContext?: AppFocusContext;
     labelsContext?: AppLabelsContext;
     notesContext?: AppNotesContext;
+    persistentNotesContext?: AppPersistentNotesContext;
     recallContext?: AppRecallContext;
     session?: AppSessionSnapshot;
     sessionContext?: AppSessionContext;
@@ -119,6 +121,7 @@ export function renderRoute(
       focus: focusContext,
       labels: labelsContext,
       notes: notesContext,
+      persistentNotes: options.persistentNotesContext,
       recall: recallContext,
       session: sessionContext,
     },

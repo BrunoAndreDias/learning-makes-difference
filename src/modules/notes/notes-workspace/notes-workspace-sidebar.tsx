@@ -1,12 +1,13 @@
 import { useRouteContext } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import type { AppSessionSnapshot } from "../../access/session/session";
+import type { AppNotesContext, AppPersistentNotesContext } from "..";
 import {
   deriveLearningStates,
   formatLearningStateStatusLabel,
   toNoteRecallHistories,
 } from "../learning-state";
-import { listNotesForUser } from "./notes";
+import { type AppStoredNote, listNotesForUser } from "./notes";
 import { useNotesWorkspace } from "./notes-workspace";
 
 function formatSidebarNoteDate(value: string): string {
@@ -28,6 +29,10 @@ export function NotesWorkspaceSidebar({
   const notesContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.notes,
+  });
+  const persistentNotesContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.persistentNotes,
   });
   const session = useRouteContext({
     from: "/_protected",
@@ -51,10 +56,14 @@ export function NotesWorkspaceSidebar({
     from: "/_protected",
     select: (context) => context.recall,
   });
-  const notesSnapshot = useSyncExternalStore(
-    notesContext.subscribe,
-    notesContext.getSnapshot,
-    notesContext.getSnapshot,
+  const notesStore:
+    | Pick<AppNotesContext, "getSnapshot" | "subscribe">
+    | Pick<AppPersistentNotesContext, "getSnapshot" | "subscribe"> =
+    persistentNotesContext ?? notesContext;
+  const notesSnapshot = useSyncExternalStore<readonly AppStoredNote[]>(
+    notesStore.subscribe,
+    notesStore.getSnapshot,
+    notesStore.getSnapshot,
   );
   const recallResultsSnapshot = useSyncExternalStore(
     recallContext.subscribe,
@@ -102,8 +111,13 @@ export function NotesWorkspaceSidebar({
     closeMobileSidebar();
   }
 
-  function handleDeleteNote(noteId: string) {
+  async function handleDeleteNote(noteId: string) {
     if (userId === null) {
+      return;
+    }
+
+    if (persistentNotesContext !== undefined) {
+      await persistentNotesContext.deleteNote(userId, noteId);
       return;
     }
 
