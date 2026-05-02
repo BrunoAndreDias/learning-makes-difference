@@ -2,14 +2,9 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
 import { loadAppEnv } from "../../../lib/env";
-import { authSessionsTable, usersTable } from "./auth-schema";
+import { authSchema } from "./auth-schema";
 
 type AuthDatabase = ReturnType<typeof drizzle<typeof authSchema>>;
-
-const authSchema = {
-  authSessionsTable,
-  usersTable,
-};
 
 let cachedDatabase: AuthDatabase | null = null;
 let cachedDatabaseUrl: string | null = null;

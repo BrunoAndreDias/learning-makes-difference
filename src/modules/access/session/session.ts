@@ -2,7 +2,6 @@ import {
   AppAuthError,
   type AppLanguagePreference,
   type AppSessionSnapshot,
-  appLanguagePreferences,
   buildAnonymousSnapshot,
   isLanguagePreference,
   type LoginInput,

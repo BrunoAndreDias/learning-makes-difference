@@ -29,15 +29,6 @@ function isPGliteClient(client: unknown): client is PGliteLike {
   );
 }
 
-function isPostgresJsClient(client: unknown): client is PostgresJsLike {
-  return (
-    typeof client === "object" &&
-    client !== null &&
-    "unsafe" in client &&
-    typeof client.unsafe === "function"
-  );
-}
-
 async function executeStatement(
   client: PGliteLike | PostgresJsLike,
   sql: string,

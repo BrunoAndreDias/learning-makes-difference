@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { migrateDatabase } from "../../../lib/db/migrate";
-import { authSessionsTable, usersTable } from "./auth-schema";
+import { authSchema, authSessionsTable, usersTable } from "./auth-schema";
 import { createAuthService } from "./auth-service";
 
 function createCookieJar() {
@@ -40,7 +40,7 @@ describe("createAuthService", () => {
   it("registers a pilot user in PostgreSQL, hashes the password, and restores the session from the cookie token", async () => {
     const client = new PGlite();
     databases.add(client);
-    const db = drizzle(client);
+    const db = drizzle(client, { schema: authSchema });
     await migrateDatabase(db, client);
 
     const cookieJar = createCookieJar();
@@ -110,7 +110,7 @@ describe("createAuthService", () => {
   it("rejects missing or invalid pilot registration codes without creating a user", async () => {
     const client = new PGlite();
     databases.add(client);
-    const db = drizzle(client);
+    const db = drizzle(client, { schema: authSchema });
     await migrateDatabase(db, client);
 
     const cookieJar = createCookieJar();
@@ -146,7 +146,7 @@ describe("createAuthService", () => {
   it("invalidates sessions on logout, then restores the same account and preferences on login", async () => {
     const client = new PGlite();
     databases.add(client);
-    const db = drizzle(client);
+    const db = drizzle(client, { schema: authSchema });
     await migrateDatabase(db, client);
 
     const cookieJar = createCookieJar();

@@ -2,8 +2,10 @@ import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
 import argon2 from "argon2";
 import { and, eq, gt } from "drizzle-orm";
+import type { PgDatabase } from "drizzle-orm/pg-core/db";
+import type { PgQueryResultHKT } from "drizzle-orm/pg-core/session";
 
-import { authSessionsTable, usersTable } from "./auth-schema";
+import { type authSchema, authSessionsTable, usersTable } from "./auth-schema";
 import {
   AppAuthError,
   type AppLanguagePreference,
@@ -16,7 +18,7 @@ import {
   type UpdatePreferencesInput,
 } from "./session-contract";
 
-type AuthDatabase = any;
+type AuthDatabase = PgDatabase<PgQueryResultHKT, typeof authSchema>;
 
 type AuthCookieOptions = {
   httpOnly: boolean;
@@ -46,6 +48,7 @@ type StoredUser = typeof usersTable.$inferSelect;
 
 const DEFAULT_SESSION_LIFETIME_MS = 1000 * 60 * 60 * 24 * 30;
 const SESSION_COOKIE_MAX_AGE_SECONDS = DEFAULT_SESSION_LIFETIME_MS / 1000;
+const INVALID_CREDENTIALS_MESSAGE = "Email or password is incorrect.";
 const NOT_AUTHENTICATED_MESSAGE = "Sign in to update account preferences.";
 
 function createNotAuthenticatedError(): AppAuthError {
@@ -56,20 +59,20 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-function buildSnapshot(user: StoredUser | null): AppSessionSnapshot {
-  if (user === null) {
-    return buildAnonymousSnapshot();
-  }
-
+function buildSessionUser(user: StoredUser): AppSessionUser {
   return {
-    user: {
-      id: user.id,
-      displayName: user.displayName,
-      email: user.email,
-      interfaceLanguage: user.interfaceLanguage as AppLanguagePreference,
-      studyLanguage: user.studyLanguage as AppLanguagePreference,
-    },
+    id: user.id,
+    displayName: user.displayName,
+    email: user.email,
+    interfaceLanguage: user.interfaceLanguage,
+    studyLanguage: user.studyLanguage,
   };
+}
+
+function buildSnapshot(user: StoredUser | null): AppSessionSnapshot {
+  return user === null
+    ? buildAnonymousSnapshot()
+    : { user: buildSessionUser(user) };
 }
 
 function validateDisplayName(displayName: string): string {
@@ -334,7 +337,7 @@ export function createAuthService({
       if (user === null) {
         throw new AppAuthError(
           "invalid_credentials",
-          "Email or password is incorrect.",
+          INVALID_CREDENTIALS_MESSAGE,
         );
       }
 
@@ -346,18 +349,11 @@ export function createAuthService({
       if (!isValidPassword) {
         throw new AppAuthError(
           "invalid_credentials",
-          "Email or password is incorrect.",
+          INVALID_CREDENTIALS_MESSAGE,
         );
       }
 
-      const sessionUser = buildSnapshot(user).user;
-
-      if (sessionUser === null) {
-        throw new AppAuthError(
-          "invalid_credentials",
-          "Email or password is incorrect.",
-        );
-      }
+      const sessionUser = buildSessionUser(user);
 
       await issueSessionForUser({
         cookie,
