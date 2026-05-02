@@ -15,6 +15,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -150,6 +151,30 @@ type PendingHookRemoval =
       label: string;
       title: string;
     };
+
+type MemoryHookTab = "acronyms" | "metaphors";
+
+type MemoryHookEditorVisibility = Record<MemoryHookTab, boolean>;
+
+function createMemoryHookEditorVisibility(): MemoryHookEditorVisibility {
+  return {
+    acronyms: false,
+    metaphors: false,
+  };
+}
+
+function getMemoryHookSearchTab(
+  field: AppNoteSearchResult["target"]["field"],
+): MemoryHookTab | null {
+  switch (field) {
+    case "metaphorDescription":
+      return "metaphors";
+    case "acronymDescription":
+      return "acronyms";
+    default:
+      return null;
+  }
+}
 
 type LabelPickerPanelProps = {
   availableLabels: readonly AppLabel[];
@@ -435,6 +460,13 @@ function NotesWorkspace() {
   const [isBodyResizing, setIsBodyResizing] = useState(false);
   const [pendingHookRemoval, setPendingHookRemoval] =
     useState<PendingHookRemoval | null>(null);
+  const [activeMemoryHookTab, setActiveMemoryHookTab] =
+    useState<MemoryHookTab>("metaphors");
+  const [memoryHookEditorVisibility, setMemoryHookEditorVisibility] = useState(
+    createMemoryHookEditorVisibility,
+  );
+  const [pendingHookEditorFocus, setPendingHookEditorFocus] =
+    useState<MemoryHookTab | null>(null);
   const noteFormRef = useRef<HTMLFormElement>(null);
   const labelPickerAnchorRef = useRef<HTMLSpanElement | null>(null);
   const labelPickerTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -462,9 +494,17 @@ function NotesWorkspace() {
     selectedNote === null
       ? null
       : (noteLearningStatesById.get(selectedNote.id) ?? null);
+  const metaphorTabId = "notes-memory-hooks-tab-metaphors";
+  const acronymTabId = "notes-memory-hooks-tab-acronyms";
+  const metaphorPanelId = "notes-memory-hooks-panel-metaphors";
+  const acronymPanelId = "notes-memory-hooks-panel-acronyms";
   const editorIdentity =
     noteEditor.mode === "draft" ? "draft" : noteEditor.selectedNoteId;
   const previousEditorIdentityRef = useRef(editorIdentity);
+  const isMetaphorEditorVisible =
+    editorState.metaphors.length > 0 || memoryHookEditorVisibility.metaphors;
+  const isAcronymEditorVisible =
+    editorState.acronyms.length > 0 || memoryHookEditorVisibility.acronyms;
 
   const getAttachedLabels = useCallback(
     (noteLabelIds: readonly string[]) => {
@@ -582,7 +622,7 @@ function NotesWorkspace() {
     syncEditorWithNotes(notes);
   }, [notes, syncEditorWithNotes]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (previousEditorIdentityRef.current === editorIdentity) {
       return;
     }
@@ -592,6 +632,9 @@ function NotesWorkspace() {
     setIsLabelPickerOpen(false);
     setLabelPickerDraftIds([]);
     setLabelPickerSearchQuery("");
+    setActiveMemoryHookTab("metaphors");
+    setMemoryHookEditorVisibility(createMemoryHookEditorVisibility());
+    setPendingHookEditorFocus(null);
   }, [editorIdentity]);
 
   useEffect(() => {
@@ -624,6 +667,15 @@ function NotesWorkspace() {
       selectedNote.id !== pendingSearchJump.note.id ||
       hasUnsavedNoteChanges
     ) {
+      return;
+    }
+
+    const hookSearchTab = getMemoryHookSearchTab(
+      pendingSearchJump.target.field,
+    );
+
+    if (hookSearchTab !== null && activeMemoryHookTab !== hookSearchTab) {
+      setActiveMemoryHookTab(hookSearchTab);
       return;
     }
 
@@ -663,11 +715,33 @@ function NotesWorkspace() {
     }, 3000);
     clearPendingSearchJump();
   }, [
+    activeMemoryHookTab,
     clearPendingSearchJump,
     hasUnsavedNoteChanges,
     pendingSearchJump,
     selectedNote,
   ]);
+
+  useEffect(() => {
+    if (pendingHookEditorFocus === null) {
+      return;
+    }
+
+    const targetElement =
+      pendingHookEditorFocus === "metaphors"
+        ? (metaphorDescriptionRefs.current[0] ?? null)
+        : (acronymDescriptionRefs.current[0] ?? null);
+
+    if (targetElement === null) {
+      return;
+    }
+
+    const selectionEnd = targetElement.value.length;
+
+    targetElement.focus();
+    targetElement.setSelectionRange(selectionEnd, selectionEnd);
+    setPendingHookEditorFocus(null);
+  }, [pendingHookEditorFocus]);
 
   useEffect(() => {
     if (editorFocusRequestNonce === 0 || hasPendingGuardedWorkspaceTransition) {
@@ -918,12 +992,29 @@ function NotesWorkspace() {
     void navigate({ to: "/labels" });
   }
 
-  function handleAddMetaphor() {
-    addEditorMetaphor();
+  function revealMemoryHookEditor(tab: MemoryHookTab) {
+    setActiveMemoryHookTab(tab);
+    setMemoryHookEditorVisibility((currentVisibility) => ({
+      ...currentVisibility,
+      [tab]: true,
+    }));
+    setPendingHookEditorFocus(tab);
   }
 
-  function handleAddAcronym() {
-    addEditorAcronym();
+  function handleCreateMetaphor() {
+    if (editorState.metaphors.length === 0) {
+      addEditorMetaphor();
+    }
+
+    revealMemoryHookEditor("metaphors");
+  }
+
+  function handleCreateAcronym() {
+    if (editorState.acronyms.length === 0) {
+      addEditorAcronym();
+    }
+
+    revealMemoryHookEditor("acronyms");
   }
 
   function handleMetaphorChange<K extends keyof AppMetaphor>(
@@ -971,8 +1062,16 @@ function NotesWorkspace() {
 
     if (pendingHookRemoval.kind === "metaphor") {
       removeEditorMetaphor(pendingHookRemoval.index);
+      setMemoryHookEditorVisibility((currentVisibility) => ({
+        ...currentVisibility,
+        metaphors: false,
+      }));
     } else {
       removeEditorAcronym(pendingHookRemoval.index);
+      setMemoryHookEditorVisibility((currentVisibility) => ({
+        ...currentVisibility,
+        acronyms: false,
+      }));
     }
 
     setPendingHookRemoval(null);
@@ -1643,173 +1742,199 @@ function NotesWorkspace() {
                 >
                   <div className="notes-inspector-card__header">
                     <h4>Memory hooks</h4>
-                    {editorState.metaphors.length === 0 &&
-                    editorState.acronyms.length === 0 ? null : (
-                      <div className="notes-inspector-card__actions">
-                        <button
-                          aria-label="Add metaphor"
-                          className="notes-inline-action"
-                          onClick={handleAddMetaphor}
-                          type="button"
-                        >
-                          + Add metaphor
-                        </button>
-                        <button
-                          aria-label="Add acronym"
-                          className="notes-inline-action"
-                          onClick={handleAddAcronym}
-                          type="button"
-                        >
-                          + Add acronym
-                        </button>
-                      </div>
-                    )}
+                  </div>
+                  <div
+                    aria-label="Memory hook types"
+                    className="notes-memory-hooks__tabs"
+                    role="tablist"
+                  >
+                    <button
+                      aria-controls={metaphorPanelId}
+                      aria-selected={activeMemoryHookTab === "metaphors"}
+                      className="notes-memory-hooks__tab"
+                      id={metaphorTabId}
+                      onClick={() => setActiveMemoryHookTab("metaphors")}
+                      role="tab"
+                      tabIndex={activeMemoryHookTab === "metaphors" ? 0 : -1}
+                      type="button"
+                    >
+                      Metaphors
+                    </button>
+                    <button
+                      aria-controls={acronymPanelId}
+                      aria-selected={activeMemoryHookTab === "acronyms"}
+                      className="notes-memory-hooks__tab"
+                      id={acronymTabId}
+                      onClick={() => setActiveMemoryHookTab("acronyms")}
+                      role="tab"
+                      tabIndex={activeMemoryHookTab === "acronyms" ? 0 : -1}
+                      type="button"
+                    >
+                      Acronyms
+                    </button>
                   </div>
 
-                  {editorState.metaphors.length === 0 &&
-                  editorState.acronyms.length === 0 ? (
-                    <div className="notes-hook-empty-state">
-                      <p className="muted">
-                        Memory hooks turn a note into something easier to
-                        remember during recall.
-                      </p>
-                      <div className="notes-inspector-card__actions">
-                        <button
-                          className="notes-action notes-action-primary"
-                          onClick={handleAddMetaphor}
-                          type="button"
-                        >
-                          Create a hook
-                        </button>
-                        <button
-                          className="notes-action"
-                          onClick={handleAddMetaphor}
-                          type="button"
-                        >
-                          Add metaphor
-                        </button>
-                        <button
-                          className="notes-action"
-                          onClick={handleAddAcronym}
-                          type="button"
-                        >
-                          Add acronym
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
+                  {activeMemoryHookTab === "metaphors" ? (
+                    <div
+                      aria-labelledby={metaphorTabId}
+                      className="notes-memory-hooks__panel"
+                      id={metaphorPanelId}
+                      role="tabpanel"
+                    >
+                      {isMetaphorEditorVisible ? (
+                        <div className="notes-metaphors__list">
+                          {editorState.metaphors.map((metaphor, index) => (
+                            <fieldset
+                              aria-label="Metaphor editor"
+                              className="notes-metaphor"
+                              key={metaphor.key}
+                            >
+                              <legend>{`Metaphor ${index + 1}`}</legend>
+                              <label className="notes-form__field">
+                                <span>Metaphor description</span>
+                                <textarea
+                                  aria-label="Metaphor description"
+                                  ref={(element) => {
+                                    metaphorDescriptionRefs.current[index] =
+                                      element;
+                                  }}
+                                  onChange={(event) =>
+                                    handleMetaphorChange(
+                                      index,
+                                      "description",
+                                      event.target.value,
+                                    )
+                                  }
+                                  placeholder="Describe the vivid comparison or image that helps you remember this note."
+                                  rows={4}
+                                  value={metaphor.description}
+                                />
+                              </label>
+                              <p className="muted notes-memory-hooks__helper">
+                                Capture one strong image or comparison that
+                                makes recall feel obvious.
+                              </p>
 
-                  {editorState.metaphors.length === 0 ? null : (
-                    <div className="notes-hook-group">
-                      <h5>Metaphors</h5>
-                      <div className="notes-metaphors__list">
-                        {editorState.metaphors.map((metaphor, index) => (
-                          <fieldset
-                            aria-label="Metaphor editor"
-                            className="notes-metaphor"
-                            key={metaphor.key}
-                          >
-                            <legend>{`Metaphor ${index + 1}`}</legend>
-                            <label className="notes-form__field">
-                              <span>Metaphor description</span>
-                              <textarea
-                                aria-label="Metaphor description"
-                                ref={(element) => {
-                                  metaphorDescriptionRefs.current[index] =
-                                    element;
-                                }}
-                                onChange={(event) =>
-                                  handleMetaphorChange(
-                                    index,
-                                    "description",
-                                    event.target.value,
-                                  )
-                                }
-                                placeholder="Describe the metaphor that helps you remember this note"
-                                rows={4}
-                                value={metaphor.description}
-                              />
-                            </label>
-
-                            <div className="notes-metaphor__actions">
-                              <button
-                                aria-label={`Remove metaphor ${index + 1}`}
-                                className="notes-action"
-                                onClick={() => handleRemoveMetaphor(index)}
-                                type="button"
-                              >
-                                Remove
-                              </button>
-                              {isMetaphorDraftChanged(noteEditor, index) ? (
+                              <div className="notes-metaphor__actions">
                                 <button
-                                  className="notes-action notes-action-primary"
-                                  form={noteEditorFormId}
-                                  type="submit"
+                                  aria-label={`Remove metaphor ${index + 1}`}
+                                  className="notes-action"
+                                  onClick={() => handleRemoveMetaphor(index)}
+                                  type="button"
                                 >
-                                  Save changes
+                                  Remove
                                 </button>
-                              ) : null}
-                            </div>
-                          </fieldset>
-                        ))}
-                      </div>
+                                {isMetaphorDraftChanged(noteEditor, index) ? (
+                                  <button
+                                    className="notes-action notes-action-primary"
+                                    form={noteEditorFormId}
+                                    type="submit"
+                                  >
+                                    Save changes
+                                  </button>
+                                ) : null}
+                              </div>
+                            </fieldset>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="notes-hook-empty-state">
+                          <p className="muted">
+                            Turn this note into a vivid comparison or image you
+                            can recall later.
+                          </p>
+                          <div className="notes-inspector-card__actions">
+                            <button
+                              className="notes-action notes-action-primary"
+                              onClick={handleCreateMetaphor}
+                              type="button"
+                            >
+                              Create metaphor
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  ) : (
+                    <div
+                      aria-labelledby={acronymTabId}
+                      className="notes-memory-hooks__panel"
+                      id={acronymPanelId}
+                      role="tabpanel"
+                    >
+                      {isAcronymEditorVisible ? (
+                        <div className="notes-acronyms__list">
+                          {editorState.acronyms.map((acronym, index) => (
+                            <fieldset
+                              aria-label="Acronym editor"
+                              className="notes-acronym"
+                              key={acronym.key}
+                            >
+                              <legend>{`Acronym ${index + 1}`}</legend>
+                              <label className="notes-form__field">
+                                <span>Acronym description</span>
+                                <textarea
+                                  aria-label="Acronym description"
+                                  ref={(element) => {
+                                    acronymDescriptionRefs.current[index] =
+                                      element;
+                                  }}
+                                  onChange={(event) =>
+                                    handleAcronymChange(
+                                      index,
+                                      "description",
+                                      event.target.value,
+                                    )
+                                  }
+                                  placeholder="Write the cue, shorthand, or expansion that unlocks this note."
+                                  rows={4}
+                                  value={acronym.description}
+                                />
+                              </label>
+                              <p className="muted notes-memory-hooks__helper">
+                                Keep one short cue that can unlock the rest of
+                                the idea fast.
+                              </p>
 
-                  {editorState.acronyms.length === 0 ? null : (
-                    <div className="notes-hook-group">
-                      <h5>Acronyms</h5>
-                      <div className="notes-acronyms__list">
-                        {editorState.acronyms.map((acronym, index) => (
-                          <fieldset
-                            aria-label="Acronym editor"
-                            className="notes-acronym"
-                            key={acronym.key}
-                          >
-                            <legend>{`Acronym ${index + 1}`}</legend>
-                            <label className="notes-form__field">
-                              <span>Acronym description</span>
-                              <textarea
-                                aria-label="Acronym description"
-                                ref={(element) => {
-                                  acronymDescriptionRefs.current[index] =
-                                    element;
-                                }}
-                                onChange={(event) =>
-                                  handleAcronymChange(
-                                    index,
-                                    "description",
-                                    event.target.value,
-                                  )
-                                }
-                                placeholder="Write the acronym or cue that helps you recall this note"
-                                rows={4}
-                                value={acronym.description}
-                              />
-                            </label>
-
-                            <div className="notes-acronym__actions">
-                              <button
-                                aria-label={`Remove acronym ${index + 1}`}
-                                className="notes-action"
-                                onClick={() => handleRemoveAcronym(index)}
-                                type="button"
-                              >
-                                Remove
-                              </button>
-                              {isAcronymDraftChanged(noteEditor, index) ? (
+                              <div className="notes-acronym__actions">
                                 <button
-                                  className="notes-action notes-action-primary"
-                                  form={noteEditorFormId}
-                                  type="submit"
+                                  aria-label={`Remove acronym ${index + 1}`}
+                                  className="notes-action"
+                                  onClick={() => handleRemoveAcronym(index)}
+                                  type="button"
                                 >
-                                  Save changes
+                                  Remove
                                 </button>
-                              ) : null}
-                            </div>
-                          </fieldset>
-                        ))}
-                      </div>
+                                {isAcronymDraftChanged(noteEditor, index) ? (
+                                  <button
+                                    className="notes-action notes-action-primary"
+                                    form={noteEditorFormId}
+                                    type="submit"
+                                  >
+                                    Save changes
+                                  </button>
+                                ) : null}
+                              </div>
+                            </fieldset>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="notes-hook-empty-state">
+                          <p className="muted">
+                            Capture a short cue or shorthand that unlocks the
+                            whole idea.
+                          </p>
+                          <div className="notes-inspector-card__actions">
+                            <button
+                              className="notes-action notes-action-primary"
+                              onClick={handleCreateAcronym}
+                              type="button"
+                            >
+                              Create acronym
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </section>

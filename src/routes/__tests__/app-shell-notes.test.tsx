@@ -1675,7 +1675,7 @@ describe("authenticated app shell", () => {
     expect(router.state.location.pathname).toBe("/labels");
   });
 
-  it("manages note metaphors inside the note workflow", async () => {
+  it("renders tabbed memory hooks with per-tab create flow and preserved drafts", async () => {
     renderRoute("/notes", {
       session: {
         user: {
@@ -1694,13 +1694,28 @@ describe("authenticated app shell", () => {
 
     const memoryHooks = screen.getByLabelText("Memory hooks");
     expect(
+      within(memoryHooks).getByRole("tab", {
+        name: "Metaphors",
+        selected: true,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(memoryHooks).getByRole("tab", {
+        name: "Acronyms",
+        selected: false,
+      }),
+    ).toBeInTheDocument();
+    expect(
       within(memoryHooks).getByText(
-        "Memory hooks turn a note into something easier to remember during recall.",
+        "Turn this note into a vivid comparison or image you can recall later.",
       ),
     ).toBeInTheDocument();
     expect(
-      within(memoryHooks).getByRole("button", { name: "Create a hook" }),
+      within(memoryHooks).getByRole("button", { name: "Create metaphor" }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Metaphor description"),
+    ).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "Action potentials" },
@@ -1710,76 +1725,119 @@ describe("authenticated app shell", () => {
         value: "Neurons fire once membrane voltage crosses threshold.",
       },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add metaphor" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create metaphor" }));
 
-    expect(screen.getAllByLabelText("Metaphor editor")).toHaveLength(1);
+    const metaphorDescription = screen.getByLabelText("Metaphor description");
 
-    fireEvent.change(screen.getAllByLabelText("Metaphor description")[0], {
+    expect(metaphorDescription).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Create note" })).toBeVisible();
+
+    fireEvent.change(metaphorDescription, {
       target: {
         value:
           "Domino line: crossing threshold is like tipping the first domino so the whole line falls.",
       },
     });
-    fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
 
     expect(
-      await screen.findByDisplayValue(
+      screen.getByDisplayValue(
         "Domino line: crossing threshold is like tipping the first domino so the whole line falls.",
       ),
     ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Acronyms" }));
+
     expect(
-      within(screen.getAllByLabelText("Metaphor editor")[0]).queryByRole(
-        "button",
-        { name: "Save changes" },
-      ),
-    ).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Add metaphor" }));
-
-    expect(screen.getAllByLabelText("Metaphor editor")).toHaveLength(1);
-    expect(screen.getAllByLabelText("Metaphor description")).toHaveLength(1);
-
-    fireEvent.change(screen.getAllByLabelText("Metaphor description")[0], {
-      target: {
-        value:
-          "Domino line: crossing threshold is like tipping the first domino and committing the whole chain.",
-      },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Remove metaphor 1" }));
-    expect(
-      screen.getByRole("dialog", { name: "Remove memory hook?" }),
+      within(memoryHooks).getByRole("tab", {
+        name: "Acronyms",
+        selected: true,
+      }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Remove Metaphor: Domino line: crossing threshold/),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Keep hook" }));
-    expect(
-      screen.queryByRole("dialog", { name: "Remove memory hook?" }),
-    ).toBeNull();
-    expect(
-      screen.getByDisplayValue(
-        "Domino line: crossing threshold is like tipping the first domino and committing the whole chain.",
+      within(memoryHooks).getByText(
+        "Capture a short cue or shorthand that unlocks the whole idea.",
       ),
     ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Remove metaphor 1" }));
-    fireEvent.click(screen.getByRole("button", { name: "Remove hook" }));
-    fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
-
     expect(
       screen.queryByDisplayValue(
-        "Domino line: crossing threshold is like tipping the first domino and committing the whole chain.",
+        "Domino line: crossing threshold is like tipping the first domino so the whole line falls.",
       ),
     ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Create acronym" }));
+
+    const acronymDescription = screen.getByLabelText("Acronym description");
+
+    expect(acronymDescription).toHaveFocus();
+    fireEvent.change(acronymDescription, {
+      target: {
+        value: "ATP means Action Threshold Propagation.",
+      },
+    });
+
+    expect(
+      screen.getByDisplayValue("ATP means Action Threshold Propagation."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Metaphors" }));
+
+    expect(
+      within(memoryHooks).getByRole("tab", {
+        name: "Metaphors",
+        selected: true,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue(
+        "Domino line: crossing threshold is like tipping the first domino so the whole line falls.",
+      ),
+    ).toBeInTheDocument();
   });
 
-  it("manages note acronyms inside the note workflow", async () => {
+  it("defaults memory hooks to Metaphors on load and when the note changes", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+
+    notesContext.createNote(userId, {
+      acronyms: [
+        {
+          description: "FNS means First Note Shortcut.",
+        },
+      ],
+      body: "First note body",
+      labelIds: [],
+      metaphors: [
+        {
+          description: "First note metaphor",
+        },
+      ],
+      title: "First note",
+    });
+    notesContext.createNote(userId, {
+      acronyms: [
+        {
+          description: "SNS means Second Note Shortcut.",
+        },
+      ],
+      body: "Second note body",
+      labelIds: [],
+      metaphors: [
+        {
+          description: "Second note metaphor",
+        },
+      ],
+      title: "Second note",
+    });
+
     renderRoute("/notes", {
+      notesContext,
       session: {
         user: {
           displayName: "Jordan Review",
           email: "jordan@example.com",
-          id: "user-jordan",
+          id: userId,
           interfaceLanguage: "en",
           studyLanguage: "en",
         },
@@ -1790,50 +1848,43 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "Notes workspace" }),
     ).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Title"), {
-      target: { value: "Order of operations" },
-    });
-    fireEvent.change(screen.getByLabelText("Body"), {
-      target: {
-        value: "Acronyms help preserve the order of arithmetic steps.",
-      },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Add acronym" }));
-
-    expect(screen.getAllByLabelText("Acronym editor")).toHaveLength(1);
-
-    fireEvent.change(screen.getAllByLabelText("Acronym description")[0], {
-      target: {
-        value:
-          "PEMDAS means Parentheses, Exponents, Multiplication, Division, Addition, Subtraction.",
-      },
-    });
-    fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
+    const memoryHooks = screen.getByLabelText("Memory hooks");
 
     expect(
-      await screen.findByDisplayValue(
-        "PEMDAS means Parentheses, Exponents, Multiplication, Division, Addition, Subtraction.",
-      ),
+      within(memoryHooks).getByRole("tab", {
+        name: "Metaphors",
+        selected: true,
+      }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Second note metaphor"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByDisplayValue("SNS means Second Note Shortcut."),
+    ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Add acronym" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Acronyms" }));
+    expect(
+      await screen.findByDisplayValue("SNS means Second Note Shortcut."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Acronyms" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
 
-    expect(screen.getAllByLabelText("Acronym editor")).toHaveLength(1);
-
-    fireEvent.change(screen.getAllByLabelText("Acronym description")[0], {
-      target: {
-        value:
-          "PEMDAS means Parentheses, Exponents, Multiplication, Division, Addition, Subtraction",
-      },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Remove acronym 1" }));
-    fireEvent.click(screen.getByRole("button", { name: "Remove hook" }));
-    fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
+    fireEvent.click(screen.getByRole("button", { name: "First note" }));
 
     expect(
-      screen.queryByDisplayValue(
-        "PEMDAS means Parentheses, Exponents, Multiplication, Division, Addition, Subtraction",
-      ),
+      await screen.findByDisplayValue("First note metaphor"),
+    ).toBeInTheDocument();
+    expect(
+      within(memoryHooks).getByRole("tab", {
+        name: "Metaphors",
+        selected: true,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByDisplayValue("FNS means First Note Shortcut."),
     ).not.toBeInTheDocument();
   });
 

@@ -322,14 +322,15 @@ describe("authenticated app shell", () => {
         value: "Repeated threshold crossings reinforce the same neural path.",
       },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add metaphor" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create metaphor" }));
     fireEvent.change(screen.getByLabelText("Metaphor description"), {
       target: {
         value:
           "Domino line: crossing threshold is like tipping the first domino so the whole chain commits.",
       },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add acronym" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Acronyms" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create acronym" }));
     fireEvent.change(screen.getByLabelText("Acronym description"), {
       target: { value: "LTP means Long-Term Potentiation." },
     });
@@ -340,6 +341,7 @@ describe("authenticated app shell", () => {
         "Domino line: crossing threshold is like tipping the first domino so the whole chain commits.",
       ),
     ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Acronyms" }));
     expect(
       await screen.findByDisplayValue("LTP means Long-Term Potentiation."),
     ).toBeInTheDocument();
@@ -385,6 +387,7 @@ describe("authenticated app shell", () => {
         "Domino line: crossing threshold is like tipping the first domino so the whole chain commits.",
       ),
     ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Acronyms" }));
     expect(
       screen.getByDisplayValue("LTP means Long-Term Potentiation."),
     ).toBeInTheDocument();
