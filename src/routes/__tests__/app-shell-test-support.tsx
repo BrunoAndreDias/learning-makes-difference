@@ -8,14 +8,13 @@ import {
   RouterProvider,
 } from "@tanstack/react-router";
 import {
-  act,
   cleanup,
   fireEvent,
   render,
   screen,
   within,
 } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, expect, vi } from "vitest";
 import {
   type AppSessionContext,
   type AppSessionSnapshot,
@@ -236,6 +235,30 @@ export function completeRecallSessionAt({
     timestamp,
     userId,
   });
+}
+
+export function rateFlashCardAnswers({
+  ratings,
+  recallContext,
+  sessionId,
+  userId,
+}: {
+  ratings: readonly FlashCardRecallRating[];
+  recallContext: AppRecallContext;
+  sessionId: string;
+  userId: string;
+}) {
+  for (const rating of ratings) {
+    recallContext.revealFlashCardAnswer({
+      sessionId,
+      userId,
+    });
+    recallContext.rateFlashCardAnswer({
+      rating,
+      sessionId,
+      userId,
+    });
+  }
 }
 
 export async function renderRecallSelection(contexts: RenderRouteOptions) {

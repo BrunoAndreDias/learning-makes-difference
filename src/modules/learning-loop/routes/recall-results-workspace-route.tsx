@@ -12,12 +12,22 @@ import type {
 import {
   formatResultSummaryScoreLabel,
   getResultSummaryNoteCountLabel,
+  type RecallResultSummary,
   summarizeSessionResult,
 } from "../domain/result-summary";
 
 type SessionResultsSnapshot = {
   newestSessionId: string | null;
   resultCount: number;
+};
+
+type RecallResultsNextStep = {
+  description: string;
+  label: string;
+  search?: {
+    filter: "weak";
+    noteIds: string;
+  };
 };
 
 export const Route = createFileRoute("/_protected/recall/")({
@@ -80,7 +90,9 @@ function formatDateTime(timestamp: string) {
   }).format(new Date(timestamp));
 }
 
-function getNextStepCopy(summary: ReturnType<typeof summarizeSessionResult>) {
+function getRecallResultsNextStep(
+  summary: RecallResultSummary,
+): RecallResultsNextStep {
   switch (summary.nextAction) {
     case "practice-weak-notes":
       return {
@@ -88,7 +100,7 @@ function getNextStepCopy(summary: ReturnType<typeof summarizeSessionResult>) {
           "Run recall setup again with missed and partly recalled notes already selected.",
         label: "Practice weak notes",
         search: {
-          filter: "weak" as const,
+          filter: "weak",
           noteIds: summary.weakNotes.map((note) => note.noteId).join(","),
         },
       };
@@ -216,7 +228,7 @@ function SelectedSessionResult({
   }
 
   const summary = summarizeSessionResult(sessionResult);
-  const nextStep = getNextStepCopy(summary);
+  const nextStep = getRecallResultsNextStep(summary);
 
   return (
     <div className="recall-results-detail">

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-
+import type { RecallSetupFilter } from "../domain/recall-setup";
 import { RecallSelectionPage } from "./recall-route";
 
 const recallSelectionSearchSchema = z.object({
@@ -8,20 +8,22 @@ const recallSelectionSearchSchema = z.object({
   noteIds: z.string().optional(),
 });
 
+type RecallSelectionSearch = z.infer<typeof recallSelectionSearchSchema>;
+
 export const Route = createFileRoute("/_protected/recall/select")({
   validateSearch: recallSelectionSearchSchema,
   component: RecallSelectionRoute,
 });
 
-function parseSelectedNoteIds(noteIds: string | undefined) {
-  if (noteIds === undefined) {
+function parseSelectedNoteIds(search: RecallSelectionSearch) {
+  if (search.noteIds === undefined) {
     return [];
   }
 
   const selectedNoteIds: string[] = [];
   const seenNoteIds = new Set<string>();
 
-  for (const noteId of noteIds.split(",")) {
+  for (const noteId of search.noteIds.split(",")) {
     const normalizedNoteId = noteId.trim();
 
     if (normalizedNoteId.length === 0 || seenNoteIds.has(normalizedNoteId)) {
@@ -35,15 +37,22 @@ function parseSelectedNoteIds(noteIds: string | undefined) {
   return selectedNoteIds;
 }
 
+function getSelectedFilter(search: RecallSelectionSearch): RecallSetupFilter {
+  switch (search.filter) {
+    case "weak":
+      return { kind: "weak" };
+    case undefined:
+      return { kind: "all" };
+  }
+}
+
 function RecallSelectionRoute() {
   const search = Route.useSearch();
 
   return (
     <RecallSelectionPage
-      initialSelectedFilter={
-        search.filter === "weak" ? { kind: "weak" } : { kind: "all" }
-      }
-      initialSelectedNoteIds={parseSelectedNoteIds(search.noteIds)}
+      initialSelectedFilter={getSelectedFilter(search)}
+      initialSelectedNoteIds={parseSelectedNoteIds(search)}
     />
   );
 }

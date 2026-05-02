@@ -14,6 +14,7 @@ import {
   expectReturnedToRecall,
   getSelectedSessionResultRegion,
   listNotesForUser,
+  rateFlashCardAnswers,
   renderRecallSelection,
   renderRoute,
   selectRecallableNote,
@@ -1510,25 +1511,16 @@ describe("authenticated app shell", () => {
     const { labelsContext, notesContext, recallContext } =
       createDeterministicRecallTestContexts();
     const userId = "user-placeholder";
-    const strongNote = notesContext.createNote(userId, {
-      acronyms: [],
+    const strongNote = createRecallNote(notesContext, userId, {
       body: "Strong note snapshot",
-      labelIds: [],
-      metaphors: [],
       title: "Strong prompt",
     });
-    const partialNote = notesContext.createNote(userId, {
-      acronyms: [],
+    const partialNote = createRecallNote(notesContext, userId, {
       body: "Partial note snapshot",
-      labelIds: [],
-      metaphors: [],
       title: "Partial prompt",
     });
-    const missedNote = notesContext.createNote(userId, {
-      acronyms: [],
+    const missedNote = createRecallNote(notesContext, userId, {
       body: "Missed note snapshot",
-      labelIds: [],
-      metaphors: [],
       title: "Missed prompt",
     });
 
@@ -1537,30 +1529,9 @@ describe("authenticated app shell", () => {
       userId,
     });
 
-    recallContext.revealFlashCardAnswer({
-      sessionId: session.id,
-      userId,
-    });
-    recallContext.rateFlashCardAnswer({
-      rating: "nailed",
-      sessionId: session.id,
-      userId,
-    });
-    recallContext.revealFlashCardAnswer({
-      sessionId: session.id,
-      userId,
-    });
-    recallContext.rateFlashCardAnswer({
-      rating: "partial",
-      sessionId: session.id,
-      userId,
-    });
-    recallContext.revealFlashCardAnswer({
-      sessionId: session.id,
-      userId,
-    });
-    recallContext.rateFlashCardAnswer({
-      rating: "missed",
+    rateFlashCardAnswers({
+      ratings: ["nailed", "partial", "missed"],
+      recallContext,
       sessionId: session.id,
       userId,
     });
@@ -1610,11 +1581,8 @@ describe("authenticated app shell", () => {
     const { labelsContext, notesContext, recallContext } =
       createDeterministicRecallTestContexts();
     const userId = "user-placeholder";
-    const strongNote = notesContext.createNote(userId, {
-      acronyms: [],
+    const strongNote = createRecallNote(notesContext, userId, {
       body: "Strong note snapshot",
-      labelIds: [],
-      metaphors: [],
       title: "Strong prompt",
     });
 
@@ -1623,12 +1591,9 @@ describe("authenticated app shell", () => {
       userId,
     });
 
-    recallContext.revealFlashCardAnswer({
-      sessionId: session.id,
-      userId,
-    });
-    recallContext.rateFlashCardAnswer({
-      rating: "nailed",
+    rateFlashCardAnswers({
+      ratings: ["nailed"],
+      recallContext,
       sessionId: session.id,
       userId,
     });
