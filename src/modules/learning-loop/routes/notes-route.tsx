@@ -955,7 +955,7 @@ export function NotesWorkspace() {
     }
   }
 
-  function handleFocusThisNote() {
+  function handleStartFocusForSelectedNote() {
     if (userId === null || selectedNote === null) {
       return;
     }
@@ -1006,6 +1006,8 @@ export function NotesWorkspace() {
     selectedLearningState === null
       ? null
       : formatLearningStateRatingLabel(selectedLearningState.latestRating);
+  const canStartFocusForSelectedNote =
+    selectedNote !== null && activeFocusSession === null;
   let labelPickerContent: ReactNode = null;
 
   if (isLabelPickerOpen) {
@@ -1364,10 +1366,10 @@ export function NotesWorkspace() {
                         >
                           Practice this note
                         </button>
-                        {activeFocusSession === null ? (
+                        {canStartFocusForSelectedNote ? (
                           <button
                             className="notes-action"
-                            onClick={handleFocusThisNote}
+                            onClick={handleStartFocusForSelectedNote}
                             type="button"
                           >
                             Focus on this note

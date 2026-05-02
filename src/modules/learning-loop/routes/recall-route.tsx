@@ -164,23 +164,25 @@ function RecallRouteShell() {
   return <Outlet />;
 }
 
-function RecallSelectionControls({
-  hasActiveFocusSession,
-  hasSelectedNotes,
-  onStartFocus,
-  startDisabledReason,
-  onCancel,
-  onStartRecall,
-  selectedCountLabel,
-}: {
-  hasActiveFocusSession: boolean;
+type RecallSelectionControlsProps = {
+  canStartFocusSession: boolean;
   hasSelectedNotes: boolean;
-  onStartFocus: () => void;
-  startDisabledReason: string | null;
   onCancel: () => void;
+  onStartFocus: () => void;
   onStartRecall: () => void;
   selectedCountLabel: string;
-}) {
+  startDisabledReason: string | null;
+};
+
+function RecallSelectionControls({
+  canStartFocusSession,
+  hasSelectedNotes,
+  onCancel,
+  onStartFocus,
+  onStartRecall,
+  selectedCountLabel,
+  startDisabledReason,
+}: RecallSelectionControlsProps) {
   return (
     <div>
       <fieldset
@@ -191,7 +193,7 @@ function RecallSelectionControls({
         <button className="notes-action" onClick={onCancel} type="button">
           Cancel
         </button>
-        {hasActiveFocusSession ? null : (
+        {canStartFocusSession ? (
           <button
             className="notes-action"
             disabled={!hasSelectedNotes}
@@ -200,7 +202,7 @@ function RecallSelectionControls({
           >
             Start focus for this session
           </button>
-        )}
+        ) : null}
         <button
           aria-describedby={
             hasSelectedNotes ? undefined : "recall-start-disabled-reason"
@@ -538,6 +540,7 @@ export function RecallSelectionPage() {
   const selectedCountLabel = formatSelectedCount(selectedNoteIds.length);
   const hasSearchQuery = searchQuery.trim().length > 0;
   const noteCountLabel = formatCount(notes.length, "note");
+  const canStartFocusSession = activeFocusSession === null;
   const isSearchListboxOpen =
     hasSearchQuery && isSearchOpen && searchResults.length > 0;
   const activeSearchResult = searchResults[activeSearchResultIndex];
@@ -732,7 +735,7 @@ export function RecallSelectionPage() {
     }
   }
 
-  function handleStartFocus() {
+  function handleStartFocusForSelection() {
     if (userId === null || selectedNoteIds.length === 0) {
       return;
     }
@@ -815,10 +818,10 @@ export function RecallSelectionPage() {
                 <kbd>Cmd K</kbd>
               </form>
               <RecallSelectionControls
-                hasActiveFocusSession={activeFocusSession !== null}
+                canStartFocusSession={canStartFocusSession}
                 hasSelectedNotes={selectedNoteIds.length > 0}
                 onCancel={() => void handleCancel()}
-                onStartFocus={handleStartFocus}
+                onStartFocus={handleStartFocusForSelection}
                 onStartRecall={() => void handleStartRecall()}
                 selectedCountLabel={selectedCountLabel}
                 startDisabledReason={setupState.summary.startDisabledReason}
