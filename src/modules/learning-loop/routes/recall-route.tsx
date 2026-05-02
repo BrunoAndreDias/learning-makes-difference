@@ -64,6 +64,16 @@ function formatSummarySelectedCount(count: number) {
   return `${count} selected`;
 }
 
+function areSameNoteIdList(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((noteId, index) => noteId === right[index])
+  );
+}
+
 function getSearchResultLabel(result: AppNoteSearchResult) {
   const preview = formatNoteSearchResultPreview(result);
 
@@ -509,13 +519,16 @@ export function RecallSelectionPage() {
     selectedNoteIds,
     sessionResults,
   });
-  const selectedCountLabel = formatSelectedCount(selectedNoteIds.length);
+  const activeSelectedNoteIds = setupState.selectedSummaries.map(
+    (note) => note.id,
+  );
+  const selectedCountLabel = formatSelectedCount(activeSelectedNoteIds.length);
   const hasSearchQuery = searchQuery.trim().length > 0;
   const noteCountLabel = formatCount(notes.length, "note");
   const isSearchListboxOpen =
     hasSearchQuery && isSearchOpen && searchResults.length > 0;
   const activeSearchResult = searchResults[activeSearchResultIndex];
-  const selectedNoteIdSet = new Set(selectedNoteIds);
+  const selectedNoteIdSet = new Set(activeSelectedNoteIds);
   const activeSearchOptionId =
     isSearchListboxOpen && activeSearchResult !== undefined
       ? getRecallSelectionSearchResultOptionId(
@@ -534,6 +547,14 @@ export function RecallSelectionPage() {
       Math.min(currentIndex, searchResults.length - 1),
     );
   }, [searchResults.length]);
+
+  useEffect(() => {
+    if (areSameNoteIdList(selectedNoteIds, activeSelectedNoteIds)) {
+      return;
+    }
+
+    setSelectedNoteIds(activeSelectedNoteIds);
+  }, [activeSelectedNoteIds, selectedNoteIds]);
 
   useEffect(() => {
     function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
@@ -685,13 +706,13 @@ export function RecallSelectionPage() {
   }
 
   async function handleStartRecall() {
-    if (userId === null || selectedNoteIds.length === 0) {
+    if (userId === null || activeSelectedNoteIds.length === 0) {
       return;
     }
 
     try {
       recallContext.startFlashCardSession({
-        noteIds: selectedNoteIds,
+        noteIds: activeSelectedNoteIds,
         userId,
       });
       setErrorMessage(null);
@@ -769,7 +790,7 @@ export function RecallSelectionPage() {
                 <kbd>Cmd K</kbd>
               </form>
               <RecallSelectionControls
-                hasSelectedNotes={selectedNoteIds.length > 0}
+                hasSelectedNotes={activeSelectedNoteIds.length > 0}
                 onCancel={() => void handleCancel()}
                 onStartRecall={() => void handleStartRecall()}
                 selectedCountLabel={selectedCountLabel}
