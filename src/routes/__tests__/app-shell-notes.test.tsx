@@ -1400,6 +1400,173 @@ describe("authenticated app shell", () => {
     ]);
   });
 
+  it("removes an assigned label chip from the draft and persists it only after saving the note", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (currentUserId) =>
+        labelsContext.getLabelsForUser(currentUserId).map((label) => label.id),
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const biology = labelsContext.createLabel({
+      name: "Biology",
+      userId,
+    });
+    const science = labelsContext.createLabel({
+      name: "Science",
+      userId,
+    });
+    const note = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Study how label removals behave in a note draft.",
+      labelIds: [biology.id, science.id],
+      metaphors: [],
+      title: "Label removal note",
+    });
+
+    renderRoute("/notes", {
+      labelsContext,
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("Label removal note")).toBeVisible();
+
+    const currentLabels = screen.getByLabelText("Current labels");
+    const assignedLabels =
+      within(currentLabels).getByLabelText("Assigned labels");
+
+    expect(within(assignedLabels).getByText("Biology")).toBeInTheDocument();
+    expect(within(assignedLabels).getByText("Science")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Save changes" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(assignedLabels).getByRole("button", {
+        name: "Remove Biology label",
+      }),
+    );
+
+    expect(
+      within(assignedLabels).queryByText("Biology"),
+    ).not.toBeInTheDocument();
+    expect(within(assignedLabels).getByText("Science")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeVisible();
+    expect(listNotesForUser(notesContext.getSnapshot(), userId)).toEqual([
+      expect.objectContaining({
+        id: note.id,
+        labelIds: [biology.id, science.id],
+      }),
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(listNotesForUser(notesContext.getSnapshot(), userId)).toEqual([
+      expect.objectContaining({
+        id: note.id,
+        labelIds: [science.id],
+      }),
+    ]);
+  });
+
+  it("restores a directly removed label chip when note changes are discarded", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (currentUserId) =>
+        labelsContext.getLabelsForUser(currentUserId).map((label) => label.id),
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const science = labelsContext.createLabel({
+      name: "Science",
+      userId,
+    });
+
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Discarding should restore removed label chips.",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Discard label removal note",
+    });
+
+    renderRoute("/notes", {
+      labelsContext,
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByDisplayValue("Discard label removal note"),
+    ).toBeVisible();
+
+    const currentLabels = screen.getByLabelText("Current labels");
+    const assignedLabels =
+      within(currentLabels).getByLabelText("Assigned labels");
+
+    expect(within(assignedLabels).getByText("Science")).toBeInTheDocument();
+
+    fireEvent.click(
+      within(assignedLabels).getByRole("button", {
+        name: "Remove Science label",
+      }),
+    );
+
+    expect(
+      within(currentLabels).queryByLabelText("Assigned labels"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("No labels yet")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+
+    const restoredAssignedLabels =
+      within(currentLabels).getByLabelText("Assigned labels");
+
+    expect(
+      within(restoredAssignedLabels).getByText("Science"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Save changes" }),
+    ).not.toBeInTheDocument();
+    expect(listNotesForUser(notesContext.getSnapshot(), userId)).toEqual([
+      expect.objectContaining({
+        labelIds: [science.id],
+      }),
+    ]);
+  });
+
   it("shows a no-labels picker empty state with guarded navigation to labels", async () => {
     const labelsContext = createAppLabelsContext({
       keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,

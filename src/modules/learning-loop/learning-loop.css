@@ -2220,6 +2220,37 @@
   gap: 0.35rem;
 }
 
+.notes-editor__label-chip {
+  gap: 0.35rem;
+  padding-right: 0.35rem;
+}
+
+.notes-editor__label-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: currentColor;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.notes-editor__label-chip-remove:hover,
+.notes-editor__label-chip-remove:focus-visible {
+  background: color-mix(
+    in srgb,
+    currentColor 12%,
+    var(--color-brand-primary-soft) 88%
+  );
+  outline: none;
+}
+
 .notes-editor__label-row .muted {
   margin: 0;
 }

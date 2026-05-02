@@ -843,6 +843,19 @@ export function NotesWorkspace() {
     });
   }
 
+  function handleAssignedLabelRemove(labelId: string) {
+    handleEditorChange(
+      "labelIds",
+      editorState.labelIds.filter((candidateId) => candidateId !== labelId),
+    );
+
+    if (isLabelPickerOpen) {
+      setLabelPickerDraftIds((currentLabelIds) =>
+        currentLabelIds.filter((candidateId) => candidateId !== labelId),
+      );
+    }
+  }
+
   function handleLabelPickerDone() {
     handleEditorChange(
       "labelIds",
@@ -1480,8 +1493,21 @@ export function NotesWorkspace() {
                     ) : (
                       <section aria-label="Assigned labels" className="tag-row">
                         {selectedLabels.map((label) => (
-                          <span className="tag" key={label.id}>
-                            {label.name}
+                          <span
+                            className="tag notes-editor__label-chip"
+                            key={label.id}
+                          >
+                            <span>{label.name}</span>
+                            <button
+                              aria-label={`Remove ${label.name} label`}
+                              className="notes-editor__label-chip-remove"
+                              onClick={() =>
+                                handleAssignedLabelRemove(label.id)
+                              }
+                              type="button"
+                            >
+                              <span aria-hidden="true">x</span>
+                            </button>
                           </span>
                         ))}
                       </section>
