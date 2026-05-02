@@ -200,6 +200,23 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
     }
   }
 
+  function handleAttemptTextChange(text: string) {
+    if (userId === null || activeSession === null || isBreakActive) {
+      return;
+    }
+
+    try {
+      recallContext.updateFlashCardAttemptText({
+        sessionId: activeSession.id,
+        text,
+        userId,
+      });
+      setFeedbackMessage(null);
+    } catch (error) {
+      handleRecallError(error);
+    }
+  }
+
   function skipBreakInterval() {
     if (userId === null) {
       return;
@@ -337,6 +354,20 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
                   <p className="muted recall-card__hint">
                     Recall the answer, then reveal it to compare.
                   </p>
+                ) : null}
+                {!activeSession.isAnswerRevealed ? (
+                  <label className="recall-card__attempt-field">
+                    <span>What do you remember?</span>
+                    <textarea
+                      name="typed-recall-attempt"
+                      onChange={(event) =>
+                        handleAttemptTextChange(event.target.value)
+                      }
+                      placeholder="Type your answer or leave this blank."
+                      rows={5}
+                      value={activeSession.draftAnswer ?? ""}
+                    />
+                  </label>
                 ) : null}
               </div>
 
