@@ -5,9 +5,9 @@ import {
   deriveLearningStates,
   formatLearningStateStatusLabel,
   toNoteRecallHistories,
-} from "../domain/learning-state";
-import { listNotesForUser } from "../domain/notes";
-import { useNotesWorkspace } from "../domain/notes-workspace";
+} from "../shared/learning-state";
+import { listNotesForUser } from "./notes";
+import { useNotesWorkspace } from "./notes-workspace";
 
 function formatSidebarNoteDate(value: string): string {
   return new Intl.DateTimeFormat("en", {

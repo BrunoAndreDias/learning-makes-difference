@@ -7,19 +7,19 @@ import {
 } from "react";
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import type { AppLabel } from "../../labels/domain/labels";
-import { formatRecallModeLabel } from "../domain/learner-copy";
-import { listNotesForUser } from "../domain/notes";
-import { useNotesWorkspace } from "../domain/notes-workspace";
-import { listRecallResultLabels } from "../domain/recall-result-labels";
+import { listNotesForUser } from "../notes-workspace/notes";
+import { useNotesWorkspace } from "../notes-workspace/notes-workspace";
+import { formatRecallModeLabel } from "../shared/learner-copy";
+import { listRecallResultLabels } from "./recall-result-labels";
 import {
   type RecallSessionSearchResult,
   searchRecallSessionResults,
-} from "../domain/recall-session-search";
+} from "./recall-session-search";
 import {
   formatResultSummaryScoreLabel,
   getResultSummaryNoteCountLabel,
   summarizeSessionResult,
-} from "../domain/result-summary";
+} from "./result-summary";
 
 function formatDateTime(timestamp: string) {
   return new Intl.DateTimeFormat("en", {

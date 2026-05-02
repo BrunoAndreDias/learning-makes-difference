@@ -1,5 +1,5 @@
-import type { AppNote } from "./notes";
-import type { RecallSelfRating } from "./recall";
+import type { AppNote } from "../notes-workspace/notes";
+import type { RecallSelfRating } from "../recall/recall";
 
 export type NoteRecallHistoryAttempt = {
   completedAt: string;

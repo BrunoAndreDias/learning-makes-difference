@@ -3,7 +3,7 @@ import {
   type AppFocusContext,
   AppFocusError,
   type FocusSession,
-} from "../domain/focus";
+} from "./focus";
 
 type FocusSessionStartValues = {
   breakMinutes: string;

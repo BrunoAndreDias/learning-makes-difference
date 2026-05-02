@@ -1,5 +1,8 @@
 import type { AppLabel } from "../../labels/domain/labels";
-import { type AppNoteSearchMatchChip, searchNoteResults } from "./note-search";
+import {
+  type AppNoteSearchMatchChip,
+  searchNoteResults,
+} from "../notes-workspace/note-search";
 import type {
   FlashCardRecallNote,
   FlashCardSessionResult,

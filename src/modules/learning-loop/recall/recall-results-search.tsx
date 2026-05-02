@@ -10,13 +10,13 @@ import {
 } from "react";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import type { AppLabel } from "../../labels/domain/labels";
-import { formatSearchMatchLabel } from "../domain/learner-copy";
-import { useNotesWorkspace } from "../domain/notes-workspace";
-import { listRecallResultLabels } from "../domain/recall-result-labels";
+import { useNotesWorkspace } from "../notes-workspace/notes-workspace";
+import { formatSearchMatchLabel } from "../shared/learner-copy";
+import { listRecallResultLabels } from "./recall-result-labels";
 import {
   type RecallSessionSearchResult,
   searchRecallSessionResults,
-} from "../domain/recall-session-search";
+} from "./recall-session-search";
 
 const recallSearchListboxId = "recall-results-search-results";
 const RECALL_RESULT_DATE_FORMATTER = new Intl.DateTimeFormat("en", {

@@ -1,7 +1,7 @@
-export { FocusSessionStartControl } from "./components/focus-session-start-control";
-export { NotesWorkspaceSidebar } from "./components/notes-workspace-sidebar";
-export { RecallResultsSidebar } from "./components/recall-results-sidebar";
+export { FocusSessionStartControl } from "./focus/focus-session-start-control";
 export {
   NotesWorkspaceProvider as LearningLoopWorkspaceProvider,
   useNotesWorkspace,
-} from "./domain/notes-workspace";
+} from "./notes-workspace/notes-workspace";
+export { NotesWorkspaceSidebar } from "./notes-workspace/notes-workspace-sidebar";
+export { RecallResultsSidebar } from "./recall/recall-results-sidebar";

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import type { RecallSetupFilter } from "../domain/recall-setup";
 import { RecallSelectionPage } from "./recall-route";
+import type { RecallSetupFilter } from "./recall-setup";
 
 const recallSelectionSearchSchema = z.object({
   filter: z.enum(["due", "weak"]).optional(),

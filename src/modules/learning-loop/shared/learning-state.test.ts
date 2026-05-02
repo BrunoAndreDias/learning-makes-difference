@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
+import type { AppNote } from "../notes-workspace/notes";
 import {
   deriveLearningState,
   deriveLearningStates,
   type NoteRecallHistory,
 } from "./learning-state";
-import type { AppNote } from "./notes";
 
 function buildNote(overrides: Partial<AppNote> & Pick<AppNote, "id">): AppNote {
   const { id, ...rest } = overrides;

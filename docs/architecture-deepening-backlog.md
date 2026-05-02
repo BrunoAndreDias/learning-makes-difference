@@ -8,9 +8,9 @@ The chosen first thread is **Recall Selection Mode**. It is not listed as backlo
 
 **Files**
 
-- `src/routes/_protected.notes.tsx`
-- `src/features/notes/notes-workspace.tsx`
-- `tests/app-shell.test.tsx`
+- `src/modules/learning-loop/notes-workspace/notes-route.tsx`
+- `src/modules/learning-loop/notes-workspace/notes-workspace.tsx`
+- `src/routes/__tests__/app-shell-notes.test.tsx`
 
 **Problem**
 
@@ -28,10 +28,10 @@ This improves Locality for the Learning Loop and gives tests more Leverage by le
 
 **Files**
 
-- `src/features/recall/recall.ts`
-- `src/routes/_protected.notes.recall.tsx`
-- `src/routes/_protected.history.tsx`
-- `tests/recall.test.ts`
+- `src/modules/learning-loop/recall/recall.ts`
+- `src/modules/learning-loop/recall/recall-route.tsx`
+- `src/modules/learning-loop/recall/recall-results-workspace-route.tsx`
+- `src/modules/learning-loop/recall/recall.test.ts`
 
 **Problem**
 
@@ -49,9 +49,9 @@ This preserves existing Locality while increasing Leverage for future AiAssisted
 
 **Files**
 
-- `src/features/labels/labels.ts`
-- `src/routes/_protected.labels.tsx`
-- `tests/labels.test.ts`
+- `src/modules/labels/domain/labels.ts`
+- `src/modules/labels/routes/labels-route.tsx`
+- `src/modules/labels/domain/labels.test.ts`
 
 **Problem**
 
@@ -70,8 +70,8 @@ This improves Locality for DAG knowledge, reduces route-level graph projection, 
 **Files**
 
 - `docs/adr/0001-wcag2-accessibility.md`
-- `src/routes/_protected.notes.tsx`
-- `src/routes/_protected.tsx`
+- `src/modules/learning-loop/notes-workspace/notes-route.tsx`
+- `src/modules/workspace-shell/routes/protected-route.tsx`
 - `src/design-system/global.css`
 
 **Problem**

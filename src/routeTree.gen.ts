@@ -13,17 +13,17 @@ import { Route as modulesAccessRoutesPublicLayoutRouteRouteImport } from './modu
 import { Route as modulesWorkspaceShellRoutesProtectedRouteRouteImport } from './modules/workspace-shell/routes/protected-route'
 import { Route as modulesAccessRoutesAuthLayoutRouteRouteImport } from './modules/access/routes/auth-layout-route'
 import { Route as modulesAccessRoutesSettingsRouteRouteImport } from './modules/access/routes/settings-route'
-import { Route as modulesLearningLoopRoutesRecallRouteRouteImport } from './modules/learning-loop/routes/recall-route'
-import { Route as modulesLearningLoopRoutesNotesRouteRouteImport } from './modules/learning-loop/routes/notes-route'
+import { Route as modulesLearningLoopRecallRecallRouteRouteImport } from './modules/learning-loop/recall/recall-route'
+import { Route as modulesLearningLoopNotesWorkspaceNotesRouteRouteImport } from './modules/learning-loop/notes-workspace/notes-route'
 import { Route as modulesLabelsRoutesLabelsRouteRouteImport } from './modules/labels/routes/labels-route'
-import { Route as modulesLearningLoopRoutesFocusRouteRouteImport } from './modules/learning-loop/routes/focus-route'
+import { Route as modulesLearningLoopFocusFocusRouteRouteImport } from './modules/learning-loop/focus/focus-route'
 import { Route as modulesAccessRoutesRegisterRouteRouteImport } from './modules/access/routes/register-route'
 import { Route as modulesAccessRoutesLoginRouteRouteImport } from './modules/access/routes/login-route'
 import { Route as modulesAccessRoutesForgotPasswordRouteRouteImport } from './modules/access/routes/forgot-password-route'
 import { Route as modulesAccessRoutesPublicIndexRouteRouteImport } from './modules/access/routes/public-index-route'
-import { Route as modulesLearningLoopRoutesRecallSessionRouteRouteImport } from './modules/learning-loop/routes/recall-session-route'
-import { Route as modulesLearningLoopRoutesRecallSelectionRouteRouteImport } from './modules/learning-loop/routes/recall-selection-route'
-import { Route as modulesLearningLoopRoutesRecallResultsWorkspaceRouteRouteImport } from './modules/learning-loop/routes/recall-results-workspace-route'
+import { Route as modulesLearningLoopRecallRecallSessionRouteRouteImport } from './modules/learning-loop/recall/recall-session-route'
+import { Route as modulesLearningLoopRecallRecallSelectionRouteRouteImport } from './modules/learning-loop/recall/recall-selection-route'
+import { Route as modulesLearningLoopRecallRecallResultsWorkspaceRouteRouteImport } from './modules/learning-loop/recall/recall-results-workspace-route'
 
 const modulesAccessRoutesPublicLayoutRouteRoute =
   modulesAccessRoutesPublicLayoutRouteRouteImport.update({
@@ -46,14 +46,14 @@ const modulesAccessRoutesSettingsRouteRoute =
     path: '/settings',
     getParentRoute: () => modulesWorkspaceShellRoutesProtectedRouteRoute,
   } as any)
-const modulesLearningLoopRoutesRecallRouteRoute =
-  modulesLearningLoopRoutesRecallRouteRouteImport.update({
+const modulesLearningLoopRecallRecallRouteRoute =
+  modulesLearningLoopRecallRecallRouteRouteImport.update({
     id: '/recall',
     path: '/recall',
     getParentRoute: () => modulesWorkspaceShellRoutesProtectedRouteRoute,
   } as any)
-const modulesLearningLoopRoutesNotesRouteRoute =
-  modulesLearningLoopRoutesNotesRouteRouteImport.update({
+const modulesLearningLoopNotesWorkspaceNotesRouteRoute =
+  modulesLearningLoopNotesWorkspaceNotesRouteRouteImport.update({
     id: '/notes',
     path: '/notes',
     getParentRoute: () => modulesWorkspaceShellRoutesProtectedRouteRoute,
@@ -64,8 +64,8 @@ const modulesLabelsRoutesLabelsRouteRoute =
     path: '/labels',
     getParentRoute: () => modulesWorkspaceShellRoutesProtectedRouteRoute,
   } as any)
-const modulesLearningLoopRoutesFocusRouteRoute =
-  modulesLearningLoopRoutesFocusRouteRouteImport.update({
+const modulesLearningLoopFocusFocusRouteRoute =
+  modulesLearningLoopFocusFocusRouteRouteImport.update({
     id: '/focus',
     path: '/focus',
     getParentRoute: () => modulesWorkspaceShellRoutesProtectedRouteRoute,
@@ -94,23 +94,23 @@ const modulesAccessRoutesPublicIndexRouteRoute =
     path: '/',
     getParentRoute: () => modulesAccessRoutesPublicLayoutRouteRoute,
   } as any)
-const modulesLearningLoopRoutesRecallSessionRouteRoute =
-  modulesLearningLoopRoutesRecallSessionRouteRouteImport.update({
+const modulesLearningLoopRecallRecallSessionRouteRoute =
+  modulesLearningLoopRecallRecallSessionRouteRouteImport.update({
     id: '/session',
     path: '/session',
-    getParentRoute: () => modulesLearningLoopRoutesRecallRouteRoute,
+    getParentRoute: () => modulesLearningLoopRecallRecallRouteRoute,
   } as any)
-const modulesLearningLoopRoutesRecallSelectionRouteRoute =
-  modulesLearningLoopRoutesRecallSelectionRouteRouteImport.update({
+const modulesLearningLoopRecallRecallSelectionRouteRoute =
+  modulesLearningLoopRecallRecallSelectionRouteRouteImport.update({
     id: '/select',
     path: '/select',
-    getParentRoute: () => modulesLearningLoopRoutesRecallRouteRoute,
+    getParentRoute: () => modulesLearningLoopRecallRecallRouteRoute,
   } as any)
-const modulesLearningLoopRoutesRecallResultsWorkspaceRouteRoute =
-  modulesLearningLoopRoutesRecallResultsWorkspaceRouteRouteImport.update({
+const modulesLearningLoopRecallRecallResultsWorkspaceRouteRoute =
+  modulesLearningLoopRecallRecallResultsWorkspaceRouteRouteImport.update({
     id: '/',
     path: '/',
-    getParentRoute: () => modulesLearningLoopRoutesRecallRouteRoute,
+    getParentRoute: () => modulesLearningLoopRecallRecallRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -118,27 +118,27 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof modulesAccessRoutesForgotPasswordRouteRoute
   '/login': typeof modulesAccessRoutesLoginRouteRoute
   '/register': typeof modulesAccessRoutesRegisterRouteRoute
-  '/focus': typeof modulesLearningLoopRoutesFocusRouteRoute
+  '/focus': typeof modulesLearningLoopFocusFocusRouteRoute
   '/labels': typeof modulesLabelsRoutesLabelsRouteRoute
-  '/notes': typeof modulesLearningLoopRoutesNotesRouteRoute
-  '/recall': typeof modulesLearningLoopRoutesRecallRouteRouteWithChildren
+  '/notes': typeof modulesLearningLoopNotesWorkspaceNotesRouteRoute
+  '/recall': typeof modulesLearningLoopRecallRecallRouteRouteWithChildren
   '/settings': typeof modulesAccessRoutesSettingsRouteRoute
-  '/recall/': typeof modulesLearningLoopRoutesRecallResultsWorkspaceRouteRoute
-  '/recall/select': typeof modulesLearningLoopRoutesRecallSelectionRouteRoute
-  '/recall/session': typeof modulesLearningLoopRoutesRecallSessionRouteRoute
+  '/recall/': typeof modulesLearningLoopRecallRecallResultsWorkspaceRouteRoute
+  '/recall/select': typeof modulesLearningLoopRecallRecallSelectionRouteRoute
+  '/recall/session': typeof modulesLearningLoopRecallRecallSessionRouteRoute
 }
 export interface FileRoutesByTo {
   '/': typeof modulesAccessRoutesPublicIndexRouteRoute
   '/forgot-password': typeof modulesAccessRoutesForgotPasswordRouteRoute
   '/login': typeof modulesAccessRoutesLoginRouteRoute
   '/register': typeof modulesAccessRoutesRegisterRouteRoute
-  '/focus': typeof modulesLearningLoopRoutesFocusRouteRoute
+  '/focus': typeof modulesLearningLoopFocusFocusRouteRoute
   '/labels': typeof modulesLabelsRoutesLabelsRouteRoute
-  '/notes': typeof modulesLearningLoopRoutesNotesRouteRoute
+  '/notes': typeof modulesLearningLoopNotesWorkspaceNotesRouteRoute
   '/settings': typeof modulesAccessRoutesSettingsRouteRoute
-  '/recall': typeof modulesLearningLoopRoutesRecallResultsWorkspaceRouteRoute
-  '/recall/select': typeof modulesLearningLoopRoutesRecallSelectionRouteRoute
-  '/recall/session': typeof modulesLearningLoopRoutesRecallSessionRouteRoute
+  '/recall': typeof modulesLearningLoopRecallRecallResultsWorkspaceRouteRoute
+  '/recall/select': typeof modulesLearningLoopRecallRecallSelectionRouteRoute
+  '/recall/session': typeof modulesLearningLoopRecallRecallSessionRouteRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -149,14 +149,14 @@ export interface FileRoutesById {
   '/_auth/forgot-password': typeof modulesAccessRoutesForgotPasswordRouteRoute
   '/_auth/login': typeof modulesAccessRoutesLoginRouteRoute
   '/_auth/register': typeof modulesAccessRoutesRegisterRouteRoute
-  '/_protected/focus': typeof modulesLearningLoopRoutesFocusRouteRoute
+  '/_protected/focus': typeof modulesLearningLoopFocusFocusRouteRoute
   '/_protected/labels': typeof modulesLabelsRoutesLabelsRouteRoute
-  '/_protected/notes': typeof modulesLearningLoopRoutesNotesRouteRoute
-  '/_protected/recall': typeof modulesLearningLoopRoutesRecallRouteRouteWithChildren
+  '/_protected/notes': typeof modulesLearningLoopNotesWorkspaceNotesRouteRoute
+  '/_protected/recall': typeof modulesLearningLoopRecallRecallRouteRouteWithChildren
   '/_protected/settings': typeof modulesAccessRoutesSettingsRouteRoute
-  '/_protected/recall/': typeof modulesLearningLoopRoutesRecallResultsWorkspaceRouteRoute
-  '/_protected/recall/select': typeof modulesLearningLoopRoutesRecallSelectionRouteRoute
-  '/_protected/recall/session': typeof modulesLearningLoopRoutesRecallSessionRouteRoute
+  '/_protected/recall/': typeof modulesLearningLoopRecallRecallResultsWorkspaceRouteRoute
+  '/_protected/recall/select': typeof modulesLearningLoopRecallRecallSelectionRouteRoute
+  '/_protected/recall/session': typeof modulesLearningLoopRecallRecallSessionRouteRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -245,14 +245,14 @@ declare module '@tanstack/react-router' {
       id: '/_protected/recall'
       path: '/recall'
       fullPath: '/recall'
-      preLoaderRoute: typeof modulesLearningLoopRoutesRecallRouteRouteImport
+      preLoaderRoute: typeof modulesLearningLoopRecallRecallRouteRouteImport
       parentRoute: typeof modulesWorkspaceShellRoutesProtectedRouteRoute
     }
     '/_protected/notes': {
       id: '/_protected/notes'
       path: '/notes'
       fullPath: '/notes'
-      preLoaderRoute: typeof modulesLearningLoopRoutesNotesRouteRouteImport
+      preLoaderRoute: typeof modulesLearningLoopNotesWorkspaceNotesRouteRouteImport
       parentRoute: typeof modulesWorkspaceShellRoutesProtectedRouteRoute
     }
     '/_protected/labels': {
@@ -266,7 +266,7 @@ declare module '@tanstack/react-router' {
       id: '/_protected/focus'
       path: '/focus'
       fullPath: '/focus'
-      preLoaderRoute: typeof modulesLearningLoopRoutesFocusRouteRouteImport
+      preLoaderRoute: typeof modulesLearningLoopFocusFocusRouteRouteImport
       parentRoute: typeof modulesWorkspaceShellRoutesProtectedRouteRoute
     }
     '/_auth/register': {
@@ -301,22 +301,22 @@ declare module '@tanstack/react-router' {
       id: '/_protected/recall/session'
       path: '/session'
       fullPath: '/recall/session'
-      preLoaderRoute: typeof modulesLearningLoopRoutesRecallSessionRouteRouteImport
-      parentRoute: typeof modulesLearningLoopRoutesRecallRouteRoute
+      preLoaderRoute: typeof modulesLearningLoopRecallRecallSessionRouteRouteImport
+      parentRoute: typeof modulesLearningLoopRecallRecallRouteRoute
     }
     '/_protected/recall/select': {
       id: '/_protected/recall/select'
       path: '/select'
       fullPath: '/recall/select'
-      preLoaderRoute: typeof modulesLearningLoopRoutesRecallSelectionRouteRouteImport
-      parentRoute: typeof modulesLearningLoopRoutesRecallRouteRoute
+      preLoaderRoute: typeof modulesLearningLoopRecallRecallSelectionRouteRouteImport
+      parentRoute: typeof modulesLearningLoopRecallRecallRouteRoute
     }
     '/_protected/recall/': {
       id: '/_protected/recall/'
       path: '/'
       fullPath: '/recall/'
-      preLoaderRoute: typeof modulesLearningLoopRoutesRecallResultsWorkspaceRouteRouteImport
-      parentRoute: typeof modulesLearningLoopRoutesRecallRouteRoute
+      preLoaderRoute: typeof modulesLearningLoopRecallRecallResultsWorkspaceRouteRouteImport
+      parentRoute: typeof modulesLearningLoopRecallRecallRouteRoute
     }
   }
 }
@@ -341,44 +341,44 @@ const modulesAccessRoutesAuthLayoutRouteRouteWithChildren =
     modulesAccessRoutesAuthLayoutRouteRouteChildren,
   )
 
-interface modulesLearningLoopRoutesRecallRouteRouteChildren {
-  modulesLearningLoopRoutesRecallResultsWorkspaceRouteRoute: typeof modulesLearningLoopRoutesRecallResultsWorkspaceRouteRoute
-  modulesLearningLoopRoutesRecallSelectionRouteRoute: typeof modulesLearningLoopRoutesRecallSelectionRouteRoute
-  modulesLearningLoopRoutesRecallSessionRouteRoute: typeof modulesLearningLoopRoutesRecallSessionRouteRoute
+interface modulesLearningLoopRecallRecallRouteRouteChildren {
+  modulesLearningLoopRecallRecallResultsWorkspaceRouteRoute: typeof modulesLearningLoopRecallRecallResultsWorkspaceRouteRoute
+  modulesLearningLoopRecallRecallSelectionRouteRoute: typeof modulesLearningLoopRecallRecallSelectionRouteRoute
+  modulesLearningLoopRecallRecallSessionRouteRoute: typeof modulesLearningLoopRecallRecallSessionRouteRoute
 }
 
-const modulesLearningLoopRoutesRecallRouteRouteChildren: modulesLearningLoopRoutesRecallRouteRouteChildren =
+const modulesLearningLoopRecallRecallRouteRouteChildren: modulesLearningLoopRecallRecallRouteRouteChildren =
   {
-    modulesLearningLoopRoutesRecallResultsWorkspaceRouteRoute:
-      modulesLearningLoopRoutesRecallResultsWorkspaceRouteRoute,
-    modulesLearningLoopRoutesRecallSelectionRouteRoute:
-      modulesLearningLoopRoutesRecallSelectionRouteRoute,
-    modulesLearningLoopRoutesRecallSessionRouteRoute:
-      modulesLearningLoopRoutesRecallSessionRouteRoute,
+    modulesLearningLoopRecallRecallResultsWorkspaceRouteRoute:
+      modulesLearningLoopRecallRecallResultsWorkspaceRouteRoute,
+    modulesLearningLoopRecallRecallSelectionRouteRoute:
+      modulesLearningLoopRecallRecallSelectionRouteRoute,
+    modulesLearningLoopRecallRecallSessionRouteRoute:
+      modulesLearningLoopRecallRecallSessionRouteRoute,
   }
 
-const modulesLearningLoopRoutesRecallRouteRouteWithChildren =
-  modulesLearningLoopRoutesRecallRouteRoute._addFileChildren(
-    modulesLearningLoopRoutesRecallRouteRouteChildren,
+const modulesLearningLoopRecallRecallRouteRouteWithChildren =
+  modulesLearningLoopRecallRecallRouteRoute._addFileChildren(
+    modulesLearningLoopRecallRecallRouteRouteChildren,
   )
 
 interface modulesWorkspaceShellRoutesProtectedRouteRouteChildren {
-  modulesLearningLoopRoutesFocusRouteRoute: typeof modulesLearningLoopRoutesFocusRouteRoute
+  modulesLearningLoopFocusFocusRouteRoute: typeof modulesLearningLoopFocusFocusRouteRoute
   modulesLabelsRoutesLabelsRouteRoute: typeof modulesLabelsRoutesLabelsRouteRoute
-  modulesLearningLoopRoutesNotesRouteRoute: typeof modulesLearningLoopRoutesNotesRouteRoute
-  modulesLearningLoopRoutesRecallRouteRoute: typeof modulesLearningLoopRoutesRecallRouteRouteWithChildren
+  modulesLearningLoopNotesWorkspaceNotesRouteRoute: typeof modulesLearningLoopNotesWorkspaceNotesRouteRoute
+  modulesLearningLoopRecallRecallRouteRoute: typeof modulesLearningLoopRecallRecallRouteRouteWithChildren
   modulesAccessRoutesSettingsRouteRoute: typeof modulesAccessRoutesSettingsRouteRoute
 }
 
 const modulesWorkspaceShellRoutesProtectedRouteRouteChildren: modulesWorkspaceShellRoutesProtectedRouteRouteChildren =
   {
-    modulesLearningLoopRoutesFocusRouteRoute:
-      modulesLearningLoopRoutesFocusRouteRoute,
+    modulesLearningLoopFocusFocusRouteRoute:
+      modulesLearningLoopFocusFocusRouteRoute,
     modulesLabelsRoutesLabelsRouteRoute: modulesLabelsRoutesLabelsRouteRoute,
-    modulesLearningLoopRoutesNotesRouteRoute:
-      modulesLearningLoopRoutesNotesRouteRoute,
-    modulesLearningLoopRoutesRecallRouteRoute:
-      modulesLearningLoopRoutesRecallRouteRouteWithChildren,
+    modulesLearningLoopNotesWorkspaceNotesRouteRoute:
+      modulesLearningLoopNotesWorkspaceNotesRouteRoute,
+    modulesLearningLoopRecallRecallRouteRoute:
+      modulesLearningLoopRecallRecallRouteRouteWithChildren,
     modulesAccessRoutesSettingsRouteRoute:
       modulesAccessRoutesSettingsRouteRoute,
   }

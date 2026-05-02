@@ -24,8 +24,8 @@ import {
   NotesWorkspaceSidebar,
   RecallResultsSidebar,
 } from "../../learning-loop";
-import { RecallResultsSearch } from "../../learning-loop/components/recall-results-search";
-import { getRecallWorkspaceSection } from "../../learning-loop/domain/recall-workspace";
+import { RecallResultsSearch } from "../../learning-loop/recall/recall-results-search";
+import { getRecallWorkspaceSection } from "../../learning-loop/recall/recall-workspace";
 
 type NavigationIconName = "focus" | "label" | "note" | "recall" | "settings";
 

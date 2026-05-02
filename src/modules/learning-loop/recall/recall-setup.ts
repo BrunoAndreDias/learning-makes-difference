@@ -1,11 +1,11 @@
 import type { AppLabel } from "../../labels/domain/labels";
+import { type AppNote, filterNotesByQuery } from "../notes-workspace/notes";
 import {
   deriveLearningState,
   type NoteLearningState,
   type NoteRecallHistory,
   type NoteRecallHistoryAttempt,
-} from "./learning-state";
-import { type AppNote, filterNotesByQuery } from "./notes";
+} from "../shared/learning-state";
 import type { RecallSelfRating, SessionResult } from "./recall";
 
 const RECENT_NOTE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;

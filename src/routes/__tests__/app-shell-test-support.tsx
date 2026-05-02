@@ -27,17 +27,17 @@ import {
 import {
   type AppFocusContext,
   createAppFocusContext,
-} from "../../modules/learning-loop/domain/focus";
+} from "../../modules/learning-loop/focus/focus";
 import {
   type AppNotesContext,
   createAppNotesContext,
   listNotesForUser,
-} from "../../modules/learning-loop/domain/notes";
+} from "../../modules/learning-loop/notes-workspace/notes";
 import {
   type AppRecallContext,
   createAppRecallContext,
   type FlashCardRecallRating,
-} from "../../modules/learning-loop/domain/recall";
+} from "../../modules/learning-loop/recall/recall";
 import { routeTree } from "../../routeTree.gen";
 
 export function renderRoute(

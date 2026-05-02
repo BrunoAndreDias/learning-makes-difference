@@ -23,27 +23,28 @@ import { formatCount } from "../../../lib/format-count";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import type { AppLabel } from "../../labels/domain/labels";
-import { BreakIntervalOverlay } from "../components/break-interval-overlay";
-import { FocusSessionStartControl } from "../components/focus-session-start-control";
-import { AppFocusError, isBreakIntervalActive } from "../domain/focus";
+import { BreakIntervalOverlay } from "../focus/break-interval-overlay";
+import { AppFocusError, isBreakIntervalActive } from "../focus/focus";
+import { FocusSessionStartControl } from "../focus/focus-session-start-control";
+import { AppRecallError } from "../recall/recall";
 import {
   deriveLearningStates,
   formatLearningStateRatingLabel,
   formatLearningStateStatusLabel,
   type LearningStateStatus,
   toNoteRecallHistories,
-} from "../domain/learning-state";
+} from "../shared/learning-state";
 import {
   getSelectedNote,
   type NoteEditorDraft,
   type NoteEditorState,
-} from "../domain/note-editor";
+} from "./note-editor";
 import {
   type AppNoteSearchResult,
   formatNoteSearchResultPreview,
   searchNoteResults,
-} from "../domain/note-search";
-import { resolveNotesSearchTargetElement } from "../domain/note-search-navigation";
+} from "./note-search";
+import { resolveNotesSearchTargetElement } from "./note-search-navigation";
 import {
   type AppAcronym,
   type AppMetaphor,
@@ -51,9 +52,8 @@ import {
   AppNotesError,
   type AppStoredNote,
   listNotesForUser,
-} from "../domain/notes";
-import { useNotesWorkspace } from "../domain/notes-workspace";
-import { AppRecallError } from "../domain/recall";
+} from "./notes";
+import { useNotesWorkspace } from "./notes-workspace";
 
 const labelPickerPanelId = "note-label-picker-panel";
 const notesSearchListboxId = "notes-search-results";

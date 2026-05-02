@@ -3,31 +3,31 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import { z } from "zod";
 import { formatCount } from "../../../lib/format-count";
 import type { AppSessionSnapshot } from "../../access/domain/session";
-import { formatRecallModeLabel } from "../domain/learner-copy";
-import { listNotesForUser } from "../domain/notes";
-import { useNotesWorkspace } from "../domain/notes-workspace";
+import { listNotesForUser } from "../notes-workspace/notes";
+import { useNotesWorkspace } from "../notes-workspace/notes-workspace";
+import { formatRecallModeLabel } from "../shared/learner-copy";
 import type {
   FlashCardRecallNote,
   FlashCardSessionResult,
   RecallQuestion,
-} from "../domain/recall";
+} from "./recall";
 import {
   deriveRecallSetupState,
   type RecallSetupCandidate,
   type RecallSetupState,
-} from "../domain/recall-setup";
+} from "./recall-setup";
 import {
   getRecallWorkspaceSearch,
   getRecallWorkspaceSection,
   type RecallWorkspaceSection,
   recallWorkspaceSearchSections,
-} from "../domain/recall-workspace";
+} from "./recall-workspace";
 import {
   formatResultSummaryScoreLabel,
   getResultSummaryNoteCountLabel,
   type RecallResultSummary,
   summarizeSessionResult,
-} from "../domain/result-summary";
+} from "./result-summary";
 
 const recallWorkspaceSearchSchema = z.object({
   section: z.enum(recallWorkspaceSearchSections).optional(),

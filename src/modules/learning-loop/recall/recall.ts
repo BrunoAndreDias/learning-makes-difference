@@ -1,6 +1,10 @@
 import type { AppLabel } from "../../labels/domain/labels";
-import type { RecallStudyActivitySession } from "./focus";
-import { type AppNote, type AppNotesContext, listNotesForUser } from "./notes";
+import type { RecallStudyActivitySession } from "../focus/focus";
+import {
+  type AppNote,
+  type AppNotesContext,
+  listNotesForUser,
+} from "../notes-workspace/notes";
 
 export type RecallMode = "AiAssisted" | "AiGraded" | "FlashCard";
 

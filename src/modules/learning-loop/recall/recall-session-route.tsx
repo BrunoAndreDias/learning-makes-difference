@@ -7,16 +7,16 @@ import {
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import type { AppSessionSnapshot } from "../../access/domain/session";
-import { BreakIntervalOverlay } from "../components/break-interval-overlay";
-import { isBreakIntervalActive } from "../domain/focus";
-import { formatRecallModeLabel } from "../domain/learner-copy";
+import { BreakIntervalOverlay } from "../focus/break-interval-overlay";
+import { isBreakIntervalActive } from "../focus/focus";
+import { formatRecallModeLabel } from "../shared/learner-copy";
 import {
   AppRecallError,
   type AppRecallSnapshot,
   type FlashCardRecallNote,
   type FlashCardRecallRating,
   summarizeAttempts,
-} from "../domain/recall";
+} from "./recall";
 
 type RecallSessionRouteOptions = {
   breadcrumbCurrent: string;

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createAppLabelsContext } from "../../labels/domain/labels";
-import { createAppFocusContext } from "./focus";
-import { createAppNotesContext } from "./notes";
+import { createAppFocusContext } from "../focus/focus";
+import { createAppNotesContext } from "../notes-workspace/notes";
 import { createAppRecallContext, summarizeAttempts } from "./recall";
 
 function createMemoryStorage() {

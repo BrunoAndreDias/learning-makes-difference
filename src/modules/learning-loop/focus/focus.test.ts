@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-
+import type { AppNote } from "../notes-workspace/notes";
 import { AppFocusError, createAppFocusContext } from "./focus";
-import type { AppNote } from "./notes";
 
 function createMemoryStorage() {
   const values = new Map<string, string>();

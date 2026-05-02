@@ -8,15 +8,15 @@ import {
   useSyncExternalStore,
 } from "react";
 import { formatCount } from "../../../lib/format-count";
-import { useFocusTimerTick } from "../components/focus-session-start-control";
+import { formatFocusTargetKindLabel } from "../shared/learner-copy";
 import {
   type AppFocusContext,
   AppFocusError,
   type FocusRecord,
   type FocusSession,
   type FocusTarget,
-} from "../domain/focus";
-import { formatFocusTargetKindLabel } from "../domain/learner-copy";
+} from "./focus";
+import { useFocusTimerTick } from "./focus-session-start-control";
 
 type FocusSessionStartValues = {
   breakMinutes: string;

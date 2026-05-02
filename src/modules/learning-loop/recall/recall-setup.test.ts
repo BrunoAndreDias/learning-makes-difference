@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AppLabel } from "../../labels/domain/labels";
-import type { AppNote } from "./notes";
+import type { AppNote } from "../notes-workspace/notes";
 import type { SessionResult } from "./recall";
 import { deriveRecallSetupState } from "./recall-setup";
 

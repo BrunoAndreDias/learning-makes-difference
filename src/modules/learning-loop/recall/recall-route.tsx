@@ -19,15 +19,15 @@ import { formatCount } from "../../../lib/format-count";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import type { AppLabel } from "../../labels/domain/labels";
-import { AppFocusError } from "../domain/focus";
-import { formatSearchMatchLabel } from "../domain/learner-copy";
+import { AppFocusError } from "../focus/focus";
 import {
   type AppNoteSearchResult,
   formatNoteSearchResultPreview,
   searchNoteResults,
-} from "../domain/note-search";
-import { listNotesForUser } from "../domain/notes";
-import { AppRecallError } from "../domain/recall";
+} from "../notes-workspace/note-search";
+import { listNotesForUser } from "../notes-workspace/notes";
+import { formatSearchMatchLabel } from "../shared/learner-copy";
+import { AppRecallError } from "./recall";
 import {
   deriveRecallSetupState,
   type RecallSetupAvailableEmptyState,
@@ -35,7 +35,7 @@ import {
   type RecallSetupFilter,
   type RecallSetupFilterSummary,
   type RecallSetupSelectedSummary,
-} from "../domain/recall-setup";
+} from "./recall-setup";
 
 const NOTE_DATE_FORMATTER = new Intl.DateTimeFormat("en", {
   day: "numeric",

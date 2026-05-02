@@ -1,5 +1,5 @@
-import type { AppNoteSearchMatchChip } from "./note-search";
-import type { RecallMode } from "./recall";
+import type { AppNoteSearchMatchChip } from "../notes-workspace/note-search";
+import type { RecallMode } from "../recall/recall";
 
 export function formatSearchMatchLabel(
   label: AppNoteSearchMatchChip | "Label",
