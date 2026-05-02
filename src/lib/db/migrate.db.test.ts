@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { migrateDatabase } from "./migrate";
 import {
+  closePostgresIntegrationDatabases,
   createPostgresIntegrationDatabase,
   type PostgresIntegrationDatabase,
 } from "./postgres-integration-test-db";
@@ -10,12 +11,7 @@ describe("migrateDatabase PostgreSQL integration", () => {
   const databases = new Set<PostgresIntegrationDatabase>();
 
   afterEach(async () => {
-    await Promise.all(
-      Array.from(databases, async (database) => {
-        await database.close();
-      }),
-    );
-    databases.clear();
+    await closePostgresIntegrationDatabases(databases);
   });
 
   it("migrates a clean PostgreSQL database repeatedly without duplicating migration history", async () => {
@@ -43,8 +39,10 @@ describe("migrateDatabase PostgreSQL integration", () => {
       order by table_name;
     `);
 
-    expect(
-      tables.map((table: { table_name: string }) => table.table_name),
-    ).toEqual(["__drizzle_migrations", "auth_sessions", "users"]);
+    expect(tables.map((table) => table.table_name)).toEqual([
+      "__drizzle_migrations",
+      "auth_sessions",
+      "users",
+    ]);
   });
 });

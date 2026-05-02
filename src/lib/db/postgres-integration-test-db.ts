@@ -4,6 +4,7 @@ import postgres from "postgres";
 
 const DEFAULT_DATABASE_URL =
   "postgres://postgres:postgres@127.0.0.1:55432/learning_makes_difference";
+const POSTGRES_IDENTIFIER_MAX_LENGTH = 63;
 
 export type PostgresIntegrationDatabase = {
   client: postgres.Sql;
@@ -30,7 +31,7 @@ function buildTestDatabaseName(baseDatabaseUrl: string) {
     "",
   );
 
-  return `${baseName}_itest_${suffix}`.slice(0, 63);
+  return `${baseName}_itest_${suffix}`.slice(0, POSTGRES_IDENTIFIER_MAX_LENGTH);
 }
 
 function buildTestDatabaseUrl(baseDatabaseUrl: string, databaseName: string) {
@@ -47,16 +48,26 @@ function quoteLiteral(value: string) {
   return `'${value.replaceAll("'", "''")}'`;
 }
 
+function createSqlClient(databaseUrl: string) {
+  return postgres(databaseUrl, {
+    max: 1,
+    prepare: false,
+  });
+}
+
+export async function closePostgresIntegrationDatabases(
+  databases: Set<PostgresIntegrationDatabase>,
+) {
+  await Promise.all(Array.from(databases, (database) => database.close()));
+  databases.clear();
+}
+
 export async function createPostgresIntegrationDatabase(): Promise<PostgresIntegrationDatabase> {
   const baseDatabaseUrl = resolveBaseDatabaseUrl();
   const databaseName = buildTestDatabaseName(baseDatabaseUrl);
   const databaseUrl = buildTestDatabaseUrl(baseDatabaseUrl, databaseName);
-  const maintenanceClient = postgres(
+  const maintenanceClient = createSqlClient(
     buildMaintenanceDatabaseUrl(baseDatabaseUrl),
-    {
-      max: 1,
-      prepare: false,
-    },
   );
 
   try {
@@ -68,27 +79,27 @@ export async function createPostgresIntegrationDatabase(): Promise<PostgresInteg
     throw error;
   }
 
-  const client = postgres(databaseUrl, {
-    max: 1,
-    prepare: false,
-  });
+  const client = createSqlClient(databaseUrl);
 
   return {
     client,
     databaseName,
     databaseUrl,
     async close() {
-      await client.end();
-      await maintenanceClient.unsafe(`
-        select pg_terminate_backend(pid)
-        from pg_stat_activity
-        where datname = ${quoteLiteral(databaseName)}
-          and pid <> pg_backend_pid();
-      `);
-      await maintenanceClient.unsafe(
-        `drop database if exists ${quoteIdentifier(databaseName)};`,
-      );
-      await maintenanceClient.end();
+      try {
+        await client.end();
+        await maintenanceClient.unsafe(`
+          select pg_terminate_backend(pid)
+          from pg_stat_activity
+          where datname = ${quoteLiteral(databaseName)}
+            and pid <> pg_backend_pid();
+        `);
+        await maintenanceClient.unsafe(
+          `drop database if exists ${quoteIdentifier(databaseName)};`,
+        );
+      } finally {
+        await maintenanceClient.end();
+      }
     },
   };
 }

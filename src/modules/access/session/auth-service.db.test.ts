@@ -2,6 +2,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { afterEach, describe, expect, it } from "vitest";
 import { migrateDatabase } from "../../../lib/db/migrate";
 import {
+  closePostgresIntegrationDatabases,
   createPostgresIntegrationDatabase,
   type PostgresIntegrationDatabase,
 } from "../../../lib/db/postgres-integration-test-db";
@@ -18,7 +19,7 @@ function createCookieJar() {
     get() {
       return sessionToken;
     },
-    set(value: string) {
+    set(value: string, _options?: unknown) {
       sessionToken = value;
     },
   };
@@ -28,12 +29,7 @@ describe("createAuthService PostgreSQL integration", () => {
   const databases = new Set<PostgresIntegrationDatabase>();
 
   afterEach(async () => {
-    await Promise.all(
-      Array.from(databases, async (database) => {
-        await database.close();
-      }),
-    );
-    databases.clear();
+    await closePostgresIntegrationDatabases(databases);
   });
 
   it("persists separate users and restores only the matching account for each session cookie", async () => {
