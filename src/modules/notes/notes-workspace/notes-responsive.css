@@ -25,8 +25,18 @@
   }
 
   .notes-layout,
+  .notes-editor__content,
   .notes-form {
     grid-template-columns: 1fr;
+  }
+
+  .notes-form {
+    grid-column: auto;
+  }
+
+  .notes-form__inspector {
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .notes-workspace__toolbar {

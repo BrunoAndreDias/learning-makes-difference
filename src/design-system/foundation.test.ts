@@ -82,4 +82,28 @@ describe("foundationTokens", () => {
     expect(workspaceShellCss).toContain("transform: translateY(0.1875rem);");
     expect(notesResponsiveCss).toContain("align-items: start;");
   });
+
+  it("keeps the notes inspector aligned with the editor header while mobile stays stacked", () => {
+    const notesEditorCss = readFileSync(
+      new URL(
+        "../modules/notes/notes-workspace/notes-editor-route.css",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const notesResponsiveCss = readFileSync(
+      new URL(
+        "../modules/notes/notes-workspace/notes-responsive.css",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+
+    expect(notesEditorCss).toContain(".notes-editor__content");
+    expect(notesEditorCss).toContain("grid-column: 3 / 4;");
+    expect(notesEditorCss).toContain("grid-row: 1 / span 2;");
+    expect(notesResponsiveCss).toContain(".notes-editor__content,");
+    expect(notesResponsiveCss).toContain(".notes-form__inspector");
+    expect(notesResponsiveCss).toContain("grid-template-columns: 1fr;");
+  });
 });

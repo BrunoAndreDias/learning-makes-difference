@@ -1841,151 +1841,158 @@ function NotesWorkspace() {
             disabled={isBreakActive}
           >
             <legend className="sr-only">Note study surface</legend>
-            <header className="notes-editor__header">
-              <div className="notes-editor__title-stack">
-                <div className="notes-editor__title-row">
-                  <label className="notes-title-editor">
-                    <span className="sr-only">Title</span>
-                    <input
-                      form={noteEditorFormId}
-                      ref={titleInputRef}
-                      name="title"
-                      onChange={(event) =>
-                        handleEditorChange("title", event.target.value)
-                      }
-                      placeholder="Name this note"
-                      type="text"
-                      value={editorState.title}
-                    />
-                  </label>
-                </div>
-                <p className="muted notes-editor__meta">
-                  <span>{selectedNoteUpdatedLabel}</span>
-                  {isCreating || hasUnsavedChanges ? (
-                    <span className="notes-editor__inline-actions">
-                      {isCreating ||
-                      (hasUnsavedChanges && !hasUnsavedHookChanges) ? (
-                        <button
-                          className="notes-action notes-action-primary notes-editor__save-inline"
-                          form={noteEditorFormId}
-                          type="submit"
-                        >
-                          {isCreating ? "Create note" : "Save changes"}
-                        </button>
-                      ) : null}
-                      {hasUnsavedChanges ? (
-                        <button
-                          className="notes-action notes-editor__discard"
-                          onClick={() => discardEditorChanges(notes)}
-                          type="button"
-                        >
-                          Discard changes
-                        </button>
-                      ) : null}
-                    </span>
-                  ) : null}
-                </p>
-                <section
-                  aria-label="Current labels"
-                  className="notes-editor__labels"
-                >
-                  <div className="notes-editor__label-row">
-                    {selectedLabels.length === 0 ? (
-                      <p className="muted">No labels yet</p>
-                    ) : (
-                      <section aria-label="Assigned labels" className="tag-row">
-                        {selectedLabels.map((label) => (
-                          <span
-                            className="tag notes-editor__label-chip"
-                            key={label.id}
-                          >
-                            <span>{label.name}</span>
-                            <button
-                              aria-label={`Remove ${label.name} label`}
-                              className="notes-editor__label-chip-remove"
-                              onClick={() =>
-                                handleAssignedLabelRemove(label.id)
-                              }
-                              type="button"
-                            >
-                              <span aria-hidden="true">x</span>
-                            </button>
-                          </span>
-                        ))}
-                      </section>
-                    )}
-                    <span
-                      className="notes-editor__label-picker-anchor"
-                      ref={labelPickerAnchorRef}
-                    >
-                      <button
-                        aria-expanded={isLabelPickerOpen}
-                        aria-controls={labelPickerPanelId}
-                        aria-haspopup="dialog"
-                        aria-label="Manage labels"
-                        className="notes-inline-action"
-                        onClick={() =>
-                          isLabelPickerOpen
-                            ? handleLabelPickerCancel()
-                            : openLabelPicker()
-                        }
-                        ref={labelPickerTriggerRef}
-                        type="button"
-                      >
-                        Manage labels
-                      </button>
-                      {labelPickerContent}
-                    </span>
-                  </div>
-                </section>
-              </div>
-            </header>
-
-            <form
-              aria-label="Note editor"
-              className="notes-form"
+            <div
+              className="notes-editor__content"
               data-inspector-hidden={isInspectorHidden ? "true" : undefined}
-              id={noteEditorFormId}
-              onSubmit={handleSubmit}
-              ref={noteFormRef}
               style={{ "--notes-body-fraction": bodyFraction } as CSSProperties}
             >
-              <div className="notes-form__primary">
-                <label className="notes-form__field notes-form__body-field">
-                  <span className="sr-only">Body</span>
-                  <textarea
-                    ref={bodyTextareaRef}
-                    name="body"
-                    onChange={(event) =>
-                      handleEditorChange("body", event.target.value)
-                    }
-                    onPointerDown={handleBodyTextareaPointerDown}
-                    placeholder="Explain the concept in your own words"
-                    rows={10}
-                    value={editorState.body}
-                  />
-                </label>
-
-                {errorMessage === null ? null : (
-                  <p className="auth-form__error" role="alert">
-                    {errorMessage}
+              <header className="notes-editor__header">
+                <div className="notes-editor__title-stack">
+                  <div className="notes-editor__title-row">
+                    <label className="notes-title-editor">
+                      <span className="sr-only">Title</span>
+                      <input
+                        form={noteEditorFormId}
+                        ref={titleInputRef}
+                        name="title"
+                        onChange={(event) =>
+                          handleEditorChange("title", event.target.value)
+                        }
+                        placeholder="Name this note"
+                        type="text"
+                        value={editorState.title}
+                      />
+                    </label>
+                  </div>
+                  <p className="muted notes-editor__meta">
+                    <span>{selectedNoteUpdatedLabel}</span>
+                    {isCreating || hasUnsavedChanges ? (
+                      <span className="notes-editor__inline-actions">
+                        {isCreating ||
+                        (hasUnsavedChanges && !hasUnsavedHookChanges) ? (
+                          <button
+                            className="notes-action notes-action-primary notes-editor__save-inline"
+                            form={noteEditorFormId}
+                            type="submit"
+                          >
+                            {isCreating ? "Create note" : "Save changes"}
+                          </button>
+                        ) : null}
+                        {hasUnsavedChanges ? (
+                          <button
+                            className="notes-action notes-editor__discard"
+                            onClick={() => discardEditorChanges(notes)}
+                            type="button"
+                          >
+                            Discard changes
+                          </button>
+                        ) : null}
+                      </span>
+                    ) : null}
                   </p>
-                )}
-              </div>
+                  <section
+                    aria-label="Current labels"
+                    className="notes-editor__labels"
+                  >
+                    <div className="notes-editor__label-row">
+                      {selectedLabels.length === 0 ? (
+                        <p className="muted">No labels yet</p>
+                      ) : (
+                        <section
+                          aria-label="Assigned labels"
+                          className="tag-row"
+                        >
+                          {selectedLabels.map((label) => (
+                            <span
+                              className="tag notes-editor__label-chip"
+                              key={label.id}
+                            >
+                              <span>{label.name}</span>
+                              <button
+                                aria-label={`Remove ${label.name} label`}
+                                className="notes-editor__label-chip-remove"
+                                onClick={() =>
+                                  handleAssignedLabelRemove(label.id)
+                                }
+                                type="button"
+                              >
+                                <span aria-hidden="true">x</span>
+                              </button>
+                            </span>
+                          ))}
+                        </section>
+                      )}
+                      <span
+                        className="notes-editor__label-picker-anchor"
+                        ref={labelPickerAnchorRef}
+                      >
+                        <button
+                          aria-expanded={isLabelPickerOpen}
+                          aria-controls={labelPickerPanelId}
+                          aria-haspopup="dialog"
+                          aria-label="Manage labels"
+                          className="notes-inline-action"
+                          onClick={() =>
+                            isLabelPickerOpen
+                              ? handleLabelPickerCancel()
+                              : openLabelPicker()
+                          }
+                          ref={labelPickerTriggerRef}
+                          type="button"
+                        >
+                          Manage labels
+                        </button>
+                        {labelPickerContent}
+                      </span>
+                    </div>
+                  </section>
+                </div>
+              </header>
 
-              <hr
-                aria-label="Resize note body"
-                aria-orientation="vertical"
-                aria-valuetext={`${Math.round(bodyFraction * 100)}% note body width`}
-                aria-valuemax={95}
-                aria-valuemin={35}
-                aria-valuenow={Math.round(bodyFraction * 100)}
-                className="notes-form__splitter"
-                data-resizing={isBodyResizing ? "true" : undefined}
-                onKeyDown={handleBodyResizeKeyDown}
-                onPointerDown={handleBodyResizePointerDown}
-                tabIndex={0}
-              />
+              <form
+                aria-label="Note editor"
+                className="notes-form"
+                id={noteEditorFormId}
+                onSubmit={handleSubmit}
+                ref={noteFormRef}
+              >
+                <div className="notes-form__primary">
+                  <label className="notes-form__field notes-form__body-field">
+                    <span className="sr-only">Body</span>
+                    <textarea
+                      ref={bodyTextareaRef}
+                      name="body"
+                      onChange={(event) =>
+                        handleEditorChange("body", event.target.value)
+                      }
+                      onPointerDown={handleBodyTextareaPointerDown}
+                      placeholder="Explain the concept in your own words"
+                      rows={10}
+                      value={editorState.body}
+                    />
+                  </label>
+
+                  {errorMessage === null ? null : (
+                    <p className="auth-form__error" role="alert">
+                      {errorMessage}
+                    </p>
+                  )}
+                </div>
+
+                <hr
+                  aria-label="Resize note body"
+                  aria-orientation="vertical"
+                  aria-valuetext={`${Math.round(bodyFraction * 100)}% note body width`}
+                  aria-valuemax={95}
+                  aria-valuemin={35}
+                  aria-valuenow={Math.round(bodyFraction * 100)}
+                  className="notes-form__splitter"
+                  data-resizing={isBodyResizing ? "true" : undefined}
+                  onKeyDown={handleBodyResizeKeyDown}
+                  onPointerDown={handleBodyResizePointerDown}
+                  tabIndex={0}
+                />
+              </form>
 
               <aside
                 aria-hidden={isInspectorHidden}
@@ -2090,7 +2097,7 @@ function NotesWorkspace() {
                   )}
                 </section>
               </aside>
-            </form>
+            </div>
           </fieldset>
           {isBreakActive && userId !== null ? (
             <BreakIntervalOverlay onSkipBreak={skipBreakInterval} />

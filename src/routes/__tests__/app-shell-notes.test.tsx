@@ -716,6 +716,35 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps the notes inspector outside the note form while preserving hook-first order", async () => {
+    renderRoute("/notes", {
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const noteForm = screen.getByLabelText("Note editor");
+    const memoryHooks = screen.getByLabelText("Memory hooks");
+    const learningState = screen.getByLabelText("Learning state");
+
+    expect(noteForm).not.toContainElement(memoryHooks);
+    expect(noteForm).not.toContainElement(learningState);
+    expect(
+      memoryHooks.compareDocumentPosition(learningState) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("shows ranked notes search results with match chips and updated dates", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
