@@ -32,7 +32,6 @@ import {
   toNoteRecallHistories,
 } from "../domain/learning-state";
 import {
-  getNoteEditorSaveInput,
   getSelectedNote,
   type NoteEditorDraft,
   type NoteEditorState,
@@ -233,6 +232,7 @@ export function NotesWorkspace() {
     pendingSearchJump,
     removeEditorAcronym,
     removeEditorMetaphor,
+    requestEditorSave,
     syncEditorWithNotes,
     toggleEditorLabel,
     updateEditorAcronym,
@@ -935,24 +935,27 @@ export function NotesWorkspace() {
     setErrorMessage(null);
 
     try {
-      if (selectedNote === null) {
-        const createdNote = notesContext.createNote(userId, {
-          ...getNoteEditorSaveInput(noteEditor),
-        });
+      const saveInstruction = requestEditorSave();
 
-        captureNoteStudyActivity(createdNote);
-        markEditorSaved(createdNote);
+      if (saveInstruction === null) {
         return;
       }
 
-      const updatedNote = notesContext.updateNote(
-        userId,
-        selectedNote.id,
-        getNoteEditorSaveInput(noteEditor),
-      );
+      const savedNote =
+        saveInstruction.type === "createNote"
+          ? notesContext.createNote(userId, saveInstruction.input)
+          : notesContext.updateNote(
+              userId,
+              saveInstruction.noteId,
+              saveInstruction.input,
+            );
+      const saveResult = markEditorSaved(savedNote);
 
-      captureNoteStudyActivity(updatedNote);
-      markEditorSaved(updatedNote);
+      for (const instruction of saveResult.instructions) {
+        if (instruction.type === "captureStudyActivity") {
+          captureNoteStudyActivity(instruction.note);
+        }
+      }
     } catch (error) {
       if (error instanceof AppNotesError) {
         setErrorMessage(error.message);

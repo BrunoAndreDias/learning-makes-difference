@@ -3,39 +3,26 @@ import {
   type ReactNode,
   useCallback,
   useContext,
-  useRef,
   useState,
 } from "react";
 
-import {
-  addNoteEditorAcronym,
-  addNoteEditorMetaphor,
-  createInitialNoteEditorState,
-  discardNoteEditorChanges,
-  isNoteEditorDirty,
-  markNoteEditorSaved,
-  type NoteEditorDraft,
-  type NoteEditorState,
-  type NoteEditorTransitionTarget,
-  removeNoteEditorAcronym,
-  removeNoteEditorMetaphor,
-  startNewNoteDraft,
-  syncNoteEditorWithNotes,
-  toggleNoteEditorLabel,
-  updateNoteEditorAcronym,
-  updateNoteEditorDraftField,
-  updateNoteEditorMetaphor,
+import type {
+  NoteEditorDraft,
+  NoteEditorState,
+  NoteEditorTransitionTarget,
 } from "./note-editor";
 import type { AppAcronym, AppMetaphor, AppNote } from "./notes";
 import {
-  activateNotesWorkspaceNote,
-  cancelPendingNotesWorkspaceTransition,
-  discardPendingNotesWorkspaceTransition,
-  hasPendingNotesWorkspaceTransition,
+  applyNotesWorkspaceInteractionEvent,
+  createInitialNotesWorkspaceInteractionState,
+  hasPendingNotesWorkspaceInteractionTransition,
+  hasUnsavedNotesWorkspaceInteractionChanges,
   type NotesWorkspaceActivationResult,
   type NotesWorkspaceDiscardResult,
-  type NotesWorkspaceState,
-} from "./notes-workspace-state";
+  type NotesWorkspaceInteractionResult,
+  type NotesWorkspaceInteractionState,
+  type NotesWorkspaceSaveInstruction,
+} from "./notes-workspace-interaction";
 
 type NotesWorkspaceContextValue = {
   activeNoteId: string | null;
@@ -50,7 +37,7 @@ type NotesWorkspaceContextValue = {
   editorFocusRequestNonce: number;
   hasPendingWorkspaceTransition: boolean;
   hasUnsavedNoteChanges: boolean;
-  markEditorSaved: (note: AppNote) => void;
+  markEditorSaved: (note: AppNote) => NotesWorkspaceInteractionResult;
   noteEditor: NoteEditorState;
   pendingSearchJump: NotesWorkspaceActivationResult["completedSearchJump"];
   selectedRecallLabelId: string;
@@ -59,6 +46,7 @@ type NotesWorkspaceContextValue = {
   removeEditorAcronym: (index: number) => void;
   removeEditorMetaphor: (index: number) => void;
   requestEditorFocus: () => void;
+  requestEditorSave: () => NotesWorkspaceSaveInstruction | null;
   activateNoteTarget: (
     target: NoteEditorTransitionTarget,
     notes: readonly AppNote[],
@@ -92,79 +80,82 @@ const NotesWorkspaceContext = createContext<NotesWorkspaceContextValue | null>(
 export function NotesWorkspaceProvider({
   children,
 }: Readonly<{ children: ReactNode }>) {
-  const [noteEditor, setNoteEditor] = useState(() =>
-    createInitialNoteEditorState([]),
+  const [interactionState, setInteractionState] = useState(() =>
+    createInitialNotesWorkspaceInteractionState(),
   );
-  const [pendingSearchJump, setPendingSearchJump] =
-    useState<NotesWorkspaceActivationResult["completedSearchJump"]>(null);
-  const [editorFocusRequestNonce, setEditorFocusRequestNonce] = useState(0);
   const [selectedRecallLabelId, setSelectedRecallLabelId] = useState("");
   const [selectedRecallSearchQuery, setSelectedRecallSearchQuery] =
     useState("");
   const [selectedRecallSessionId, setSelectedRecallSessionId] = useState<
     string | null
   >(null);
-  const hasInitializedEditorRef = useRef(false);
+  const noteEditor = interactionState.noteEditor;
 
-  const getWorkspaceState = useCallback(
-    (): NotesWorkspaceState => ({
-      noteEditor,
-    }),
-    [noteEditor],
-  );
+  const applyInteractionResult = useCallback(
+    <TResult extends NotesWorkspaceInteractionResult>(result: TResult) => {
+      setInteractionState(result.state);
 
-  const applyWorkspaceState = useCallback((state: NotesWorkspaceState) => {
-    setNoteEditor(state.noteEditor);
-  }, []);
-
-  const applyActivationResult = useCallback(
-    (result: NotesWorkspaceActivationResult) => {
-      applyWorkspaceState(result.state);
-
-      if (result.completedSearchJump !== null) {
-        setPendingSearchJump(result.completedSearchJump);
-      }
+      return result;
     },
-    [applyWorkspaceState],
+    [],
   );
 
-  const requestEditorFocus = useCallback(() => {
-    setEditorFocusRequestNonce((currentValue) => currentValue + 1);
-  }, []);
+  const getInteractionState = useCallback(
+    (): NotesWorkspaceInteractionState => interactionState,
+    [interactionState],
+  );
 
   const syncEditorWithNotes = useCallback((notes: readonly AppNote[]) => {
-    setNoteEditor((currentState) => {
-      if (!hasInitializedEditorRef.current) {
-        hasInitializedEditorRef.current = true;
-        return createInitialNoteEditorState(notes);
-      }
-
-      return syncNoteEditorWithNotes(currentState, notes);
-    });
+    setInteractionState(
+      (currentState) =>
+        applyNotesWorkspaceInteractionEvent(currentState, {
+          notes,
+          type: "notesSynced",
+        }).state,
+    );
   }, []);
 
   const updateEditorDraft = useCallback(
     <K extends keyof NoteEditorDraft>(field: K, value: NoteEditorDraft[K]) => {
-      setNoteEditor((currentState) =>
-        updateNoteEditorDraftField(currentState, field, value),
+      setInteractionState(
+        (currentState) =>
+          applyNotesWorkspaceInteractionEvent(currentState, {
+            field,
+            type: "editorDraftFieldChanged",
+            value,
+          }).state,
       );
     },
     [],
   );
 
   const toggleEditorLabel = useCallback((labelId: string, checked: boolean) => {
-    setNoteEditor((currentState) =>
-      toggleNoteEditorLabel(currentState, labelId, checked),
+    setInteractionState(
+      (currentState) =>
+        applyNotesWorkspaceInteractionEvent(currentState, {
+          checked,
+          labelId,
+          type: "editorLabelToggled",
+        }).state,
     );
   }, []);
 
   const addEditorMetaphor = useCallback(() => {
-    setNoteEditor((currentState) => addNoteEditorMetaphor(currentState));
+    setInteractionState(
+      (currentState) =>
+        applyNotesWorkspaceInteractionEvent(currentState, {
+          type: "editorMetaphorAdded",
+        }).state,
+    );
   }, []);
 
   const removeEditorMetaphor = useCallback((index: number) => {
-    setNoteEditor((currentState) =>
-      removeNoteEditorMetaphor(currentState, index),
+    setInteractionState(
+      (currentState) =>
+        applyNotesWorkspaceInteractionEvent(currentState, {
+          index,
+          type: "editorMetaphorRemoved",
+        }).state,
     );
   }, []);
 
@@ -174,20 +165,35 @@ export function NotesWorkspaceProvider({
       field: K,
       value: AppMetaphor[K],
     ) => {
-      setNoteEditor((currentState) =>
-        updateNoteEditorMetaphor(currentState, index, field, value),
+      setInteractionState(
+        (currentState) =>
+          applyNotesWorkspaceInteractionEvent(currentState, {
+            field,
+            index,
+            type: "editorMetaphorChanged",
+            value,
+          }).state,
       );
     },
     [],
   );
 
   const addEditorAcronym = useCallback(() => {
-    setNoteEditor((currentState) => addNoteEditorAcronym(currentState));
+    setInteractionState(
+      (currentState) =>
+        applyNotesWorkspaceInteractionEvent(currentState, {
+          type: "editorAcronymAdded",
+        }).state,
+    );
   }, []);
 
   const removeEditorAcronym = useCallback((index: number) => {
-    setNoteEditor((currentState) =>
-      removeNoteEditorAcronym(currentState, index),
+    setInteractionState(
+      (currentState) =>
+        applyNotesWorkspaceInteractionEvent(currentState, {
+          index,
+          type: "editorAcronymRemoved",
+        }).state,
     );
   }, []);
 
@@ -197,8 +203,14 @@ export function NotesWorkspaceProvider({
       field: K,
       value: AppAcronym[K],
     ) => {
-      setNoteEditor((currentState) =>
-        updateNoteEditorAcronym(currentState, index, field, value),
+      setInteractionState(
+        (currentState) =>
+          applyNotesWorkspaceInteractionEvent(currentState, {
+            field,
+            index,
+            type: "editorAcronymChanged",
+            value,
+          }).state,
       );
     },
     [],
@@ -206,60 +218,109 @@ export function NotesWorkspaceProvider({
 
   const activateNoteTarget = useCallback(
     (target: NoteEditorTransitionTarget, notes: readonly AppNote[]) => {
-      const result = activateNotesWorkspaceNote(
-        getWorkspaceState(),
-        target,
-        notes,
+      const result = applyNotesWorkspaceInteractionEvent(
+        getInteractionState(),
+        {
+          notes,
+          target,
+          type: "noteTargetActivated",
+        },
       );
 
-      applyActivationResult(result);
-
-      return result;
+      return applyInteractionResult(result);
     },
-    [applyActivationResult, getWorkspaceState],
+    [applyInteractionResult, getInteractionState],
   );
 
   const cancelPendingWorkspaceTransition = useCallback(() => {
-    applyWorkspaceState(
-      cancelPendingNotesWorkspaceTransition(getWorkspaceState()),
+    applyInteractionResult(
+      applyNotesWorkspaceInteractionEvent(getInteractionState(), {
+        type: "pendingTransitionCanceled",
+      }),
     );
-  }, [applyWorkspaceState, getWorkspaceState]);
+  }, [applyInteractionResult, getInteractionState]);
 
   const discardPendingWorkspaceTransition = useCallback(
     (notes: readonly AppNote[]) => {
-      const result = discardPendingNotesWorkspaceTransition(
-        getWorkspaceState(),
-        notes,
+      const result = applyNotesWorkspaceInteractionEvent(
+        getInteractionState(),
+        {
+          notes,
+          type: "pendingTransitionDiscarded",
+        },
       );
 
-      applyWorkspaceState(result.state);
-
-      if (result.completedSearchJump !== null) {
-        setPendingSearchJump(result.completedSearchJump);
-      }
-
-      return result;
+      return applyInteractionResult(result);
     },
-    [applyWorkspaceState, getWorkspaceState],
+    [applyInteractionResult, getInteractionState],
   );
 
   const startDraft = useCallback(() => {
-    setNoteEditor(startNewNoteDraft());
-  }, []);
-
-  const discardEditorChanges = useCallback((notes: readonly AppNote[]) => {
-    setNoteEditor((currentState) =>
-      discardNoteEditorChanges(currentState, notes),
+    applyInteractionResult(
+      applyNotesWorkspaceInteractionEvent(getInteractionState(), {
+        type: "newNoteDraftStarted",
+      }),
     );
-  }, []);
+  }, [applyInteractionResult, getInteractionState]);
 
-  const markSaved = useCallback((note: AppNote) => {
-    setNoteEditor(markNoteEditorSaved(note));
-  }, []);
+  const discardEditorChanges = useCallback(
+    (notes: readonly AppNote[]) => {
+      applyInteractionResult(
+        applyNotesWorkspaceInteractionEvent(getInteractionState(), {
+          notes,
+          type: "editorChangesDiscarded",
+        }),
+      );
+    },
+    [applyInteractionResult, getInteractionState],
+  );
+
+  const markSaved = useCallback(
+    (note: AppNote) => {
+      return applyInteractionResult(
+        applyNotesWorkspaceInteractionEvent(getInteractionState(), {
+          note,
+          type: "noteSaved",
+        }),
+      );
+    },
+    [applyInteractionResult, getInteractionState],
+  );
 
   const clearPendingSearchJump = useCallback(() => {
-    setPendingSearchJump(null);
-  }, []);
+    applyInteractionResult(
+      applyNotesWorkspaceInteractionEvent(getInteractionState(), {
+        type: "pendingSearchJumpCleared",
+      }),
+    );
+  }, [applyInteractionResult, getInteractionState]);
+
+  const requestEditorFocus = useCallback(() => {
+    applyInteractionResult(
+      applyNotesWorkspaceInteractionEvent(getInteractionState(), {
+        type: "editorFocusRequested",
+      }),
+    );
+  }, [applyInteractionResult, getInteractionState]);
+
+  const requestEditorSave = useCallback(() => {
+    const result = applyInteractionResult(
+      applyNotesWorkspaceInteractionEvent(getInteractionState(), {
+        type: "saveRequested",
+      }),
+    );
+
+    return (
+      result.instructions.find(
+        (instruction): instruction is NotesWorkspaceSaveInstruction => {
+          return (
+            instruction.type === "createNote" ||
+            instruction.type === "updateNote"
+          );
+        },
+      ) ?? null
+    );
+  }, [applyInteractionResult, getInteractionState]);
 
   const selectRecallLabel = useCallback((labelId: string) => {
     setSelectedRecallLabelId(labelId);
@@ -282,20 +343,21 @@ export function NotesWorkspaceProvider({
     clearPendingSearchJump,
     discardEditorChanges,
     discardPendingWorkspaceTransition,
-    editorFocusRequestNonce,
-    hasPendingWorkspaceTransition: hasPendingNotesWorkspaceTransition(
-      getWorkspaceState(),
-    ),
-    hasUnsavedNoteChanges: isNoteEditorDirty(noteEditor),
+    editorFocusRequestNonce: interactionState.editorFocusRequestNonce,
+    hasPendingWorkspaceTransition:
+      hasPendingNotesWorkspaceInteractionTransition(interactionState),
+    hasUnsavedNoteChanges:
+      hasUnsavedNotesWorkspaceInteractionChanges(interactionState),
     markEditorSaved: markSaved,
     noteEditor,
-    pendingSearchJump,
+    pendingSearchJump: interactionState.pendingSearchJump,
     selectedRecallLabelId,
     selectedRecallSearchQuery,
     selectedRecallSessionId,
     removeEditorAcronym,
     removeEditorMetaphor,
     requestEditorFocus,
+    requestEditorSave,
     selectRecallLabel,
     selectRecallSearchQuery,
     selectRecallSession,

@@ -9,7 +9,7 @@
     "build": "varlock run -- vite build",
     "start": "node .output/server/index.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "node scripts/run-vitest-with-timeout.mjs run",
     "lint": "biome check .",
     "format": "biome check --write .",
     "prepare": "husky",
