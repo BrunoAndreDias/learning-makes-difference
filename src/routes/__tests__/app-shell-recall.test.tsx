@@ -273,7 +273,7 @@ describe("authenticated app shell", () => {
     const { labelsContext, notesContext, recallContext } =
       createDeterministicRecallTestContexts();
     const userId = "user-placeholder";
-    const dueNote = createRecallNote(notesContext, userId, {
+    createRecallNote(notesContext, userId, {
       body: "This note is still due for practice.",
       title: "Due prompt",
     });

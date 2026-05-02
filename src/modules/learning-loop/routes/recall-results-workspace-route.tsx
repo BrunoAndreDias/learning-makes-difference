@@ -14,7 +14,14 @@ import type {
 import {
   deriveRecallSetupState,
   type RecallSetupCandidate,
+  type RecallSetupState,
 } from "../domain/recall-setup";
+import {
+  getRecallWorkspaceSearch,
+  getRecallWorkspaceSection,
+  type RecallWorkspaceSection,
+  recallWorkspaceSearchSections,
+} from "../domain/recall-workspace";
 import {
   formatResultSummaryScoreLabel,
   getResultSummaryNoteCountLabel,
@@ -23,11 +30,13 @@ import {
 } from "../domain/result-summary";
 
 const recallWorkspaceSearchSchema = z.object({
-  section: z.enum(["due", "results", "weak"]).optional(),
+  section: z.enum(recallWorkspaceSearchSections).optional(),
 });
 
-type RecallWorkspaceSearch = z.infer<typeof recallWorkspaceSearchSchema>;
-type RecallWorkspaceSection = "practice" | "due" | "weak" | "results";
+type FilteredRecallWorkspaceSectionName = Extract<
+  RecallWorkspaceSection,
+  "due" | "weak"
+>;
 type SessionResultsSnapshot = {
   newestSessionId: string | null;
   resultCount: number;
@@ -42,38 +51,63 @@ type RecallResultsNextStep = {
   };
 };
 
+const recallWorkspaceSections = [
+  "practice",
+  "due",
+  "weak",
+  "results",
+] as const satisfies readonly RecallWorkspaceSection[];
+
+const recallWorkspaceSectionContent = {
+  practice: {
+    description:
+      "Start the next RecallSession first. Due work, weak notes, and reviews stay organized around that next action.",
+    heading: "Practice",
+  },
+  due: {
+    description:
+      "Use the same due-now learning rules as Recall setup, then jump straight into session planning.",
+    heading: "Due",
+  },
+  weak: {
+    description:
+      "Use the same weak-note learning rules as Recall setup to revisit misses and partial recalls.",
+    heading: "Weak notes",
+  },
+  results: {
+    description:
+      "Review completed recall work with the latest session open by default.",
+    heading: "Results",
+  },
+} satisfies Record<
+  RecallWorkspaceSection,
+  { description: string; heading: string }
+>;
+
+const filteredRecallWorkspaceSectionContent = {
+  due: {
+    emptyMessage: "No notes are due right now.",
+    setupLabel: "Open due setup",
+    setupSearch: { filter: "due" },
+  },
+  weak: {
+    emptyMessage: "No weak notes yet.",
+    setupLabel: "Open weak-note setup",
+    setupSearch: { filter: "weak" },
+  },
+} satisfies Record<
+  FilteredRecallWorkspaceSectionName,
+  {
+    emptyMessage: string;
+    setupLabel: string;
+    setupSearch: { filter: FilteredRecallWorkspaceSectionName };
+  }
+>;
+
 export const Route = createFileRoute("/_protected/recall/")({
   validateSearch: recallWorkspaceSearchSchema,
   component: RecallResultsWorkspacePage,
 });
-
-function getRecallWorkspaceSection(
-  search: RecallWorkspaceSearch,
-): RecallWorkspaceSection {
-  switch (search.section) {
-    case "due":
-      return "due";
-    case "weak":
-      return "weak";
-    case "results":
-      return "results";
-    case undefined:
-      return "practice";
-  }
-}
-
-function getRecallWorkspaceSearch(section: RecallWorkspaceSection) {
-  switch (section) {
-    case "practice":
-      return {};
-    case "due":
-      return { section: "due" } as const;
-    case "weak":
-      return { section: "weak" } as const;
-    case "results":
-      return { section: "results" } as const;
-  }
-}
 
 function formatAttemptCount(count: number) {
   return formatCount(count, "attempted question", "attempted questions");
@@ -227,56 +261,11 @@ function shouldSelectNewestSessionResult({
 }
 
 function getSectionHeading(section: RecallWorkspaceSection) {
-  switch (section) {
-    case "practice":
-      return "Practice";
-    case "due":
-      return "Due";
-    case "weak":
-      return "Weak notes";
-    case "results":
-      return "Results";
-  }
+  return recallWorkspaceSectionContent[section].heading;
 }
 
 function getSectionDescription(section: RecallWorkspaceSection) {
-  switch (section) {
-    case "practice":
-      return "Start the next RecallSession first. Due work, weak notes, and reviews stay organized around that next action.";
-    case "due":
-      return "Use the same due-now learning rules as Recall setup, then jump straight into session planning.";
-    case "weak":
-      return "Use the same weak-note learning rules as Recall setup to revisit misses and partial recalls.";
-    case "results":
-      return "Review completed recall work with the latest session open by default.";
-  }
-}
-
-function getFilteredSectionEmptyMessage(section: "due" | "weak") {
-  switch (section) {
-    case "due":
-      return "No notes are due right now.";
-    case "weak":
-      return "No weak notes yet.";
-  }
-}
-
-function getSectionSetupSearch(section: "due" | "weak") {
-  switch (section) {
-    case "due":
-      return { filter: "due" } as const;
-    case "weak":
-      return { filter: "weak" } as const;
-  }
-}
-
-function getSectionSetupLabel(section: "due" | "weak") {
-  switch (section) {
-    case "due":
-      return "Open due setup";
-    case "weak":
-      return "Open weak-note setup";
-  }
+  return recallWorkspaceSectionContent[section].description;
 }
 
 function RecallWorkspaceSectionNav({
@@ -284,16 +273,9 @@ function RecallWorkspaceSectionNav({
 }: {
   activeSection: RecallWorkspaceSection;
 }) {
-  const sections: readonly RecallWorkspaceSection[] = [
-    "practice",
-    "due",
-    "weak",
-    "results",
-  ];
-
   return (
     <nav aria-label="Recall sections" className="tag-row">
-      {sections.map((section) => (
+      {recallWorkspaceSections.map((section) => (
         <Link
           aria-current={activeSection === section ? "page" : undefined}
           className="tag"
@@ -466,8 +448,11 @@ function FilteredRecallWorkspaceSection({
 }: {
   candidates: readonly RecallSetupCandidate[];
   noteCount: number;
-  section: "due" | "weak";
+  section: FilteredRecallWorkspaceSectionName;
 }) {
+  const sectionContent = filteredRecallWorkspaceSectionContent[section];
+  const sectionHeading = getSectionHeading(section);
+
   if (noteCount === 0) {
     return (
       <RecallWorkspaceEmptyState
@@ -482,25 +467,25 @@ function FilteredRecallWorkspaceSection({
   return (
     <div className="recall-results-detail">
       <section className="recall-panel">
-        <p className="section-label">{getSectionHeading(section)}</p>
-        <h4>{getSectionHeading(section)}</h4>
+        <p className="section-label">{sectionHeading}</p>
+        <h4>{sectionHeading}</h4>
         <p className="muted">{getSectionDescription(section)}</p>
         <div className="tag-row notes-editor__labels">
           <span className="tag">{formatCount(candidates.length, "note")}</span>
         </div>
         <Link
           className="notes-action notes-action-primary"
-          search={getSectionSetupSearch(section)}
+          search={sectionContent.setupSearch}
           to="/recall/select"
         >
-          {getSectionSetupLabel(section)}
+          {sectionContent.setupLabel}
         </Link>
       </section>
 
       <section className="recall-panel notes-list">
         <div className="notes-list__header">
           <div className="stack">
-            <p className="section-label">{getSectionHeading(section)}</p>
+            <p className="section-label">{sectionHeading}</p>
             <h4>Available notes</h4>
             <p className="muted">
               These notes come from the same setup logic used in Recall
@@ -510,7 +495,7 @@ function FilteredRecallWorkspaceSection({
         </div>
         {candidates.length === 0 ? (
           <p className="notes-search__empty" role="status">
-            {getFilteredSectionEmptyMessage(section)}
+            {sectionContent.emptyMessage}
           </p>
         ) : (
           <RecallWorkspaceCandidateList candidates={candidates} />
@@ -518,6 +503,59 @@ function FilteredRecallWorkspaceSection({
       </section>
     </div>
   );
+}
+
+function RecallWorkspaceContent({
+  activeSection,
+  dueSetupState,
+  hasResults,
+  noteCount,
+  selectedSession,
+  weakSetupState,
+}: {
+  activeSection: RecallWorkspaceSection;
+  dueSetupState: RecallSetupState;
+  hasResults: boolean;
+  noteCount: number;
+  selectedSession: FlashCardSessionResult | null;
+  weakSetupState: RecallSetupState;
+}) {
+  switch (activeSection) {
+    case "practice":
+      return (
+        <PracticeWorkspaceSection
+          dueCount={dueSetupState.visibleCandidates.length}
+          hasResults={hasResults}
+          noteCount={noteCount}
+          weakCount={weakSetupState.visibleCandidates.length}
+        />
+      );
+    case "due":
+      return (
+        <FilteredRecallWorkspaceSection
+          candidates={dueSetupState.visibleCandidates}
+          noteCount={noteCount}
+          section="due"
+        />
+      );
+    case "weak":
+      return (
+        <FilteredRecallWorkspaceSection
+          candidates={weakSetupState.visibleCandidates}
+          noteCount={noteCount}
+          section="weak"
+        />
+      );
+    case "results":
+      return (
+        <div className="recall-results-layout recall-results-layout--details-only">
+          <section aria-label="Selected review" className="recall-panel">
+            <p className="section-label">Selected review</p>
+            <SelectedSessionResult sessionResult={selectedSession} />
+          </section>
+        </div>
+      );
+  }
 }
 
 export function RecallResultsWorkspacePage() {
@@ -639,39 +677,14 @@ export function RecallResultsWorkspacePage() {
           </div>
         </header>
 
-        {activeSection === "practice" ? (
-          <PracticeWorkspaceSection
-            dueCount={dueSetupState.visibleCandidates.length}
-            hasResults={sessionResults.length > 0}
-            noteCount={notes.length}
-            weakCount={weakSetupState.visibleCandidates.length}
-          />
-        ) : null}
-
-        {activeSection === "due" ? (
-          <FilteredRecallWorkspaceSection
-            candidates={dueSetupState.visibleCandidates}
-            noteCount={notes.length}
-            section="due"
-          />
-        ) : null}
-
-        {activeSection === "weak" ? (
-          <FilteredRecallWorkspaceSection
-            candidates={weakSetupState.visibleCandidates}
-            noteCount={notes.length}
-            section="weak"
-          />
-        ) : null}
-
-        {activeSection === "results" ? (
-          <div className="recall-results-layout recall-results-layout--details-only">
-            <section aria-label="Selected review" className="recall-panel">
-              <p className="section-label">Selected review</p>
-              <SelectedSessionResult sessionResult={selectedSession} />
-            </section>
-          </div>
-        ) : null}
+        <RecallWorkspaceContent
+          activeSection={activeSection}
+          dueSetupState={dueSetupState}
+          hasResults={sessionResults.length > 0}
+          noteCount={notes.length}
+          selectedSession={selectedSession}
+          weakSetupState={weakSetupState}
+        />
       </article>
     </section>
   );

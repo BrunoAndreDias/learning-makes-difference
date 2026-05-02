@@ -25,6 +25,7 @@ import {
   RecallResultsSidebar,
 } from "../../learning-loop";
 import { RecallResultsSearch } from "../../learning-loop/components/recall-results-search";
+import { getRecallWorkspaceSection } from "../../learning-loop/domain/recall-workspace";
 
 type NavigationIconName = "focus" | "label" | "note" | "recall" | "settings";
 
@@ -54,25 +55,6 @@ function isNotesWorkspacePath(pathname: string) {
 
 function isRecallResultsWorkspacePath(pathname: string) {
   return pathname === "/recall";
-}
-
-function getRecallWorkspaceSection(search: unknown) {
-  if (typeof search !== "object" || search === null) {
-    return "practice";
-  }
-
-  const section = (search as Record<string, unknown>).section;
-
-  switch (section) {
-    case "due":
-      return "due";
-    case "weak":
-      return "weak";
-    case "results":
-      return "results";
-    default:
-      return "practice";
-  }
 }
 
 export function AppLayout() {
