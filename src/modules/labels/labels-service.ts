@@ -1,4 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
+import { collectLabelDescendantIds, sortLabelsByName } from "./label-graph";
 import type { AppLabel } from "./label-management/labels";
 import { AppLabelError } from "./label-management/labels";
 import { labelEdgesTable, labelsTable } from "./labels-schema";
@@ -98,55 +99,6 @@ function normalizeLabelName(name: string): string {
   return trimmedName;
 }
 
-function getChildrenByParent(labels: readonly AppLabel[]) {
-  const childrenByParent = new Map<string, string[]>();
-
-  for (const label of labels) {
-    for (const parentId of label.parentIds) {
-      const children = childrenByParent.get(parentId) ?? [];
-      children.push(label.id);
-      childrenByParent.set(parentId, children);
-    }
-  }
-
-  return childrenByParent;
-}
-
-function collectDescendantIds(
-  labels: readonly AppLabel[],
-  labelId: string,
-): string[] {
-  const childrenByParent = getChildrenByParent(labels);
-  const queue = [...(childrenByParent.get(labelId) ?? [])].sort();
-  const visited = new Set<string>();
-  const descendants: string[] = [];
-
-  for (let index = 0; index < queue.length; index += 1) {
-    const currentId = queue[index];
-
-    if (currentId === undefined || visited.has(currentId)) {
-      continue;
-    }
-
-    visited.add(currentId);
-    descendants.push(currentId);
-
-    const childIds = [...(childrenByParent.get(currentId) ?? [])].sort();
-
-    for (const childId of childIds) {
-      if (!visited.has(childId)) {
-        queue.push(childId);
-      }
-    }
-  }
-
-  return descendants;
-}
-
-function sortLabels(labels: readonly AppLabel[]) {
-  return [...labels].sort((left, right) => left.name.localeCompare(right.name));
-}
-
 async function readOwnedLabels(db: LabelsDatabaseRuntime, userId: string) {
   const storedLabels = (await db
     .select()
@@ -176,7 +128,7 @@ async function readOwnedLabels(db: LabelsDatabaseRuntime, userId: string) {
     parentIdsByChildId.set(edge.childLabelId, parentIds);
   }
 
-  return sortLabels(
+  return sortLabelsByName(
     storedLabels.map((label) => ({
       id: label.id,
       name: label.name,
@@ -225,7 +177,9 @@ export function createLabelsService({
       }
 
       if (
-        collectDescendantIds(labels, input.labelId).includes(input.parentId)
+        collectLabelDescendantIds(labels, input.labelId).includes(
+          input.parentId,
+        )
       ) {
         throw new AppLabelError(
           "cycle_detected",

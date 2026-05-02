@@ -179,6 +179,30 @@ function getFirstDescription(hooks: readonly { description: string }[]) {
   return hooks[0]?.description ?? null;
 }
 
+function groupLabelIdsByNoteId(
+  noteLabels: readonly { labelId: string; noteId: string }[],
+) {
+  const labelIdsByNoteId = new Map<string, Set<string>>();
+
+  for (const noteLabel of noteLabels) {
+    const labelIds = labelIdsByNoteId.get(noteLabel.noteId) ?? new Set();
+    labelIds.add(noteLabel.labelId);
+    labelIdsByNoteId.set(noteLabel.noteId, labelIds);
+  }
+
+  return labelIdsByNoteId;
+}
+
+function getStoredNoteLabelIds(input: {
+  labelIds: string[];
+  labelIdsByNoteId: Map<string, Set<string>>;
+  noteId: string;
+}) {
+  const joinedLabelIds = input.labelIdsByNoteId.get(input.noteId) ?? new Set();
+
+  return input.labelIds.filter((labelId) => joinedLabelIds.has(labelId));
+}
+
 async function readOwnedNotes(
   db: NotesDatabase<Record<string, unknown>>,
   userId: string,
@@ -215,13 +239,7 @@ async function readOwnedNotes(
   const acronymsByNoteId = new Map(
     storedAcronyms.map((acronym) => [acronym.noteId, acronym.description]),
   );
-  const labelIdsByNoteId = new Map<string, string[]>();
-
-  for (const noteLabel of storedNoteLabels) {
-    const labelIds = labelIdsByNoteId.get(noteLabel.noteId) ?? [];
-    labelIds.push(noteLabel.labelId);
-    labelIdsByNoteId.set(noteLabel.noteId, labelIds);
-  }
+  const labelIdsByNoteId = groupLabelIdsByNoteId(storedNoteLabels);
 
   return storedNotes
     .sort((left, right) => {
@@ -231,9 +249,11 @@ async function readOwnedNotes(
     })
     .map((note) =>
       toAppNote({
-        labelIds: note.labelIds.filter((labelId) =>
-          new Set(labelIdsByNoteId.get(note.id) ?? []).has(labelId),
-        ),
+        labelIds: getStoredNoteLabelIds({
+          labelIds: note.labelIds,
+          labelIdsByNoteId,
+          noteId: note.id,
+        }),
         acronymDescription: acronymsByNoteId.get(note.id) ?? null,
         body: note.body,
         createdAt: note.createdAt,

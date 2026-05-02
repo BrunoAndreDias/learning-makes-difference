@@ -1,3 +1,4 @@
+import { collectLabelDescendantIds, sortLabelsByName } from "./label-graph";
 import {
   type AppLabel,
   AppLabelError,
@@ -76,53 +77,17 @@ function toStoredLabel(label: AppLabel, userId: string): StoredLabel {
   };
 }
 
-function sortLabels(labels: readonly StoredLabel[]) {
-  return [...labels].sort((left, right) => left.name.localeCompare(right.name));
+function toAppLabel({ userId: _userId, ...label }: StoredLabel): AppLabel {
+  return label;
 }
 
-function getChildrenByParent(labels: readonly AppLabel[]) {
-  const childrenByParent = new Map<string, string[]>();
-
-  for (const label of labels) {
-    for (const parentId of label.parentIds) {
-      const children = childrenByParent.get(parentId) ?? [];
-      children.push(label.id);
-      childrenByParent.set(parentId, children);
-    }
-  }
-
-  return childrenByParent;
-}
-
-function collectDescendantIds(
-  labels: readonly AppLabel[],
-  labelId: string,
-): string[] {
-  const childrenByParent = getChildrenByParent(labels);
-  const queue = [...(childrenByParent.get(labelId) ?? [])].sort();
-  const visited = new Set<string>();
-  const descendants: string[] = [];
-
-  for (let index = 0; index < queue.length; index += 1) {
-    const currentId = queue[index];
-
-    if (currentId === undefined || visited.has(currentId)) {
-      continue;
-    }
-
-    visited.add(currentId);
-    descendants.push(currentId);
-
-    const childIds = [...(childrenByParent.get(currentId) ?? [])].sort();
-
-    for (const childId of childIds) {
-      if (!visited.has(childId)) {
-        queue.push(childId);
-      }
-    }
-  }
-
-  return descendants;
+function getUserLabels(
+  snapshot: readonly StoredLabel[],
+  userId: string,
+): AppLabel[] {
+  return sortLabelsByName(
+    snapshot.filter((label) => label.userId === userId).map(toAppLabel),
+  );
 }
 
 export function createReadonlyLabelsContext(
@@ -148,24 +113,17 @@ export function createReadonlyLabelsContext(
       );
     },
     getDescendantIds: ({ labelId, userId }) => {
-      const labels = persistentLabels
-        .getSnapshot()
-        .filter((label) => label.userId === userId)
-        .map(({ userId: _userId, ...label }) => label);
+      const labels = getUserLabels(persistentLabels.getSnapshot(), userId);
       const label = labels.find((candidate) => candidate.id === labelId);
 
       if (label === undefined) {
         throw new AppLabelError("not_found", "Label not found.");
       }
 
-      return collectDescendantIds(labels, label.id);
+      return collectLabelDescendantIds(labels, label.id);
     },
     getLabelsForUser: (userId) =>
-      persistentLabels
-        .getSnapshot()
-        .filter((label) => label.userId === userId)
-        .map(({ userId: _userId, ...label }) => label)
-        .sort((left, right) => left.name.localeCompare(right.name)),
+      getUserLabels(persistentLabels.getSnapshot(), userId),
     removeParent: () => {
       throw new Error(
         "Readonly labels context cannot remove parents. Use persistentLabels instead.",
@@ -194,9 +152,16 @@ export function createPersistentLabelsContext(
   }
 
   function writeSnapshot(nextSnapshot: readonly StoredLabel[]) {
-    snapshot = sortLabels(nextSnapshot);
+    snapshot = sortLabelsByName(nextSnapshot);
     notifyListeners();
     return snapshot;
+  }
+
+  function replaceSnapshotLabel(label: AppLabel, userId: string) {
+    writeSnapshot([
+      toStoredLabel(label, userId),
+      ...snapshot.filter((storedLabel) => storedLabel.id !== label.id),
+    ]);
   }
 
   function requireService(): AppPersistentLabelsService {
@@ -220,10 +185,7 @@ export function createPersistentLabelsContext(
       const validatedUserId = requireUserId(userId);
       const updatedLabel = await requireService().addParent(input);
 
-      writeSnapshot([
-        toStoredLabel(updatedLabel, validatedUserId),
-        ...snapshot.filter((label) => label.id !== updatedLabel.id),
-      ]);
+      replaceSnapshotLabel(updatedLabel, validatedUserId);
 
       return updatedLabel;
     },
@@ -271,10 +233,7 @@ export function createPersistentLabelsContext(
       const validatedUserId = requireUserId(userId);
       const updatedLabel = await requireService().removeParent(input);
 
-      writeSnapshot([
-        toStoredLabel(updatedLabel, validatedUserId),
-        ...snapshot.filter((label) => label.id !== updatedLabel.id),
-      ]);
+      replaceSnapshotLabel(updatedLabel, validatedUserId);
 
       return updatedLabel;
     },
@@ -285,10 +244,7 @@ export function createPersistentLabelsContext(
         name,
       });
 
-      writeSnapshot([
-        toStoredLabel(updatedLabel, validatedUserId),
-        ...snapshot.filter((label) => label.id !== updatedLabel.id),
-      ]);
+      replaceSnapshotLabel(updatedLabel, validatedUserId);
 
       return updatedLabel;
     },

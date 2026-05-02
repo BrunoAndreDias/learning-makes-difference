@@ -1,3 +1,5 @@
+import { collectLabelDescendantIds, sortLabelsByName } from "../label-graph";
+
 export type AppLabel = {
   id: string;
   name: string;
@@ -159,51 +161,6 @@ function getOwnedLabelEntry(
   };
 }
 
-function getChildrenByParent(records: StoredLabelRecord[]) {
-  const childrenByParent = new Map<string, string[]>();
-
-  for (const record of records) {
-    for (const parentId of record.parentIds) {
-      const children = childrenByParent.get(parentId) ?? [];
-      children.push(record.id);
-      childrenByParent.set(parentId, children);
-    }
-  }
-
-  return childrenByParent;
-}
-
-function collectDescendantIds(
-  records: StoredLabelRecord[],
-  labelId: string,
-): string[] {
-  const childrenByParent = getChildrenByParent(records);
-  const queue = [...(childrenByParent.get(labelId) ?? [])].sort();
-  const visited = new Set<string>();
-  const descendants: string[] = [];
-
-  for (let index = 0; index < queue.length; index += 1) {
-    const currentId = queue[index];
-
-    if (currentId === undefined || visited.has(currentId)) {
-      continue;
-    }
-
-    visited.add(currentId);
-    descendants.push(currentId);
-
-    const childIds = [...(childrenByParent.get(currentId) ?? [])].sort();
-
-    for (const childId of childIds) {
-      if (!visited.has(childId)) {
-        queue.push(childId);
-      }
-    }
-  }
-
-  return descendants;
-}
-
 export function createAppLabelsContext(
   options: CreateAppLabelsContextOptions = {},
 ): AppLabelsContext {
@@ -245,10 +202,11 @@ export function createAppLabelsContext(
       };
     },
     getLabelsForUser: (userId) => {
-      return readRecords()
-        .filter((record) => record.userId === userId)
-        .map(toAppLabel)
-        .sort((left, right) => left.name.localeCompare(right.name));
+      return sortLabelsByName(
+        readRecords()
+          .filter((record) => record.userId === userId)
+          .map(toAppLabel),
+      );
     },
     getDescendantIds: ({ labelId, userId }) => {
       const records = readRecords().filter(
@@ -257,7 +215,7 @@ export function createAppLabelsContext(
 
       getOwnedLabelRecord(records, userId, labelId);
 
-      return collectDescendantIds(records, labelId);
+      return collectLabelDescendantIds(records, labelId);
     },
     createLabel: ({ name, userId }) => {
       const records = readRecords();
@@ -338,7 +296,7 @@ export function createAppLabelsContext(
         return toAppLabel(label);
       }
 
-      if (collectDescendantIds(records, labelId).includes(parentId)) {
+      if (collectLabelDescendantIds(records, labelId).includes(parentId)) {
         throw new AppLabelError(
           "cycle_detected",
           "This relationship would create a cycle.",
