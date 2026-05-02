@@ -49,9 +49,9 @@ This preserves existing Locality while increasing Leverage for future AiAssisted
 
 **Files**
 
-- `src/modules/labels/domain/labels.ts`
-- `src/modules/labels/routes/labels-route.tsx`
-- `src/modules/labels/domain/labels.test.ts`
+- `src/modules/labels/label-management/labels.ts`
+- `src/modules/labels/label-management/labels-route.tsx`
+- `src/modules/labels/label-management/labels.test.ts`
 
 **Problem**
 
@@ -71,7 +71,7 @@ This improves Locality for DAG knowledge, reduces route-level graph projection, 
 
 - `docs/adr/0001-wcag2-accessibility.md`
 - `src/modules/learning-loop/notes-workspace/notes-route.tsx`
-- `src/modules/workspace-shell/routes/protected-route.tsx`
+- `src/modules/workspace-shell/app-shell/protected-route.tsx`
 - `src/design-system/global.css`
 
 **Problem**

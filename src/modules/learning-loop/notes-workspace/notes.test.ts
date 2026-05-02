@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createAppLabelsContext } from "../../labels/domain/labels";
+import { createAppLabelsContext } from "../../labels/label-management/labels";
 import {
   type AppNotesError,
   createAppNotesContext,

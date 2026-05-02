@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { hasActiveSession } from "../domain/session";
+import { hasActiveSession } from "../session/session";
 
 export const Route = createFileRoute("/_public/")({
   beforeLoad: ({ context }) => {

@@ -1,6 +1,6 @@
 import { useRouteContext } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
-import type { AppSessionSnapshot } from "../../access/domain/session";
+import type { AppSessionSnapshot } from "../../access/session/session";
 import {
   deriveLearningStates,
   formatLearningStateStatusLabel,

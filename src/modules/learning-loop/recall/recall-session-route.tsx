@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
-import type { AppSessionSnapshot } from "../../access/domain/session";
+import type { AppSessionSnapshot } from "../../access/session/session";
 import { BreakIntervalOverlay } from "../focus/break-interval-overlay";
 import { isBreakIntervalActive } from "../focus/focus";
 import { formatRecallModeLabel } from "../shared/learner-copy";

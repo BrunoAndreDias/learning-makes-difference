@@ -19,50 +19,50 @@ export default defineConfig({
         routesDirectory: ".",
         virtualRouteConfig: {
           type: "root",
-          file: "modules/workspace-shell/routes/root-route.tsx",
+          file: "modules/workspace-shell/app-shell/root-route.tsx",
           children: [
             {
               type: "layout",
               id: "_public",
-              file: "modules/access/routes/public-layout-route.tsx",
+              file: "modules/access/public-entry/public-layout-route.tsx",
               children: [
                 {
                   type: "index",
-                  file: "modules/access/routes/public-index-route.tsx",
+                  file: "modules/access/public-entry/public-index-route.tsx",
                 },
               ],
             },
             {
               type: "layout",
               id: "_auth",
-              file: "modules/access/routes/auth-layout-route.tsx",
+              file: "modules/access/session/auth-layout-route.tsx",
               children: [
                 {
                   type: "route",
                   path: "/forgot-password",
-                  file: "modules/access/routes/forgot-password-route.tsx",
+                  file: "modules/access/session/forgot-password-route.tsx",
                 },
                 {
                   type: "route",
                   path: "/login",
-                  file: "modules/access/routes/login-route.tsx",
+                  file: "modules/access/session/login-route.tsx",
                 },
                 {
                   type: "route",
                   path: "/register",
-                  file: "modules/access/routes/register-route.tsx",
+                  file: "modules/access/session/register-route.tsx",
                 },
               ],
             },
             {
               type: "layout",
               id: "_protected",
-              file: "modules/workspace-shell/routes/protected-route.tsx",
+              file: "modules/workspace-shell/app-shell/protected-route.tsx",
               children: [
                 {
                   type: "route",
                   path: "/labels",
-                  file: "modules/labels/routes/labels-route.tsx",
+                  file: "modules/labels/label-management/labels-route.tsx",
                 },
                 {
                   type: "route",
@@ -98,7 +98,7 @@ export default defineConfig({
                 {
                   type: "route",
                   path: "/settings",
-                  file: "modules/access/routes/settings-route.tsx",
+                  file: "modules/access/session/settings-route.tsx",
                 },
               ],
             },

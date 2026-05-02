@@ -9,12 +9,8 @@ import {
 } from "react";
 import { formatCount } from "../../../lib/format-count";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
-import type { AppSessionSnapshot } from "../../access/domain/session";
-import {
-  type AppLabel,
-  AppLabelError,
-  type AppLabelsContext,
-} from "../domain/labels";
+import type { AppSessionSnapshot } from "../../access/session/session";
+import { type AppLabel, AppLabelError, type AppLabelsContext } from "./labels";
 
 export const Route = createFileRoute("/_protected/labels")({
   component: LabelsPage,

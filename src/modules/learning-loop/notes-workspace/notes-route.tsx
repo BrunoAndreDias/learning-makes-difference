@@ -21,8 +21,8 @@ import {
 } from "react";
 import { formatCount } from "../../../lib/format-count";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
-import type { AppSessionSnapshot } from "../../access/domain/session";
-import type { AppLabel } from "../../labels/domain/labels";
+import type { AppSessionSnapshot } from "../../access/session/session";
+import type { AppLabel } from "../../labels/label-management/labels";
 import { BreakIntervalOverlay } from "../focus/break-interval-overlay";
 import { AppFocusError, isBreakIntervalActive } from "../focus/focus";
 import { FocusSessionStartControl } from "../focus/focus-session-start-control";

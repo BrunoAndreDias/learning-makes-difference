@@ -9,13 +9,15 @@ describe("route tree", () => {
     );
 
     expect(generatedRouteTree).toContain(
-      "modules/access/routes/public-index-route",
+      "modules/access/public-entry/public-index-route",
     );
-    expect(generatedRouteTree).toContain("modules/access/routes/login-route");
+    expect(generatedRouteTree).toContain("modules/access/session/login-route");
     expect(generatedRouteTree).toContain(
       "modules/learning-loop/notes-workspace/notes-route",
     );
-    expect(generatedRouteTree).toContain("modules/labels/routes/labels-route");
+    expect(generatedRouteTree).toContain(
+      "modules/labels/label-management/labels-route",
+    );
     expect(generatedRouteTree).toContain(
       "modules/learning-loop/recall/recall-route",
     );
@@ -23,20 +25,20 @@ describe("route tree", () => {
       "modules/learning-loop/focus/focus-route",
     );
     expect(generatedRouteTree).toContain(
-      "modules/access/routes/settings-route",
+      "modules/access/session/settings-route",
     );
 
     expect(generatedRouteTree).toContain(
-      "'/': typeof modulesAccessRoutesPublicIndexRouteRoute",
+      "'/': typeof modulesAccessPublicEntryPublicIndexRouteRoute",
     );
     expect(generatedRouteTree).toContain(
-      "'/login': typeof modulesAccessRoutesLoginRouteRoute",
+      "'/login': typeof modulesAccessSessionLoginRouteRoute",
     );
     expect(generatedRouteTree).toContain(
       "'/notes': typeof modulesLearningLoopNotesWorkspaceNotesRouteRoute",
     );
     expect(generatedRouteTree).toContain(
-      "'/labels': typeof modulesLabelsRoutesLabelsRouteRoute",
+      "'/labels': typeof modulesLabelsLabelManagementLabelsRouteRoute",
     );
     expect(generatedRouteTree).toContain(
       "'/recall': typeof modulesLearningLoopRecallRecallRouteRouteWithChildren",
@@ -60,7 +62,7 @@ describe("route tree", () => {
       "'/notes/recall': typeof ProtectedNotesRecallRoute",
     );
     expect(generatedRouteTree).toContain(
-      "'/settings': typeof modulesAccessRoutesSettingsRouteRoute",
+      "'/settings': typeof modulesAccessSessionSettingsRouteRoute",
     );
   });
 });

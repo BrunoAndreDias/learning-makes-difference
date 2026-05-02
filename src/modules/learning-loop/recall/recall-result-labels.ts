@@ -1,4 +1,4 @@
-import type { AppLabel } from "../../labels/domain/labels";
+import type { AppLabel } from "../../labels/label-management/labels";
 import type { FlashCardSessionResult } from "./recall";
 
 export function listRecallResultLabels(input: {

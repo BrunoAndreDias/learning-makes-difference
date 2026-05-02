@@ -17,7 +17,7 @@ import {
 } from "react";
 
 import appLogo from "../../../../docs/layout/logo.svg";
-import type { AppSessionSnapshot } from "../../access/domain/session";
+import type { AppSessionSnapshot } from "../../access/session/session";
 import {
   FocusSessionStartControl,
   LearningLoopWorkspaceProvider,

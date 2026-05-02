@@ -9,7 +9,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
-import type { AppLabel } from "../../labels/domain/labels";
+import type { AppLabel } from "../../labels/label-management/labels";
 import { useNotesWorkspace } from "../notes-workspace/notes-workspace";
 import { formatSearchMatchLabel } from "../shared/learner-copy";
 import { listRecallResultLabels } from "./recall-result-labels";

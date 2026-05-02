@@ -5,8 +5,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { AppSessionSnapshot } from "../../access/domain/session";
-import type { AppLabel } from "../../labels/domain/labels";
+import type { AppSessionSnapshot } from "../../access/session/session";
+import type { AppLabel } from "../../labels/label-management/labels";
 import { listNotesForUser } from "../notes-workspace/notes";
 import { useNotesWorkspace } from "../notes-workspace/notes-workspace";
 import { formatRecallModeLabel } from "../shared/learner-copy";

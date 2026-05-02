@@ -19,11 +19,11 @@ import {
   type AppSessionContext,
   type AppSessionSnapshot,
   createAppSessionContext,
-} from "../../modules/access/domain/session";
+} from "../../modules/access/session/session";
 import {
   type AppLabelsContext,
   createAppLabelsContext,
-} from "../../modules/labels/domain/labels";
+} from "../../modules/labels/label-management/labels";
 import {
   type AppFocusContext,
   createAppFocusContext,

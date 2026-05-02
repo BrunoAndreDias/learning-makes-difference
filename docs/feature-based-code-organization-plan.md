@@ -12,18 +12,17 @@ This is an organization rule, not a behavioral rewrite.
 src/
   modules/
     access/
-      domain/
-      routes/
+      public-entry/
+      session/
     labels/
-      domain/
-      routes/
+      label-management/
     learning-loop/
       focus/
       notes-workspace/
       recall/
       shared/
     workspace-shell/
-      routes/
+      app-shell/
   lib/
   design-system/
   styles/
@@ -39,6 +38,16 @@ src/
 
 `learning-loop/shared` owns Learning Loop helpers that are used by multiple Learning Loop concepts and are not stable enough to become their own concept folder.
 
+## Other Product Concepts
+
+`access/session` owns session state, authentication routes, account settings, and colocated tests.
+
+`access/public-entry` owns the public entry layout and index route before a learner enters a session-protected workspace.
+
+`labels/label-management` owns Label graph behavior, the Labels route, and colocated tests.
+
+`workspace-shell/app-shell` owns root/protected app shell route code, layout behavior, router devtools gating, and colocated tests.
+
 ## Principles
 
 - Folder names should use `CONTEXT.md` language where possible.
@@ -53,6 +62,8 @@ src/
 
 - `workspace-shell` may import public Learning Loop UI exports from `learning-loop/index.ts`.
 - `router.tsx` wires app contexts from concept modules.
+- `access/public-entry` may import from `access/session` to redirect learners with an active session.
+- Product modules that need account or label context should import from `access/session/session` and `labels/label-management/labels`.
 - `recall` may import from `notes-workspace` and `focus` because RecallSessions target Notes and active focus can observe recall work.
 - `notes-workspace` may import from `recall` only for starting or reporting RecallSession errors from the Notes Workspace route.
 - `focus` should not depend on `notes-workspace` or `recall`; FocusSession behavior stays globally available.
@@ -76,3 +87,4 @@ Avoid folders named `models`, `services`, `utils`, or `helpers`. Those names des
 - `pnpm run test`
 - Route tree test still proves TanStack Router imports module-owned route files.
 - No Learning Loop import points at `learning-loop/components`, `learning-loop/domain`, or `learning-loop/routes`.
+- No product module imports from `access/domain`, `access/routes`, `labels/domain`, `labels/routes`, or `workspace-shell/routes`.

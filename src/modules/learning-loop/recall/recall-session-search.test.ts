@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { AppLabel } from "../../labels/domain/labels";
+import type { AppLabel } from "../../labels/label-management/labels";
 import type { FlashCardSessionResult } from "./recall";
 import { searchRecallSessionResults } from "./recall-session-search";
 

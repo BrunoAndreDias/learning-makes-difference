@@ -16,8 +16,8 @@ import appCss from "../../../styles/app.css?url";
 import {
   type AppSessionContext,
   hasActiveSession,
-} from "../../access/domain/session";
-import type { AppLabelsContext } from "../../labels/domain/labels";
+} from "../../access/session/session";
+import type { AppLabelsContext } from "../../labels/label-management/labels";
 import type { AppFocusContext } from "../../learning-loop/focus/focus";
 import type { AppNotesContext } from "../../learning-loop/notes-workspace/notes";
 import type { AppRecallContext } from "../../learning-loop/recall/recall";

@@ -2,7 +2,7 @@ import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { z } from "zod";
 import { formatCount } from "../../../lib/format-count";
-import type { AppSessionSnapshot } from "../../access/domain/session";
+import type { AppSessionSnapshot } from "../../access/session/session";
 import { listNotesForUser } from "../notes-workspace/notes";
 import { useNotesWorkspace } from "../notes-workspace/notes-workspace";
 import { formatRecallModeLabel } from "../shared/learner-copy";

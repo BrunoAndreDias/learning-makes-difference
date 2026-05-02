@@ -1,4 +1,4 @@
-import type { AppLabel } from "../../labels/domain/labels";
+import type { AppLabel } from "../../labels/label-management/labels";
 import { type AppNote, filterNotesByQuery } from "../notes-workspace/notes";
 import {
   deriveLearningState,
