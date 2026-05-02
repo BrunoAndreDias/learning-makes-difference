@@ -3,6 +3,7 @@ import {
   deriveLearningState,
   type NoteLearningState,
   type NoteRecallHistory,
+  type NoteRecallHistoryAttempt,
 } from "./learning-state";
 import { type AppNote, filterNotesByQuery } from "./notes";
 import type { RecallSelfRating, SessionResult } from "./recall";
@@ -77,21 +78,25 @@ export type RecallSetupState = {
 function getRecallHistoryByNoteId(
   sessionResults: readonly SessionResult[],
 ): Map<string, NoteRecallHistory> {
-  const attemptsByNoteId = new Map<string, NoteRecallHistory["attempts"]>();
+  const attemptsByNoteId = new Map<string, NoteRecallHistoryAttempt[]>();
   const sortedResults = [...sessionResults].sort((left, right) =>
     left.completedAt.localeCompare(right.completedAt),
   );
 
   for (const result of sortedResults) {
     for (const attempt of result.attempts) {
-      const attempts = attemptsByNoteId.get(attempt.noteId) ?? [];
-      attemptsByNoteId.set(attempt.noteId, [
-        ...attempts,
-        {
-          completedAt: result.completedAt,
-          rating: attempt.rating,
-        },
-      ]);
+      const attempts = attemptsByNoteId.get(attempt.noteId);
+      const recallAttempt = {
+        completedAt: result.completedAt,
+        rating: attempt.rating,
+      };
+
+      if (attempts === undefined) {
+        attemptsByNoteId.set(attempt.noteId, [recallAttempt]);
+        continue;
+      }
+
+      attempts.push(recallAttempt);
     }
   }
 
@@ -125,7 +130,7 @@ function isRecentNote(note: AppNote, nowValue: number) {
 }
 
 function isWeakNote(learningState: NoteLearningState | undefined) {
-  return learningState?.status === "weak";
+  return learningState?.isWeak === true;
 }
 
 function isDueNow(learningState: NoteLearningState | undefined): boolean {
@@ -207,7 +212,6 @@ function getDifficultyLabel(
 function getAvailableEmptyState(input: {
   hasFilterMatches: boolean;
   hasNotes: boolean;
-  hasSearchQuery: boolean;
   selectedFilter: RecallSetupFilter;
   visibleCandidateCount: number;
 }): RecallSetupAvailableEmptyState {
@@ -220,21 +224,25 @@ function getAvailableEmptyState(input: {
   }
 
   if (!input.hasFilterMatches) {
-    switch (input.selectedFilter.kind) {
-      case "due":
-        return "no-due-notes";
-      case "weak":
-        return "no-weak-notes";
-      default:
-        return "no-filter-matches";
-    }
-  }
-
-  if (input.hasSearchQuery) {
-    return "no-search-matches";
+    return getNoFilterMatchesEmptyState(input.selectedFilter);
   }
 
   return "no-search-matches";
+}
+
+function getNoFilterMatchesEmptyState(
+  selectedFilter: RecallSetupFilter,
+): RecallSetupAvailableEmptyState {
+  switch (selectedFilter.kind) {
+    case "due":
+      return "no-due-notes";
+    case "weak":
+      return "no-weak-notes";
+    case "all":
+    case "label":
+    case "recent":
+      return "no-filter-matches";
+  }
 }
 
 function buildFilterSummaries(input: {
@@ -368,7 +376,6 @@ export function deriveRecallSetupState(input: {
     availableEmptyState: getAvailableEmptyState({
       hasFilterMatches: filterMatchedNotes.length > 0,
       hasNotes: input.notes.length > 0,
-      hasSearchQuery: input.searchQuery.trim().length > 0,
       selectedFilter: input.selectedFilter,
       visibleCandidateCount: visibleCandidates.length,
     }),

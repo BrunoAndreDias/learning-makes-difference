@@ -503,28 +503,29 @@ export function RecallSelectionPage() {
   const [activeSearchResultIndex, setActiveSearchResultIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const searchRootRef = useRef<HTMLFormElement | null>(null);
-  const filterState = deriveRecallSetupState({
+  const now = new Date().toISOString();
+  const setupState = deriveRecallSetupState({
     labels,
     notes,
-    now: new Date().toISOString(),
+    now,
+    searchQuery,
+    selectedFilter,
+    selectedNoteIds,
+    sessionResults,
+  });
+  const filterScopedState = deriveRecallSetupState({
+    labels,
+    notes,
+    now,
     searchQuery: "",
     selectedFilter,
     selectedNoteIds,
     sessionResults,
   });
   const searchResults = searchNoteResults(
-    filterState.visibleCandidates.map((candidate) => candidate.note),
+    filterScopedState.visibleCandidates.map((candidate) => candidate.note),
     searchQuery,
   );
-  const setupState = deriveRecallSetupState({
-    labels,
-    notes,
-    now: new Date().toISOString(),
-    searchQuery,
-    selectedFilter,
-    selectedNoteIds,
-    sessionResults,
-  });
   const selectedCountLabel = formatSelectedCount(selectedNoteIds.length);
   const hasSearchQuery = searchQuery.trim().length > 0;
   const noteCountLabel = formatCount(notes.length, "note");
