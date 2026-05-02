@@ -87,6 +87,33 @@ function formatHookCountLabel(count: number): string {
   return formatCount(count, "hook");
 }
 
+function getVisibleLabels(labels: readonly AppLabel[], searchQuery: string) {
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+
+  if (normalizedQuery.length === 0) {
+    return labels;
+  }
+
+  return labels.filter((label) =>
+    label.name.toLowerCase().includes(normalizedQuery),
+  );
+}
+
+function getManagedLabelIds(
+  labelIds: readonly string[],
+  availableLabels: readonly AppLabel[],
+) {
+  const selectedLabelIds = new Set(labelIds);
+  const orderedVisibleIds = availableLabels
+    .filter((label) => selectedLabelIds.has(label.id))
+    .map((label) => label.id);
+  const unavailableIds = labelIds.filter(
+    (labelId) => !orderedVisibleIds.includes(labelId),
+  );
+
+  return [...orderedVisibleIds, ...unavailableIds];
+}
+
 function getLearningStateSummary(status: LearningStateStatus) {
   switch (status) {
     case "unpracticed":
@@ -234,7 +261,6 @@ export function NotesWorkspace() {
     removeEditorMetaphor,
     requestEditorSave,
     syncEditorWithNotes,
-    toggleEditorLabel,
     updateEditorAcronym,
     updateEditorDraftField,
     updateEditorMetaphor,
@@ -263,11 +289,15 @@ export function NotesWorkspace() {
   const unsavedSearchDiscardRef = useRef<HTMLButtonElement>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
+  const [labelPickerDraftIds, setLabelPickerDraftIds] = useState<string[]>([]);
+  const [labelPickerSearchQuery, setLabelPickerSearchQuery] = useState("");
   const [bodyFraction, setBodyFraction] = useState(0.62);
   const [isBodyResizing, setIsBodyResizing] = useState(false);
   const [pendingHookRemoval, setPendingHookRemoval] =
     useState<PendingHookRemoval | null>(null);
   const noteFormRef = useRef<HTMLFormElement>(null);
+  const labelPickerTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const labelPickerSearchInputRef = useRef<HTMLInputElement | null>(null);
   const isInspectorHidden = bodyFraction >= 0.88;
   const selectedNote = getSelectedNote(noteEditor, notes);
   const activeFocusSession =
@@ -415,6 +445,9 @@ export function NotesWorkspace() {
 
     previousEditorIdentityRef.current = editorIdentity;
     setErrorMessage(null);
+    setIsLabelPickerOpen(false);
+    setLabelPickerDraftIds([]);
+    setLabelPickerSearchQuery("");
   }, [editorIdentity]);
 
   useEffect(() => {
@@ -501,6 +534,14 @@ export function NotesWorkspace() {
 
     titleInputRef.current?.focus();
   }, [editorFocusRequestNonce, hasPendingWorkspaceTransition]);
+
+  useEffect(() => {
+    if (!isLabelPickerOpen) {
+      return;
+    }
+
+    labelPickerSearchInputRef.current?.focus();
+  }, [isLabelPickerOpen]);
 
   useEffect(() => {
     if (userId === null || selectedNote === null) {
@@ -637,8 +678,44 @@ export function NotesWorkspace() {
     updateEditorDraftField(field, value);
   }
 
-  function handleLabelToggle(labelId: string, checked: boolean) {
-    toggleEditorLabel(labelId, checked);
+  function openLabelPicker() {
+    setLabelPickerDraftIds(editorState.labelIds);
+    setLabelPickerSearchQuery("");
+    setIsLabelPickerOpen(true);
+  }
+
+  function closeLabelPicker(options?: { restoreFocus?: boolean }) {
+    setIsLabelPickerOpen(false);
+    setLabelPickerDraftIds([]);
+    setLabelPickerSearchQuery("");
+
+    if (options?.restoreFocus ?? false) {
+      requestAnimationFrame(() => {
+        labelPickerTriggerRef.current?.focus();
+      });
+    }
+  }
+
+  function handleLabelPickerToggle(labelId: string, checked: boolean) {
+    setLabelPickerDraftIds((currentLabelIds) => {
+      if (checked) {
+        return [...new Set([...currentLabelIds, labelId])];
+      }
+
+      return currentLabelIds.filter((candidateId) => candidateId !== labelId);
+    });
+  }
+
+  function handleLabelPickerDone() {
+    handleEditorChange(
+      "labelIds",
+      getManagedLabelIds(labelPickerDraftIds, availableLabels),
+    );
+    closeLabelPicker({ restoreFocus: true });
+  }
+
+  function handleLabelPickerCancel() {
+    closeLabelPicker({ restoreFocus: true });
   }
 
   function handleAddMetaphor() {
@@ -1012,6 +1089,10 @@ export function NotesWorkspace() {
   const selectedLabels = availableLabels.filter((label) =>
     editorState.labelIds.includes(label.id),
   );
+  const visibleLabelOptions = getVisibleLabels(
+    availableLabels,
+    labelPickerSearchQuery,
+  );
   const noteCountLabel = formatCount(notes.length, "note");
   const selectedLabelCount = formatCount(selectedLabels.length, "label");
   const workspaceModeLabel = isCreating ? "Draft mode" : "Editing note";
@@ -1046,26 +1127,106 @@ export function NotesWorkspace() {
 
   if (isLabelPickerOpen) {
     if (availableLabels.length === 0) {
-      labelPickerContent = <p className="muted">No labels available</p>;
+      labelPickerContent = (
+        <section
+          aria-label="Manage labels"
+          aria-modal="false"
+          className="notes-label-picker"
+          id={labelPickerPanelId}
+          role="dialog"
+        >
+          <div className="notes-label-picker__header">
+            <div>
+              <p className="section-label">Labels</p>
+              <h4>Manage labels</h4>
+            </div>
+          </div>
+          <p className="muted notes-label-picker__empty">No labels available</p>
+          <div className="notes-label-picker__actions">
+            <button
+              className="notes-action"
+              onClick={handleLabelPickerCancel}
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              className="notes-action notes-action-primary"
+              onClick={handleLabelPickerDone}
+              type="button"
+            >
+              Done
+            </button>
+          </div>
+        </section>
+      );
     } else {
       labelPickerContent = (
-        <fieldset className="notes-labels">
-          <legend>Available labels</legend>
-          <div className="notes-labels__options">
-            {availableLabels.map((label) => (
-              <label className="notes-labels__option" key={label.id}>
-                <input
-                  checked={editorState.labelIds.includes(label.id)}
-                  onChange={(event) =>
-                    handleLabelToggle(label.id, event.target.checked)
-                  }
-                  type="checkbox"
-                />
-                <span>{label.name}</span>
-              </label>
-            ))}
+        <section
+          aria-label="Manage labels"
+          aria-modal="false"
+          className="notes-label-picker"
+          id={labelPickerPanelId}
+          role="dialog"
+        >
+          <div className="notes-label-picker__header">
+            <div>
+              <p className="section-label">Labels</p>
+              <h4>Manage labels</h4>
+            </div>
+            <span className="tag">{`${labelPickerDraftIds.length} selected`}</span>
           </div>
-        </fieldset>
+          <label className="notes-label-picker__search" htmlFor="label-search">
+            <span>Search labels</span>
+            <input
+              id="label-search"
+              onChange={(event) =>
+                setLabelPickerSearchQuery(event.target.value)
+              }
+              placeholder="Search labels"
+              ref={labelPickerSearchInputRef}
+              type="search"
+              value={labelPickerSearchQuery}
+            />
+          </label>
+          {visibleLabelOptions.length === 0 ? (
+            <p className="muted notes-label-picker__empty">
+              No labels match "{labelPickerSearchQuery.trim()}".
+            </p>
+          ) : (
+            <fieldset className="notes-label-picker__list">
+              <legend className="sr-only">Available labels</legend>
+              {visibleLabelOptions.map((label) => (
+                <label className="notes-label-picker__option" key={label.id}>
+                  <input
+                    checked={labelPickerDraftIds.includes(label.id)}
+                    onChange={(event) =>
+                      handleLabelPickerToggle(label.id, event.target.checked)
+                    }
+                    type="checkbox"
+                  />
+                  <span>{label.name}</span>
+                </label>
+              ))}
+            </fieldset>
+          )}
+          <div className="notes-label-picker__actions">
+            <button
+              className="notes-action"
+              onClick={handleLabelPickerCancel}
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              className="notes-action notes-action-primary"
+              onClick={handleLabelPickerDone}
+              type="button"
+            >
+              Done
+            </button>
+          </div>
+        </section>
       );
     }
   }
@@ -1255,17 +1416,18 @@ export function NotesWorkspace() {
                     <button
                       aria-expanded={isLabelPickerOpen}
                       aria-controls={labelPickerPanelId}
-                      aria-label="Add label"
+                      aria-haspopup="dialog"
+                      aria-label="Manage labels"
                       className="notes-inline-action"
                       onClick={() =>
-                        setIsLabelPickerOpen(
-                          (currentIsLabelPickerOpen) =>
-                            !currentIsLabelPickerOpen,
-                        )
+                        isLabelPickerOpen
+                          ? handleLabelPickerCancel()
+                          : openLabelPicker()
                       }
+                      ref={labelPickerTriggerRef}
                       type="button"
                     >
-                      + Add
+                      Manage labels
                     </button>
                   </div>
 

@@ -2204,6 +2204,7 @@
 }
 
 .notes-editor__labels {
+  position: relative;
   display: grid;
   gap: 0.55rem;
 }
@@ -2223,12 +2224,96 @@
   margin: 0;
 }
 
-.notes-editor__labels .notes-labels {
-  max-width: 38rem;
-  padding: 0.625rem 0.75rem;
+.notes-label-picker {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 5;
+  display: grid;
+  gap: 0.8rem;
+  width: min(23rem, calc(100vw - 4rem));
+  padding: 0.85rem;
   border: 1px solid var(--color-content-border-soft);
-  border-radius: 0.5rem;
+  border-radius: 0.85rem;
+  background: var(--color-shell-panel);
+  box-shadow: 0 1.25rem 2.5rem rgba(15, 23, 42, 0.12);
+}
+
+.notes-label-picker__header,
+.notes-label-picker__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.notes-label-picker__header {
+  justify-content: space-between;
+}
+
+.notes-label-picker__header h4,
+.notes-label-picker__header p,
+.notes-label-picker__empty {
+  margin: 0;
+}
+
+.notes-label-picker__search {
+  display: grid;
+  gap: 0.4rem;
+  color: var(--color-content-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.notes-label-picker__search input {
+  min-height: 2.5rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.65rem;
   background: var(--color-shell-inset);
+  color: var(--color-content-strong);
+  font-size: 0.9375rem;
+  text-transform: none;
+}
+
+.notes-label-picker__search input:focus-visible {
+  border-color: var(--color-content-border);
+  background: var(--color-shell-panel);
+  outline: none;
+}
+
+.notes-label-picker__list {
+  display: grid;
+  gap: 0.45rem;
+  max-height: 14rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: auto;
+}
+
+.notes-label-picker__option {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.65rem;
+  background: var(--color-shell-inset);
+  color: var(--color-content-default);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.notes-label-picker__option input {
+  margin: 0;
+}
+
+.notes-label-picker__actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .notes-form {
@@ -2861,6 +2946,20 @@
 
   .notes-title-editor input {
     max-width: 100%;
+  }
+
+  .notes-label-picker {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    left: 1rem;
+    top: auto;
+    width: auto;
+    max-height: min(70vh, 32rem);
+  }
+
+  .notes-label-picker__list {
+    max-height: min(38vh, 15rem);
   }
 
   .notes-list {

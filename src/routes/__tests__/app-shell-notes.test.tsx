@@ -1207,14 +1207,27 @@ describe("authenticated app shell", () => {
     expect(targetEditor).toHaveProperty("selectionEnd", 20);
   });
 
-  it("assigns and removes owned labels from a note inside the notes workspace", async () => {
+  it("manages note labels through a temporary picker session and saves only after the note is saved", async () => {
     const labelsContext = createAppLabelsContext({
       keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
     });
     const userId = "user-jordan";
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (currentUserId) =>
+        labelsContext.getLabelsForUser(currentUserId).map((label) => label.id),
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const note = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Cells convert glucose into usable energy through staged reactions.",
+      labelIds: [],
+      metaphors: [],
+      title: "Cell respiration",
+    });
 
-    labelsContext.createLabel({
+    const biology = labelsContext.createLabel({
       name: "Biology",
       userId,
     });
@@ -1225,6 +1238,7 @@ describe("authenticated app shell", () => {
 
     renderRoute("/notes", {
       labelsContext,
+      notesContext,
       session: {
         user: {
           displayName: "Jordan Review",
@@ -1239,37 +1253,151 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", { name: "Notes workspace" }),
     ).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("Cell respiration")).toBeVisible();
     expect(screen.getByText("No labels yet")).toBeInTheDocument();
-    expect(screen.queryByText("Assign labels")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Add label" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Manage labels" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", { name: "Biology" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Save changes" }),
+    ).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Title"), {
-      target: { value: "Cell respiration" },
+    fireEvent.click(screen.getByRole("button", { name: "Manage labels" }));
+    fireEvent.change(await screen.findByLabelText("Search labels"), {
+      target: { value: "bio" },
     });
-    fireEvent.change(screen.getByLabelText("Body"), {
-      target: {
-        value:
-          "Cells convert glucose into usable energy through staged reactions.",
-      },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Add label" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Science" }));
+
+    expect(screen.getByRole("checkbox", { name: "Biology" })).toBeVisible();
+    expect(
+      screen.queryByRole("checkbox", { name: "Science" }),
+    ).not.toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("checkbox", { name: "Biology" }));
-    fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
+
+    expect(screen.getByText("No labels yet")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Save changes" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
 
     const currentLabels = await screen.findByLabelText("Current labels");
     const assignedLabels =
       within(currentLabels).getByLabelText("Assigned labels");
 
-    expect(within(assignedLabels).getByText("Science")).toBeInTheDocument();
     expect(within(assignedLabels).getByText("Biology")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Search labels")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeVisible();
+    expect(listNotesForUser(notesContext.getSnapshot(), userId)).toEqual([
+      expect.objectContaining({
+        id: note.id,
+        labelIds: [],
+      }),
+    ]);
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "Biology" }));
-    fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(listNotesForUser(notesContext.getSnapshot(), userId)).toEqual([
+      expect.objectContaining({
+        id: note.id,
+        labelIds: [biology.id],
+      }),
+    ]);
+  });
+
+  it("cancels picker-session label changes without dirtying the note draft", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (currentUserId) =>
+        labelsContext.getLabelsForUser(currentUserId).map((label) => label.id),
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const science = labelsContext.createLabel({
+      name: "Science",
+      userId,
+    });
+
+    labelsContext.createLabel({
+      name: "Biology",
+      userId,
+    });
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "A note with one saved label already attached.",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Saved label note",
+    });
+
+    renderRoute("/notes", {
+      labelsContext,
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("Saved label note")).toBeVisible();
+
+    const currentLabels = screen.getByLabelText("Current labels");
+    const assignedLabels =
+      within(currentLabels).getByLabelText("Assigned labels");
 
     expect(within(assignedLabels).getByText("Science")).toBeInTheDocument();
     expect(
       within(assignedLabels).queryByText("Biology"),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Save changes" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage labels" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Biology" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Science" }));
+
+    expect(within(assignedLabels).getByText("Science")).toBeInTheDocument();
+    expect(
+      within(assignedLabels).queryByText("Biology"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Save changes" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByLabelText("Search labels")).not.toBeInTheDocument();
+    expect(within(assignedLabels).getByText("Science")).toBeInTheDocument();
+    expect(
+      within(assignedLabels).queryByText("Biology"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Save changes" }),
+    ).not.toBeInTheDocument();
+    expect(listNotesForUser(notesContext.getSnapshot(), userId)).toEqual([
+      expect.objectContaining({
+        labelIds: [science.id],
+      }),
+    ]);
   });
 
   it("manages note metaphors inside the note workflow", async () => {
