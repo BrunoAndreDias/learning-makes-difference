@@ -1,4 +1,6 @@
 .notes-workspace {
+  --notes-toolbar-title-offset: 9rem;
+
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 0;
@@ -13,7 +15,7 @@
   align-items: center;
   gap: 0.75rem;
   min-height: 4.5625rem;
-  padding: 0.875rem 1.25rem 0.875rem 7.5rem;
+  padding: 0.875rem 1.25rem;
   border-bottom: 1px solid var(--color-content-border-soft);
   background: var(--color-shell-panel);
 }
@@ -58,6 +60,10 @@
   transition:
     border-color var(--motion-fast),
     background-color var(--motion-fast);
+}
+
+.notes-workspace__toolbar > .notes-search {
+  margin-left: var(--notes-toolbar-title-offset);
 }
 
 .notes-search:focus-within {

@@ -47,4 +47,39 @@ describe("foundationTokens", () => {
     expect(css).toContain("grid-template-rows: auto auto minmax(0, 1fr);");
     expect(css).toContain("align-content: start;");
   });
+
+  it("keeps the promoted notes workspace from reserving the old catalog column", () => {
+    const css = readFileSync(
+      new URL(
+        "../modules/notes/notes-workspace/notes-responsive.css",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+
+    expect(css).toContain("grid-template-columns: minmax(0, 1fr);");
+    expect(css).not.toContain("minmax(15.5rem, 17.5rem)");
+  });
+
+  it("keeps the promoted notes title row aligned with the toolbar controls", () => {
+    const workspaceShellCss = readFileSync(
+      new URL(
+        "../modules/workspace-shell/workspace-shell.css",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const notesResponsiveCss = readFileSync(
+      new URL(
+        "../modules/notes/notes-workspace/notes-responsive.css",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+
+    expect(workspaceShellCss).toContain("align-items: flex-start;");
+    expect(workspaceShellCss).toContain("padding-block: 0.875rem;");
+    expect(workspaceShellCss).toContain("transform: translateY(0.1875rem);");
+    expect(notesResponsiveCss).toContain("align-items: start;");
+  });
 });

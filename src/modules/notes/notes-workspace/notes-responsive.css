@@ -5,7 +5,7 @@
   }
 
   .notes-layout {
-    grid-template-columns: minmax(0, 1fr) minmax(15.5rem, 17.5rem);
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -32,7 +32,6 @@
   .notes-workspace__toolbar {
     grid-template-columns: 1fr;
     gap: 0.75rem;
-    padding-left: 1.5rem;
   }
 
   .notes-workspace__toolbar-actions {
@@ -95,7 +94,7 @@
 .authenticated-shell[data-sidebar-state="collapsed"]
   .app-frame[data-workspace="notes"]
   .notes-workspace__toolbar {
-  padding-left: calc(var(--authenticated-sidebar-width) + 1rem + 1.5rem);
+  --notes-toolbar-title-offset: 10.75rem;
 }
 
 @media (max-width: 62rem) {
@@ -103,6 +102,22 @@
     .app-frame[data-workspace="notes"]
     .notes-workspace__toolbar {
     grid-template-columns: 1fr;
-    padding-left: 1.5rem;
+  }
+}
+
+@media (max-width: 42rem) {
+  .notes-workspace {
+    --notes-toolbar-title-offset: 1rem;
+  }
+
+  .notes-workspace__toolbar,
+  .authenticated-shell[data-sidebar-state="collapsed"]
+    .app-frame[data-workspace="notes"]
+    .notes-workspace__toolbar {
+    padding-inline: 1rem;
+  }
+
+  .notes-workspace__toolbar > .notes-search {
+    margin-left: 0;
   }
 }
