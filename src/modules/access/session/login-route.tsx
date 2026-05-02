@@ -14,8 +14,10 @@ export const Route = createFileRoute("/_auth/login")({
   validateSearch: z.object({
     redirect: z.string().optional(),
   }),
-  beforeLoad: ({ context, search }) => {
-    if (hasActiveSession(context.session.getSnapshot())) {
+  beforeLoad: async ({ context, search }) => {
+    const sessionSnapshot = await context.session.refresh();
+
+    if (hasActiveSession(sessionSnapshot)) {
       throw redirect({
         to: search.redirect ?? "/notes",
       });

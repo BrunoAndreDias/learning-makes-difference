@@ -19,6 +19,10 @@ import {
   type AppSessionContext,
   type AppSessionSnapshot,
   createAppSessionContext,
+  createMemorySessionService,
+  createMemorySessionStore,
+  type MemorySessionCookie,
+  type MemorySessionStore,
 } from "../../modules/access/session/session";
 import {
   type AppFocusContext,
@@ -39,6 +43,8 @@ import {
   type FlashCardRecallRating,
 } from "../../modules/recall";
 import { routeTree } from "../../routeTree.gen";
+
+export const TEST_PILOT_REGISTRATION_CODE = "test-pilot-code";
 
 export function renderRoute(
   initialPath: string,
@@ -62,10 +68,11 @@ export function renderRoute(
   };
   const sessionContext = options.sessionContext ?? {
     getSnapshot: () => staticSnapshot,
+    refresh: () => Promise.resolve(staticSnapshot),
     subscribe: () => () => undefined,
     login: () =>
       Promise.reject(new Error("Static test session cannot log in.")),
-    logout: () => ({ user: null }),
+    logout: () => Promise.resolve({ user: null }),
     register: () =>
       Promise.reject(new Error("Static test session cannot register.")),
     updatePreferences: () =>
@@ -123,6 +130,38 @@ export function renderRoute(
     router,
     ...render(<RouterProvider router={router} />),
   };
+}
+
+export function createSessionCookieJar(): MemorySessionCookie {
+  let value: string | null = null;
+
+  return {
+    clear() {
+      value = null;
+    },
+    get() {
+      return value;
+    },
+    set(nextValue: string) {
+      value = nextValue;
+    },
+  };
+}
+
+export function createRouteTestSessionContext(
+  options: { cookie?: MemorySessionCookie; store?: MemorySessionStore } = {},
+) {
+  return createAppSessionContext({
+    service: createMemorySessionService({
+      cookie: options.cookie,
+      pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
+      store: options.store ?? createMemorySessionStore(),
+    }),
+  });
+}
+
+export function createRouteTestSessionStore() {
+  return createMemorySessionStore();
 }
 
 export function createLearningLoopTestContexts(

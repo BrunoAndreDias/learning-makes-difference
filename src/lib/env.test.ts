@@ -9,6 +9,7 @@ describe("loadAppEnv", () => {
         APP_ENV: "test",
         APP_URL: "https://example.com",
         DATABASE_URL: "postgres://postgres:postgres@localhost:5432/lmd_test",
+        PILOT_REGISTRATION_CODE: "pilot-123",
         SESSION_SECRET: "12345678901234567890123456789012",
         LOG_LEVEL: "warn",
       }),
@@ -16,6 +17,7 @@ describe("loadAppEnv", () => {
       APP_ENV: "test",
       APP_URL: "https://example.com",
       DATABASE_URL: "postgres://postgres:postgres@localhost:5432/lmd_test",
+      PILOT_REGISTRATION_CODE: "pilot-123",
       SESSION_SECRET: "12345678901234567890123456789012",
       LOG_LEVEL: "warn",
     });
@@ -27,6 +29,7 @@ describe("loadAppEnv", () => {
         APP_ENV: "local",
         APP_URL: "not-a-url",
         DATABASE_URL: "sqlite://tmp.db",
+        PILOT_REGISTRATION_CODE: "",
         SESSION_SECRET: "short",
         LOG_LEVEL: "verbose",
       }),

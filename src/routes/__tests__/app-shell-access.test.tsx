@@ -4,9 +4,12 @@ import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import {
   createAppNotesContext,
-  createAppSessionContext,
+  createRouteTestSessionContext,
+  createRouteTestSessionStore,
+  createSessionCookieJar,
   openAccountMenu,
   renderRoute,
+  TEST_PILOT_REGISTRATION_CODE,
 } from "./app-shell-test-support";
 
 describe("authenticated app shell", () => {
@@ -70,10 +73,7 @@ describe("authenticated app shell", () => {
   });
 
   it("registers a new account into the intended protected route and logs out cleanly", async () => {
-    const sessionContext = createAppSessionContext({
-      keyPrefix: `test-auth-${Math.random().toString(36).slice(2)}`,
-      storage: window.localStorage,
-    });
+    const sessionContext = createRouteTestSessionContext();
     const { router } = renderRoute("/settings", { sessionContext });
 
     expect(
@@ -89,6 +89,9 @@ describe("authenticated app shell", () => {
     });
     fireEvent.change(screen.getByLabelText("Email"), {
       target: { value: "casey@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Pilot registration code"), {
+      target: { value: TEST_PILOT_REGISTRATION_CODE },
     });
     fireEvent.change(screen.getByLabelText("Password"), {
       target: { value: "correct horse battery staple" },
@@ -111,21 +114,23 @@ describe("authenticated app shell", () => {
   });
 
   it("restores a protected route after refresh until sign-out clears the session", async () => {
-    const keyPrefix = `test-auth-refresh-${Math.random().toString(36).slice(2)}`;
-    const sessionContext = createAppSessionContext({
-      keyPrefix,
-      storage: window.localStorage,
+    const store = createRouteTestSessionStore();
+    const cookie = createSessionCookieJar();
+    const sessionContext = createRouteTestSessionContext({
+      cookie,
+      store,
     });
 
     await sessionContext.register({
       displayName: "Casey Learner",
       email: "casey@example.com",
       password: "correct horse battery staple",
+      pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
     });
 
-    const refreshedSessionContext = createAppSessionContext({
-      keyPrefix,
-      storage: window.localStorage,
+    const refreshedSessionContext = createRouteTestSessionContext({
+      cookie,
+      store,
     });
     const refreshedRoute = renderRoute("/settings", {
       sessionContext: refreshedSessionContext,
@@ -146,9 +151,9 @@ describe("authenticated app shell", () => {
 
     cleanup();
 
-    const loggedOutSessionContext = createAppSessionContext({
-      keyPrefix,
-      storage: window.localStorage,
+    const loggedOutSessionContext = createRouteTestSessionContext({
+      cookie,
+      store,
     });
     const loggedOutRoute = renderRoute("/settings", {
       sessionContext: loggedOutSessionContext,
@@ -164,17 +169,15 @@ describe("authenticated app shell", () => {
   });
 
   it("logs a returning user into the requested protected route", async () => {
-    const sessionContext = createAppSessionContext({
-      keyPrefix: `test-auth-${Math.random().toString(36).slice(2)}`,
-      storage: window.localStorage,
-    });
+    const sessionContext = createRouteTestSessionContext();
 
     await sessionContext.register({
       displayName: "Jordan Review",
       email: "jordan@example.com",
       password: "correct horse battery staple",
+      pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
     });
-    sessionContext.logout();
+    await sessionContext.logout();
 
     const { router } = renderRoute("/login?redirect=%2Frecall", {
       sessionContext,
@@ -203,15 +206,13 @@ describe("authenticated app shell", () => {
   });
 
   it("updates account preferences from settings and restores them for the same account", async () => {
-    const sessionContext = createAppSessionContext({
-      keyPrefix: `test-auth-${Math.random().toString(36).slice(2)}`,
-      storage: window.localStorage,
-    });
+    const sessionContext = createRouteTestSessionContext();
 
     await sessionContext.register({
       displayName: "Casey Learner",
       email: "casey@example.com",
       password: "correct horse battery staple",
+      pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
     });
 
     renderRoute("/settings", { sessionContext });
@@ -275,11 +276,12 @@ describe("authenticated app shell", () => {
   });
 
   it("restores persisted note metaphors and acronyms after refresh and account sign-in", async () => {
-    const authKeyPrefix = `test-auth-persisted-notes-${Math.random().toString(36).slice(2)}`;
     const notesKeyPrefix = `test-notes-persisted-memory-hooks-${Math.random().toString(36).slice(2)}`;
-    const sessionContext = createAppSessionContext({
-      keyPrefix: authKeyPrefix,
-      storage: window.localStorage,
+    const store = createRouteTestSessionStore();
+    const cookie = createSessionCookieJar();
+    const sessionContext = createRouteTestSessionContext({
+      cookie,
+      store,
     });
     const notesContext = createAppNotesContext({
       keyPrefix: notesKeyPrefix,
@@ -304,6 +306,9 @@ describe("authenticated app shell", () => {
     });
     fireEvent.change(screen.getByLabelText("Email"), {
       target: { value: "casey@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Pilot registration code"), {
+      target: { value: TEST_PILOT_REGISTRATION_CODE },
     });
     fireEvent.change(screen.getByLabelText("Password"), {
       target: { value: "correct horse battery staple" },
@@ -360,9 +365,9 @@ describe("authenticated app shell", () => {
         keyPrefix: notesKeyPrefix,
         storage: window.localStorage,
       }),
-      sessionContext: createAppSessionContext({
-        keyPrefix: authKeyPrefix,
-        storage: window.localStorage,
+      sessionContext: createRouteTestSessionContext({
+        cookie,
+        store,
       }),
     });
 

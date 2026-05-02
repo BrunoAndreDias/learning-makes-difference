@@ -63,8 +63,10 @@ export const Route = createRootRouteWithContext<{
       { rel: "stylesheet", href: appCss },
     ],
   }),
-  beforeLoad: ({ context, location }) => {
-    if (hasActiveSession(context.session.getSnapshot())) {
+  beforeLoad: async ({ context, location }) => {
+    const sessionSnapshot = await context.session.refresh();
+
+    if (hasActiveSession(sessionSnapshot)) {
       return;
     }
 

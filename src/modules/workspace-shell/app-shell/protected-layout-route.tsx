@@ -143,7 +143,7 @@ export function AppLayout() {
     setLoggingOut(true);
 
     try {
-      session.logout();
+      await session.logout();
       await router.invalidate();
       await navigate({
         to: "/login",

@@ -3,9 +3,11 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { hasActiveSession } from "../session/session";
 
 export const Route = createFileRoute("/_public/")({
-  beforeLoad: ({ context }) => {
+  beforeLoad: async ({ context }) => {
+    const sessionSnapshot = await context.session.refresh();
+
     throw redirect({
-      to: hasActiveSession(context.session.getSnapshot()) ? "/notes" : "/login",
+      to: hasActiveSession(sessionSnapshot) ? "/notes" : "/login",
     });
   },
 });

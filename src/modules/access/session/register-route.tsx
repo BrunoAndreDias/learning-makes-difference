@@ -14,8 +14,10 @@ export const Route = createFileRoute("/_auth/register")({
   validateSearch: z.object({
     redirect: z.string().optional(),
   }),
-  beforeLoad: ({ context, search }) => {
-    if (hasActiveSession(context.session.getSnapshot())) {
+  beforeLoad: async ({ context, search }) => {
+    const sessionSnapshot = await context.session.refresh();
+
+    if (hasActiveSession(sessionSnapshot)) {
       throw redirect({
         to: search.redirect ?? "/notes",
       });
@@ -34,6 +36,7 @@ function RegisterPage() {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [pilotRegistrationCode, setPilotRegistrationCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
@@ -45,7 +48,12 @@ function RegisterPage() {
     setSubmitting(true);
 
     try {
-      await session.register({ displayName, email, password });
+      await session.register({
+        displayName,
+        email,
+        password,
+        pilotRegistrationCode,
+      });
       await router.invalidate();
       await navigate({ to: redirectTarget });
     } catch (error) {
@@ -134,6 +142,45 @@ function RegisterPage() {
             required
             type="email"
             value={email}
+          />
+        </div>
+
+        <label
+          className="auth-field-label"
+          htmlFor="register-pilot-registration-code"
+        >
+          Pilot registration code
+        </label>
+        <div className="auth-field">
+          <span aria-hidden="true" className="auth-field__icon">
+            <svg
+              fill="none"
+              height="18"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.75"
+              viewBox="0 0 24 24"
+              width="18"
+            >
+              <title>Pilot registration code</title>
+              <path d="M4 7h16" />
+              <path d="M7 4v6" />
+              <path d="M17 4v6" />
+              <rect height="12" rx="2" width="18" x="3" y="8" />
+              <path d="M9 14h6" />
+            </svg>
+          </span>
+          <input
+            autoComplete="off"
+            className="auth-field__input"
+            id="register-pilot-registration-code"
+            name="pilotRegistrationCode"
+            onChange={(event) => setPilotRegistrationCode(event.target.value)}
+            placeholder="Enter the shared pilot code"
+            required
+            type="text"
+            value={pilotRegistrationCode}
           />
         </div>
 

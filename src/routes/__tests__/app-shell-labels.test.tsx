@@ -2,19 +2,21 @@
 
 import { fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { createAppSessionContext, renderRoute } from "./app-shell-test-support";
+import {
+  createRouteTestSessionContext,
+  renderRoute,
+  TEST_PILOT_REGISTRATION_CODE,
+} from "./app-shell-test-support";
 
 describe("authenticated app shell", () => {
   it("manages labels and rejects cycle-causing parent relationships", async () => {
-    const sessionContext = createAppSessionContext({
-      keyPrefix: `test-auth-${Math.random().toString(36).slice(2)}`,
-      storage: window.localStorage,
-    });
+    const sessionContext = createRouteTestSessionContext();
 
     await sessionContext.register({
       displayName: "Casey Learner",
       email: "casey@example.com",
       password: "correct horse battery staple",
+      pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
     });
 
     renderRoute("/labels", { sessionContext });

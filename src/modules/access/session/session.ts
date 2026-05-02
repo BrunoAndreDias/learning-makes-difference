@@ -1,39 +1,27 @@
-export type AppSessionUser = {
-  email: string;
-  id: string;
-  displayName: string;
-  interfaceLanguage: AppLanguagePreference;
-  studyLanguage: AppLanguagePreference;
-};
+import {
+  AppAuthError,
+  type AppLanguagePreference,
+  type AppSessionSnapshot,
+  appLanguagePreferences,
+  buildAnonymousSnapshot,
+  isLanguagePreference,
+  type LoginInput,
+  type RegisterInput,
+  type UpdatePreferencesInput,
+} from "./session-contract";
+import { createServerSessionService } from "./session-server-fns";
 
-export type AppSessionSnapshot = {
-  user: AppSessionUser | null;
-};
-
-export const appLanguagePreferences = ["en", "es", "pt-BR"] as const;
-
-export type AppLanguagePreference = (typeof appLanguagePreferences)[number];
+export {
+  AppAuthError,
+  type AppLanguagePreference,
+  type AppSessionSnapshot,
+  type AppSessionUser,
+  appLanguagePreferences,
+} from "./session-contract";
 
 type SessionListener = () => void;
 
-type RegisterInput = {
-  displayName: string;
-  email: string;
-  password: string;
-};
-
-type LoginInput = {
-  email: string;
-  password: string;
-};
-
-type UpdatePreferencesInput = {
-  displayName: string;
-  interfaceLanguage: AppLanguagePreference;
-  studyLanguage: AppLanguagePreference;
-};
-
-type StoredUserRecord = {
+type MemoryStoredUserRecord = {
   id: string;
   displayName: string;
   email: string;
@@ -43,118 +31,84 @@ type StoredUserRecord = {
   studyLanguage: AppLanguagePreference;
 };
 
-type StoredSessionRecord = {
+type MemoryStoredSessionRecord = {
   id: string;
   userId: string;
 };
 
-type SessionStorageAdapter = Pick<Storage, "getItem" | "setItem">;
-
-type SessionCookieAdapter = {
-  clear: () => void;
-  get: () => string | null;
-  set: (value: string) => void;
-};
-
-type SessionCrypto = Pick<Crypto, "randomUUID" | "subtle">;
-
-type CreateAppSessionContextOptions = {
-  cookie?: SessionCookieAdapter;
-  crypto?: SessionCrypto;
-  keyPrefix?: string;
-  storage?: SessionStorageAdapter;
-};
-
-export class AppAuthError extends Error {
-  readonly code:
-    | "email_taken"
-    | "invalid_credentials"
-    | "invalid_input"
-    | "not_authenticated";
-
-  constructor(
-    code:
-      | "email_taken"
-      | "invalid_credentials"
-      | "invalid_input"
-      | "not_authenticated",
-    message: string,
-  ) {
-    super(message);
-    this.code = code;
-  }
-}
-
-export type AppSessionContext = {
-  getSnapshot: () => AppSessionSnapshot;
-  subscribe: (listener: SessionListener) => () => void;
+export type AppSessionService = {
+  getSessionSnapshot: () => Promise<AppSessionSnapshot>;
   register: (input: RegisterInput) => Promise<AppSessionSnapshot>;
   login: (input: LoginInput) => Promise<AppSessionSnapshot>;
-  logout: () => AppSessionSnapshot;
+  logout: () => Promise<AppSessionSnapshot>;
   updatePreferences: (
     input: UpdatePreferencesInput,
   ) => Promise<AppSessionSnapshot>;
 };
 
-const DEFAULT_STORAGE_KEY_PREFIX = "learning-makes-difference-auth";
+export type AppSessionContext = {
+  getSnapshot: () => AppSessionSnapshot;
+  refresh: () => Promise<AppSessionSnapshot>;
+  subscribe: (listener: SessionListener) => () => void;
+  register: (input: RegisterInput) => Promise<AppSessionSnapshot>;
+  login: (input: LoginInput) => Promise<AppSessionSnapshot>;
+  logout: () => Promise<AppSessionSnapshot>;
+  updatePreferences: (
+    input: UpdatePreferencesInput,
+  ) => Promise<AppSessionSnapshot>;
+};
+
+type CreateAppSessionContextOptions = {
+  initialSnapshot?: AppSessionSnapshot;
+  service?: AppSessionService;
+};
+
+export type MemorySessionStore = {
+  sessions: MemoryStoredSessionRecord[];
+  users: MemoryStoredUserRecord[];
+};
+
+export type MemorySessionCookie = {
+  clear: () => void;
+  get: () => string | null;
+  set: (value: string) => void;
+};
+
+type CreateMemorySessionServiceOptions = {
+  cookie?: MemorySessionCookie;
+  crypto?: Pick<Crypto, "randomUUID" | "subtle">;
+  pilotRegistrationCode?: string;
+  store?: MemorySessionStore;
+};
+
+const DEFAULT_PILOT_REGISTRATION_CODE = "test-pilot-code";
 const NOT_AUTHENTICATED_MESSAGE = "Sign in to update account preferences.";
-const SESSION_COOKIE_ATTRIBUTES = "Path=/; SameSite=Lax";
 
-function getDefaultStorage(): SessionStorageAdapter | undefined {
-  if (typeof window === "undefined") {
-    return undefined;
-  }
-
-  return window.localStorage;
-}
-
-function getDefaultCrypto(): SessionCrypto {
+function getDefaultCrypto() {
   return globalThis.crypto;
 }
 
-function getDefaultCookie(prefix: string): SessionCookieAdapter | undefined {
-  if (typeof document === "undefined") {
-    return undefined;
-  }
-
-  const cookieKey = encodeURIComponent(getSessionCookieName(prefix));
-  const encodedPrefix = `${cookieKey}=`;
+function createMemoryCookie(): MemorySessionCookie {
+  let value: string | null = null;
 
   return {
     clear() {
-      // biome-ignore lint/suspicious/noDocumentCookie: This adapter needs synchronous cookie access to hydrate session state during context creation.
-      document.cookie = `${cookieKey}=; Max-Age=0; ${SESSION_COOKIE_ATTRIBUTES}`;
+      value = null;
     },
     get() {
-      const entry = document.cookie
-        .split("; ")
-        .find((cookie) => cookie.startsWith(encodedPrefix));
-
-      if (entry === undefined) {
-        return null;
-      }
-
-      return decodeURIComponent(entry.slice(encodedPrefix.length));
+      return value;
     },
-    set(value: string) {
-      // biome-ignore lint/suspicious/noDocumentCookie: This adapter needs synchronous cookie access to keep the session API synchronous after auth.
-      document.cookie = `${cookieKey}=${encodeURIComponent(
-        value,
-      )}; ${SESSION_COOKIE_ATTRIBUTES}`;
+    set(nextValue: string) {
+      value = nextValue;
     },
   };
 }
 
-function getUsersStorageKey(prefix: string): string {
-  return `${prefix}:users`;
-}
-
-function getSessionStorageKey(prefix: string): string {
-  return `${prefix}:sessions`;
-}
-
-function getSessionCookieName(prefix: string): string {
-  return `${prefix}:session-id`;
+export function createMemorySessionStore(): MemorySessionStore {
+  return {
+    sessions: [],
+    users: [],
+  };
 }
 
 function createNotAuthenticatedError(): AppAuthError {
@@ -165,71 +119,11 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-function parseStoredUsers(value: string | null): StoredUserRecord[] {
-  if (value === null) {
-    return [];
-  }
-
-  try {
-    const parsedValue = JSON.parse(value);
-
-    if (!Array.isArray(parsedValue)) {
-      return [];
-    }
-
-    return parsedValue.filter((user): user is StoredUserRecord => {
-      return (
-        typeof user === "object" &&
-        user !== null &&
-        typeof user.id === "string" &&
-        typeof user.displayName === "string" &&
-        typeof user.email === "string" &&
-        typeof user.passwordHash === "string" &&
-        typeof user.passwordSalt === "string" &&
-        isLanguagePreference(user.interfaceLanguage) &&
-        isLanguagePreference(user.studyLanguage)
-      );
-    });
-  } catch {
-    return [];
-  }
-}
-
-function parseStoredSessions(value: string | null): StoredSessionRecord[] {
-  if (value === null) {
-    return [];
-  }
-
-  try {
-    const parsedValue = JSON.parse(value);
-
-    if (!Array.isArray(parsedValue)) {
-      return [];
-    }
-
-    return parsedValue.filter((session): session is StoredSessionRecord => {
-      return (
-        typeof session === "object" &&
-        session !== null &&
-        typeof session.id === "string" &&
-        typeof session.userId === "string"
-      );
-    });
-  } catch {
-    return [];
-  }
-}
-
-function isLanguagePreference(value: unknown): value is AppLanguagePreference {
-  return (
-    typeof value === "string" &&
-    appLanguagePreferences.includes(value as AppLanguagePreference)
-  );
-}
-
-function buildSnapshot(user: StoredUserRecord | null): AppSessionSnapshot {
+function buildSnapshot(
+  user: MemoryStoredUserRecord | null,
+): AppSessionSnapshot {
   if (user === null) {
-    return { user: null };
+    return buildAnonymousSnapshot();
   }
 
   return {
@@ -244,7 +138,7 @@ function buildSnapshot(user: StoredUserRecord | null): AppSessionSnapshot {
 }
 
 async function hashPassword(
-  cryptoProvider: SessionCrypto,
+  cryptoProvider: Pick<Crypto, "subtle">,
   password: string,
   salt: string,
 ): Promise<string> {
@@ -310,17 +204,68 @@ function validateLanguagePreference(
   return value;
 }
 
+function validatePilotRegistrationCode(
+  providedCode: string,
+  expectedCode: string,
+): string {
+  const normalizedCode = providedCode.trim();
+
+  if (expectedCode.trim().length === 0 || normalizedCode !== expectedCode) {
+    throw new AppAuthError(
+      "invalid_registration_code",
+      "Pilot registration code is invalid.",
+    );
+  }
+
+  return normalizedCode;
+}
+
+function readSessionUser(
+  cookie: MemorySessionCookie,
+  store: MemorySessionStore,
+): MemoryStoredUserRecord | null {
+  const sessionId = cookie.get();
+
+  if (sessionId === null) {
+    return null;
+  }
+
+  const activeSession =
+    store.sessions.find((session) => session.id === sessionId) ?? null;
+
+  if (activeSession === null) {
+    cookie.clear();
+    return null;
+  }
+
+  return store.users.find((user) => user.id === activeSession.userId) ?? null;
+}
+
+function issueSessionForUser(
+  cookie: MemorySessionCookie,
+  cryptoProvider: Pick<Crypto, "randomUUID">,
+  store: MemorySessionStore,
+  user: MemoryStoredUserRecord,
+) {
+  const sessionId = cryptoProvider.randomUUID();
+
+  store.sessions.push({
+    id: sessionId,
+    userId: user.id,
+  });
+  cookie.set(sessionId);
+}
+
 export function hasActiveSession(session: AppSessionSnapshot): boolean {
   return session.user !== null;
 }
 
 export function createGuestSessionContext(): AppSessionContext {
-  const snapshot: AppSessionSnapshot = {
-    user: null,
-  };
+  const snapshot = buildAnonymousSnapshot();
 
   return {
     getSnapshot: () => snapshot,
+    refresh: async () => snapshot,
     subscribe: () => () => undefined,
     register: async () => {
       throw createNotAuthenticatedError();
@@ -328,160 +273,34 @@ export function createGuestSessionContext(): AppSessionContext {
     login: async () => {
       throw createNotAuthenticatedError();
     },
-    logout: () => snapshot,
+    logout: async () => snapshot,
     updatePreferences: async () => {
       throw createNotAuthenticatedError();
     },
   };
 }
 
-export function createAppSessionContext(
-  options: CreateAppSessionContextOptions = {},
-): AppSessionContext {
-  const storage = options.storage ?? getDefaultStorage();
+export function createMemorySessionService(
+  options: CreateMemorySessionServiceOptions = {},
+): AppSessionService {
+  const cookie = options.cookie ?? createMemoryCookie();
   const cryptoProvider = options.crypto ?? getDefaultCrypto();
-  const keyPrefix = options.keyPrefix ?? DEFAULT_STORAGE_KEY_PREFIX;
-  const cookie = options.cookie ?? getDefaultCookie(keyPrefix);
-  const listeners = new Set<SessionListener>();
-  let snapshot: AppSessionSnapshot = { user: null };
-
-  function notifyListeners() {
-    for (const listener of listeners) {
-      listener();
-    }
-  }
-
-  function commitSnapshot(nextSnapshot: AppSessionSnapshot) {
-    snapshot = nextSnapshot;
-    notifyListeners();
-  }
-
-  function readUsers(): StoredUserRecord[] {
-    return parseStoredUsers(
-      storage?.getItem(getUsersStorageKey(keyPrefix)) ?? null,
-    );
-  }
-
-  function writeUsers(users: StoredUserRecord[]) {
-    storage?.setItem(getUsersStorageKey(keyPrefix), JSON.stringify(users));
-  }
-
-  function readSessions(): StoredSessionRecord[] {
-    return parseStoredSessions(
-      storage?.getItem(getSessionStorageKey(keyPrefix)) ?? null,
-    );
-  }
-
-  function writeSessions(sessions: StoredSessionRecord[]) {
-    storage?.setItem(getSessionStorageKey(keyPrefix), JSON.stringify(sessions));
-  }
-
-  function readSessionUser(
-    users: StoredUserRecord[],
-    sessions: StoredSessionRecord[],
-  ): StoredUserRecord | null {
-    const sessionId = cookie?.get() ?? null;
-
-    if (sessionId === null) {
-      return null;
-    }
-
-    const activeSession =
-      sessions.find((session) => session.id === sessionId) ?? null;
-
-    if (activeSession === null) {
-      cookie?.clear();
-      return null;
-    }
-
-    return users.find((user) => user.id === activeSession.userId) ?? null;
-  }
-
-  function issueSessionForUser(user: StoredUserRecord) {
-    const sessionId = cryptoProvider.randomUUID();
-    const sessions = readSessions();
-
-    sessions.push({
-      id: sessionId,
-      userId: user.id,
-    });
-    writeSessions(sessions);
-    cookie?.set(sessionId);
-  }
-
-  function clearActiveSession() {
-    const sessionId = cookie?.get() ?? null;
-
-    if (sessionId !== null) {
-      writeSessions(
-        readSessions().filter((session) => session.id !== sessionId),
-      );
-    }
-
-    cookie?.clear();
-  }
-
-  function syncSnapshotFromStorage() {
-    const users = readUsers();
-    const sessions = readSessions();
-    snapshot = buildSnapshot(readSessionUser(users, sessions));
-  }
-
-  syncSnapshotFromStorage();
+  const pilotRegistrationCode =
+    options.pilotRegistrationCode ?? DEFAULT_PILOT_REGISTRATION_CODE;
+  const store = options.store ?? createMemorySessionStore();
 
   return {
-    getSnapshot: () => snapshot,
-    subscribe: (listener) => {
-      listeners.add(listener);
-
-      return () => {
-        listeners.delete(listener);
-      };
-    },
-    register: async ({ displayName, email, password }) => {
-      const safeDisplayName = validateDisplayName(displayName);
-      const safeEmail = validateEmail(email);
-      const safePassword = validatePassword(password);
-      const users = readUsers();
-
-      if (users.some((user) => normalizeEmail(user.email) === safeEmail)) {
-        throw new AppAuthError(
-          "email_taken",
-          "An account with that email already exists.",
-        );
-      }
-
-      const passwordSalt = cryptoProvider.randomUUID();
-      const nextUser: StoredUserRecord = {
-        id: cryptoProvider.randomUUID(),
-        displayName: safeDisplayName,
-        email: safeEmail,
-        passwordSalt,
-        passwordHash: await hashPassword(
-          cryptoProvider,
-          safePassword,
-          passwordSalt,
-        ),
-        interfaceLanguage: "en",
-        studyLanguage: "en",
-      };
-
-      users.push(nextUser);
-      writeUsers(users);
-      issueSessionForUser(nextUser);
-      commitSnapshot(buildSnapshot(nextUser));
-
-      return snapshot;
-    },
+    getSessionSnapshot: async () =>
+      buildSnapshot(readSessionUser(cookie, store)),
     login: async ({ email, password }) => {
       const safeEmail = validateEmail(email);
       const safePassword = validatePassword(password);
-      const users = readUsers();
-      const user = users.find(
-        (candidate) => normalizeEmail(candidate.email) === safeEmail,
-      );
+      const user =
+        store.users.find(
+          (candidate) => normalizeEmail(candidate.email) === safeEmail,
+        ) ?? null;
 
-      if (user === undefined) {
+      if (user === null) {
         throw new AppAuthError(
           "invalid_credentials",
           "Email or password is incorrect.",
@@ -501,25 +320,74 @@ export function createAppSessionContext(
         );
       }
 
-      issueSessionForUser(user);
-      commitSnapshot(buildSnapshot(user));
+      issueSessionForUser(cookie, cryptoProvider, store, user);
 
-      return snapshot;
+      return buildSnapshot(user);
     },
-    logout: () => {
-      clearActiveSession();
-      commitSnapshot({ user: null });
+    logout: async () => {
+      const sessionId = cookie.get();
 
-      return snapshot;
+      if (sessionId !== null) {
+        store.sessions = store.sessions.filter(
+          (session) => session.id !== sessionId,
+        );
+      }
+
+      cookie.clear();
+
+      return buildAnonymousSnapshot();
+    },
+    register: async ({
+      displayName,
+      email,
+      password,
+      pilotRegistrationCode: providedRegistrationCode,
+    }) => {
+      const safeDisplayName = validateDisplayName(displayName);
+      const safeEmail = validateEmail(email);
+      const safePassword = validatePassword(password);
+      validatePilotRegistrationCode(
+        providedRegistrationCode,
+        pilotRegistrationCode,
+      );
+
+      if (
+        store.users.some((user) => normalizeEmail(user.email) === safeEmail)
+      ) {
+        throw new AppAuthError(
+          "email_taken",
+          "An account with that email already exists.",
+        );
+      }
+
+      const passwordSalt = cryptoProvider.randomUUID();
+      const nextUser: MemoryStoredUserRecord = {
+        id: cryptoProvider.randomUUID(),
+        displayName: safeDisplayName,
+        email: safeEmail,
+        passwordSalt,
+        passwordHash: await hashPassword(
+          cryptoProvider,
+          safePassword,
+          passwordSalt,
+        ),
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+      };
+
+      store.users.push(nextUser);
+      issueSessionForUser(cookie, cryptoProvider, store, nextUser);
+
+      return buildSnapshot(nextUser);
     },
     updatePreferences: async ({
       displayName,
       interfaceLanguage,
       studyLanguage,
     }) => {
-      const activeUserId = snapshot.user?.id;
+      const activeUser = readSessionUser(cookie, store);
 
-      if (activeUserId === undefined) {
+      if (activeUser === null) {
         throw createNotAuthenticatedError();
       }
 
@@ -532,24 +400,78 @@ export function createAppSessionContext(
         studyLanguage,
         "Study language",
       );
-      const users = readUsers();
-      const userIndex = users.findIndex((user) => user.id === activeUserId);
+      const userIndex = store.users.findIndex(
+        (user) => user.id === activeUser.id,
+      );
 
       if (userIndex === -1) {
         throw createNotAuthenticatedError();
       }
 
-      const nextUser: StoredUserRecord = {
-        ...users[userIndex],
+      const nextUser: MemoryStoredUserRecord = {
+        ...store.users[userIndex],
         displayName: safeDisplayName,
         interfaceLanguage: safeInterfaceLanguage,
         studyLanguage: safeStudyLanguage,
       };
 
-      users[userIndex] = nextUser;
-      writeUsers(users);
-      commitSnapshot(buildSnapshot(nextUser));
+      store.users[userIndex] = nextUser;
 
+      return buildSnapshot(nextUser);
+    },
+  };
+}
+
+export function createAppSessionContext(
+  options: CreateAppSessionContextOptions = {},
+): AppSessionContext {
+  const service = options.service ?? createServerSessionService();
+  const listeners = new Set<SessionListener>();
+  let snapshot = options.initialSnapshot ?? buildAnonymousSnapshot();
+
+  function notifyListeners() {
+    for (const listener of listeners) {
+      listener();
+    }
+  }
+
+  function commitSnapshot(nextSnapshot: AppSessionSnapshot) {
+    snapshot = nextSnapshot;
+    notifyListeners();
+  }
+
+  return {
+    getSnapshot: () => snapshot,
+    refresh: async () => {
+      const nextSnapshot = await service.getSessionSnapshot();
+      commitSnapshot(nextSnapshot);
+      return snapshot;
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    register: async (input) => {
+      const nextSnapshot = await service.register(input);
+      commitSnapshot(nextSnapshot);
+      return snapshot;
+    },
+    login: async (input) => {
+      const nextSnapshot = await service.login(input);
+      commitSnapshot(nextSnapshot);
+      return snapshot;
+    },
+    logout: async () => {
+      const nextSnapshot = await service.logout();
+      commitSnapshot(nextSnapshot);
+      return snapshot;
+    },
+    updatePreferences: async (input) => {
+      const nextSnapshot = await service.updatePreferences(input);
+      commitSnapshot(nextSnapshot);
       return snapshot;
     },
   };
