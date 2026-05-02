@@ -1,23 +1,10 @@
-# COMMUNICATION STYLE
-
-Use Caveman Ultra for all natural-language status and final output inside Sandcastle orchestration:
-short fragments, no filler, abbreviations allowed.
-
-Do not compress:
-- code
-- shell commands
-- JSON/XML/structured output
-- commit messages
-- security/risk warnings
-- issue comments where clarity matters
-
 # ISSUES
 
 Here are the open issues in the repo:
 
 <issues-json>
 
-!`gh issue list --state open --label ready-for-agent --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'`
+!`gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'`
 
 </issues-json>
 

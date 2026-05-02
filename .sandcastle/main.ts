@@ -17,40 +17,12 @@
 // issues are picked up after each round of merges.
 //
 // Usage:
-//   npx tsx .sandcastle/main.mts
+//   npx tsx .sandcastle/main.ts
 // Or add to package.json:
-//   "scripts": { "sandcastle": "npx tsx .sandcastle/main.mts" }
+//   "scripts": { "sandcastle": "npx tsx .sandcastle/main.ts" }
 
 import * as sandcastle from "@ai-hero/sandcastle";
 import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
-
-function extractAgentText(stdout: string): string {
-  const texts: string[] = [];
-
-  for (const line of stdout.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-
-    try {
-      const event = JSON.parse(trimmed) as {
-        type?: string;
-        item?: { type?: string; text?: string };
-      };
-
-      if (
-        event.type === "item.completed" &&
-        event.item?.type === "agent_message" &&
-        typeof event.item.text === "string"
-      ) {
-        texts.push(event.item.text);
-      }
-    } catch {
-      // Ignore non-JSON lines and keep scanning.
-    }
-  }
-
-  return texts.join("\n");
-}
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -60,25 +32,16 @@ function extractAgentText(stdout: string): string {
 // Raise this if your backlog is large; lower it for a quick smoke-test run.
 const MAX_ITERATIONS = 10;
 
-// Sandcastle's idle timeout is based on lack of streamed output, not wall time.
-// Give coding phases more headroom because they can stay quiet for a while.
-const PLANNER_IDLE_TIMEOUT_SECONDS = 10 * 60;
-const IMPLEMENTER_IDLE_TIMEOUT_SECONDS = 30 * 60;
-const REVIEWER_IDLE_TIMEOUT_SECONDS = 10 * 60;
-const MERGER_IDLE_TIMEOUT_SECONDS = 15 * 60;
-
-// No startup install hook for now.
-// This repo does not yet have a runnable app stack inside the sandbox, and
-// forcing a package-manager install during sandbox boot adds avoidable failure
-// points. Reintroduce a pnpm hook later when the project actually needs it.
+// Hooks run inside the sandbox before the agent starts each iteration.
+// npm install ensures the sandbox always has fresh dependencies.
 const hooks = {
-  sandbox: { onSandboxReady: [] },
+  sandbox: { onSandboxReady: [{ command: "npm install" }] },
 };
 
 // Copy node_modules from the host into the worktree before each sandbox
-// starts. Avoids a full reinstall from scratch; the hook above handles
+// starts. Avoids a full npm install from scratch; the hook above handles
 // platform-specific binaries and any packages added since the last copy.
-const copyToWorktree = ["node_modules", ".codex", "AGENTS.md"];
+const copyToWorktree = ["node_modules"];
 
 // ---------------------------------------------------------------------------
 // Main loop
@@ -98,58 +61,26 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // -------------------------------------------------------------------------
   const plan = await sandcastle.run({
     hooks,
-    sandbox: docker({
-      mounts: [
-        {
-          hostPath: "~/.codex/auth.json",
-          sandboxPath: "/home/agent/.codex/auth.json",
-          readonly: true,
-        },
-      ],
-    }),
+    sandbox: docker(),
     name: "planner",
     // One iteration is enough: the planner just needs to read and reason,
     // not write code.
     maxIterations: 1,
-    idleTimeoutSeconds: PLANNER_IDLE_TIMEOUT_SECONDS,
     // Opus for planning: dependency analysis benefits from deeper reasoning.
-    agent: sandcastle.codex("gpt-5.4", { effort: "medium" }),
+    agent: sandcastle.codex("gpt-5.5"),
     promptFile: "./.sandcastle/plan-prompt.md",
   });
 
-  const plannerText = extractAgentText(plan.stdout);
-
-  // Extract the <plan>…</plan> block from the planner agent message.
-  const planMatch = plannerText.match(/<plan>([\s\S]*?)<\/plan>/);
+  // Extract the <plan>…</plan> block from the agent's stdout.
+  const planMatch = plan.stdout.match(/<plan>([\s\S]*?)<\/plan>/);
   if (!planMatch) {
     throw new Error(
-      "Planning agent did not produce a <plan> tag.\n\n" + plannerText,
+      "Planning agent did not produce a <plan> tag.\n\n" + plan.stdout,
     );
   }
-
-  const rawPlan = planMatch[1]!.trim();
-  const normalizedPlan = rawPlan
-    .replace(/^```(?:json)?\s*/, "")
-    .replace(/\s*```$/, "")
-    .replace(/\\n/g, "\n")
-    .trim();
 
   // The plan JSON contains an array of issues, each with id, title, branch.
-  let parsedPlan: unknown;
-  try {
-    parsedPlan = JSON.parse(normalizedPlan);
-  } catch {
-    throw new Error(
-      "Planning agent produced an invalid <plan> payload.\n\n" +
-        normalizedPlan +
-        "\n\nPlanner text:\n" +
-        plannerText +
-        "\n\nFull stdout:\n" +
-        plan.stdout,
-    );
-  }
-
-  const { issues } = parsedPlan as {
+  const { issues } = JSON.parse(planMatch[1]!) as {
     issues: { id: string; title: string; branch: string }[];
   };
 
@@ -180,15 +111,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     issues.map(async (issue) => {
       const sandbox = await sandcastle.createSandbox({
         branch: issue.branch,
-        sandbox: docker({
-      mounts: [
-        {
-          hostPath: "~/.codex/auth.json",
-          sandboxPath: "/home/agent/.codex/auth.json",
-          readonly: true,
-        },
-      ],
-    }),
+        sandbox: docker(),
         hooks,
         copyToWorktree,
       });
@@ -198,8 +121,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
         const implement = await sandbox.run({
           name: "implementer",
           maxIterations: 100,
-          idleTimeoutSeconds: IMPLEMENTER_IDLE_TIMEOUT_SECONDS,
-          agent: sandcastle.codex("gpt-5.4",{ effort: "medium" }),
+          agent: sandcastle.codex("gpt-5.4", { effort: "high" }),
           promptFile: "./.sandcastle/implement-prompt.md",
           promptArgs: {
             TASK_ID: issue.id,
@@ -210,16 +132,22 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 
         // Only review if the implementer produced commits
         if (implement.commits.length > 0) {
-          await sandbox.run({
+          const review = await sandbox.run({
             name: "reviewer",
             maxIterations: 1,
-            idleTimeoutSeconds: REVIEWER_IDLE_TIMEOUT_SECONDS,
-            agent: sandcastle.codex("gpt-5.5", { effort: "medium" }),
+            agent: sandcastle.codex("gpt-5.5", { effort: "high" }),
             promptFile: "./.sandcastle/review-prompt.md",
             promptArgs: {
               BRANCH: issue.branch,
             },
           });
+
+          // Merge commits from both runs so the merge phase sees all of them.
+          // Each sandbox.run() only returns commits from its own run.
+          return {
+            ...review,
+            commits: [...implement.commits, ...review.commits],
+          };
         }
 
         return implement;
@@ -270,39 +198,23 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // One agent merges all completed branches into the current branch,
   // resolving any conflicts and running tests to confirm everything works.
   //
-  // The {{BRANCHES}} argument tells the agent what to merge, and the
-  // {{ISSUE_BRANCH_MAP}} argument provides an explicit branch → issue mapping
-  // for the issue-closing step.
+  // The {{BRANCHES}} and {{ISSUES}} prompt arguments are lists that the agent
+  // uses to know which branches to merge and which issues to close.
   // -------------------------------------------------------------------------
   await sandcastle.run({
     hooks,
-    sandbox: docker({
-      mounts: [
-        {
-          hostPath: "~/.codex/auth.json",
-          sandboxPath: "/home/agent/.codex/auth.json",
-          readonly: true,
-        },
-      ],
-    }),
+    sandbox: docker(),
     name: "merger",
     maxIterations: 1,
-    idleTimeoutSeconds: MERGER_IDLE_TIMEOUT_SECONDS,
-    agent: sandcastle.codex("gpt-5.4-mini"),
+    agent: sandcastle.codex("gpt-5.4", { effort: "medium" }),
     promptFile: "./.sandcastle/merge-prompt.md",
     promptArgs: {
       // A markdown list of branch names, one per line.
       BRANCHES: completedBranches.map((b) => `- ${b}`).join("\n"),
-      // A structured branch → issue mapping for post-merge issue closure.
-      ISSUE_BRANCH_MAP: JSON.stringify(
-        completedIssues.map((issue) => ({
-          issueId: issue.id,
-          title: issue.title,
-          branch: issue.branch,
-        })),
-        null,
-        2,
-      ),
+      // A markdown list of issue IDs and titles, one per line.
+      ISSUES: completedIssues
+        .map((i) => `- ${i.id}: ${i.title}`)
+        .join("\n"),
     },
   });
 

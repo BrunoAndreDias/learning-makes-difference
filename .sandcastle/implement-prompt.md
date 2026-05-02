@@ -1,25 +1,12 @@
-# COMMUNICATION STYLE
-
-Use Caveman Ultra for all natural-language status and final output inside Sandcastle orchestration:
-short fragments, no filler, abbreviations allowed.
-
-Do not compress:
-- code
-- shell commands
-- JSON/XML/structured output
-- commit messages
-- security/risk warnings
-- issue comments where clarity matters
-
 # TASK
 
 Fix issue {{TASK_ID}}: {{ISSUE_TITLE}}
 
-Pull in the issue using `gh issue view {{TASK_ID}}`. If it has a parent PRD, pull that in too.
+Pull in the issue using `gh issue view <ID>`. If it has a parent PRD, pull that in too.
 
 Only work on the issue specified.
 
-Work on branch {{BRANCH}}. Make commits, run tests, and close the issue when done using `gh issue close {{TASK_ID}} --comment "Completed by Sandcastle"`.
+Work on branch {{BRANCH}}. Make commits and run tests.
 
 # CONTEXT
 

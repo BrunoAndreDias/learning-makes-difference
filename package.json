@@ -12,7 +12,8 @@
     "test": "vitest run",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "sandcastle": "npx tsx .sandcastle/main.ts"
   },
   "packageManager": "pnpm@10.33.0",
   "dependencies": {
