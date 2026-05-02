@@ -1979,6 +1979,116 @@ describe("authenticated app shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("saves and discards single-entry memory hook edits for an existing note", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+
+    notesContext.createNote(userId, {
+      acronyms: [
+        {
+          description: "MAP means Memory Anchor Phrase.",
+        },
+      ],
+      body: "Stable note body.",
+      labelIds: [],
+      metaphors: [
+        {
+          description: "Original lighthouse metaphor.",
+        },
+      ],
+      title: "Hook edits note",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByDisplayValue("Original lighthouse metaphor."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Save changes" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Metaphor description"), {
+      target: {
+        value: "Updated bridge metaphor.",
+      },
+    });
+
+    const metaphorEditor = screen.getByRole("group", {
+      name: "Metaphor editor",
+    });
+
+    expect(
+      within(metaphorEditor).getByRole("button", { name: "Save changes" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Discard changes" }),
+    ).toBeVisible();
+
+    fireEvent.click(
+      within(metaphorEditor).getByRole("button", { name: "Save changes" }),
+    );
+
+    expect(
+      await screen.findByDisplayValue("Updated bridge metaphor."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Discard changes" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Acronyms" }));
+    expect(
+      await screen.findByDisplayValue("MAP means Memory Anchor Phrase."),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Acronym description"), {
+      target: {
+        value: "MAP means Memory Access Prompt.",
+      },
+    });
+    expect(
+      screen.getByRole("button", { name: "Discard changes" }),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+
+    expect(
+      await screen.findByDisplayValue("MAP means Memory Anchor Phrase."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Discard changes" }),
+    ).not.toBeInTheDocument();
+    expect(
+      notesContext
+        .getSnapshot()
+        .find((note) => note.title === "Hook edits note"),
+    ).toMatchObject({
+      acronyms: [
+        {
+          description: "MAP means Memory Anchor Phrase.",
+        },
+      ],
+      metaphors: [
+        {
+          description: "Updated bridge metaphor.",
+        },
+      ],
+    });
+  });
+
   it("starts focus from the selected note without interrupting note editing", async () => {
     const focusContext = createAppFocusContext({
       keyPrefix: `test-focus-${Math.random().toString(36).slice(2)}`,

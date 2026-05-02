@@ -206,6 +206,51 @@ type MemoryHookTabsProps = {
 };
 
 function MemoryHookTabs({ activeTab, onSelect }: MemoryHookTabsProps) {
+  const tabRefs = useRef<Record<MemoryHookTab, HTMLButtonElement | null>>({
+    acronyms: null,
+    metaphors: null,
+  });
+
+  function focusAndSelectTab(tab: MemoryHookTab) {
+    onSelect(tab);
+    tabRefs.current[tab]?.focus();
+  }
+
+  function handleTabKeyDown(
+    event: KeyboardEvent<HTMLButtonElement>,
+    tab: MemoryHookTab,
+  ) {
+    switch (event.key) {
+      case "ArrowLeft":
+      case "ArrowUp": {
+        event.preventDefault();
+        const currentIndex = memoryHookTabs.indexOf(tab);
+        const previousIndex =
+          (currentIndex - 1 + memoryHookTabs.length) % memoryHookTabs.length;
+        focusAndSelectTab(memoryHookTabs[previousIndex]);
+        return;
+      }
+      case "ArrowRight":
+      case "ArrowDown": {
+        event.preventDefault();
+        const currentIndex = memoryHookTabs.indexOf(tab);
+        const nextIndex = (currentIndex + 1) % memoryHookTabs.length;
+        focusAndSelectTab(memoryHookTabs[nextIndex]);
+        return;
+      }
+      case "Home":
+        event.preventDefault();
+        focusAndSelectTab(memoryHookTabs[0]);
+        return;
+      case "End":
+        event.preventDefault();
+        focusAndSelectTab(memoryHookTabs[memoryHookTabs.length - 1]);
+        return;
+      default:
+        return;
+    }
+  }
+
   return (
     <div
       aria-label="Memory hook types"
@@ -223,7 +268,11 @@ function MemoryHookTabs({ activeTab, onSelect }: MemoryHookTabsProps) {
             className="notes-memory-hooks__tab"
             id={details.tabId}
             key={tab}
+            onKeyDown={(event) => handleTabKeyDown(event, tab)}
             onClick={() => onSelect(tab)}
+            ref={(element) => {
+              tabRefs.current[tab] = element;
+            }}
             role="tab"
             tabIndex={isSelected ? 0 : -1}
             type="button"

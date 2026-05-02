@@ -163,6 +163,49 @@ describe("authenticated app shell", () => {
     );
   });
 
+  it("supports keyboard navigation across memory hook tabs", async () => {
+    renderRoute("/notes", {
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const memoryHooks = screen.getByLabelText("Memory hooks");
+    const tablist = within(memoryHooks).getByRole("tablist", {
+      name: "Memory hook types",
+    });
+    const metaphorTab = within(tablist).getByRole("tab", {
+      name: "Metaphors",
+      selected: true,
+    });
+    const acronymTab = within(tablist).getByRole("tab", {
+      name: "Acronyms",
+      selected: false,
+    });
+
+    metaphorTab.focus();
+    fireEvent.keyDown(metaphorTab, { key: "ArrowRight" });
+
+    expect(acronymTab).toHaveFocus();
+    expect(acronymTab).toHaveAttribute("aria-selected", "true");
+    expect(metaphorTab).toHaveAttribute("aria-selected", "false");
+
+    fireEvent.keyDown(acronymTab, { key: "ArrowLeft" });
+
+    expect(metaphorTab).toHaveFocus();
+    expect(metaphorTab).toHaveAttribute("aria-selected", "true");
+  });
+
   it("logs a returning user into the requested protected route", async () => {
     const sessionContext = createAppSessionContext({
       keyPrefix: `test-auth-${Math.random().toString(36).slice(2)}`,
