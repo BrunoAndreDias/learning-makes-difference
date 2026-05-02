@@ -1,7 +1,8 @@
 import { createRouter } from "@tanstack/react-router";
 
 import { createAppSessionContext } from "./modules/access/session/session";
-import { createAppFocusContext } from "./modules/focus";
+import { createPersistentFocusContext } from "./modules/focus";
+import { createServerFocusService } from "./modules/focus/focus-server-fns";
 import { createServerLabelsService } from "./modules/labels/labels-server-fns";
 import {
   createPersistentLabelsContext,
@@ -25,11 +26,14 @@ export function getRouter() {
     service: createServerNotesService(),
   });
   const notes = createReadonlyNotesContext(persistentNotes);
-  const focus = createAppFocusContext({
-    getLabelsForUser: (userId) => labels.getLabelsForUser(userId),
+  const persistentFocus = createPersistentFocusContext({
+    service: createServerFocusService(),
   });
+  const focus = persistentFocus.readonlyContext;
   const persistentRecall = createPersistentRecallContext({
     notes,
+    onStudyActivity: (userId, input) =>
+      persistentFocus.captureRecallSessionStudyActivity(userId, input),
     service: createServerRecallService(),
   });
   const recall = persistentRecall.readonlyContext;
@@ -39,6 +43,7 @@ export function getRouter() {
       focus,
       labels,
       notes,
+      persistentFocus,
       persistentLabels,
       persistentNotes,
       persistentRecall,

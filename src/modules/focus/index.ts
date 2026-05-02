@@ -13,3 +13,8 @@ export {
   isBreakIntervalActive,
 } from "./focus";
 export { FocusSessionStartControl } from "./focus-session-start-control";
+export type {
+  AppPersistentFocusContext,
+  AppPersistentFocusService,
+} from "./persistent-focus";
+export { createPersistentFocusContext } from "./persistent-focus";

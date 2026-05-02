@@ -548,6 +548,10 @@ export function RecallSelectionPage({
     from: "/_protected",
     select: (context) => context.focus,
   });
+  const persistentFocusContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.persistentFocus,
+  });
   const persistentRecallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.persistentRecall,
@@ -841,15 +845,19 @@ export function RecallSelectionPage({
     }
   }
 
-  function handleStartFocusForSelection() {
+  async function handleStartFocusForSelection() {
     if (userId === null || validSelectedNoteIds.length === 0) {
       return;
     }
 
     try {
-      focusContext.startFocusSession({
-        userId,
-      });
+      if (persistentFocusContext === undefined) {
+        focusContext.startFocusSession({
+          userId,
+        });
+      } else {
+        await persistentFocusContext.startFocusSession(userId, {});
+      }
       setErrorMessage(null);
     } catch (error) {
       if (error instanceof AppFocusError) {

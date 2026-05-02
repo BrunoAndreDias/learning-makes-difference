@@ -86,6 +86,10 @@ export function AppLayout() {
     from: "/_protected",
     select: (context) => context.focus,
   });
+  const persistentFocus = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.persistentFocus,
+  });
   const session = useRouteContext({
     from: "/_protected",
     select: (context) => context.session,
@@ -269,6 +273,7 @@ export function AppLayout() {
             activeFocusSession={activeFocusSession}
             collapsedSidebarToggleRef={collapsedSidebarToggleRef}
             focus={focus}
+            persistentFocus={persistentFocus}
             isNotesWorkspaceRoute={isNotesWorkspaceRoute}
             isRecallWorkspaceRoute={isRecallWorkspaceRoute}
             isRecallResultsWorkspaceRoute={isRecallResultsWorkspaceRoute}
@@ -296,6 +301,7 @@ function WorkspaceHeader({
   activeFocusSession,
   collapsedSidebarToggleRef,
   focus,
+  persistentFocus,
   isNotesWorkspaceRoute,
   isRecallWorkspaceRoute,
   isRecallResultsWorkspaceRoute,
@@ -314,6 +320,9 @@ function WorkspaceHeader({
   >[0]["activeFocusSession"];
   collapsedSidebarToggleRef: RefObject<HTMLButtonElement | null>;
   focus: Parameters<typeof FocusSessionStartControl>[0]["focus"];
+  persistentFocus: Parameters<
+    typeof FocusSessionStartControl
+  >[0]["persistentFocus"];
   isNotesWorkspaceRoute: boolean;
   isRecallWorkspaceRoute: boolean;
   isRecallResultsWorkspaceRoute: boolean;
@@ -369,6 +378,7 @@ function WorkspaceHeader({
           <FocusSessionStartControl
             activeFocusSession={activeFocusSession}
             focus={focus}
+            persistentFocus={persistentFocus}
             userId={userId}
           />
         )}

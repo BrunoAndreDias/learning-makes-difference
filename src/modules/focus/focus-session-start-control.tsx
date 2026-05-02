@@ -4,6 +4,7 @@ import {
   AppFocusError,
   type FocusSession,
 } from "./focus";
+import type { AppPersistentFocusContext } from "./persistent-focus";
 
 type FocusSessionStartValues = {
   breakMinutes: string;
@@ -23,10 +24,12 @@ const DEFAULT_FOCUS_SESSION_START_VALUES: FocusSessionStartValues = {
 export function FocusSessionStartControl({
   activeFocusSession,
   focus,
+  persistentFocus,
   userId,
 }: Readonly<{
   activeFocusSession: FocusSession | null;
   focus: AppFocusContext;
+  persistentFocus?: AppPersistentFocusContext;
   userId: string | null;
 }>) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -73,19 +76,28 @@ export function FocusSessionStartControl({
   if (currentActiveFocusSession !== null) {
     const focusStatus = getFocusStatus(currentActiveFocusSession);
 
-    function startNewFocusSession() {
+    async function startNewFocusSession() {
       if (userId === null) {
         return;
       }
 
       try {
-        focus.endFocusSession({ userId });
-        focus.startFocusSession({
-          breakIntervalMinutes: Number(DEFAULT_BREAK_MINUTES),
-          focusIntervalMinutes: Number(DEFAULT_FOCUS_MINUTES),
-          plannedFocusIntervalCount: null,
-          userId,
-        });
+        if (persistentFocus === undefined) {
+          focus.endFocusSession({ userId });
+          focus.startFocusSession({
+            breakIntervalMinutes: Number(DEFAULT_BREAK_MINUTES),
+            focusIntervalMinutes: Number(DEFAULT_FOCUS_MINUTES),
+            plannedFocusIntervalCount: null,
+            userId,
+          });
+        } else {
+          await persistentFocus.endFocusSession(userId);
+          await persistentFocus.startFocusSession(userId, {
+            breakIntervalMinutes: Number(DEFAULT_BREAK_MINUTES),
+            focusIntervalMinutes: Number(DEFAULT_FOCUS_MINUTES),
+            plannedFocusIntervalCount: null,
+          });
+        }
         setErrorMessage(null);
       } catch (error) {
         if (error instanceof AppFocusError) {
@@ -105,7 +117,9 @@ export function FocusSessionStartControl({
             {currentActiveFocusSession.isStale ? (
               <button
                 className="notes-action notes-action-primary"
-                onClick={startNewFocusSession}
+                onClick={() => {
+                  void startNewFocusSession();
+                }}
                 ref={focusSessionButtonRef}
                 type="button"
               >
@@ -115,9 +129,14 @@ export function FocusSessionStartControl({
               <button
                 className="notes-action notes-action-primary"
                 onClick={() => {
-                  focus.endFocusSession({
-                    userId,
-                  });
+                  if (persistentFocus === undefined) {
+                    focus.endFocusSession({
+                      userId,
+                    });
+                    return;
+                  }
+
+                  void persistentFocus.endFocusSession(userId);
                 }}
                 ref={focusSessionButtonRef}
                 type="button"
@@ -145,20 +164,30 @@ export function FocusSessionStartControl({
     );
   }
 
-  function startFocusSessionFromValues(input: FocusSessionStartValues) {
+  async function startFocusSessionFromValues(input: FocusSessionStartValues) {
     if (userId === null) {
       return;
     }
 
     try {
-      focus.startFocusSession({
-        breakIntervalMinutes: Number(input.breakMinutes),
-        focusIntervalMinutes: Number(input.focusMinutes),
-        plannedFocusIntervalCount: parseOptionalNumber(
-          input.plannedFocusIntervals,
-        ),
-        userId,
-      });
+      if (persistentFocus === undefined) {
+        focus.startFocusSession({
+          breakIntervalMinutes: Number(input.breakMinutes),
+          focusIntervalMinutes: Number(input.focusMinutes),
+          plannedFocusIntervalCount: parseOptionalNumber(
+            input.plannedFocusIntervals,
+          ),
+          userId,
+        });
+      } else {
+        await persistentFocus.startFocusSession(userId, {
+          breakIntervalMinutes: Number(input.breakMinutes),
+          focusIntervalMinutes: Number(input.focusMinutes),
+          plannedFocusIntervalCount: parseOptionalNumber(
+            input.plannedFocusIntervals,
+          ),
+        });
+      }
       setErrorMessage(null);
     } catch (error) {
       if (error instanceof AppFocusError) {
@@ -171,7 +200,7 @@ export function FocusSessionStartControl({
   }
 
   function startDefaultFocusSession() {
-    startFocusSessionFromValues(DEFAULT_FOCUS_SESSION_START_VALUES);
+    void startFocusSessionFromValues(DEFAULT_FOCUS_SESSION_START_VALUES);
   }
 
   return (

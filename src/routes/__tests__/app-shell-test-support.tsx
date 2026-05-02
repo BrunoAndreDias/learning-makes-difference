@@ -26,6 +26,7 @@ import {
 } from "../../modules/access/session/session";
 import {
   type AppFocusContext,
+  type AppPersistentFocusContext,
   createAppFocusContext,
 } from "../../modules/focus";
 import {
@@ -55,6 +56,7 @@ export function renderRoute(
     focusContext?: AppFocusContext;
     labelsContext?: AppLabelsContext;
     notesContext?: AppNotesContext;
+    persistentFocusContext?: AppPersistentFocusContext;
     persistentLabelsContext?: AppPersistentLabelsContext;
     persistentNotesContext?: AppPersistentNotesContext;
     persistentRecallContext?: AppPersistentRecallContext;
@@ -102,6 +104,7 @@ export function renderRoute(
     });
   const focusContext =
     options.focusContext ??
+    options.persistentFocusContext?.readonlyContext ??
     createAppFocusContext({
       getLabelsForUser: (userId) => labelsContext.getLabelsForUser(userId),
       keyPrefix: `test-focus-${Math.random().toString(36).slice(2)}`,
@@ -126,6 +129,7 @@ export function renderRoute(
       focus: focusContext,
       labels: labelsContext,
       notes: notesContext,
+      persistentFocus: options.persistentFocusContext,
       persistentLabels: options.persistentLabelsContext,
       persistentNotes: options.persistentNotesContext,
       persistentRecall: options.persistentRecallContext,

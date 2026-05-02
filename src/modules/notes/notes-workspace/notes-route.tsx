@@ -610,6 +610,10 @@ function NotesWorkspace() {
     from: "/_protected/notes",
     select: (context) => context.focus,
   });
+  const persistentFocusContext = useRouteContext({
+    from: "/_protected/notes",
+    select: (context) => context.persistentFocus,
+  });
   const recallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.recall,
@@ -787,29 +791,43 @@ function NotesWorkspace() {
   }, [persistentNotesContext, userId]);
 
   const captureNoteStudyActivity = useCallback(
-    (note: AppNote) => {
+    async (note: AppNote) => {
       if (userId === null) {
         return;
       }
 
-      focusContext.captureNoteStudyActivity({
+      const input = {
         labels: getAttachedLabels(note.labelIds),
         note,
-        userId,
-      });
+      };
+
+      if (persistentFocusContext === undefined) {
+        focusContext.captureNoteStudyActivity({
+          ...input,
+          userId,
+        });
+        return;
+      }
+
+      await persistentFocusContext.captureNoteStudyActivity(userId, input);
     },
-    [focusContext, getAttachedLabels, userId],
+    [focusContext, getAttachedLabels, persistentFocusContext, userId],
   );
 
-  const skipBreakInterval = useCallback(() => {
+  const skipBreakInterval = useCallback(async () => {
     if (userId === null) {
       return;
     }
 
-    focusContext.startNextFocusInterval({
-      userId,
-    });
-  }, [focusContext, userId]);
+    if (persistentFocusContext === undefined) {
+      focusContext.startNextFocusInterval({
+        userId,
+      });
+      return;
+    }
+
+    await persistentFocusContext.startNextFocusInterval(userId);
+  }, [focusContext, persistentFocusContext, userId]);
 
   useEffect(() => {
     function syncLabels() {
@@ -1103,7 +1121,7 @@ function NotesWorkspace() {
         ).find((note) => note.id === selectedNoteId);
 
         if (latestSelectedNote !== undefined) {
-          captureNoteStudyActivity(latestSelectedNote);
+          void captureNoteStudyActivity(latestSelectedNote);
         }
       }, noteReviewThresholdMs);
     }
@@ -1714,7 +1732,7 @@ function NotesWorkspace() {
 
       for (const instruction of saveResult.instructions) {
         if (instruction.type === "captureStudyActivity") {
-          captureNoteStudyActivity(instruction.note);
+          await captureNoteStudyActivity(instruction.note);
         }
       }
     } catch (error) {
@@ -1749,16 +1767,20 @@ function NotesWorkspace() {
     }
   }
 
-  function handleStartFocusForSelectedNote() {
+  async function handleStartFocusForSelectedNote() {
     if (userId === null || selectedNote === null) {
       return;
     }
 
     try {
-      focusContext.startFocusSession({
-        userId,
-      });
-      captureNoteStudyActivity(selectedNote);
+      if (persistentFocusContext === undefined) {
+        focusContext.startFocusSession({
+          userId,
+        });
+      } else {
+        await persistentFocusContext.startFocusSession(userId, {});
+      }
+      await captureNoteStudyActivity(selectedNote);
       setErrorMessage(null);
     } catch (error) {
       if (error instanceof AppFocusError) {
@@ -1940,6 +1962,7 @@ function NotesWorkspace() {
           <FocusSessionStartControl
             activeFocusSession={activeFocusSession}
             focus={focusContext}
+            persistentFocus={persistentFocusContext}
             userId={userId}
           />
         </div>

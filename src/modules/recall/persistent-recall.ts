@@ -92,6 +92,17 @@ export type AppPersistentRecallContext = {
 
 type CreatePersistentRecallContextOptions = {
   notes?: AppNotesContext;
+  onStudyActivity?: (
+    userId: string | null,
+    input: {
+      recallSession: {
+        createdAt: string;
+        id: string;
+        mode: RecallSession["mode"];
+        notes: RecallSession["notes"];
+      };
+    },
+  ) => void | Promise<void>;
   service?: AppPersistentRecallService;
 };
 
@@ -228,6 +239,27 @@ export function createPersistentRecallContext(
     }
 
     return service;
+  }
+
+  async function emitStudyActivity(
+    userId: string | null,
+    recallSession:
+      | Pick<RecallSession, "createdAt" | "id" | "mode" | "notes">
+      | Pick<SessionResult, "createdAt" | "id" | "mode" | "notes">
+      | null,
+  ) {
+    if (recallSession === null) {
+      return;
+    }
+
+    await options.onStudyActivity?.(userId, {
+      recallSession: {
+        createdAt: recallSession.createdAt,
+        id: recallSession.id,
+        mode: recallSession.mode,
+        notes: recallSession.notes.map(cloneNoteSnapshot),
+      },
+    });
   }
 
   const readonlyContext: AppRecallContext = {
@@ -440,6 +472,7 @@ export function createPersistentRecallContext(
           activeSession: toStoredRecallSession(nextSession, validatedUserId),
           sessionResults,
         });
+        await emitStudyActivity(validatedUserId, nextSession);
 
         return cloneSession(nextSession);
       }
@@ -450,6 +483,10 @@ export function createPersistentRecallContext(
         activeSession: null,
         sessionResults: toStoredSessionResults(nextResults, validatedUserId),
       });
+      await emitStudyActivity(
+        validatedUserId,
+        nextResults.find((result) => result.id === input.sessionId) ?? null,
+      );
 
       return null;
     },
@@ -492,6 +529,7 @@ export function createPersistentRecallContext(
         activeSession: toStoredRecallSession(startedSession, validatedUserId),
         sessionResults,
       });
+      await emitStudyActivity(validatedUserId, startedSession);
 
       return cloneSession(startedSession);
     },

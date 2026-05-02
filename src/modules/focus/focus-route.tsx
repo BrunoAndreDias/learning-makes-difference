@@ -17,6 +17,7 @@ import {
 } from "./focus";
 import { useFocusTimerTick } from "./focus-session-start-control";
 import { formatFocusTargetKindLabel } from "./learner-copy";
+import type { AppPersistentFocusContext } from "./persistent-focus";
 
 type FocusSessionStartValues = {
   breakMinutes: string;
@@ -46,6 +47,9 @@ export const Route = createFileRoute("/_protected/focus")({
 function FocusPage() {
   const focus = Route.useRouteContext({
     select: (context) => context.focus,
+  });
+  const persistentFocus = Route.useRouteContext({
+    select: (context) => context.persistentFocus,
   });
   const session = Route.useRouteContext({
     select: (context) => context.session,
@@ -123,6 +127,7 @@ function FocusPage() {
         <FocusSessionConfig
           activeSession={activeSession}
           focus={focus}
+          persistentFocus={persistentFocus}
           userId={userId}
         />
 
@@ -235,10 +240,12 @@ function FocusPage() {
 function FocusSessionConfig({
   activeSession,
   focus,
+  persistentFocus,
   userId,
 }: Readonly<{
   activeSession: FocusSession | null;
   focus: AppFocusContext;
+  persistentFocus?: AppPersistentFocusContext;
   userId: string | null;
 }>) {
   const [startValues, setStartValues] = useState<FocusSessionStartValues>(
@@ -258,7 +265,7 @@ function FocusSessionConfig({
     setErrorMessage(null);
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (userId === null || currentActiveSession !== null) {
@@ -266,14 +273,24 @@ function FocusSessionConfig({
     }
 
     try {
-      focus.startFocusSession({
-        breakIntervalMinutes: Number(startValues.breakMinutes),
-        focusIntervalMinutes: Number(startValues.focusMinutes),
-        plannedFocusIntervalCount: parseOptionalNumber(
-          startValues.plannedFocusIntervals,
-        ),
-        userId,
-      });
+      if (persistentFocus === undefined) {
+        focus.startFocusSession({
+          breakIntervalMinutes: Number(startValues.breakMinutes),
+          focusIntervalMinutes: Number(startValues.focusMinutes),
+          plannedFocusIntervalCount: parseOptionalNumber(
+            startValues.plannedFocusIntervals,
+          ),
+          userId,
+        });
+      } else {
+        await persistentFocus.startFocusSession(userId, {
+          breakIntervalMinutes: Number(startValues.breakMinutes),
+          focusIntervalMinutes: Number(startValues.focusMinutes),
+          plannedFocusIntervalCount: parseOptionalNumber(
+            startValues.plannedFocusIntervals,
+          ),
+        });
+      }
       setErrorMessage(null);
       setStartValues((currentValues) => ({
         ...currentValues,

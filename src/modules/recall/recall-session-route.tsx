@@ -53,6 +53,10 @@ function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
     from: "/_protected",
     select: (context) => context.focus,
   });
+  const persistentFocusContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.persistentFocus,
+  });
   const recallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.recall,
@@ -252,14 +256,19 @@ function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
     }
   }
 
-  function skipBreakInterval() {
+  async function skipBreakInterval() {
     if (userId === null) {
       return;
     }
 
-    focusContext.startNextFocusInterval({
-      userId,
-    });
+    if (persistentFocusContext === undefined) {
+      focusContext.startNextFocusInterval({
+        userId,
+      });
+      return;
+    }
+
+    await persistentFocusContext.startNextFocusInterval(userId);
   }
 
   if (activeSession === null || currentNote === null) {

@@ -3,6 +3,11 @@
 import { act, fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
+  type AppPersistentFocusService,
+  createPersistentFocusContext,
+  type FocusSession,
+} from "../../modules/focus";
+import {
   type AppSessionSnapshot,
   createAppFocusContext,
   createAppNotesContext,
@@ -353,6 +358,97 @@ describe("authenticated app shell", () => {
       focusIntervalMinutes: 35,
       method: "Pomodoro",
       plannedFocusIntervalCount: 5,
+    });
+  });
+
+  it("restores an active FocusSession from the persistent focus service on route entry", async () => {
+    const now = new Date();
+    const stateStartedAt = new Date(
+      now.getTime() - 10 * 60 * 1000,
+    ).toISOString();
+    const stateEndsAt = new Date(now.getTime() + 25 * 60 * 1000).toISOString();
+
+    const activeSession: FocusSession = {
+      breakIntervalMinutes: 7,
+      completedBreakIntervalCount: 0,
+      completedFocusIntervalCount: 0,
+      createdAt: stateStartedAt,
+      currentInterval: "Focus",
+      focusIntervalMinutes: 35,
+      focusTargets: [],
+      id: "persistent-focus-session-1",
+      intervalState: "Focus",
+      isStale: false,
+      method: "Pomodoro" as const,
+      plannedFocusIntervalCount: 5,
+      remainingSeconds: 2100,
+      stateEndsAt,
+      stateStartedAt,
+      targets: [],
+    };
+    const focusRecords: [] = [];
+    const service: AppPersistentFocusService = {
+      captureNoteStudyActivity: vi.fn(async () => undefined),
+      captureRecallSessionStudyActivity: vi.fn(async () => undefined),
+      endFocusSession: vi.fn(async () => null),
+      getActiveSession: vi.fn(async () => activeSession),
+      listFocusRecords: vi.fn(async () => focusRecords),
+      startFocusSession: vi.fn(async () => activeSession),
+      startNextFocusInterval: vi.fn(async () => activeSession),
+    };
+    const session = {
+      user: {
+        displayName: "Casey Persistent Focus",
+        email: "casey.persistent.focus@example.com",
+        id: "user-persistent-focus",
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+      },
+    } satisfies AppSessionSnapshot;
+    const firstPersistentFocus = createPersistentFocusContext({
+      service,
+    });
+
+    const firstRender = renderRoute("/focus", {
+      persistentFocusContext: firstPersistentFocus,
+      session,
+    });
+
+    expect(
+      await screen.findByRole("button", { name: "End focus" }),
+    ).toBeInTheDocument();
+    expect(
+      firstPersistentFocus.readonlyContext.getActiveSession({
+        userId: "user-persistent-focus",
+      }),
+    ).toMatchObject({
+      id: "persistent-focus-session-1",
+      plannedFocusIntervalCount: 5,
+    });
+
+    firstRender.unmount();
+    window.localStorage.clear();
+
+    const reloadedPersistentFocus = createPersistentFocusContext({
+      service,
+    });
+
+    renderRoute("/notes", {
+      persistentFocusContext: reloadedPersistentFocus,
+      session,
+    });
+
+    expect(
+      await screen.findByRole("button", { name: "End focus" }),
+    ).toBeInTheDocument();
+    expect(
+      reloadedPersistentFocus.readonlyContext.getActiveSession({
+        userId: "user-persistent-focus",
+      }),
+    ).toMatchObject({
+      breakIntervalMinutes: 7,
+      focusIntervalMinutes: 35,
+      id: "persistent-focus-session-1",
     });
   });
 
