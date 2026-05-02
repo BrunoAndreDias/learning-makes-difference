@@ -216,7 +216,7 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", {
         level: 3,
-        name: "Results",
+        name: "Practice",
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("Jordan Review")).toBeInTheDocument();

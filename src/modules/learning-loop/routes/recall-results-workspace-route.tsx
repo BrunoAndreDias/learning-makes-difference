@@ -1,8 +1,10 @@
 import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useRef, useSyncExternalStore } from "react";
+import { z } from "zod";
 import { formatCount } from "../../../lib/format-count";
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import { formatRecallModeLabel } from "../domain/learner-copy";
+import { listNotesForUser } from "../domain/notes";
 import { useNotesWorkspace } from "../domain/notes-workspace";
 import type {
   FlashCardRecallNote,
@@ -10,12 +12,22 @@ import type {
   RecallQuestion,
 } from "../domain/recall";
 import {
+  deriveRecallSetupState,
+  type RecallSetupCandidate,
+} from "../domain/recall-setup";
+import {
   formatResultSummaryScoreLabel,
   getResultSummaryNoteCountLabel,
   type RecallResultSummary,
   summarizeSessionResult,
 } from "../domain/result-summary";
 
+const recallWorkspaceSearchSchema = z.object({
+  section: z.enum(["due", "results", "weak"]).optional(),
+});
+
+type RecallWorkspaceSearch = z.infer<typeof recallWorkspaceSearchSchema>;
+type RecallWorkspaceSection = "practice" | "due" | "weak" | "results";
 type SessionResultsSnapshot = {
   newestSessionId: string | null;
   resultCount: number;
@@ -31,8 +43,37 @@ type RecallResultsNextStep = {
 };
 
 export const Route = createFileRoute("/_protected/recall/")({
+  validateSearch: recallWorkspaceSearchSchema,
   component: RecallResultsWorkspacePage,
 });
+
+function getRecallWorkspaceSection(
+  search: RecallWorkspaceSearch,
+): RecallWorkspaceSection {
+  switch (search.section) {
+    case "due":
+      return "due";
+    case "weak":
+      return "weak";
+    case "results":
+      return "results";
+    case undefined:
+      return "practice";
+  }
+}
+
+function getRecallWorkspaceSearch(section: RecallWorkspaceSection) {
+  switch (section) {
+    case "practice":
+      return {};
+    case "due":
+      return { section: "due" } as const;
+    case "weak":
+      return { section: "weak" } as const;
+    case "results":
+      return { section: "results" } as const;
+  }
+}
 
 function formatAttemptCount(count: number) {
   return formatCount(count, "attempted question", "attempted questions");
@@ -118,7 +159,369 @@ function getRecallResultsNextStep(
   }
 }
 
+function getSelectedSessionResult(
+  sessionResults: readonly FlashCardSessionResult[],
+  selectedSessionId: string | null,
+) {
+  if (selectedSessionId === null) {
+    return null;
+  }
+
+  return (
+    sessionResults.find((result) => result.id === selectedSessionId) ?? null
+  );
+}
+
+function getSessionResultsSnapshot(
+  sessionResults: readonly FlashCardSessionResult[],
+): SessionResultsSnapshot {
+  return {
+    newestSessionId: sessionResults[0]?.id ?? null,
+    resultCount: sessionResults.length,
+  };
+}
+
+function hasAddedNewNewestSessionResult(
+  previousSessionResults: SessionResultsSnapshot,
+  currentSessionResults: SessionResultsSnapshot,
+) {
+  return (
+    previousSessionResults.newestSessionId !== null &&
+    currentSessionResults.newestSessionId !== null &&
+    currentSessionResults.newestSessionId !==
+      previousSessionResults.newestSessionId &&
+    currentSessionResults.resultCount > previousSessionResults.resultCount
+  );
+}
+
+function shouldSelectNewestSessionResult({
+  currentSessionResults,
+  previousSessionResults,
+  selectedSessionId,
+  sessionResults,
+}: {
+  currentSessionResults: SessionResultsSnapshot;
+  previousSessionResults: SessionResultsSnapshot;
+  selectedSessionId: string | null;
+  sessionResults: readonly FlashCardSessionResult[];
+}) {
+  const selectedSessionStillExists = sessionResults.some((result) => {
+    return result.id === selectedSessionId;
+  });
+
+  if (!selectedSessionStillExists) {
+    return true;
+  }
+
+  if (
+    previousSessionResults.resultCount === 0 &&
+    currentSessionResults.newestSessionId !== selectedSessionId
+  ) {
+    return true;
+  }
+
+  return hasAddedNewNewestSessionResult(
+    previousSessionResults,
+    currentSessionResults,
+  );
+}
+
+function getSectionHeading(section: RecallWorkspaceSection) {
+  switch (section) {
+    case "practice":
+      return "Practice";
+    case "due":
+      return "Due";
+    case "weak":
+      return "Weak notes";
+    case "results":
+      return "Results";
+  }
+}
+
+function getSectionDescription(section: RecallWorkspaceSection) {
+  switch (section) {
+    case "practice":
+      return "Start the next RecallSession first. Due work, weak notes, and reviews stay organized around that next action.";
+    case "due":
+      return "Use the same due-now learning rules as Recall setup, then jump straight into session planning.";
+    case "weak":
+      return "Use the same weak-note learning rules as Recall setup to revisit misses and partial recalls.";
+    case "results":
+      return "Review completed recall work with the latest session open by default.";
+  }
+}
+
+function getFilteredSectionEmptyMessage(section: "due" | "weak") {
+  switch (section) {
+    case "due":
+      return "No notes are due right now.";
+    case "weak":
+      return "No weak notes yet.";
+  }
+}
+
+function getSectionSetupSearch(section: "due" | "weak") {
+  switch (section) {
+    case "due":
+      return { filter: "due" } as const;
+    case "weak":
+      return { filter: "weak" } as const;
+  }
+}
+
+function getSectionSetupLabel(section: "due" | "weak") {
+  switch (section) {
+    case "due":
+      return "Open due setup";
+    case "weak":
+      return "Open weak-note setup";
+  }
+}
+
+function RecallWorkspaceSectionNav({
+  activeSection,
+}: {
+  activeSection: RecallWorkspaceSection;
+}) {
+  const sections: readonly RecallWorkspaceSection[] = [
+    "practice",
+    "due",
+    "weak",
+    "results",
+  ];
+
+  return (
+    <nav aria-label="Recall sections" className="tag-row">
+      {sections.map((section) => (
+        <Link
+          aria-current={activeSection === section ? "page" : undefined}
+          className="tag"
+          key={section}
+          search={getRecallWorkspaceSearch(section)}
+          to="/recall"
+        >
+          {getSectionHeading(section)}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+function RecallWorkspaceEmptyState({
+  actionLabel,
+  actionTo,
+  body,
+  title,
+}: {
+  actionLabel: string;
+  actionTo: "/notes" | "/recall/select";
+  body: string;
+  title: string;
+}) {
+  return (
+    <section className="recall-panel">
+      <p className="section-label">Recall</p>
+      <h4>{title}</h4>
+      <p className="muted">{body}</p>
+      <Link className="notes-action notes-action-primary" to={actionTo}>
+        {actionLabel}
+      </Link>
+    </section>
+  );
+}
+
+function RecallWorkspaceCandidateList({
+  candidates,
+}: {
+  candidates: readonly RecallSetupCandidate[];
+}) {
+  return (
+    <ul aria-label="Recall workspace notes" className="notes-list__items">
+      {candidates.map((candidate) => (
+        <li key={candidate.note.id}>
+          <article className="notes-list__item">
+            <div className="stack">
+              <strong>{candidate.note.title}</strong>
+              <span>{candidate.note.body}</span>
+              {candidate.latestRating !== null ? (
+                <span className="muted">
+                  {`Latest rating: ${formatRatingLabel(candidate.latestRating)}`}
+                </span>
+              ) : null}
+            </div>
+          </article>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function PracticeWorkspaceSection({
+  dueCount,
+  hasResults,
+  noteCount,
+  weakCount,
+}: {
+  dueCount: number;
+  hasResults: boolean;
+  noteCount: number;
+  weakCount: number;
+}) {
+  if (noteCount === 0) {
+    return (
+      <RecallWorkspaceEmptyState
+        actionLabel="Go to Notes"
+        actionTo="/notes"
+        body="Create notes first, then come back to start recall."
+        title="No recallable notes yet"
+      />
+    );
+  }
+
+  return (
+    <div className="recall-selection-layout">
+      <section className="recall-panel">
+        <p className="section-label">Practice</p>
+        <h4>Start a new RecallSession</h4>
+        <p className="muted">
+          Build the next practice session first, then use Due, Weak notes, and
+          Results as support views.
+        </p>
+        <div className="tag-row notes-editor__labels">
+          <span className="tag">{formatCount(noteCount, "note")}</span>
+          <span className="tag">{formatCount(dueCount, "due note")}</span>
+          <span className="tag">{formatCount(weakCount, "weak note")}</span>
+        </div>
+        <Link className="notes-action notes-action-primary" to="/recall/select">
+          Start recall
+        </Link>
+      </section>
+
+      <section className="recall-panel">
+        <p className="section-label">Due</p>
+        <h4>Practice what is ready now</h4>
+        <p className="muted">
+          Open the due-now view to keep timing aligned with the learning state.
+        </p>
+        <div className="tag-row notes-editor__labels">
+          <span className="tag">{formatCount(dueCount, "note")}</span>
+        </div>
+        <Link
+          className="notes-action"
+          search={getRecallWorkspaceSearch("due")}
+          to="/recall"
+        >
+          View due notes
+        </Link>
+      </section>
+
+      <section className="recall-panel">
+        <p className="section-label">Weak notes</p>
+        <h4>Reinforce misses and partial recalls</h4>
+        <p className="muted">
+          Jump into the weak-note view when you want targeted follow-up
+          practice.
+        </p>
+        <div className="tag-row notes-editor__labels">
+          <span className="tag">{formatCount(weakCount, "note")}</span>
+        </div>
+        <Link
+          className="notes-action"
+          search={getRecallWorkspaceSearch("weak")}
+          to="/recall"
+        >
+          View weak notes
+        </Link>
+      </section>
+
+      <section className="recall-panel">
+        <p className="section-label">Results</p>
+        <h4>Review saved sessions without losing the next step</h4>
+        <p className="muted">
+          Open session history when you need review. The next practice action
+          stays here.
+        </p>
+        <div className="tag-row notes-editor__labels">
+          <span className="tag">
+            {hasResults ? "Review history available" : "No results yet"}
+          </span>
+        </div>
+        <Link
+          className="notes-action"
+          search={getRecallWorkspaceSearch("results")}
+          to="/recall"
+        >
+          Review results
+        </Link>
+      </section>
+    </div>
+  );
+}
+
+function FilteredRecallWorkspaceSection({
+  candidates,
+  noteCount,
+  section,
+}: {
+  candidates: readonly RecallSetupCandidate[];
+  noteCount: number;
+  section: "due" | "weak";
+}) {
+  if (noteCount === 0) {
+    return (
+      <RecallWorkspaceEmptyState
+        actionLabel="Go to Notes"
+        actionTo="/notes"
+        body="Create notes first, then come back to start recall."
+        title="No recallable notes yet"
+      />
+    );
+  }
+
+  return (
+    <div className="recall-results-detail">
+      <section className="recall-panel">
+        <p className="section-label">{getSectionHeading(section)}</p>
+        <h4>{getSectionHeading(section)}</h4>
+        <p className="muted">{getSectionDescription(section)}</p>
+        <div className="tag-row notes-editor__labels">
+          <span className="tag">{formatCount(candidates.length, "note")}</span>
+        </div>
+        <Link
+          className="notes-action notes-action-primary"
+          search={getSectionSetupSearch(section)}
+          to="/recall/select"
+        >
+          {getSectionSetupLabel(section)}
+        </Link>
+      </section>
+
+      <section className="recall-panel notes-list">
+        <div className="notes-list__header">
+          <div className="stack">
+            <p className="section-label">{getSectionHeading(section)}</p>
+            <h4>Available notes</h4>
+            <p className="muted">
+              These notes come from the same setup logic used in Recall
+              selection mode.
+            </p>
+          </div>
+        </div>
+        {candidates.length === 0 ? (
+          <p className="notes-search__empty" role="status">
+            {getFilteredSectionEmptyMessage(section)}
+          </p>
+        ) : (
+          <RecallWorkspaceCandidateList candidates={candidates} />
+        )}
+      </section>
+    </div>
+  );
+}
+
 export function RecallResultsWorkspacePage() {
+  const search = Route.useSearch();
   const recallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.recall,
@@ -127,11 +530,20 @@ export function RecallResultsWorkspacePage() {
     from: "/_protected",
     select: (context) => context.session,
   });
+  const labelsContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.labels,
+  });
+  const notesContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.notes,
+  });
   const {
     selectedRecallLabelId,
     selectedRecallSessionId,
     selectRecallSession,
   } = useNotesWorkspace();
+  const activeSection = getRecallWorkspaceSection(search);
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
     sessionContext.subscribe,
     sessionContext.getSnapshot,
@@ -142,9 +554,18 @@ export function RecallResultsWorkspacePage() {
     recallContext.getSessionResultsSnapshot,
     recallContext.getSessionResultsSnapshot,
   );
+  const notesSnapshot = useSyncExternalStore(
+    notesContext.subscribe,
+    notesContext.getSnapshot,
+    notesContext.getSnapshot,
+  );
   const userId = sessionSnapshot.user?.id ?? null;
   const selectedLabelFilter =
     selectedRecallLabelId.length === 0 ? undefined : selectedRecallLabelId;
+  const notes = listNotesForUser(notesSnapshot, userId);
+  const labels = userId === null ? [] : labelsContext.getLabelsForUser(userId);
+  const allSessionResults =
+    userId === null ? [] : recallContext.listSessionResults({ userId });
   const sessionResults =
     userId === null
       ? []
@@ -155,6 +576,25 @@ export function RecallResultsWorkspacePage() {
   const previousSessionResultsRef = useRef<SessionResultsSnapshot>({
     newestSessionId: null,
     resultCount: 0,
+  });
+  const now = new Date().toISOString();
+  const dueSetupState = deriveRecallSetupState({
+    labels,
+    notes,
+    now,
+    searchQuery: "",
+    selectedFilter: { kind: "due" },
+    selectedNoteIds: [],
+    sessionResults: allSessionResults,
+  });
+  const weakSetupState = deriveRecallSetupState({
+    labels,
+    notes,
+    now,
+    searchQuery: "",
+    selectedFilter: { kind: "weak" },
+    selectedNoteIds: [],
+    sessionResults: allSessionResults,
   });
 
   useEffect(() => {
@@ -186,24 +626,52 @@ export function RecallResultsWorkspacePage() {
   );
 
   return (
-    <section aria-label="Recall results workspace" className="recall-workspace">
+    <section aria-label="Recall workspace" className="recall-workspace">
       <article className="recall-surface">
         <header className="recall-surface__header">
           <div className="notes-editor__title-stack">
-            <h3>Results</h3>
+            <p className="section-label">Recall</p>
+            <h3>{getSectionHeading(activeSection)}</h3>
             <p className="muted notes-editor__meta">
-              Review completed recall work with the latest session open by
-              default.
+              {getSectionDescription(activeSection)}
             </p>
+            <RecallWorkspaceSectionNav activeSection={activeSection} />
           </div>
         </header>
 
-        <div className="recall-results-layout recall-results-layout--details-only">
-          <section aria-label="Selected review" className="recall-panel">
-            <p className="section-label">Selected review</p>
-            <SelectedSessionResult sessionResult={selectedSession} />
-          </section>
-        </div>
+        {activeSection === "practice" ? (
+          <PracticeWorkspaceSection
+            dueCount={dueSetupState.visibleCandidates.length}
+            hasResults={sessionResults.length > 0}
+            noteCount={notes.length}
+            weakCount={weakSetupState.visibleCandidates.length}
+          />
+        ) : null}
+
+        {activeSection === "due" ? (
+          <FilteredRecallWorkspaceSection
+            candidates={dueSetupState.visibleCandidates}
+            noteCount={notes.length}
+            section="due"
+          />
+        ) : null}
+
+        {activeSection === "weak" ? (
+          <FilteredRecallWorkspaceSection
+            candidates={weakSetupState.visibleCandidates}
+            noteCount={notes.length}
+            section="weak"
+          />
+        ) : null}
+
+        {activeSection === "results" ? (
+          <div className="recall-results-layout recall-results-layout--details-only">
+            <section aria-label="Selected review" className="recall-panel">
+              <p className="section-label">Selected review</p>
+              <SelectedSessionResult sessionResult={selectedSession} />
+            </section>
+          </div>
+        ) : null}
       </article>
     </section>
   );
@@ -390,73 +858,6 @@ function RatingSummaryItem({
       <strong>{count}</strong>
       <span>{label}</span>
     </div>
-  );
-}
-
-function getSelectedSessionResult(
-  sessionResults: readonly FlashCardSessionResult[],
-  selectedSessionId: string | null,
-) {
-  if (selectedSessionId === null) {
-    return null;
-  }
-
-  return (
-    sessionResults.find((result) => result.id === selectedSessionId) ?? null
-  );
-}
-
-function getSessionResultsSnapshot(
-  sessionResults: readonly FlashCardSessionResult[],
-): SessionResultsSnapshot {
-  return {
-    newestSessionId: sessionResults[0]?.id ?? null,
-    resultCount: sessionResults.length,
-  };
-}
-
-function shouldSelectNewestSessionResult({
-  currentSessionResults,
-  previousSessionResults,
-  selectedSessionId,
-  sessionResults,
-}: {
-  currentSessionResults: SessionResultsSnapshot;
-  previousSessionResults: SessionResultsSnapshot;
-  selectedSessionId: string | null;
-  sessionResults: readonly FlashCardSessionResult[];
-}) {
-  const selectedSessionStillExists = sessionResults.some((result) => {
-    return result.id === selectedSessionId;
-  });
-
-  if (!selectedSessionStillExists) {
-    return true;
-  }
-
-  if (
-    previousSessionResults.resultCount === 0 &&
-    currentSessionResults.newestSessionId !== selectedSessionId
-  ) {
-    return true;
-  }
-
-  return hasAddedNewNewestSessionResult(
-    previousSessionResults,
-    currentSessionResults,
-  );
-}
-
-function hasAddedNewNewestSessionResult(
-  previousSessionResults: SessionResultsSnapshot,
-  currentSessionResults: SessionResultsSnapshot,
-) {
-  return (
-    previousSessionResults.newestSessionId !== null &&
-    currentSessionResults.newestSessionId !== null &&
-    currentSessionResults.newestSessionId !==
-      previousSessionResults.newestSessionId &&
-    currentSessionResults.resultCount > previousSessionResults.resultCount
   );
 }
 

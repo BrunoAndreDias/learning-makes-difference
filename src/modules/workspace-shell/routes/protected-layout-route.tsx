@@ -56,6 +56,25 @@ function isRecallResultsWorkspacePath(pathname: string) {
   return pathname === "/recall";
 }
 
+function getRecallWorkspaceSection(search: unknown) {
+  if (typeof search !== "object" || search === null) {
+    return "practice";
+  }
+
+  const section = (search as Record<string, unknown>).section;
+
+  switch (section) {
+    case "due":
+      return "due";
+    case "weak":
+      return "weak";
+    case "results":
+      return "results";
+    default:
+      return "practice";
+  }
+}
+
 export function AppLayout() {
   const focus = useRouteContext({
     from: "/_protected",
@@ -80,9 +99,9 @@ export function AppLayout() {
   useSyncExternalStore(focus.subscribe, focus.getSnapshot, focus.getSnapshot);
   const workspaceTitle = getWorkspaceTitle(location.pathname);
   const isNotesWorkspaceRoute = isNotesWorkspacePath(location.pathname);
-  const isRecallResultsWorkspaceRoute = isRecallResultsWorkspacePath(
-    location.pathname,
-  );
+  const isRecallResultsWorkspaceRoute =
+    isRecallResultsWorkspacePath(location.pathname) &&
+    getRecallWorkspaceSection(location.search) === "results";
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
   const sidebarToggleLabel = isSidebarCollapsed
     ? "Expand sidebar"

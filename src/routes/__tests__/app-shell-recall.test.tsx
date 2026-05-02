@@ -22,6 +22,7 @@ import {
   expectReturnedToRecall,
   getSelectedSessionResultRegion,
   listNotesForUser,
+  openRecallResultsSection,
   rateFlashCardAnswers,
   renderRecallSelection,
   renderRoute,
@@ -266,6 +267,100 @@ describe("authenticated app shell", () => {
     expect(screen.queryByLabelText("Recall selection controls")).toBeNull();
   });
 
+  it("lands on Practice by default and navigates between Recall workspace sections", async () => {
+    vi.useFakeTimers();
+
+    const { labelsContext, notesContext, recallContext } =
+      createDeterministicRecallTestContexts();
+    const userId = "user-placeholder";
+    const dueNote = createRecallNote(notesContext, userId, {
+      body: "This note is still due for practice.",
+      title: "Due prompt",
+    });
+    const weakNote = createRecallNote(notesContext, userId, {
+      body: "This note needs another pass.",
+      title: "Weak prompt",
+    });
+    const strongNote = createRecallNote(notesContext, userId, {
+      body: "This note should stay out of Due and Weak.",
+      title: "Strong prompt",
+    });
+
+    completeRecallSessionAt({
+      noteId: weakNote.id,
+      rating: "partial",
+      recallContext,
+      timestamp: "2026-04-28T09:00:00.000Z",
+      userId,
+    });
+    completeRecallSessionAt({
+      noteId: strongNote.id,
+      rating: "nailed",
+      recallContext,
+      timestamp: "2026-05-01T09:00:00.000Z",
+      userId,
+    });
+
+    vi.useRealTimers();
+
+    const { router } = renderRoute("/recall", {
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Practice" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall");
+    expect(screen.getByRole("link", { name: "Start recall" })).toHaveAttribute(
+      "href",
+      "/recall/select",
+    );
+
+    const sectionNav = screen.getByRole("navigation", {
+      name: "Recall sections",
+    });
+    expect(
+      within(sectionNav).getByRole("link", { name: "Practice" }),
+    ).toHaveAttribute("aria-current", "page");
+
+    fireEvent.click(within(sectionNav).getByRole("link", { name: "Due" }));
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Due" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Due prompt")).toBeInTheDocument();
+    expect(screen.getByText("Weak prompt")).toBeInTheDocument();
+    expect(screen.queryByText("Strong prompt")).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Open due setup" }),
+    ).toHaveAttribute("href", "/recall/select?filter=due");
+
+    fireEvent.click(
+      within(sectionNav).getByRole("link", { name: "Weak notes" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Weak notes" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Weak prompt")).toBeInTheDocument();
+    expect(screen.queryByText("Due prompt")).toBeNull();
+    expect(screen.queryByText("Strong prompt")).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Open weak-note setup" }),
+    ).toHaveAttribute("href", "/recall/select?filter=weak");
+
+    fireEvent.click(within(sectionNav).getByRole("link", { name: "Results" }));
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Results" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Selected review" }),
+    ).toBeInTheDocument();
+  });
+
   it("renders /recall as an empty results workspace with a start action", async () => {
     const { labelsContext, notesContext } = createLearningLoopTestContexts();
     const userId = "user-placeholder";
@@ -278,7 +373,7 @@ describe("authenticated app shell", () => {
       title: "Retrieval practice",
     });
 
-    const { router } = renderRoute("/recall", {
+    const { router } = renderRoute("/recall?section=results", {
       labelsContext,
       notesContext,
     });
@@ -305,7 +400,7 @@ describe("authenticated app shell", () => {
     const { router } = renderRoute("/recall");
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Results" }),
+      await screen.findByRole("heading", { level: 3, name: "Practice" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
     expect(
@@ -315,9 +410,7 @@ describe("authenticated app shell", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Create notes first, then come back to start recall and build results.",
-      ),
+      screen.getByText("Create notes first, then come back to start recall."),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Go to Notes" })).toHaveAttribute(
       "href",
@@ -449,11 +542,11 @@ describe("authenticated app shell", () => {
     fireEvent.click(recallControls.getByRole("button", { name: "Cancel" }));
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Results" }),
+      await screen.findByRole("heading", { level: 3, name: "Practice" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
 
-    fireEvent.click(screen.getByRole("link", { name: "Start Recall" }));
+    fireEvent.click(screen.getByRole("link", { name: "Start recall" }));
 
     expect(
       await screen.findByRole("heading", { level: 3, name: "Recall setup" }),
@@ -988,7 +1081,7 @@ describe("authenticated app shell", () => {
     const { router } = renderRoute("/recall/session");
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Results" }),
+      await screen.findByRole("heading", { level: 3, name: "Practice" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
     expect(
@@ -1028,6 +1121,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Nailed it" }));
 
     await expectReturnedToRecall(router);
+    await openRecallResultsSection();
     const selectedResult = getSelectedSessionResultRegion();
     const questionReview = within(selectedResult).getByRole("region", {
       name: "Prompt review",
@@ -1082,6 +1176,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Partly recalled" }));
 
     await expectReturnedToRecall(router);
+    await openRecallResultsSection();
     const selectedResult = getSelectedSessionResultRegion();
     const questionReview = within(selectedResult).getByRole("region", {
       name: "Prompt review",
@@ -1299,7 +1394,7 @@ describe("authenticated app shell", () => {
     vi.setSystemTime(new Date("2026-04-03T09:00:00.000Z"));
     vi.useRealTimers();
 
-    const { router } = renderRoute("/recall", {
+    const { router } = renderRoute("/recall?section=results", {
       labelsContext,
       notesContext,
       recallContext,
@@ -1343,6 +1438,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Nailed it" }));
 
     await expectReturnedToRecall(router);
+    await openRecallResultsSection();
     const selectedReturnedResult = getSelectedSessionResultRegion();
     const returnedQuestionReview = within(selectedReturnedResult).getByRole(
       "region",
@@ -1396,7 +1492,7 @@ describe("authenticated app shell", () => {
 
     vi.useRealTimers();
 
-    renderRoute("/recall", {
+    renderRoute("/recall?section=results", {
       labelsContext,
       notesContext,
       recallContext,
@@ -1483,6 +1579,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "End session" }));
 
     await expectReturnedToRecall(router);
+    await openRecallResultsSection();
     const selectedResult = getSelectedSessionResultRegion();
     const questionReview = within(selectedResult).getByRole("region", {
       name: "Prompt review",
@@ -1534,6 +1631,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "End session" }));
 
     await expectReturnedToRecall(router);
+    await openRecallResultsSection();
     expect(screen.getByText("No results yet")).toBeInTheDocument();
     expect(recallContext.listSessionResults({ userId })).toHaveLength(0);
   });
@@ -1547,7 +1645,7 @@ describe("authenticated app shell", () => {
       title: "Fresh note",
     });
 
-    renderRoute("/recall", {
+    renderRoute("/recall?section=results", {
       labelsContext,
       notesContext,
     });
@@ -1621,7 +1719,7 @@ describe("authenticated app shell", () => {
 
     vi.useRealTimers();
 
-    renderRoute("/recall", {
+    renderRoute("/recall?section=results", {
       labelsContext,
       notesContext,
       recallContext,
@@ -1718,7 +1816,7 @@ describe("authenticated app shell", () => {
 
     cleanup();
 
-    renderRoute("/recall", {
+    renderRoute("/recall?section=results", {
       labelsContext,
       notesContext,
       recallContext,
@@ -1832,7 +1930,7 @@ describe("authenticated app shell", () => {
       title: "Edited live prompt",
     });
 
-    renderRoute("/recall", {
+    renderRoute("/recall?section=results", {
       labelsContext,
       notesContext,
       recallContext,
@@ -1950,7 +2048,7 @@ describe("authenticated app shell", () => {
       userId,
     });
 
-    const { router } = renderRoute("/recall", {
+    const { router } = renderRoute("/recall?section=results", {
       labelsContext,
       notesContext,
       recallContext,
@@ -2012,7 +2110,7 @@ describe("authenticated app shell", () => {
       userId,
     });
 
-    renderRoute("/recall", {
+    renderRoute("/recall?section=results", {
       labelsContext,
       notesContext,
       recallContext,
@@ -2090,7 +2188,7 @@ describe("authenticated app shell", () => {
 
     vi.useRealTimers();
 
-    const { router } = renderRoute("/recall", {
+    const { router } = renderRoute("/recall?section=results", {
       labelsContext,
       notesContext,
       recallContext,
@@ -2182,7 +2280,7 @@ describe("authenticated app shell", () => {
 
     vi.useRealTimers();
 
-    renderRoute("/recall", {
+    renderRoute("/recall?section=results", {
       labelsContext,
       notesContext,
       recallContext,
@@ -2344,7 +2442,7 @@ describe("authenticated app shell", () => {
 
     vi.useRealTimers();
 
-    renderRoute("/recall", {
+    renderRoute("/recall?section=results", {
       labelsContext: reloadedLabelsContext,
       notesContext: reloadedNotesContext,
       recallContext: reloadedRecallContext,
@@ -2419,7 +2517,7 @@ describe("authenticated app shell", () => {
 
     vi.useRealTimers();
 
-    const { router } = renderRoute("/recall", {
+    const { router } = renderRoute("/recall?section=results", {
       labelsContext,
       notesContext,
       recallContext,

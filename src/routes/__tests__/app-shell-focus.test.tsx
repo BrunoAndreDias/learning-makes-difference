@@ -247,7 +247,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Results" }),
+      await screen.findByRole("heading", { level: 3, name: "Practice" }),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));

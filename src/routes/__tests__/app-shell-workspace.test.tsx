@@ -166,7 +166,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(recallLink);
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Results" }),
+      await screen.findByRole("heading", { level: 3, name: "Practice" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
     expect(recallLink).toHaveAttribute("aria-current", "page");

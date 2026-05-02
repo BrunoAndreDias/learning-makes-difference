@@ -4,7 +4,7 @@ import type { RecallSetupFilter } from "../domain/recall-setup";
 import { RecallSelectionPage } from "./recall-route";
 
 const recallSelectionSearchSchema = z.object({
-  filter: z.enum(["weak"]).optional(),
+  filter: z.enum(["due", "weak"]).optional(),
   noteIds: z.string().optional(),
 });
 
@@ -39,6 +39,8 @@ function parseSelectedNoteIds(search: RecallSelectionSearch) {
 
 function getSelectedFilter(search: RecallSelectionSearch): RecallSetupFilter {
   switch (search.filter) {
+    case "due":
+      return { kind: "due" };
     case "weak":
       return { kind: "weak" };
     case undefined:

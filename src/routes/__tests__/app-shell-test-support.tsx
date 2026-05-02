@@ -291,9 +291,17 @@ export async function startSelectedRecallSession() {
 
 export async function expectReturnedToRecall(router: AppShellRouter) {
   expect(
-    await screen.findByRole("heading", { level: 3, name: "Results" }),
+    await screen.findByRole("heading", { level: 3, name: "Practice" }),
   ).toBeInTheDocument();
   expect(router.state.location.pathname).toBe("/recall");
+}
+
+export async function openRecallResultsSection() {
+  fireEvent.click(screen.getByRole("link", { name: "Results" }));
+
+  expect(
+    await screen.findByRole("heading", { level: 3, name: "Results" }),
+  ).toBeInTheDocument();
 }
 
 export function openAccountMenu() {
