@@ -1473,4 +1473,61 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(screen.queryByDisplayValue("BODMAS")).not.toBeInTheDocument();
   });
+
+  it("starts focus from the selected note without interrupting note editing", async () => {
+    const focusContext = createAppFocusContext({
+      keyPrefix: `test-focus-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-note-focus";
+
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Original note body.",
+      labelIds: [],
+      metaphors: [],
+      title: "Contextual focus note",
+    });
+
+    const { router } = renderRoute("/notes", {
+      focusContext,
+      notesContext,
+      session: {
+        user: {
+          displayName: "Casey Context",
+          email: "casey.context@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    const bodyEditor = await screen.findByDisplayValue("Original note body.");
+
+    fireEvent.change(bodyEditor, {
+      target: { value: "Original note body with unsaved focus edits." },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Focus on this note" }));
+
+    expect(router.state.location.pathname).toBe("/notes");
+    expect(
+      screen.getByDisplayValue("Original note body with unsaved focus edits."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: "Discard unsaved changes?" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "End focus" }),
+    ).toBeInTheDocument();
+    expect(focusContext.getActiveSession({ userId })).toMatchObject({
+      currentInterval: "Focus",
+      intervalState: "Focus",
+    });
+  });
 });

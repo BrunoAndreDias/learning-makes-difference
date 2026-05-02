@@ -140,14 +140,14 @@ describe("authenticated app shell", () => {
     expect(within(recentCompletedFocus).getByText("2")).toBeInTheDocument();
 
     expect(
-      screen.getByText("Note: Loose draft | Unlabeled note work"),
+      screen.getByText("Note study: Loose draft | No labels yet"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Note: Biology notes | Labels: Biology"),
+      screen.getByText("Note study: Biology notes | Labels: Biology"),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Recall session: Recall | Notes: Recall target note | Labels: Recall label",
+        "Recall practice: Recall target note | Labels: Recall label",
       ),
     ).toBeInTheDocument();
   });

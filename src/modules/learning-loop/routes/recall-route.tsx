@@ -19,6 +19,7 @@ import { formatCount } from "../../../lib/format-count";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import type { AppLabel } from "../../labels/domain/labels";
+import { AppFocusError } from "../domain/focus";
 import { formatSearchMatchLabel } from "../domain/learner-copy";
 import {
   type AppNoteSearchResult,
@@ -164,13 +165,17 @@ function RecallRouteShell() {
 }
 
 function RecallSelectionControls({
+  hasActiveFocusSession,
   hasSelectedNotes,
+  onStartFocus,
   startDisabledReason,
   onCancel,
   onStartRecall,
   selectedCountLabel,
 }: {
+  hasActiveFocusSession: boolean;
   hasSelectedNotes: boolean;
+  onStartFocus: () => void;
   startDisabledReason: string | null;
   onCancel: () => void;
   onStartRecall: () => void;
@@ -186,6 +191,16 @@ function RecallSelectionControls({
         <button className="notes-action" onClick={onCancel} type="button">
           Cancel
         </button>
+        {hasActiveFocusSession ? null : (
+          <button
+            className="notes-action"
+            disabled={!hasSelectedNotes}
+            onClick={onStartFocus}
+            type="button"
+          >
+            Start focus for this session
+          </button>
+        )}
         <button
           aria-describedby={
             hasSelectedNotes ? undefined : "recall-start-disabled-reason"
@@ -457,6 +472,10 @@ function SelectedRecallNotes({
 
 export function RecallSelectionPage() {
   const navigate = useNavigate();
+  const focusContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.focus,
+  });
   const labelsContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.labels,
@@ -478,7 +497,14 @@ export function RecallSelectionPage() {
     sessionContext.getSnapshot,
     sessionContext.getSnapshot,
   );
+  useSyncExternalStore(
+    focusContext.subscribe,
+    focusContext.getSnapshot,
+    focusContext.getSnapshot,
+  );
   const userId = sessionSnapshot.user?.id ?? null;
+  const activeFocusSession =
+    userId === null ? null : focusContext.getActiveSession({ userId });
   const notesSnapshot = useSyncExternalStore(
     notesContext.subscribe,
     notesContext.getSnapshot,
@@ -706,6 +732,26 @@ export function RecallSelectionPage() {
     }
   }
 
+  function handleStartFocus() {
+    if (userId === null || selectedNoteIds.length === 0) {
+      return;
+    }
+
+    try {
+      focusContext.startFocusSession({
+        userId,
+      });
+      setErrorMessage(null);
+    } catch (error) {
+      if (error instanceof AppFocusError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    }
+  }
+
   if (notes.length === 0) {
     return <EmptyRecallSelectionPage />;
   }
@@ -769,8 +815,10 @@ export function RecallSelectionPage() {
                 <kbd>Cmd K</kbd>
               </form>
               <RecallSelectionControls
+                hasActiveFocusSession={activeFocusSession !== null}
                 hasSelectedNotes={selectedNoteIds.length > 0}
                 onCancel={() => void handleCancel()}
+                onStartFocus={handleStartFocus}
                 onStartRecall={() => void handleStartRecall()}
                 selectedCountLabel={selectedCountLabel}
                 startDisabledReason={setupState.summary.startDisabledReason}

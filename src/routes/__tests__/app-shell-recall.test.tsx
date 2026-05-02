@@ -500,6 +500,68 @@ describe("authenticated app shell", () => {
     );
   });
 
+  it("starts focus from recall setup without interrupting the selected session plan", async () => {
+    const focusContext = createAppFocusContext({
+      keyPrefix: `test-focus-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const { notesContext, recallContext } =
+      createDeterministicRecallTestContexts();
+    const userId = "user-recall-focus";
+
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Recall plan body.",
+      labelIds: [],
+      metaphors: [],
+      title: "Focused recall setup",
+    });
+
+    const { router } = renderRoute("/recall/select", {
+      focusContext,
+      notesContext,
+      recallContext,
+      session: {
+        user: {
+          displayName: "Casey Recall",
+          email: "casey.recall@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Recall setup" }),
+    ).toBeInTheDocument();
+
+    selectRecallableNote("Focused recall setup", "Recall plan body.");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Start focus for this session" }),
+    );
+
+    expect(router.state.location.pathname).toBe("/recall/select");
+    expect(
+      within(screen.getByLabelText("Recall selection controls")).getByText(
+        "1 note selected",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText("Selected notes")).getByText(
+        "Focused recall setup",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "End focus" }),
+    ).toBeInTheDocument();
+    expect(focusContext.getActiveSession({ userId })).toMatchObject({
+      currentInterval: "Focus",
+      intervalState: "Focus",
+    });
+  });
+
   it("rebuilds recall selection as a setup flow with selected tray, summary, and empty states", async () => {
     const { labelsContext, notesContext, recallContext } =
       createDeterministicRecallTestContexts();

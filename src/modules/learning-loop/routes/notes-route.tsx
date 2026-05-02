@@ -23,7 +23,7 @@ import type { AppSessionSnapshot } from "../../access/domain/session";
 import type { AppLabel } from "../../labels/domain/labels";
 import { BreakIntervalOverlay } from "../components/break-interval-overlay";
 import { FocusSessionStartControl } from "../components/focus-session-start-control";
-import { isBreakIntervalActive } from "../domain/focus";
+import { AppFocusError, isBreakIntervalActive } from "../domain/focus";
 import {
   deriveLearningStates,
   formatLearningStateRatingLabel,
@@ -955,6 +955,27 @@ export function NotesWorkspace() {
     }
   }
 
+  function handleFocusThisNote() {
+    if (userId === null || selectedNote === null) {
+      return;
+    }
+
+    try {
+      focusContext.startFocusSession({
+        userId,
+      });
+      captureNoteStudyActivity(selectedNote);
+      setErrorMessage(null);
+    } catch (error) {
+      if (error instanceof AppFocusError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    }
+  }
+
   const selectedLabels = availableLabels.filter((label) =>
     editorState.labelIds.includes(label.id),
   );
@@ -1335,13 +1356,24 @@ export function NotesWorkspace() {
                           }`}
                         </p>
                       </div>
-                      <button
-                        className="notes-action notes-action-primary"
-                        onClick={() => void handlePracticeThisNote()}
-                        type="button"
-                      >
-                        Practice this note
-                      </button>
+                      <div className="notes-inspector-card__actions">
+                        <button
+                          className="notes-action notes-action-primary"
+                          onClick={() => void handlePracticeThisNote()}
+                          type="button"
+                        >
+                          Practice this note
+                        </button>
+                        {activeFocusSession === null ? (
+                          <button
+                            className="notes-action"
+                            onClick={handleFocusThisNote}
+                            type="button"
+                          >
+                            Focus on this note
+                          </button>
+                        ) : null}
+                      </div>
                     </>
                   )}
                 </section>
