@@ -17,7 +17,6 @@ import {
   requestNoteEditorTransition,
   startNewNoteDraft,
   syncNoteEditorWithNotes,
-  toggleNoteEditorLabel,
   updateNoteEditorAcronym,
   updateNoteEditorDraftField,
   updateNoteEditorMetaphor,
@@ -85,11 +84,6 @@ export type NotesWorkspaceInteractionEvent =
       field: keyof NoteEditorDraft;
       type: "editorDraftFieldChanged";
       value: NoteEditorDraft[keyof NoteEditorDraft];
-    }
-  | {
-      checked: boolean;
-      labelId: string;
-      type: "editorLabelToggled";
     }
   | {
       createEditorKey?: EditorKeyFactory;
@@ -227,11 +221,6 @@ export function applyNotesWorkspaceInteractionEvent(
       return withNoteEditor(
         state,
         updateNoteEditorDraftField(state.noteEditor, event.field, event.value),
-      );
-    case "editorLabelToggled":
-      return withNoteEditor(
-        state,
-        toggleNoteEditorLabel(state.noteEditor, event.labelId, event.checked),
       );
     case "editorMetaphorAdded":
       return withNoteEditor(

@@ -11,8 +11,10 @@ import {
   type KeyboardEvent,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
+  type Ref,
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
   useSyncExternalStore,
@@ -104,14 +106,15 @@ function getManagedLabelIds(
   availableLabels: readonly AppLabel[],
 ) {
   const selectedLabelIds = new Set(labelIds);
-  const orderedVisibleIds = availableLabels
+  const orderedAvailableIds = availableLabels
     .filter((label) => selectedLabelIds.has(label.id))
     .map((label) => label.id);
+  const orderedAvailableIdSet = new Set(orderedAvailableIds);
   const unavailableIds = labelIds.filter(
-    (labelId) => !orderedVisibleIds.includes(labelId),
+    (labelId) => !orderedAvailableIdSet.has(labelId),
   );
 
-  return [...orderedVisibleIds, ...unavailableIds];
+  return [...orderedAvailableIds, ...unavailableIds];
 }
 
 function getLearningStateSummary(status: LearningStateStatus) {
@@ -140,6 +143,107 @@ type PendingHookRemoval =
       label: string;
       title: string;
     };
+
+type LabelPickerPanelProps = {
+  availableLabels: readonly AppLabel[];
+  draftLabelIds: readonly string[];
+  searchInputId: string;
+  searchInputRef: Ref<HTMLInputElement>;
+  searchQuery: string;
+  visibleLabels: readonly AppLabel[];
+  onCancel: () => void;
+  onDone: () => void;
+  onSearchQueryChange: (query: string) => void;
+  onToggle: (labelId: string, checked: boolean) => void;
+};
+
+function LabelPickerPanel({
+  availableLabels,
+  draftLabelIds,
+  searchInputId,
+  searchInputRef,
+  searchQuery,
+  visibleLabels,
+  onCancel,
+  onDone,
+  onSearchQueryChange,
+  onToggle,
+}: LabelPickerPanelProps) {
+  const hasAvailableLabels = availableLabels.length > 0;
+  const trimmedSearchQuery = searchQuery.trim();
+
+  return (
+    <section
+      aria-label="Manage labels"
+      aria-modal="false"
+      className="notes-label-picker"
+      id={labelPickerPanelId}
+      role="dialog"
+    >
+      <div className="notes-label-picker__header">
+        <div>
+          <p className="section-label">Labels</p>
+          <h4>Manage labels</h4>
+        </div>
+        {hasAvailableLabels ? (
+          <span className="tag">{`${draftLabelIds.length} selected`}</span>
+        ) : null}
+      </div>
+
+      {hasAvailableLabels ? (
+        <>
+          <label className="notes-label-picker__search" htmlFor={searchInputId}>
+            <span>Search labels</span>
+            <input
+              id={searchInputId}
+              onChange={(event) => onSearchQueryChange(event.target.value)}
+              placeholder="Search labels"
+              ref={searchInputRef}
+              type="search"
+              value={searchQuery}
+            />
+          </label>
+          {visibleLabels.length === 0 ? (
+            <p className="muted notes-label-picker__empty">
+              No labels match "{trimmedSearchQuery}".
+            </p>
+          ) : (
+            <fieldset className="notes-label-picker__list">
+              <legend className="sr-only">Available labels</legend>
+              {visibleLabels.map((label) => (
+                <label className="notes-label-picker__option" key={label.id}>
+                  <input
+                    checked={draftLabelIds.includes(label.id)}
+                    onChange={(event) =>
+                      onToggle(label.id, event.target.checked)
+                    }
+                    type="checkbox"
+                  />
+                  <span>{label.name}</span>
+                </label>
+              ))}
+            </fieldset>
+          )}
+        </>
+      ) : (
+        <p className="muted notes-label-picker__empty">No labels available</p>
+      )}
+
+      <div className="notes-label-picker__actions">
+        <button className="notes-action" onClick={onCancel} type="button">
+          Cancel
+        </button>
+        <button
+          className="notes-action notes-action-primary"
+          onClick={onDone}
+          type="button"
+        >
+          Done
+        </button>
+      </div>
+    </section>
+  );
+}
 
 function formatMetaphorCardTitle(metaphor: AppMetaphor, index: number): string {
   const title = metaphor.title.trim();
@@ -274,6 +378,7 @@ export function NotesWorkspace() {
   const searchRootRef = useRef<HTMLFormElement>(null);
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
   const editorState = noteEditor.draft;
+  const labelPickerSearchInputId = useId();
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const metaphorTitleRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -684,16 +789,18 @@ export function NotesWorkspace() {
     setIsLabelPickerOpen(true);
   }
 
-  function closeLabelPicker(options?: { restoreFocus?: boolean }) {
+  function closeLabelPicker() {
     setIsLabelPickerOpen(false);
     setLabelPickerDraftIds([]);
     setLabelPickerSearchQuery("");
+  }
 
-    if (options?.restoreFocus ?? false) {
-      requestAnimationFrame(() => {
-        labelPickerTriggerRef.current?.focus();
-      });
-    }
+  function closeLabelPickerAndRestoreFocus() {
+    closeLabelPicker();
+
+    requestAnimationFrame(() => {
+      labelPickerTriggerRef.current?.focus();
+    });
   }
 
   function handleLabelPickerToggle(labelId: string, checked: boolean) {
@@ -711,11 +818,11 @@ export function NotesWorkspace() {
       "labelIds",
       getManagedLabelIds(labelPickerDraftIds, availableLabels),
     );
-    closeLabelPicker({ restoreFocus: true });
+    closeLabelPickerAndRestoreFocus();
   }
 
   function handleLabelPickerCancel() {
-    closeLabelPicker({ restoreFocus: true });
+    closeLabelPickerAndRestoreFocus();
   }
 
   function handleAddMetaphor() {
@@ -1123,113 +1230,20 @@ export function NotesWorkspace() {
       : formatLearningStateRatingLabel(selectedLearningState.latestRating);
   const canStartFocusForSelectedNote =
     selectedNote !== null && activeFocusSession === null;
-  let labelPickerContent: ReactNode = null;
-
-  if (isLabelPickerOpen) {
-    if (availableLabels.length === 0) {
-      labelPickerContent = (
-        <section
-          aria-label="Manage labels"
-          aria-modal="false"
-          className="notes-label-picker"
-          id={labelPickerPanelId}
-          role="dialog"
-        >
-          <div className="notes-label-picker__header">
-            <div>
-              <p className="section-label">Labels</p>
-              <h4>Manage labels</h4>
-            </div>
-          </div>
-          <p className="muted notes-label-picker__empty">No labels available</p>
-          <div className="notes-label-picker__actions">
-            <button
-              className="notes-action"
-              onClick={handleLabelPickerCancel}
-              type="button"
-            >
-              Cancel
-            </button>
-            <button
-              className="notes-action notes-action-primary"
-              onClick={handleLabelPickerDone}
-              type="button"
-            >
-              Done
-            </button>
-          </div>
-        </section>
-      );
-    } else {
-      labelPickerContent = (
-        <section
-          aria-label="Manage labels"
-          aria-modal="false"
-          className="notes-label-picker"
-          id={labelPickerPanelId}
-          role="dialog"
-        >
-          <div className="notes-label-picker__header">
-            <div>
-              <p className="section-label">Labels</p>
-              <h4>Manage labels</h4>
-            </div>
-            <span className="tag">{`${labelPickerDraftIds.length} selected`}</span>
-          </div>
-          <label className="notes-label-picker__search" htmlFor="label-search">
-            <span>Search labels</span>
-            <input
-              id="label-search"
-              onChange={(event) =>
-                setLabelPickerSearchQuery(event.target.value)
-              }
-              placeholder="Search labels"
-              ref={labelPickerSearchInputRef}
-              type="search"
-              value={labelPickerSearchQuery}
-            />
-          </label>
-          {visibleLabelOptions.length === 0 ? (
-            <p className="muted notes-label-picker__empty">
-              No labels match "{labelPickerSearchQuery.trim()}".
-            </p>
-          ) : (
-            <fieldset className="notes-label-picker__list">
-              <legend className="sr-only">Available labels</legend>
-              {visibleLabelOptions.map((label) => (
-                <label className="notes-label-picker__option" key={label.id}>
-                  <input
-                    checked={labelPickerDraftIds.includes(label.id)}
-                    onChange={(event) =>
-                      handleLabelPickerToggle(label.id, event.target.checked)
-                    }
-                    type="checkbox"
-                  />
-                  <span>{label.name}</span>
-                </label>
-              ))}
-            </fieldset>
-          )}
-          <div className="notes-label-picker__actions">
-            <button
-              className="notes-action"
-              onClick={handleLabelPickerCancel}
-              type="button"
-            >
-              Cancel
-            </button>
-            <button
-              className="notes-action notes-action-primary"
-              onClick={handleLabelPickerDone}
-              type="button"
-            >
-              Done
-            </button>
-          </div>
-        </section>
-      );
-    }
-  }
+  const labelPickerContent = isLabelPickerOpen ? (
+    <LabelPickerPanel
+      availableLabels={availableLabels}
+      draftLabelIds={labelPickerDraftIds}
+      onCancel={handleLabelPickerCancel}
+      onDone={handleLabelPickerDone}
+      onSearchQueryChange={setLabelPickerSearchQuery}
+      onToggle={handleLabelPickerToggle}
+      searchInputId={labelPickerSearchInputId}
+      searchInputRef={labelPickerSearchInputRef}
+      searchQuery={labelPickerSearchQuery}
+      visibleLabels={visibleLabelOptions}
+    />
+  ) : null;
 
   let searchResultsContent: ReactNode = null;
 
@@ -1431,9 +1445,7 @@ export function NotesWorkspace() {
                     </button>
                   </div>
 
-                  {labelPickerContent === null ? null : (
-                    <div id={labelPickerPanelId}>{labelPickerContent}</div>
-                  )}
+                  {labelPickerContent}
                 </section>
               </div>
               {isCreating || (hasUnsavedChanges && !hasUnsavedHookChanges) ? (

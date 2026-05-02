@@ -56,7 +56,6 @@ type NotesWorkspaceContextValue = {
   selectRecallSearchQuery: (query: string) => void;
   selectRecallSession: (sessionId: string | null) => void;
   syncEditorWithNotes: (notes: readonly AppNote[]) => void;
-  toggleEditorLabel: (labelId: string, checked: boolean) => void;
   updateEditorAcronym: <K extends keyof AppAcronym>(
     index: number,
     field: K,
@@ -128,17 +127,6 @@ export function NotesWorkspaceProvider({
     },
     [],
   );
-
-  const toggleEditorLabel = useCallback((labelId: string, checked: boolean) => {
-    setInteractionState(
-      (currentState) =>
-        applyNotesWorkspaceInteractionEvent(currentState, {
-          checked,
-          labelId,
-          type: "editorLabelToggled",
-        }).state,
-    );
-  }, []);
 
   const addEditorMetaphor = useCallback(() => {
     setInteractionState(
@@ -363,7 +351,6 @@ export function NotesWorkspaceProvider({
     selectRecallSession,
     startNewNoteDraft: startDraft,
     syncEditorWithNotes,
-    toggleEditorLabel,
     updateEditorAcronym,
     updateEditorDraftField: updateEditorDraft,
     updateEditorMetaphor,

@@ -399,24 +399,6 @@ export function updateNoteEditorDraftField<K extends keyof NoteEditorDraft>(
   };
 }
 
-export function toggleNoteEditorLabel(
-  state: NoteEditorState,
-  labelId: string,
-  checked: boolean,
-): NoteEditorState {
-  if (checked) {
-    return updateNoteEditorDraftField(state, "labelIds", [
-      ...new Set([...state.draft.labelIds, labelId]),
-    ]);
-  }
-
-  return updateNoteEditorDraftField(
-    state,
-    "labelIds",
-    state.draft.labelIds.filter((candidateId) => candidateId !== labelId),
-  );
-}
-
 export function addNoteEditorMetaphor(
   state: NoteEditorState,
   createEditorKey: EditorKeyFactory = defaultEditorKeyFactory,
