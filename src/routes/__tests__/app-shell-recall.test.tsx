@@ -707,6 +707,67 @@ describe("authenticated app shell", () => {
     ]);
   });
 
+  it("captures typed recall attempts and shows them in the saved result review", async () => {
+    const { labelsContext, notesContext, recallContext } =
+      createDeterministicRecallTestContexts();
+    const userId = "user-placeholder";
+    const note = createRecallNote(notesContext, userId, {
+      body: "Synapses strengthen when neurons fire together repeatedly.",
+      title: "Hebbian learning",
+    });
+
+    const { router } = await renderRecallSelection({
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    selectRecallableNote(
+      "Hebbian learning",
+      "Synapses strengthen when neurons fire together repeatedly.",
+    );
+    await startSelectedRecallSession();
+
+    fireEvent.change(screen.getByLabelText("What do you remember?"), {
+      target: {
+        value: "Cells that fire together wire together.",
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Reveal answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Partly recalled" }));
+
+    await expectReturnedToRecall(router);
+    const selectedResult = getSelectedSessionResultRegion();
+    const questionReview = within(selectedResult).getByRole("region", {
+      name: "Prompt review",
+    });
+
+    expect(
+      within(questionReview).getByText(
+        "Your attempt: Cells that fire together wire together.",
+      ),
+    ).toBeInTheDocument();
+    expect(recallContext.listSessionResults({ userId })).toMatchObject([
+      {
+        attempts: [
+          {
+            noteId: note.id,
+            rating: "partial",
+            text: "Cells that fire together wire together.",
+          },
+        ],
+        questions: [
+          {
+            noteId: note.id,
+            selfRating: "partial",
+            typedAnswer: "Cells that fire together wire together.",
+          },
+        ],
+      },
+    ]);
+  });
+
   it("hides recall answers until reveal, then shows the full note and rating guidance", async () => {
     const { labelsContext, notesContext, recallContext } =
       createDeterministicRecallTestContexts();

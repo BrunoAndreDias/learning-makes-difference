@@ -429,6 +429,11 @@ function ResultsSessionReview({
               </span>
             </div>
             <h5>{question.noteSnapshot.title}</h5>
+            {(question.typedAnswer ?? "").length > 0 ? (
+              <p className="recall-question-card__attempt">
+                Your attempt: {question.typedAnswer}
+              </p>
+            ) : null}
             <p>{question.noteSnapshot.body}</p>
             <p className="recall-question-card__rating">
               Rating: {formatQuestionRating(question)}
