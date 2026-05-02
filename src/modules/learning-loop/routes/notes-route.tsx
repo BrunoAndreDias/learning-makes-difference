@@ -147,7 +147,7 @@ type PendingHookRemoval =
 type LabelPickerPanelProps = {
   availableLabels: readonly AppLabel[];
   draftLabelIds: readonly string[];
-  emptyStateActionRef: Ref<HTMLButtonElement>;
+  goToLabelsButtonRef: Ref<HTMLButtonElement>;
   searchInputId: string;
   searchInputRef: Ref<HTMLInputElement>;
   searchQuery: string;
@@ -162,7 +162,7 @@ type LabelPickerPanelProps = {
 function LabelPickerPanel({
   availableLabels,
   draftLabelIds,
-  emptyStateActionRef,
+  goToLabelsButtonRef,
   searchInputId,
   searchInputRef,
   searchQuery,
@@ -254,7 +254,7 @@ function LabelPickerPanel({
           <button
             className="notes-action notes-action-primary"
             onClick={onGoToLabels}
-            ref={emptyStateActionRef}
+            ref={goToLabelsButtonRef}
             type="button"
           >
             Go to Labels
@@ -409,9 +409,9 @@ export function NotesWorkspace() {
   const searchSelectionTimeoutRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
-  const unsavedSearchDialogRef = useRef<HTMLDivElement>(null);
-  const unsavedSearchCancelRef = useRef<HTMLButtonElement>(null);
-  const unsavedSearchDiscardRef = useRef<HTMLButtonElement>(null);
+  const guardedTransitionDialogRef = useRef<HTMLDivElement>(null);
+  const guardedTransitionCancelRef = useRef<HTMLButtonElement>(null);
+  const guardedTransitionDiscardRef = useRef<HTMLButtonElement>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
   const [isLabelNavigationPending, setIsLabelNavigationPending] =
@@ -425,7 +425,7 @@ export function NotesWorkspace() {
   const noteFormRef = useRef<HTMLFormElement>(null);
   const labelPickerTriggerRef = useRef<HTMLButtonElement | null>(null);
   const labelPickerSearchInputRef = useRef<HTMLInputElement | null>(null);
-  const labelPickerEmptyActionRef = useRef<HTMLButtonElement | null>(null);
+  const labelPickerGoToLabelsRef = useRef<HTMLButtonElement | null>(null);
   const isInspectorHidden = bodyFraction >= 0.88;
   const selectedNote = getSelectedNote(noteEditor, notes);
   const activeFocusSession =
@@ -550,7 +550,7 @@ export function NotesWorkspace() {
         return;
       }
 
-      if (unsavedSearchDialogRef.current?.contains(target)) {
+      if (guardedTransitionDialogRef.current?.contains(target)) {
         return;
       }
 
@@ -597,7 +597,7 @@ export function NotesWorkspace() {
       return;
     }
 
-    unsavedSearchCancelRef.current?.focus();
+    guardedTransitionCancelRef.current?.focus();
   }, [hasPendingGuardedWorkspaceTransition]);
 
   useEffect(() => {
@@ -671,7 +671,7 @@ export function NotesWorkspace() {
     }
 
     if (availableLabels.length === 0) {
-      labelPickerEmptyActionRef.current?.focus();
+      labelPickerGoToLabelsRef.current?.focus();
       return;
     }
 
@@ -960,7 +960,7 @@ export function NotesWorkspace() {
       setIsLabelNavigationPending(false);
 
       requestAnimationFrame(() => {
-        labelPickerEmptyActionRef.current?.focus();
+        labelPickerGoToLabelsRef.current?.focus();
       });
       return;
     }
@@ -1052,7 +1052,7 @@ export function NotesWorkspace() {
     }
   }
 
-  function handleUnsavedSearchDialogKeyDown(
+  function handleGuardedTransitionDialogKeyDown(
     event: KeyboardEvent<HTMLDivElement>,
   ) {
     if (event.key === "Escape") {
@@ -1065,8 +1065,8 @@ export function NotesWorkspace() {
       return;
     }
 
-    const cancelButton = unsavedSearchCancelRef.current;
-    const discardButton = unsavedSearchDiscardRef.current;
+    const cancelButton = guardedTransitionCancelRef.current;
+    const discardButton = guardedTransitionDiscardRef.current;
 
     if (cancelButton === null || discardButton === null) {
       return;
@@ -1291,7 +1291,7 @@ export function NotesWorkspace() {
     <LabelPickerPanel
       availableLabels={availableLabels}
       draftLabelIds={labelPickerDraftIds}
-      emptyStateActionRef={labelPickerEmptyActionRef}
+      goToLabelsButtonRef={labelPickerGoToLabelsRef}
       onCancel={handleLabelPickerCancel}
       onDone={handleLabelPickerDone}
       onGoToLabels={handleGoToLabels}
@@ -1882,8 +1882,8 @@ export function NotesWorkspace() {
           aria-describedby="notes-unsaved-search-description"
           aria-modal="true"
           className="notes-unsaved-search-dialog"
-          onKeyDown={handleUnsavedSearchDialogKeyDown}
-          ref={unsavedSearchDialogRef}
+          onKeyDown={handleGuardedTransitionDialogKeyDown}
+          ref={guardedTransitionDialogRef}
           role="dialog"
         >
           <div className="notes-unsaved-search-dialog__panel">
@@ -1895,7 +1895,7 @@ export function NotesWorkspace() {
               <button
                 className="notes-action"
                 onClick={handleCancelGuardedWorkspaceTransition}
-                ref={unsavedSearchCancelRef}
+                ref={guardedTransitionCancelRef}
                 type="button"
               >
                 Cancel
@@ -1903,7 +1903,7 @@ export function NotesWorkspace() {
               <button
                 className="notes-action notes-action-primary"
                 onClick={() => void handleDiscardGuardedWorkspaceTransition()}
-                ref={unsavedSearchDiscardRef}
+                ref={guardedTransitionDiscardRef}
                 type="button"
               >
                 Discard changes
