@@ -49,6 +49,31 @@ function getWorkspaceTitle(pathname: string) {
   return "Notes";
 }
 
+function getRecallWorkspaceTitle(pathname: string, search: unknown) {
+  if (pathname === "/recall/select") {
+    return "Recall setup";
+  }
+
+  if (pathname === "/recall/session") {
+    return "Recall session";
+  }
+
+  if (pathname === "/recall" || pathname.startsWith("/recall/")) {
+    switch (getRecallWorkspaceSection(search)) {
+      case "due":
+        return "Due";
+      case "results":
+        return "Results";
+      case "weak":
+        return "Weak notes";
+      case "practice":
+        return "Practice";
+    }
+  }
+
+  return null;
+}
+
 function isNotesWorkspacePath(pathname: string) {
   return pathname === "/notes" || pathname.startsWith("/notes/");
 }
@@ -85,7 +110,13 @@ export function AppLayout() {
   );
   useSyncExternalStore(focus.subscribe, focus.getSnapshot, focus.getSnapshot);
   const workspaceTitle = getWorkspaceTitle(location.pathname);
+  const recallWorkspaceTitle = getRecallWorkspaceTitle(
+    location.pathname,
+    location.search,
+  );
   const isNotesWorkspaceRoute = isNotesWorkspacePath(location.pathname);
+  const isRecallWorkspaceRoute =
+    location.pathname === "/recall" || location.pathname.startsWith("/recall/");
   const isRecallResultsWorkspaceRoute =
     isRecallResultsWorkspacePath(location.pathname) &&
     getRecallWorkspaceSection(location.search) === "results";
@@ -240,6 +271,7 @@ export function AppLayout() {
             collapsedSidebarToggleRef={collapsedSidebarToggleRef}
             focus={focus}
             isNotesWorkspaceRoute={isNotesWorkspaceRoute}
+            isRecallWorkspaceRoute={isRecallWorkspaceRoute}
             isRecallResultsWorkspaceRoute={isRecallResultsWorkspaceRoute}
             isSidebarCollapsed={isSidebarCollapsed}
             isMobileSidebarOpen={isMobileSidebarOpen}
@@ -247,6 +279,7 @@ export function AppLayout() {
             navigationId={navigationId}
             onOpenMobileSidebar={openMobileSidebar}
             onExpandSidebar={() => setSidebarCollapsed(false)}
+            recallWorkspaceTitle={recallWorkspaceTitle}
             userId={userId}
             workspaceTitle={workspaceTitle}
           />
@@ -265,6 +298,7 @@ function WorkspaceHeader({
   collapsedSidebarToggleRef,
   focus,
   isNotesWorkspaceRoute,
+  isRecallWorkspaceRoute,
   isRecallResultsWorkspaceRoute,
   isSidebarCollapsed,
   isMobileSidebarOpen,
@@ -272,6 +306,7 @@ function WorkspaceHeader({
   navigationId,
   onOpenMobileSidebar,
   onExpandSidebar,
+  recallWorkspaceTitle,
   userId,
   workspaceTitle,
 }: {
@@ -281,6 +316,7 @@ function WorkspaceHeader({
   collapsedSidebarToggleRef: RefObject<HTMLButtonElement | null>;
   focus: Parameters<typeof FocusSessionStartControl>[0]["focus"];
   isNotesWorkspaceRoute: boolean;
+  isRecallWorkspaceRoute: boolean;
   isRecallResultsWorkspaceRoute: boolean;
   isSidebarCollapsed: boolean;
   isMobileSidebarOpen: boolean;
@@ -288,6 +324,7 @@ function WorkspaceHeader({
   navigationId: string;
   onOpenMobileSidebar: () => void;
   onExpandSidebar: () => void;
+  recallWorkspaceTitle: string | null;
   userId: string | null;
   workspaceTitle: string;
 }) {
@@ -317,7 +354,11 @@ function WorkspaceHeader({
             <SidebarReopenIcon />
           </button>
         ) : null}
-        <h2>{workspaceTitle}</h2>
+        <h2>
+          {isRecallWorkspaceRoute
+            ? (recallWorkspaceTitle ?? workspaceTitle)
+            : workspaceTitle}
+        </h2>
       </div>
       {isRecallResultsWorkspaceRoute ? (
         <div className="app-frame__search">

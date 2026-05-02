@@ -35,6 +35,7 @@ import {
   getNoteEditorSaveInput,
   getSelectedNote,
   type NoteEditorDraft,
+  type NoteEditorState,
 } from "../domain/note-editor";
 import {
   type AppNoteSearchResult,
@@ -126,20 +127,49 @@ function formatAcronymCardTitle(acronym: AppAcronym, index: number): string {
   return shortForm.length > 0 ? shortForm : `Untitled acronym ${index + 1}`;
 }
 
-function formatMetaphorPreview(metaphor: AppMetaphor): string {
-  const explanation = metaphor.explanation.trim();
+function isMetaphorDraftChanged(noteEditor: NoteEditorState, index: number) {
+  const currentMetaphor = noteEditor.draft.metaphors[index];
+  const baselineMetaphor = noteEditor.baselineDraft.metaphors[index];
 
-  return explanation.length > 0
-    ? explanation
-    : "Add a metaphor that maps the concept to something easier to picture.";
+  if (currentMetaphor === undefined) {
+    return false;
+  }
+
+  return (
+    baselineMetaphor === undefined ||
+    currentMetaphor.title !== baselineMetaphor.title ||
+    currentMetaphor.explanation !== baselineMetaphor.explanation
+  );
 }
 
-function formatAcronymPreview(acronym: AppAcronym): string {
-  const expansion = acronym.expansion.trim();
+function isAcronymDraftChanged(noteEditor: NoteEditorState, index: number) {
+  const currentAcronym = noteEditor.draft.acronyms[index];
+  const baselineAcronym = noteEditor.baselineDraft.acronyms[index];
 
-  return expansion.length > 0
-    ? expansion
-    : "Add what each letter stands for so the mnemonic stays useful later.";
+  if (currentAcronym === undefined) {
+    return false;
+  }
+
+  return (
+    baselineAcronym === undefined ||
+    currentAcronym.shortForm !== baselineAcronym.shortForm ||
+    currentAcronym.expansion !== baselineAcronym.expansion
+  );
+}
+
+function hasUnsavedHookDraftChanges(noteEditor: NoteEditorState) {
+  return (
+    noteEditor.draft.metaphors.length !==
+      noteEditor.baselineDraft.metaphors.length ||
+    noteEditor.draft.acronyms.length !==
+      noteEditor.baselineDraft.acronyms.length ||
+    noteEditor.draft.metaphors.some((_, index) =>
+      isMetaphorDraftChanged(noteEditor, index),
+    ) ||
+    noteEditor.draft.acronyms.some((_, index) =>
+      isAcronymDraftChanged(noteEditor, index),
+    )
+  );
 }
 
 export function NotesWorkspace() {
@@ -983,6 +1013,7 @@ export function NotesWorkspace() {
   const selectedLabelCount = formatCount(selectedLabels.length, "label");
   const workspaceModeLabel = isCreating ? "Draft mode" : "Editing note";
   const hasUnsavedChanges = hasUnsavedNoteChanges;
+  const hasUnsavedHookChanges = hasUnsavedHookDraftChanges(noteEditor);
   const selectedNoteUpdatedLabel =
     selectedNote === null
       ? "Unsaved draft"
@@ -1240,7 +1271,7 @@ export function NotesWorkspace() {
                   )}
                 </section>
               </div>
-              {isCreating || hasUnsavedChanges ? (
+              {isCreating || (hasUnsavedChanges && !hasUnsavedHookChanges) ? (
                 <button
                   className="notes-action notes-action-primary"
                   form={noteEditorFormId}
@@ -1302,83 +1333,6 @@ export function NotesWorkspace() {
                 aria-label="Memory hooks panel"
                 className="notes-form__inspector"
               >
-                <section
-                  aria-label="Learning state"
-                  className="notes-inspector-card"
-                >
-                  <div className="notes-inspector-card__header">
-                    <h4>Learning state</h4>
-                    {selectedLearningState === null ? null : (
-                      <span className="tag">{selectedLearningStateLabel}</span>
-                    )}
-                  </div>
-
-                  {selectedLearningState === null ? (
-                    <p className="muted">
-                      Save this note to track practice, review timing, and hook
-                      support.
-                    </p>
-                  ) : (
-                    <>
-                      <p className="muted">
-                        {getLearningStateSummary(selectedLearningState.status)}
-                      </p>
-                      <div className="notes-learning-state__tags tag-row">
-                        <span className="tag">
-                          {formatHookCountLabel(
-                            selectedLearningState.hookCount,
-                          )}
-                        </span>
-                        {selectedLearningState.practiced ? (
-                          <span className="tag">Practiced</span>
-                        ) : null}
-                      </div>
-                      <div className="notes-learning-state__details">
-                        <p>
-                          {`Latest rating: ${
-                            selectedLearningStateRating ?? "Not practiced yet"
-                          }`}
-                        </p>
-                        <p>
-                          {`Last practiced: ${
-                            selectedLearningState.lastPracticedAt === null
-                              ? "Not practiced yet"
-                              : formatNoteDate(
-                                  selectedLearningState.lastPracticedAt,
-                                )
-                          }`}
-                        </p>
-                        <p>
-                          {`Next review: ${
-                            selectedLearningState.nextReviewAt === null
-                              ? "Practice when ready"
-                              : formatNoteDate(
-                                  selectedLearningState.nextReviewAt,
-                                )
-                          }`}
-                        </p>
-                      </div>
-                      <div className="notes-inspector-card__actions">
-                        <button
-                          className="notes-action notes-action-primary"
-                          onClick={() => void handlePracticeThisNote()}
-                          type="button"
-                        >
-                          Practice this note
-                        </button>
-                        {canStartFocusForSelectedNote ? (
-                          <button
-                            className="notes-action"
-                            onClick={handleStartFocusForSelectedNote}
-                            type="button"
-                          >
-                            Focus on this note
-                          </button>
-                        ) : null}
-                      </div>
-                    </>
-                  )}
-                </section>
                 <section
                   aria-label="Memory hooks"
                   className="notes-memory-hooks notes-inspector-card"
@@ -1452,14 +1406,6 @@ export function NotesWorkspace() {
                             key={metaphor.key}
                           >
                             <legend>{`Metaphor ${index + 1}`}</legend>
-                            <div className="notes-hook-card__summary">
-                              <span className="tag">Metaphor</span>
-                              <strong>
-                                {formatMetaphorCardTitle(metaphor, index)}
-                              </strong>
-                              <p>{formatMetaphorPreview(metaphor)}</p>
-                            </div>
-
                             <label className="notes-form__field">
                               <span>Metaphor title</span>
                               <input
@@ -1503,6 +1449,16 @@ export function NotesWorkspace() {
 
                             <div className="notes-metaphor__actions">
                               <button
+                                className="notes-action notes-action-primary"
+                                disabled={
+                                  !isMetaphorDraftChanged(noteEditor, index)
+                                }
+                                form={noteEditorFormId}
+                                type="submit"
+                              >
+                                Save changes
+                              </button>
+                              <button
                                 className="notes-action"
                                 onClick={() => handleRemoveMetaphor(index)}
                                 type="button"
@@ -1527,14 +1483,6 @@ export function NotesWorkspace() {
                             key={acronym.key}
                           >
                             <legend>{`Acronym ${index + 1}`}</legend>
-                            <div className="notes-hook-card__summary">
-                              <span className="tag">Acronym</span>
-                              <strong>
-                                {formatAcronymCardTitle(acronym, index)}
-                              </strong>
-                              <p>{formatAcronymPreview(acronym)}</p>
-                            </div>
-
                             <label className="notes-form__field">
                               <span>Acronym</span>
                               <input
@@ -1577,6 +1525,16 @@ export function NotesWorkspace() {
 
                             <div className="notes-acronym__actions">
                               <button
+                                className="notes-action notes-action-primary"
+                                disabled={
+                                  !isAcronymDraftChanged(noteEditor, index)
+                                }
+                                form={noteEditorFormId}
+                                type="submit"
+                              >
+                                Save changes
+                              </button>
+                              <button
                                 className="notes-action"
                                 onClick={() => handleRemoveAcronym(index)}
                                 type="button"
@@ -1588,6 +1546,90 @@ export function NotesWorkspace() {
                         ))}
                       </div>
                     </div>
+                  )}
+                </section>
+                <section
+                  aria-label="Learning state"
+                  className="notes-inspector-card notes-learning-state"
+                >
+                  <div className="notes-inspector-card__header">
+                    <h4>Learning state</h4>
+                    {selectedLearningState === null ? null : (
+                      <span className="tag">{selectedLearningStateLabel}</span>
+                    )}
+                  </div>
+
+                  {selectedLearningState === null ? (
+                    <p className="muted">
+                      Save this note to track practice, review timing, and hook
+                      support.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="notes-learning-state__summary">
+                        <p className="muted">
+                          {getLearningStateSummary(
+                            selectedLearningState.status,
+                          )}
+                        </p>
+                        <div className="notes-learning-state__tags tag-row">
+                          <span className="tag">
+                            {formatHookCountLabel(
+                              selectedLearningState.hookCount,
+                            )}
+                          </span>
+                          {selectedLearningState.practiced ? (
+                            <span className="tag">Practiced</span>
+                          ) : null}
+                        </div>
+                      </div>
+                      <dl className="notes-learning-state__details">
+                        <div>
+                          <dt>Latest rating</dt>
+                          <dd>
+                            {selectedLearningStateRating ?? "Not practiced yet"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Last practiced</dt>
+                          <dd>
+                            {selectedLearningState.lastPracticedAt === null
+                              ? "Not practiced yet"
+                              : formatNoteDate(
+                                  selectedLearningState.lastPracticedAt,
+                                )}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Next review</dt>
+                          <dd>
+                            {selectedLearningState.nextReviewAt === null
+                              ? "Practice when ready"
+                              : formatNoteDate(
+                                  selectedLearningState.nextReviewAt,
+                                )}
+                          </dd>
+                        </div>
+                      </dl>
+                      <div className="notes-inspector-card__actions">
+                        <button
+                          className="notes-action notes-action-primary"
+                          onClick={() => void handlePracticeThisNote()}
+                          type="button"
+                        >
+                          Practice this note
+                        </button>
+                        {canStartFocusForSelectedNote ? (
+                          <button
+                            className="notes-action"
+                            onClick={handleStartFocusForSelectedNote}
+                            type="button"
+                          >
+                            Focus on this note
+                          </button>
+                        ) : null}
+                      </div>
+                    </>
                   )}
                 </section>
               </aside>

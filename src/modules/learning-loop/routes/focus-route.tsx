@@ -8,6 +8,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { formatCount } from "../../../lib/format-count";
+import { useFocusTimerTick } from "../components/focus-session-start-control";
 import {
   type AppFocusContext,
   AppFocusError,
@@ -245,6 +246,9 @@ function FocusSessionConfig({
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const errorId = useId();
+  useFocusTimerTick(activeSession);
+  const currentActiveSession =
+    userId === null ? activeSession : focus.getActiveSession({ userId });
 
   function updateStartValue(field: FocusSessionStartField, value: string) {
     setStartValues((currentValues) => ({
@@ -257,7 +261,7 @@ function FocusSessionConfig({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (userId === null || activeSession !== null) {
+    if (userId === null || currentActiveSession !== null) {
       return;
     }
 
@@ -292,9 +296,6 @@ function FocusSessionConfig({
           <p className="section-label">Focus config</p>
           <strong className="focus-card-title">Pomodoro timer</strong>
         </div>
-        {activeSession === null ? null : (
-          <span className="tag">Timer running</span>
-        )}
       </div>
       <form
         aria-describedby={errorMessage === null ? undefined : errorId}
@@ -306,7 +307,7 @@ function FocusSessionConfig({
           <label>
             <span>Focus minutes</span>
             <input
-              disabled={activeSession !== null}
+              disabled={currentActiveSession !== null}
               inputMode="numeric"
               min="1"
               onChange={(event) =>
@@ -319,7 +320,7 @@ function FocusSessionConfig({
           <label>
             <span>Break minutes</span>
             <input
-              disabled={activeSession !== null}
+              disabled={currentActiveSession !== null}
               inputMode="numeric"
               min="0"
               onChange={(event) =>
@@ -332,7 +333,7 @@ function FocusSessionConfig({
           <label>
             <span>Planned focus intervals</span>
             <input
-              disabled={activeSession !== null}
+              disabled={currentActiveSession !== null}
               inputMode="numeric"
               min="1"
               onChange={(event) =>
@@ -344,15 +345,21 @@ function FocusSessionConfig({
             />
           </label>
         </div>
-        <button
-          className="notes-action notes-action-primary"
-          disabled={activeSession !== null}
-          type="submit"
-        >
-          Start Focus
-        </button>
-        {activeSession === null ? null : (
-          <span className="muted">Timer already running.</span>
+        {currentActiveSession === null ? (
+          <button className="notes-action notes-action-primary" type="submit">
+            Start Focus
+          </button>
+        ) : (
+          <button
+            className="notes-action notes-action-primary"
+            disabled
+            type="button"
+          >
+            Focus{" "}
+            <span aria-hidden="true">
+              {getRemainingTimerLabel(currentActiveSession)}
+            </span>
+          </button>
         )}
         {errorMessage === null ? null : (
           <span id={errorId} role="alert">
@@ -430,6 +437,15 @@ function getRemainingMinuteLabel(session: FocusSession) {
     remainingSeconds <= 0 ? 0 : Math.ceil(remainingSeconds / 60);
 
   return formatCount(remainingMinutes, "min", "mins");
+}
+
+function getRemainingTimerLabel(session: FocusSession) {
+  const remainingSeconds = session.remainingSeconds ?? 0;
+  const normalizedSeconds = remainingSeconds <= 0 ? 0 : remainingSeconds;
+  const minutes = Math.floor(normalizedSeconds / 60);
+  const seconds = normalizedSeconds % 60;
+
+  return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 }
 
 function getTargetDescriptions(record: FocusRecord) {

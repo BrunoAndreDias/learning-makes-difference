@@ -228,14 +228,15 @@ describe("authenticated app shell", () => {
     const learningState = screen.getByLabelText("Learning state");
     expect(within(learningState).getByText("Weak")).toBeInTheDocument();
     expect(
-      within(learningState).getByText("Latest rating: Partial"),
+      within(learningState).getByText("Latest rating"),
     ).toBeInTheDocument();
+    expect(within(learningState).getByText("Partial")).toBeInTheDocument();
     expect(
-      within(learningState).getByText("Last practiced: Apr 11, 2026"),
+      within(learningState).getByText("Last practiced"),
     ).toBeInTheDocument();
-    expect(
-      within(learningState).getByText("Next review: Apr 14, 2026"),
-    ).toBeInTheDocument();
+    expect(within(learningState).getByText("Apr 11, 2026")).toBeInTheDocument();
+    expect(within(learningState).getByText("Next review")).toBeInTheDocument();
+    expect(within(learningState).getByText("Apr 14, 2026")).toBeInTheDocument();
     expect(within(learningState).getByText("1 hook")).toBeInTheDocument();
 
     fireEvent.click(
@@ -312,6 +313,12 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", { level: 3, name: "Practice" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Practice" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Recall", { selector: ".section-label" }),
+    ).not.toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
     expect(screen.getByRole("link", { name: "Start recall" })).toHaveAttribute(
       "href",
@@ -330,6 +337,9 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", { level: 3, name: "Due" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Due" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Due prompt")).toBeInTheDocument();
     expect(screen.getByText("Weak prompt")).toBeInTheDocument();
     expect(screen.queryByText("Strong prompt")).toBeNull();
@@ -344,6 +354,9 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", { level: 3, name: "Weak notes" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Weak notes" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Weak prompt")).toBeInTheDocument();
     expect(screen.queryByText("Due prompt")).toBeNull();
     expect(screen.queryByText("Strong prompt")).toBeNull();
@@ -355,6 +368,9 @@ describe("authenticated app shell", () => {
 
     expect(
       await screen.findByRole("heading", { level: 3, name: "Results" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Results" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: "Selected review" }),
@@ -472,6 +488,12 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", { level: 3, name: "Recall setup" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Recall setup" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Recall", { selector: ".section-label" }),
+    ).not.toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall/select");
     expect(
       screen.queryByRole("combobox", { name: "Search recall sessions" }),
@@ -579,6 +601,12 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", { name: "Recall session" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Recall session" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Recall", { selector: ".section-label" }),
+    ).not.toBeInTheDocument();
     expect(recallContext.getSnapshot()).toMatchObject({
       mode: "FlashCard",
       notes: [
@@ -684,6 +712,7 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { level: 3, name: "Recall setup" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("form", { name: "Note editor" })).toBeNull();
+    expect(screen.queryByText("Find recall targets")).not.toBeInTheDocument();
 
     const summary = screen.getByRole("region", { name: "Session summary" });
     expect(within(summary).getByText("0 selected")).toBeInTheDocument();
@@ -1278,15 +1307,9 @@ describe("authenticated app shell", () => {
     expect(screen.getAllByText("Behavior groove").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Acronyms").length).toBeGreaterThan(0);
     expect(screen.getAllByText("CRR").length).toBeGreaterThan(0);
-    expect(
-      screen.getByText("Missed it: Could not recall the answer."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Partly recalled: Remembered some, missed some."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Nailed it: Recalled the answer clearly."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Could not recall it.")).toBeInTheDocument();
+    expect(screen.getByText("Some gaps remained.")).toBeInTheDocument();
+    expect(screen.getByText("Recalled it clearly.")).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", {

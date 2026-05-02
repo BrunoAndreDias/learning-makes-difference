@@ -54,6 +54,9 @@ describe("authenticated app shell", () => {
     expect(settingsLink).toHaveAttribute("aria-current", "page");
     expect(logoutButton).toBeVisible();
     expect(sidebar).toHaveAttribute("data-sidebar-state", "expanded");
+    expect(
+      screen.getAllByRole("button", { name: "Collapse sidebar" }),
+    ).toHaveLength(1);
 
     fireEvent.click(
       within(sidebar).getByRole("button", { name: "Collapse sidebar" }),

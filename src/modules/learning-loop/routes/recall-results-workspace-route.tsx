@@ -303,7 +303,6 @@ function RecallWorkspaceEmptyState({
 }) {
   return (
     <section className="recall-panel">
-      <p className="section-label">Recall</p>
       <h4>{title}</h4>
       <p className="muted">{body}</p>
       <Link className="notes-action notes-action-primary" to={actionTo}>
@@ -668,7 +667,6 @@ export function RecallResultsWorkspacePage() {
       <article className="recall-surface">
         <header className="recall-surface__header">
           <div className="notes-editor__title-stack">
-            <p className="section-label">Recall</p>
             <h3>{getSectionHeading(activeSection)}</h3>
             <p className="muted notes-editor__meta">
               {getSectionDescription(activeSection)}

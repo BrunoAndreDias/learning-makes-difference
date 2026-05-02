@@ -331,6 +331,10 @@ describe("authenticated app shell", () => {
     });
 
     expect(notesList).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Notes" })).toBeVisible();
+    expect(
+      screen.getAllByRole("button", { name: "Collapse sidebar" }),
+    ).toHaveLength(1);
     fireEvent.click(
       within(sidebar).getByRole("button", { name: "Spaced repetition" }),
     );
@@ -1324,17 +1328,36 @@ describe("authenticated app shell", () => {
         "Crossing threshold is like tipping the first domino so the whole line falls.",
       ),
     ).toBeInTheDocument();
+    expect(
+      within(screen.getAllByLabelText("Metaphor editor")[0]).getByRole(
+        "button",
+        { name: "Save changes" },
+      ),
+    ).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Add metaphor" }));
 
     expect(screen.getAllByLabelText("Metaphor editor")).toHaveLength(2);
-    expect(within(memoryHooks).getAllByText("Metaphor")).toHaveLength(2);
-    expect(within(memoryHooks).getByText("Domino line")).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Metaphor title")).toHaveLength(2);
+    expect(screen.getAllByLabelText("Metaphor explanation")).toHaveLength(2);
     expect(
-      within(memoryHooks).getAllByText(
+      within(screen.getAllByLabelText("Metaphor editor")[0]).getByRole(
+        "button",
+        { name: "Save changes" },
+      ),
+    ).toBeDisabled();
+    expect(
+      within(screen.getAllByLabelText("Metaphor editor")[1]).getByRole(
+        "button",
+        { name: "Save changes" },
+      ),
+    ).toBeEnabled();
+    expect(screen.getByDisplayValue("Domino line")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue(
         "Crossing threshold is like tipping the first domino so the whole line falls.",
       ),
-    ).toHaveLength(2);
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getAllByLabelText("Metaphor explanation")[0], {
       target: {

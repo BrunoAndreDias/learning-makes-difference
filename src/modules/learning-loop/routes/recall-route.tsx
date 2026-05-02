@@ -169,7 +169,6 @@ function EmptyRecallSelectionPage() {
   return (
     <section className="recall-workspace">
       <article className="recall-surface">
-        <p className="section-label">Recall</p>
         <h3>No recallable notes yet</h3>
         <p>Create notes first, then come back to build a recall session.</p>
         <Link className="notes-action notes-action-primary" to="/notes">
@@ -819,7 +818,6 @@ export function RecallSelectionPage({
       <article className="recall-surface">
         <header className="recall-surface__header">
           <div className="notes-editor__title-stack">
-            <p className="section-label">Recall</p>
             <h3>Recall setup</h3>
             <p className="muted notes-editor__meta">
               Pick notes, review the setup, then start a focused recall session.
@@ -868,6 +866,13 @@ export function RecallSelectionPage({
                   value={searchQuery}
                 />
                 <kbd>Cmd K</kbd>
+                <RecallSelectionSearchResults
+                  activeSearchResultIndex={activeSearchResultIndex}
+                  isOpen={hasSearchQuery && isSearchOpen}
+                  onToggleNote={toggleSelectedNote}
+                  searchResults={searchResults}
+                  selectedNoteIds={selectedNoteIdSet}
+                />
               </form>
               <RecallSelectionControls
                 hasSelectedNotes={validSelectedNoteIds.length > 0}
@@ -898,27 +903,6 @@ export function RecallSelectionPage({
         />
 
         <div className="recall-selection-layout">
-          <article className="recall-panel">
-            <div className="notes-list__header">
-              <div className="stack">
-                <p className="section-label">Search</p>
-                <h4>Find recall targets</h4>
-                <p className="muted">
-                  Search titles, bodies, metaphors, and acronyms. Selecting a
-                  match toggles the owning note.
-                </p>
-              </div>
-            </div>
-
-            <RecallSelectionSearchResults
-              activeSearchResultIndex={activeSearchResultIndex}
-              isOpen={hasSearchQuery && isSearchOpen}
-              onToggleNote={toggleSelectedNote}
-              searchResults={searchResults}
-              selectedNoteIds={selectedNoteIdSet}
-            />
-          </article>
-
           <SelectableRecallNotes
             availableEmptyState={setupState.availableEmptyState}
             candidates={setupState.visibleCandidates}

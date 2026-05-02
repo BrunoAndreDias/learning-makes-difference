@@ -35,48 +35,47 @@ export function FocusSessionStartControl({
   const previousSessionStateRef = useRef<FocusSession["intervalState"] | null>(
     null,
   );
+  useFocusTimerTick(activeFocusSession);
+  const currentActiveFocusSession =
+    userId === null ? activeFocusSession : focus.getActiveSession({ userId });
 
   useEffect(() => {
-    if (activeFocusSession === null) {
+    if (currentActiveFocusSession === null) {
       return;
     }
 
     setErrorMessage(null);
-  }, [activeFocusSession]);
+  }, [currentActiveFocusSession]);
 
   useEffect(() => {
-    if (activeFocusSession === null) {
+    if (currentActiveFocusSession === null) {
       previousSessionStateRef.current = null;
       return;
     }
 
     const previousSessionState = previousSessionStateRef.current;
-    previousSessionStateRef.current = activeFocusSession.intervalState;
+    previousSessionStateRef.current = currentActiveFocusSession.intervalState;
 
     if (
-      previousSessionState === activeFocusSession.intervalState &&
+      previousSessionState === currentActiveFocusSession.intervalState &&
       previousSessionState !== null
     ) {
       return;
     }
 
-    if (activeFocusSession.intervalState === "Break") {
+    if (currentActiveFocusSession.intervalState === "Break") {
       return;
     }
 
     focusSessionButtonRef.current?.focus();
-  }, [activeFocusSession]);
+  }, [currentActiveFocusSession]);
 
-  if (activeFocusSession !== null) {
-    const focusStatus = getFocusStatus(activeFocusSession);
+  if (currentActiveFocusSession !== null) {
+    const focusStatus = getFocusStatus(currentActiveFocusSession);
 
     return (
       <fieldset className="app-focus-session-status tag-row">
         <legend className="sr-only">Active focus session</legend>
-        <span aria-atomic="true" aria-label="Focus timer status" role="status">
-          <span className="sr-only">{focusStatus.prefix}</span>
-          {focusStatus.label}
-        </span>
         {userId === null ? null : (
           <button
             className="notes-action notes-action-primary"
@@ -88,7 +87,7 @@ export function FocusSessionStartControl({
             ref={focusSessionButtonRef}
             type="button"
           >
-            End focus
+            End focus <span aria-hidden="true">{focusStatus.label}</span>
           </button>
         )}
       </fieldset>
@@ -142,6 +141,24 @@ export function FocusSessionStartControl({
   );
 }
 
+export function useFocusTimerTick(session: FocusSession | null) {
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    if (session?.stateEndsAt === null || session?.stateEndsAt === undefined) {
+      return;
+    }
+
+    const timerId = window.setInterval(() => {
+      setTick((currentTick) => currentTick + 1);
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [session?.stateEndsAt]);
+}
+
 function getFocusStatus(session: FocusSession) {
   if (session.intervalState === "AwaitingNextFocus") {
     return {
@@ -175,9 +192,7 @@ function getRemainingTimerLabel(session: FocusSession) {
   const minutes = Math.floor(normalizedSeconds / 60);
   const seconds = normalizedSeconds % 60;
 
-  return `${minutes.toString().padStart(2, "0")}:${seconds
-    .toString()
-    .padStart(2, "0")} left`;
+  return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 }
 
 function parseOptionalNumber(value: string) {

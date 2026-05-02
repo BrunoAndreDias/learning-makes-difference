@@ -313,7 +313,7 @@
   align-content: start;
   gap: 1rem;
   min-width: 0;
-  padding: clamp(1.25rem, 3vw, 2rem) clamp(1rem, 3vw, 2.25rem) 2rem;
+  padding: clamp(1.25rem, 3vw, 2rem) 1rem 2rem;
   background: var(--color-shell-panel);
 }
 
@@ -365,9 +365,7 @@
 }
 
 .recall-search-results {
-  position: static;
   max-height: 24rem;
-  box-shadow: none;
 }
 
 .recall-session-card {
@@ -902,6 +900,11 @@
   gap: var(--space-4);
 }
 
+.recall-card[data-revealed="true"] .recall-card__top {
+  grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr);
+  align-items: start;
+}
+
 .recall-card__face--prompt {
   align-content: start;
   justify-items: start;
@@ -981,6 +984,11 @@
 .recall-card__actions {
   display: flex;
   justify-content: flex-end;
+  min-width: 0;
+}
+
+.recall-card[data-revealed="true"] .recall-card__actions {
+  transform: translateY(-1.15rem);
 }
 
 .recall-card__reveal {
@@ -1142,17 +1150,24 @@
 .recall-rating-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-2);
+  gap: var(--space-3);
   width: 100%;
+  max-width: 44rem;
   margin: 0;
   padding: 0;
   border: 0;
 }
 
 .recall-rating {
-  min-height: 2.875rem;
-  font-weight: 600;
-  letter-spacing: -0.005em;
+  display: flex;
+  min-height: 4.25rem;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.75rem 0.85rem;
+  text-align: center;
+  border-radius: var(--radius-md);
   transition:
     background-color var(--motion-fast),
     border-color var(--motion-fast),
@@ -1164,9 +1179,24 @@
   transform: translateY(-1px);
 }
 
+.recall-rating__label {
+  color: var(--color-content-strong);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.recall-rating__description {
+  max-width: 18rem;
+  color: var(--color-content-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
 .recall-rating--missed {
   border-color: rgba(159, 18, 57, 0.28);
-  color: #9f1239;
   background: rgba(159, 18, 57, 0.04);
 }
 
@@ -1177,7 +1207,6 @@
 
 .recall-rating--partial {
   border-color: rgba(183, 121, 31, 0.32);
-  color: var(--color-accent-warning);
   background: rgba(183, 121, 31, 0.05);
 }
 
@@ -1188,7 +1217,6 @@
 
 .recall-rating--nailed {
   border-color: rgba(47, 133, 90, 0.32);
-  color: var(--color-accent-success);
   background: rgba(47, 133, 90, 0.05);
 }
 
@@ -1227,8 +1255,16 @@
     grid-template-columns: 1fr;
   }
 
+  .recall-card[data-revealed="true"] .recall-card__top {
+    grid-template-columns: 1fr;
+  }
+
   .recall-card__actions {
     justify-content: flex-start;
+  }
+
+  .recall-card[data-revealed="true"] .recall-card__actions {
+    transform: none;
   }
 
   .recall-shell__title-row {
@@ -1420,6 +1456,9 @@
 }
 
 .notes-workspace__toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 18;
   display: grid;
   grid-template-columns: minmax(12rem, 24rem) auto;
   align-items: center;
@@ -2032,7 +2071,7 @@
 .notes-editor {
   position: relative;
   min-width: 0;
-  padding: clamp(1.25rem, 3vw, 2rem) clamp(1rem, 3vw, 2.25rem) 2rem;
+  padding: clamp(1.25rem, 3vw, 2rem) 1rem 2rem;
   background: var(--color-shell-panel);
 }
 
@@ -2397,21 +2436,62 @@
   color: var(--color-content-muted);
 }
 
+.notes-learning-state {
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.5rem;
+  background: var(--color-shell-inset);
+}
+
+.notes-learning-state__summary {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.notes-learning-state__summary p {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
 .notes-learning-state__tags {
-  margin-top: 0.75rem;
+  gap: 0.35rem;
 }
 
 .notes-learning-state__details {
   display: grid;
-  gap: 0.6rem;
-  margin: 0.85rem 0 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin: 0;
 }
 
-.notes-learning-state__details p {
+.notes-learning-state__details div {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--color-content-border-soft);
+}
+
+.notes-learning-state__details dt,
+.notes-learning-state__details dd {
   margin: 0;
+}
+
+.notes-learning-state__details dt {
+  color: var(--color-content-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.notes-learning-state__details dd {
   color: var(--color-content-strong);
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .notes-inline-action {
@@ -2467,16 +2547,77 @@
 
 .notes-metaphor,
 .notes-acronym {
-  gap: 0.625rem;
-  padding: 0.875rem;
+  grid-template-columns:
+    minmax(7rem, 1fr)
+    minmax(11rem, 1.35fr)
+    auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem;
   border: 1px solid var(--color-content-border-soft);
   background: var(--color-shell-panel);
   border-radius: 0.5rem;
 }
 
+.notes-metaphor legend,
+.notes-acronym legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.notes-metaphor .notes-form__field,
+.notes-acronym .notes-form__field {
+  gap: 0;
+  min-width: 0;
+}
+
+.notes-metaphor .notes-form__field > span,
+.notes-acronym .notes-form__field > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.notes-metaphor input,
+.notes-acronym input,
 .notes-metaphor textarea,
 .notes-acronym textarea {
-  min-height: 5.5rem;
+  min-height: 2.5rem;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+.notes-metaphor textarea,
+.notes-acronym textarea {
+  height: 2.5rem;
+  resize: vertical;
+}
+
+.notes-metaphor__actions,
+.notes-acronym__actions {
+  align-self: stretch;
+  align-items: stretch;
+}
+
+.notes-metaphor__actions .notes-action,
+.notes-acronym__actions .notes-action {
+  min-height: 2.5rem;
+  padding-inline: 0.7rem;
+  white-space: nowrap;
 }
 
 .notes-labels__options {
@@ -2624,6 +2765,20 @@
 
   .notes-title-editor input {
     max-width: 100%;
+  }
+
+  .notes-learning-state__details {
+    grid-template-columns: 1fr;
+  }
+
+  .notes-metaphor,
+  .notes-acronym {
+    grid-template-columns: 1fr;
+  }
+
+  .notes-metaphor textarea,
+  .notes-acronym textarea {
+    height: 4.5rem;
   }
 }
 

@@ -414,10 +414,11 @@ describe("authenticated app shell", () => {
       });
       fireEvent.submit(focusControls);
 
-      expect(screen.getByText("25:00 left")).toBeInTheDocument();
-      expect(
-        screen.getByRole("status", { name: "Focus timer status" }),
-      ).toHaveTextContent("Focus: 25:00 left");
+      expect(screen.getAllByText("25:00")).not.toHaveLength(0);
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(screen.getAllByText("24:59")).not.toHaveLength(0);
       expect(screen.getByRole("button", { name: "End focus" })).toHaveFocus();
 
       initialRender.unmount();
@@ -437,9 +438,7 @@ describe("authenticated app shell", () => {
         name: "End focus",
       });
       expect(endFocusButton).toHaveFocus();
-      expect(
-        screen.getByRole("status", { name: "Focus timer status" }),
-      ).toHaveTextContent(/Transition window: \d{2}:\d{2} left/);
+      expect(endFocusButton).toHaveTextContent(/\d{2}:\d{2}/);
 
       transitionFocusContext.startNextFocusInterval({ userId });
       transitionRender.unmount();
@@ -539,7 +538,9 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("button", { name: "End focus" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Transition window:/)).toHaveClass("sr-only");
+    expect(screen.getByRole("button", { name: "End focus" })).toHaveTextContent(
+      /\d{2}:\d{2}/,
+    );
 
     transitionFocusContext.startNextFocusInterval({ userId });
 
@@ -566,7 +567,9 @@ describe("authenticated app shell", () => {
     const breakOverlay = await screen.findByRole("region", {
       name: "Break interval reminder",
     });
-    expect(screen.getByText(/Break:/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "End focus" })).toHaveTextContent(
+      /\d{2}:\d{2}/,
+    );
 
     fireEvent.click(
       within(breakOverlay).getByRole("button", { name: "Skip break" }),
@@ -739,7 +742,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("status", { name: "Focus timer status" }),
+      await screen.findByRole("button", { name: "End focus" }),
     ).toHaveTextContent("Focus session stale");
 
     staleFocusContext.startNextFocusInterval({ userId });

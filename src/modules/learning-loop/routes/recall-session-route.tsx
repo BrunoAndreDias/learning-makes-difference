@@ -274,9 +274,9 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
                 <li aria-current="page">{props.breadcrumbCurrent}</li>
               </ol>
             </nav>
-            <h2 className="sr-only">
+            <p className="sr-only">
               {formatRecallModeLabel(activeSession.mode)} session
-            </h2>
+            </p>
             <p className="recall-shell__label">Selected notes</p>
           </div>
           <button
@@ -379,8 +379,8 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
                 ) : null}
               </div>
 
-              {!activeSession.isAnswerRevealed ? (
-                <div className="recall-card__actions">
+              <div className="recall-card__actions">
+                {!activeSession.isAnswerRevealed ? (
                   <button
                     className="notes-action notes-action-primary recall-card__reveal"
                     onClick={handleRevealAnswer}
@@ -389,51 +389,52 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
                   >
                     Reveal answer
                   </button>
-                </div>
-              ) : null}
+                ) : (
+                  <fieldset className="recall-rating-row">
+                    <legend className="sr-only">Rate your recall</legend>
+                    <button
+                      aria-label="Missed it"
+                      className="notes-action recall-rating recall-rating--missed"
+                      onClick={() => void handleRateAnswer("missed")}
+                      ref={missedRatingButtonRef}
+                      type="button"
+                    >
+                      <span className="recall-rating__label">Missed it</span>
+                      <span className="recall-rating__description">
+                        Could not recall it.
+                      </span>
+                    </button>
+                    <button
+                      aria-label="Partly recalled"
+                      className="notes-action recall-rating recall-rating--partial"
+                      onClick={() => void handleRateAnswer("partial")}
+                      type="button"
+                    >
+                      <span className="recall-rating__label">
+                        Partly recalled
+                      </span>
+                      <span className="recall-rating__description">
+                        Some gaps remained.
+                      </span>
+                    </button>
+                    <button
+                      aria-label="Nailed it"
+                      className="notes-action recall-rating recall-rating--nailed"
+                      onClick={() => void handleRateAnswer("nailed")}
+                      type="button"
+                    >
+                      <span className="recall-rating__label">Nailed it</span>
+                      <span className="recall-rating__description">
+                        Recalled it clearly.
+                      </span>
+                    </button>
+                  </fieldset>
+                )}
+              </div>
             </div>
 
             {activeSession.isAnswerRevealed ? (
               <RecallNoteDetails note={currentNote} />
-            ) : null}
-
-            {activeSession.isAnswerRevealed ? (
-              <footer className="recall-card__footer">
-                <fieldset className="recall-rating-row">
-                  <legend className="sr-only">Rate your recall</legend>
-                  <button
-                    className="notes-action recall-rating recall-rating--missed"
-                    onClick={() => void handleRateAnswer("missed")}
-                    ref={missedRatingButtonRef}
-                    type="button"
-                  >
-                    Missed it
-                  </button>
-                  <p className="muted">
-                    Missed it: Could not recall the answer.
-                  </p>
-                  <button
-                    className="notes-action recall-rating recall-rating--partial"
-                    onClick={() => void handleRateAnswer("partial")}
-                    type="button"
-                  >
-                    Partly recalled
-                  </button>
-                  <p className="muted">
-                    Partly recalled: Remembered some, missed some.
-                  </p>
-                  <button
-                    className="notes-action recall-rating recall-rating--nailed"
-                    onClick={() => void handleRateAnswer("nailed")}
-                    type="button"
-                  >
-                    Nailed it
-                  </button>
-                  <p className="muted">
-                    Nailed it: Recalled the answer clearly.
-                  </p>
-                </fieldset>
-              </footer>
             ) : null}
           </fieldset>
           {isBreakActive && userId !== null ? (
