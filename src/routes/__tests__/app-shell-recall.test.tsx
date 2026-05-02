@@ -585,6 +585,150 @@ describe("authenticated app shell", () => {
     expect(screen.getByText("No notes match this search.")).toBeInTheDocument();
   });
 
+  it("drops deleted persisted selections from recall setup before session start", async () => {
+    const { labelsContext, notesContext, recallContext } =
+      createDeterministicRecallTestContexts();
+    const userId = "user-placeholder";
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "This note keeps recall setup available after the deletion.",
+      labelIds: [],
+      metaphors: [],
+      title: "Remaining recall target",
+    });
+    const note = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "This selection should disappear when the note disappears.",
+      labelIds: [],
+      metaphors: [],
+      title: "Deleted recall target",
+    });
+
+    await renderRecallSelection({
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    selectRecallableNote(
+      "Deleted recall target",
+      "This selection should disappear when the note disappears.",
+    );
+
+    let recallControls = within(
+      screen.getByLabelText("Recall selection controls"),
+    );
+    expect(recallControls.getByText("1 note selected")).toBeInTheDocument();
+    expect(
+      recallControls.getByRole("button", { name: "Start recall" }),
+    ).toBeEnabled();
+
+    act(() => {
+      notesContext.deleteNote(userId, note.id);
+    });
+
+    recallControls = within(screen.getByLabelText("Recall selection controls"));
+    expect(recallControls.getByText("0 notes selected")).toBeInTheDocument();
+    expect(
+      recallControls.getByRole("button", { name: "Start recall" }),
+    ).toBeDisabled();
+    expect(
+      within(screen.getByRole("region", { name: "Selected notes" })).getByText(
+        "No notes selected yet.",
+      ),
+    ).toBeInTheDocument();
+    expect(recallContext.getSnapshot()).toBeNull();
+  });
+
+  it("restores an active RecallSession after a reload for the same user", async () => {
+    const notesKeyPrefix = `test-notes-recall-reload-${Math.random().toString(36).slice(2)}`;
+    const recallKeyPrefix = `test-recall-reload-${Math.random().toString(36).slice(2)}`;
+    const userId = "user-recall-reload";
+    const session = {
+      user: {
+        displayName: "Casey Recall Reload",
+        email: "casey.recall.reload@example.com",
+        id: userId,
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+      },
+    } satisfies AppSessionSnapshot;
+    const firstNotesContext = createAppNotesContext({
+      keyPrefix: notesKeyPrefix,
+      storage: window.localStorage,
+    });
+    const firstRecallContext = createAppRecallContext({
+      keyPrefix: recallKeyPrefix,
+      notes: firstNotesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+
+    firstNotesContext.createNote(userId, {
+      acronyms: [{ expansion: "Active recall session", shortForm: "ARS" }],
+      body: "This revealed answer should survive the reload.",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation: "Like reopening the same study card after a refresh.",
+          title: "Sticky card",
+        },
+      ],
+      title: "Reloaded recall prompt",
+    });
+
+    const firstRender = await renderRecallSelection({
+      notesContext: firstNotesContext,
+      recallContext: firstRecallContext,
+      session,
+    });
+
+    selectRecallableNote(
+      "Reloaded recall prompt",
+      "This revealed answer should survive the reload.",
+    );
+    await startSelectedRecallSession();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reveal answer" }));
+    expect(
+      await screen.findByText(
+        "This revealed answer should survive the reload.",
+      ),
+    ).toBeInTheDocument();
+
+    firstRender.unmount();
+
+    const reloadedNotesContext = createAppNotesContext({
+      keyPrefix: notesKeyPrefix,
+      storage: window.localStorage,
+    });
+    const reloadedRecallContext = createAppRecallContext({
+      keyPrefix: recallKeyPrefix,
+      notes: reloadedNotesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+    });
+
+    renderRoute("/recall/session", {
+      notesContext: reloadedNotesContext,
+      recallContext: reloadedRecallContext,
+      session,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Recall session" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("This revealed answer should survive the reload."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Sticky card")).toBeInTheDocument();
+    expect(reloadedRecallContext.getSnapshot()).toMatchObject({
+      isAnswerRevealed: true,
+      notes: [{ title: "Reloaded recall prompt" }],
+      userId,
+    });
+  });
+
   it("shows a structural Recall / Session breadcrumb for an active recall session", async () => {
     const { labelsContext, notesContext, recallContext } =
       createLearningLoopTestContexts({
