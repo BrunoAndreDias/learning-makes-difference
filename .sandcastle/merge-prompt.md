@@ -1,16 +1,3 @@
-# COMMUNICATION STYLE
-
-Use Caveman Ultra for all natural-language status and final output inside Sandcastle orchestration:
-short fragments, no filler, abbreviations allowed.
-
-Do not compress:
-- code
-- shell commands
-- JSON/XML/structured output
-- commit messages
-- security/risk warnings
-- issue comments where clarity matters
-
 # TASK
 
 Merge the following branches into the current branch:
@@ -28,13 +15,12 @@ After all branches are merged, make a single commit summarizing the merge.
 
 # CLOSE ISSUES
 
-Use the explicit branch-to-issue mapping below to determine which issue to
-close after each successful merge.
+For each branch that was merged, close its issue using the following command:
 
-`gh issue close <issue-number> --comment "Completed by Sandcastle"`
+`gh issue close <ID> --comment "Completed by Sandcastle"`
 
-Issue mapping:
+Here are all the issues:
 
-{{ISSUE_BRANCH_MAP}}
+{{ISSUES}}
 
 Once you've merged everything you can, output <promise>COMPLETE</promise>.

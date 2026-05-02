@@ -1,8 +1,16 @@
+import { useEffect, useRef } from "react";
+
 export function BreakIntervalOverlay({
   onSkipBreak,
 }: Readonly<{
   onSkipBreak: () => void;
 }>) {
+  const skipBreakButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    skipBreakButtonRef.current?.focus();
+  }, []);
+
   return (
     <section
       aria-label="Break interval reminder"
@@ -15,9 +23,9 @@ export function BreakIntervalOverlay({
           Rest first. Skip the break to start the next focus interval.
         </p>
         <button
-          autoFocus
           className="notes-action notes-action-primary"
           onClick={onSkipBreak}
+          ref={skipBreakButtonRef}
           type="button"
         >
           Skip break

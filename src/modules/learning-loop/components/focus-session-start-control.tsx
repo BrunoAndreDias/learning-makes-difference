@@ -35,40 +35,43 @@ export function FocusSessionStartControl({
   const previousSessionStateRef = useRef<FocusSession["intervalState"] | null>(
     null,
   );
+  useFocusTimerTick(activeFocusSession);
+  const currentActiveFocusSession =
+    userId === null ? activeFocusSession : focus.getActiveSession({ userId });
 
   useEffect(() => {
-    if (activeFocusSession === null) {
+    if (currentActiveFocusSession === null) {
       return;
     }
 
     setErrorMessage(null);
-  }, [activeFocusSession]);
+  }, [currentActiveFocusSession]);
 
   useEffect(() => {
-    if (activeFocusSession === null) {
+    if (currentActiveFocusSession === null) {
       previousSessionStateRef.current = null;
       return;
     }
 
     const previousSessionState = previousSessionStateRef.current;
-    previousSessionStateRef.current = activeFocusSession.intervalState;
+    previousSessionStateRef.current = currentActiveFocusSession.intervalState;
 
     if (
-      previousSessionState === activeFocusSession.intervalState &&
+      previousSessionState === currentActiveFocusSession.intervalState &&
       previousSessionState !== null
     ) {
       return;
     }
 
-    if (activeFocusSession.intervalState === "Break") {
+    if (currentActiveFocusSession.intervalState === "Break") {
       return;
     }
 
     focusSessionButtonRef.current?.focus();
-  }, [activeFocusSession]);
+  }, [currentActiveFocusSession]);
 
-  if (activeFocusSession !== null) {
-    const buttonLabel = `End focus · ${getRemainingMinuteLabel(activeFocusSession)}`;
+  if (currentActiveFocusSession !== null) {
+    const focusStatus = getFocusStatus(currentActiveFocusSession);
 
     return (
       <fieldset className="app-focus-session-status tag-row">
@@ -84,16 +87,9 @@ export function FocusSessionStartControl({
             ref={focusSessionButtonRef}
             type="button"
           >
-            {buttonLabel}
+            End focus <span aria-hidden="true">{focusStatus.label}</span>
           </button>
         )}
-        <span
-          aria-label="Focus session status"
-          className="sr-only"
-          role="status"
-        >
-          {getFocusStatusMessage(activeFocusSession)}
-        </span>
       </fieldset>
     );
   }
@@ -145,27 +141,58 @@ export function FocusSessionStartControl({
   );
 }
 
-function getFocusStatusMessage(session: FocusSession) {
-  const remainingLabel = getRemainingMinuteLabel(session);
+export function useFocusTimerTick(session: FocusSession | null) {
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    if (session?.stateEndsAt === null || session?.stateEndsAt === undefined) {
+      return;
+    }
+
+    const timerId = window.setInterval(() => {
+      setTick((currentTick) => currentTick + 1);
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [session?.stateEndsAt]);
+}
+
+function getFocusStatus(session: FocusSession) {
+  if (session.intervalState === "AwaitingNextFocus") {
+    return {
+      label: session.isStale ? "Focus session stale" : "Ready for next focus",
+      prefix: "",
+    };
+  }
 
   switch (session.intervalState) {
     case "Transition":
-      return `Transition window: ${remainingLabel} left`;
+      return {
+        label: getRemainingTimerLabel(session),
+        prefix: "Transition window: ",
+      };
     case "Break":
-      return `Break: ${remainingLabel} left`;
-    case "AwaitingNextFocus":
-      return session.isStale ? "Focus session stale" : "Ready for next focus";
+      return {
+        label: getRemainingTimerLabel(session),
+        prefix: "Break: ",
+      };
     case "Focus":
-      return `Focus: ${remainingLabel} left`;
+      return {
+        label: getRemainingTimerLabel(session),
+        prefix: "Focus: ",
+      };
   }
 }
 
-function getRemainingMinuteLabel(session: FocusSession) {
+function getRemainingTimerLabel(session: FocusSession) {
   const remainingSeconds = session.remainingSeconds ?? 0;
-  const remainingMinutes =
-    remainingSeconds <= 0 ? 0 : Math.ceil(remainingSeconds / 60);
+  const normalizedSeconds = remainingSeconds <= 0 ? 0 : remainingSeconds;
+  const minutes = Math.floor(normalizedSeconds / 60);
+  const seconds = normalizedSeconds % 60;
 
-  return `${remainingMinutes} ${remainingMinutes === 1 ? "min" : "mins"}`;
+  return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 }
 
 function parseOptionalNumber(value: string) {

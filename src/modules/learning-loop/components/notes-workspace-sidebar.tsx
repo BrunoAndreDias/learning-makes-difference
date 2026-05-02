@@ -1,6 +1,11 @@
 import { useRouteContext } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import type { AppSessionSnapshot } from "../../access/domain/session";
+import {
+  deriveLearningStates,
+  formatLearningStateStatusLabel,
+  toNoteRecallHistories,
+} from "../domain/learning-state";
 import { listNotesForUser } from "../domain/notes";
 import { useNotesWorkspace } from "../domain/notes-workspace";
 
@@ -42,16 +47,35 @@ export function NotesWorkspaceSidebar({
     session.getSnapshot,
     session.getSnapshot,
   );
+  const recallContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.recall,
+  });
   const notesSnapshot = useSyncExternalStore(
     notesContext.subscribe,
     notesContext.getSnapshot,
     notesContext.getSnapshot,
+  );
+  const recallResultsSnapshot = useSyncExternalStore(
+    recallContext.subscribe,
+    recallContext.getSessionResultsSnapshot,
+    recallContext.getSessionResultsSnapshot,
   );
   const notes = listNotesForUser(
     notesSnapshot,
     sessionSnapshot.user?.id ?? null,
   );
   const userId = sessionSnapshot.user?.id ?? null;
+  const noteLearningStates = deriveLearningStates({
+    histories:
+      userId === null || recallResultsSnapshot.length === 0
+        ? []
+        : toNoteRecallHistories(recallContext.listAttemptsByNote({ userId })),
+    notes,
+  });
+  const noteLearningStatesById = new Map(
+    noteLearningStates.map((state) => [state.noteId, state]),
+  );
 
   function handleSidebarAction(action: () => void) {
     if (isMobileSidebarOpen) {
@@ -123,6 +147,8 @@ export function NotesWorkspaceSidebar({
         ) : (
           <ul className="app-sidebar__workspace-list">
             {notes.map((note) => {
+              const learningState = noteLearningStatesById.get(note.id);
+
               return (
                 <li className="app-sidebar__workspace-item" key={note.id}>
                   <button
@@ -133,7 +159,14 @@ export function NotesWorkspaceSidebar({
                     ref={activeNoteId === note.id ? activeNoteRef : null}
                     type="button"
                   >
-                    <span>{note.title}</span>
+                    <span className="app-sidebar__workspace-summary">
+                      <span>{note.title}</span>
+                      {learningState === undefined ? null : (
+                        <span className="app-sidebar__workspace-state">
+                          {formatLearningStateStatusLabel(learningState.status)}
+                        </span>
+                      )}
+                    </span>
                     <span
                       aria-hidden="true"
                       className="app-sidebar__workspace-meta"

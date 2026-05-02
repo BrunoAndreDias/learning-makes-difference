@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-
+import { createAppLabelsContext } from "../../labels/domain/labels";
 import {
   type AppNotesError,
   createAppNotesContext,
@@ -12,6 +12,9 @@ function createMemoryStorage() {
   return {
     getItem(key: string) {
       return values.get(key) ?? null;
+    },
+    removeItem(key: string) {
+      values.delete(key);
     },
     setItem(key: string, value: string) {
       values.set(key, value);
@@ -166,6 +169,56 @@ describe("app notes context", () => {
         code: "invalid_input",
       } satisfies Pick<AppNotesError, "code">),
     );
+  });
+
+  it("removes deleted labels from persisted note assignments after refresh", () => {
+    const storage = createMemoryStorage();
+    const labels = createAppLabelsContext({
+      keyPrefix: "notes-test-label-prune-labels",
+      storage,
+    });
+    const userId = "user-casey";
+    const science = labels.createLabel({
+      name: "Science",
+      userId,
+    });
+    const biology = labels.createLabel({
+      name: "Biology",
+      userId,
+    });
+    const notes = createAppNotesContext({
+      keyPrefix: "notes-test-label-prune-notes",
+      storage,
+      getOwnedLabelIdsForUser: (ownerId) =>
+        labels.getLabelsForUser(ownerId).map((label) => label.id),
+    });
+
+    const createdNote = notes.createNote(userId, {
+      acronyms: [],
+      body: "Study notes should not keep orphaned label ids.",
+      labelIds: [science.id, biology.id],
+      metaphors: [],
+      title: "Label cleanup",
+    });
+
+    labels.deleteLabel({
+      labelId: biology.id,
+      userId,
+    });
+
+    const reloadedNotes = createAppNotesContext({
+      keyPrefix: "notes-test-label-prune-notes",
+      storage,
+      getOwnedLabelIdsForUser: (ownerId) =>
+        labels.getLabelsForUser(ownerId).map((label) => label.id),
+    });
+
+    expect(
+      listNotesForUser(reloadedNotes.getSnapshot(), userId)[0],
+    ).toMatchObject({
+      id: createdNote.id,
+      labelIds: [science.id],
+    });
   });
 
   it("stores note-owned metaphors and keeps their lifecycle scoped to the owning account", () => {
@@ -352,5 +405,45 @@ describe("app notes context", () => {
         code: "not_found",
       } satisfies Pick<AppNotesError, "code">),
     );
+  });
+
+  it("restores persisted note timestamps, metaphors, and acronyms for the owning account", () => {
+    const storage = createMemoryStorage();
+    const keyPrefix = "notes-test-persisted-memory-hooks";
+    const initialNotes = createAppNotesContext({
+      keyPrefix,
+      storage,
+    });
+
+    const createdNote = initialNotes.createNote("user-casey", {
+      acronyms: [
+        {
+          expansion: "Long-Term Potentiation",
+          shortForm: "LTP",
+        },
+      ],
+      body: "Repeated activation strengthens the same path.",
+      labelIds: [],
+      metaphors: [
+        {
+          explanation:
+            "It is like cutting a groove into a trail so the next pass follows it more easily.",
+          title: "Forest trail",
+        },
+      ],
+      title: "Synaptic plasticity",
+    });
+
+    const restoredNotes = createAppNotesContext({
+      keyPrefix,
+      storage,
+    });
+
+    expect(listNotesForUser(restoredNotes.getSnapshot(), "user-casey")).toEqual(
+      [createdNote],
+    );
+    expect(
+      listNotesForUser(restoredNotes.getSnapshot(), "user-jordan"),
+    ).toEqual([]);
   });
 });

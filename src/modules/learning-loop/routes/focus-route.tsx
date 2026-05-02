@@ -2,11 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   type FormEvent,
   useEffect,
+  useId,
   useRef,
   useState,
   useSyncExternalStore,
 } from "react";
-
+import { formatCount } from "../../../lib/format-count";
+import { useFocusTimerTick } from "../components/focus-session-start-control";
 import {
   type AppFocusContext,
   AppFocusError,
@@ -14,6 +16,7 @@ import {
   type FocusSession,
   type FocusTarget,
 } from "../domain/focus";
+import { formatFocusTargetKindLabel } from "../domain/learner-copy";
 
 type FocusSessionStartValues = {
   breakMinutes: string;
@@ -28,6 +31,13 @@ const DEFAULT_FOCUS_SESSION_START_VALUES: FocusSessionStartValues = {
   focusMinutes: "25",
   plannedFocusIntervals: "",
 };
+const FOCUS_RECORD_DATE_FORMATTER = new Intl.DateTimeFormat("en", {
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  month: "short",
+  year: "numeric",
+});
 
 export const Route = createFileRoute("/_protected/focus")({
   component: FocusPage,
@@ -73,43 +83,57 @@ function FocusPage() {
       total + record.completedBreakIntervalCount * record.breakIntervalMinutes,
     0,
   );
+  const activeSessionDisplay = getActiveSessionDisplay(activeSession);
 
   useEffect(() => {
     headingRef.current?.focus();
   }, []);
 
   return (
-    <section className="settings-layout">
-      <article className="card stack panel-protected">
-        <p className="section-label">Focus review</p>
-        <h3 ref={headingRef} tabIndex={-1}>
-          Focus records
-        </h3>
-        <p>Review completed FocusRecords and recent completed-focus totals.</p>
-        <div className="tag-row">
-          <span className="tag">Read-only v1</span>
-          <span className="tag">{records.length} completed records</span>
-          <span className="tag">
-            {recentFocusMinutes} focused minutes recent
-          </span>
-        </div>
-        {activeSession === null ? null : (
-          <p className="muted">
-            Active session: {getActiveSessionSummary(activeSession)}
+    <section
+      aria-labelledby="focus-records-heading"
+      className="focus-workspace"
+    >
+      <header className="focus-hero">
+        <div className="focus-hero__content">
+          <p className="section-label">Focus review</p>
+          <h3 id="focus-records-heading" ref={headingRef} tabIndex={-1}>
+            Study sessions
+          </h3>
+          <p>
+            Plan a Pomodoro block, keep the timer visible, and review what you
+            studied without leaving the workspace.
           </p>
-        )}
-      </article>
+          <div className="tag-row focus-hero__tags">
+            <span className="tag">{records.length} study sessions</span>
+            <span className="tag">{recentFocusMinutes} recent focus min</span>
+            <span className="tag">{recentBreakMinutes} recent break min</span>
+          </div>
+        </div>
+        <aside aria-label="Current focus session" className="focus-now-card">
+          <span className="focus-now-card__label">
+            {activeSessionDisplay.label}
+          </span>
+          <strong>{activeSessionDisplay.summary}</strong>
+          <span>{activeSessionDisplay.detail}</span>
+        </aside>
+      </header>
 
-      <div className="placeholder-grid settings-grid">
+      <div className="focus-grid">
         <FocusSessionConfig
           activeSession={activeSession}
           focus={focus}
           userId={userId}
         />
 
-        <article className="card stack">
-          <p className="section-label">Recent completed focus</p>
-          <dl className="settings-summary" aria-label="Recent completed focus">
+        <article className="focus-card focus-summary-card">
+          <div className="focus-card__header">
+            <div>
+              <p className="section-label">Recent study time</p>
+              <strong className="focus-card-title">Last 7 sessions</strong>
+            </div>
+          </div>
+          <dl className="focus-metrics" aria-label="Recent study time">
             <div>
               <dt>Focus time</dt>
               <dd>{recentFocusMinutes} minutes</dd>
@@ -119,41 +143,63 @@ function FocusPage() {
               <dd>{recentBreakMinutes} minutes</dd>
             </div>
             <div>
-              <dt>Completed records</dt>
+              <dt>Completed sessions</dt>
               <dd>{recentRecords.length}</dd>
             </div>
           </dl>
         </article>
 
-        <article className="card stack">
-          <p className="section-label">History mode</p>
+        <article className="focus-card focus-card--quiet">
+          <p className="section-label">How capture works</p>
           <p>
-            FocusRecords are read-only in v1. Use the global control to run
-            sessions.
+            Study sessions stay read-only in v1. Notes and Recall activity
+            attach to a running focus block automatically, so session history
+            stays useful without extra logging.
           </p>
         </article>
       </div>
 
-      <section aria-label="Completed FocusRecords" className="labels-list">
+      <section aria-label="Completed study sessions" className="focus-records">
+        <div className="focus-section-heading">
+          <div>
+            <p className="section-label">History</p>
+            <strong className="focus-card-title">
+              Completed study sessions
+            </strong>
+          </div>
+          <span className="tag">{records.length} total</span>
+        </div>
         {records.length === 0 ? (
-          <article className="card stack">
-            <p className="section-label">No completed focus yet</p>
-            <p>Complete a FocusSession to review it here.</p>
+          <article className="focus-empty-state">
+            <p className="section-label">No completed sessions yet</p>
+            <strong className="focus-card-title">
+              Finish your first session
+            </strong>
+            <p>
+              Completed sessions will appear here with captured study targets.
+            </p>
           </article>
         ) : (
           records.map((record) => {
             const targetDescriptions = getTargetDescriptions(record);
 
             return (
-              <article className="card stack" key={record.id}>
-                <p className="section-label">Completed {record.endedAt}</p>
-                <h4>{getPrimaryMetricLabel(record)}</h4>
+              <article className="focus-record-card" key={record.id}>
+                <div className="focus-record-card__header">
+                  <div>
+                    <p className="section-label">Completed</p>
+                    <h4>{getPrimaryMetricLabel(record)}</h4>
+                  </div>
+                  <time dateTime={record.endedAt}>
+                    {formatFocusRecordDate(record.endedAt)}
+                  </time>
+                </div>
                 <dl
-                  className="settings-summary"
-                  aria-label={`Focus record ${record.id}`}
+                  className="focus-metrics"
+                  aria-label={`Study session ${record.id}`}
                 >
                   <div>
-                    <dt>Break detail</dt>
+                    <dt>Breaks</dt>
                     <dd>{getBreakMetricLabel(record)}</dd>
                   </div>
                   <div>
@@ -165,14 +211,18 @@ function FocusPage() {
                     <dd>{record.method}</dd>
                   </div>
                 </dl>
-                <ul
-                  className="placeholder-list"
-                  aria-label={`Touched targets for ${record.id}`}
-                >
-                  {targetDescriptions.map((target) => (
-                    <li key={target}>{target}</li>
-                  ))}
-                </ul>
+                {targetDescriptions.length === 0 ? (
+                  <p className="muted">No study targets captured.</p>
+                ) : (
+                  <ul
+                    className="focus-target-list"
+                    aria-label={`Touched targets for ${record.id}`}
+                  >
+                    {targetDescriptions.map((target) => (
+                      <li key={target}>{target}</li>
+                    ))}
+                  </ul>
+                )}
               </article>
             );
           })
@@ -195,6 +245,10 @@ function FocusSessionConfig({
     DEFAULT_FOCUS_SESSION_START_VALUES,
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const errorId = useId();
+  useFocusTimerTick(activeSession);
+  const currentActiveSession =
+    userId === null ? activeSession : focus.getActiveSession({ userId });
 
   function updateStartValue(field: FocusSessionStartField, value: string) {
     setStartValues((currentValues) => ({
@@ -207,7 +261,7 @@ function FocusSessionConfig({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (userId === null || activeSession !== null) {
+    if (userId === null || currentActiveSession !== null) {
       return;
     }
 
@@ -236,66 +290,81 @@ function FocusSessionConfig({
   }
 
   return (
-    <article className="card stack">
-      <p className="section-label">Focus config</p>
-      <p>Pomodoro timer</p>
+    <article className="focus-card focus-card--setup">
+      <div className="focus-card__header">
+        <div>
+          <p className="section-label">Focus config</p>
+          <strong className="focus-card-title">Pomodoro timer</strong>
+        </div>
+      </div>
       <form
+        aria-describedby={errorMessage === null ? undefined : errorId}
         aria-label="Focus session start"
         className="focus-config-form"
         onSubmit={handleSubmit}
       >
-        <label>
-          <span>Focus minutes</span>
-          <input
-            disabled={activeSession !== null}
-            inputMode="numeric"
-            min="1"
-            onChange={(event) =>
-              updateStartValue("focusMinutes", event.target.value)
-            }
-            type="number"
-            value={startValues.focusMinutes}
-          />
-        </label>
-        <label>
-          <span>Break minutes</span>
-          <input
-            disabled={activeSession !== null}
-            inputMode="numeric"
-            min="0"
-            onChange={(event) =>
-              updateStartValue("breakMinutes", event.target.value)
-            }
-            type="number"
-            value={startValues.breakMinutes}
-          />
-        </label>
-        <label>
-          <span>Planned focus intervals</span>
-          <input
-            disabled={activeSession !== null}
-            inputMode="numeric"
-            min="1"
-            onChange={(event) =>
-              updateStartValue("plannedFocusIntervals", event.target.value)
-            }
-            placeholder="Optional"
-            type="number"
-            value={startValues.plannedFocusIntervals}
-          />
-        </label>
-        <button
-          className="notes-action notes-action-primary"
-          disabled={activeSession !== null}
-          type="submit"
-        >
-          Start Focus
-        </button>
-        {activeSession === null ? null : (
-          <span className="muted">Timer already running.</span>
+        <div className="focus-config-form__fields">
+          <label>
+            <span>Focus minutes</span>
+            <input
+              disabled={currentActiveSession !== null}
+              inputMode="numeric"
+              min="1"
+              onChange={(event) =>
+                updateStartValue("focusMinutes", event.target.value)
+              }
+              type="number"
+              value={startValues.focusMinutes}
+            />
+          </label>
+          <label>
+            <span>Break minutes</span>
+            <input
+              disabled={currentActiveSession !== null}
+              inputMode="numeric"
+              min="0"
+              onChange={(event) =>
+                updateStartValue("breakMinutes", event.target.value)
+              }
+              type="number"
+              value={startValues.breakMinutes}
+            />
+          </label>
+          <label>
+            <span>Planned focus intervals</span>
+            <input
+              disabled={currentActiveSession !== null}
+              inputMode="numeric"
+              min="1"
+              onChange={(event) =>
+                updateStartValue("plannedFocusIntervals", event.target.value)
+              }
+              placeholder="Optional"
+              type="number"
+              value={startValues.plannedFocusIntervals}
+            />
+          </label>
+        </div>
+        {currentActiveSession === null ? (
+          <button className="notes-action notes-action-primary" type="submit">
+            Start Focus
+          </button>
+        ) : (
+          <button
+            className="notes-action notes-action-primary"
+            disabled
+            type="button"
+          >
+            Focus{" "}
+            <span aria-hidden="true">
+              {getRemainingTimerLabel(currentActiveSession)}
+            </span>
+          </button>
         )}
         {errorMessage === null ? null : (
-          <span role="status">{errorMessage}</span>
+          <span id={errorId} role="alert">
+            {errorMessage}
+          </span>
         )}
       </form>
     </article>
@@ -312,50 +381,106 @@ function getPrimaryMetricLabel(record: FocusRecord) {
 function getBreakMetricLabel(record: FocusRecord) {
   const breakMinutes =
     record.completedBreakIntervalCount * record.breakIntervalMinutes;
-  const intervalLabel =
-    record.completedBreakIntervalCount === 1 ? "break" : "breaks";
+  const intervalLabel = formatCount(
+    record.completedBreakIntervalCount,
+    "break",
+  );
 
-  return `${record.completedBreakIntervalCount} ${intervalLabel}, ${breakMinutes} minutes`;
+  return `${intervalLabel}, ${breakMinutes} minutes`;
+}
+
+function getActiveSessionDisplay(session: FocusSession | null) {
+  if (session === null) {
+    return {
+      detail: "Start a session below when you are ready.",
+      label: "Ready",
+      summary: "No timer running",
+    };
+  }
+
+  return {
+    detail: getActiveSessionDetail(session),
+    label: session.intervalState,
+    summary: getActiveSessionSummary(session),
+  };
 }
 
 function getActiveSessionSummary(session: FocusSession) {
-  if (session.intervalState === "Focus") {
-    return `${session.remainingSeconds ?? 0}s left in focus`;
+  const remainingLabel = getRemainingMinuteLabel(session);
+
+  switch (session.intervalState) {
+    case "Focus":
+      return `${remainingLabel} left in focus`;
+    case "Break":
+      return `${remainingLabel} left in break`;
+    case "Transition":
+      return `${remainingLabel} transition`;
+    case "AwaitingNextFocus":
+      return session.isStale ? "Stale session" : "Ready for next focus";
+  }
+}
+
+function getActiveSessionDetail(session: FocusSession) {
+  const completedLabel = `${session.completedFocusIntervalCount} completed`;
+  let plannedLabel = "open-ended";
+
+  if (session.plannedFocusIntervalCount !== null) {
+    plannedLabel = `${session.plannedFocusIntervalCount} planned`;
   }
 
-  if (session.intervalState === "Break") {
-    return `${session.remainingSeconds ?? 0}s left in break`;
-  }
+  return `${completedLabel} · ${plannedLabel}`;
+}
 
-  if (session.intervalState === "Transition") {
-    return `${session.remainingSeconds ?? 0}s left in transition`;
-  }
+function getRemainingMinuteLabel(session: FocusSession) {
+  const remainingSeconds = session.remainingSeconds ?? 0;
+  const remainingMinutes =
+    remainingSeconds <= 0 ? 0 : Math.ceil(remainingSeconds / 60);
 
-  return session.isStale ? "stale" : "ready for next focus";
+  return formatCount(remainingMinutes, "min", "mins");
+}
+
+function getRemainingTimerLabel(session: FocusSession) {
+  const remainingSeconds = session.remainingSeconds ?? 0;
+  const normalizedSeconds = remainingSeconds <= 0 ? 0 : remainingSeconds;
+  const minutes = Math.floor(normalizedSeconds / 60);
+  const seconds = normalizedSeconds % 60;
+
+  return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 }
 
 function getTargetDescriptions(record: FocusRecord) {
-  return [...record.targets, ...record.focusTargets].map(describeTarget);
+  return Array.from(
+    new Set([...record.targets, ...record.focusTargets].map(describeTarget)),
+  );
+}
+
+function formatFocusRecordDate(value: string) {
+  return FOCUS_RECORD_DATE_FORMATTER.format(new Date(value));
 }
 
 function describeTarget(target: FocusTarget) {
   if (target.kind === "RecallSession") {
     const noteTitles = target.notes.map((note) => note.title).join(", ");
-    const labelNames =
-      target.labels.length === 0
-        ? "no labels"
-        : target.labels.map((label) => label.name).join(", ");
+    const labelNames = formatFocusTargetLabels(target.labels);
 
-    return `RecallSession: ${target.recallSession.mode} | Notes: ${noteTitles} | Labels: ${labelNames}`;
+    return `${formatFocusTargetKindLabel(target.kind)}: ${noteTitles} | Labels: ${labelNames}`;
   }
 
   if (target.labels.length === 0) {
-    return `Note: ${target.note.title} | Unlabeled note work`;
+    return `Note study: ${target.note.title} | No labels yet`;
   }
 
-  return `Note: ${target.note.title} | Labels: ${target.labels
+  return `Note study: ${target.note.title} | Labels: ${target.labels
     .map((label) => label.name)
     .join(", ")}`;
+}
+
+function formatFocusTargetLabels(labels: FocusTarget["labels"]) {
+  if (labels.length === 0) {
+    return "no labels";
+  }
+
+  return labels.map((label) => label.name).join(", ");
 }
 
 function parseOptionalNumber(value: string) {

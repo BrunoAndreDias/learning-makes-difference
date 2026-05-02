@@ -1,42 +1,16 @@
-# COMMUNICATION STYLE
-
-Use Caveman Ultra for all natural-language status and final output inside Sandcastle orchestration:
-short fragments, no filler, abbreviations allowed.
-
-Do not compress:
-- code
-- shell commands
-- JSON/XML/structured output
-- commit messages
-- security/risk warnings
-- issue comments where clarity matters
-
 # TASK
 
 Review the code changes on branch `{{BRANCH}}` and improve code clarity, consistency, and maintainability while preserving exact functionality.
 
 # CONTEXT
 
-## Changed files
+## Branch diff
 
-!`git diff --stat main...{{BRANCH}}`
-
-!`git diff --name-only main...{{BRANCH}}`
+!`git diff {{SOURCE_BRANCH}}...{{BRANCH}}`
 
 ## Commits on this branch
 
-!`git log main..{{BRANCH}} --oneline`
-
-Inspect only the files you need with targeted commands such as `git diff main...{{BRANCH}} -- <path>` and `sed -n`.
-
-## Conditional frontend accessibility context
-
-If the changed files include frontend surfaces such as `src/routes/**`, `src/components/**`, `src/design-system/**`, `src/styles/**`, or other UI-facing React/CSS files, load and apply the local accessibility guidance before reviewing those files:
-
-- `@.agents/skills/a11y-best-practices/SKILL.md`
-- `@.agents/skills/a11y-best-practices/REFERENCE.md`
-
-For backend-, domain-, storage-, or infrastructure-only changes, do not load the accessibility guidance.
+!`git log {{SOURCE_BRANCH}}..{{BRANCH}} --oneline`
 
 # REVIEW PROCESS
 
@@ -56,7 +30,6 @@ For backend-, domain-, storage-, or infrastructure-only changes, do not load the
    - Are new/changed behaviours covered by tests?
    - Are there unsafe casts, `any` types, or unchecked assumptions?
    - Does the change introduce injection vulnerabilities, credential leaks, or other security issues?
-   - For frontend changes, check keyboard access, focus visibility, semantic structure, accessible names, form labeling, status/error announcements, contrast-sensitive UI states, and whether the implementation preserves the repo's WCAG baseline.
 
 4. **Maintain balance**: Avoid over-simplification that could:
    - Reduce code clarity or maintainability

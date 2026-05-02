@@ -25,6 +25,7 @@ import {
   RecallResultsSidebar,
 } from "../../learning-loop";
 import { RecallResultsSearch } from "../../learning-loop/components/recall-results-search";
+import { getRecallWorkspaceSection } from "../../learning-loop/domain/recall-workspace";
 
 type NavigationIconName = "focus" | "label" | "note" | "recall" | "settings";
 
@@ -46,6 +47,31 @@ function getWorkspaceTitle(pathname: string) {
   }
 
   return "Notes";
+}
+
+function getRecallWorkspaceTitle(pathname: string, search: unknown) {
+  if (pathname === "/recall/select") {
+    return "Recall setup";
+  }
+
+  if (pathname === "/recall/session") {
+    return "Recall session";
+  }
+
+  if (pathname === "/recall" || pathname.startsWith("/recall/")) {
+    switch (getRecallWorkspaceSection(search)) {
+      case "due":
+        return "Due";
+      case "results":
+        return "Results";
+      case "weak":
+        return "Weak notes";
+      case "practice":
+        return "Practice";
+    }
+  }
+
+  return null;
 }
 
 function isNotesWorkspacePath(pathname: string) {
@@ -70,8 +96,13 @@ export function AppLayout() {
   const router = useRouter();
   const navigationId = useId();
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isLoggingOut, setLoggingOut] = useState(false);
+  const currentLocationKey = `${location.pathname}?${JSON.stringify(location.search)}`;
   const collapsedSidebarToggleRef = useRef<HTMLButtonElement | null>(null);
+  const mobileSidebarToggleRef = useRef<HTMLButtonElement | null>(null);
+  const mobileSidebarCloseRef = useRef<HTMLButtonElement | null>(null);
+  const previousLocationRef = useRef(currentLocationKey);
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
     session.subscribe,
     session.getSnapshot,
@@ -79,10 +110,16 @@ export function AppLayout() {
   );
   useSyncExternalStore(focus.subscribe, focus.getSnapshot, focus.getSnapshot);
   const workspaceTitle = getWorkspaceTitle(location.pathname);
-  const isNotesWorkspaceRoute = isNotesWorkspacePath(location.pathname);
-  const isRecallResultsWorkspaceRoute = isRecallResultsWorkspacePath(
+  const recallWorkspaceTitle = getRecallWorkspaceTitle(
     location.pathname,
+    location.search,
   );
+  const isNotesWorkspaceRoute = isNotesWorkspacePath(location.pathname);
+  const isRecallWorkspaceRoute =
+    location.pathname === "/recall" || location.pathname.startsWith("/recall/");
+  const isRecallResultsWorkspaceRoute =
+    isRecallResultsWorkspacePath(location.pathname) &&
+    getRecallWorkspaceSection(location.search) === "results";
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
   const sidebarToggleLabel = isSidebarCollapsed
     ? "Expand sidebar"
@@ -91,8 +128,16 @@ export function AppLayout() {
   const activeFocusSession =
     userId === null ? null : focus.getActiveSession({ userId });
 
-  function closeMobileSidebar() {
-    return;
+  function closeMobileSidebar(options?: { returnFocusToToggle?: boolean }) {
+    setMobileSidebarOpen(false);
+
+    if (options?.returnFocusToToggle) {
+      mobileSidebarToggleRef.current?.focus();
+    }
+  }
+
+  function openMobileSidebar() {
+    setMobileSidebarOpen(true);
   }
 
   async function handleLogout() {
@@ -115,6 +160,39 @@ export function AppLayout() {
     }
   }, [isSidebarCollapsed]);
 
+  useEffect(() => {
+    if (previousLocationRef.current === currentLocationKey) {
+      return;
+    }
+
+    previousLocationRef.current = currentLocationKey;
+    setMobileSidebarOpen(false);
+  }, [currentLocationKey]);
+
+  useEffect(() => {
+    if (!isMobileSidebarOpen) {
+      return;
+    }
+
+    mobileSidebarCloseRef.current?.focus();
+
+    function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      event.preventDefault();
+      setMobileSidebarOpen(false);
+      mobileSidebarToggleRef.current?.focus();
+    }
+
+    document.addEventListener("keydown", handleDocumentKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleDocumentKeyDown);
+    };
+  }, [isMobileSidebarOpen]);
+
   return (
     <LearningLoopWorkspaceProvider>
       <section
@@ -124,7 +202,7 @@ export function AppLayout() {
         <aside
           aria-label="Notes workspace"
           className="app-sidebar shell-panel"
-          data-mobile-open="false"
+          data-mobile-open={isMobileSidebarOpen ? "true" : "false"}
           data-sidebar-state={sidebarState}
           hidden={isSidebarCollapsed}
           id={navigationId}
@@ -146,6 +224,20 @@ export function AppLayout() {
             >
               <SidebarCollapseIcon />
             </button>
+            <button
+              aria-controls={navigationId}
+              aria-label="Close navigation menu"
+              className="mobile-sidebar-close"
+              onClick={() =>
+                closeMobileSidebar({
+                  returnFocusToToggle: true,
+                })
+              }
+              ref={mobileSidebarCloseRef}
+              type="button"
+            >
+              <SidebarCloseIcon />
+            </button>
           </div>
 
           <GlobalNavigation onNavigate={closeMobileSidebar} />
@@ -154,7 +246,7 @@ export function AppLayout() {
             {isNotesWorkspaceRoute ? (
               <NotesWorkspaceSidebar
                 closeMobileSidebar={closeMobileSidebar}
-                isMobileSidebarOpen={false}
+                isMobileSidebarOpen={isMobileSidebarOpen}
                 isSidebarVisible={!isSidebarCollapsed}
               />
             ) : null}
@@ -179,10 +271,15 @@ export function AppLayout() {
             collapsedSidebarToggleRef={collapsedSidebarToggleRef}
             focus={focus}
             isNotesWorkspaceRoute={isNotesWorkspaceRoute}
+            isRecallWorkspaceRoute={isRecallWorkspaceRoute}
             isRecallResultsWorkspaceRoute={isRecallResultsWorkspaceRoute}
             isSidebarCollapsed={isSidebarCollapsed}
+            isMobileSidebarOpen={isMobileSidebarOpen}
+            mobileSidebarToggleRef={mobileSidebarToggleRef}
             navigationId={navigationId}
+            onOpenMobileSidebar={openMobileSidebar}
             onExpandSidebar={() => setSidebarCollapsed(false)}
+            recallWorkspaceTitle={recallWorkspaceTitle}
             userId={userId}
             workspaceTitle={workspaceTitle}
           />
@@ -201,10 +298,15 @@ function WorkspaceHeader({
   collapsedSidebarToggleRef,
   focus,
   isNotesWorkspaceRoute,
+  isRecallWorkspaceRoute,
   isRecallResultsWorkspaceRoute,
   isSidebarCollapsed,
+  isMobileSidebarOpen,
+  mobileSidebarToggleRef,
   navigationId,
+  onOpenMobileSidebar,
   onExpandSidebar,
+  recallWorkspaceTitle,
   userId,
   workspaceTitle,
 }: {
@@ -214,16 +316,32 @@ function WorkspaceHeader({
   collapsedSidebarToggleRef: RefObject<HTMLButtonElement | null>;
   focus: Parameters<typeof FocusSessionStartControl>[0]["focus"];
   isNotesWorkspaceRoute: boolean;
+  isRecallWorkspaceRoute: boolean;
   isRecallResultsWorkspaceRoute: boolean;
   isSidebarCollapsed: boolean;
+  isMobileSidebarOpen: boolean;
+  mobileSidebarToggleRef: RefObject<HTMLButtonElement | null>;
   navigationId: string;
+  onOpenMobileSidebar: () => void;
   onExpandSidebar: () => void;
+  recallWorkspaceTitle: string | null;
   userId: string | null;
   workspaceTitle: string;
 }) {
   return (
     <header className="app-frame__workspace-header">
       <div className="app-frame__titlebar">
+        <button
+          aria-controls={navigationId}
+          aria-expanded={isMobileSidebarOpen}
+          aria-label="Open navigation menu"
+          className="mobile-sidebar-toggle"
+          onClick={onOpenMobileSidebar}
+          ref={mobileSidebarToggleRef}
+          type="button"
+        >
+          <SidebarMenuIcon />
+        </button>
         {isSidebarCollapsed ? (
           <button
             aria-controls={navigationId}
@@ -236,7 +354,11 @@ function WorkspaceHeader({
             <SidebarReopenIcon />
           </button>
         ) : null}
-        <h2>{workspaceTitle}</h2>
+        <h2>
+          {isRecallWorkspaceRoute
+            ? (recallWorkspaceTitle ?? workspaceTitle)
+            : workspaceTitle}
+        </h2>
       </div>
       {isRecallResultsWorkspaceRoute ? (
         <div className="app-frame__search">
@@ -463,6 +585,25 @@ function SidebarReopenIcon() {
       <path d="M4 6h16" />
       <path d="M4 12h16" />
       <path d="M4 18h16" />
+    </svg>
+  );
+}
+
+function SidebarMenuIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+    </svg>
+  );
+}
+
+function SidebarCloseIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M6 6l12 12" />
+      <path d="M18 6 6 18" />
     </svg>
   );
 }

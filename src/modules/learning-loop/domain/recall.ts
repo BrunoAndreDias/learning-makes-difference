@@ -1,15 +1,24 @@
+import type { AppLabel } from "../../labels/domain/labels";
 import type { RecallStudyActivitySession } from "./focus";
 import { type AppNote, type AppNotesContext, listNotesForUser } from "./notes";
 
 export type RecallMode = "AiAssisted" | "AiGraded" | "FlashCard";
 
-export type RecallNoteSnapshot = AppNote;
+export type RecallLabelSnapshot = {
+  id: string;
+  name: string;
+};
+
+export type RecallNoteSnapshot = AppNote & {
+  labels?: RecallLabelSnapshot[];
+};
 
 export type RecallSelfRating = "missed" | "partial" | "nailed";
 
 export type RecallAttempt = {
   noteId: string;
   rating: RecallSelfRating;
+  text?: string | null;
 };
 
 export type RecallAttemptSummary = {
@@ -23,6 +32,7 @@ export type RecallQuestion = {
   noteId: string;
   noteSnapshot: RecallNoteSnapshot;
   selfRating: RecallSelfRating | null;
+  typedAnswer?: string;
 };
 
 export type RecallSession = {
@@ -30,6 +40,7 @@ export type RecallSession = {
   createdAt: string;
   currentIndex: number;
   currentQuestionIndex: number;
+  draftAnswer?: string;
   id: string;
   isAnswerRevealed: boolean;
   mode: RecallMode;
@@ -118,8 +129,13 @@ type AnswerQuestionInput = UpdateRecallSessionInput & {
   rating: RecallSelfRating;
 };
 
+type UpdateAttemptTextInput = UpdateRecallSessionInput & {
+  text: string;
+};
+
 type CreateAppRecallContextOptions = {
   crypto?: RecallCrypto;
+  getLabelsForUser?: (userId: string) => readonly AppLabel[];
   keyPrefix?: string;
   notes: AppNotesContext;
   onStudyActivity?: (input: {
@@ -171,6 +187,8 @@ export type AppRecallContext = {
   rateFlashCardAnswer: (input: AnswerQuestionInput) => RecallSession | null;
   revealFlashCardAnswer: (input: UpdateRecallSessionInput) => RecallSession;
   startFlashCardSession: (input: StartRecallSessionInput) => RecallSession;
+  updateAttemptText: (input: UpdateAttemptTextInput) => RecallSession;
+  updateFlashCardAttemptText: (input: UpdateAttemptTextInput) => RecallSession;
   subscribe: (listener: RecallListener) => () => void;
 };
 
@@ -196,11 +214,25 @@ function getSessionResultsStorageKey(prefix: string) {
   return `${prefix}:session-results`;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function isRecallLabelSnapshot(label: unknown): label is RecallLabelSnapshot {
+  const candidate = asRecord(label);
+
+  return (
+    candidate !== null &&
+    typeof candidate.id === "string" &&
+    typeof candidate.name === "string"
+  );
+}
+
 function isRecallNoteSnapshot(note: unknown): note is RecallNoteSnapshot {
-  const candidate =
-    typeof note === "object" && note !== null
-      ? (note as Record<string, unknown>)
-      : null;
+  const candidate = asRecord(note);
+  const labels = candidate?.labels;
 
   return (
     candidate !== null &&
@@ -211,24 +243,55 @@ function isRecallNoteSnapshot(note: unknown): note is RecallNoteSnapshot {
     candidate.labelIds.every(
       (labelId: unknown) => typeof labelId === "string",
     ) &&
+    (labels === undefined ||
+      (Array.isArray(labels) &&
+        labels.every((label: unknown) => isRecallLabelSnapshot(label)))) &&
     typeof candidate.createdAt === "string" &&
     typeof candidate.updatedAt === "string"
   );
 }
 
 function isRecallAttempt(attempt: unknown): attempt is RecallAttempt {
-  const candidate =
-    typeof attempt === "object" && attempt !== null
-      ? (attempt as Record<string, unknown>)
-      : null;
+  const candidate = asRecord(attempt);
 
   return (
     candidate !== null &&
     typeof candidate.noteId === "string" &&
-    (candidate.rating === "missed" ||
-      candidate.rating === "partial" ||
-      candidate.rating === "nailed")
+    (!("text" in candidate) ||
+      candidate.text === null ||
+      typeof candidate.text === "string") &&
+    isRecallSelfRating(candidate.rating)
   );
+}
+
+function isRecallSelfRating(value: unknown): value is RecallSelfRating {
+  return value === "missed" || value === "partial" || value === "nailed";
+}
+
+function isRecallQuestion(question: unknown): question is RecallQuestion {
+  const candidate = asRecord(question);
+
+  return (
+    candidate !== null &&
+    typeof candidate.isAnswerRevealed === "boolean" &&
+    typeof candidate.noteId === "string" &&
+    isRecallNoteSnapshot(candidate.noteSnapshot) &&
+    (candidate.selfRating === null || isRecallSelfRating(candidate.selfRating))
+  );
+}
+
+function normalizeRecallAttemptText(text: string): string | null {
+  const normalizedText = text.trim();
+
+  return normalizedText.length === 0 ? null : normalizedText;
+}
+
+function normalizeStoredRecallAttempt(attempt: RecallAttempt): RecallAttempt {
+  return {
+    noteId: attempt.noteId,
+    rating: attempt.rating,
+    text: attempt.text ?? null,
+  };
 }
 
 function getFirstAttemptByNoteId(attempts: readonly RecallAttempt[]) {
@@ -245,6 +308,7 @@ function getFirstAttemptByNoteId(attempts: readonly RecallAttempt[]) {
 
 function createQuestionsFromProgress(input: {
   attempts: readonly RecallAttempt[];
+  draftAnswer: string;
   isAnswerRevealed: boolean;
   notes: readonly RecallNoteSnapshot[];
   questionIndex: number;
@@ -252,14 +316,33 @@ function createQuestionsFromProgress(input: {
   return createQuestionsFromSessionState({
     attempts: input.attempts,
     currentIndex: input.questionIndex,
+    draftAnswer: input.draftAnswer,
     isAnswerRevealed: input.isAnswerRevealed,
     notes: input.notes,
   });
 }
 
+function getTypedAnswerForQuestion(input: {
+  attempt: RecallAttempt | undefined;
+  currentIndex: number;
+  draftAnswer: string;
+  noteIndex: number;
+}): string {
+  if (input.attempt?.text != null) {
+    return input.attempt.text;
+  }
+
+  if (input.noteIndex === input.currentIndex) {
+    return input.draftAnswer;
+  }
+
+  return "";
+}
+
 function getRecallQuestionState(
   input: {
     currentIndex: number;
+    draftAnswer: string;
     isAnswerRevealed: boolean;
     note: RecallNoteSnapshot;
     noteIndex: number;
@@ -276,12 +359,19 @@ function getRecallQuestionState(
     noteId: input.note.id,
     noteSnapshot: cloneRecallNoteSnapshot(input.note),
     selfRating: attempt?.rating ?? null,
+    typedAnswer: getTypedAnswerForQuestion({
+      attempt,
+      currentIndex: input.currentIndex,
+      draftAnswer: input.draftAnswer,
+      noteIndex: input.noteIndex,
+    }),
   };
 }
 
 function createQuestionsFromSessionState(input: {
   attempts: readonly RecallAttempt[];
   currentIndex: number;
+  draftAnswer: string;
   isAnswerRevealed: boolean;
   notes: readonly RecallNoteSnapshot[];
 }): RecallQuestion[] {
@@ -291,6 +381,7 @@ function createQuestionsFromSessionState(input: {
     getRecallQuestionState(
       {
         currentIndex: input.currentIndex,
+        draftAnswer: input.draftAnswer,
         isAnswerRevealed: input.isAnswerRevealed,
         note,
         noteIndex,
@@ -316,6 +407,8 @@ function parseStoredRecallSession(value: string | null): AppRecallSnapshot {
       parsedValue.mode !== "FlashCard" ||
       typeof parsedValue.createdAt !== "string" ||
       typeof parsedValue.currentIndex !== "number" ||
+      ("draftAnswer" in parsedValue &&
+        typeof parsedValue.draftAnswer !== "string") ||
       typeof parsedValue.isAnswerRevealed !== "boolean" ||
       ("attempts" in parsedValue &&
         (!Array.isArray(parsedValue.attempts) ||
@@ -329,10 +422,15 @@ function parseStoredRecallSession(value: string | null): AppRecallSnapshot {
 
     const notes = parsedValue.notes.filter(isRecallNoteSnapshot);
     const attempts = Array.isArray(parsedValue.attempts)
-      ? parsedValue.attempts
+      ? parsedValue.attempts.map(normalizeStoredRecallAttempt)
       : [];
+    const draftAnswer =
+      typeof parsedValue.draftAnswer === "string"
+        ? parsedValue.draftAnswer
+        : "";
     const questions = createQuestionsFromProgress({
       attempts,
+      draftAnswer,
       isAnswerRevealed: parsedValue.isAnswerRevealed,
       notes,
       questionIndex: parsedValue.currentIndex,
@@ -342,12 +440,34 @@ function parseStoredRecallSession(value: string | null): AppRecallSnapshot {
       ...parsedValue,
       attempts,
       currentQuestionIndex: parsedValue.currentIndex,
+      draftAnswer,
       notes,
       questions,
     };
   } catch {
     return null;
   }
+}
+
+function restoreStoredSessionResultQuestions(
+  result: StoredSessionResult,
+  notes: readonly RecallNoteSnapshot[],
+): RecallQuestion[] {
+  if (
+    Array.isArray(result.questions) &&
+    result.questions.length === notes.length &&
+    result.questions.every((question: unknown) => isRecallQuestion(question))
+  ) {
+    return result.questions.map(cloneRecallQuestion);
+  }
+
+  return createQuestionsFromProgress({
+    attempts: result.attempts,
+    draftAnswer: "",
+    isAnswerRevealed: false,
+    notes,
+    questionIndex: notes.length,
+  });
 }
 
 function parseStoredSessionResults(
@@ -381,19 +501,23 @@ function parseStoredSessionResults(
           Array.isArray(result.notes)
         );
       })
-      .map((result) => ({
-        ...result,
-        notes: result.notes.filter(isRecallNoteSnapshot),
-      }))
-      .map((result) => ({
-        ...result,
-        questions: createQuestionsFromProgress({
-          attempts: result.attempts,
-          isAnswerRevealed: false,
-          notes: result.notes,
-          questionIndex: result.notes.length,
-        }),
-      }));
+      .map((result) => {
+        const notes = result.notes.filter(isRecallNoteSnapshot);
+        const attempts = result.attempts.map(normalizeStoredRecallAttempt);
+
+        return {
+          ...result,
+          attempts,
+          notes,
+          questions: restoreStoredSessionResultQuestions(
+            {
+              ...result,
+              attempts,
+            },
+            notes,
+          ),
+        };
+      });
   } catch {
     return [];
   }
@@ -420,6 +544,9 @@ function cloneRecallNoteSnapshot(note: RecallNoteSnapshot): RecallNoteSnapshot {
     ...note,
     acronyms: note.acronyms.map((acronym) => ({ ...acronym })),
     labelIds: [...note.labelIds],
+    labels: Array.isArray(note.labels)
+      ? note.labels.map((label) => ({ ...label }))
+      : [],
     metaphors: note.metaphors.map((metaphor) => ({ ...metaphor })),
   };
 }
@@ -443,6 +570,42 @@ function cloneSessionResult(result: StoredSessionResult): StoredSessionResult {
     attempts: result.attempts.map((attempt) => ({ ...attempt })),
     notes: cloneRecallNoteSnapshots(result.notes),
     questions: result.questions.map(cloneRecallQuestion),
+  };
+}
+
+function getRecallLabelSnapshots(input: {
+  labelIds: readonly string[];
+  labelsById: ReadonlyMap<string, AppLabel>;
+}): RecallLabelSnapshot[] {
+  const snapshots: RecallLabelSnapshot[] = [];
+
+  for (const labelId of input.labelIds) {
+    const label = input.labelsById.get(labelId);
+
+    if (label !== undefined) {
+      snapshots.push({
+        id: label.id,
+        name: label.name,
+      });
+    }
+  }
+
+  return snapshots;
+}
+
+function toRecallNoteSnapshot(input: {
+  labelsById: ReadonlyMap<string, AppLabel>;
+  note: AppNote;
+}): RecallNoteSnapshot {
+  return {
+    ...input.note,
+    acronyms: input.note.acronyms.map((acronym) => ({ ...acronym })),
+    labelIds: [...input.note.labelIds],
+    labels: getRecallLabelSnapshots({
+      labelIds: input.note.labelIds,
+      labelsById: input.labelsById,
+    }),
+    metaphors: input.note.metaphors.map((metaphor) => ({ ...metaphor })),
   };
 }
 
@@ -636,6 +799,7 @@ export function createAppRecallContext(
       isAnswerRevealed: true,
       questions: createQuestionsFromProgress({
         attempts: activeSession.attempts,
+        draftAnswer: activeSession.draftAnswer ?? "",
         isAnswerRevealed: true,
         notes: activeSession.notes,
         questionIndex: activeSession.currentQuestionIndex,
@@ -667,6 +831,7 @@ export function createAppRecallContext(
       {
         noteId: currentNote.id,
         rating,
+        text: normalizeRecallAttemptText(activeSession.draftAnswer ?? ""),
       },
     ];
     const currentQuestionIndex = activeSession.currentQuestionIndex + 1;
@@ -675,9 +840,11 @@ export function createAppRecallContext(
       attempts,
       currentIndex: currentQuestionIndex,
       currentQuestionIndex,
+      draftAnswer: "",
       isAnswerRevealed: false,
       questions: createQuestionsFromProgress({
         attempts,
+        draftAnswer: "",
         isAnswerRevealed: false,
         notes: activeSession.notes,
         questionIndex: currentQuestionIndex,
@@ -697,6 +864,38 @@ export function createAppRecallContext(
     return nextSession;
   }
 
+  function updateAttemptText({
+    sessionId,
+    text,
+    userId,
+  }: UpdateAttemptTextInput) {
+    const activeSession = getActiveSessionForUser({ sessionId, userId });
+
+    if (activeSession.notes[activeSession.currentQuestionIndex] === undefined) {
+      throw new AppRecallError("invalid_input", "Recall session is complete.");
+    }
+
+    if ((activeSession.draftAnswer ?? "") === text) {
+      return activeSession;
+    }
+
+    const nextSession: StoredRecallSession = {
+      ...activeSession,
+      draftAnswer: text,
+      questions: createQuestionsFromProgress({
+        attempts: activeSession.attempts,
+        draftAnswer: text,
+        isAnswerRevealed: activeSession.isAnswerRevealed,
+        notes: activeSession.notes,
+        questionIndex: activeSession.currentQuestionIndex,
+      }),
+    };
+
+    writeSnapshot(nextSession);
+
+    return nextSession;
+  }
+
   function startRecallSession(input: StartRecallSessionInput) {
     const mode = input.mode ?? "FlashCard";
 
@@ -712,19 +911,33 @@ export function createAppRecallContext(
       notes: options.notes,
       userId: input.userId,
     });
-    const shuffledNotes = cloneRecallNoteSnapshots(shuffleNotes(notes));
+    const labelsById = new Map(
+      (options.getLabelsForUser?.(input.userId) ?? []).map((label) => [
+        label.id,
+        label,
+      ]),
+    );
+    const noteSnapshots = notes.map((note) =>
+      toRecallNoteSnapshot({
+        labelsById,
+        note,
+      }),
+    );
+    const shuffledNotes = cloneRecallNoteSnapshots(shuffleNotes(noteSnapshots));
 
     const nextSession: StoredRecallSession = {
       attempts: [],
       createdAt: new Date().toISOString(),
       currentIndex: 0,
       currentQuestionIndex: 0,
+      draftAnswer: "",
       id: cryptoProvider.randomUUID(),
       isAnswerRevealed: false,
       mode,
       notes: shuffledNotes,
       questions: createQuestionsFromProgress({
         attempts: [],
+        draftAnswer: "",
         isAnswerRevealed: false,
         notes: shuffledNotes,
         questionIndex: 0,
@@ -866,6 +1079,8 @@ export function createAppRecallContext(
     revealFlashCardAnswer: revealAnswer,
     startFlashCardSession: startRecallSession,
     startRecallSession,
+    updateAttemptText,
+    updateFlashCardAttemptText: updateAttemptText,
     subscribe: (listener) => {
       listeners.add(listener);
 

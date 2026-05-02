@@ -17,18 +17,29 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { formatCount } from "../../../lib/format-count";
+import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import type { AppLabel } from "../../labels/domain/labels";
 import { BreakIntervalOverlay } from "../components/break-interval-overlay";
 import { FocusSessionStartControl } from "../components/focus-session-start-control";
-import { isBreakIntervalActive } from "../domain/focus";
+import { AppFocusError, isBreakIntervalActive } from "../domain/focus";
+import {
+  deriveLearningStates,
+  formatLearningStateRatingLabel,
+  formatLearningStateStatusLabel,
+  type LearningStateStatus,
+  toNoteRecallHistories,
+} from "../domain/learning-state";
 import {
   getNoteEditorSaveInput,
   getSelectedNote,
   type NoteEditorDraft,
+  type NoteEditorState,
 } from "../domain/note-editor";
 import {
   type AppNoteSearchResult,
+  formatNoteSearchResultPreview,
   searchNoteResults,
 } from "../domain/note-search";
 import { resolveNotesSearchTargetElement } from "../domain/note-search-navigation";
@@ -41,6 +52,7 @@ import {
   listNotesForUser,
 } from "../domain/notes";
 import { useNotesWorkspace } from "../domain/notes-workspace";
+import { AppRecallError } from "../domain/recall";
 
 const labelPickerPanelId = "note-label-picker-panel";
 const notesSearchListboxId = "notes-search-results";
@@ -48,17 +60,18 @@ const noteEditorFormId = "note-editor-form";
 const minNoteBodyFraction = 0.35;
 const maxNoteBodyFraction = 0.95;
 const noteReviewThresholdMs = 30_000;
+const NOTE_DATE_FORMATTER = new Intl.DateTimeFormat("en", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
 
 export const Route = createFileRoute("/_protected/notes")({
   component: NotesWorkspace,
 });
 
 function formatNoteDate(value: string): string {
-  return new Intl.DateTimeFormat("en", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
+  return NOTE_DATE_FORMATTER.format(new Date(value));
 }
 
 function getSearchResultOptionId(noteId: string): string {
@@ -66,7 +79,97 @@ function getSearchResultOptionId(noteId: string): string {
 }
 
 function getSearchResultLabel(result: AppNoteSearchResult): string {
-  return `${result.note.title} ${result.matchChip} Updated ${formatNoteDate(result.note.updatedAt)}`;
+  const preview = formatNoteSearchResultPreview(result);
+
+  return `${result.note.title} ${result.matchChip}${preview === null ? "" : ` ${preview}`} Updated ${formatNoteDate(result.note.updatedAt)}`;
+}
+
+function formatHookCountLabel(count: number): string {
+  return formatCount(count, "hook");
+}
+
+function getLearningStateSummary(status: LearningStateStatus) {
+  switch (status) {
+    case "unpracticed":
+      return "This note has not been tested in recall yet.";
+    case "weak":
+      return "This note needs another recall pass soon.";
+    case "ready_for_review":
+      return "This note is due for another recall pass.";
+    case "recently_nailed":
+      return "This note was recalled well recently.";
+  }
+}
+
+type PendingHookRemoval =
+  | {
+      index: number;
+      kind: "acronym";
+      label: string;
+      title: string;
+    }
+  | {
+      index: number;
+      kind: "metaphor";
+      label: string;
+      title: string;
+    };
+
+function formatMetaphorCardTitle(metaphor: AppMetaphor, index: number): string {
+  const title = metaphor.title.trim();
+
+  return title.length > 0 ? title : `Untitled metaphor ${index + 1}`;
+}
+
+function formatAcronymCardTitle(acronym: AppAcronym, index: number): string {
+  const shortForm = acronym.shortForm.trim();
+
+  return shortForm.length > 0 ? shortForm : `Untitled acronym ${index + 1}`;
+}
+
+function isMetaphorDraftChanged(noteEditor: NoteEditorState, index: number) {
+  const currentMetaphor = noteEditor.draft.metaphors[index];
+  const baselineMetaphor = noteEditor.baselineDraft.metaphors[index];
+
+  if (currentMetaphor === undefined) {
+    return false;
+  }
+
+  return (
+    baselineMetaphor === undefined ||
+    currentMetaphor.title !== baselineMetaphor.title ||
+    currentMetaphor.explanation !== baselineMetaphor.explanation
+  );
+}
+
+function isAcronymDraftChanged(noteEditor: NoteEditorState, index: number) {
+  const currentAcronym = noteEditor.draft.acronyms[index];
+  const baselineAcronym = noteEditor.baselineDraft.acronyms[index];
+
+  if (currentAcronym === undefined) {
+    return false;
+  }
+
+  return (
+    baselineAcronym === undefined ||
+    currentAcronym.shortForm !== baselineAcronym.shortForm ||
+    currentAcronym.expansion !== baselineAcronym.expansion
+  );
+}
+
+function hasUnsavedHookDraftChanges(noteEditor: NoteEditorState) {
+  return (
+    noteEditor.draft.metaphors.length !==
+      noteEditor.baselineDraft.metaphors.length ||
+    noteEditor.draft.acronyms.length !==
+      noteEditor.baselineDraft.acronyms.length ||
+    noteEditor.draft.metaphors.some((_, index) =>
+      isMetaphorDraftChanged(noteEditor, index),
+    ) ||
+    noteEditor.draft.acronyms.some((_, index) =>
+      isAcronymDraftChanged(noteEditor, index),
+    )
+  );
 }
 
 export function NotesWorkspace() {
@@ -74,6 +177,10 @@ export function NotesWorkspace() {
   const focusContext = useRouteContext({
     from: "/_protected/notes",
     select: (context) => context.focus,
+  });
+  const recallContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.recall,
   });
   const notesContext = useRouteContext({
     from: "/_protected/notes",
@@ -92,6 +199,11 @@ export function NotesWorkspace() {
     notesContext.subscribe,
     notesContext.getSnapshot,
     notesContext.getSnapshot,
+  );
+  const recallResultsSnapshot = useSyncExternalStore(
+    recallContext.subscribe,
+    recallContext.getSessionResultsSnapshot,
+    recallContext.getSessionResultsSnapshot,
   );
   useSyncExternalStore(
     focusContext.subscribe,
@@ -153,6 +265,8 @@ export function NotesWorkspace() {
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
   const [bodyFraction, setBodyFraction] = useState(0.62);
   const [isBodyResizing, setIsBodyResizing] = useState(false);
+  const [pendingHookRemoval, setPendingHookRemoval] =
+    useState<PendingHookRemoval | null>(null);
   const noteFormRef = useRef<HTMLFormElement>(null);
   const isInspectorHidden = bodyFraction >= 0.88;
   const selectedNote = getSelectedNote(noteEditor, notes);
@@ -160,6 +274,20 @@ export function NotesWorkspace() {
     userId === null ? null : focusContext.getActiveSession({ userId });
   const isBreakActive = isBreakIntervalActive(activeFocusSession);
   const isCreating = selectedNote === null;
+  const noteLearningStates = deriveLearningStates({
+    histories:
+      userId === null || recallResultsSnapshot.length === 0
+        ? []
+        : toNoteRecallHistories(recallContext.listAttemptsByNote({ userId })),
+    notes,
+  });
+  const noteLearningStatesById = new Map(
+    noteLearningStates.map((state) => [state.noteId, state]),
+  );
+  const selectedLearningState =
+    selectedNote === null
+      ? null
+      : (noteLearningStatesById.get(selectedNote.id) ?? null);
   const editorIdentity =
     noteEditor.mode === "draft" ? "draft" : noteEditor.selectedNoteId;
   const previousEditorIdentityRef = useRef(editorIdentity);
@@ -228,11 +356,7 @@ export function NotesWorkspace() {
 
   useEffect(() => {
     function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
-      if (event.key.toLocaleLowerCase() !== "k") {
-        return;
-      }
-
-      if (!event.metaKey && !event.ctrlKey) {
+      if (!isModifiedKeyShortcut(event, "k")) {
         return;
       }
 
@@ -542,11 +666,39 @@ export function NotesWorkspace() {
   }
 
   function handleRemoveMetaphor(index: number) {
-    removeEditorMetaphor(index);
+    setPendingHookRemoval({
+      index,
+      kind: "metaphor",
+      label: "Metaphor",
+      title: formatMetaphorCardTitle(editorState.metaphors[index], index),
+    });
   }
 
   function handleRemoveAcronym(index: number) {
-    removeEditorAcronym(index);
+    setPendingHookRemoval({
+      index,
+      kind: "acronym",
+      label: "Acronym",
+      title: formatAcronymCardTitle(editorState.acronyms[index], index),
+    });
+  }
+
+  function handleCancelHookRemoval() {
+    setPendingHookRemoval(null);
+  }
+
+  function handleConfirmHookRemoval() {
+    if (pendingHookRemoval === null) {
+      return;
+    }
+
+    if (pendingHookRemoval.kind === "metaphor") {
+      removeEditorMetaphor(pendingHookRemoval.index);
+    } else {
+      removeEditorAcronym(pendingHookRemoval.index);
+    }
+
+    setPendingHookRemoval(null);
   }
 
   function resetSearchNavigationState() {
@@ -811,15 +963,57 @@ export function NotesWorkspace() {
     }
   }
 
+  async function handlePracticeThisNote() {
+    if (userId === null || selectedNote === null) {
+      return;
+    }
+
+    try {
+      recallContext.startFlashCardSession({
+        noteIds: [selectedNote.id],
+        userId,
+      });
+      setErrorMessage(null);
+      await navigate({ to: "/recall/session" });
+    } catch (error) {
+      if (error instanceof AppRecallError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    }
+  }
+
+  function handleStartFocusForSelectedNote() {
+    if (userId === null || selectedNote === null) {
+      return;
+    }
+
+    try {
+      focusContext.startFocusSession({
+        userId,
+      });
+      captureNoteStudyActivity(selectedNote);
+      setErrorMessage(null);
+    } catch (error) {
+      if (error instanceof AppFocusError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    }
+  }
+
   const selectedLabels = availableLabels.filter((label) =>
     editorState.labelIds.includes(label.id),
   );
-  const noteCountLabel = `${notes.length} ${notes.length === 1 ? "note" : "notes"}`;
-  const selectedLabelCount = `${selectedLabels.length} ${
-    selectedLabels.length === 1 ? "label" : "labels"
-  }`;
+  const noteCountLabel = formatCount(notes.length, "note");
+  const selectedLabelCount = formatCount(selectedLabels.length, "label");
   const workspaceModeLabel = isCreating ? "Draft mode" : "Editing note";
   const hasUnsavedChanges = hasUnsavedNoteChanges;
+  const hasUnsavedHookChanges = hasUnsavedHookDraftChanges(noteEditor);
   const selectedNoteUpdatedLabel =
     selectedNote === null
       ? "Unsaved draft"
@@ -835,6 +1029,16 @@ export function NotesWorkspace() {
     isSearchListboxOpen && activeSearchResult !== undefined
       ? getSearchResultOptionId(activeSearchResult.note.id)
       : undefined;
+  const selectedLearningStateLabel =
+    selectedLearningState === null
+      ? null
+      : formatLearningStateStatusLabel(selectedLearningState.status);
+  const selectedLearningStateRating =
+    selectedLearningState === null
+      ? null
+      : formatLearningStateRatingLabel(selectedLearningState.latestRating);
+  const canStartFocusForSelectedNote =
+    selectedNote !== null && activeFocusSession === null;
   let labelPickerContent: ReactNode = null;
 
   if (isLabelPickerOpen) {
@@ -880,27 +1084,32 @@ export function NotesWorkspace() {
           id={notesSearchListboxId}
           role="listbox"
         >
-          {searchResults.map((result, index) => (
-            <button
-              aria-label={getSearchResultLabel(result)}
-              aria-selected={index === activeSearchResultIndex}
-              className="notes-search__option"
-              id={getSearchResultOptionId(result.note.id)}
-              key={result.note.id}
-              onClick={() => handleSelectSearchResult(result)}
-              role="option"
-              tabIndex={-1}
-              type="button"
-            >
-              <span className="notes-search__option-title">
-                <strong>{result.note.title}</strong>
-                <span className="notes-search__match-chip">
-                  {result.matchChip}
+          {searchResults.map((result, index) => {
+            const preview = formatNoteSearchResultPreview(result);
+
+            return (
+              <button
+                aria-label={getSearchResultLabel(result)}
+                aria-selected={index === activeSearchResultIndex}
+                className="notes-search__option"
+                id={getSearchResultOptionId(result.note.id)}
+                key={result.note.id}
+                onClick={() => handleSelectSearchResult(result)}
+                role="option"
+                tabIndex={-1}
+                type="button"
+              >
+                <span className="notes-search__option-title">
+                  <strong>{result.note.title}</strong>
+                  <span className="notes-search__match-chip">
+                    {result.matchChip}
+                  </span>
                 </span>
-              </span>
-              <span>{`Updated ${formatNoteDate(result.note.updatedAt)}`}</span>
-            </button>
-          ))}
+                {preview === null ? null : <span>{preview}</span>}
+                <span>{`Updated ${formatNoteDate(result.note.updatedAt)}`}</span>
+              </button>
+            );
+          })}
         </div>
       );
     }
@@ -1062,7 +1271,7 @@ export function NotesWorkspace() {
                   )}
                 </section>
               </div>
-              {isCreating || hasUnsavedChanges ? (
+              {isCreating || (hasUnsavedChanges && !hasUnsavedHookChanges) ? (
                 <button
                   className="notes-action notes-action-primary"
                   form={noteEditorFormId}
@@ -1130,29 +1339,60 @@ export function NotesWorkspace() {
                 >
                   <div className="notes-inspector-card__header">
                     <h4>Memory hooks</h4>
-                    <div className="notes-inspector-card__actions">
-                      <button
-                        aria-label="Add metaphor"
-                        className="notes-inline-action"
-                        onClick={handleAddMetaphor}
-                        type="button"
-                      >
-                        + Add metaphor
-                      </button>
-                      <button
-                        aria-label="Add acronym"
-                        className="notes-inline-action"
-                        onClick={handleAddAcronym}
-                        type="button"
-                      >
-                        + Add acronym
-                      </button>
-                    </div>
+                    {editorState.metaphors.length === 0 &&
+                    editorState.acronyms.length === 0 ? null : (
+                      <div className="notes-inspector-card__actions">
+                        <button
+                          aria-label="Add metaphor"
+                          className="notes-inline-action"
+                          onClick={handleAddMetaphor}
+                          type="button"
+                        >
+                          + Add metaphor
+                        </button>
+                        <button
+                          aria-label="Add acronym"
+                          className="notes-inline-action"
+                          onClick={handleAddAcronym}
+                          type="button"
+                        >
+                          + Add acronym
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {editorState.metaphors.length === 0 &&
                   editorState.acronyms.length === 0 ? (
-                    <p className="muted">No hooks yet</p>
+                    <div className="notes-hook-empty-state">
+                      <p className="muted">
+                        Memory hooks turn a note into something easier to
+                        remember during recall.
+                      </p>
+                      <div className="notes-inspector-card__actions">
+                        <button
+                          className="notes-action notes-action-primary"
+                          onClick={handleAddMetaphor}
+                          type="button"
+                        >
+                          Create a hook
+                        </button>
+                        <button
+                          className="notes-action"
+                          onClick={handleAddMetaphor}
+                          type="button"
+                        >
+                          Add metaphor
+                        </button>
+                        <button
+                          className="notes-action"
+                          onClick={handleAddAcronym}
+                          type="button"
+                        >
+                          Add acronym
+                        </button>
+                      </div>
+                    </div>
                   ) : null}
 
                   {editorState.metaphors.length === 0 ? null : (
@@ -1166,7 +1406,6 @@ export function NotesWorkspace() {
                             key={metaphor.key}
                           >
                             <legend>{`Metaphor ${index + 1}`}</legend>
-
                             <label className="notes-form__field">
                               <span>Metaphor title</span>
                               <input
@@ -1210,6 +1449,16 @@ export function NotesWorkspace() {
 
                             <div className="notes-metaphor__actions">
                               <button
+                                className="notes-action notes-action-primary"
+                                disabled={
+                                  !isMetaphorDraftChanged(noteEditor, index)
+                                }
+                                form={noteEditorFormId}
+                                type="submit"
+                              >
+                                Save changes
+                              </button>
+                              <button
                                 className="notes-action"
                                 onClick={() => handleRemoveMetaphor(index)}
                                 type="button"
@@ -1234,7 +1483,6 @@ export function NotesWorkspace() {
                             key={acronym.key}
                           >
                             <legend>{`Acronym ${index + 1}`}</legend>
-
                             <label className="notes-form__field">
                               <span>Acronym</span>
                               <input
@@ -1277,6 +1525,16 @@ export function NotesWorkspace() {
 
                             <div className="notes-acronym__actions">
                               <button
+                                className="notes-action notes-action-primary"
+                                disabled={
+                                  !isAcronymDraftChanged(noteEditor, index)
+                                }
+                                form={noteEditorFormId}
+                                type="submit"
+                              >
+                                Save changes
+                              </button>
+                              <button
                                 className="notes-action"
                                 onClick={() => handleRemoveAcronym(index)}
                                 type="button"
@@ -1288,6 +1546,90 @@ export function NotesWorkspace() {
                         ))}
                       </div>
                     </div>
+                  )}
+                </section>
+                <section
+                  aria-label="Learning state"
+                  className="notes-inspector-card notes-learning-state"
+                >
+                  <div className="notes-inspector-card__header">
+                    <h4>Learning state</h4>
+                    {selectedLearningState === null ? null : (
+                      <span className="tag">{selectedLearningStateLabel}</span>
+                    )}
+                  </div>
+
+                  {selectedLearningState === null ? (
+                    <p className="muted">
+                      Save this note to track practice, review timing, and hook
+                      support.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="notes-learning-state__summary">
+                        <p className="muted">
+                          {getLearningStateSummary(
+                            selectedLearningState.status,
+                          )}
+                        </p>
+                        <div className="notes-learning-state__tags tag-row">
+                          <span className="tag">
+                            {formatHookCountLabel(
+                              selectedLearningState.hookCount,
+                            )}
+                          </span>
+                          {selectedLearningState.practiced ? (
+                            <span className="tag">Practiced</span>
+                          ) : null}
+                        </div>
+                      </div>
+                      <dl className="notes-learning-state__details">
+                        <div>
+                          <dt>Latest rating</dt>
+                          <dd>
+                            {selectedLearningStateRating ?? "Not practiced yet"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Last practiced</dt>
+                          <dd>
+                            {selectedLearningState.lastPracticedAt === null
+                              ? "Not practiced yet"
+                              : formatNoteDate(
+                                  selectedLearningState.lastPracticedAt,
+                                )}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Next review</dt>
+                          <dd>
+                            {selectedLearningState.nextReviewAt === null
+                              ? "Practice when ready"
+                              : formatNoteDate(
+                                  selectedLearningState.nextReviewAt,
+                                )}
+                          </dd>
+                        </div>
+                      </dl>
+                      <div className="notes-inspector-card__actions">
+                        <button
+                          className="notes-action notes-action-primary"
+                          onClick={() => void handlePracticeThisNote()}
+                          type="button"
+                        >
+                          Practice this note
+                        </button>
+                        {canStartFocusForSelectedNote ? (
+                          <button
+                            className="notes-action"
+                            onClick={handleStartFocusForSelectedNote}
+                            type="button"
+                          >
+                            Focus on this note
+                          </button>
+                        ) : null}
+                      </div>
+                    </>
                   )}
                 </section>
               </aside>
@@ -1334,6 +1676,38 @@ export function NotesWorkspace() {
           </div>
         </div>
       ) : null}
+      {pendingHookRemoval === null ? null : (
+        <div
+          aria-labelledby="notes-remove-hook-title"
+          aria-describedby="notes-remove-hook-description"
+          aria-modal="true"
+          className="notes-unsaved-search-dialog"
+          role="dialog"
+        >
+          <div className="notes-unsaved-search-dialog__panel">
+            <h3 id="notes-remove-hook-title">Remove memory hook?</h3>
+            <p id="notes-remove-hook-description">
+              {`Remove ${pendingHookRemoval.label}: ${pendingHookRemoval.title}? This cannot be undone.`}
+            </p>
+            <div className="notes-unsaved-search-dialog__actions">
+              <button
+                className="notes-action"
+                onClick={handleCancelHookRemoval}
+                type="button"
+              >
+                Keep hook
+              </button>
+              <button
+                className="notes-action notes-action-primary"
+                onClick={handleConfirmHookRemoval}
+                type="button"
+              >
+                Remove hook
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

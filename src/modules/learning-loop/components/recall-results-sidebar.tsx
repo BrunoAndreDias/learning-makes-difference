@@ -1,17 +1,25 @@
 import { Link, useRouteContext } from "@tanstack/react-router";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import type { AppLabel } from "../../labels/domain/labels";
+import { formatRecallModeLabel } from "../domain/learner-copy";
 import { listNotesForUser } from "../domain/notes";
 import { useNotesWorkspace } from "../domain/notes-workspace";
+import { listRecallResultLabels } from "../domain/recall-result-labels";
 import {
   type RecallSessionSearchResult,
   searchRecallSessionResults,
 } from "../domain/recall-session-search";
-
-function formatAttemptCount(count: number) {
-  return `${count} attempted ${count === 1 ? "question" : "questions"}`;
-}
+import {
+  formatResultSummaryScoreLabel,
+  getResultSummaryNoteCountLabel,
+  summarizeSessionResult,
+} from "../domain/result-summary";
 
 function formatDateTime(timestamp: string) {
   return new Intl.DateTimeFormat("en", {
@@ -19,6 +27,11 @@ function formatDateTime(timestamp: string) {
     timeStyle: "short",
     timeZone: "UTC",
   }).format(new Date(timestamp));
+}
+
+function formatScoreSummary(result: RecallSessionSearchResult) {
+  const summary = summarizeSessionResult(result.sessionResult);
+  return formatResultSummaryScoreLabel(summary.ratingTotals);
 }
 
 type ResultsStartAction = {
@@ -94,9 +107,11 @@ export function RecallResultsSidebar({
     notesContext.getSnapshot,
   );
   const userId = sessionSnapshot.user?.id ?? null;
-  const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
+  const [currentLabels, setCurrentLabels] = useState<AppLabel[]>([]);
   const selectedLabelFilter =
     selectedRecallLabelId.length === 0 ? undefined : selectedRecallLabelId;
+  const allSessionResults =
+    userId === null ? [] : recallContext.listSessionResults({ userId });
   const sessionResults =
     userId === null
       ? []
@@ -104,6 +119,10 @@ export function RecallResultsSidebar({
           labelId: selectedLabelFilter,
           userId,
         });
+  const availableLabels = listRecallResultLabels({
+    currentLabels,
+    sessionResults: allSessionResults,
+  });
   const hasSearchQuery = selectedRecallSearchQuery.trim().length > 0;
   const searchResults = searchRecallSessionResults({
     labels: availableLabels,
@@ -115,15 +134,16 @@ export function RecallResultsSidebar({
   const hasNotesAvailableForRecall = notesAvailableForRecall.length > 0;
   const startAction = getResultsStartAction(hasNotesAvailableForRecall);
   const noResultsStateKind = getNoResultsStateKind(hasNotesAvailableForRecall);
+  let reviewListContent: ReactNode;
 
   useEffect(() => {
     function syncAvailableLabels() {
       if (userId === null) {
-        setAvailableLabels([]);
+        setCurrentLabels([]);
         return;
       }
 
-      setAvailableLabels(labelsContext.getLabelsForUser(userId));
+      setCurrentLabels(labelsContext.getLabelsForUser(userId));
     }
 
     syncAvailableLabels();
@@ -140,13 +160,35 @@ export function RecallResultsSidebar({
     }
   }, [availableLabels, selectRecallLabel, selectedRecallLabelId]);
 
+  if (sessionResults.length === 0) {
+    reviewListContent = (
+      <NoResultsState
+        hasActiveFilter={selectedLabelFilter !== undefined}
+        state={noResultsStateKind}
+      />
+    );
+  } else if (hasSearchQuery && searchResults.length === 0) {
+    reviewListContent = <NoSearchResultsState />;
+  } else {
+    reviewListContent = (
+      <SessionResultsList
+        onSelectSession={(sessionId) => {
+          selectRecallSession(sessionId);
+          closeMobileSidebar();
+        }}
+        results={searchResults}
+        selectedSessionId={selectedRecallSessionId}
+      />
+    );
+  }
+
   return (
     <section
       className="app-sidebar__workspace app-sidebar__workspace--recall"
       aria-label="Recall sidebar"
     >
       <div className="app-sidebar__workspace-header">
-        <h3>Recall results</h3>
+        <h3>Reviews</h3>
         <Link
           aria-label={startAction.label}
           className="notes-action notes-action-primary app-sidebar__primary-action"
@@ -167,27 +209,8 @@ export function RecallResultsSidebar({
         ) : null}
       </div>
 
-      <section
-        aria-label="Session results list"
-        className="app-sidebar__workspace-nav"
-      >
-        {sessionResults.length === 0 ? (
-          <NoResultsState
-            hasActiveFilter={selectedLabelFilter !== undefined}
-            state={noResultsStateKind}
-          />
-        ) : hasSearchQuery && searchResults.length === 0 ? (
-          <NoSearchResultsState />
-        ) : (
-          <SessionResultsList
-            onSelectSession={(sessionId) => {
-              selectRecallSession(sessionId);
-              closeMobileSidebar();
-            }}
-            results={searchResults}
-            selectedSessionId={selectedRecallSessionId}
-          />
-        )}
+      <section aria-label="Review list" className="app-sidebar__workspace-nav">
+        {reviewListContent}
       </section>
     </section>
   );
@@ -246,7 +269,7 @@ function SessionResultsList({
           >
             <button
               aria-current={isSelected ? "page" : undefined}
-              aria-label="Review session"
+              aria-label="Open review"
               aria-pressed={isSelected}
               className="app-sidebar__workspace-link app-sidebar__workspace-link--recall"
               onClick={() => onSelectSession(result.sessionResult.id)}
@@ -255,15 +278,15 @@ function SessionResultsList({
               <span className="recall-results-sidebar__summary">
                 <span>{formatDateTime(result.sessionResult.completedAt)}</span>
                 <span className="app-sidebar__workspace-meta">
-                  {result.matchedNoteTitle}
+                  {getResultSummaryNoteCountLabel(result.sessionResult.notes)}
                 </span>
               </span>
               <span className="recall-results-sidebar__meta">
-                <span className="notes-search__match-chip">
-                  {result.matchChip}
+                <span className="app-sidebar__workspace-meta">
+                  {formatScoreSummary(result)}
                 </span>
                 <span className="app-sidebar__workspace-meta">
-                  {formatAttemptCount(result.sessionResult.attempts.length)}
+                  {`${formatRecallModeLabel(result.sessionResult.mode)} · ${result.matchedNoteTitle}`}
                 </span>
               </span>
             </button>
@@ -279,7 +302,7 @@ function NoSearchResultsState() {
     <div className="stack">
       <h4>No matching sessions</h4>
       <p className="muted">
-        No completed sessions used a matching note, metaphor, acronym, or label.
+        No completed sessions used a matching note, hook, or label.
       </p>
     </div>
   );

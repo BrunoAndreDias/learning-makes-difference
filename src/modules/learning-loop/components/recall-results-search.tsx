@@ -8,9 +8,11 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-
+import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import type { AppLabel } from "../../labels/domain/labels";
+import { formatSearchMatchLabel } from "../domain/learner-copy";
 import { useNotesWorkspace } from "../domain/notes-workspace";
+import { listRecallResultLabels } from "../domain/recall-result-labels";
 import {
   type RecallSessionSearchResult,
   searchRecallSessionResults,
@@ -32,7 +34,62 @@ function getRecallSearchResultOptionId(sessionId: string) {
 }
 
 function getRecallSearchResultLabel(result: RecallSessionSearchResult) {
-  return `${result.matchedNoteTitle} ${result.matchChip} Completed ${formatRecallResultDate(result.sessionResult.completedAt)}`;
+  return `${result.matchedNoteTitle} ${formatSearchMatchLabel(result.matchChip)} Completed ${formatRecallResultDate(result.sessionResult.completedAt)}`;
+}
+
+function RecallResultsSearchResults({
+  activeSearchResultIndex,
+  isOpen,
+  onSelectSearchResult,
+  searchResults,
+}: {
+  activeSearchResultIndex: number;
+  isOpen: boolean;
+  onSelectSearchResult: (result: RecallSessionSearchResult) => void;
+  searchResults: RecallSessionSearchResult[];
+}) {
+  if (!isOpen) {
+    return null;
+  }
+
+  if (searchResults.length === 0) {
+    return (
+      <p className="notes-search__empty" role="status">
+        No matching sessions
+      </p>
+    );
+  }
+
+  return (
+    <div
+      aria-label="Recall search results"
+      className="notes-search__results"
+      id={recallSearchListboxId}
+      role="listbox"
+    >
+      {searchResults.map((result, index) => (
+        <button
+          aria-label={getRecallSearchResultLabel(result)}
+          aria-selected={index === activeSearchResultIndex}
+          className="notes-search__option"
+          id={getRecallSearchResultOptionId(result.sessionResult.id)}
+          key={result.sessionResult.id}
+          onClick={() => onSelectSearchResult(result)}
+          role="option"
+          tabIndex={-1}
+          type="button"
+        >
+          <span className="notes-search__option-title">
+            <strong>{result.matchedNoteTitle}</strong>
+            <span className="notes-search__match-chip">
+              {formatSearchMatchLabel(result.matchChip)}
+            </span>
+          </span>
+          <span>{`Completed ${formatRecallResultDate(result.sessionResult.completedAt)}`}</span>
+        </button>
+      ))}
+    </div>
+  );
 }
 
 export function RecallResultsSearch({
@@ -54,7 +111,7 @@ export function RecallResultsSearch({
     selectRecallSearchQuery,
     selectRecallSession,
   } = useNotesWorkspace();
-  const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
+  const [currentLabels, setCurrentLabels] = useState<AppLabel[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeSearchResultIndex, setActiveSearchResultIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -69,11 +126,11 @@ export function RecallResultsSearch({
   useEffect(() => {
     function syncAvailableLabels() {
       if (userId === null) {
-        setAvailableLabels([]);
+        setCurrentLabels([]);
         return;
       }
 
-      setAvailableLabels(labelsContext.getLabelsForUser(userId));
+      setCurrentLabels(labelsContext.getLabelsForUser(userId));
     }
 
     syncAvailableLabels();
@@ -83,6 +140,8 @@ export function RecallResultsSearch({
 
   const selectedLabelFilter =
     selectedRecallLabelId.length === 0 ? undefined : selectedRecallLabelId;
+  const allSessionResults =
+    userId === null ? [] : recallContext.listSessionResults({ userId });
   const sessionResults =
     userId === null
       ? []
@@ -90,6 +149,10 @@ export function RecallResultsSearch({
           labelId: selectedLabelFilter,
           userId,
         });
+  const availableLabels = listRecallResultLabels({
+    currentLabels,
+    sessionResults: allSessionResults,
+  });
   const searchResults = searchRecallSessionResults({
     labels: availableLabels,
     query: selectedRecallSearchQuery,
@@ -117,11 +180,7 @@ export function RecallResultsSearch({
 
   useEffect(() => {
     function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
-      if (event.key.toLocaleLowerCase() !== "k") {
-        return;
-      }
-
-      if (!event.metaKey && !event.ctrlKey) {
+      if (!isModifiedKeyShortcut(event, "k")) {
         return;
       }
 
@@ -287,42 +346,12 @@ export function RecallResultsSearch({
         value={selectedRecallSearchQuery}
       />
       <kbd>Cmd K</kbd>
-      {hasSearchQuery && isSearchOpen ? (
-        searchResults.length === 0 ? (
-          <p className="notes-search__empty" role="status">
-            No matching sessions
-          </p>
-        ) : (
-          <div
-            aria-label="Recall search results"
-            className="notes-search__results"
-            id={recallSearchListboxId}
-            role="listbox"
-          >
-            {searchResults.map((result, index) => (
-              <button
-                aria-label={getRecallSearchResultLabel(result)}
-                aria-selected={index === activeSearchResultIndex}
-                className="notes-search__option"
-                id={getRecallSearchResultOptionId(result.sessionResult.id)}
-                key={result.sessionResult.id}
-                onClick={() => handleSelectSearchResult(result)}
-                role="option"
-                tabIndex={-1}
-                type="button"
-              >
-                <span className="notes-search__option-title">
-                  <strong>{result.matchedNoteTitle}</strong>
-                  <span className="notes-search__match-chip">
-                    {result.matchChip}
-                  </span>
-                </span>
-                <span>{`Completed ${formatRecallResultDate(result.sessionResult.completedAt)}`}</span>
-              </button>
-            ))}
-          </div>
-        )
-      ) : null}
+      <RecallResultsSearchResults
+        activeSearchResultIndex={activeSearchResultIndex}
+        isOpen={hasSearchQuery && isSearchOpen}
+        onSelectSearchResult={handleSelectSearchResult}
+        searchResults={searchResults}
+      />
     </form>
   );
 }

@@ -1,6 +1,10 @@
 import type { AppLabel } from "../../labels/domain/labels";
 import { type AppNoteSearchMatchChip, searchNoteResults } from "./note-search";
-import type { FlashCardRecallNote, FlashCardSessionResult } from "./recall";
+import type {
+  FlashCardRecallNote,
+  FlashCardSessionResult,
+  RecallLabelSnapshot,
+} from "./recall";
 
 export type RecallSessionSearchMatchChip = AppNoteSearchMatchChip | "Label";
 
@@ -25,46 +29,49 @@ function normalizeSearchQuery(query: string): string {
   return query.trim().toLocaleLowerCase();
 }
 
-function getLabelSearchMatch(input: {
+function listSearchableNoteLabels(input: {
   labelsById: ReadonlyMap<string, AppLabel>;
-  normalizedQuery: string;
-  notes: readonly FlashCardRecallNote[];
-}): RecallSessionSearchResult["matchChip"] | null {
-  for (const note of input.notes) {
-    for (const labelId of note.labelIds) {
-      const label = input.labelsById.get(labelId);
+  note: FlashCardRecallNote;
+}): RecallLabelSnapshot[] {
+  const storedLabels = input.note.labels ?? [];
 
-      if (
-        label !== undefined &&
-        label.name.toLocaleLowerCase().includes(input.normalizedQuery)
-      ) {
-        return "Label";
-      }
+  if (storedLabels.length > 0) {
+    return storedLabels;
+  }
+
+  const labels: RecallLabelSnapshot[] = [];
+
+  for (const labelId of input.note.labelIds) {
+    const label = input.labelsById.get(labelId);
+
+    if (label !== undefined) {
+      labels.push({
+        id: label.id,
+        name: label.name,
+      });
     }
   }
 
-  return null;
+  return labels;
 }
 
-function getFirstLabelMatchedNoteTitle(input: {
+function getLabelMatchedNoteTitle(input: {
   labelsById: ReadonlyMap<string, AppLabel>;
   normalizedQuery: string;
   notes: readonly FlashCardRecallNote[];
-}): string {
+}): string | null {
   for (const note of input.notes) {
-    for (const labelId of note.labelIds) {
-      const label = input.labelsById.get(labelId);
-
-      if (
-        label !== undefined &&
-        label.name.toLocaleLowerCase().includes(input.normalizedQuery)
-      ) {
+    for (const label of listSearchableNoteLabels({
+      labelsById: input.labelsById,
+      note,
+    })) {
+      if (label.name.toLocaleLowerCase().includes(input.normalizedQuery)) {
         return note.title;
       }
     }
   }
 
-  return input.notes[0]?.title ?? "Stored note";
+  return null;
 }
 
 function compareRecallSessionSearchResults(
@@ -119,23 +126,19 @@ export function searchRecallSessionResults(input: {
         };
       }
 
-      const labelMatch = getLabelSearchMatch({
+      const labelMatchedNoteTitle = getLabelMatchedNoteTitle({
         labelsById,
         normalizedQuery,
         notes: sessionResult.notes,
       });
 
-      if (labelMatch === null) {
+      if (labelMatchedNoteTitle === null) {
         return null;
       }
 
       return {
-        matchChip: labelMatch,
-        matchedNoteTitle: getFirstLabelMatchedNoteTitle({
-          labelsById,
-          normalizedQuery,
-          notes: sessionResult.notes,
-        }),
+        matchChip: "Label",
+        matchedNoteTitle: labelMatchedNoteTitle,
         sessionResult,
       };
     })

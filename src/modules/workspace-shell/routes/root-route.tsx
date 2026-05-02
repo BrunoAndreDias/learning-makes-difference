@@ -21,6 +21,7 @@ import type { AppLabelsContext } from "../../labels/domain/labels";
 import type { AppFocusContext } from "../../learning-loop/domain/focus";
 import type { AppNotesContext } from "../../learning-loop/domain/notes";
 import type { AppRecallContext } from "../../learning-loop/domain/recall";
+import { shouldShowRouterDevtools } from "./router-devtools-gate";
 
 const authRoutePaths = new Set(["/forgot-password", "/login", "/register"]);
 const redirectableProtectedPaths = [
@@ -101,6 +102,9 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
     select: (state) =>
       state.matches.some((match) => match.routeId.startsWith("/_auth")),
   });
+  const showRouterDevtools = shouldShowRouterDevtools({
+    isDevelopment: import.meta.env.DEV,
+  });
 
   return (
     <html lang="en">
@@ -161,7 +165,9 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
           <main id="main-content">{children}</main>
         </div>
 
-        <TanStackRouterDevtools position="bottom-right" />
+        {showRouterDevtools ? (
+          <TanStackRouterDevtools position="bottom-right" />
+        ) : null}
         <Scripts />
       </body>
     </html>

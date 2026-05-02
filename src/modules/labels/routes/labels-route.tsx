@@ -2,9 +2,13 @@ import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import {
   type FormEvent,
   useEffect,
+  useId,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
+import { formatCount } from "../../../lib/format-count";
+import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import {
   type AppLabel,
@@ -16,6 +20,80 @@ export const Route = createFileRoute("/_protected/labels")({
   component: LabelsPage,
 });
 
+type LabelsListProps = Readonly<{
+  addParent: (labelId: string, parentId: string) => void;
+  allLabels: AppLabel[];
+  deleteLabel: (labelId: string) => void;
+  labels: AppLabelsContext;
+  removeParent: (labelId: string, parentId: string) => void;
+  renameLabel: (labelId: string, name: string) => void;
+  searchQuery: string;
+  userId: string | null;
+  visibleLabels: AppLabel[];
+}>;
+
+function getVisibleLabels(labels: AppLabel[], searchQuery: string) {
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+  if (normalizedSearchQuery.length === 0) {
+    return labels;
+  }
+
+  return labels.filter((label) =>
+    label.name.toLowerCase().includes(normalizedSearchQuery),
+  );
+}
+
+function LabelsList({
+  addParent,
+  allLabels,
+  deleteLabel,
+  labels,
+  removeParent,
+  renameLabel,
+  searchQuery,
+  userId,
+  visibleLabels,
+}: LabelsListProps) {
+  if (allLabels.length === 0) {
+    return (
+      <article className="labels-empty-card">
+        <p className="section-label">No labels yet</p>
+        <h4>Build your first topic</h4>
+        <p className="muted">
+          Start with a broad topic, then add narrower labels and connect them as
+          the graph takes shape.
+        </p>
+      </article>
+    );
+  }
+
+  if (visibleLabels.length === 0) {
+    return (
+      <article className="labels-empty-card">
+        <p className="section-label">No matches</p>
+        <h4>No labels match "{searchQuery}"</h4>
+        <p className="muted">
+          Clear the search or create a new label with this wording.
+        </p>
+      </article>
+    );
+  }
+
+  return visibleLabels.map((label) => (
+    <LabelCard
+      addParent={addParent}
+      allLabels={allLabels}
+      deleteLabel={deleteLabel}
+      key={label.id}
+      label={label}
+      labels={labels}
+      removeParent={removeParent}
+      renameLabel={renameLabel}
+      userId={userId}
+    />
+  ));
+}
 export function LabelsPage() {
   const labels = useRouteContext({
     from: "/_protected/labels",
@@ -34,6 +112,16 @@ export function LabelsPage() {
   const [labelRecords, setLabelRecords] = useState<AppLabel[]>([]);
   const [createName, setCreateName] = useState("");
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const createInputId = useId();
+  const createHintId = useId();
+  const feedbackMessageId = useId();
+  const searchInputId = useId();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const createFieldDescription =
+    feedbackMessage === null
+      ? createHintId
+      : `${createHintId} ${feedbackMessageId}`;
 
   useEffect(() => {
     function syncLabelRecords() {
@@ -49,6 +137,23 @@ export function LabelsPage() {
 
     return labels.subscribe(syncLabelRecords);
   }, [currentUserId, labels]);
+
+  useEffect(() => {
+    function handleGlobalSearchShortcut(event: KeyboardEvent) {
+      if (!isModifiedKeyShortcut(event, "k")) {
+        return;
+      }
+
+      event.preventDefault();
+      searchInputRef.current?.focus();
+    }
+
+    window.addEventListener("keydown", handleGlobalSearchShortcut);
+
+    return () => {
+      window.removeEventListener("keydown", handleGlobalSearchShortcut);
+    };
+  }, []);
 
   function handleError(error: unknown) {
     if (error instanceof AppLabelError) {
@@ -139,40 +244,91 @@ export function LabelsPage() {
     });
   }
 
-  return (
-    <section className="labels-page">
-      <article className="card stack panel-protected">
-        <p className="section-label">Topic management</p>
-        <h3>Manage your label graph</h3>
-        <p>
-          Create labels, rename them in place, and connect parent-child
-          relationships without allowing cycles into the graph.
-        </p>
-        <div className="tag-row">
-          <span className="tag">{labelRecords.length} labels</span>
-          <span className="tag">Account scoped</span>
-          <span className="tag">DAG-safe validation</span>
-        </div>
-      </article>
+  const hasSearchQuery = searchQuery.trim().length > 0;
+  const visibleLabels = getVisibleLabels(labelRecords, searchQuery);
+  const rootLabelCount = labelRecords.filter(
+    (label) => label.parentIds.length === 0,
+  ).length;
+  const relationshipCount = labelRecords.reduce(
+    (total, label) => total + label.parentIds.length,
+    0,
+  );
+  const labelCountText = formatCount(labelRecords.length, "label");
+  const rootCountText = formatCount(rootLabelCount, "root");
+  const relationshipCountText = formatCount(relationshipCount, "link");
+  const visibleCountText = hasSearchQuery
+    ? formatCount(visibleLabels.length, "match", "matches")
+    : labelCountText;
 
-      <div className="placeholder-grid labels-layout">
-        <article className="card stack">
-          <p className="section-label">Create label</p>
+  return (
+    <section className="labels-page" aria-labelledby="labels-route-heading">
+      <section className="labels-hero">
+        <article className="labels-hero__copy">
+          <p className="section-label">Topic management</p>
+          <h3 id="labels-route-heading">Manage your label graph</h3>
+          <p>
+            Create reusable topics, keep parent-child relationships clear, and
+            protect the graph from cycles as your notes grow.
+          </p>
+          <section
+            className="tag-row labels-hero__tags"
+            aria-label="Graph summary"
+          >
+            <span className="tag">{labelCountText}</span>
+            <span className="tag">{rootCountText}</span>
+            <span className="tag">{relationshipCountText}</span>
+            <span className="tag">Account scoped</span>
+          </section>
+        </article>
+
+        <aside aria-label="Label graph health" className="labels-hero__stats">
+          <span>
+            <strong>{labelRecords.length}</strong>
+            Labels
+          </span>
+          <span>
+            <strong>{rootLabelCount}</strong>
+            Roots
+          </span>
+          <span>
+            <strong>{relationshipCount}</strong>
+            Links
+          </span>
+        </aside>
+      </section>
+
+      <section className="labels-control-panel" aria-label="Label controls">
+        <article className="labels-create-card">
+          <div>
+            <p className="section-label">Create</p>
+            <h4>New label</h4>
+            <p className="muted" id={createHintId}>
+              Start broad, then connect narrower labels after creation.
+            </p>
+          </div>
           <form
             aria-label="Create label form"
-            className="auth-form"
+            className="labels-inline-form"
             onSubmit={handleCreateLabel}
           >
-            <label className="auth-form__field">
+            <label className="labels-field" htmlFor={createInputId}>
               <span>New label name</span>
               <input
+                aria-describedby={createFieldDescription}
+                id={createInputId}
                 name="newLabelName"
                 onChange={(event) => setCreateName(event.target.value)}
+                placeholder="e.g. Biology"
+                required
                 type="text"
                 value={createName}
               />
             </label>
-            <button className="auth-form__submit" type="submit">
+            <button
+              className="labels-button labels-button--primary"
+              disabled={createName.trim().length === 0}
+              type="submit"
+            >
               Create label
             </button>
           </form>
@@ -180,7 +336,8 @@ export function LabelsPage() {
           {feedbackMessage !== null ? (
             <p
               aria-label="Label management feedback"
-              className="auth-form__error"
+              className="labels-feedback"
+              id={feedbackMessageId}
               role="alert"
             >
               {feedbackMessage}
@@ -188,55 +345,80 @@ export function LabelsPage() {
           ) : null}
         </article>
 
-        <article className="card stack">
+        <article className="labels-search-card">
+          <div>
+            <p className="section-label">Find</p>
+            <h4>Search labels</h4>
+            <p className="muted">
+              Use the same quick-search muscle memory as Notes and Recall.
+            </p>
+          </div>
+          <form
+            className="labels-search"
+            onSubmit={(event) => event.preventDefault()}
+          >
+            <span className="labels-search__icon" aria-hidden="true">
+              <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+                <circle cx="10.5" cy="10.5" r="6" />
+                <path d="m15 15 4.5 4.5" />
+              </svg>
+            </span>
+            <label className="sr-only" htmlFor={searchInputId}>
+              Search labels
+            </label>
+            <input
+              autoComplete="off"
+              id={searchInputId}
+              name="search"
+              onChange={(event) => setSearchQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  setSearchQuery("");
+                }
+              }}
+              placeholder="Search labels"
+              ref={searchInputRef}
+              type="search"
+              value={searchQuery}
+            />
+            <kbd>Cmd K</kbd>
+          </form>
+          <p className="labels-search__summary" aria-live="polite">
+            {visibleCountText}
+          </p>
+        </article>
+
+        <article className="labels-rules-card">
           <p className="section-label">Graph rules</p>
-          <ul className="placeholder-list">
+          <ul className="labels-rule-list">
             <li>
               <strong>Scoped data</strong>
-              <p>Each account can only read and mutate its own labels.</p>
+              <span>Only this account can read or change these labels.</span>
             </li>
             <li>
               <strong>Multiple parents</strong>
-              <p>
-                A label can belong to more than one broader topic when the graph
-                stays acyclic.
-              </p>
+              <span>A label can sit under more than one broader topic.</span>
             </li>
             <li>
               <strong>Cycle rejection</strong>
-              <p>
-                Parent assignment is blocked when it would make a label reach
-                itself through descendants.
-              </p>
+              <span>Invalid links are blocked before the graph can loop.</span>
             </li>
           </ul>
         </article>
-      </div>
+      </section>
 
       <section className="labels-list" aria-label="Labels list">
-        {labelRecords.length === 0 ? (
-          <article className="card stack">
-            <p className="section-label">No labels yet</p>
-            <p>
-              Start with a broad topic, then add narrower labels and connect
-              them as the graph takes shape.
-            </p>
-          </article>
-        ) : (
-          labelRecords.map((label) => (
-            <LabelCard
-              addParent={addParent}
-              allLabels={labelRecords}
-              deleteLabel={deleteLabel}
-              key={label.id}
-              label={label}
-              removeParent={removeParent}
-              renameLabel={renameLabel}
-              labels={labels}
-              userId={currentUserId}
-            />
-          ))
-        )}
+        <LabelsList
+          addParent={addParent}
+          allLabels={labelRecords}
+          deleteLabel={deleteLabel}
+          labels={labels}
+          removeParent={removeParent}
+          renameLabel={renameLabel}
+          searchQuery={searchQuery}
+          userId={currentUserId}
+          visibleLabels={visibleLabels}
+        />
       </section>
     </section>
   );
@@ -263,6 +445,10 @@ function LabelCard({
 }>) {
   const [nextName, setNextName] = useState(label.name);
   const [selectedParentId, setSelectedParentId] = useState("");
+  const renameInputId = useId();
+  const renameHintId = useId();
+  const parentSelectId = useId();
+  const parentHintId = useId();
   const parentLabels = label.parentIds
     .map((parentId) => allLabels.find((candidate) => candidate.id === parentId))
     .filter((parent): parent is AppLabel => parent !== undefined)
@@ -270,27 +456,12 @@ function LabelCard({
   const availableParents = allLabels.filter((candidate) => {
     return candidate.id !== label.id && !label.parentIds.includes(candidate.id);
   });
-  const descendantLabels =
-    userId === null
-      ? []
-      : labels
-          .getDescendantIds({
-            labelId: label.id,
-            userId,
-          })
-          .map((descendantId: string) => {
-            const descendant = allLabels.find(
-              (candidate) => candidate.id === descendantId,
-            );
-
-            return {
-              id: descendantId,
-              name: descendant?.name ?? descendantId,
-            };
-          })
-          .sort((left: { name: string }, right: { name: string }) =>
-            left.name.localeCompare(right.name),
-          );
+  const descendantLabels = getSortedDescendantLabels({
+    allLabels,
+    labelId: label.id,
+    labels,
+    userId,
+  });
 
   function handleRename(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -307,52 +478,76 @@ function LabelCard({
     setNextName(label.name);
   }, [label.name]);
 
+  const hasRenameChanges = nextName.trim() !== label.name;
+  const parentCountText = formatCount(parentLabels.length, "parent");
+  const descendantCountText = formatCount(
+    descendantLabels.length,
+    "descendant",
+    "descendants",
+  );
+  const canAddParent = selectedParentId !== "" && availableParents.length > 0;
+
   return (
-    <article className="card stack labels-card">
+    <article className="labels-card">
       <div className="labels-card__header">
-        <div className="stack">
+        <div className="labels-card__title">
           <p className="section-label">Label</p>
           <h3>{label.name}</h3>
+          <section className="tag-row" aria-label={`Summary for ${label.name}`}>
+            <span className="tag">{parentCountText}</span>
+            <span className="tag">{descendantCountText}</span>
+          </section>
         </div>
         <button
-          className="labels-card__button labels-card__button-danger"
+          aria-label={`Delete ${label.name}`}
+          className="labels-button labels-button--danger"
           onClick={() => deleteLabel(label.id)}
           type="button"
         >
-          Delete {label.name}
+          Delete
         </button>
       </div>
 
       <form
         aria-label={`Rename ${label.name}`}
-        className="auth-form labels-card__form"
+        className="labels-inline-form labels-card__rename-form"
         onSubmit={handleRename}
       >
-        <label className="auth-form__field">
+        <label className="labels-field" htmlFor={renameInputId}>
           <span>Label name</span>
           <input
+            aria-describedby={renameHintId}
+            id={renameInputId}
             onChange={(event) => setNextName(event.target.value)}
+            required
             type="text"
             value={nextName}
           />
         </label>
-        <button className="labels-card__button" type="submit">
+        <button
+          className="labels-button"
+          disabled={!hasRenameChanges || nextName.trim().length === 0}
+          type="submit"
+        >
           Save name
         </button>
+        <p className="sr-only" id={renameHintId}>
+          Rename {label.name}. Save name is available after the name changes.
+        </p>
       </form>
 
       <div className="labels-card__meta">
-        <section className="stack">
+        <section className="labels-relationship-panel">
           <p className="section-label">Parents</p>
           {parentLabels.length === 0 ? (
-            <p className="muted">No parents assigned yet.</p>
+            <p className="labels-empty-relation">No parents assigned yet.</p>
           ) : (
             <ul className="labels-card__relationship-list">
               {parentLabels.map((parent) => (
                 <li key={parent.id}>
                   <span className="tag">{parent.name}</span>
                   <button
-                    className="labels-card__inline-action"
+                    className="labels-button labels-button--inline"
                     onClick={() => removeParent(label.id, parent.id)}
                     type="button"
                   >
@@ -366,13 +561,15 @@ function LabelCard({
 
         <form
           aria-label={`Add parent for ${label.name}`}
-          className="auth-form labels-card__form"
+          className="labels-inline-form labels-card__parent-form"
           onSubmit={handleAddParent}
         >
-          <label className="auth-form__field">
+          <label className="labels-field" htmlFor={parentSelectId}>
             <span>Add parent label</span>
             <select
+              aria-describedby={parentHintId}
               className="labels-card__select"
+              id={parentSelectId}
               onChange={(event) => setSelectedParentId(event.target.value)}
               value={selectedParentId}
             >
@@ -384,16 +581,24 @@ function LabelCard({
               ))}
             </select>
           </label>
-          <button className="labels-card__button" type="submit">
+          <button
+            className="labels-button"
+            disabled={!canAddParent}
+            type="submit"
+          >
             Add parent
           </button>
+          <p className="sr-only" id={parentHintId}>
+            Choose a parent label for {label.name}. Invalid cycle-causing
+            relationships will be rejected.
+          </p>
         </form>
       </div>
 
-      <section className="stack">
+      <section className="labels-relationship-panel">
         <p className="section-label">Descendants</p>
         {descendantLabels.length === 0 ? (
-          <p className="muted">No descendants yet.</p>
+          <p className="labels-empty-relation">No descendants yet.</p>
         ) : (
           <div className="tag-row">
             {descendantLabels.map((descendant) => (
@@ -406,4 +611,37 @@ function LabelCard({
       </section>
     </article>
   );
+}
+
+function getSortedDescendantLabels({
+  allLabels,
+  labelId,
+  labels,
+  userId,
+}: {
+  allLabels: AppLabel[];
+  labelId: string;
+  labels: AppLabelsContext;
+  userId: string | null;
+}) {
+  if (userId === null) {
+    return [];
+  }
+
+  return labels
+    .getDescendantIds({
+      labelId,
+      userId,
+    })
+    .map((descendantId) => {
+      const descendant = allLabels.find(
+        (candidate) => candidate.id === descendantId,
+      );
+
+      return {
+        id: descendantId,
+        name: descendant?.name ?? descendantId,
+      };
+    })
+    .sort((left, right) => left.name.localeCompare(right.name));
 }

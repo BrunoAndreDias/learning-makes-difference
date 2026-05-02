@@ -43,14 +43,23 @@ type StoredUserRecord = {
   studyLanguage: AppLanguagePreference;
 };
 
-type SessionStorageAdapter = Pick<
-  Storage,
-  "getItem" | "removeItem" | "setItem"
->;
+type StoredSessionRecord = {
+  id: string;
+  userId: string;
+};
+
+type SessionStorageAdapter = Pick<Storage, "getItem" | "setItem">;
+
+type SessionCookieAdapter = {
+  clear: () => void;
+  get: () => string | null;
+  set: (value: string) => void;
+};
 
 type SessionCrypto = Pick<Crypto, "randomUUID" | "subtle">;
 
 type CreateAppSessionContextOptions = {
+  cookie?: SessionCookieAdapter;
   crypto?: SessionCrypto;
   keyPrefix?: string;
   storage?: SessionStorageAdapter;
@@ -89,6 +98,7 @@ export type AppSessionContext = {
 
 const DEFAULT_STORAGE_KEY_PREFIX = "learning-makes-difference-auth";
 const NOT_AUTHENTICATED_MESSAGE = "Sign in to update account preferences.";
+const SESSION_COOKIE_ATTRIBUTES = "Path=/; SameSite=Lax";
 
 function getDefaultStorage(): SessionStorageAdapter | undefined {
   if (typeof window === "undefined") {
@@ -102,12 +112,49 @@ function getDefaultCrypto(): SessionCrypto {
   return globalThis.crypto;
 }
 
+function getDefaultCookie(prefix: string): SessionCookieAdapter | undefined {
+  if (typeof document === "undefined") {
+    return undefined;
+  }
+
+  const cookieKey = encodeURIComponent(getSessionCookieName(prefix));
+  const encodedPrefix = `${cookieKey}=`;
+
+  return {
+    clear() {
+      // biome-ignore lint/suspicious/noDocumentCookie: This adapter needs synchronous cookie access to hydrate session state during context creation.
+      document.cookie = `${cookieKey}=; Max-Age=0; ${SESSION_COOKIE_ATTRIBUTES}`;
+    },
+    get() {
+      const entry = document.cookie
+        .split("; ")
+        .find((cookie) => cookie.startsWith(encodedPrefix));
+
+      if (entry === undefined) {
+        return null;
+      }
+
+      return decodeURIComponent(entry.slice(encodedPrefix.length));
+    },
+    set(value: string) {
+      // biome-ignore lint/suspicious/noDocumentCookie: This adapter needs synchronous cookie access to keep the session API synchronous after auth.
+      document.cookie = `${cookieKey}=${encodeURIComponent(
+        value,
+      )}; ${SESSION_COOKIE_ATTRIBUTES}`;
+    },
+  };
+}
+
 function getUsersStorageKey(prefix: string): string {
   return `${prefix}:users`;
 }
 
 function getSessionStorageKey(prefix: string): string {
-  return `${prefix}:session-user-id`;
+  return `${prefix}:sessions`;
+}
+
+function getSessionCookieName(prefix: string): string {
+  return `${prefix}:session-id`;
 }
 
 function createNotAuthenticatedError(): AppAuthError {
@@ -141,6 +188,31 @@ function parseStoredUsers(value: string | null): StoredUserRecord[] {
         typeof user.passwordSalt === "string" &&
         isLanguagePreference(user.interfaceLanguage) &&
         isLanguagePreference(user.studyLanguage)
+      );
+    });
+  } catch {
+    return [];
+  }
+}
+
+function parseStoredSessions(value: string | null): StoredSessionRecord[] {
+  if (value === null) {
+    return [];
+  }
+
+  try {
+    const parsedValue = JSON.parse(value);
+
+    if (!Array.isArray(parsedValue)) {
+      return [];
+    }
+
+    return parsedValue.filter((session): session is StoredSessionRecord => {
+      return (
+        typeof session === "object" &&
+        session !== null &&
+        typeof session.id === "string" &&
+        typeof session.userId === "string"
       );
     });
   } catch {
@@ -269,6 +341,7 @@ export function createAppSessionContext(
   const storage = options.storage ?? getDefaultStorage();
   const cryptoProvider = options.crypto ?? getDefaultCrypto();
   const keyPrefix = options.keyPrefix ?? DEFAULT_STORAGE_KEY_PREFIX;
+  const cookie = options.cookie ?? getDefaultCookie(keyPrefix);
   const listeners = new Set<SessionListener>();
   let snapshot: AppSessionSnapshot = { user: null };
 
@@ -293,29 +366,65 @@ export function createAppSessionContext(
     storage?.setItem(getUsersStorageKey(keyPrefix), JSON.stringify(users));
   }
 
-  function readSessionUser(users: StoredUserRecord[]): StoredUserRecord | null {
-    const sessionUserId =
-      storage?.getItem(getSessionStorageKey(keyPrefix)) ?? null;
+  function readSessions(): StoredSessionRecord[] {
+    return parseStoredSessions(
+      storage?.getItem(getSessionStorageKey(keyPrefix)) ?? null,
+    );
+  }
 
-    if (sessionUserId === null) {
+  function writeSessions(sessions: StoredSessionRecord[]) {
+    storage?.setItem(getSessionStorageKey(keyPrefix), JSON.stringify(sessions));
+  }
+
+  function readSessionUser(
+    users: StoredUserRecord[],
+    sessions: StoredSessionRecord[],
+  ): StoredUserRecord | null {
+    const sessionId = cookie?.get() ?? null;
+
+    if (sessionId === null) {
       return null;
     }
 
-    return users.find((user) => user.id === sessionUserId) ?? null;
-  }
+    const activeSession =
+      sessions.find((session) => session.id === sessionId) ?? null;
 
-  function writeSessionUser(user: StoredUserRecord | null) {
-    if (user === null) {
-      storage?.removeItem(getSessionStorageKey(keyPrefix));
-      return;
+    if (activeSession === null) {
+      cookie?.clear();
+      return null;
     }
 
-    storage?.setItem(getSessionStorageKey(keyPrefix), user.id);
+    return users.find((user) => user.id === activeSession.userId) ?? null;
+  }
+
+  function issueSessionForUser(user: StoredUserRecord) {
+    const sessionId = cryptoProvider.randomUUID();
+    const sessions = readSessions();
+
+    sessions.push({
+      id: sessionId,
+      userId: user.id,
+    });
+    writeSessions(sessions);
+    cookie?.set(sessionId);
+  }
+
+  function clearActiveSession() {
+    const sessionId = cookie?.get() ?? null;
+
+    if (sessionId !== null) {
+      writeSessions(
+        readSessions().filter((session) => session.id !== sessionId),
+      );
+    }
+
+    cookie?.clear();
   }
 
   function syncSnapshotFromStorage() {
     const users = readUsers();
-    snapshot = buildSnapshot(readSessionUser(users));
+    const sessions = readSessions();
+    snapshot = buildSnapshot(readSessionUser(users, sessions));
   }
 
   syncSnapshotFromStorage();
@@ -359,7 +468,7 @@ export function createAppSessionContext(
 
       users.push(nextUser);
       writeUsers(users);
-      writeSessionUser(nextUser);
+      issueSessionForUser(nextUser);
       commitSnapshot(buildSnapshot(nextUser));
 
       return snapshot;
@@ -392,13 +501,13 @@ export function createAppSessionContext(
         );
       }
 
-      writeSessionUser(user);
+      issueSessionForUser(user);
       commitSnapshot(buildSnapshot(user));
 
       return snapshot;
     },
     logout: () => {
-      writeSessionUser(null);
+      clearActiveSession();
       commitSnapshot({ user: null });
 
       return snapshot;
@@ -439,7 +548,6 @@ export function createAppSessionContext(
 
       users[userIndex] = nextUser;
       writeUsers(users);
-      writeSessionUser(nextUser);
       commitSnapshot(buildSnapshot(nextUser));
 
       return snapshot;

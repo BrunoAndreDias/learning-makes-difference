@@ -85,6 +85,11 @@ export type AppNotesContext = {
 
 const DEFAULT_STORAGE_KEY_PREFIX = "learning-makes-difference-notes";
 
+type SnapshotNormalizationResult = {
+  didChange: boolean;
+  snapshot: readonly AppStoredNote[];
+};
+
 function getDefaultStorage(): NotesStorageAdapter | undefined {
   if (typeof window === "undefined") {
     return undefined;
@@ -284,6 +289,48 @@ function toPublicNote(note: AppStoredNote): AppNote {
   };
 }
 
+function normalizeSnapshotLabelAssignments(
+  snapshot: readonly AppStoredNote[],
+  getOwnedLabelIdsForUser?: OwnedLabelIdsLookup,
+): SnapshotNormalizationResult {
+  if (getOwnedLabelIdsForUser === undefined) {
+    return {
+      didChange: false,
+      snapshot,
+    };
+  }
+
+  let didChange = false;
+  const ownedLabelIdsByUserId = new Map<string, ReadonlySet<string>>();
+  const normalizedSnapshot = snapshot.map((note) => {
+    const ownedLabelIds =
+      ownedLabelIdsByUserId.get(note.userId) ??
+      new Set(getOwnedLabelIdsForUser(note.userId));
+
+    ownedLabelIdsByUserId.set(note.userId, ownedLabelIds);
+
+    const normalizedLabelIds = note.labelIds.filter((labelId) =>
+      ownedLabelIds.has(labelId),
+    );
+
+    if (normalizedLabelIds.length === note.labelIds.length) {
+      return note;
+    }
+
+    didChange = true;
+
+    return {
+      ...note,
+      labelIds: normalizedLabelIds,
+    };
+  });
+
+  return {
+    didChange,
+    snapshot: normalizedSnapshot,
+  };
+}
+
 export function listNotesForUser(
   notes: readonly AppStoredNote[],
   userId: string | null,
@@ -320,10 +367,27 @@ export function createAppNotesContext(
     }
   }
 
-  function writeSnapshot(nextSnapshot: readonly AppStoredNote[]) {
+  function persistSnapshot(nextSnapshot: readonly AppStoredNote[]) {
     snapshot = nextSnapshot;
     storage?.setItem(getNotesStorageKey(keyPrefix), JSON.stringify(snapshot));
+  }
+
+  function writeSnapshot(nextSnapshot: readonly AppStoredNote[]) {
+    persistSnapshot(nextSnapshot);
     notifyListeners();
+  }
+
+  function readSnapshot() {
+    const normalized = normalizeSnapshotLabelAssignments(
+      snapshot,
+      getOwnedLabelIdsForUser,
+    );
+
+    if (normalized.didChange) {
+      persistSnapshot(normalized.snapshot);
+    }
+
+    return snapshot;
   }
 
   return {
@@ -351,7 +415,8 @@ export function createAppNotesContext(
     },
     deleteNote: (userId, noteId) => {
       const validatedUserId = validateUserId(userId);
-      const existingNote = snapshot.find((note) => note.id === noteId);
+      const currentSnapshot = readSnapshot();
+      const existingNote = currentSnapshot.find((note) => note.id === noteId);
 
       if (
         existingNote === undefined ||
@@ -363,9 +428,9 @@ export function createAppNotesContext(
         );
       }
 
-      writeSnapshot(snapshot.filter((note) => note.id !== noteId));
+      writeSnapshot(currentSnapshot.filter((note) => note.id !== noteId));
     },
-    getSnapshot: () => snapshot,
+    getSnapshot: () => readSnapshot(),
     subscribe: (listener) => {
       listeners.add(listener);
 
@@ -375,7 +440,8 @@ export function createAppNotesContext(
     },
     updateNote: (userId, noteId, input) => {
       const validatedUserId = validateUserId(userId);
-      const existingNote = snapshot.find((note) => note.id === noteId);
+      const currentSnapshot = readSnapshot();
+      const existingNote = currentSnapshot.find((note) => note.id === noteId);
 
       if (
         existingNote === undefined ||
@@ -401,9 +467,10 @@ export function createAppNotesContext(
       };
 
       writeSnapshot(
-        [nextNote, ...snapshot.filter((note) => note.id !== noteId)].sort(
-          (left, right) => right.updatedAt.localeCompare(left.updatedAt),
-        ),
+        [
+          nextNote,
+          ...currentSnapshot.filter((note) => note.id !== noteId),
+        ].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
       );
 
       return toPublicNote(nextNote);

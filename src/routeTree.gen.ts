@@ -14,9 +14,9 @@ import { Route as modulesWorkspaceShellRoutesProtectedRouteRouteImport } from '.
 import { Route as modulesAccessRoutesAuthLayoutRouteRouteImport } from './modules/access/routes/auth-layout-route'
 import { Route as modulesAccessRoutesSettingsRouteRouteImport } from './modules/access/routes/settings-route'
 import { Route as modulesLearningLoopRoutesRecallRouteRouteImport } from './modules/learning-loop/routes/recall-route'
-import { Route as modulesLearningLoopRoutesFocusRouteRouteImport } from './modules/learning-loop/routes/focus-route'
 import { Route as modulesLearningLoopRoutesNotesRouteRouteImport } from './modules/learning-loop/routes/notes-route'
 import { Route as modulesLabelsRoutesLabelsRouteRouteImport } from './modules/labels/routes/labels-route'
+import { Route as modulesLearningLoopRoutesFocusRouteRouteImport } from './modules/learning-loop/routes/focus-route'
 import { Route as modulesAccessRoutesRegisterRouteRouteImport } from './modules/access/routes/register-route'
 import { Route as modulesAccessRoutesLoginRouteRouteImport } from './modules/access/routes/login-route'
 import { Route as modulesAccessRoutesForgotPasswordRouteRouteImport } from './modules/access/routes/forgot-password-route'
@@ -52,12 +52,6 @@ const modulesLearningLoopRoutesRecallRouteRoute =
     path: '/recall',
     getParentRoute: () => modulesWorkspaceShellRoutesProtectedRouteRoute,
   } as any)
-const modulesLearningLoopRoutesFocusRouteRoute =
-  modulesLearningLoopRoutesFocusRouteRouteImport.update({
-    id: '/focus',
-    path: '/focus',
-    getParentRoute: () => modulesWorkspaceShellRoutesProtectedRouteRoute,
-  } as any)
 const modulesLearningLoopRoutesNotesRouteRoute =
   modulesLearningLoopRoutesNotesRouteRouteImport.update({
     id: '/notes',
@@ -68,6 +62,12 @@ const modulesLabelsRoutesLabelsRouteRoute =
   modulesLabelsRoutesLabelsRouteRouteImport.update({
     id: '/labels',
     path: '/labels',
+    getParentRoute: () => modulesWorkspaceShellRoutesProtectedRouteRoute,
+  } as any)
+const modulesLearningLoopRoutesFocusRouteRoute =
+  modulesLearningLoopRoutesFocusRouteRouteImport.update({
+    id: '/focus',
+    path: '/focus',
     getParentRoute: () => modulesWorkspaceShellRoutesProtectedRouteRoute,
   } as any)
 const modulesAccessRoutesRegisterRouteRoute =
@@ -248,13 +248,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof modulesLearningLoopRoutesRecallRouteRouteImport
       parentRoute: typeof modulesWorkspaceShellRoutesProtectedRouteRoute
     }
-    '/_protected/focus': {
-      id: '/_protected/focus'
-      path: '/focus'
-      fullPath: '/focus'
-      preLoaderRoute: typeof modulesLearningLoopRoutesFocusRouteRouteImport
-      parentRoute: typeof modulesWorkspaceShellRoutesProtectedRouteRoute
-    }
     '/_protected/notes': {
       id: '/_protected/notes'
       path: '/notes'
@@ -267,6 +260,13 @@ declare module '@tanstack/react-router' {
       path: '/labels'
       fullPath: '/labels'
       preLoaderRoute: typeof modulesLabelsRoutesLabelsRouteRouteImport
+      parentRoute: typeof modulesWorkspaceShellRoutesProtectedRouteRoute
+    }
+    '/_protected/focus': {
+      id: '/_protected/focus'
+      path: '/focus'
+      fullPath: '/focus'
+      preLoaderRoute: typeof modulesLearningLoopRoutesFocusRouteRouteImport
       parentRoute: typeof modulesWorkspaceShellRoutesProtectedRouteRoute
     }
     '/_auth/register': {
