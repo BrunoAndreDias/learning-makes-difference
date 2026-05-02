@@ -6,6 +6,7 @@ import {
   type AppRecallSnapshot,
   type FlashCardRecallAttemptHistoryEntry,
   type FlashCardRecallAttemptsByNote,
+  type RecallNoteSnapshot,
   type RecallQuestion,
   type RecallSelfRating,
   type RecallSession,
@@ -98,22 +99,20 @@ function createMissingServiceError() {
   return new Error("Persistent recall service is not configured.");
 }
 
+function cloneNoteSnapshot(note: RecallNoteSnapshot): RecallNoteSnapshot {
+  return {
+    ...note,
+    acronyms: note.acronyms.map((acronym) => ({ ...acronym })),
+    labelIds: [...note.labelIds],
+    labels: (note.labels ?? []).map((label) => ({ ...label })),
+    metaphors: note.metaphors.map((metaphor) => ({ ...metaphor })),
+  };
+}
+
 function cloneQuestion(question: RecallQuestion): RecallQuestion {
   return {
     ...question,
-    noteSnapshot: {
-      ...question.noteSnapshot,
-      acronyms: question.noteSnapshot.acronyms.map((acronym) => ({
-        ...acronym,
-      })),
-      labelIds: [...question.noteSnapshot.labelIds],
-      labels: (question.noteSnapshot.labels ?? []).map((label) => ({
-        ...label,
-      })),
-      metaphors: question.noteSnapshot.metaphors.map((metaphor) => ({
-        ...metaphor,
-      })),
-    },
+    noteSnapshot: cloneNoteSnapshot(question.noteSnapshot),
   };
 }
 
@@ -121,13 +120,7 @@ function cloneSession(session: RecallSession): RecallSession {
   return {
     ...session,
     attempts: session.attempts.map((attempt) => ({ ...attempt })),
-    notes: session.notes.map((note) => ({
-      ...note,
-      acronyms: note.acronyms.map((acronym) => ({ ...acronym })),
-      labelIds: [...note.labelIds],
-      labels: (note.labels ?? []).map((label) => ({ ...label })),
-      metaphors: note.metaphors.map((metaphor) => ({ ...metaphor })),
-    })),
+    notes: session.notes.map(cloneNoteSnapshot),
     questions: session.questions.map(cloneQuestion),
   };
 }
@@ -136,13 +129,7 @@ function cloneSessionResult(result: SessionResult): SessionResult {
   return {
     ...result,
     attempts: result.attempts.map((attempt) => ({ ...attempt })),
-    notes: result.notes.map((note) => ({
-      ...note,
-      acronyms: note.acronyms.map((acronym) => ({ ...acronym })),
-      labelIds: [...note.labelIds],
-      labels: (note.labels ?? []).map((label) => ({ ...label })),
-      metaphors: note.metaphors.map((metaphor) => ({ ...metaphor })),
-    })),
+    notes: result.notes.map(cloneNoteSnapshot),
     questions: result.questions.map(cloneQuestion),
   };
 }

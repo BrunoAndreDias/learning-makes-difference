@@ -14,6 +14,7 @@ import {
   type AppRecallSnapshot,
   type FlashCardRecallNote,
   type FlashCardRecallRating,
+  type RecallSession,
   summarizeAttempts,
 } from "./recall";
 
@@ -176,17 +177,23 @@ function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
     }
 
     try {
-      const nextSession =
-        persistentRecallContext === undefined
-          ? recallContext.rateFlashCardAnswer({
-              rating,
-              sessionId: activeSession.id,
-              userId,
-            })
-          : await persistentRecallContext.rateFlashCardAnswer(userId, {
-              rating,
-              sessionId: activeSession.id,
-            });
+      let nextSession: RecallSession | null;
+
+      if (persistentRecallContext === undefined) {
+        nextSession = recallContext.rateFlashCardAnswer({
+          rating,
+          sessionId: activeSession.id,
+          userId,
+        });
+      } else {
+        nextSession = await persistentRecallContext.rateFlashCardAnswer(
+          userId,
+          {
+            rating,
+            sessionId: activeSession.id,
+          },
+        );
+      }
 
       setFeedbackMessage(null);
 

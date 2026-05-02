@@ -31,6 +31,12 @@ type StoredSessionResult = SessionResult & {
 };
 
 type RecallCrypto = Pick<Crypto, "randomUUID">;
+type RecallNoteSnapshot = RecallSession["notes"][number];
+type RecallMutationResult = RecallSession | null;
+type MutableRecallContext = ReturnType<typeof createAppRecallContext>;
+type ShuffleNotes = (
+  notes: readonly RecallNoteSnapshot[],
+) => RecallNoteSnapshot[];
 
 type StartRecallSessionInput = {
   noteIds: string[];
@@ -53,9 +59,7 @@ type UpdateAttemptTextInput = UpdateRecallSessionInput & {
 type CreateRecallServiceOptions = {
   crypto?: RecallCrypto;
   db: RecallDatabase<Record<string, unknown>>;
-  shuffleNotes?: (
-    notes: readonly RecallSession["notes"][number][],
-  ) => RecallSession["notes"];
+  shuffleNotes?: ShuffleNotes;
 };
 
 type MemoryStorage = Pick<Storage, "getItem" | "setItem">;
@@ -177,7 +181,7 @@ function stripStoredResultUserId(result: StoredSessionResult): SessionResult {
 
 async function persistRecallState(input: {
   db: RecallDatabase<Record<string, unknown>>;
-  recall: ReturnType<typeof createAppRecallContext>;
+  recall: MutableRecallContext;
   userId: string;
 }) {
   const nextActiveSession = input.recall.getSnapshot();
@@ -230,9 +234,7 @@ async function persistRecallState(input: {
 async function createMutableRecallContext(input: {
   crypto?: RecallCrypto;
   db: RecallDatabase<Record<string, unknown>>;
-  shuffleNotes?: (
-    notes: readonly RecallSession["notes"][number][],
-  ) => RecallSession["notes"];
+  shuffleNotes?: ShuffleNotes;
   userId: string;
 }) {
   const notesService = createNotesService({
@@ -268,6 +270,32 @@ async function createMutableRecallContext(input: {
   });
 }
 
+async function mutatePersistentRecall<
+  TResult extends RecallMutationResult,
+>(input: {
+  crypto?: RecallCrypto;
+  db: RecallDatabase<Record<string, unknown>>;
+  mutate: (recall: MutableRecallContext) => TResult;
+  shuffleNotes?: ShuffleNotes;
+  userId: string;
+}): Promise<TResult> {
+  const recall = await createMutableRecallContext({
+    crypto: input.crypto,
+    db: input.db,
+    shuffleNotes: input.shuffleNotes,
+    userId: input.userId,
+  });
+  const result = input.mutate(recall);
+
+  await persistRecallState({
+    db: input.db,
+    recall,
+    userId: input.userId,
+  });
+
+  return result;
+}
+
 export function createRecallService({
   crypto,
   db,
@@ -275,21 +303,13 @@ export function createRecallService({
 }: CreateRecallServiceOptions) {
   return {
     async endFlashCardSession(input: UpdateRecallSessionInput) {
-      const recall = await createMutableRecallContext({
+      return mutatePersistentRecall({
         crypto,
         db,
+        mutate: (recall) => recall.endFlashCardSession(input),
         shuffleNotes,
         userId: input.userId,
       });
-      const endedSession = recall.endFlashCardSession(input);
-
-      await persistRecallState({
-        db,
-        recall,
-        userId: input.userId,
-      });
-
-      return endedSession;
     },
     async getActiveSession(input: { userId: string }) {
       return stripStoredSessionUserId(
@@ -302,72 +322,40 @@ export function createRecallService({
       );
     },
     async rateFlashCardAnswer(input: AnswerQuestionInput) {
-      const recall = await createMutableRecallContext({
+      return mutatePersistentRecall({
         crypto,
         db,
+        mutate: (recall) => recall.rateFlashCardAnswer(input),
         shuffleNotes,
         userId: input.userId,
       });
-      const nextSession = recall.rateFlashCardAnswer(input);
-
-      await persistRecallState({
-        db,
-        recall,
-        userId: input.userId,
-      });
-
-      return nextSession;
     },
     async revealFlashCardAnswer(input: UpdateRecallSessionInput) {
-      const recall = await createMutableRecallContext({
+      return mutatePersistentRecall({
         crypto,
         db,
+        mutate: (recall) => recall.revealFlashCardAnswer(input),
         shuffleNotes,
         userId: input.userId,
       });
-      const revealedSession = recall.revealFlashCardAnswer(input);
-
-      await persistRecallState({
-        db,
-        recall,
-        userId: input.userId,
-      });
-
-      return revealedSession;
     },
     async startFlashCardSession(input: StartRecallSessionInput) {
-      const recall = await createMutableRecallContext({
+      return mutatePersistentRecall({
         crypto,
         db,
+        mutate: (recall) => recall.startFlashCardSession(input),
         shuffleNotes,
         userId: input.userId,
       });
-      const startedSession = recall.startFlashCardSession(input);
-
-      await persistRecallState({
-        db,
-        recall,
-        userId: input.userId,
-      });
-
-      return startedSession;
     },
     async updateFlashCardAttemptText(input: UpdateAttemptTextInput) {
-      const recall = await createMutableRecallContext({
+      return mutatePersistentRecall({
         crypto,
         db,
+        mutate: (recall) => recall.updateFlashCardAttemptText(input),
         shuffleNotes,
         userId: input.userId,
       });
-      const updatedSession = recall.updateFlashCardAttemptText(input);
-
-      await persistRecallState({
-        db,
-        recall,
-        userId: input.userId,
-      });
-
-      return updatedSession;
     },
   };
 }
