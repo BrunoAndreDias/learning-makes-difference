@@ -1311,11 +1311,7 @@ export function NotesWorkspace() {
   const selectedNoteUpdatedLabel =
     selectedNote === null
       ? "Unsaved draft"
-      : `Updated ${formatNoteDate(selectedNote.updatedAt)}`;
-  const selectedNoteCreatedLabel =
-    selectedNote === null
-      ? "Created after save"
-      : `Created ${formatNoteDate(selectedNote.createdAt)}`;
+      : `Last edited ${formatNoteDate(selectedNote.updatedAt)}`;
   const isSearchListboxOpen =
     hasSearchQuery && isSearchOpen && searchResults.length > 0;
   const activeSearchResult = searchResults[activeSearchResultIndex];
@@ -1485,35 +1481,46 @@ export function NotesWorkspace() {
             <legend className="sr-only">Note study surface</legend>
             <header className="notes-editor__header">
               <div className="notes-editor__title-stack">
-                <label className="notes-title-editor">
-                  <span className="sr-only">Title</span>
-                  <input
-                    form={noteEditorFormId}
-                    ref={titleInputRef}
-                    name="title"
-                    onChange={(event) =>
-                      handleEditorChange("title", event.target.value)
-                    }
-                    placeholder="Name this note"
-                    type="text"
-                    value={editorState.title}
-                  />
-                </label>
+                <div className="notes-editor__title-row">
+                  <label className="notes-title-editor">
+                    <span className="sr-only">Title</span>
+                    <input
+                      form={noteEditorFormId}
+                      ref={titleInputRef}
+                      name="title"
+                      onChange={(event) =>
+                        handleEditorChange("title", event.target.value)
+                      }
+                      placeholder="Name this note"
+                      type="text"
+                      value={editorState.title}
+                    />
+                  </label>
+                </div>
                 <p className="muted notes-editor__meta">
-                  {selectedNoteCreatedLabel} <span aria-hidden="true">-</span>{" "}
-                  {selectedNoteUpdatedLabel}
-                  {hasUnsavedChanges ? (
-                    <>
-                      {" "}
-                      <span aria-hidden="true">·</span>{" "}
-                      <button
-                        className="notes-editor__discard"
-                        onClick={() => discardEditorChanges(notes)}
-                        type="button"
-                      >
-                        Discard changes
-                      </button>
-                    </>
+                  <span>{selectedNoteUpdatedLabel}</span>
+                  {isCreating || hasUnsavedChanges ? (
+                    <span className="notes-editor__inline-actions">
+                      {isCreating ||
+                      (hasUnsavedChanges && !hasUnsavedHookChanges) ? (
+                        <button
+                          className="notes-action notes-action-primary notes-editor__save-inline"
+                          form={noteEditorFormId}
+                          type="submit"
+                        >
+                          {isCreating ? "Create note" : "Save changes"}
+                        </button>
+                      ) : null}
+                      {hasUnsavedChanges ? (
+                        <button
+                          className="notes-action notes-editor__discard"
+                          onClick={() => discardEditorChanges(notes)}
+                          type="button"
+                        >
+                          Discard changes
+                        </button>
+                      ) : null}
+                    </span>
                   ) : null}
                 </p>
                 <section
@@ -1570,15 +1577,6 @@ export function NotesWorkspace() {
                   </div>
                 </section>
               </div>
-              {isCreating || (hasUnsavedChanges && !hasUnsavedHookChanges) ? (
-                <button
-                  className="notes-action notes-action-primary"
-                  form={noteEditorFormId}
-                  type="submit"
-                >
-                  {isCreating ? "Create note" : "Save changes"}
-                </button>
-              ) : null}
             </header>
 
             <form

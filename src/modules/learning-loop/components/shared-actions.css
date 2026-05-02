@@ -1,0 +1,96 @@
+.notes-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.notes-icon-button,
+.notes-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  padding-inline: 0.75rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.5rem;
+  background: var(--color-shell-panel);
+  color: var(--color-content-strong);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast),
+    border-color var(--motion-fast);
+}
+
+.notes-icon-button:hover,
+.notes-action:hover {
+  background: var(--color-shell-inset);
+}
+
+.focus-config-form .notes-action {
+  justify-self: start;
+}
+
+.recall-panel .notes-action {
+  justify-self: start;
+}
+
+.app-sidebar__workspace-header .notes-action {
+  min-height: 2rem;
+  padding-inline: 0.55rem;
+  border-radius: 0.45rem;
+  font-size: 0.78rem;
+}
+
+.notes-catalog-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.5rem;
+  padding-inline: 0.75rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.5rem;
+  background: var(--color-shell-panel);
+  color: var(--color-content-strong);
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast),
+    border-color var(--motion-fast);
+}
+
+.notes-catalog-toggle:hover,
+.notes-catalog-toggle:focus-visible {
+  background: var(--color-shell-inset);
+}
+
+.notes-catalog-toggle__icon,
+.notes-catalog-toggle__icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.notes-catalog-toggle__icon {
+  display: inline-flex;
+  color: var(--color-content-muted);
+}
+
+.notes-catalog-toggle__icon svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.notes-icon-button {
+  width: 2.5rem;
+  padding: 0;
+  color: var(--color-content-muted);
+}

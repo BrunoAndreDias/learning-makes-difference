@@ -1,0 +1,101 @@
+.notes-metaphors,
+.notes-acronyms,
+.notes-labels {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-shell-panel);
+}
+
+.notes-metaphors__header,
+.notes-acronyms__header,
+.notes-metaphor__actions,
+.notes-acronym__actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.notes-metaphors__list,
+.notes-acronyms__list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.notes-metaphor,
+.notes-acronym {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid rgba(215, 222, 234, 0.9);
+  border-radius: var(--radius-lg);
+  background: #fffdfa;
+}
+
+.notes-metaphor legend,
+.notes-acronym legend {
+  padding: 0 0.35rem;
+  color: var(--color-content-strong);
+  font-weight: 700;
+}
+
+.notes-labels legend {
+  padding: 0 0.35rem;
+  color: var(--color-content-strong);
+  font-weight: 700;
+}
+
+.notes-labels__options {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.notes-labels__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--color-content-strong);
+  font-weight: 600;
+}
+
+.notes-labels__option input {
+  width: 1rem;
+  height: 1rem;
+}
+
+.notes-form__field {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--color-content-strong);
+  font-weight: 600;
+}
+
+.notes-form__field input,
+.notes-form__field textarea {
+  width: 100%;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid rgba(215, 222, 234, 0.9);
+  border-radius: var(--radius-md);
+  background: #fffdfa;
+  color: var(--color-content-strong);
+  font: inherit;
+}
+
+.notes-form__field input {
+  min-height: 2.75rem;
+}
+
+.notes-form__field textarea {
+  min-height: 14rem;
+  resize: vertical;
+}
+
+.notes-action-primary {
+  background: var(--color-brand-primary);
+  border-color: transparent;
+  color: #f8fbff;
+}

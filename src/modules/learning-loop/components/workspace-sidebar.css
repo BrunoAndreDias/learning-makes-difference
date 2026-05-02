@@ -1,0 +1,213 @@
+.app-sidebar__workspace {
+  display: grid;
+  gap: var(--space-3);
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.app-sidebar__workspace--recall {
+  grid-template-rows: auto auto minmax(0, 1fr);
+  align-content: start;
+}
+
+.app-sidebar__workspace-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.app-sidebar__workspace-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-sidebar__primary-action {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.app-sidebar__workspace-nav {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.app-sidebar__workspace-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.app-sidebar__workspace-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: end;
+  gap: 0.5rem;
+}
+
+.app-sidebar__filter {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.app-sidebar__filter select {
+  width: 100%;
+}
+
+.app-sidebar__workspace-list {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-height: 0;
+  scrollbar-width: none;
+}
+
+.app-sidebar__workspace-list::-webkit-scrollbar {
+  display: none;
+}
+
+.app-sidebar__workspace-item {
+  position: relative;
+}
+
+.app-sidebar__workspace-link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.15rem;
+  padding: 0.35rem 2.65rem 0.35rem 0.55rem;
+  border: 1px solid rgba(215, 222, 234, 0.9);
+  border-radius: 0.45rem;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--color-content-strong);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.app-sidebar__workspace-link > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-sidebar__workspace-link {
+  overflow-wrap: anywhere;
+}
+
+.app-sidebar__workspace-summary {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.app-sidebar__workspace-summary > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-sidebar__workspace-state {
+  color: var(--color-content-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.app-sidebar__workspace-link:hover {
+  background: var(--color-shell-inset);
+  border-color: var(--color-content-border-soft);
+}
+
+.app-sidebar__workspace-link[aria-current="page"] {
+  background: var(--color-shell-inset);
+  border-color: transparent;
+  color: var(--color-content-strong);
+  font-weight: 600;
+}
+
+.app-sidebar__workspace-link[data-recall-selected="true"] {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: rgba(37, 99, 235, 0.45);
+  color: var(--color-brand-primary-hover);
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--color-brand-primary);
+}
+
+.app-sidebar__workspace-delete {
+  position: absolute;
+  top: 50%;
+  right: 0.35rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 0.45rem;
+  background: transparent;
+  color: var(--color-content-muted);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast);
+}
+
+.app-sidebar__workspace-delete:hover,
+.app-sidebar__workspace-delete:focus-visible {
+  background: rgba(159, 18, 57, 0.08);
+  color: #9f1239;
+}
+
+.app-sidebar__workspace-delete svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.app-sidebar__workspace-meta {
+  color: var(--color-content-muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.app-sidebar__workspace-link--recall {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-right: 0.55rem;
+}
+
+.app-sidebar__workspace-link--recall .app-sidebar__workspace-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recall-results-sidebar__summary,
+.recall-results-sidebar__meta {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.recall-results-sidebar__meta {
+  justify-items: end;
+}

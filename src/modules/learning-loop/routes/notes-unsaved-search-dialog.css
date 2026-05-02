@@ -1,0 +1,31 @@
+.notes-unsaved-search-dialog {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(15 23 42 / 38%);
+}
+
+.notes-unsaved-search-dialog__panel {
+  display: grid;
+  gap: 0.85rem;
+  width: min(100%, 26rem);
+  padding: 1rem;
+  border: 1px solid #dce4ef;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  box-shadow: 0 1.25rem 3rem rgb(19 29 51 / 22%);
+}
+
+.notes-unsaved-search-dialog__panel h3,
+.notes-unsaved-search-dialog__panel p {
+  margin: 0;
+}
+
+.notes-unsaved-search-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+}
