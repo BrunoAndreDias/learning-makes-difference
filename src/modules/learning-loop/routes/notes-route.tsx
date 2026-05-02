@@ -117,6 +117,10 @@ function getManagedLabelIds(
   return [...orderedAvailableIds, ...unavailableIds];
 }
 
+function removeLabelId(labelIds: readonly string[], labelId: string) {
+  return labelIds.filter((candidateId) => candidateId !== labelId);
+}
+
 function getLearningStateSummary(status: LearningStateStatus) {
   switch (status) {
     case "unpracticed":
@@ -839,19 +843,19 @@ export function NotesWorkspace() {
         return [...new Set([...currentLabelIds, labelId])];
       }
 
-      return currentLabelIds.filter((candidateId) => candidateId !== labelId);
+      return removeLabelId(currentLabelIds, labelId);
     });
   }
 
   function handleAssignedLabelRemove(labelId: string) {
     handleEditorChange(
       "labelIds",
-      editorState.labelIds.filter((candidateId) => candidateId !== labelId),
+      removeLabelId(editorState.labelIds, labelId),
     );
 
     if (isLabelPickerOpen) {
       setLabelPickerDraftIds((currentLabelIds) =>
-        currentLabelIds.filter((candidateId) => candidateId !== labelId),
+        removeLabelId(currentLabelIds, labelId),
       );
     }
   }
