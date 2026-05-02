@@ -3,11 +3,9 @@ import type { AppNoteSearchResult } from "./note-search";
 export type NotesSearchTargetElement = HTMLInputElement | HTMLTextAreaElement;
 
 export type NotesSearchTargetElements = {
-  acronymExpansions: readonly (HTMLTextAreaElement | null)[];
-  acronymShortForms: readonly (HTMLInputElement | null)[];
+  acronymDescriptions: readonly (HTMLTextAreaElement | null)[];
   body: HTMLTextAreaElement | null;
-  metaphorExplanations: readonly (HTMLTextAreaElement | null)[];
-  metaphorTitles: readonly (HTMLInputElement | null)[];
+  metaphorDescriptions: readonly (HTMLTextAreaElement | null)[];
   title: HTMLInputElement | null;
 };
 
@@ -22,13 +20,9 @@ export function resolveNotesSearchTargetElement(
       return elements.title;
     case "body":
       return elements.body;
-    case "metaphorTitle":
-      return elements.metaphorTitles[targetIndex] ?? null;
-    case "metaphorExplanation":
-      return elements.metaphorExplanations[targetIndex] ?? null;
-    case "acronymShortForm":
-      return elements.acronymShortForms[targetIndex] ?? null;
-    case "acronymExpansion":
-      return elements.acronymExpansions[targetIndex] ?? null;
+    case "metaphorDescription":
+      return elements.metaphorDescriptions[targetIndex] ?? null;
+    case "acronymDescription":
+      return elements.acronymDescriptions[targetIndex] ?? null;
   }
 }

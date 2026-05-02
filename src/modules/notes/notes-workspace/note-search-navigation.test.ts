@@ -25,22 +25,20 @@ function createSearchResult(
 
 describe("notes search navigation", () => {
   it("resolves attached search targets to editor fields in visible order", () => {
-    const firstMetaphor = document.createElement("input");
-    const secondMetaphor = document.createElement("input");
-    const acronymExpansion = document.createElement("textarea");
+    const firstMetaphor = document.createElement("textarea");
+    const secondMetaphor = document.createElement("textarea");
+    const acronymDescription = document.createElement("textarea");
 
     expect(
       resolveNotesSearchTargetElement(
         {
-          acronymExpansions: [acronymExpansion],
-          acronymShortForms: [],
+          acronymDescriptions: [acronymDescription],
           body: null,
-          metaphorExplanations: [],
-          metaphorTitles: [firstMetaphor, secondMetaphor],
+          metaphorDescriptions: [firstMetaphor, secondMetaphor],
           title: null,
         },
         createSearchResult({
-          field: "metaphorTitle",
+          field: "metaphorDescription",
           index: 1,
           match: {
             end: 10,
@@ -53,15 +51,13 @@ describe("notes search navigation", () => {
     expect(
       resolveNotesSearchTargetElement(
         {
-          acronymExpansions: [acronymExpansion],
-          acronymShortForms: [],
+          acronymDescriptions: [acronymDescription],
           body: null,
-          metaphorExplanations: [],
-          metaphorTitles: [firstMetaphor, secondMetaphor],
+          metaphorDescriptions: [firstMetaphor, secondMetaphor],
           title: null,
         },
         createSearchResult({
-          field: "acronymExpansion",
+          field: "acronymDescription",
           index: 0,
           match: {
             end: 12,
@@ -69,6 +65,6 @@ describe("notes search navigation", () => {
           },
         }),
       ),
-    ).toBe(acronymExpansion);
+    ).toBe(acronymDescription);
   });
 });

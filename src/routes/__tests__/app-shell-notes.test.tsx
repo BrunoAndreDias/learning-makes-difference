@@ -605,17 +605,15 @@ describe("authenticated app shell", () => {
     notesContext.createNote("user-jordan", {
       acronyms: [
         {
-          expansion: "Long-Term Potentiation",
-          shortForm: "LTP",
+          description: "LTP stands for Long-Term Potentiation.",
         },
       ],
       body: "Repeated activation strengthens the pathway.",
       labelIds: [],
       metaphors: [
         {
-          explanation:
-            "It is like cutting a groove into a sled track so the next pass follows more easily.",
-          title: "Sled track",
+          description:
+            "Sled track: it is like cutting a groove into a sled track so the next pass follows more easily.",
         },
       ],
       title: "Synaptic plasticity",
@@ -630,8 +628,7 @@ describe("authenticated app shell", () => {
     notesContext.createNote("user-casey", {
       acronyms: [
         {
-          expansion: "Long-Term Potentiation",
-          shortForm: "LTP",
+          description: "LTP stands for Long-Term Potentiation.",
         },
       ],
       body: "This note belongs to another account.",
@@ -728,8 +725,7 @@ describe("authenticated app shell", () => {
     notesContext.createNote("user-jordan", {
       acronyms: [
         {
-          expansion: "Priority Cue",
-          shortForm: "PC",
+          description: "PC means Priority Cue.",
         },
       ],
       body: "Mnemonic content only.",
@@ -743,8 +739,7 @@ describe("authenticated app shell", () => {
       labelIds: [],
       metaphors: [
         {
-          explanation: "A priority cue acts like a lighthouse.",
-          title: "Lighthouse",
+          description: "Lighthouse: a priority cue acts like a lighthouse.",
         },
       ],
       title: "Metaphor result",
@@ -762,8 +757,8 @@ describe("authenticated app shell", () => {
       labelIds: [],
       metaphors: [
         {
-          explanation: "Priority cue also appears here.",
-          title: "Duplicate attached match",
+          description:
+            "Duplicate attached match: Priority cue also appears here.",
         },
       ],
       title: "Priority cue title result",
@@ -806,9 +801,11 @@ describe("authenticated app shell", () => {
         /^Body resultBodyThis body contains a priority cue\.Updated /,
       ),
       expect.stringMatching(
-        /^Metaphor resultMetaphorLighthouse A priority cue acts like a lighthouse\.Updated /,
+        /^Metaphor resultMetaphorLighthouse: a priority cue acts like a lighthouse\.Updated /,
       ),
-      expect.stringMatching(/^Acronym resultAcronymPC Priority CueUpdated /),
+      expect.stringMatching(
+        /^Acronym resultAcronymPC means Priority Cue\.Updated /,
+      ),
     ]);
   });
 
@@ -1717,21 +1714,17 @@ describe("authenticated app shell", () => {
 
     expect(screen.getAllByLabelText("Metaphor editor")).toHaveLength(1);
 
-    fireEvent.change(screen.getAllByLabelText("Metaphor title")[0], {
-      target: { value: "Domino line" },
-    });
-    fireEvent.change(screen.getAllByLabelText("Metaphor explanation")[0], {
+    fireEvent.change(screen.getAllByLabelText("Metaphor description")[0], {
       target: {
         value:
-          "Crossing threshold is like tipping the first domino so the whole line falls.",
+          "Domino line: crossing threshold is like tipping the first domino so the whole line falls.",
       },
     });
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
 
-    expect(await screen.findByDisplayValue("Domino line")).toBeInTheDocument();
     expect(
-      screen.getByDisplayValue(
-        "Crossing threshold is like tipping the first domino so the whole line falls.",
+      await screen.findByDisplayValue(
+        "Domino line: crossing threshold is like tipping the first domino so the whole line falls.",
       ),
     ).toBeInTheDocument();
     expect(
@@ -1743,66 +1736,41 @@ describe("authenticated app shell", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Add metaphor" }));
 
-    expect(screen.getAllByLabelText("Metaphor editor")).toHaveLength(2);
-    expect(screen.getAllByLabelText("Metaphor title")).toHaveLength(2);
-    expect(screen.getAllByLabelText("Metaphor explanation")).toHaveLength(2);
-    expect(
-      within(screen.getAllByLabelText("Metaphor editor")[0]).queryByRole(
-        "button",
-        { name: "Save changes" },
-      ),
-    ).not.toBeInTheDocument();
-    expect(
-      within(screen.getAllByLabelText("Metaphor editor")[1]).getByRole(
-        "button",
-        { name: "Save changes" },
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Domino line")).toBeInTheDocument();
-    expect(
-      screen.getByDisplayValue(
-        "Crossing threshold is like tipping the first domino so the whole line falls.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Metaphor editor")).toHaveLength(1);
+    expect(screen.getAllByLabelText("Metaphor description")).toHaveLength(1);
 
-    fireEvent.change(screen.getAllByLabelText("Metaphor explanation")[0], {
+    fireEvent.change(screen.getAllByLabelText("Metaphor description")[0], {
       target: {
         value:
-          "Crossing threshold is like tipping the first domino and committing the whole chain.",
+          "Domino line: crossing threshold is like tipping the first domino and committing the whole chain.",
       },
     });
-    fireEvent.change(screen.getAllByLabelText("Metaphor title")[1], {
-      target: { value: "Fuse" },
-    });
-    fireEvent.change(screen.getAllByLabelText("Metaphor explanation")[1], {
-      target: {
-        value: "Threshold acts like lighting a fuse that runs to completion.",
-      },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Remove metaphor 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove metaphor 1" }));
     expect(
       screen.getByRole("dialog", { name: "Remove memory hook?" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Remove Metaphor: Fuse? This cannot be undone."),
+      screen.getByText(/Remove Metaphor: Domino line: crossing threshold/),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Keep hook" }));
     expect(
       screen.queryByRole("dialog", { name: "Remove memory hook?" }),
     ).toBeNull();
-    expect(screen.getByDisplayValue("Fuse")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue(
+        "Domino line: crossing threshold is like tipping the first domino and committing the whole chain.",
+      ),
+    ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Remove metaphor 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove metaphor 1" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove hook" }));
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
 
-    expect(await screen.findByDisplayValue("Domino line")).toBeInTheDocument();
     expect(
-      screen.getByDisplayValue(
-        "Crossing threshold is like tipping the first domino and committing the whole chain.",
+      screen.queryByDisplayValue(
+        "Domino line: crossing threshold is like tipping the first domino and committing the whole chain.",
       ),
-    ).toBeInTheDocument();
-    expect(screen.queryByDisplayValue("Fuse")).not.toBeInTheDocument();
+    ).not.toBeInTheDocument();
   });
 
   it("manages note acronyms inside the note workflow", async () => {
@@ -1834,54 +1802,39 @@ describe("authenticated app shell", () => {
 
     expect(screen.getAllByLabelText("Acronym editor")).toHaveLength(1);
 
-    fireEvent.change(screen.getAllByLabelText("Acronym")[0], {
-      target: { value: "PEMDAS" },
-    });
-    fireEvent.change(screen.getAllByLabelText("Acronym expansion")[0], {
+    fireEvent.change(screen.getAllByLabelText("Acronym description")[0], {
       target: {
         value:
-          "Parentheses, Exponents, Multiplication, Division, Addition, Subtraction.",
+          "PEMDAS means Parentheses, Exponents, Multiplication, Division, Addition, Subtraction.",
       },
     });
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
 
-    expect(await screen.findByDisplayValue("PEMDAS")).toBeInTheDocument();
     expect(
-      screen.getByDisplayValue(
-        "Parentheses, Exponents, Multiplication, Division, Addition, Subtraction.",
+      await screen.findByDisplayValue(
+        "PEMDAS means Parentheses, Exponents, Multiplication, Division, Addition, Subtraction.",
       ),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Add acronym" }));
 
-    expect(screen.getAllByLabelText("Acronym editor")).toHaveLength(2);
+    expect(screen.getAllByLabelText("Acronym editor")).toHaveLength(1);
 
-    fireEvent.change(screen.getAllByLabelText("Acronym expansion")[0], {
+    fireEvent.change(screen.getAllByLabelText("Acronym description")[0], {
       target: {
         value:
-          "Parentheses, Exponents, Multiplication, Division, Addition, Subtraction",
+          "PEMDAS means Parentheses, Exponents, Multiplication, Division, Addition, Subtraction",
       },
     });
-    fireEvent.change(screen.getAllByLabelText("Acronym")[1], {
-      target: { value: "BODMAS" },
-    });
-    fireEvent.change(screen.getAllByLabelText("Acronym expansion")[1], {
-      target: {
-        value:
-          "Brackets, Orders, Division, Multiplication, Addition, Subtraction",
-      },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Remove acronym 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove acronym 1" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove hook" }));
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
 
-    expect(await screen.findByDisplayValue("PEMDAS")).toBeInTheDocument();
     expect(
-      screen.getByDisplayValue(
-        "Parentheses, Exponents, Multiplication, Division, Addition, Subtraction",
+      screen.queryByDisplayValue(
+        "PEMDAS means Parentheses, Exponents, Multiplication, Division, Addition, Subtraction",
       ),
-    ).toBeInTheDocument();
-    expect(screen.queryByDisplayValue("BODMAS")).not.toBeInTheDocument();
+    ).not.toBeInTheDocument();
   });
 
   it("starts focus from the selected note without interrupting note editing", async () => {

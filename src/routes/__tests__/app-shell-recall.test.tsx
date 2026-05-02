@@ -170,7 +170,7 @@ describe("authenticated app shell", () => {
       acronyms: [],
       body: "Original recall answer.",
       labelIds: [],
-      metaphors: [{ explanation: "Remember the gate", title: "Gate" }],
+      metaphors: [{ description: "Gate: remember the gate." }],
       title: "Weak note",
     });
     notesContext.createNote(userId, {
@@ -460,8 +460,8 @@ describe("authenticated app shell", () => {
       labelIds: [],
       metaphors: [
         {
-          explanation: "The lighthouse beam points back to the safe harbor.",
-          title: "Lighthouse harbor",
+          description:
+            "Lighthouse harbor: the lighthouse beam points back to the safe harbor.",
         },
       ],
       title: "Context reinstatement",
@@ -469,8 +469,7 @@ describe("authenticated app shell", () => {
     const acronymNote = notesContext.createNote(userId, {
       acronyms: [
         {
-          expansion: "Plan Organize Monitor Evaluate",
-          shortForm: "POME",
+          description: "POME means Plan Organize Monitor Evaluate.",
         },
       ],
       body: "Acronyms can carry a recall selection cue.",
@@ -987,13 +986,13 @@ describe("authenticated app shell", () => {
     });
 
     firstNotesContext.createNote(userId, {
-      acronyms: [{ expansion: "Active recall session", shortForm: "ARS" }],
+      acronyms: [{ description: "ARS means Active recall session." }],
       body: "This revealed answer should survive the reload.",
       labelIds: [],
       metaphors: [
         {
-          explanation: "Like reopening the same study card after a refresh.",
-          title: "Sticky card",
+          description:
+            "Sticky card: like reopening the same study card after a refresh.",
         },
       ],
       title: "Reloaded recall prompt",
@@ -1043,7 +1042,11 @@ describe("authenticated app shell", () => {
     expect(
       screen.getByText("This revealed answer should survive the reload."),
     ).toBeInTheDocument();
-    expect(screen.getByText("Sticky card")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Sticky card: like reopening the same study card after a refresh.",
+      ),
+    ).toBeInTheDocument();
     expect(reloadedRecallContext.getSnapshot()).toMatchObject({
       isAnswerRevealed: true,
       notes: [{ title: "Reloaded recall prompt" }],
@@ -1243,16 +1246,15 @@ describe("authenticated app shell", () => {
     const note = notesContext.createNote(userId, {
       acronyms: [
         {
-          expansion: "Cue, routine, reward",
-          shortForm: "CRR",
+          description: "CRR means cue, routine, reward.",
         },
       ],
       body: "Habit loops reinforce repeated behavior through stable triggers.",
       labelIds: [],
       metaphors: [
         {
-          explanation: "A groove gets easier to follow each time it is used.",
-          title: "Behavior groove",
+          description:
+            "Behavior groove: a groove gets easier to follow each time it is used.",
         },
       ],
       title: "Habit loops",
@@ -1304,9 +1306,15 @@ describe("authenticated app shell", () => {
       ).length,
     ).toBeGreaterThan(0);
     expect(screen.getAllByText("Metaphors").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Behavior groove").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "Behavior groove: a groove gets easier to follow each time it is used.",
+      ).length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText("Acronyms").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("CRR").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("CRR means cue, routine, reward.").length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("Could not recall it.")).toBeInTheDocument();
     expect(screen.getByText("Some gaps remained.")).toBeInTheDocument();
     expect(screen.getByText("Recalled it clearly.")).toBeInTheDocument();
@@ -1324,8 +1332,14 @@ describe("authenticated app shell", () => {
         "Habit loops reinforce repeated behavior through stable triggers.",
       ),
     ).toBeInTheDocument();
-    expect(within(snapshot).getByText("Behavior groove")).toBeInTheDocument();
-    expect(within(snapshot).getByText("CRR")).toBeInTheDocument();
+    expect(
+      within(snapshot).getByText(
+        "Behavior groove: a groove gets easier to follow each time it is used.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(snapshot).getByText("CRR means cue, routine, reward."),
+    ).toBeInTheDocument();
     expect(recallContext.getSnapshot()?.questions[0]?.isAnswerRevealed).toBe(
       true,
     );
@@ -1950,13 +1964,12 @@ describe("authenticated app shell", () => {
       userId,
     });
     const promptedNote = notesContext.createNote(userId, {
-      acronyms: [{ expansion: "Long term potentiation", shortForm: "LTP" }],
+      acronyms: [{ description: "LTP means long term potentiation." }],
       body: "Original study snapshot",
       labelIds: [science.id],
       metaphors: [
         {
-          explanation: "Neurons that wire together stay together.",
-          title: "Wiring path",
+          description: "Wiring path: neurons that wire together stay together.",
         },
       ],
       title: "Original prompt",
@@ -2005,7 +2018,7 @@ describe("authenticated app shell", () => {
     });
 
     notesContext.updateNote(userId, promptedNote.id, {
-      acronyms: [{ expansion: "Live edited acronym", shortForm: "LEA" }],
+      acronyms: [{ description: "LEA means Live edited acronym." }],
       body: "Edited live note",
       labelIds: [science.id],
       metaphors: [],

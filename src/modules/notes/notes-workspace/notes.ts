@@ -1,11 +1,9 @@
 export type AppMetaphor = {
-  explanation: string;
-  title: string;
+  description: string;
 };
 
 export type AppAcronym = {
-  expansion: string;
-  shortForm: string;
+  description: string;
 };
 
 export type AppNote = {
@@ -113,9 +111,7 @@ function isStoredMetaphor(value: unknown): value is AppMetaphor {
 
   const record = value as Record<string, unknown>;
 
-  return (
-    typeof record.title === "string" && typeof record.explanation === "string"
-  );
+  return typeof record.description === "string";
 }
 
 function isStoredAcronym(value: unknown): value is AppAcronym {
@@ -125,9 +121,7 @@ function isStoredAcronym(value: unknown): value is AppAcronym {
 
   const record = value as Record<string, unknown>;
 
-  return (
-    typeof record.shortForm === "string" && typeof record.expansion === "string"
-  );
+  return typeof record.description === "string";
 }
 
 function parseStoredNotes(value: string | null): AppStoredNote[] {
@@ -230,48 +224,51 @@ function validateLabelIds(
   );
 }
 
+function validateHookCount(hooks: readonly unknown[], label: string) {
+  if (hooks.length <= 1) {
+    return;
+  }
+
+  throw new AppNotesError(
+    "invalid_input",
+    `Only one ${label.toLowerCase()} can be saved per note.`,
+  );
+}
+
 function validateMetaphors(metaphors: AppMetaphor[]): AppMetaphor[] {
+  validateHookCount(metaphors, "Metaphor");
+
   return metaphors.map((metaphor) => {
-    const title = metaphor.title.trim();
-    const explanation = metaphor.explanation.trim();
+    const description = metaphor.description.trim();
 
-    if (title.length === 0) {
-      throw new AppNotesError("invalid_input", "Metaphor title is required.");
-    }
-
-    if (explanation.length === 0) {
+    if (description.length === 0) {
       throw new AppNotesError(
         "invalid_input",
-        "Metaphor explanation is required.",
+        "Metaphor description is required.",
       );
     }
 
     return {
-      explanation,
-      title,
+      description,
     };
   });
 }
 
 function validateAcronyms(acronyms: AppAcronym[]): AppAcronym[] {
+  validateHookCount(acronyms, "Acronym");
+
   return acronyms.map((acronym) => {
-    const shortForm = acronym.shortForm.trim();
-    const expansion = acronym.expansion.trim();
+    const description = acronym.description.trim();
 
-    if (shortForm.length === 0) {
-      throw new AppNotesError("invalid_input", "Acronym is required.");
-    }
-
-    if (expansion.length === 0) {
+    if (description.length === 0) {
       throw new AppNotesError(
         "invalid_input",
-        "Acronym expansion is required.",
+        "Acronym description is required.",
       );
     }
 
     return {
-      expansion,
-      shortForm,
+      description,
     };
   });
 }

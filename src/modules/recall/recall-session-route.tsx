@@ -524,9 +524,8 @@ function RecallNoteDetails({ note }: { note: FlashCardRecallNote }) {
           <h3>Metaphors</h3>
           <ul>
             {note.metaphors.map((metaphor) => (
-              <li key={`${metaphor.title}-${metaphor.explanation}`}>
-                <strong>{metaphor.title}</strong>
-                <p>{metaphor.explanation}</p>
+              <li key={metaphor.description}>
+                <p>{metaphor.description}</p>
               </li>
             ))}
           </ul>
@@ -537,9 +536,8 @@ function RecallNoteDetails({ note }: { note: FlashCardRecallNote }) {
           <h3>Acronyms</h3>
           <ul>
             {note.acronyms.map((acronym) => (
-              <li key={`${acronym.shortForm}-${acronym.expansion}`}>
-                <strong>{acronym.shortForm}</strong>
-                <p>{acronym.expansion}</p>
+              <li key={acronym.description}>
+                <p>{acronym.description}</p>
               </li>
             ))}
           </ul>

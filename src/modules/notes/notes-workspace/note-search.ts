@@ -5,10 +5,8 @@ export type AppNoteSearchMatchChip = "Title" | "Body" | "Metaphor" | "Acronym";
 export type AppNoteSearchTargetField =
   | "title"
   | "body"
-  | "metaphorTitle"
-  | "metaphorExplanation"
-  | "acronymShortForm"
-  | "acronymExpansion";
+  | "metaphorDescription"
+  | "acronymDescription";
 
 export type AppNoteSearchTarget = {
   field: AppNoteSearchTargetField;
@@ -83,68 +81,36 @@ function getNoteSearchEvaluation(
   }
 
   for (const [index, metaphor] of note.metaphors.entries()) {
-    const titleMatch = findNormalizedQueryMatch(
-      metaphor.title,
+    const descriptionMatch = findNormalizedQueryMatch(
+      metaphor.description,
       normalizedQuery,
     );
 
-    if (titleMatch !== null) {
+    if (descriptionMatch !== null) {
       return {
         matchChip: "Metaphor",
         target: {
-          field: "metaphorTitle",
+          field: "metaphorDescription",
           index,
-          match: titleMatch,
-        },
-      };
-    }
-
-    const explanationMatch = findNormalizedQueryMatch(
-      metaphor.explanation,
-      normalizedQuery,
-    );
-
-    if (explanationMatch !== null) {
-      return {
-        matchChip: "Metaphor",
-        target: {
-          field: "metaphorExplanation",
-          index,
-          match: explanationMatch,
+          match: descriptionMatch,
         },
       };
     }
   }
 
   for (const [index, acronym] of note.acronyms.entries()) {
-    const shortFormMatch = findNormalizedQueryMatch(
-      acronym.shortForm,
+    const descriptionMatch = findNormalizedQueryMatch(
+      acronym.description,
       normalizedQuery,
     );
 
-    if (shortFormMatch !== null) {
+    if (descriptionMatch !== null) {
       return {
         matchChip: "Acronym",
         target: {
-          field: "acronymShortForm",
+          field: "acronymDescription",
           index,
-          match: shortFormMatch,
-        },
-      };
-    }
-
-    const expansionMatch = findNormalizedQueryMatch(
-      acronym.expansion,
-      normalizedQuery,
-    );
-
-    if (expansionMatch !== null) {
-      return {
-        matchChip: "Acronym",
-        target: {
-          field: "acronymExpansion",
-          index,
-          match: expansionMatch,
+          match: descriptionMatch,
         },
       };
     }
@@ -196,29 +162,23 @@ export function formatNoteSearchResultPreview(
       return null;
     case "body":
       return createTextMatchPreview(result.note.body, result.target.match);
-    case "metaphorTitle":
-    case "metaphorExplanation": {
+    case "metaphorDescription": {
       const metaphor = result.note.metaphors[result.target.index ?? -1];
 
       if (metaphor === undefined) {
         return null;
       }
 
-      return trimPreviewWhitespace(
-        `${metaphor.title} ${metaphor.explanation}`.trim(),
-      );
+      return trimPreviewWhitespace(metaphor.description);
     }
-    case "acronymShortForm":
-    case "acronymExpansion": {
+    case "acronymDescription": {
       const acronym = result.note.acronyms[result.target.index ?? -1];
 
       if (acronym === undefined) {
         return null;
       }
 
-      return trimPreviewWhitespace(
-        `${acronym.shortForm} ${acronym.expansion}`.trim(),
-      );
+      return trimPreviewWhitespace(acronym.description);
     }
   }
 }

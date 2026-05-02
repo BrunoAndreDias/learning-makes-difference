@@ -323,26 +323,26 @@ describe("authenticated app shell", () => {
       },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add metaphor" }));
-    fireEvent.change(screen.getByLabelText("Metaphor title"), {
-      target: { value: "Domino line" },
-    });
-    fireEvent.change(screen.getByLabelText("Metaphor explanation"), {
+    fireEvent.change(screen.getByLabelText("Metaphor description"), {
       target: {
         value:
-          "Crossing threshold is like tipping the first domino so the whole chain commits.",
+          "Domino line: crossing threshold is like tipping the first domino so the whole chain commits.",
       },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add acronym" }));
-    fireEvent.change(screen.getByLabelText("Acronym"), {
-      target: { value: "LTP" },
-    });
-    fireEvent.change(screen.getByLabelText("Acronym expansion"), {
-      target: { value: "Long-Term Potentiation" },
+    fireEvent.change(screen.getByLabelText("Acronym description"), {
+      target: { value: "LTP means Long-Term Potentiation." },
     });
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
 
-    expect(await screen.findByDisplayValue("Domino line")).toBeInTheDocument();
-    expect(await screen.findByDisplayValue("LTP")).toBeInTheDocument();
+    expect(
+      await screen.findByDisplayValue(
+        "Domino line: crossing threshold is like tipping the first domino so the whole chain commits.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByDisplayValue("LTP means Long-Term Potentiation."),
+    ).toBeInTheDocument();
 
     openAccountMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Log out" }));
@@ -380,9 +380,13 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "Notes workspace" }),
     ).toBeInTheDocument();
     expect(screen.getByDisplayValue("Action potentials")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Domino line")).toBeInTheDocument();
     expect(
-      screen.getByDisplayValue("Long-Term Potentiation"),
+      screen.getByDisplayValue(
+        "Domino line: crossing threshold is like tipping the first domino so the whole chain commits.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("LTP means Long-Term Potentiation."),
     ).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole("combobox", { name: "Search notes" }), {

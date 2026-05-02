@@ -221,21 +221,24 @@ describe("app notes context", () => {
     });
   });
 
-  it("stores note-owned metaphors and keeps their lifecycle scoped to the owning account", () => {
+  it("stores single-entry memory hooks and replaces them on update", () => {
     const notes = createAppNotesContext({
-      keyPrefix: "notes-test-metaphors",
+      keyPrefix: "notes-test-memory-hooks",
       storage: createMemoryStorage(),
     });
 
     const createdNote = notes.createNote("user-casey", {
-      acronyms: [],
+      acronyms: [
+        {
+          description: "FIFO means the first queued item is removed first.",
+        },
+      ],
       body: "Mitochondria produce ATP for the cell.",
       labelIds: [],
       metaphors: [
         {
-          explanation:
+          description:
             "It works like a power plant that converts fuel into usable energy.",
-          title: "Cell power plant",
         },
       ],
       title: "Mitochondria",
@@ -243,26 +246,28 @@ describe("app notes context", () => {
 
     expect(createdNote.metaphors).toEqual([
       {
-        explanation:
+        description:
           "It works like a power plant that converts fuel into usable energy.",
-        title: "Cell power plant",
+      },
+    ]);
+    expect(createdNote.acronyms).toEqual([
+      {
+        description: "FIFO means the first queued item is removed first.",
       },
     ]);
 
     const updatedNote = notes.updateNote("user-casey", createdNote.id, {
-      acronyms: [],
+      acronyms: [
+        {
+          description: "LIFO means the last stacked item is removed first.",
+        },
+      ],
       body: "Mitochondria produce ATP for the cell.",
       labelIds: [],
       metaphors: [
         {
-          explanation:
+          description:
             "It behaves like a rechargeable battery that stores usable energy.",
-          title: "Cell battery",
-        },
-        {
-          explanation:
-            "It also resembles a power plant that processes incoming fuel.",
-          title: "Cell power plant",
         },
       ],
       title: "Mitochondria",
@@ -270,36 +275,13 @@ describe("app notes context", () => {
 
     expect(updatedNote.metaphors).toEqual([
       {
-        explanation:
+        description:
           "It behaves like a rechargeable battery that stores usable energy.",
-        title: "Cell battery",
-      },
-      {
-        explanation:
-          "It also resembles a power plant that processes incoming fuel.",
-        title: "Cell power plant",
       },
     ]);
-
-    const withoutWeakMetaphor = notes.updateNote("user-casey", createdNote.id, {
-      acronyms: [],
-      body: "Mitochondria produce ATP for the cell.",
-      labelIds: [],
-      metaphors: [
-        {
-          explanation:
-            "It behaves like a rechargeable battery that stores usable energy.",
-          title: "Cell battery",
-        },
-      ],
-      title: "Mitochondria",
-    });
-
-    expect(withoutWeakMetaphor.metaphors).toEqual([
+    expect(updatedNote.acronyms).toEqual([
       {
-        explanation:
-          "It behaves like a rechargeable battery that stores usable energy.",
-        title: "Cell battery",
+        description: "LIFO means the last stacked item is removed first.",
       },
     ]);
 
@@ -310,95 +292,6 @@ describe("app notes context", () => {
         labelIds: [],
         metaphors: [],
         title: "Mitochondria",
-      }),
-    ).toThrowError(
-      expect.objectContaining({
-        code: "not_found",
-      } satisfies Pick<AppNotesError, "code">),
-    );
-  });
-
-  it("stores note-owned acronyms and keeps their lifecycle scoped to the owning account", () => {
-    const notes = createAppNotesContext({
-      keyPrefix: "notes-test-acronyms",
-      storage: createMemoryStorage(),
-    });
-
-    const createdNote = notes.createNote("user-casey", {
-      acronyms: [
-        {
-          expansion: "First In, First Out",
-          shortForm: "FIFO",
-        },
-      ],
-      body: "Queue ordering returns items in insertion order.",
-      labelIds: [],
-      metaphors: [],
-      title: "Queue",
-    });
-
-    expect(createdNote.acronyms).toEqual([
-      {
-        expansion: "First In, First Out",
-        shortForm: "FIFO",
-      },
-    ]);
-
-    const updatedNote = notes.updateNote("user-casey", createdNote.id, {
-      acronyms: [
-        {
-          expansion: "First In, First Out",
-          shortForm: "FIFO",
-        },
-        {
-          expansion: "Last In, First Out",
-          shortForm: "LIFO",
-        },
-      ],
-      body: "Stacks reverse retrieval order.",
-      labelIds: [],
-      metaphors: [],
-      title: "Queue and stack order",
-    });
-
-    expect(updatedNote.acronyms).toEqual([
-      {
-        expansion: "First In, First Out",
-        shortForm: "FIFO",
-      },
-      {
-        expansion: "Last In, First Out",
-        shortForm: "LIFO",
-      },
-    ]);
-
-    const withoutWeakAcronym = notes.updateNote("user-casey", createdNote.id, {
-      acronyms: [
-        {
-          expansion: "Last In, First Out",
-          shortForm: "LIFO",
-        },
-      ],
-      body: "Stacks reverse retrieval order.",
-      labelIds: [],
-      metaphors: [],
-      title: "Queue and stack order",
-    });
-
-    expect(withoutWeakAcronym.acronyms).toEqual([
-      {
-        expansion: "Last In, First Out",
-        shortForm: "LIFO",
-      },
-    ]);
-
-    expect(() =>
-      notes.updateNote("user-jordan", createdNote.id, {
-        acronyms: [],
-        body: "Cross-account edits must fail.",
-        labelIds: [],
-        metaphors: [],
-        title: "Queue",
       }),
     ).toThrowError(
       expect.objectContaining({
@@ -418,17 +311,15 @@ describe("app notes context", () => {
     const createdNote = initialNotes.createNote("user-casey", {
       acronyms: [
         {
-          expansion: "Long-Term Potentiation",
-          shortForm: "LTP",
+          description: "LTP stands for Long-Term Potentiation.",
         },
       ],
       body: "Repeated activation strengthens the same path.",
       labelIds: [],
       metaphors: [
         {
-          explanation:
-            "It is like cutting a groove into a trail so the next pass follows it more easily.",
-          title: "Forest trail",
+          description:
+            "Forest trail: it is like cutting a groove into a trail so the next pass follows it more easily.",
         },
       ],
       title: "Synaptic plasticity",

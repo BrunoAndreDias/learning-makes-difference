@@ -27,17 +27,15 @@ describe("notes search results", () => {
     notes.createNote("user-casey", {
       acronyms: [
         {
-          expansion: "Long-Term Potentiation",
-          shortForm: "LTP",
+          description: "LTP stands for Long-Term Potentiation.",
         },
       ],
       body: "Stronger synapses become easier to activate after repeated use.",
       labelIds: [],
       metaphors: [
         {
-          explanation:
-            "It is like carving a groove into a trail so the next walk follows it more easily.",
-          title: "Forest trail",
+          description:
+            "Forest trail: it is like carving a groove into a trail so the next walk follows it more easily.",
         },
       ],
       title: "Synaptic plasticity",
@@ -52,8 +50,7 @@ describe("notes search results", () => {
     notes.createNote("user-jordan", {
       acronyms: [
         {
-          expansion: "Long-Term Potentiation",
-          shortForm: "LTP",
+          description: "LTP stands for Long-Term Potentiation.",
         },
       ],
       body: "Another account should stay invisible to Casey's search.",
@@ -115,8 +112,7 @@ describe("notes search results", () => {
       {
         acronyms: [
           {
-            expansion: "Shared Cue",
-            shortForm: "SC",
+            description: "SC means Shared Cue.",
           },
         ],
         body: "Mnemonic content only.",
@@ -135,8 +131,7 @@ describe("notes search results", () => {
         labelIds: [],
         metaphors: [
           {
-            explanation: "A shared cue acts like a lighthouse.",
-            title: "Lighthouse",
+            description: "Lighthouse: a shared cue acts like a lighthouse.",
           },
         ],
         title: "Metaphor note",
@@ -150,8 +145,8 @@ describe("notes search results", () => {
         labelIds: [],
         metaphors: [
           {
-            explanation: "Shared cue also appears in an attached metaphor.",
-            title: "Duplicate match",
+            description:
+              "Duplicate match: Shared cue also appears in an attached metaphor.",
           },
         ],
         title: "Shared cue title",
@@ -173,8 +168,7 @@ describe("notes search results", () => {
       {
         acronyms: [
           {
-            expansion: "Another cue before Target Cue appears.",
-            shortForm: "TC",
+            description: "Another cue before Target Cue appears.",
           },
         ],
         body: "Body copy without the phrase.",
@@ -183,8 +177,8 @@ describe("notes search results", () => {
         labelIds: [],
         metaphors: [
           {
-            explanation: "Later Target Cue should not win.",
-            title: "First Target Cue field",
+            description:
+              "First Target Cue field. Later Target Cue should not win.",
           },
         ],
         title: "Target note",
@@ -196,7 +190,7 @@ describe("notes search results", () => {
       {
         matchChip: "Metaphor",
         target: {
-          field: "metaphorTitle",
+          field: "metaphorDescription",
           index: 0,
           match: {
             end: 16,

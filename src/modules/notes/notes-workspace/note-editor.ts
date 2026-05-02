@@ -64,8 +64,7 @@ export const emptyNoteEditorDraft: NoteEditorDraft = {
 function createMetaphorDraft(
   createEditorKey: EditorKeyFactory,
   metaphor: AppMetaphor = {
-    explanation: "",
-    title: "",
+    description: "",
   },
 ): NoteEditorMetaphorDraft {
   return {
@@ -77,8 +76,7 @@ function createMetaphorDraft(
 function createAcronymDraft(
   createEditorKey: EditorKeyFactory,
   acronym: AppAcronym = {
-    expansion: "",
-    shortForm: "",
+    description: "",
   },
 ): NoteEditorAcronymDraft {
   return {
@@ -152,20 +150,14 @@ export function haveSameNoteEditorDraft(
       left.metaphors,
       right.metaphors,
       (leftMetaphor, rightMetaphor) => {
-        return (
-          leftMetaphor.title === rightMetaphor.title &&
-          leftMetaphor.explanation === rightMetaphor.explanation
-        );
+        return leftMetaphor.description === rightMetaphor.description;
       },
     ) &&
     haveSameItems(
       left.acronyms,
       right.acronyms,
       (leftAcronym, rightAcronym) => {
-        return (
-          leftAcronym.shortForm === rightAcronym.shortForm &&
-          leftAcronym.expansion === rightAcronym.expansion
-        );
+        return leftAcronym.description === rightAcronym.description;
       },
     )
   );
@@ -403,8 +395,11 @@ export function addNoteEditorMetaphor(
   state: NoteEditorState,
   createEditorKey: EditorKeyFactory = defaultEditorKeyFactory,
 ): NoteEditorState {
+  if (state.draft.metaphors.length > 0) {
+    return state;
+  }
+
   return updateNoteEditorDraftField(state, "metaphors", [
-    ...state.draft.metaphors,
     createMetaphorDraft(createEditorKey),
   ]);
 }
@@ -446,8 +441,11 @@ export function addNoteEditorAcronym(
   state: NoteEditorState,
   createEditorKey: EditorKeyFactory = defaultEditorKeyFactory,
 ): NoteEditorState {
+  if (state.draft.acronyms.length > 0) {
+    return state;
+  }
+
   return updateNoteEditorDraftField(state, "acronyms", [
-    ...state.draft.acronyms,
     createAcronymDraft(createEditorKey),
   ]);
 }
@@ -490,14 +488,12 @@ export function getNoteEditorSaveInput(
 ): NoteEditorSaveInput {
   return {
     acronyms: state.draft.acronyms.map((acronym) => ({
-      expansion: acronym.expansion,
-      shortForm: acronym.shortForm,
+      description: acronym.description,
     })),
     body: state.draft.body,
     labelIds: [...state.draft.labelIds],
     metaphors: state.draft.metaphors.map((metaphor) => ({
-      explanation: metaphor.explanation,
-      title: metaphor.title,
+      description: metaphor.description,
     })),
     title: state.draft.title,
   };

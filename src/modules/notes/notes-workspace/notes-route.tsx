@@ -272,16 +272,26 @@ function LabelPickerPanel({
   );
 }
 
-function formatMetaphorCardTitle(metaphor: AppMetaphor, index: number): string {
-  const title = metaphor.title.trim();
+function formatHookCardTitle(
+  description: string,
+  label: string,
+  index: number,
+): string {
+  const trimmedDescription = description.trim();
 
-  return title.length > 0 ? title : `Untitled metaphor ${index + 1}`;
+  if (trimmedDescription.length === 0) {
+    return `Untitled ${label.toLowerCase()} ${index + 1}`;
+  }
+
+  return trimmedDescription.slice(0, 48);
+}
+
+function formatMetaphorCardTitle(metaphor: AppMetaphor, index: number): string {
+  return formatHookCardTitle(metaphor.description, "Metaphor", index);
 }
 
 function formatAcronymCardTitle(acronym: AppAcronym, index: number): string {
-  const shortForm = acronym.shortForm.trim();
-
-  return shortForm.length > 0 ? shortForm : `Untitled acronym ${index + 1}`;
+  return formatHookCardTitle(acronym.description, "Acronym", index);
 }
 
 function isMetaphorDraftChanged(noteEditor: NoteEditorState, index: number) {
@@ -294,8 +304,7 @@ function isMetaphorDraftChanged(noteEditor: NoteEditorState, index: number) {
 
   return (
     baselineMetaphor === undefined ||
-    currentMetaphor.title !== baselineMetaphor.title ||
-    currentMetaphor.explanation !== baselineMetaphor.explanation
+    currentMetaphor.description !== baselineMetaphor.description
   );
 }
 
@@ -309,8 +318,7 @@ function isAcronymDraftChanged(noteEditor: NoteEditorState, index: number) {
 
   return (
     baselineAcronym === undefined ||
-    currentAcronym.shortForm !== baselineAcronym.shortForm ||
-    currentAcronym.expansion !== baselineAcronym.expansion
+    currentAcronym.description !== baselineAcronym.description
   );
 }
 
@@ -408,10 +416,8 @@ function NotesWorkspace() {
   const labelPickerSearchInputId = useId();
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const metaphorTitleRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const metaphorExplanationRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
-  const acronymShortFormRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const acronymExpansionRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
+  const metaphorDescriptionRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
+  const acronymDescriptionRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
   const bodyResizeAnimationFrameRef = useRef<number | null>(null);
   const searchSelectionTimeoutRef = useRef<ReturnType<
     typeof setTimeout
@@ -628,11 +634,9 @@ function NotesWorkspace() {
 
     const targetElement = resolveNotesSearchTargetElement(
       {
-        acronymExpansions: acronymExpansionRefs.current,
-        acronymShortForms: acronymShortFormRefs.current,
+        acronymDescriptions: acronymDescriptionRefs.current,
         body: bodyTextareaRef.current,
-        metaphorExplanations: metaphorExplanationRefs.current,
-        metaphorTitles: metaphorTitleRefs.current,
+        metaphorDescriptions: metaphorDescriptionRefs.current,
         title: titleInputRef.current,
       },
       pendingSearchJump,
@@ -1707,43 +1711,23 @@ function NotesWorkspace() {
                           >
                             <legend>{`Metaphor ${index + 1}`}</legend>
                             <label className="notes-form__field">
-                              <span>Metaphor title</span>
-                              <input
-                                aria-label="Metaphor title"
-                                ref={(element) => {
-                                  metaphorTitleRefs.current[index] = element;
-                                }}
-                                onChange={(event) =>
-                                  handleMetaphorChange(
-                                    index,
-                                    "title",
-                                    event.target.value,
-                                  )
-                                }
-                                placeholder="Battery, bridge, map..."
-                                type="text"
-                                value={metaphor.title}
-                              />
-                            </label>
-
-                            <label className="notes-form__field">
-                              <span>Metaphor explanation</span>
+                              <span>Metaphor description</span>
                               <textarea
-                                aria-label="Metaphor explanation"
+                                aria-label="Metaphor description"
                                 ref={(element) => {
-                                  metaphorExplanationRefs.current[index] =
+                                  metaphorDescriptionRefs.current[index] =
                                     element;
                                 }}
                                 onChange={(event) =>
                                   handleMetaphorChange(
                                     index,
-                                    "explanation",
+                                    "description",
                                     event.target.value,
                                   )
                                 }
-                                placeholder="Explain how the metaphor maps to the concept"
+                                placeholder="Describe the metaphor that helps you remember this note"
                                 rows={4}
-                                value={metaphor.explanation}
+                                value={metaphor.description}
                               />
                             </label>
 
@@ -1784,42 +1768,23 @@ function NotesWorkspace() {
                           >
                             <legend>{`Acronym ${index + 1}`}</legend>
                             <label className="notes-form__field">
-                              <span>Acronym</span>
-                              <input
-                                aria-label="Acronym"
-                                ref={(element) => {
-                                  acronymShortFormRefs.current[index] = element;
-                                }}
-                                onChange={(event) =>
-                                  handleAcronymChange(
-                                    index,
-                                    "shortForm",
-                                    event.target.value,
-                                  )
-                                }
-                                placeholder="PEMDAS, FIFO, SMART..."
-                                type="text"
-                                value={acronym.shortForm}
-                              />
-                            </label>
-
-                            <label className="notes-form__field">
-                              <span>What it stands for</span>
+                              <span>Acronym description</span>
                               <textarea
-                                aria-label="Acronym expansion"
+                                aria-label="Acronym description"
                                 ref={(element) => {
-                                  acronymExpansionRefs.current[index] = element;
+                                  acronymDescriptionRefs.current[index] =
+                                    element;
                                 }}
                                 onChange={(event) =>
                                   handleAcronymChange(
                                     index,
-                                    "expansion",
+                                    "description",
                                     event.target.value,
                                   )
                                 }
-                                placeholder="Preserve what each letter stands for"
+                                placeholder="Write the acronym or cue that helps you recall this note"
                                 rows={4}
-                                value={acronym.expansion}
+                                value={acronym.description}
                               />
                             </label>
 

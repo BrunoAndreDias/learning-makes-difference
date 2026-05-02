@@ -49,8 +49,8 @@ describe("recall session search", () => {
             labelIds: [],
             metaphors: [
               {
-                explanation: "A forest trail gets easier to follow after use.",
-                title: "Forest trail",
+                description:
+                  "Forest trail: a forest trail gets easier to follow after use.",
               },
             ],
             title: "Synaptic plasticity",
@@ -173,7 +173,7 @@ describe("recall session search", () => {
         id: "acronym-newer",
         notes: [
           {
-            acronyms: [{ expansion: "Shared Cue", shortForm: "SC" }],
+            acronyms: [{ description: "SC means Shared Cue." }],
             body: "Only acronym match.",
             createdAt: "2026-04-30T09:00:00.000Z",
             id: "acronym-note",

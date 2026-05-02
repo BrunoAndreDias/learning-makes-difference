@@ -1120,25 +1120,25 @@ describe("recall session setup", () => {
     });
     const userId = "owner";
     const attemptedNote = notes.createNote(userId, {
-      acronyms: [{ expansion: "Original Expansion", shortForm: "OE" }],
+      acronyms: [{ description: "OE means Original Expansion." }],
       body: "Original attempted answer",
       labelIds: [],
       metaphors: [
         {
-          explanation: "Original attempted metaphor explanation",
-          title: "Original attempted metaphor",
+          description:
+            "Original attempted metaphor: Original attempted metaphor explanation",
         },
       ],
       title: "Original attempted question",
     });
     const unattemptedNote = notes.createNote(userId, {
-      acronyms: [{ expansion: "Original Second Expansion", shortForm: "OSE" }],
+      acronyms: [{ description: "OSE means Original Second Expansion." }],
       body: "Original unattempted answer",
       labelIds: [],
       metaphors: [
         {
-          explanation: "Original unattempted metaphor explanation",
-          title: "Original unattempted metaphor",
+          description:
+            "Original unattempted metaphor: Original unattempted metaphor explanation",
         },
       ],
       title: "Original unattempted question",
@@ -1158,25 +1158,25 @@ describe("recall session setup", () => {
     recall.endFlashCardSession({ sessionId: session.id, userId });
 
     notes.updateNote(userId, attemptedNote.id, {
-      acronyms: [{ expansion: "Updated Expansion", shortForm: "UE" }],
+      acronyms: [{ description: "UE means Updated Expansion." }],
       body: "Updated attempted answer",
       labelIds: [],
       metaphors: [
         {
-          explanation: "Updated attempted metaphor explanation",
-          title: "Updated attempted metaphor",
+          description:
+            "Updated attempted metaphor: Updated attempted metaphor explanation",
         },
       ],
       title: "Updated attempted question",
     });
     notes.updateNote(userId, unattemptedNote.id, {
-      acronyms: [{ expansion: "Updated Second Expansion", shortForm: "USE" }],
+      acronyms: [{ description: "USE means Updated Second Expansion." }],
       body: "Updated unattempted answer",
       labelIds: [],
       metaphors: [
         {
-          explanation: "Updated unattempted metaphor explanation",
-          title: "Updated unattempted metaphor",
+          description:
+            "Updated unattempted metaphor: Updated unattempted metaphor explanation",
         },
       ],
       title: "Updated unattempted question",
@@ -1184,8 +1184,8 @@ describe("recall session setup", () => {
 
     const listedResult = recall.listSessionResults({ userId })[0];
     listedResult.notes[0].title = "Mutated read result";
-    listedResult.notes[0].metaphors[0].title = "Mutated read metaphor";
-    listedResult.notes[0].acronyms[0].shortForm = "MR";
+    listedResult.notes[0].metaphors[0].description = "Mutated read metaphor";
+    listedResult.notes[0].acronyms[0].description = "MR means Mutated read";
 
     expect(
       recall.getSessionResult({
@@ -1196,27 +1196,25 @@ describe("recall session setup", () => {
       attempts: [{ noteId: attemptedNote.id, rating: "partial" }],
       notes: [
         {
-          acronyms: [{ expansion: "Original Expansion", shortForm: "OE" }],
+          acronyms: [{ description: "OE means Original Expansion." }],
           body: "Original attempted answer",
           id: attemptedNote.id,
           metaphors: [
             {
-              explanation: "Original attempted metaphor explanation",
-              title: "Original attempted metaphor",
+              description:
+                "Original attempted metaphor: Original attempted metaphor explanation",
             },
           ],
           title: "Original attempted question",
         },
         {
-          acronyms: [
-            { expansion: "Original Second Expansion", shortForm: "OSE" },
-          ],
+          acronyms: [{ description: "OSE means Original Second Expansion." }],
           body: "Original unattempted answer",
           id: unattemptedNote.id,
           metaphors: [
             {
-              explanation: "Original unattempted metaphor explanation",
-              title: "Original unattempted metaphor",
+              description:
+                "Original unattempted metaphor: Original unattempted metaphor explanation",
             },
           ],
           title: "Original unattempted question",

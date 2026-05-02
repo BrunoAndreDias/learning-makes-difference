@@ -35,9 +35,9 @@ function buildHistory(
 describe("learning state", () => {
   it("marks unpracticed notes and counts hooks", () => {
     const note = buildNote({
-      acronyms: [{ expansion: "First in, first out", shortForm: "FIFO" }],
+      acronyms: [{ description: "FIFO means first in, first out." }],
       id: "note-unpracticed",
-      metaphors: [{ explanation: "Packets line up", title: "Queue" }],
+      metaphors: [{ description: "Queue: packets line up." }],
     });
 
     expect(deriveLearningState({ history: null, note })).toMatchObject({
