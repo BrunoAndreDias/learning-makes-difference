@@ -21,23 +21,23 @@ import {
   createAppSessionContext,
 } from "../../modules/access/session/session";
 import {
+  type AppFocusContext,
+  createAppFocusContext,
+} from "../../modules/focus";
+import {
   type AppLabelsContext,
   createAppLabelsContext,
 } from "../../modules/labels/label-management/labels";
 import {
-  type AppFocusContext,
-  createAppFocusContext,
-} from "../../modules/learning-loop/focus/focus";
-import {
   type AppNotesContext,
   createAppNotesContext,
   listNotesForUser,
-} from "../../modules/learning-loop/notes-workspace/notes";
+} from "../../modules/notes";
 import {
   type AppRecallContext,
   createAppRecallContext,
   type FlashCardRecallRating,
-} from "../../modules/learning-loop/recall/recall";
+} from "../../modules/recall";
 import { routeTree } from "../../routeTree.gen";
 
 export function renderRoute(

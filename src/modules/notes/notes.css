@@ -1,0 +1,7 @@
+@import "./notes-workspace/notes-foundation.css";
+@import "./notes-workspace/notes-form-foundation.css";
+@import "./notes-workspace/notes-toolbar.css";
+@import "./notes-workspace/notes-search.css";
+@import "./notes-workspace/notes-unsaved-search-dialog.css";
+@import "./notes-workspace/notes-editor-route.css";
+@import "./notes-workspace/notes-responsive.css";

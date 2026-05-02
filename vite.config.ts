@@ -67,31 +67,31 @@ export default defineConfig({
                 {
                   type: "route",
                   path: "/notes",
-                  file: "modules/learning-loop/notes-workspace/notes-route.tsx",
+                  file: "modules/notes/notes-workspace/notes-route.tsx",
                 },
                 {
                   type: "route",
                   path: "/focus",
-                  file: "modules/learning-loop/focus/focus-route.tsx",
+                  file: "modules/focus/focus-route.tsx",
                 },
                 {
                   type: "route",
                   path: "/recall",
-                  file: "modules/learning-loop/recall/recall-route.tsx",
+                  file: "modules/recall/recall-route.tsx",
                   children: [
                     {
                       type: "index",
-                      file: "modules/learning-loop/recall/recall-results-workspace-route.tsx",
+                      file: "modules/recall/recall-results-workspace-route.tsx",
                     },
                     {
                       type: "route",
                       path: "/select",
-                      file: "modules/learning-loop/recall/recall-selection-route.tsx",
+                      file: "modules/recall/recall-selection-route.tsx",
                     },
                     {
                       type: "route",
                       path: "/session",
-                      file: "modules/learning-loop/recall/recall-session-route.tsx",
+                      file: "modules/recall/recall-session-route.tsx",
                     },
                   ],
                 },

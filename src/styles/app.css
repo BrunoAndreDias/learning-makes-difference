@@ -1,6 +1,10 @@
 @import "../design-system/global.css";
+@import "../design-system/shared-actions.css";
 @import "../modules/workspace-shell/workspace-shell.css";
-@import "../modules/learning-loop/learning-loop.css";
+@import "../modules/workspace-shell/app-shell/workspace-sidebar.css";
+@import "../modules/notes/notes.css";
+@import "../modules/recall/recall.css";
+@import "../modules/focus/focus.css";
 @import "../modules/labels/labels.css";
 @import "../modules/access/access.css";
 

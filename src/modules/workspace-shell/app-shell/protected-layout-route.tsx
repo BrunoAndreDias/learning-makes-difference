@@ -18,14 +18,13 @@ import {
 
 import appLogo from "../../../../docs/layout/logo.svg";
 import type { AppSessionSnapshot } from "../../access/session/session";
+import { FocusSessionStartControl } from "../../focus";
+import { NotesWorkspaceProvider, NotesWorkspaceSidebar } from "../../notes";
 import {
-  FocusSessionStartControl,
-  LearningLoopWorkspaceProvider,
-  NotesWorkspaceSidebar,
+  getRecallWorkspaceSection,
+  RecallResultsSearch,
   RecallResultsSidebar,
-} from "../../learning-loop";
-import { RecallResultsSearch } from "../../learning-loop/recall/recall-results-search";
-import { getRecallWorkspaceSection } from "../../learning-loop/recall/recall-workspace";
+} from "../../recall";
 
 type NavigationIconName = "focus" | "label" | "note" | "recall" | "settings";
 
@@ -194,7 +193,7 @@ export function AppLayout() {
   }, [isMobileSidebarOpen]);
 
   return (
-    <LearningLoopWorkspaceProvider>
+    <NotesWorkspaceProvider>
       <section
         className="authenticated-shell"
         data-sidebar-state={sidebarState}
@@ -289,7 +288,7 @@ export function AppLayout() {
           </div>
         </div>
       </section>
-    </LearningLoopWorkspaceProvider>
+    </NotesWorkspaceProvider>
   );
 }
 

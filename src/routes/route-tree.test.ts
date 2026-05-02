@@ -13,17 +13,13 @@ describe("route tree", () => {
     );
     expect(generatedRouteTree).toContain("modules/access/session/login-route");
     expect(generatedRouteTree).toContain(
-      "modules/learning-loop/notes-workspace/notes-route",
+      "modules/notes/notes-workspace/notes-route",
     );
     expect(generatedRouteTree).toContain(
       "modules/labels/label-management/labels-route",
     );
-    expect(generatedRouteTree).toContain(
-      "modules/learning-loop/recall/recall-route",
-    );
-    expect(generatedRouteTree).toContain(
-      "modules/learning-loop/focus/focus-route",
-    );
+    expect(generatedRouteTree).toContain("modules/recall/recall-route");
+    expect(generatedRouteTree).toContain("modules/focus/focus-route");
     expect(generatedRouteTree).toContain(
       "modules/access/session/settings-route",
     );
@@ -35,25 +31,25 @@ describe("route tree", () => {
       "'/login': typeof modulesAccessSessionLoginRouteRoute",
     );
     expect(generatedRouteTree).toContain(
-      "'/notes': typeof modulesLearningLoopNotesWorkspaceNotesRouteRoute",
+      "'/notes': typeof modulesNotesNotesWorkspaceNotesRouteRoute",
     );
     expect(generatedRouteTree).toContain(
       "'/labels': typeof modulesLabelsLabelManagementLabelsRouteRoute",
     );
     expect(generatedRouteTree).toContain(
-      "'/recall': typeof modulesLearningLoopRecallRecallRouteRouteWithChildren",
+      "'/recall': typeof modulesRecallRecallRouteRouteWithChildren",
     );
     expect(generatedRouteTree).toContain(
-      "'/focus': typeof modulesLearningLoopFocusFocusRouteRoute",
+      "'/focus': typeof modulesFocusFocusRouteRoute",
     );
     expect(generatedRouteTree).not.toContain(
       "'/recall/results': typeof ProtectedRecallResultsRoute",
     );
     expect(generatedRouteTree).toContain(
-      "'/recall/select': typeof modulesLearningLoopRecallRecallSelectionRouteRoute",
+      "'/recall/select': typeof modulesRecallRecallSelectionRouteRoute",
     );
     expect(generatedRouteTree).toContain(
-      "'/recall/session': typeof modulesLearningLoopRecallRecallSessionRouteRoute",
+      "'/recall/session': typeof modulesRecallRecallSessionRouteRoute",
     );
     expect(generatedRouteTree).not.toContain(
       "'/history': typeof ProtectedHistoryRoute",
