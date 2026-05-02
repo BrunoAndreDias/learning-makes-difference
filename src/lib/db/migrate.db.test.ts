@@ -35,6 +35,9 @@ describe("migrateDatabase PostgreSQL integration", () => {
       {
         name: "0002_labels_and_note_label_assignments.sql",
       },
+      {
+        name: "0003_recall_sessions_and_results.sql",
+      },
     ]);
 
     const tables = await database.client.unsafe<Array<{ table_name: string }>>(`
@@ -50,6 +53,8 @@ describe("migrateDatabase PostgreSQL integration", () => {
           'note_labels',
           'note_metaphors',
           'notes',
+          'recall_sessions',
+          'session_results',
           'users'
         )
       order by table_name;
@@ -64,6 +69,8 @@ describe("migrateDatabase PostgreSQL integration", () => {
       "note_labels",
       "note_metaphors",
       "notes",
+      "recall_sessions",
+      "session_results",
       "users",
     ]);
   });

@@ -1,4 +1,9 @@
 export type {
+  AppPersistentRecallContext,
+  AppPersistentRecallService,
+} from "./persistent-recall";
+export { createPersistentRecallContext } from "./persistent-recall";
+export type {
   AppRecallContext,
   AppRecallSnapshot,
   FlashCardRecallAttempt,

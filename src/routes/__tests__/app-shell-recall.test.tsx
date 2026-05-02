@@ -8,6 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { createPersistentRecallContext } from "../../modules/recall";
 import {
   type AppSessionSnapshot,
   completeRecallSessionAt,
@@ -31,6 +32,93 @@ import {
 } from "./app-shell-test-support";
 
 describe("authenticated app shell", () => {
+  it("restores an active recall session from the persistent recall service on route entry", async () => {
+    const persistentRecallContext = createPersistentRecallContext({
+      service: {
+        endRecallSession: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        getActiveSession: vi.fn(async () => ({
+          attempts: [],
+          createdAt: "2026-05-02T12:00:00.000Z",
+          currentIndex: 0,
+          currentQuestionIndex: 0,
+          draftAnswer: "",
+          id: "session-restored",
+          isAnswerRevealed: false,
+          mode: "FlashCard" as const,
+          notes: [
+            {
+              acronyms: [],
+              body: "Stored answer body.",
+              createdAt: "2026-05-02T11:00:00.000Z",
+              id: "note-restored",
+              labelIds: [],
+              metaphors: [],
+              title: "Stored prompt title",
+              updatedAt: "2026-05-02T11:00:00.000Z",
+            },
+          ],
+          questions: [
+            {
+              isAnswerRevealed: false,
+              noteId: "note-restored",
+              noteSnapshot: {
+                acronyms: [],
+                body: "Stored answer body.",
+                createdAt: "2026-05-02T11:00:00.000Z",
+                id: "note-restored",
+                labelIds: [],
+                metaphors: [],
+                title: "Stored prompt title",
+                updatedAt: "2026-05-02T11:00:00.000Z",
+              },
+              selfRating: null,
+              typedAnswer: "",
+            },
+          ],
+        })),
+        listSessionResults: vi.fn(async () => []),
+        rateFlashCardAnswer: vi.fn(async () => null),
+        revealFlashCardAnswer: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        startFlashCardSession: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        updateFlashCardAttemptText: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+      },
+    });
+
+    renderRoute("/recall/session", {
+      persistentRecallContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("button", { name: "Reveal answer" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Show note snapshot for Stored prompt title",
+      }),
+    ).toBeInTheDocument();
+    expect(persistentRecallContext.getSnapshot()).toMatchObject({
+      id: "session-restored",
+      userId: "user-jordan",
+    });
+  });
+
   it("opens recall from notes without preselecting the edited note", async () => {
     const labelsContext = createAppLabelsContext({
       keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,

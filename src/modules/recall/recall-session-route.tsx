@@ -56,6 +56,10 @@ function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
     from: "/_protected",
     select: (context) => context.recall,
   });
+  const persistentRecallContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.persistentRecall,
+  });
   const sessionContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.session,
@@ -144,16 +148,22 @@ function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
     throw error;
   }
 
-  function handleRevealAnswer() {
+  async function handleRevealAnswer() {
     if (userId === null || activeSession === null || isBreakActive) {
       return;
     }
 
     try {
-      recallContext.revealFlashCardAnswer({
-        sessionId: activeSession.id,
-        userId,
-      });
+      if (persistentRecallContext === undefined) {
+        recallContext.revealFlashCardAnswer({
+          sessionId: activeSession.id,
+          userId,
+        });
+      } else {
+        await persistentRecallContext.revealFlashCardAnswer(userId, {
+          sessionId: activeSession.id,
+        });
+      }
       setFeedbackMessage(null);
     } catch (error) {
       handleRecallError(error);
@@ -166,11 +176,17 @@ function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
     }
 
     try {
-      const nextSession = recallContext.rateFlashCardAnswer({
-        rating,
-        sessionId: activeSession.id,
-        userId,
-      });
+      const nextSession =
+        persistentRecallContext === undefined
+          ? recallContext.rateFlashCardAnswer({
+              rating,
+              sessionId: activeSession.id,
+              userId,
+            })
+          : await persistentRecallContext.rateFlashCardAnswer(userId, {
+              rating,
+              sessionId: activeSession.id,
+            });
 
       setFeedbackMessage(null);
 
@@ -188,10 +204,16 @@ function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
     }
 
     try {
-      recallContext.endFlashCardSession({
-        sessionId: activeSession.id,
-        userId,
-      });
+      if (persistentRecallContext === undefined) {
+        recallContext.endFlashCardSession({
+          sessionId: activeSession.id,
+          userId,
+        });
+      } else {
+        await persistentRecallContext.endFlashCardSession(userId, {
+          sessionId: activeSession.id,
+        });
+      }
       setFeedbackMessage(null);
       await navigate({ to: props.returnTo });
     } catch (error) {
@@ -199,17 +221,24 @@ function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
     }
   }
 
-  function handleAttemptTextChange(text: string) {
+  async function handleAttemptTextChange(text: string) {
     if (userId === null || activeSession === null || isBreakActive) {
       return;
     }
 
     try {
-      recallContext.updateFlashCardAttemptText({
-        sessionId: activeSession.id,
-        text,
-        userId,
-      });
+      if (persistentRecallContext === undefined) {
+        recallContext.updateFlashCardAttemptText({
+          sessionId: activeSession.id,
+          text,
+          userId,
+        });
+      } else {
+        await persistentRecallContext.updateFlashCardAttemptText(userId, {
+          sessionId: activeSession.id,
+          text,
+        });
+      }
       setFeedbackMessage(null);
     } catch (error) {
       handleRecallError(error);
@@ -368,7 +397,7 @@ function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
                     <textarea
                       name="typed-recall-attempt"
                       onChange={(event) =>
-                        handleAttemptTextChange(event.target.value)
+                        void handleAttemptTextChange(event.target.value)
                       }
                       placeholder="Type your answer or leave this blank."
                       rows={5}
@@ -382,7 +411,7 @@ function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
                 {!activeSession.isAnswerRevealed ? (
                   <button
                     className="notes-action notes-action-primary recall-card__reveal"
-                    onClick={handleRevealAnswer}
+                    onClick={() => void handleRevealAnswer()}
                     ref={revealButtonRef}
                     type="button"
                   >

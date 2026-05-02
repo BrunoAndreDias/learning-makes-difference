@@ -21,7 +21,10 @@ import type { AppFocusContext } from "../../focus";
 import type { AppLabelsContext } from "../../labels/label-management/labels";
 import type { AppPersistentLabelsContext } from "../../labels/persistent-labels";
 import type { AppNotesContext, AppPersistentNotesContext } from "../../notes";
-import type { AppRecallContext } from "../../recall";
+import type {
+  AppPersistentRecallContext,
+  AppRecallContext,
+} from "../../recall";
 import { shouldShowRouterDevtools } from "./router-devtools-gate";
 
 const authRoutePaths = new Set(["/forgot-password", "/login", "/register"]);
@@ -45,6 +48,7 @@ export const Route = createRootRouteWithContext<{
   notes: AppNotesContext;
   persistentLabels?: AppPersistentLabelsContext;
   persistentNotes?: AppPersistentNotesContext;
+  persistentRecall?: AppPersistentRecallContext;
   recall: AppRecallContext;
   session: AppSessionContext;
 }>()({

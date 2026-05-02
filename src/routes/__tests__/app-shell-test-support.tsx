@@ -39,6 +39,7 @@ import {
   createAppNotesContext,
   listNotesForUser,
 } from "../../modules/notes";
+import type { AppPersistentRecallContext } from "../../modules/recall";
 import {
   type AppRecallContext,
   createAppRecallContext,
@@ -56,6 +57,7 @@ export function renderRoute(
     notesContext?: AppNotesContext;
     persistentLabelsContext?: AppPersistentLabelsContext;
     persistentNotesContext?: AppPersistentNotesContext;
+    persistentRecallContext?: AppPersistentRecallContext;
     recallContext?: AppRecallContext;
     session?: AppSessionSnapshot;
     sessionContext?: AppSessionContext;
@@ -107,6 +109,7 @@ export function renderRoute(
     });
   const recallContext =
     options.recallContext ??
+    options.persistentRecallContext?.readonlyContext ??
     createAppRecallContext({
       getLabelsForUser: (userId) => labelsContext.getLabelsForUser(userId),
       keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
@@ -125,6 +128,7 @@ export function renderRoute(
       notes: notesContext,
       persistentLabels: options.persistentLabelsContext,
       persistentNotes: options.persistentNotesContext,
+      persistentRecall: options.persistentRecallContext,
       recall: recallContext,
       session: sessionContext,
     },

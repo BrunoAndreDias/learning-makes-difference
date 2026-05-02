@@ -1,0 +1,223 @@
+import { createServerFn } from "@tanstack/react-start";
+import {
+  deleteCookie,
+  getCookie,
+  setCookie,
+} from "@tanstack/react-start/server";
+import { z } from "zod";
+import type { AppPersistentRecallService } from "./persistent-recall";
+import {
+  AppRecallError,
+  type RecallSession,
+  type SessionResult,
+} from "./recall";
+
+const SESSION_COOKIE_NAME = "learning-makes-difference-session";
+
+const startFlashCardSessionInputSchema = z.object({
+  noteIds: z.array(z.string()),
+});
+
+const updateRecallSessionInputSchema = z.object({
+  sessionId: z.string(),
+});
+
+const answerQuestionInputSchema = updateRecallSessionInputSchema.extend({
+  rating: z.enum(["missed", "partial", "nailed"]),
+});
+
+const updateAttemptTextInputSchema = updateRecallSessionInputSchema.extend({
+  text: z.string(),
+});
+
+async function createRequestAuthService() {
+  const [{ createAuthService }, { loadAppEnv }, { getAuthDb }] =
+    await Promise.all([
+      import("../access/session/auth-service"),
+      import("../../lib/env"),
+      import("../access/session/auth-db.server"),
+    ]);
+  const env = loadAppEnv();
+
+  return createAuthService({
+    cookie: {
+      clear(options) {
+        deleteCookie(SESSION_COOKIE_NAME, options);
+      },
+      get() {
+        return getCookie(SESSION_COOKIE_NAME) ?? null;
+      },
+      set(value, options) {
+        setCookie(SESSION_COOKIE_NAME, value, options);
+      },
+    },
+    db: getAuthDb(),
+    pilotRegistrationCode: env.PILOT_REGISTRATION_CODE,
+    secureCookies: env.APP_ENV === "production",
+    sessionSecret: env.SESSION_SECRET,
+  });
+}
+
+async function getOptionalRequestUserId(): Promise<string | null> {
+  const auth = await createRequestAuthService();
+  const sessionSnapshot = await auth.getSessionSnapshot();
+
+  if (sessionSnapshot.user !== null) {
+    return sessionSnapshot.user.id;
+  }
+
+  return null;
+}
+
+async function requireRequestUserId(): Promise<string> {
+  const userId = await getOptionalRequestUserId();
+
+  if (userId === null) {
+    throw new AppRecallError("not_found", "A signed-in user is required.");
+  }
+
+  return userId;
+}
+
+async function createRequestRecallService() {
+  const [{ createRecallService }, { getRecallDb }] = await Promise.all([
+    import("./recall-service"),
+    import("./recall-db.server"),
+  ]);
+
+  return createRecallService({
+    db: getRecallDb(),
+  });
+}
+
+const getActiveSessionServerFn = createServerFn({
+  method: "GET",
+}).handler(async () => {
+  const userId = await getOptionalRequestUserId();
+
+  if (userId === null) {
+    return null;
+  }
+
+  const recall = await createRequestRecallService();
+
+  return recall.getActiveSession({
+    userId,
+  });
+});
+
+const listSessionResultsServerFn = createServerFn({
+  method: "GET",
+}).handler(async () => {
+  const userId = await getOptionalRequestUserId();
+
+  if (userId === null) {
+    return [];
+  }
+
+  const recall = await createRequestRecallService();
+
+  return recall.listSessionResults({
+    userId,
+  });
+});
+
+const startFlashCardSessionServerFn = createServerFn({
+  method: "POST",
+})
+  .inputValidator(startFlashCardSessionInputSchema)
+  .handler(async ({ data }) => {
+    const [userId, recall] = await Promise.all([
+      requireRequestUserId(),
+      createRequestRecallService(),
+    ]);
+
+    return recall.startFlashCardSession({
+      noteIds: data.noteIds,
+      userId,
+    });
+  });
+
+const revealFlashCardAnswerServerFn = createServerFn({
+  method: "POST",
+})
+  .inputValidator(updateRecallSessionInputSchema)
+  .handler(async ({ data }) => {
+    const [userId, recall] = await Promise.all([
+      requireRequestUserId(),
+      createRequestRecallService(),
+    ]);
+
+    return recall.revealFlashCardAnswer({
+      sessionId: data.sessionId,
+      userId,
+    });
+  });
+
+const rateFlashCardAnswerServerFn = createServerFn({
+  method: "POST",
+})
+  .inputValidator(answerQuestionInputSchema)
+  .handler(async ({ data }) => {
+    const [userId, recall] = await Promise.all([
+      requireRequestUserId(),
+      createRequestRecallService(),
+    ]);
+
+    return recall.rateFlashCardAnswer({
+      rating: data.rating,
+      sessionId: data.sessionId,
+      userId,
+    });
+  });
+
+const updateFlashCardAttemptTextServerFn = createServerFn({
+  method: "POST",
+})
+  .inputValidator(updateAttemptTextInputSchema)
+  .handler(async ({ data }) => {
+    const [userId, recall] = await Promise.all([
+      requireRequestUserId(),
+      createRequestRecallService(),
+    ]);
+
+    return recall.updateFlashCardAttemptText({
+      sessionId: data.sessionId,
+      text: data.text,
+      userId,
+    });
+  });
+
+const endFlashCardSessionServerFn = createServerFn({
+  method: "POST",
+})
+  .inputValidator(updateRecallSessionInputSchema)
+  .handler(async ({ data }) => {
+    const [userId, recall] = await Promise.all([
+      requireRequestUserId(),
+      createRequestRecallService(),
+    ]);
+
+    return recall.endFlashCardSession({
+      sessionId: data.sessionId,
+      userId,
+    });
+  });
+
+export function createServerRecallService(): AppPersistentRecallService {
+  return {
+    endRecallSession: (input): Promise<RecallSession> =>
+      endFlashCardSessionServerFn({ data: input }),
+    getActiveSession: () => getActiveSessionServerFn(),
+    listSessionResults: (): Promise<SessionResult[]> =>
+      listSessionResultsServerFn(),
+    rateFlashCardAnswer: (input) =>
+      rateFlashCardAnswerServerFn({ data: input }),
+    revealFlashCardAnswer: (input): Promise<RecallSession> =>
+      revealFlashCardAnswerServerFn({ data: input }),
+    startFlashCardSession: (input): Promise<RecallSession> =>
+      startFlashCardSessionServerFn({ data: input }),
+    updateFlashCardAttemptText: (input): Promise<RecallSession> =>
+      updateFlashCardAttemptTextServerFn({ data: input }),
+  };
+}

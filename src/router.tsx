@@ -12,7 +12,8 @@ import {
   createReadonlyNotesContext,
 } from "./modules/notes";
 import { createServerNotesService } from "./modules/notes/notes-server-fns";
-import { createAppRecallContext } from "./modules/recall";
+import { createPersistentRecallContext } from "./modules/recall";
+import { createServerRecallService } from "./modules/recall/recall-server-fns";
 import { routeTree } from "./routeTree.gen";
 
 export function getRouter() {
@@ -27,11 +28,11 @@ export function getRouter() {
   const focus = createAppFocusContext({
     getLabelsForUser: (userId) => labels.getLabelsForUser(userId),
   });
-  const recall = createAppRecallContext({
-    getLabelsForUser: (userId) => labels.getLabelsForUser(userId),
+  const persistentRecall = createPersistentRecallContext({
     notes,
-    onStudyActivity: focus.captureRecallSessionStudyActivity,
+    service: createServerRecallService(),
   });
+  const recall = persistentRecall.readonlyContext;
 
   return createRouter({
     context: {
@@ -40,6 +41,7 @@ export function getRouter() {
       notes,
       persistentLabels,
       persistentNotes,
+      persistentRecall,
       recall,
       session: createAppSessionContext(),
     },

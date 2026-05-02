@@ -180,6 +180,51 @@ function EmptyRecallSelectionPage() {
 }
 
 function RecallRouteShell() {
+  const persistentRecallContext = useRouteContext({
+    from: "/_protected/recall",
+    select: (context) => context.persistentRecall,
+  });
+  const sessionContext = useRouteContext({
+    from: "/_protected/recall",
+    select: (context) => context.session,
+  });
+  const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
+    sessionContext.subscribe,
+    sessionContext.getSnapshot,
+    sessionContext.getSnapshot,
+  );
+  const userId = sessionSnapshot.user?.id ?? null;
+  const [isReady, setIsReady] = useState(persistentRecallContext === undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (persistentRecallContext === undefined) {
+      setIsReady(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setIsReady(false);
+    void persistentRecallContext
+      .refresh(userId)
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) {
+          setIsReady(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [persistentRecallContext, userId]);
+
+  if (!isReady) {
+    return null;
+  }
+
   return <Outlet />;
 }
 
@@ -503,6 +548,10 @@ export function RecallSelectionPage({
     from: "/_protected",
     select: (context) => context.focus,
   });
+  const persistentRecallContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.persistentRecall,
+  });
   const labelsContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.labels,
@@ -770,10 +819,16 @@ export function RecallSelectionPage({
     }
 
     try {
-      recallContext.startFlashCardSession({
-        noteIds: validSelectedNoteIds,
-        userId,
-      });
+      if (persistentRecallContext === undefined) {
+        recallContext.startFlashCardSession({
+          noteIds: validSelectedNoteIds,
+          userId,
+        });
+      } else {
+        await persistentRecallContext.startFlashCardSession(userId, {
+          noteIds: validSelectedNoteIds,
+        });
+      }
       setErrorMessage(null);
       await navigate({ to: "/recall/session" });
     } catch (error) {
