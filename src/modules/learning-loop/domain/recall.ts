@@ -231,6 +231,25 @@ function isRecallAttempt(attempt: unknown): attempt is RecallAttempt {
   );
 }
 
+function isRecallSelfRating(value: unknown): value is RecallSelfRating {
+  return value === "missed" || value === "partial" || value === "nailed";
+}
+
+function isRecallQuestion(question: unknown): question is RecallQuestion {
+  const candidate =
+    typeof question === "object" && question !== null
+      ? (question as Record<string, unknown>)
+      : null;
+
+  return (
+    candidate !== null &&
+    typeof candidate.isAnswerRevealed === "boolean" &&
+    typeof candidate.noteId === "string" &&
+    isRecallNoteSnapshot(candidate.noteSnapshot) &&
+    (candidate.selfRating === null || isRecallSelfRating(candidate.selfRating))
+  );
+}
+
 function getFirstAttemptByNoteId(attempts: readonly RecallAttempt[]) {
   const attemptsByNoteId = new Map<string, RecallAttempt>();
 
@@ -381,19 +400,28 @@ function parseStoredSessionResults(
           Array.isArray(result.notes)
         );
       })
-      .map((result) => ({
-        ...result,
-        notes: result.notes.filter(isRecallNoteSnapshot),
-      }))
-      .map((result) => ({
-        ...result,
-        questions: createQuestionsFromProgress({
-          attempts: result.attempts,
-          isAnswerRevealed: false,
-          notes: result.notes,
-          questionIndex: result.notes.length,
-        }),
-      }));
+      .map((result) => {
+        const notes = result.notes.filter(isRecallNoteSnapshot);
+        const questions =
+          Array.isArray(result.questions) &&
+          result.questions.length === notes.length &&
+          result.questions.every((question: unknown) =>
+            isRecallQuestion(question),
+          )
+            ? result.questions.map(cloneRecallQuestion)
+            : createQuestionsFromProgress({
+                attempts: result.attempts,
+                isAnswerRevealed: false,
+                notes,
+                questionIndex: notes.length,
+              });
+
+        return {
+          ...result,
+          notes,
+          questions,
+        };
+      });
   } catch {
     return [];
   }

@@ -1032,6 +1032,77 @@ describe("recall session setup", () => {
     expect(reloadedRecall.listSessionResults({ userId })).toHaveLength(1);
   });
 
+  it("reloads attempted SessionResults with stored question reveal state intact", () => {
+    const storage = createMemoryStorage();
+    const notes = createAppNotesContext({
+      keyPrefix: "recall-test-result-reveal-state-notes",
+      storage,
+    });
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          "session-result-reveal-state" as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "recall-test-result-reveal-state-session",
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+    });
+    const userId = "owner";
+    const firstNote = notes.createNote(userId, {
+      acronyms: [],
+      body: "First stored answer",
+      labelIds: [],
+      metaphors: [],
+      title: "First stored question",
+    });
+    const secondNote = notes.createNote(userId, {
+      acronyms: [],
+      body: "Second stored answer",
+      labelIds: [],
+      metaphors: [],
+      title: "Second stored question",
+    });
+
+    const session = recall.startFlashCardSession({
+      noteIds: [firstNote.id, secondNote.id],
+      userId,
+    });
+
+    recall.revealFlashCardAnswer({ sessionId: session.id, userId });
+    recall.rateFlashCardAnswer({
+      rating: "partial",
+      sessionId: session.id,
+      userId,
+    });
+    recall.revealFlashCardAnswer({ sessionId: session.id, userId });
+    recall.endFlashCardSession({ sessionId: session.id, userId });
+
+    const reloadedRecall = createAppRecallContext({
+      keyPrefix: "recall-test-result-reveal-state-session",
+      notes,
+      storage,
+    });
+
+    expect(reloadedRecall.listSessionResults({ userId })).toMatchObject([
+      {
+        attempts: [{ noteId: firstNote.id, rating: "partial" }],
+        questions: [
+          {
+            isAnswerRevealed: false,
+            noteId: firstNote.id,
+            selfRating: "partial",
+          },
+          {
+            isAnswerRevealed: true,
+            noteId: secondNote.id,
+            selfRating: null,
+          },
+        ],
+      },
+    ]);
+  });
+
   it("keeps saved selected-note SessionResult snapshots isolated from later reads and note edits", () => {
     const storage = createMemoryStorage();
     const notes = createAppNotesContext({
