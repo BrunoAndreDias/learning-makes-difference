@@ -23,12 +23,13 @@ RUN usermod -d /home/agent -m -l agent node
 # The Sandcastle Docker provider runs containers as the host UID/GID while
 # forcing HOME=/home/agent. Make that home writable for the runtime UID so
 # git config --global and agent CLIs can create their state files there.
-RUN chmod -R a+rwX /home/agent
+RUN mkdir -p /home/agent/.codex \
+  && chmod -R a+rwX /home/agent
 
-# Install Codex CLI (run as root before USER agent)
-RUN corepack enable \
-  && corepack prepare pnpm@10.33.0 --activate \
-  && npm install -g @openai/codex
+# Install the CLIs used by Sandcastle hooks and agents.
+# Install pnpm as a real global binary so runtime hooks do not trigger a
+# non-interactive Corepack download under /home/agent.
+RUN npm install -g pnpm@10.33.0 @openai/codex
 
 # Add Codex to PATH
 ENV PATH="/home/agent/.local/bin:$PATH"

@@ -32,16 +32,21 @@ import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
 // Raise this if your backlog is large; lower it for a quick smoke-test run.
 const MAX_ITERATIONS = 10;
 
-// Hooks run inside the sandbox before the agent starts each iteration.
-// pnpm install ensures the sandbox always has fresh dependencies.
-const hooks = {
-  sandbox: { onSandboxReady: [{ command: "pnpm install" }] },
+// Hooks run inside worktree-backed sandboxes before agents start.
+// CI=true prevents pnpm from prompting if it needs to recreate node_modules.
+const installHooks = {
+  sandbox: { onSandboxReady: [{ command: "CI=true pnpm install" }] },
 };
 
-// Copy node_modules from the host into the worktree before each sandbox
-// starts. Avoids a full npm install from scratch; the hook above handles
-// platform-specific binaries and any packages added since the last copy.
-const copyToWorktree = ["node_modules"];
+const sandboxProvider = docker({
+  mounts: [
+    {
+      hostPath: "~/.codex/auth.json",
+      sandboxPath: "~/.codex/auth.json",
+      readonly: true,
+    },
+  ],
+});
 
 // ---------------------------------------------------------------------------
 // Main loop
@@ -60,8 +65,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // It outputs a <plan> JSON block — we parse that to drive Phase 2.
   // -------------------------------------------------------------------------
   const plan = await sandcastle.run({
-    hooks,
-    sandbox: docker(),
+    sandbox: sandboxProvider,
     name: "planner",
     // One iteration is enough: the planner just needs to read and reason,
     // not write code.
@@ -111,9 +115,8 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     issues.map(async (issue) => {
       const sandbox = await sandcastle.createSandbox({
         branch: issue.branch,
-        sandbox: docker(),
-        hooks,
-        copyToWorktree,
+        sandbox: sandboxProvider,
+        hooks: installHooks,
       });
 
       try {
@@ -202,8 +205,9 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // uses to know which branches to merge and which issues to close.
   // -------------------------------------------------------------------------
   await sandcastle.run({
-    hooks,
-    sandbox: docker(),
+    hooks: installHooks,
+    sandbox: sandboxProvider,
+    branchStrategy: { type: "merge-to-head" },
     name: "merger",
     maxIterations: 1,
     agent: sandcastle.codex("gpt-5.4", { effort: "medium" }),
