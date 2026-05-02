@@ -1,34 +1,8 @@
 // @vitest-environment jsdom
 
-import {
-  act,
-  cleanup,
-  fireEvent,
-  screen,
-  within,
-} from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import {
-  type AppSessionSnapshot,
-  completeRecallSessionAt,
-  createAppFocusContext,
-  createAppLabelsContext,
-  createAppNotesContext,
-  createAppRecallContext,
-  createAppSessionContext,
-  createCompletedRecallSession,
-  createDeterministicRecallTestContexts,
-  createLearningLoopTestContexts,
-  createRecallNote,
-  expectReturnedToRecall,
-  getSelectedSessionResultRegion,
-  listNotesForUser,
-  openAccountMenu,
-  renderRecallSelection,
-  renderRoute,
-  selectRecallableNote,
-  startSelectedRecallSession,
-} from "./app-shell-test-support";
+import { fireEvent, screen, within } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { createAppSessionContext, renderRoute } from "./app-shell-test-support";
 
 describe("authenticated app shell", () => {
   it("manages labels and rejects cycle-causing parent relationships", async () => {

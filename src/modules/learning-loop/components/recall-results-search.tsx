@@ -2,7 +2,6 @@ import { useRouteContext } from "@tanstack/react-router";
 import {
   type FormEvent,
   type KeyboardEvent,
-  type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useEffect,
   useRef,
@@ -36,6 +35,61 @@ function getRecallSearchResultOptionId(sessionId: string) {
 
 function getRecallSearchResultLabel(result: RecallSessionSearchResult) {
   return `${result.matchedNoteTitle} ${formatSearchMatchLabel(result.matchChip)} Completed ${formatRecallResultDate(result.sessionResult.completedAt)}`;
+}
+
+function RecallResultsSearchResults({
+  activeSearchResultIndex,
+  isOpen,
+  onSelectSearchResult,
+  searchResults,
+}: {
+  activeSearchResultIndex: number;
+  isOpen: boolean;
+  onSelectSearchResult: (result: RecallSessionSearchResult) => void;
+  searchResults: RecallSessionSearchResult[];
+}) {
+  if (!isOpen) {
+    return null;
+  }
+
+  if (searchResults.length === 0) {
+    return (
+      <p className="notes-search__empty" role="status">
+        No matching sessions
+      </p>
+    );
+  }
+
+  return (
+    <div
+      aria-label="Recall search results"
+      className="notes-search__results"
+      id={recallSearchListboxId}
+      role="listbox"
+    >
+      {searchResults.map((result, index) => (
+        <button
+          aria-label={getRecallSearchResultLabel(result)}
+          aria-selected={index === activeSearchResultIndex}
+          className="notes-search__option"
+          id={getRecallSearchResultOptionId(result.sessionResult.id)}
+          key={result.sessionResult.id}
+          onClick={() => onSelectSearchResult(result)}
+          role="option"
+          tabIndex={-1}
+          type="button"
+        >
+          <span className="notes-search__option-title">
+            <strong>{result.matchedNoteTitle}</strong>
+            <span className="notes-search__match-chip">
+              {formatSearchMatchLabel(result.matchChip)}
+            </span>
+          </span>
+          <span>{`Completed ${formatRecallResultDate(result.sessionResult.completedAt)}`}</span>
+        </button>
+      ))}
+    </div>
+  );
 }
 
 export function RecallResultsSearch({
@@ -112,7 +166,6 @@ export function RecallResultsSearch({
     isSearchListboxOpen && activeSearchResult !== undefined
       ? getRecallSearchResultOptionId(activeSearchResult.sessionResult.id)
       : undefined;
-  let searchResultsContent: ReactNode = null;
 
   useEffect(() => {
     if (searchResults.length === 0) {
@@ -256,47 +309,6 @@ export function RecallResultsSearch({
     }
   }
 
-  if (hasSearchQuery && isSearchOpen) {
-    if (searchResults.length === 0) {
-      searchResultsContent = (
-        <p className="notes-search__empty" role="status">
-          No matching sessions
-        </p>
-      );
-    } else {
-      searchResultsContent = (
-        <div
-          aria-label="Recall search results"
-          className="notes-search__results"
-          id={recallSearchListboxId}
-          role="listbox"
-        >
-          {searchResults.map((result, index) => (
-            <button
-              aria-label={getRecallSearchResultLabel(result)}
-              aria-selected={index === activeSearchResultIndex}
-              className="notes-search__option"
-              id={getRecallSearchResultOptionId(result.sessionResult.id)}
-              key={result.sessionResult.id}
-              onClick={() => handleSelectSearchResult(result)}
-              role="option"
-              tabIndex={-1}
-              type="button"
-            >
-              <span className="notes-search__option-title">
-                <strong>{result.matchedNoteTitle}</strong>
-                <span className="notes-search__match-chip">
-                  {formatSearchMatchLabel(result.matchChip)}
-                </span>
-              </span>
-              <span>{`Completed ${formatRecallResultDate(result.sessionResult.completedAt)}`}</span>
-            </button>
-          ))}
-        </div>
-      );
-    }
-  }
-
   return (
     <form
       className="notes-search recall-results-search"
@@ -334,7 +346,12 @@ export function RecallResultsSearch({
         value={selectedRecallSearchQuery}
       />
       <kbd>Cmd K</kbd>
-      {searchResultsContent}
+      <RecallResultsSearchResults
+        activeSearchResultIndex={activeSearchResultIndex}
+        isOpen={hasSearchQuery && isSearchOpen}
+        onSelectSearchResult={handleSelectSearchResult}
+        searchResults={searchResults}
+      />
     </form>
   );
 }

@@ -1,33 +1,12 @@
 // @vitest-environment jsdom
 
+import { cleanup, fireEvent, screen, within } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import {
-  act,
-  cleanup,
-  fireEvent,
-  screen,
-  within,
-} from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import {
-  type AppSessionSnapshot,
-  completeRecallSessionAt,
-  createAppFocusContext,
-  createAppLabelsContext,
   createAppNotesContext,
-  createAppRecallContext,
   createAppSessionContext,
-  createCompletedRecallSession,
-  createDeterministicRecallTestContexts,
-  createLearningLoopTestContexts,
-  createRecallNote,
-  expectReturnedToRecall,
-  getSelectedSessionResultRegion,
-  listNotesForUser,
   openAccountMenu,
-  renderRecallSelection,
   renderRoute,
-  selectRecallableNote,
-  startSelectedRecallSession,
 } from "./app-shell-test-support";
 
 describe("authenticated app shell", () => {
