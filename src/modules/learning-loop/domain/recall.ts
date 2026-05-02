@@ -196,11 +196,14 @@ function getSessionResultsStorageKey(prefix: string) {
   return `${prefix}:session-results`;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
 function isRecallNoteSnapshot(note: unknown): note is RecallNoteSnapshot {
-  const candidate =
-    typeof note === "object" && note !== null
-      ? (note as Record<string, unknown>)
-      : null;
+  const candidate = asRecord(note);
 
   return (
     candidate !== null &&
@@ -217,17 +220,12 @@ function isRecallNoteSnapshot(note: unknown): note is RecallNoteSnapshot {
 }
 
 function isRecallAttempt(attempt: unknown): attempt is RecallAttempt {
-  const candidate =
-    typeof attempt === "object" && attempt !== null
-      ? (attempt as Record<string, unknown>)
-      : null;
+  const candidate = asRecord(attempt);
 
   return (
     candidate !== null &&
     typeof candidate.noteId === "string" &&
-    (candidate.rating === "missed" ||
-      candidate.rating === "partial" ||
-      candidate.rating === "nailed")
+    isRecallSelfRating(candidate.rating)
   );
 }
 
@@ -236,10 +234,7 @@ function isRecallSelfRating(value: unknown): value is RecallSelfRating {
 }
 
 function isRecallQuestion(question: unknown): question is RecallQuestion {
-  const candidate =
-    typeof question === "object" && question !== null
-      ? (question as Record<string, unknown>)
-      : null;
+  const candidate = asRecord(question);
 
   return (
     candidate !== null &&
@@ -369,6 +364,26 @@ function parseStoredRecallSession(value: string | null): AppRecallSnapshot {
   }
 }
 
+function restoreStoredSessionResultQuestions(
+  result: StoredSessionResult,
+  notes: readonly RecallNoteSnapshot[],
+): RecallQuestion[] {
+  if (
+    Array.isArray(result.questions) &&
+    result.questions.length === notes.length &&
+    result.questions.every((question: unknown) => isRecallQuestion(question))
+  ) {
+    return result.questions.map(cloneRecallQuestion);
+  }
+
+  return createQuestionsFromProgress({
+    attempts: result.attempts,
+    isAnswerRevealed: false,
+    notes,
+    questionIndex: notes.length,
+  });
+}
+
 function parseStoredSessionResults(
   value: string | null,
 ): StoredSessionResult[] {
@@ -402,24 +417,11 @@ function parseStoredSessionResults(
       })
       .map((result) => {
         const notes = result.notes.filter(isRecallNoteSnapshot);
-        const questions =
-          Array.isArray(result.questions) &&
-          result.questions.length === notes.length &&
-          result.questions.every((question: unknown) =>
-            isRecallQuestion(question),
-          )
-            ? result.questions.map(cloneRecallQuestion)
-            : createQuestionsFromProgress({
-                attempts: result.attempts,
-                isAnswerRevealed: false,
-                notes,
-                questionIndex: notes.length,
-              });
 
         return {
           ...result,
           notes,
-          questions,
+          questions: restoreStoredSessionResultQuestions(result, notes),
         };
       });
   } catch {
