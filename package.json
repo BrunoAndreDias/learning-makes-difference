@@ -14,6 +14,7 @@
     "db:down": "docker compose down",
     "typecheck": "tsc --noEmit",
     "test": "node scripts/run-vitest-with-timeout.mjs run",
+    "test:db": "node scripts/run-db-tests.mjs",
     "lint": "biome check .",
     "format": "biome check --write .",
     "prepare": "husky",

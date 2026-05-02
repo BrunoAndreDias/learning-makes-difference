@@ -37,7 +37,7 @@ describe("createAuthService", () => {
     databases.clear();
   });
 
-  it("registers a pilot user in PostgreSQL, hashes the password, and restores the session from the cookie token", async () => {
+  it("registers a pilot user in the migration-backed auth store, hashes the password, and restores the session from the cookie token", async () => {
     const client = new PGlite();
     databases.add(client);
     const db = drizzle(client, { schema: authSchema });
