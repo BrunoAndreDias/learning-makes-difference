@@ -99,11 +99,13 @@ describe("foundationTokens", () => {
       "utf8",
     );
 
-    expect(notesEditorCss).toContain(".notes-editor__content");
-    expect(notesEditorCss).toContain("grid-column: 3 / 4;");
+    expect(notesEditorCss).toContain(".notes-editor__layout");
+    expect(notesEditorCss).toContain(
+      "grid-column: notes-inspector-start / notes-inspector-end;",
+    );
     expect(notesEditorCss).toContain("grid-row: 1 / span 2;");
-    expect(notesResponsiveCss).toContain(".notes-editor__content,");
-    expect(notesResponsiveCss).toContain(".notes-form__inspector");
+    expect(notesResponsiveCss).toContain(".notes-editor__layout,");
+    expect(notesResponsiveCss).toContain(".notes-editor__inspector");
     expect(notesResponsiveCss).toContain("grid-template-columns: 1fr;");
   });
 });

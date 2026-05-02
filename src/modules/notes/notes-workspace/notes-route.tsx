@@ -70,6 +70,9 @@ const NOTE_DATE_FORMATTER = new Intl.DateTimeFormat("en", {
   month: "short",
   year: "numeric",
 });
+type NotesEditorLayoutStyle = CSSProperties & {
+  "--notes-body-fraction": number;
+};
 
 export const Route = createFileRoute("/_protected/notes")({
   component: NotesWorkspace,
@@ -648,7 +651,7 @@ function NotesWorkspace() {
   );
   const [pendingHookEditorFocus, setPendingHookEditorFocus] =
     useState<MemoryHookTab | null>(null);
-  const noteFormRef = useRef<HTMLFormElement>(null);
+  const notesEditorLayoutRef = useRef<HTMLDivElement>(null);
   const labelPickerAnchorRef = useRef<HTMLSpanElement | null>(null);
   const labelPickerTriggerRef = useRef<HTMLButtonElement | null>(null);
   const labelPickerSearchInputRef = useRef<HTMLInputElement | null>(null);
@@ -1045,9 +1048,9 @@ function NotesWorkspace() {
 
   const syncBodyFractionFromTextarea = useCallback(() => {
     const textarea = bodyTextareaRef.current;
-    const form = noteFormRef.current;
+    const editorLayout = notesEditorLayoutRef.current;
 
-    if (textarea === null || form === null) {
+    if (textarea === null || editorLayout === null) {
       return;
     }
 
@@ -1058,10 +1061,10 @@ function NotesWorkspace() {
     bodyResizeAnimationFrameRef.current = requestAnimationFrame(() => {
       bodyResizeAnimationFrameRef.current = null;
 
-      const formRect = form.getBoundingClientRect();
+      const editorLayoutRect = editorLayout.getBoundingClientRect();
       const textareaRect = textarea.getBoundingClientRect();
 
-      if (formRect.width <= 0 || textareaRect.width <= 0) {
+      if (editorLayoutRect.width <= 0 || textareaRect.width <= 0) {
         return;
       }
 
@@ -1069,7 +1072,7 @@ function NotesWorkspace() {
         maxNoteBodyFraction,
         Math.max(
           minNoteBodyFraction,
-          (textareaRect.right - formRect.left) / formRect.width,
+          (textareaRect.right - editorLayoutRect.left) / editorLayoutRect.width,
         ),
       );
 
@@ -1495,21 +1498,21 @@ function NotesWorkspace() {
   function handleBodyResizePointerDown(
     event: ReactPointerEvent<HTMLHRElement>,
   ) {
-    const form = noteFormRef.current;
+    const editorLayout = notesEditorLayoutRef.current;
 
-    if (form === null) {
+    if (editorLayout === null) {
       return;
     }
 
     event.preventDefault();
     bodyTextareaRef.current?.style.removeProperty("width");
-    const formRect = form.getBoundingClientRect();
+    const editorLayoutRect = editorLayout.getBoundingClientRect();
 
     function handlePointerMove(moveEvent: PointerEvent) {
-      const offset = moveEvent.clientX - formRect.left;
+      const offset = moveEvent.clientX - editorLayoutRect.left;
       const nextFraction = Math.min(
         maxNoteBodyFraction,
-        Math.max(minNoteBodyFraction, offset / formRect.width),
+        Math.max(minNoteBodyFraction, offset / editorLayoutRect.width),
       );
 
       setBodyFraction(nextFraction);
@@ -1670,6 +1673,13 @@ function NotesWorkspace() {
   const workspaceModeLabel = isCreating ? "Draft mode" : "Editing note";
   const hasUnsavedChanges = hasUnsavedNoteChanges;
   const hasUnsavedHookChanges = hasUnsavedHookDraftChanges(noteEditor);
+  const shouldShowEditorActions = isCreating || hasUnsavedChanges;
+  const shouldShowInlineSave =
+    isCreating || (hasUnsavedChanges && !hasUnsavedHookChanges);
+  const bodyWidthPercent = Math.round(bodyFraction * 100);
+  const notesEditorLayoutStyle: NotesEditorLayoutStyle = {
+    "--notes-body-fraction": bodyFraction,
+  };
   const selectedNoteUpdatedLabel =
     selectedNote === null
       ? "Unsaved draft"
@@ -1842,9 +1852,10 @@ function NotesWorkspace() {
           >
             <legend className="sr-only">Note study surface</legend>
             <div
-              className="notes-editor__content"
+              className="notes-editor__layout"
               data-inspector-hidden={isInspectorHidden ? "true" : undefined}
-              style={{ "--notes-body-fraction": bodyFraction } as CSSProperties}
+              ref={notesEditorLayoutRef}
+              style={notesEditorLayoutStyle}
             >
               <header className="notes-editor__header">
                 <div className="notes-editor__title-stack">
@@ -1866,10 +1877,9 @@ function NotesWorkspace() {
                   </div>
                   <p className="muted notes-editor__meta">
                     <span>{selectedNoteUpdatedLabel}</span>
-                    {isCreating || hasUnsavedChanges ? (
+                    {shouldShowEditorActions ? (
                       <span className="notes-editor__inline-actions">
-                        {isCreating ||
-                        (hasUnsavedChanges && !hasUnsavedHookChanges) ? (
+                        {shouldShowInlineSave ? (
                           <button
                             className="notes-action notes-action-primary notes-editor__save-inline"
                             form={noteEditorFormId}
@@ -1954,7 +1964,6 @@ function NotesWorkspace() {
                 className="notes-form"
                 id={noteEditorFormId}
                 onSubmit={handleSubmit}
-                ref={noteFormRef}
               >
                 <div className="notes-form__primary">
                   <label className="notes-form__field notes-form__body-field">
@@ -1982,10 +1991,10 @@ function NotesWorkspace() {
                 <hr
                   aria-label="Resize note body"
                   aria-orientation="vertical"
-                  aria-valuetext={`${Math.round(bodyFraction * 100)}% note body width`}
+                  aria-valuetext={`${bodyWidthPercent}% note body width`}
                   aria-valuemax={95}
                   aria-valuemin={35}
-                  aria-valuenow={Math.round(bodyFraction * 100)}
+                  aria-valuenow={bodyWidthPercent}
                   className="notes-form__splitter"
                   data-resizing={isBodyResizing ? "true" : undefined}
                   onKeyDown={handleBodyResizeKeyDown}
@@ -1997,7 +2006,7 @@ function NotesWorkspace() {
               <aside
                 aria-hidden={isInspectorHidden}
                 aria-label="Memory hooks panel"
-                className="notes-form__inspector"
+                className="notes-editor__inspector"
               >
                 <section
                   aria-label="Memory hooks"

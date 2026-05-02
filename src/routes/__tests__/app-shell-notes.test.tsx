@@ -745,6 +745,68 @@ describe("authenticated app shell", () => {
     ).toBeTruthy();
   });
 
+  it("resizes the note body against the full editor layout", async () => {
+    const originalSetPointerCapture = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "setPointerCapture",
+    );
+    Object.defineProperty(HTMLElement.prototype, "setPointerCapture", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const getBoundingClientRect = vi
+      .spyOn(Element.prototype, "getBoundingClientRect")
+      .mockImplementation(function getElementRect(this: Element) {
+        const width = this instanceof HTMLFormElement ? 620 : 1000;
+
+        return {
+          bottom: 100,
+          height: 100,
+          left: 0,
+          right: width,
+          top: 0,
+          width,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        };
+      });
+
+    try {
+      renderRoute("/notes", {
+        session: {
+          user: {
+            displayName: "Jordan Review",
+            email: "jordan@example.com",
+            id: "user-jordan",
+            interfaceLanguage: "en",
+            studyLanguage: "en",
+          },
+        },
+      });
+
+      const splitter = await screen.findByLabelText("Resize note body");
+
+      fireEvent.pointerDown(splitter, { clientX: 620, pointerId: 1 });
+      fireEvent.pointerMove(window, { clientX: 500 });
+
+      expect(splitter).toHaveAttribute("aria-valuenow", "50");
+      expect(splitter).toHaveAttribute("aria-valuetext", "50% note body width");
+    } finally {
+      getBoundingClientRect.mockRestore();
+
+      if (originalSetPointerCapture === undefined) {
+        Reflect.deleteProperty(HTMLElement.prototype, "setPointerCapture");
+      } else {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          "setPointerCapture",
+          originalSetPointerCapture,
+        );
+      }
+    }
+  });
+
   it("shows ranked notes search results with match chips and updated dates", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,

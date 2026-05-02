@@ -25,7 +25,7 @@
   }
 
   .notes-layout,
-  .notes-editor__content,
+  .notes-editor__layout,
   .notes-form {
     grid-template-columns: 1fr;
   }
@@ -34,7 +34,7 @@
     grid-column: auto;
   }
 
-  .notes-form__inspector {
+  .notes-editor__inspector {
     grid-column: auto;
     grid-row: auto;
   }
