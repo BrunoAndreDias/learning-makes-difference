@@ -104,8 +104,13 @@ describe("foundationTokens", () => {
       "grid-column: notes-inspector-start / notes-inspector-end;",
     );
     expect(notesEditorCss).toContain("grid-row: 1 / span 2;");
+    expect(notesEditorCss).toContain("align-content: start;");
     expect(notesResponsiveCss).toContain(".notes-editor__layout,");
     expect(notesResponsiveCss).toContain(".notes-editor__inspector");
     expect(notesResponsiveCss).toContain("grid-template-columns: 1fr;");
+    expect(notesResponsiveCss).toContain(".notes-form__splitter");
+    expect(notesResponsiveCss).toContain("display: none;");
+    expect(notesResponsiveCss).toContain("grid-column: auto;");
+    expect(notesResponsiveCss).toContain("grid-row: auto;");
   });
 });

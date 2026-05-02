@@ -200,12 +200,63 @@ function getMemoryHookSearchTab(
   }
 }
 
+function getRelativeMemoryHookTab(
+  currentTab: MemoryHookTab,
+  offset: -1 | 1,
+): MemoryHookTab {
+  const currentIndex = memoryHookTabs.indexOf(currentTab);
+  const relativeIndex =
+    (currentIndex + offset + memoryHookTabs.length) % memoryHookTabs.length;
+
+  return memoryHookTabs[relativeIndex];
+}
+
 type MemoryHookTabsProps = {
   activeTab: MemoryHookTab;
   onSelect: (tab: MemoryHookTab) => void;
 };
 
 function MemoryHookTabs({ activeTab, onSelect }: MemoryHookTabsProps) {
+  const tabRefs = useRef<Record<MemoryHookTab, HTMLButtonElement | null>>({
+    acronyms: null,
+    metaphors: null,
+  });
+
+  function focusAndSelectTab(tab: MemoryHookTab) {
+    onSelect(tab);
+    tabRefs.current[tab]?.focus();
+  }
+
+  function handleTabKeyDown(
+    event: KeyboardEvent<HTMLButtonElement>,
+    tab: MemoryHookTab,
+  ) {
+    switch (event.key) {
+      case "ArrowLeft":
+      case "ArrowUp": {
+        event.preventDefault();
+        focusAndSelectTab(getRelativeMemoryHookTab(tab, -1));
+        return;
+      }
+      case "ArrowRight":
+      case "ArrowDown": {
+        event.preventDefault();
+        focusAndSelectTab(getRelativeMemoryHookTab(tab, 1));
+        return;
+      }
+      case "Home":
+        event.preventDefault();
+        focusAndSelectTab(memoryHookTabs[0]);
+        return;
+      case "End":
+        event.preventDefault();
+        focusAndSelectTab(memoryHookTabs[memoryHookTabs.length - 1]);
+        return;
+      default:
+        return;
+    }
+  }
+
   return (
     <div
       aria-label="Memory hook types"
@@ -223,7 +274,11 @@ function MemoryHookTabs({ activeTab, onSelect }: MemoryHookTabsProps) {
             className="notes-memory-hooks__tab"
             id={details.tabId}
             key={tab}
+            onKeyDown={(event) => handleTabKeyDown(event, tab)}
             onClick={() => onSelect(tab)}
+            ref={(element) => {
+              tabRefs.current[tab] = element;
+            }}
             role="tab"
             tabIndex={isSelected ? 0 : -1}
             type="button"
