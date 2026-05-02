@@ -71,8 +71,13 @@ export function AppLayout() {
   const router = useRouter();
   const navigationId = useId();
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isLoggingOut, setLoggingOut] = useState(false);
+  const currentLocationKey = `${location.pathname}?${JSON.stringify(location.search)}`;
   const collapsedSidebarToggleRef = useRef<HTMLButtonElement | null>(null);
+  const mobileSidebarToggleRef = useRef<HTMLButtonElement | null>(null);
+  const mobileSidebarCloseRef = useRef<HTMLButtonElement | null>(null);
+  const previousLocationRef = useRef(currentLocationKey);
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
     session.subscribe,
     session.getSnapshot,
@@ -92,8 +97,16 @@ export function AppLayout() {
   const activeFocusSession =
     userId === null ? null : focus.getActiveSession({ userId });
 
-  function closeMobileSidebar() {
-    return;
+  function closeMobileSidebar(options?: { returnFocusToToggle?: boolean }) {
+    setMobileSidebarOpen(false);
+
+    if (options?.returnFocusToToggle) {
+      mobileSidebarToggleRef.current?.focus();
+    }
+  }
+
+  function openMobileSidebar() {
+    setMobileSidebarOpen(true);
   }
 
   async function handleLogout() {
@@ -116,6 +129,39 @@ export function AppLayout() {
     }
   }, [isSidebarCollapsed]);
 
+  useEffect(() => {
+    if (previousLocationRef.current === currentLocationKey) {
+      return;
+    }
+
+    previousLocationRef.current = currentLocationKey;
+    setMobileSidebarOpen(false);
+  }, [currentLocationKey]);
+
+  useEffect(() => {
+    if (!isMobileSidebarOpen) {
+      return;
+    }
+
+    mobileSidebarCloseRef.current?.focus();
+
+    function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      event.preventDefault();
+      setMobileSidebarOpen(false);
+      mobileSidebarToggleRef.current?.focus();
+    }
+
+    document.addEventListener("keydown", handleDocumentKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleDocumentKeyDown);
+    };
+  }, [isMobileSidebarOpen]);
+
   return (
     <LearningLoopWorkspaceProvider>
       <section
@@ -125,7 +171,7 @@ export function AppLayout() {
         <aside
           aria-label="Notes workspace"
           className="app-sidebar shell-panel"
-          data-mobile-open="false"
+          data-mobile-open={isMobileSidebarOpen ? "true" : "false"}
           data-sidebar-state={sidebarState}
           hidden={isSidebarCollapsed}
           id={navigationId}
@@ -147,6 +193,20 @@ export function AppLayout() {
             >
               <SidebarCollapseIcon />
             </button>
+            <button
+              aria-controls={navigationId}
+              aria-label="Close navigation menu"
+              className="mobile-sidebar-close"
+              onClick={() =>
+                closeMobileSidebar({
+                  returnFocusToToggle: true,
+                })
+              }
+              ref={mobileSidebarCloseRef}
+              type="button"
+            >
+              <SidebarCloseIcon />
+            </button>
           </div>
 
           <GlobalNavigation onNavigate={closeMobileSidebar} />
@@ -155,7 +215,7 @@ export function AppLayout() {
             {isNotesWorkspaceRoute ? (
               <NotesWorkspaceSidebar
                 closeMobileSidebar={closeMobileSidebar}
-                isMobileSidebarOpen={false}
+                isMobileSidebarOpen={isMobileSidebarOpen}
                 isSidebarVisible={!isSidebarCollapsed}
               />
             ) : null}
@@ -182,7 +242,10 @@ export function AppLayout() {
             isNotesWorkspaceRoute={isNotesWorkspaceRoute}
             isRecallResultsWorkspaceRoute={isRecallResultsWorkspaceRoute}
             isSidebarCollapsed={isSidebarCollapsed}
+            isMobileSidebarOpen={isMobileSidebarOpen}
+            mobileSidebarToggleRef={mobileSidebarToggleRef}
             navigationId={navigationId}
+            onOpenMobileSidebar={openMobileSidebar}
             onExpandSidebar={() => setSidebarCollapsed(false)}
             userId={userId}
             workspaceTitle={workspaceTitle}
@@ -204,7 +267,10 @@ function WorkspaceHeader({
   isNotesWorkspaceRoute,
   isRecallResultsWorkspaceRoute,
   isSidebarCollapsed,
+  isMobileSidebarOpen,
+  mobileSidebarToggleRef,
   navigationId,
+  onOpenMobileSidebar,
   onExpandSidebar,
   userId,
   workspaceTitle,
@@ -217,7 +283,10 @@ function WorkspaceHeader({
   isNotesWorkspaceRoute: boolean;
   isRecallResultsWorkspaceRoute: boolean;
   isSidebarCollapsed: boolean;
+  isMobileSidebarOpen: boolean;
+  mobileSidebarToggleRef: RefObject<HTMLButtonElement | null>;
   navigationId: string;
+  onOpenMobileSidebar: () => void;
   onExpandSidebar: () => void;
   userId: string | null;
   workspaceTitle: string;
@@ -225,6 +294,17 @@ function WorkspaceHeader({
   return (
     <header className="app-frame__workspace-header">
       <div className="app-frame__titlebar">
+        <button
+          aria-controls={navigationId}
+          aria-expanded={isMobileSidebarOpen}
+          aria-label="Open navigation menu"
+          className="mobile-sidebar-toggle"
+          onClick={onOpenMobileSidebar}
+          ref={mobileSidebarToggleRef}
+          type="button"
+        >
+          <SidebarMenuIcon />
+        </button>
         {isSidebarCollapsed ? (
           <button
             aria-controls={navigationId}
@@ -464,6 +544,25 @@ function SidebarReopenIcon() {
       <path d="M4 6h16" />
       <path d="M4 12h16" />
       <path d="M4 18h16" />
+    </svg>
+  );
+}
+
+function SidebarMenuIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+    </svg>
+  );
+}
+
+function SidebarCloseIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M6 6l12 12" />
+      <path d="M18 6 6 18" />
     </svg>
   );
 }

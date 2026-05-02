@@ -1,33 +1,11 @@
 // @vitest-environment jsdom
 
+import { fireEvent, screen, within } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import {
-  act,
-  cleanup,
-  fireEvent,
-  screen,
-  within,
-} from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import {
-  type AppSessionSnapshot,
-  completeRecallSessionAt,
-  createAppFocusContext,
-  createAppLabelsContext,
   createAppNotesContext,
-  createAppRecallContext,
-  createAppSessionContext,
-  createCompletedRecallSession,
-  createDeterministicRecallTestContexts,
-  createLearningLoopTestContexts,
-  createRecallNote,
-  expectReturnedToRecall,
-  getSelectedSessionResultRegion,
-  listNotesForUser,
   openAccountMenu,
-  renderRecallSelection,
   renderRoute,
-  selectRecallableNote,
-  startSelectedRecallSession,
 } from "./app-shell-test-support";
 
 describe("authenticated app shell", () => {
@@ -114,8 +92,8 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
 
     expect(
-      screen.queryByRole("button", { name: "Open navigation menu" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Open navigation menu" }),
+    ).toHaveAttribute("aria-expanded", "false");
   });
 
   it("renders global workspace navigation and updates the active link when navigating", async () => {
@@ -199,7 +177,7 @@ describe("authenticated app shell", () => {
     expect(focusLink).toHaveAttribute("aria-current", "page");
   });
 
-  it("supports skip navigation without a header menu opener", async () => {
+  it("supports skip navigation with a header navigation opener", async () => {
     renderRoute("/notes");
 
     expect(
@@ -213,11 +191,11 @@ describe("authenticated app shell", () => {
     expect(main).toHaveAttribute("id", "main-content");
 
     expect(
-      screen.queryByRole("button", { name: "Open navigation menu" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Open navigation menu" }),
+    ).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("uses the notes sidebar without a header menu opener", async () => {
+  it("uses the notes sidebar with a header navigation opener", async () => {
     const notesContext = createAppNotesContext({
       getOwnedLabelIdsForUser: () => [],
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
@@ -289,7 +267,39 @@ describe("authenticated app shell", () => {
       screen.getByDisplayValue("Retrieval cues make later recall easier."),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Open navigation menu" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Open navigation menu" }),
+    ).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("opens and closes the mobile navigation menu from the header", async () => {
+    renderRoute("/notes");
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    const sidebar = screen.getByRole("complementary", {
+      name: "Notes workspace",
+    });
+    const mobileToggle = screen.getByRole("button", {
+      name: "Open navigation menu",
+    });
+
+    expect(mobileToggle).toHaveAttribute("aria-controls", sidebar.id);
+    expect(mobileToggle).toHaveAttribute("aria-expanded", "false");
+    expect(sidebar).toHaveAttribute("data-mobile-open", "false");
+
+    fireEvent.click(mobileToggle);
+
+    expect(mobileToggle).toHaveAttribute("aria-expanded", "true");
+    expect(sidebar).toHaveAttribute("data-mobile-open", "true");
+
+    fireEvent.click(
+      within(sidebar).getByRole("button", { name: "Close navigation menu" }),
+    );
+
+    expect(sidebar).toHaveAttribute("data-mobile-open", "false");
+    expect(mobileToggle).toHaveAttribute("aria-expanded", "false");
+    expect(mobileToggle).toHaveFocus();
   });
 });

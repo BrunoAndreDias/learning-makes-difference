@@ -336,8 +336,9 @@
 
 .sidebar-toggle:focus,
 .sidebar-toggle:focus-visible {
-  outline: none;
-  box-shadow: none;
+  outline: 2px solid rgba(37, 99, 235, 0.38);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.14);
 }
 
 .sidebar-toggle svg {
@@ -370,6 +371,14 @@
   background: var(--color-shell-inset);
 }
 
+.sidebar-header-toggle:focus-visible,
+.mobile-sidebar-toggle:focus-visible,
+.mobile-sidebar-close:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.38);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.14);
+}
+
 .sidebar-header-toggle svg {
   width: 1.35rem;
   height: 1.35rem;
@@ -378,6 +387,47 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2;
+}
+
+.mobile-sidebar-toggle,
+.mobile-sidebar-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.65rem;
+  color: var(--color-content-default);
+  background: var(--color-shell-panel);
+  cursor: pointer;
+}
+
+.mobile-sidebar-toggle:hover,
+.mobile-sidebar-close:hover {
+  background: var(--color-shell-inset);
+}
+
+.mobile-sidebar-toggle svg,
+.mobile-sidebar-close svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.mobile-sidebar-toggle {
+  display: none;
+}
+
+.mobile-sidebar-close {
+  display: none;
+  margin-left: auto;
 }
 
 .app-sidebar__nav {
@@ -809,6 +859,11 @@
     flex-basis: 100%;
     max-width: none;
     order: 3;
+  }
+
+  .mobile-sidebar-toggle,
+  .mobile-sidebar-close {
+    display: inline-flex;
   }
 }
 

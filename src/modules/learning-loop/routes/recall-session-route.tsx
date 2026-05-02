@@ -238,6 +238,12 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
   const progressPercent =
     totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
   const ratingTotals = summarizeAttempts(activeSession.attempts);
+  const progressValueText = getRecallProgressValueText({
+    completedCount,
+    positionLabel,
+    ratingTotals,
+    totalCount,
+  });
   const selectedSnapshotNote =
     selectedSnapshotNoteId === null
       ? null
@@ -284,9 +290,11 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
 
         <div className="recall-progress">
           <div
+            aria-label="Recall progress"
             aria-valuemax={totalCount}
             aria-valuemin={0}
             aria-valuenow={completedCount}
+            aria-valuetext={progressValueText}
             className="recall-progress__track"
             role="progressbar"
           >
@@ -444,11 +452,20 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
               );
               const isCurrent = note.id === currentNote.id;
               const isSelected = note.id === selectedSnapshotNote?.id;
+              const questionButtonLabel = getRecallQuestionButtonLabel({
+                attempt,
+                index,
+                isCurrent,
+                isSelected,
+                noteTitle: note.title,
+                totalCount,
+              });
 
               return (
                 <li key={note.id}>
                   <button
                     aria-current={isCurrent ? "step" : undefined}
+                    aria-label={questionButtonLabel}
                     aria-pressed={isSelected}
                     className="recall-question-list__button"
                     data-current={isCurrent}
@@ -462,12 +479,24 @@ export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
                     <span className="recall-question-list__title">
                       {note.title}
                     </span>
+                    <span className="recall-question-list__states">
+                      {isCurrent ? (
+                        <span className="recall-question-list__state">
+                          Current
+                        </span>
+                      ) : null}
+                      {isSelected ? (
+                        <span className="recall-question-list__state">
+                          Snapshot open
+                        </span>
+                      ) : null}
+                    </span>
                     {attempt !== undefined ? (
                       <span
                         className="recall-question-list__rating"
                         data-rating={attempt.rating}
                       >
-                        {attempt.rating}
+                        {formatRecallAttemptRating(attempt.rating)}
                       </span>
                     ) : null}
                   </button>
@@ -529,7 +558,11 @@ function NoteSnapshotPanel({
 }) {
   if (note === null || question === null) {
     return (
-      <section className="recall-note-snapshot recall-note-snapshot--empty">
+      <section
+        aria-live="polite"
+        className="recall-note-snapshot recall-note-snapshot--empty"
+        role="status"
+      >
         <p>Select a question to see its note snapshot.</p>
       </section>
     );
@@ -537,7 +570,11 @@ function NoteSnapshotPanel({
 
   if (!question.isAnswerRevealed && question.selfRating === null) {
     return (
-      <section className="recall-note-snapshot recall-note-snapshot--empty">
+      <section
+        aria-live="polite"
+        className="recall-note-snapshot recall-note-snapshot--empty"
+        role="status"
+      >
         <p>Reveal the answer to review the note snapshot.</p>
       </section>
     );
@@ -576,4 +613,78 @@ function getRecallSessionFocusTarget({
   }
 
   return null;
+}
+
+function getRecallProgressValueText({
+  completedCount,
+  positionLabel,
+  ratingTotals,
+  totalCount,
+}: {
+  completedCount: number;
+  positionLabel: string;
+  ratingTotals: ReturnType<typeof summarizeAttempts>;
+  totalCount: number;
+}) {
+  const segments = [
+    positionLabel,
+    `Completed ${completedCount} of ${totalCount} questions`,
+  ];
+
+  if (completedCount > 0) {
+    segments.push(
+      `${ratingTotals.nailed} nailed, ${ratingTotals.partial} partial, ${ratingTotals.missed} missed`,
+    );
+  }
+
+  return `${segments.join(". ")}.`;
+}
+
+function formatRecallAttemptRating(rating: FlashCardRecallRating) {
+  switch (rating) {
+    case "missed":
+      return "Missed";
+    case "partial":
+      return "Partial";
+    case "nailed":
+      return "Nailed";
+  }
+}
+
+function getRecallQuestionButtonLabel({
+  attempt,
+  index,
+  isCurrent,
+  isSelected,
+  noteTitle,
+  totalCount,
+}: {
+  attempt:
+    | {
+        noteId: string;
+        rating: FlashCardRecallRating;
+        text?: string | null;
+      }
+    | undefined;
+  index: number;
+  isCurrent: boolean;
+  isSelected: boolean;
+  noteTitle: string;
+  totalCount: number;
+}) {
+  const segments = [`Question ${index + 1} of ${totalCount}`, noteTitle];
+
+  if (isCurrent) {
+    segments.push("Current prompt");
+  }
+
+  if (isSelected) {
+    segments.push("Snapshot open");
+  }
+
+  if (attempt !== undefined) {
+    segments.push(`Rating ${formatRecallAttemptRating(attempt.rating)}`);
+  }
+
+  return `${segments.join(". ")}.`;
 }

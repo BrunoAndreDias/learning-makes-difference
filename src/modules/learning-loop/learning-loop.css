@@ -1010,7 +1010,7 @@
 
 .recall-question-list__button {
   display: grid;
-  grid-template-columns: 1.65rem minmax(0, 1fr) auto;
+  grid-template-columns: 1.65rem minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 0.5rem;
   width: 100%;
@@ -1056,11 +1056,32 @@
   white-space: nowrap;
 }
 
+.recall-question-list__states {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.recall-question-list__state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.4rem;
+  padding: 0 0.45rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 999px;
+  background: var(--color-shell-inset);
+  color: var(--color-content-strong);
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .recall-question-list__rating {
   color: var(--color-content-muted);
   font-size: 0.72rem;
   font-weight: 700;
-  text-transform: capitalize;
+  text-transform: none;
 }
 
 .recall-question-list__rating[data-rating="nailed"] {

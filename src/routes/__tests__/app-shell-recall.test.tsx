@@ -1357,6 +1357,65 @@ describe("authenticated app shell", () => {
     expect(secondPrompt).toHaveFocus();
   });
 
+  it("announces recall progress and question state with accessible names and visible text", async () => {
+    const { labelsContext, notesContext, recallContext } =
+      createDeterministicRecallTestContexts();
+    const userId = "user-placeholder";
+
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "First note body",
+      labelIds: [],
+      metaphors: [],
+      title: "First note",
+    });
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Second note body",
+      labelIds: [],
+      metaphors: [],
+      title: "Second note",
+    });
+
+    await renderRecallSelection({
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    selectRecallableNote("First note", "First note body");
+    selectRecallableNote("Second note", "Second note body");
+    await startSelectedRecallSession();
+
+    expect(
+      screen.getByRole("progressbar", {
+        name: "Recall progress",
+      }),
+    ).toHaveAttribute(
+      "aria-valuetext",
+      "Question 1 of 2. Completed 0 of 2 questions.",
+    );
+
+    const sessionQuestions = screen.getByRole("list", {
+      name: "Session questions",
+    });
+    const currentQuestion = within(sessionQuestions).getByRole("button", {
+      name: "Question 1 of 2. First note. Current prompt.",
+    });
+
+    expect(within(currentQuestion).getByText("Current")).toBeInTheDocument();
+
+    fireEvent.click(currentQuestion);
+
+    const selectedQuestion = within(sessionQuestions).getByRole("button", {
+      name: "Question 1 of 2. First note. Current prompt. Snapshot open.",
+    });
+
+    expect(
+      within(selectedQuestion).getByText("Snapshot open"),
+    ).toBeInTheDocument();
+  });
+
   it("returns completed recall sessions to the newest selected result when older results already exist", async () => {
     vi.useFakeTimers();
 
