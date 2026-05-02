@@ -1,18 +1,32 @@
-import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
-export const notesTable = pgTable("notes", {
-  id: text("id").primaryKey(),
-  userId: text("user_id").notNull(),
-  title: text("title").notNull(),
-  body: text("body").notNull(),
-  labelIds: text("label_ids").array().notNull(),
-  createdAt: timestamp("created_at", {
-    withTimezone: true,
-  }).notNull(),
-  updatedAt: timestamp("updated_at", {
-    withTimezone: true,
-  }).notNull(),
-});
+import { usersTable } from "../access/session/auth-schema";
+
+export const notesTable = pgTable(
+  "notes",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => usersTable.id, {
+        onDelete: "cascade",
+      }),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    labelIds: text("label_ids").array().notNull(),
+    createdAt: timestamp("created_at", {
+      mode: "date",
+      withTimezone: true,
+    }).notNull(),
+    updatedAt: timestamp("updated_at", {
+      mode: "date",
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [
+    index("notes_user_id_updated_at_idx").on(table.userId, table.updatedAt),
+  ],
+);
 
 export const noteMetaphorsTable = pgTable("note_metaphors", {
   noteId: text("note_id")

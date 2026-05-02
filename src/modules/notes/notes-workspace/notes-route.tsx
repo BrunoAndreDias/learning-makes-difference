@@ -60,6 +60,7 @@ import {
   listNotesForUser,
 } from "./notes";
 import { useNotesWorkspace } from "./notes-workspace";
+import type { NotesWorkspaceSaveInstruction } from "./notes-workspace-interaction";
 
 const labelPickerPanelId = "note-label-picker-panel";
 const notesSearchListboxId = "notes-search-results";
@@ -1662,6 +1663,35 @@ function NotesWorkspace() {
     window.addEventListener("pointercancel", handlePointerUp);
   }
 
+  function saveLocalNoteInstruction(
+    saveInstruction: NotesWorkspaceSaveInstruction,
+  ): AppNote {
+    if (saveInstruction.type === "createNote") {
+      return notesContext.createNote(userId, saveInstruction.input);
+    }
+
+    return notesContext.updateNote(
+      userId,
+      saveInstruction.noteId,
+      saveInstruction.input,
+    );
+  }
+
+  async function savePersistentNoteInstruction(
+    persistentNotes: AppPersistentNotesContext,
+    saveInstruction: NotesWorkspaceSaveInstruction,
+  ): Promise<AppNote> {
+    if (saveInstruction.type === "createNote") {
+      return persistentNotes.createNote(userId, saveInstruction.input);
+    }
+
+    return persistentNotes.updateNote(
+      userId,
+      saveInstruction.noteId,
+      saveInstruction.input,
+    );
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage(null);
@@ -1674,24 +1704,12 @@ function NotesWorkspace() {
       }
 
       const savedNote =
-        persistentNotesContext !== undefined
-          ? saveInstruction.type === "createNote"
-            ? await persistentNotesContext.createNote(
-                userId,
-                saveInstruction.input,
-              )
-            : await persistentNotesContext.updateNote(
-                userId,
-                saveInstruction.noteId,
-                saveInstruction.input,
-              )
-          : saveInstruction.type === "createNote"
-            ? notesContext.createNote(userId, saveInstruction.input)
-            : notesContext.updateNote(
-                userId,
-                saveInstruction.noteId,
-                saveInstruction.input,
-              );
+        persistentNotesContext === undefined
+          ? saveLocalNoteInstruction(saveInstruction)
+          : await savePersistentNoteInstruction(
+              persistentNotesContext,
+              saveInstruction,
+            );
       const saveResult = markEditorSaved(savedNote);
 
       for (const instruction of saveResult.instructions) {

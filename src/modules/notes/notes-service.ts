@@ -36,6 +36,14 @@ type CreateNotesServiceOptions = {
   now?: () => Date;
 };
 
+type ValidatedNoteInput = {
+  acronyms: AppAcronym[];
+  body: string;
+  labelIds: string[];
+  metaphors: AppMetaphor[];
+  title: string;
+};
+
 function getDefaultCrypto(): NotesCrypto {
   return globalThis.crypto;
 }
@@ -69,16 +77,19 @@ function validateHookCount(hooks: readonly unknown[], label: string) {
   );
 }
 
-function validateMetaphors(metaphors: AppMetaphor[]): AppMetaphor[] {
-  validateHookCount(metaphors, "Metaphor");
+function validateHooks(
+  hooks: readonly { description: string }[],
+  label: string,
+): { description: string }[] {
+  validateHookCount(hooks, label);
 
-  return metaphors.map((metaphor) => {
-    const description = metaphor.description.trim();
+  return hooks.map((hook) => {
+    const description = hook.description.trim();
 
     if (description.length === 0) {
       throw new AppNotesError(
         "invalid_input",
-        "Metaphor description is required.",
+        `${label} description is required.`,
       );
     }
 
@@ -88,23 +99,12 @@ function validateMetaphors(metaphors: AppMetaphor[]): AppMetaphor[] {
   });
 }
 
+function validateMetaphors(metaphors: AppMetaphor[]): AppMetaphor[] {
+  return validateHooks(metaphors, "Metaphor");
+}
+
 function validateAcronyms(acronyms: AppAcronym[]): AppAcronym[] {
-  validateHookCount(acronyms, "Acronym");
-
-  return acronyms.map((acronym) => {
-    const description = acronym.description.trim();
-
-    if (description.length === 0) {
-      throw new AppNotesError(
-        "invalid_input",
-        "Acronym description is required.",
-      );
-    }
-
-    return {
-      description,
-    };
-  });
+  return validateHooks(acronyms, "Acronym");
 }
 
 function toAppNote(input: {
@@ -141,6 +141,10 @@ function toAppNote(input: {
     title: input.title,
     updatedAt: input.updatedAt.toISOString(),
   };
+}
+
+function getFirstDescription(hooks: readonly { description: string }[]) {
+  return hooks[0]?.description ?? null;
 }
 
 async function readOwnedNotes(
@@ -223,6 +227,38 @@ async function readOwnedNoteRecord(input: {
   return note;
 }
 
+function validateCreateNoteInput(input: CreateNoteInput): ValidatedNoteInput {
+  const safeMetaphors = validateMetaphors(input.metaphors);
+  const safeAcronyms = validateAcronyms(input.acronyms);
+  const safeTitle = validateTitle(input.title);
+  const safeBody = validateBody(input.body);
+  const safeLabelIds = validateLabelIds(input.labelIds);
+
+  return {
+    acronyms: safeAcronyms,
+    body: safeBody,
+    labelIds: safeLabelIds,
+    metaphors: safeMetaphors,
+    title: safeTitle,
+  };
+}
+
+function validateUpdateNoteInput(input: UpdateNoteInput): ValidatedNoteInput {
+  const safeTitle = validateTitle(input.title);
+  const safeBody = validateBody(input.body);
+  const safeLabelIds = validateLabelIds(input.labelIds);
+  const safeMetaphors = validateMetaphors(input.metaphors);
+  const safeAcronyms = validateAcronyms(input.acronyms);
+
+  return {
+    acronyms: safeAcronyms,
+    body: safeBody,
+    labelIds: safeLabelIds,
+    metaphors: safeMetaphors,
+    title: safeTitle,
+  };
+}
+
 export function createNotesService({
   crypto = getDefaultCrypto(),
   db,
@@ -232,43 +268,42 @@ export function createNotesService({
     async createNote(input: { input: CreateNoteInput; userId: string }) {
       const timestamp = now();
       const noteId = crypto.randomUUID();
-      const safeMetaphors = validateMetaphors(input.input.metaphors);
-      const safeAcronyms = validateAcronyms(input.input.acronyms);
+      const safeInput = validateCreateNoteInput(input.input);
 
       await db.transaction(async (tx) => {
         await tx.insert(notesTable).values({
           id: noteId,
           userId: input.userId,
-          title: validateTitle(input.input.title),
-          body: validateBody(input.input.body),
-          labelIds: validateLabelIds(input.input.labelIds),
+          title: safeInput.title,
+          body: safeInput.body,
+          labelIds: safeInput.labelIds,
           createdAt: timestamp,
           updatedAt: timestamp,
         });
 
-        if (safeMetaphors[0] !== undefined) {
+        if (safeInput.metaphors[0] !== undefined) {
           await tx.insert(noteMetaphorsTable).values({
             noteId,
-            description: safeMetaphors[0].description,
+            description: safeInput.metaphors[0].description,
           });
         }
 
-        if (safeAcronyms[0] !== undefined) {
+        if (safeInput.acronyms[0] !== undefined) {
           await tx.insert(noteAcronymsTable).values({
             noteId,
-            description: safeAcronyms[0].description,
+            description: safeInput.acronyms[0].description,
           });
         }
       });
 
       return toAppNote({
-        acronymDescription: safeAcronyms[0]?.description ?? null,
-        body: validateBody(input.input.body),
+        acronymDescription: getFirstDescription(safeInput.acronyms),
+        body: safeInput.body,
         createdAt: timestamp,
         id: noteId,
-        labelIds: validateLabelIds(input.input.labelIds),
-        metaphorDescription: safeMetaphors[0]?.description ?? null,
-        title: validateTitle(input.input.title),
+        labelIds: safeInput.labelIds,
+        metaphorDescription: getFirstDescription(safeInput.metaphors),
+        title: safeInput.title,
         updatedAt: timestamp,
       });
     },
@@ -294,19 +329,15 @@ export function createNotesService({
         userId: input.userId,
       });
       const timestamp = now();
-      const safeTitle = validateTitle(input.input.title);
-      const safeBody = validateBody(input.input.body);
-      const safeLabelIds = validateLabelIds(input.input.labelIds);
-      const safeMetaphors = validateMetaphors(input.input.metaphors);
-      const safeAcronyms = validateAcronyms(input.input.acronyms);
+      const safeInput = validateUpdateNoteInput(input.input);
 
       await db.transaction(async (tx) => {
         await tx
           .update(notesTable)
           .set({
-            body: safeBody,
-            labelIds: safeLabelIds,
-            title: safeTitle,
+            body: safeInput.body,
+            labelIds: safeInput.labelIds,
+            title: safeInput.title,
             updatedAt: timestamp,
           })
           .where(eq(notesTable.id, existingNote.id));
@@ -318,29 +349,29 @@ export function createNotesService({
           .delete(noteAcronymsTable)
           .where(eq(noteAcronymsTable.noteId, existingNote.id));
 
-        if (safeMetaphors[0] !== undefined) {
+        if (safeInput.metaphors[0] !== undefined) {
           await tx.insert(noteMetaphorsTable).values({
             noteId: existingNote.id,
-            description: safeMetaphors[0].description,
+            description: safeInput.metaphors[0].description,
           });
         }
 
-        if (safeAcronyms[0] !== undefined) {
+        if (safeInput.acronyms[0] !== undefined) {
           await tx.insert(noteAcronymsTable).values({
             noteId: existingNote.id,
-            description: safeAcronyms[0].description,
+            description: safeInput.acronyms[0].description,
           });
         }
       });
 
       return toAppNote({
-        acronymDescription: safeAcronyms[0]?.description ?? null,
-        body: safeBody,
+        acronymDescription: getFirstDescription(safeInput.acronyms),
+        body: safeInput.body,
         createdAt: existingNote.createdAt,
         id: existingNote.id,
-        labelIds: safeLabelIds,
-        metaphorDescription: safeMetaphors[0]?.description ?? null,
-        title: safeTitle,
+        labelIds: safeInput.labelIds,
+        metaphorDescription: getFirstDescription(safeInput.metaphors),
+        title: safeInput.title,
         updatedAt: timestamp,
       });
     },

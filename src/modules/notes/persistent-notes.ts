@@ -63,6 +63,10 @@ function sortStoredNotes(notes: readonly AppStoredNote[]) {
   });
 }
 
+function createMissingServiceError(): Error {
+  return new Error("Persistent notes service is not configured.");
+}
+
 export function createReadonlyNotesContext(
   persistentNotes: Pick<AppPersistentNotesContext, "getSnapshot" | "subscribe">,
 ): AppNotesContext {
@@ -106,17 +110,21 @@ export function createPersistentNotesContext(
     return snapshot;
   }
 
+  function requireService(): AppPersistentNotesService {
+    if (service === undefined) {
+      throw createMissingServiceError();
+    }
+
+    return service;
+  }
+
   return {
     async createNote(userId, input) {
       if (userId === null) {
         throw createNotAuthenticatedError();
       }
 
-      if (service === undefined) {
-        throw new Error("Persistent notes service is not configured.");
-      }
-
-      const createdNote = await service.createNote(input);
+      const createdNote = await requireService().createNote(input);
       writeSnapshot([toStoredNote(createdNote, userId), ...snapshot]);
 
       return createdNote;
@@ -126,11 +134,7 @@ export function createPersistentNotesContext(
         throw createNotAuthenticatedError();
       }
 
-      if (service === undefined) {
-        throw new Error("Persistent notes service is not configured.");
-      }
-
-      await service.deleteNote({
+      await requireService().deleteNote({
         noteId,
       });
       writeSnapshot(snapshot.filter((note) => note.id !== noteId));
@@ -143,11 +147,7 @@ export function createPersistentNotesContext(
         return writeSnapshot([]);
       }
 
-      if (service === undefined) {
-        throw new Error("Persistent notes service is not configured.");
-      }
-
-      const notes = await service.listNotes();
+      const notes = await requireService().listNotes();
 
       return writeSnapshot(notes.map((note) => toStoredNote(note, userId)));
     },
@@ -163,11 +163,7 @@ export function createPersistentNotesContext(
         throw createNotAuthenticatedError();
       }
 
-      if (service === undefined) {
-        throw new Error("Persistent notes service is not configured.");
-      }
-
-      const updatedNote = await service.updateNote({
+      const updatedNote = await requireService().updateNote({
         ...input,
         noteId,
       });
