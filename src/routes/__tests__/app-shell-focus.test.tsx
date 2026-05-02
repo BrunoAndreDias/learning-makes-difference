@@ -741,9 +741,12 @@ describe("authenticated app shell", () => {
       session,
     });
 
-    expect(
-      await screen.findByRole("button", { name: "End focus" }),
-    ).toHaveTextContent("Focus session stale");
+    const endFocusButton = await screen.findByRole("button", {
+      name: "End focus",
+    });
+    expect(endFocusButton).toHaveTextContent("End focus");
+    expect(endFocusButton).not.toHaveTextContent("Focus session stale");
+    expect(screen.getByRole("status")).toHaveTextContent("Focus session stale");
 
     staleFocusContext.startNextFocusInterval({ userId });
 

@@ -77,18 +77,28 @@ export function FocusSessionStartControl({
       <fieldset className="app-focus-session-status tag-row">
         <legend className="sr-only">Active focus session</legend>
         {userId === null ? null : (
-          <button
-            className="notes-action notes-action-primary"
-            onClick={() => {
-              focus.endFocusSession({
-                userId,
-              });
-            }}
-            ref={focusSessionButtonRef}
-            type="button"
-          >
-            End focus <span aria-hidden="true">{focusStatus.label}</span>
-          </button>
+          <>
+            <button
+              className="notes-action notes-action-primary"
+              onClick={() => {
+                focus.endFocusSession({
+                  userId,
+                });
+              }}
+              ref={focusSessionButtonRef}
+              type="button"
+            >
+              End focus
+              {focusStatus.isPersistentState ? null : (
+                <span aria-hidden="true">{focusStatus.label}</span>
+              )}
+            </button>
+            {focusStatus.isPersistentState ? (
+              <span className="tag" role="status">
+                {focusStatus.label}
+              </span>
+            ) : null}
+          </>
         )}
       </fieldset>
     );
@@ -162,6 +172,7 @@ export function useFocusTimerTick(session: FocusSession | null) {
 function getFocusStatus(session: FocusSession) {
   if (session.intervalState === "AwaitingNextFocus") {
     return {
+      isPersistentState: true,
       label: session.isStale ? "Focus session stale" : "Ready for next focus",
       prefix: "",
     };
@@ -170,16 +181,19 @@ function getFocusStatus(session: FocusSession) {
   switch (session.intervalState) {
     case "Transition":
       return {
+        isPersistentState: false,
         label: getRemainingTimerLabel(session),
         prefix: "Transition window: ",
       };
     case "Break":
       return {
+        isPersistentState: false,
         label: getRemainingTimerLabel(session),
         prefix: "Break: ",
       };
     case "Focus":
       return {
+        isPersistentState: false,
         label: getRemainingTimerLabel(session),
         prefix: "Focus: ",
       };

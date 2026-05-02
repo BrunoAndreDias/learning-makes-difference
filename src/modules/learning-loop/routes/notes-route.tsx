@@ -1452,22 +1452,22 @@ export function NotesWorkspace() {
 
                             <div className="notes-metaphor__actions">
                               <button
-                                className="notes-action notes-action-primary"
-                                disabled={
-                                  !isMetaphorDraftChanged(noteEditor, index)
-                                }
-                                form={noteEditorFormId}
-                                type="submit"
-                              >
-                                Save changes
-                              </button>
-                              <button
+                                aria-label={`Remove metaphor ${index + 1}`}
                                 className="notes-action"
                                 onClick={() => handleRemoveMetaphor(index)}
                                 type="button"
                               >
-                                {`Remove metaphor ${index + 1}`}
+                                Remove
                               </button>
+                              {isMetaphorDraftChanged(noteEditor, index) ? (
+                                <button
+                                  className="notes-action notes-action-primary"
+                                  form={noteEditorFormId}
+                                  type="submit"
+                                >
+                                  Save changes
+                                </button>
+                              ) : null}
                             </div>
                           </fieldset>
                         ))}
@@ -1528,22 +1528,22 @@ export function NotesWorkspace() {
 
                             <div className="notes-acronym__actions">
                               <button
-                                className="notes-action notes-action-primary"
-                                disabled={
-                                  !isAcronymDraftChanged(noteEditor, index)
-                                }
-                                form={noteEditorFormId}
-                                type="submit"
-                              >
-                                Save changes
-                              </button>
-                              <button
+                                aria-label={`Remove acronym ${index + 1}`}
                                 className="notes-action"
                                 onClick={() => handleRemoveAcronym(index)}
                                 type="button"
                               >
-                                {`Remove acronym ${index + 1}`}
+                                Remove
                               </button>
+                              {isAcronymDraftChanged(noteEditor, index) ? (
+                                <button
+                                  className="notes-action notes-action-primary"
+                                  form={noteEditorFormId}
+                                  type="submit"
+                                >
+                                  Save changes
+                                </button>
+                              ) : null}
                             </div>
                           </fieldset>
                         ))}

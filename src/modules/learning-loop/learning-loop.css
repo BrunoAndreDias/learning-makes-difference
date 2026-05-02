@@ -2547,13 +2547,10 @@
 
 .notes-metaphor,
 .notes-acronym {
-  grid-template-columns:
-    minmax(7rem, 1fr)
-    minmax(11rem, 1.35fr)
-    auto;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem;
+  grid-template-columns: 1fr;
+  align-items: stretch;
+  gap: 0.65rem;
+  padding: 0.75rem;
   border: 1px solid var(--color-content-border-soft);
   background: var(--color-shell-panel);
   border-radius: 0.5rem;
@@ -2603,14 +2600,16 @@
 
 .notes-metaphor textarea,
 .notes-acronym textarea {
-  height: 2.5rem;
+  height: 6rem;
   resize: vertical;
 }
 
 .notes-metaphor__actions,
 .notes-acronym__actions {
   align-self: stretch;
-  align-items: stretch;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .notes-metaphor__actions .notes-action,

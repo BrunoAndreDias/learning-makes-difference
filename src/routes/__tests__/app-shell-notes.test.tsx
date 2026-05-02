@@ -1329,11 +1329,11 @@ describe("authenticated app shell", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      within(screen.getAllByLabelText("Metaphor editor")[0]).getByRole(
+      within(screen.getAllByLabelText("Metaphor editor")[0]).queryByRole(
         "button",
         { name: "Save changes" },
       ),
-    ).toBeDisabled();
+    ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Add metaphor" }));
 
@@ -1341,17 +1341,17 @@ describe("authenticated app shell", () => {
     expect(screen.getAllByLabelText("Metaphor title")).toHaveLength(2);
     expect(screen.getAllByLabelText("Metaphor explanation")).toHaveLength(2);
     expect(
-      within(screen.getAllByLabelText("Metaphor editor")[0]).getByRole(
+      within(screen.getAllByLabelText("Metaphor editor")[0]).queryByRole(
         "button",
         { name: "Save changes" },
       ),
-    ).toBeDisabled();
+    ).not.toBeInTheDocument();
     expect(
       within(screen.getAllByLabelText("Metaphor editor")[1]).getByRole(
         "button",
         { name: "Save changes" },
       ),
-    ).toBeEnabled();
+    ).toBeInTheDocument();
     expect(screen.getByDisplayValue("Domino line")).toBeInTheDocument();
     expect(
       screen.getByDisplayValue(
