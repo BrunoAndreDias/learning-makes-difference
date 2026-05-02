@@ -455,7 +455,13 @@ function SelectedRecallNotes({
   );
 }
 
-export function RecallSelectionPage() {
+export function RecallSelectionPage({
+  initialSelectedFilter = { kind: "all" },
+  initialSelectedNoteIds = [],
+}: {
+  initialSelectedFilter?: RecallSetupFilter;
+  initialSelectedNoteIds?: readonly string[];
+}) {
   const navigate = useNavigate();
   const labelsContext = useRouteContext({
     from: "/_protected",
@@ -490,10 +496,12 @@ export function RecallSelectionPage() {
   const sessionResults =
     userId === null ? [] : recallContext.listSessionResults({ userId });
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState<RecallSetupFilter>({
-    kind: "all",
-  });
-  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
+  const [selectedFilter, setSelectedFilter] = useState<RecallSetupFilter>(
+    initialSelectedFilter,
+  );
+  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>(() => [
+    ...initialSelectedNoteIds,
+  ]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeSearchResultIndex, setActiveSearchResultIndex] = useState(0);
@@ -509,13 +517,18 @@ export function RecallSelectionPage() {
     selectedNoteIds,
     sessionResults,
   });
-  const selectedCountLabel = formatSelectedCount(selectedNoteIds.length);
   const hasSearchQuery = searchQuery.trim().length > 0;
   const noteCountLabel = formatCount(notes.length, "note");
   const isSearchListboxOpen =
     hasSearchQuery && isSearchOpen && searchResults.length > 0;
   const activeSearchResult = searchResults[activeSearchResultIndex];
   const selectedNoteIdSet = new Set(selectedNoteIds);
+  const selectedNoteIdsForSession = setupState.selectedSummaries.map(
+    (note) => note.id,
+  );
+  const selectedCountLabel = formatSelectedCount(
+    setupState.summary.selectedCount,
+  );
   const activeSearchOptionId =
     isSearchListboxOpen && activeSearchResult !== undefined
       ? getRecallSelectionSearchResultOptionId(
@@ -685,13 +698,13 @@ export function RecallSelectionPage() {
   }
 
   async function handleStartRecall() {
-    if (userId === null || selectedNoteIds.length === 0) {
+    if (userId === null || selectedNoteIdsForSession.length === 0) {
       return;
     }
 
     try {
       recallContext.startFlashCardSession({
-        noteIds: selectedNoteIds,
+        noteIds: selectedNoteIdsForSession,
         userId,
       });
       setErrorMessage(null);
@@ -769,7 +782,7 @@ export function RecallSelectionPage() {
                 <kbd>Cmd K</kbd>
               </form>
               <RecallSelectionControls
-                hasSelectedNotes={selectedNoteIds.length > 0}
+                hasSelectedNotes={setupState.summary.selectedCount > 0}
                 onCancel={() => void handleCancel()}
                 onStartRecall={() => void handleStartRecall()}
                 selectedCountLabel={selectedCountLabel}

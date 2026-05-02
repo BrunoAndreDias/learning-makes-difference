@@ -1,4 +1,4 @@
-import { createFileRoute, useRouteContext } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { formatCount } from "../../../lib/format-count";
 import type { AppSessionSnapshot } from "../../access/domain/session";
@@ -78,6 +78,32 @@ function formatDateTime(timestamp: string) {
     timeStyle: "short",
     timeZone: "UTC",
   }).format(new Date(timestamp));
+}
+
+function getNextStepCopy(summary: ReturnType<typeof summarizeSessionResult>) {
+  switch (summary.nextAction) {
+    case "practice-weak-notes":
+      return {
+        description:
+          "Run recall setup again with missed and partly recalled notes already selected.",
+        label: "Practice weak notes",
+        search: {
+          filter: "weak" as const,
+          noteIds: summary.weakNotes.map((note) => note.noteId).join(","),
+        },
+      };
+    case "start-next-recall":
+      return {
+        description:
+          "This session left no weak notes. Pick the next notes to keep the loop going.",
+        label: "Start another recall",
+      };
+    case "finish-session":
+      return {
+        description: "Choose notes to continue recall practice.",
+        label: "Start recall",
+      };
+  }
 }
 
 export function RecallResultsWorkspacePage() {
@@ -190,6 +216,7 @@ function SelectedSessionResult({
   }
 
   const summary = summarizeSessionResult(sessionResult);
+  const nextStep = getNextStepCopy(summary);
 
   return (
     <div className="recall-results-detail">
@@ -292,6 +319,21 @@ function SelectedSessionResult({
               </div>
             </section>
           ) : null}
+
+          <section
+            aria-labelledby="selected-next-step-heading"
+            className="recall-results-section"
+          >
+            <h4 id="selected-next-step-heading">Next step</h4>
+            <p className="muted">{nextStep.description}</p>
+            <Link
+              className="notes-action notes-action-primary"
+              search={nextStep.search}
+              to="/recall/select"
+            >
+              {nextStep.label}
+            </Link>
+          </section>
         </div>
 
         <section
