@@ -15,10 +15,7 @@ import {
   type FocusSession,
   type FocusTarget,
 } from "../domain/focus";
-import {
-  formatFocusTargetKindLabel,
-  formatRecallModeLabel,
-} from "../domain/learner-copy";
+import { formatFocusTargetKindLabel } from "../domain/learner-copy";
 
 type FocusSessionStartValues = {
   breakMinutes: string;
@@ -450,14 +447,14 @@ function describeTarget(target: FocusTarget) {
     const noteTitles = target.notes.map((note) => note.title).join(", ");
     const labelNames = formatFocusTargetLabels(target.labels);
 
-    return `${formatFocusTargetKindLabel(target.kind)}: ${formatRecallModeLabel(target.recallSession.mode)} | Notes: ${noteTitles} | Labels: ${labelNames}`;
+    return `${formatFocusTargetKindLabel(target.kind)}: ${noteTitles} | Labels: ${labelNames}`;
   }
 
   if (target.labels.length === 0) {
-    return `Note: ${target.note.title} | Unlabeled note work`;
+    return `Note study: ${target.note.title} | No labels yet`;
   }
 
-  return `Note: ${target.note.title} | Labels: ${target.labels
+  return `Note study: ${target.note.title} | Labels: ${target.labels
     .map((label) => label.name)
     .join(", ")}`;
 }

@@ -31,6 +31,6 @@ export function formatRecallModeLabel(mode: RecallMode): string {
 export function formatFocusTargetKindLabel(kind: "RecallSession"): string {
   switch (kind) {
     case "RecallSession":
-      return "Recall session";
+      return "Recall practice";
   }
 }

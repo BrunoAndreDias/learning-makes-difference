@@ -1,33 +1,17 @@
 // @vitest-environment jsdom
 
-import {
-  act,
-  cleanup,
-  fireEvent,
-  screen,
-  within,
-} from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
   type AppSessionSnapshot,
-  completeRecallSessionAt,
   createAppFocusContext,
-  createAppLabelsContext,
   createAppNotesContext,
   createAppRecallContext,
-  createAppSessionContext,
   createCompletedRecallSession,
-  createDeterministicRecallTestContexts,
   createLearningLoopTestContexts,
   createRecallNote,
-  expectReturnedToRecall,
-  getSelectedSessionResultRegion,
   listNotesForUser,
-  openAccountMenu,
-  renderRecallSelection,
   renderRoute,
-  selectRecallableNote,
-  startSelectedRecallSession,
 } from "./app-shell-test-support";
 
 describe("authenticated app shell", () => {
@@ -140,14 +124,14 @@ describe("authenticated app shell", () => {
     expect(within(recentCompletedFocus).getByText("2")).toBeInTheDocument();
 
     expect(
-      screen.getByText("Note: Loose draft | Unlabeled note work"),
+      screen.getByText("Note study: Loose draft | No labels yet"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Note: Biology notes | Labels: Biology"),
+      screen.getByText("Note study: Biology notes | Labels: Biology"),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Recall session: Recall | Notes: Recall target note | Labels: Recall label",
+        "Recall practice: Recall target note | Labels: Recall label",
       ),
     ).toBeInTheDocument();
   });

@@ -19,6 +19,7 @@ import { formatCount } from "../../../lib/format-count";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import type { AppSessionSnapshot } from "../../access/domain/session";
 import type { AppLabel } from "../../labels/domain/labels";
+import { AppFocusError } from "../domain/focus";
 import { formatSearchMatchLabel } from "../domain/learner-copy";
 import {
   type AppNoteSearchResult,
@@ -183,19 +184,25 @@ function RecallRouteShell() {
   return <Outlet />;
 }
 
-function RecallSelectionControls({
-  hasSelectedNotes,
-  startDisabledReason,
-  onCancel,
-  onStartRecall,
-  selectedCountLabel,
-}: {
+type RecallSelectionControlsProps = {
+  canStartFocusSession: boolean;
   hasSelectedNotes: boolean;
-  startDisabledReason: string | null;
   onCancel: () => void;
+  onStartFocus: () => void;
   onStartRecall: () => void;
   selectedCountLabel: string;
-}) {
+  startDisabledReason: string | null;
+};
+
+function RecallSelectionControls({
+  canStartFocusSession,
+  hasSelectedNotes,
+  onCancel,
+  onStartFocus,
+  onStartRecall,
+  selectedCountLabel,
+  startDisabledReason,
+}: RecallSelectionControlsProps) {
   return (
     <div>
       <fieldset
@@ -206,6 +213,16 @@ function RecallSelectionControls({
         <button className="notes-action" onClick={onCancel} type="button">
           Cancel
         </button>
+        {canStartFocusSession ? (
+          <button
+            className="notes-action"
+            disabled={!hasSelectedNotes}
+            onClick={onStartFocus}
+            type="button"
+          >
+            Start focus for this session
+          </button>
+        ) : null}
         <button
           aria-describedby={
             hasSelectedNotes ? undefined : "recall-start-disabled-reason"
@@ -477,6 +494,10 @@ function SelectedRecallNotes({
 
 export function RecallSelectionPage() {
   const navigate = useNavigate();
+  const focusContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.focus,
+  });
   const labelsContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.labels,
@@ -498,7 +519,14 @@ export function RecallSelectionPage() {
     sessionContext.getSnapshot,
     sessionContext.getSnapshot,
   );
+  useSyncExternalStore(
+    focusContext.subscribe,
+    focusContext.getSnapshot,
+    focusContext.getSnapshot,
+  );
   const userId = sessionSnapshot.user?.id ?? null;
+  const activeFocusSession =
+    userId === null ? null : focusContext.getActiveSession({ userId });
   const notesSnapshot = useSyncExternalStore(
     notesContext.subscribe,
     notesContext.getSnapshot,
@@ -548,6 +576,7 @@ export function RecallSelectionPage() {
   const selectedCountLabel = formatSelectedCount(validSelectedNoteIds.length);
   const hasSearchQuery = searchQuery.trim().length > 0;
   const noteCountLabel = formatCount(notes.length, "note");
+  const canStartFocusSession = activeFocusSession === null;
   const isSearchListboxOpen =
     hasSearchQuery && isSearchOpen && searchResults.length > 0;
   const activeSearchResult = searchResults[activeSearchResultIndex];
@@ -750,6 +779,26 @@ export function RecallSelectionPage() {
     }
   }
 
+  function handleStartFocusForSelection() {
+    if (userId === null || validSelectedNoteIds.length === 0) {
+      return;
+    }
+
+    try {
+      focusContext.startFocusSession({
+        userId,
+      });
+      setErrorMessage(null);
+    } catch (error) {
+      if (error instanceof AppFocusError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    }
+  }
+
   if (notes.length === 0) {
     return <EmptyRecallSelectionPage />;
   }
@@ -814,7 +863,9 @@ export function RecallSelectionPage() {
               </form>
               <RecallSelectionControls
                 hasSelectedNotes={validSelectedNoteIds.length > 0}
+                canStartFocusSession={canStartFocusSession}
                 onCancel={() => void handleCancel()}
+                onStartFocus={handleStartFocusForSelection}
                 onStartRecall={() => void handleStartRecall()}
                 selectedCountLabel={selectedCountLabel}
                 startDisabledReason={setupState.summary.startDisabledReason}

@@ -15,6 +15,6 @@ describe("learner copy", () => {
     expect(formatSearchMatchLabel("Label")).toBe("Label");
 
     expect(formatRecallModeLabel("FlashCard")).toBe("Recall");
-    expect(formatFocusTargetKindLabel("RecallSession")).toBe("Recall session");
+    expect(formatFocusTargetKindLabel("RecallSession")).toBe("Recall practice");
   });
 });
