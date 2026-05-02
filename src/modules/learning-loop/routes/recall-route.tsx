@@ -64,7 +64,7 @@ function formatSummarySelectedCount(count: number) {
   return `${count} selected`;
 }
 
-function areSameNoteIdList(
+function areSameOrderedNoteIds(
   left: readonly string[],
   right: readonly string[],
 ): boolean {
@@ -72,6 +72,12 @@ function areSameNoteIdList(
     left.length === right.length &&
     left.every((noteId, index) => noteId === right[index])
   );
+}
+
+function getSelectedSummaryNoteIds(
+  selectedSummaries: readonly RecallSetupSelectedSummary[],
+): string[] {
+  return selectedSummaries.map((note) => note.id);
 }
 
 function getSearchResultLabel(result: AppNoteSearchResult) {
@@ -519,16 +525,16 @@ export function RecallSelectionPage() {
     selectedNoteIds,
     sessionResults,
   });
-  const activeSelectedNoteIds = setupState.selectedSummaries.map(
-    (note) => note.id,
+  const validSelectedNoteIds = getSelectedSummaryNoteIds(
+    setupState.selectedSummaries,
   );
-  const selectedCountLabel = formatSelectedCount(activeSelectedNoteIds.length);
+  const selectedCountLabel = formatSelectedCount(validSelectedNoteIds.length);
   const hasSearchQuery = searchQuery.trim().length > 0;
   const noteCountLabel = formatCount(notes.length, "note");
   const isSearchListboxOpen =
     hasSearchQuery && isSearchOpen && searchResults.length > 0;
   const activeSearchResult = searchResults[activeSearchResultIndex];
-  const selectedNoteIdSet = new Set(activeSelectedNoteIds);
+  const selectedNoteIdSet = new Set(validSelectedNoteIds);
   const activeSearchOptionId =
     isSearchListboxOpen && activeSearchResult !== undefined
       ? getRecallSelectionSearchResultOptionId(
@@ -549,12 +555,12 @@ export function RecallSelectionPage() {
   }, [searchResults.length]);
 
   useEffect(() => {
-    if (areSameNoteIdList(selectedNoteIds, activeSelectedNoteIds)) {
+    if (areSameOrderedNoteIds(selectedNoteIds, validSelectedNoteIds)) {
       return;
     }
 
-    setSelectedNoteIds(activeSelectedNoteIds);
-  }, [activeSelectedNoteIds, selectedNoteIds]);
+    setSelectedNoteIds(validSelectedNoteIds);
+  }, [selectedNoteIds, validSelectedNoteIds]);
 
   useEffect(() => {
     function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
@@ -706,13 +712,13 @@ export function RecallSelectionPage() {
   }
 
   async function handleStartRecall() {
-    if (userId === null || activeSelectedNoteIds.length === 0) {
+    if (userId === null || validSelectedNoteIds.length === 0) {
       return;
     }
 
     try {
       recallContext.startFlashCardSession({
-        noteIds: activeSelectedNoteIds,
+        noteIds: validSelectedNoteIds,
         userId,
       });
       setErrorMessage(null);
@@ -790,7 +796,7 @@ export function RecallSelectionPage() {
                 <kbd>Cmd K</kbd>
               </form>
               <RecallSelectionControls
-                hasSelectedNotes={activeSelectedNoteIds.length > 0}
+                hasSelectedNotes={validSelectedNoteIds.length > 0}
                 onCancel={() => void handleCancel()}
                 onStartRecall={() => void handleStartRecall()}
                 selectedCountLabel={selectedCountLabel}
