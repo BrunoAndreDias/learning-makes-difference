@@ -36,7 +36,7 @@ export const Route = createFileRoute("/_protected/recall/session")({
   component: RecallSessionPage,
 });
 
-export function RecallSessionPage() {
+function RecallSessionPage() {
   return (
     <FlashCardRecallSessionPage
       breadcrumbCurrent="Session"
@@ -47,7 +47,7 @@ export function RecallSessionPage() {
   );
 }
 
-export function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
+function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
   const navigate = useNavigate();
   const focusContext = useRouteContext({
     from: "/_protected",

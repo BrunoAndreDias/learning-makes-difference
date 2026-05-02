@@ -90,7 +90,7 @@ function LabelsList({
     />
   ));
 }
-export function LabelsPage() {
+function LabelsPage() {
   const labels = useRouteContext({
     from: "/_protected/labels",
     select: (context) => context.labels,

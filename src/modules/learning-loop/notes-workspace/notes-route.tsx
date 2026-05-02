@@ -326,7 +326,7 @@ function hasUnsavedHookDraftChanges(noteEditor: NoteEditorState) {
   );
 }
 
-export function NotesWorkspace() {
+function NotesWorkspace() {
   const location = useLocation();
   const focusContext = useRouteContext({
     from: "/_protected/notes",

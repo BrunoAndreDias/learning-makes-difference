@@ -557,7 +557,7 @@ function RecallWorkspaceContent({
   }
 }
 
-export function RecallResultsWorkspacePage() {
+function RecallResultsWorkspacePage() {
   const search = Route.useSearch();
   const recallContext = useRouteContext({
     from: "/_protected",
