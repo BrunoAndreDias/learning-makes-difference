@@ -1,5 +1,5 @@
 import type { AppLabel } from "../labels/label-management/labels";
-import type { AppNote } from "../notes";
+import type { AppAcronym, AppMetaphor, AppNote } from "../notes";
 
 export type FocusMethod = "Pomodoro";
 
@@ -422,30 +422,24 @@ function isAppLabel(entry: unknown): entry is AppLabel {
   );
 }
 
-function isAppAcronym(entry: unknown) {
+function isAppAcronym(entry: unknown): entry is AppAcronym {
   if (typeof entry !== "object" || entry === null) {
     return false;
   }
 
-  const candidate = entry as Record<string, unknown>;
+  const candidate = entry as Partial<AppAcronym>;
 
-  return (
-    typeof candidate.shortForm === "string" &&
-    typeof candidate.expansion === "string"
-  );
+  return typeof candidate.description === "string";
 }
 
-function isAppMetaphor(entry: unknown) {
+function isAppMetaphor(entry: unknown): entry is AppMetaphor {
   if (typeof entry !== "object" || entry === null) {
     return false;
   }
 
-  const candidate = entry as Record<string, unknown>;
+  const candidate = entry as Partial<AppMetaphor>;
 
-  return (
-    typeof candidate.title === "string" &&
-    typeof candidate.explanation === "string"
-  );
+  return typeof candidate.description === "string";
 }
 
 function isAppNote(entry: unknown): entry is AppNote {

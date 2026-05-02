@@ -107,6 +107,69 @@ describe("focus sessions", () => {
     );
   });
 
+  it("rehydrates FocusSession note targets with memory hooks", () => {
+    const storage = createMemoryStorage();
+    const focus = createAppFocusContext({
+      keyPrefix: "focus-test-memory-hook-targets",
+      storage,
+    });
+
+    focus.startFocusSession({
+      focusIntervalMinutes: 25,
+      userId: "owner",
+    });
+    focus.captureNoteStudyActivity({
+      labels: [],
+      note: {
+        acronyms: [
+          {
+            description: "LTP stands for Long-Term Potentiation.",
+          },
+        ],
+        body: "Repeated activation strengthens the same path.",
+        createdAt: "2026-04-29T10:00:00.000Z",
+        id: "note-memory-hook",
+        labelIds: [],
+        metaphors: [
+          {
+            description:
+              "Forest trail: repeated travel makes the path easier to follow.",
+          },
+        ],
+        title: "Synaptic plasticity",
+        updatedAt: "2026-04-30T10:05:00.000Z",
+      },
+      userId: "owner",
+    });
+
+    const reloadedFocus = createAppFocusContext({
+      keyPrefix: "focus-test-memory-hook-targets",
+      storage,
+    });
+
+    expect(reloadedFocus.getActiveSession({ userId: "owner" })).toMatchObject({
+      targets: [
+        {
+          kind: "Note",
+          note: {
+            acronyms: [
+              {
+                description: "LTP stands for Long-Term Potentiation.",
+              },
+            ],
+            id: "note-memory-hook",
+            metaphors: [
+              {
+                description:
+                  "Forest trail: repeated travel makes the path easier to follow.",
+              },
+            ],
+          },
+        },
+      ],
+    });
+  });
+
   it("rejects invalid timing configuration", () => {
     const focus = createAppFocusContext({
       keyPrefix: "focus-test-invalid",
