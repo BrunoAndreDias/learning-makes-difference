@@ -249,6 +249,14 @@ function normalizeRecallAttemptText(text: string): string | null {
   return normalizedText.length === 0 ? null : normalizedText;
 }
 
+function normalizeStoredRecallAttempt(attempt: RecallAttempt): RecallAttempt {
+  return {
+    noteId: attempt.noteId,
+    rating: attempt.rating,
+    text: attempt.text ?? null,
+  };
+}
+
 function getFirstAttemptByNoteId(attempts: readonly RecallAttempt[]) {
   const attemptsByNoteId = new Map<string, RecallAttempt>();
 
@@ -263,7 +271,7 @@ function getFirstAttemptByNoteId(attempts: readonly RecallAttempt[]) {
 
 function createQuestionsFromProgress(input: {
   attempts: readonly RecallAttempt[];
-  draftAnswer?: string;
+  draftAnswer: string;
   isAnswerRevealed: boolean;
   notes: readonly RecallNoteSnapshot[];
   questionIndex: number;
@@ -271,10 +279,27 @@ function createQuestionsFromProgress(input: {
   return createQuestionsFromSessionState({
     attempts: input.attempts,
     currentIndex: input.questionIndex,
-    draftAnswer: input.draftAnswer ?? "",
+    draftAnswer: input.draftAnswer,
     isAnswerRevealed: input.isAnswerRevealed,
     notes: input.notes,
   });
+}
+
+function getTypedAnswerForQuestion(input: {
+  attempt: RecallAttempt | undefined;
+  currentIndex: number;
+  draftAnswer: string;
+  noteIndex: number;
+}): string {
+  if (input.attempt?.text != null) {
+    return input.attempt.text;
+  }
+
+  if (input.noteIndex === input.currentIndex) {
+    return input.draftAnswer;
+  }
+
+  return "";
 }
 
 function getRecallQuestionState(
@@ -297,9 +322,12 @@ function getRecallQuestionState(
     noteId: input.note.id,
     noteSnapshot: cloneRecallNoteSnapshot(input.note),
     selfRating: attempt?.rating ?? null,
-    typedAnswer:
-      attempt?.text ??
-      (input.noteIndex === input.currentIndex ? input.draftAnswer : ""),
+    typedAnswer: getTypedAnswerForQuestion({
+      attempt,
+      currentIndex: input.currentIndex,
+      draftAnswer: input.draftAnswer,
+      noteIndex: input.noteIndex,
+    }),
   };
 }
 
@@ -357,11 +385,7 @@ function parseStoredRecallSession(value: string | null): AppRecallSnapshot {
 
     const notes = parsedValue.notes.filter(isRecallNoteSnapshot);
     const attempts = Array.isArray(parsedValue.attempts)
-      ? parsedValue.attempts.map((attempt: RecallAttempt) => ({
-          noteId: attempt.noteId,
-          rating: attempt.rating,
-          text: attempt.text ?? null,
-        }))
+      ? parsedValue.attempts.map(normalizeStoredRecallAttempt)
       : [];
     const draftAnswer =
       typeof parsedValue.draftAnswer === "string"
@@ -421,11 +445,7 @@ function parseStoredSessionResults(
       })
       .map((result) => ({
         ...result,
-        attempts: result.attempts.map((attempt) => ({
-          noteId: attempt.noteId,
-          rating: attempt.rating,
-          text: attempt.text ?? null,
-        })),
+        attempts: result.attempts.map(normalizeStoredRecallAttempt),
         notes: result.notes.filter(isRecallNoteSnapshot),
       }))
       .map((result) => ({
