@@ -11,11 +11,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   type AppSessionSnapshot,
   completeRecallSessionAt,
-  createAppFocusContext,
   createAppLabelsContext,
   createAppNotesContext,
   createAppRecallContext,
-  createAppSessionContext,
   createCompletedRecallSession,
   createDeterministicRecallTestContexts,
   createLearningLoopTestContexts,
@@ -23,7 +21,6 @@ import {
   expectReturnedToRecall,
   getSelectedSessionResultRegion,
   listNotesForUser,
-  openAccountMenu,
   renderRecallSelection,
   renderRoute,
   selectRecallableNote,
@@ -638,6 +635,145 @@ describe("authenticated app shell", () => {
       ),
     ).toBeInTheDocument();
     expect(recallContext.getSnapshot()).toBeNull();
+  });
+
+  it("keeps selected notes across filter changes and limits search results to the active filter", async () => {
+    const { labelsContext, notesContext, recallContext } =
+      createDeterministicRecallTestContexts();
+    const userId = "user-placeholder";
+    const science = labelsContext.createLabel({ name: "Science", userId });
+    const weakNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Weak note body",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Weak circuits",
+    });
+    const strongNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Strong note body",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Strong memory",
+    });
+
+    const weakSession = recallContext.startFlashCardSession({
+      noteIds: [weakNote.id],
+      userId,
+    });
+    recallContext.revealFlashCardAnswer({
+      sessionId: weakSession.id,
+      userId,
+    });
+    recallContext.rateFlashCardAnswer({
+      rating: "partial",
+      sessionId: weakSession.id,
+      userId,
+    });
+
+    const strongSession = recallContext.startFlashCardSession({
+      noteIds: [strongNote.id],
+      userId,
+    });
+    recallContext.revealFlashCardAnswer({
+      sessionId: strongSession.id,
+      userId,
+    });
+    recallContext.rateFlashCardAnswer({
+      rating: "nailed",
+      sessionId: strongSession.id,
+      userId,
+    });
+
+    await renderRecallSelection({
+      labelsContext,
+      notesContext,
+      recallContext,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Weak notes (1)" }));
+
+    const availableNotes = within(
+      screen.getByRole("region", { name: "Available notes" }),
+    );
+    expect(availableNotes.getByText("Weak circuits")).toBeInTheDocument();
+    expect(availableNotes.queryByText("Strong memory")).toBeNull();
+
+    fireEvent.click(
+      availableNotes.getByRole("button", {
+        name: "Select Weak circuits",
+      }),
+    );
+    expect(
+      within(screen.getByRole("region", { name: "Selected notes" })).getByText(
+        "Weak circuits",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Search notes"), {
+      target: { value: "Strong memory" },
+    });
+
+    expect(screen.getByText("No notes found")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", {
+        name: /Strong memory Prompt/,
+      }),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "All notes (2)" }));
+
+    expect(
+      within(screen.getByRole("region", { name: "Selected notes" })).getByText(
+        "Weak circuits",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows filter-specific empty states for Due now and Weak notes", async () => {
+    const { notesContext, recallContext } =
+      createDeterministicRecallTestContexts();
+    const userId = "user-placeholder";
+    const strongNote = notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Strong note body",
+      labelIds: [],
+      metaphors: [],
+      title: "Strong memory",
+    });
+
+    const strongSession = recallContext.startFlashCardSession({
+      noteIds: [strongNote.id],
+      userId,
+    });
+    recallContext.revealFlashCardAnswer({
+      sessionId: strongSession.id,
+      userId,
+    });
+    recallContext.rateFlashCardAnswer({
+      rating: "nailed",
+      sessionId: strongSession.id,
+      userId,
+    });
+
+    await renderRecallSelection({
+      notesContext,
+      recallContext,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Weak notes (0)" }));
+    expect(
+      within(screen.getByRole("region", { name: "Available notes" })).getByText(
+        "No weak notes yet.",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Due now (0)" }));
+    expect(
+      within(screen.getByRole("region", { name: "Available notes" })).getByText(
+        "No notes are due right now.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("restores an active RecallSession after a reload for the same user", async () => {

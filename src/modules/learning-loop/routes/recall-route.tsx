@@ -147,6 +147,8 @@ function getAvailableNotesEmptyMessage({
   hasSearchQuery: boolean;
 }): string | null {
   switch (availableEmptyState) {
+    case "no-due-notes":
+      return "No notes are due right now.";
     case "no-search-matches":
       return "No notes match this search.";
     case "no-filter-matches":
@@ -155,6 +157,8 @@ function getAvailableNotesEmptyMessage({
         : "No notes match this filter yet.";
     case "no-notes":
       return "No recallable notes yet.";
+    case "no-weak-notes":
+      return "No weak notes yet.";
     case "none":
       return null;
   }
@@ -515,11 +519,11 @@ export function RecallSelectionPage() {
   const [activeSearchResultIndex, setActiveSearchResultIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const searchRootRef = useRef<HTMLFormElement | null>(null);
-  const searchResults = searchNoteResults(notes, searchQuery);
+  const now = new Date().toISOString();
   const setupState = deriveRecallSetupState({
     labels,
     notes,
-    now: new Date().toISOString(),
+    now,
     searchQuery,
     selectedFilter,
     selectedNoteIds,
@@ -527,6 +531,19 @@ export function RecallSelectionPage() {
   });
   const validSelectedNoteIds = getSelectedSummaryNoteIds(
     setupState.selectedSummaries,
+  );
+  const filterScopedState = deriveRecallSetupState({
+    labels,
+    notes,
+    now,
+    searchQuery: "",
+    selectedFilter,
+    selectedNoteIds,
+    sessionResults,
+  });
+  const searchResults = searchNoteResults(
+    filterScopedState.visibleCandidates.map((candidate) => candidate.note),
+    searchQuery,
   );
   const selectedCountLabel = formatSelectedCount(validSelectedNoteIds.length);
   const hasSearchQuery = searchQuery.trim().length > 0;

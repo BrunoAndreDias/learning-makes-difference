@@ -1,19 +1,15 @@
 import type { AppLabel } from "../../labels/domain/labels";
+import {
+  deriveLearningState,
+  type NoteLearningState,
+  type NoteRecallHistory,
+  type NoteRecallHistoryAttempt,
+} from "./learning-state";
 import { type AppNote, filterNotesByQuery } from "./notes";
 import type { RecallSelfRating, SessionResult } from "./recall";
 
 const RECENT_NOTE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-const RATING_REVIEW_DELAY_MS: Record<RecallSelfRating, number> = {
-  missed: 0,
-  nailed: 3 * 24 * 60 * 60 * 1000,
-  partial: 24 * 60 * 60 * 1000,
-};
 const ESTIMATED_MINUTES_PER_NOTE = 2;
-
-type RecallSetupHistory = {
-  completedAt: string;
-  rating: RecallSelfRating;
-};
 
 export type RecallSetupFilter =
   | { kind: "all" }
@@ -52,10 +48,12 @@ export type RecallSetupFilterSummary =
 
 export type RecallSetupEmptyState =
   | "none"
+  | "no-due-notes"
   | "no-filter-matches"
   | "no-notes"
   | "no-search-matches"
-  | "no-selected-notes";
+  | "no-selected-notes"
+  | "no-weak-notes";
 
 export type RecallSetupAvailableEmptyState = Exclude<
   RecallSetupEmptyState,
@@ -77,66 +75,83 @@ export type RecallSetupState = {
   visibleCandidates: RecallSetupCandidate[];
 };
 
-function getLatestHistoryByNoteId(
+function getRecallHistoryByNoteId(
   sessionResults: readonly SessionResult[],
-): Map<string, RecallSetupHistory> {
-  const latestHistoryByNoteId = new Map<string, RecallSetupHistory>();
+): Map<string, NoteRecallHistory> {
+  const attemptsByNoteId = new Map<string, NoteRecallHistoryAttempt[]>();
   const sortedResults = [...sessionResults].sort((left, right) =>
-    right.completedAt.localeCompare(left.completedAt),
+    left.completedAt.localeCompare(right.completedAt),
   );
 
   for (const result of sortedResults) {
     for (const attempt of result.attempts) {
-      if (latestHistoryByNoteId.has(attempt.noteId)) {
+      const attempts = attemptsByNoteId.get(attempt.noteId);
+      const recallAttempt = {
+        completedAt: result.completedAt,
+        rating: attempt.rating,
+      };
+
+      if (attempts === undefined) {
+        attemptsByNoteId.set(attempt.noteId, [recallAttempt]);
         continue;
       }
 
-      latestHistoryByNoteId.set(attempt.noteId, {
-        completedAt: result.completedAt,
-        rating: attempt.rating,
-      });
+      attempts.push(recallAttempt);
     }
   }
 
-  return latestHistoryByNoteId;
+  return new Map(
+    [...attemptsByNoteId.entries()].map(([noteId, attempts]) => [
+      noteId,
+      { attempts, noteId },
+    ]),
+  );
+}
+
+function getLearningStateByNoteId(input: {
+  notes: readonly AppNote[];
+  now: string;
+  recallHistoryByNoteId: ReadonlyMap<string, NoteRecallHistory>;
+}): Map<string, NoteLearningState> {
+  return new Map(
+    input.notes.map((note) => [
+      note.id,
+      deriveLearningState({
+        history: input.recallHistoryByNoteId.get(note.id) ?? null,
+        note,
+        now: input.now,
+      }),
+    ]),
+  );
 }
 
 function isRecentNote(note: AppNote, nowValue: number) {
   return nowValue - new Date(note.updatedAt).getTime() <= RECENT_NOTE_WINDOW_MS;
 }
 
-function isWeakNote(history: RecallSetupHistory | undefined) {
-  return history?.rating === "missed" || history?.rating === "partial";
+function isWeakNote(learningState: NoteLearningState | undefined) {
+  return learningState?.isWeak === true;
 }
 
-function isDueNow(
-  history: RecallSetupHistory | undefined,
-  nowValue: number,
-): boolean {
-  if (history === undefined) {
-    return true;
-  }
-
-  const completedAtValue = new Date(history.completedAt).getTime();
-
-  return completedAtValue + RATING_REVIEW_DELAY_MS[history.rating] <= nowValue;
+function isDueNow(learningState: NoteLearningState | undefined): boolean {
+  return learningState?.recommendedAction !== "review_later";
 }
 
 function matchesFilter(
   note: AppNote,
   filter: RecallSetupFilter,
-  history: RecallSetupHistory | undefined,
+  learningState: NoteLearningState | undefined,
   nowValue: number,
 ) {
   switch (filter.kind) {
     case "all":
       return true;
     case "due":
-      return isDueNow(history, nowValue);
+      return isDueNow(learningState);
     case "recent":
       return isRecentNote(note, nowValue);
     case "weak":
-      return isWeakNote(history);
+      return isWeakNote(learningState);
     case "label":
       return note.labelIds.includes(filter.labelId);
   }
@@ -197,7 +212,7 @@ function getDifficultyLabel(
 function getAvailableEmptyState(input: {
   hasFilterMatches: boolean;
   hasNotes: boolean;
-  hasSearchQuery: boolean;
+  selectedFilter: RecallSetupFilter;
   visibleCandidateCount: number;
 }): RecallSetupAvailableEmptyState {
   if (!input.hasNotes) {
@@ -208,20 +223,31 @@ function getAvailableEmptyState(input: {
     return "none";
   }
 
-  if (input.hasSearchQuery) {
-    return "no-search-matches";
-  }
-
   if (!input.hasFilterMatches) {
-    return "no-filter-matches";
+    return getNoFilterMatchesEmptyState(input.selectedFilter);
   }
 
   return "no-search-matches";
 }
 
+function getNoFilterMatchesEmptyState(
+  selectedFilter: RecallSetupFilter,
+): RecallSetupAvailableEmptyState {
+  switch (selectedFilter.kind) {
+    case "due":
+      return "no-due-notes";
+    case "weak":
+      return "no-weak-notes";
+    case "all":
+    case "label":
+    case "recent":
+      return "no-filter-matches";
+  }
+}
+
 function buildFilterSummaries(input: {
+  learningStateByNoteId: ReadonlyMap<string, NoteLearningState>;
   labels: readonly AppLabel[];
-  latestHistoryByNoteId: ReadonlyMap<string, RecallSetupHistory>;
   notes: readonly AppNote[];
   nowValue: number;
 }): RecallSetupFilterSummary[] {
@@ -231,13 +257,13 @@ function buildFilterSummaries(input: {
     { count: input.notes.length, kind: "all" },
     {
       count: countNotes((note) =>
-        isDueNow(input.latestHistoryByNoteId.get(note.id), input.nowValue),
+        isDueNow(input.learningStateByNoteId.get(note.id)),
       ),
       kind: "due",
     },
     {
       count: countNotes((note) =>
-        isWeakNote(input.latestHistoryByNoteId.get(note.id)),
+        isWeakNote(input.learningStateByNoteId.get(note.id)),
       ),
       kind: "weak",
     },
@@ -258,30 +284,30 @@ function buildFilterSummaries(input: {
 }
 
 function buildCandidate(input: {
-  history: RecallSetupHistory | undefined;
   labelNameById: ReadonlyMap<string, string>;
+  learningState: NoteLearningState | undefined;
   note: AppNote;
   selectedNoteIdSet: ReadonlySet<string>;
 }): RecallSetupCandidate {
   return {
     isSelected: input.selectedNoteIdSet.has(input.note.id),
     labelNames: getLabelNames(input.note, input.labelNameById),
-    latestCompletedAt: input.history?.completedAt ?? null,
-    latestRating: input.history?.rating ?? null,
+    latestCompletedAt: input.learningState?.lastPracticedAt ?? null,
+    latestRating: input.learningState?.latestRating ?? null,
     note: input.note,
   };
 }
 
 function buildSelectedSummary(input: {
-  history: RecallSetupHistory | undefined;
   labelNameById: ReadonlyMap<string, string>;
+  learningState: NoteLearningState | undefined;
   note: AppNote;
 }): RecallSetupSelectedSummary {
   return {
     id: input.note.id,
     labelNames: getLabelNames(input.note, input.labelNameById),
-    latestCompletedAt: input.history?.completedAt ?? null,
-    latestRating: input.history?.rating ?? null,
+    latestCompletedAt: input.learningState?.lastPracticedAt ?? null,
+    latestRating: input.learningState?.latestRating ?? null,
     title: input.note.title,
   };
 }
@@ -295,18 +321,24 @@ export function deriveRecallSetupState(input: {
   selectedNoteIds: readonly string[];
   sessionResults: readonly SessionResult[];
 }): RecallSetupState {
-  const latestHistoryByNoteId = getLatestHistoryByNoteId(input.sessionResults);
+  const recallHistoryByNoteId = getRecallHistoryByNoteId(input.sessionResults);
   const labelNameById = new Map(
     input.labels.map((label) => [label.id, label.name] as const),
   );
   const noteById = new Map(input.notes.map((note) => [note.id, note] as const));
   const nowValue = new Date(input.now).getTime();
-  const selectedNoteIdSet = new Set(input.selectedNoteIds);
+  const selectedNoteIds = [...new Set(input.selectedNoteIds)];
+  const selectedNoteIdSet = new Set(selectedNoteIds);
+  const learningStateByNoteId = getLearningStateByNoteId({
+    notes: input.notes,
+    now: input.now,
+    recallHistoryByNoteId,
+  });
   const filterMatchedNotes = input.notes.filter((note) =>
     matchesFilter(
       note,
       input.selectedFilter,
-      latestHistoryByNoteId.get(note.id),
+      learningStateByNoteId.get(note.id),
       nowValue,
     ),
   );
@@ -316,13 +348,13 @@ export function deriveRecallSetupState(input: {
   );
   const visibleCandidates = visibleNotes.map((note) => {
     return buildCandidate({
-      history: latestHistoryByNoteId.get(note.id),
       labelNameById,
+      learningState: learningStateByNoteId.get(note.id),
       note,
       selectedNoteIdSet,
     });
   });
-  const selectedSummaries = input.selectedNoteIds
+  const selectedSummaries = selectedNoteIds
     .map((noteId) => {
       const note = noteById.get(noteId);
 
@@ -331,8 +363,8 @@ export function deriveRecallSetupState(input: {
       }
 
       return buildSelectedSummary({
-        history: latestHistoryByNoteId.get(note.id),
         labelNameById,
+        learningState: learningStateByNoteId.get(note.id),
         note,
       });
     })
@@ -344,12 +376,12 @@ export function deriveRecallSetupState(input: {
     availableEmptyState: getAvailableEmptyState({
       hasFilterMatches: filterMatchedNotes.length > 0,
       hasNotes: input.notes.length > 0,
-      hasSearchQuery: input.searchQuery.trim().length > 0,
+      selectedFilter: input.selectedFilter,
       visibleCandidateCount: visibleCandidates.length,
     }),
     filterSummaries: buildFilterSummaries({
+      learningStateByNoteId,
       labels: input.labels,
-      latestHistoryByNoteId,
       notes: input.notes,
       nowValue,
     }),
