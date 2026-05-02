@@ -1400,6 +1400,104 @@ describe("authenticated app shell", () => {
     ]);
   });
 
+  it("shows a no-labels picker empty state with guarded navigation to labels", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (currentUserId) =>
+        labelsContext.getLabelsForUser(currentUserId).map((label) => label.id),
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "A note body without any labels in the workspace.",
+      labelIds: [],
+      metaphors: [],
+      title: "Unlabeled note",
+    });
+
+    const { router } = renderRoute("/notes", {
+      labelsContext,
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notes workspace" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(
+      await screen.findByDisplayValue(
+        "A note body without any labels in the workspace.",
+      ),
+      {
+        target: {
+          value: "A note body without any labels and with unsaved edits.",
+        },
+      },
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage labels" }));
+
+    expect(await screen.findByText("No labels available")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Go to Labels" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Done" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Search labels")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Go to Labels" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Discard unsaved changes?",
+    });
+
+    expect(router.state.location.pathname).toBe("/notes");
+    expect(
+      within(dialog).getByRole("button", { name: "Cancel" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Discard changes" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(
+      screen.queryByRole("dialog", { name: "Discard unsaved changes?" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("No labels available")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/notes");
+
+    fireEvent.click(screen.getByRole("button", { name: "Go to Labels" }));
+    fireEvent.click(
+      within(
+        await screen.findByRole("dialog", {
+          name: "Discard unsaved changes?",
+        }),
+      ).getByRole("button", { name: "Discard changes" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Labels" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/labels");
+  });
+
   it("manages note metaphors inside the note workflow", async () => {
     renderRoute("/notes", {
       session: {

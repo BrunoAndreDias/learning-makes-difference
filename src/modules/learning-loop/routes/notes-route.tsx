@@ -147,12 +147,14 @@ type PendingHookRemoval =
 type LabelPickerPanelProps = {
   availableLabels: readonly AppLabel[];
   draftLabelIds: readonly string[];
+  emptyStateActionRef: Ref<HTMLButtonElement>;
   searchInputId: string;
   searchInputRef: Ref<HTMLInputElement>;
   searchQuery: string;
   visibleLabels: readonly AppLabel[];
   onCancel: () => void;
   onDone: () => void;
+  onGoToLabels: () => void;
   onSearchQueryChange: (query: string) => void;
   onToggle: (labelId: string, checked: boolean) => void;
 };
@@ -160,12 +162,14 @@ type LabelPickerPanelProps = {
 function LabelPickerPanel({
   availableLabels,
   draftLabelIds,
+  emptyStateActionRef,
   searchInputId,
   searchInputRef,
   searchQuery,
   visibleLabels,
   onCancel,
   onDone,
+  onGoToLabels,
   onSearchQueryChange,
   onToggle,
 }: LabelPickerPanelProps) {
@@ -226,20 +230,36 @@ function LabelPickerPanel({
           )}
         </>
       ) : (
-        <p className="muted notes-label-picker__empty">No labels available</p>
+        <div className="notes-label-picker__empty-state">
+          <p className="muted notes-label-picker__empty">No labels available</p>
+          <p className="muted notes-label-picker__empty-copy">
+            Create labels and manage their graph in the Labels workspace.
+          </p>
+        </div>
       )}
 
       <div className="notes-label-picker__actions">
         <button className="notes-action" onClick={onCancel} type="button">
           Cancel
         </button>
-        <button
-          className="notes-action notes-action-primary"
-          onClick={onDone}
-          type="button"
-        >
-          Done
-        </button>
+        {hasAvailableLabels ? (
+          <button
+            className="notes-action notes-action-primary"
+            onClick={onDone}
+            type="button"
+          >
+            Done
+          </button>
+        ) : (
+          <button
+            className="notes-action notes-action-primary"
+            onClick={onGoToLabels}
+            ref={emptyStateActionRef}
+            type="button"
+          >
+            Go to Labels
+          </button>
+        )}
       </div>
     </section>
   );
@@ -394,6 +414,8 @@ export function NotesWorkspace() {
   const unsavedSearchDiscardRef = useRef<HTMLButtonElement>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
+  const [isLabelNavigationPending, setIsLabelNavigationPending] =
+    useState(false);
   const [labelPickerDraftIds, setLabelPickerDraftIds] = useState<string[]>([]);
   const [labelPickerSearchQuery, setLabelPickerSearchQuery] = useState("");
   const [bodyFraction, setBodyFraction] = useState(0.62);
@@ -403,12 +425,15 @@ export function NotesWorkspace() {
   const noteFormRef = useRef<HTMLFormElement>(null);
   const labelPickerTriggerRef = useRef<HTMLButtonElement | null>(null);
   const labelPickerSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const labelPickerEmptyActionRef = useRef<HTMLButtonElement | null>(null);
   const isInspectorHidden = bodyFraction >= 0.88;
   const selectedNote = getSelectedNote(noteEditor, notes);
   const activeFocusSession =
     userId === null ? null : focusContext.getActiveSession({ userId });
   const isBreakActive = isBreakIntervalActive(activeFocusSession);
   const isCreating = selectedNote === null;
+  const hasPendingGuardedWorkspaceTransition =
+    hasPendingWorkspaceTransition || isLabelNavigationPending;
   const noteLearningStates = deriveLearningStates({
     histories:
       userId === null || recallResultsSnapshot.length === 0
@@ -568,12 +593,12 @@ export function NotesWorkspace() {
   }, []);
 
   useEffect(() => {
-    if (!hasPendingWorkspaceTransition) {
+    if (!hasPendingGuardedWorkspaceTransition) {
       return;
     }
 
     unsavedSearchCancelRef.current?.focus();
-  }, [hasPendingWorkspaceTransition]);
+  }, [hasPendingGuardedWorkspaceTransition]);
 
   useEffect(() => {
     if (pendingSearchJump === null) {
@@ -633,20 +658,25 @@ export function NotesWorkspace() {
   ]);
 
   useEffect(() => {
-    if (editorFocusRequestNonce === 0 || hasPendingWorkspaceTransition) {
+    if (editorFocusRequestNonce === 0 || hasPendingGuardedWorkspaceTransition) {
       return;
     }
 
     titleInputRef.current?.focus();
-  }, [editorFocusRequestNonce, hasPendingWorkspaceTransition]);
+  }, [editorFocusRequestNonce, hasPendingGuardedWorkspaceTransition]);
 
   useEffect(() => {
     if (!isLabelPickerOpen) {
       return;
     }
 
+    if (availableLabels.length === 0) {
+      labelPickerEmptyActionRef.current?.focus();
+      return;
+    }
+
     labelPickerSearchInputRef.current?.focus();
-  }, [isLabelPickerOpen]);
+  }, [availableLabels.length, isLabelPickerOpen]);
 
   useEffect(() => {
     if (userId === null || selectedNote === null) {
@@ -825,6 +855,16 @@ export function NotesWorkspace() {
     closeLabelPickerAndRestoreFocus();
   }
 
+  function handleGoToLabels() {
+    if (hasUnsavedNoteChanges) {
+      setIsLabelNavigationPending(true);
+      return;
+    }
+
+    closeLabelPicker();
+    void navigate({ to: "/labels" });
+  }
+
   function handleAddMetaphor() {
     addEditorMetaphor();
   }
@@ -916,11 +956,28 @@ export function NotesWorkspace() {
   }
 
   function handleCancelGuardedWorkspaceTransition() {
+    if (isLabelNavigationPending) {
+      setIsLabelNavigationPending(false);
+
+      requestAnimationFrame(() => {
+        labelPickerEmptyActionRef.current?.focus();
+      });
+      return;
+    }
+
     cancelPendingWorkspaceTransition();
     searchInputRef.current?.focus();
   }
 
-  function handleDiscardGuardedWorkspaceTransition() {
+  async function handleDiscardGuardedWorkspaceTransition() {
+    if (isLabelNavigationPending) {
+      setIsLabelNavigationPending(false);
+      discardEditorChanges(notes);
+      closeLabelPicker();
+      await navigate({ to: "/labels" });
+      return;
+    }
+
     const transitionResult = discardPendingWorkspaceTransition(notes);
 
     if (transitionResult.completedSearchJump !== null) {
@@ -1234,8 +1291,10 @@ export function NotesWorkspace() {
     <LabelPickerPanel
       availableLabels={availableLabels}
       draftLabelIds={labelPickerDraftIds}
+      emptyStateActionRef={labelPickerEmptyActionRef}
       onCancel={handleLabelPickerCancel}
       onDone={handleLabelPickerDone}
+      onGoToLabels={handleGoToLabels}
       onSearchQueryChange={setLabelPickerSearchQuery}
       onToggle={handleLabelPickerToggle}
       searchInputId={labelPickerSearchInputId}
@@ -1817,7 +1876,7 @@ export function NotesWorkspace() {
           ) : null}
         </article>
       </div>
-      {hasPendingWorkspaceTransition ? (
+      {hasPendingGuardedWorkspaceTransition ? (
         <div
           aria-labelledby="notes-unsaved-search-title"
           aria-describedby="notes-unsaved-search-description"

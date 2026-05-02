@@ -2256,6 +2256,15 @@
   margin: 0;
 }
 
+.notes-label-picker__empty-state {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.notes-label-picker__empty-copy {
+  margin: 0;
+}
+
 .notes-label-picker__search {
   display: grid;
   gap: 0.4rem;
