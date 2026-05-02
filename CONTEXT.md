@@ -31,6 +31,10 @@ In the exam-support pilot, the Study Layer is used alongside external exam mater
 The future product direction is for the app to become the User's primary study workspace when the User trusts it enough for long-term study.
 _Avoid_: Source notes, exam notebook
 
+**Persistent Study Data**:
+Authenticated study data that remains available to the same User across browsers, devices, sign-outs, and app restarts.
+_Avoid_: Local cache, browser storage
+
 **Label**:
 A named concept used to group Notes. Labels form a DAG — a Label can have multiple parent Labels and multiple child Labels. A Note can belong to multiple Labels directly.
 _Avoid_: Tag, category, folder, topic, study field
@@ -44,6 +48,7 @@ In v1, the selected set is temporary and exists only to start that RecallSession
 For `AiAssisted` and `AiGraded`, the User chooses the question style for the session up front: `open-ended`, `multiple-choice`, or `mixed`.
 Notes are presented in random order within the RecallSession.
 A RecallSession snapshots its target Notes and generated Questions at the moment the session starts, so later edits or deletions do not change that in-progress session.
+An in-progress RecallSession is Persistent Study Data so the User can recover it after refresh or app reopen.
 _Avoid_: Review session, quiz, test
 
 **RecallMode**:
@@ -112,16 +117,25 @@ _Avoid_: Click, page view, navigation event
 ### Users & Access
 
 **User**:
-A person with an account. Has email, hashed password, display name, interface language, study language, and an encrypted API key for BYOK premium features.
+A person with an account. In v1, a User signs in with email and password.
 _Avoid_: Account, member, profile
 
+**Session**:
+A server-managed authenticated access period for a User, represented in the browser only by an HTTP-only cookie.
+_Avoid_: Local login state, browser account
+
 **BYOK** (Bring Your Own Key):
-The current premium access model. A User supplies their own AI provider API key; the app uses it for AiAssisted and AiGraded RecallModes. Future model: per-use credits.
+The current premium access model. A User supplies their own AI provider API key; the app uses it for AiAssisted and AiGraded RecallModes. Future model: per-use credits. BYOK key persistence is deferred until AiAssisted or AiGraded is in scope.
+
+**Pilot Registration Code**:
+A shared invitation code required to create a User during the v1 exam-support pilot.
+_Avoid_: Admin approval, public signup
 
 ### Workspace Navigation
 
 **Notes Workspace**:
 The primary authenticated workspace where the User captures, searches, selects, and edits Notes.
+In the Notes Workspace, the User may assign existing Labels to a Note, but creating Labels and managing Label graph relationships belongs to the Labels workspace.
 _Avoid_: Product menu, notes page
 
 **Recall Section**:
@@ -154,17 +168,22 @@ _Avoid_: Product menu, sidebar navigation
 ## Relationships
 
 - A **Label** can have zero or more parent **Labels** and zero or more child **Labels** (DAG, not a tree)
+- Label graph cycles are invalid; v1 prevents them in application logic and relies on database constraints only for duplicate edges and self-parent edges.
 - A **Note** can belong to zero or more **Labels**
 - A **Note** has zero or more **Metaphors** (cannot exist without their Note)
 - A **Note** has zero or more **Acronyms** (cannot exist without their Note)
 - The **Learning Loop** is centered on **Notes** and **RecallSessions**; **Metaphors** and **Acronyms** support Notes but are not standalone workspace destinations.
 - The **Study Layer** turns external source material into **Notes**, **Metaphors**, **Acronyms**, **RecallSessions**, and **FocusSessions**.
 - During the exam-support pilot, the **Study Layer** must not be the only place where irreplaceable exam material exists.
+- The exam-support pilot starts with no pre-seeded **Notes**, **Labels**, **RecallSessions**, **SessionResults**, **FocusSessions**, or **FocusRecords** for Test Participants.
 - The long-term product direction is for the **Study Layer** to become the **User**'s primary study workspace.
+- **Persistent Study Data** belongs to a **User** and must survive sign-out, browser changes, and app restarts.
+- In v1, authenticated study work requires the app server and database; offline study writes are not supported.
 - In v1, the **Learning Loop** has two primary sections: the **Notes Workspace** and the **Recall Section**.
 - Searching for a **Note** includes its own title and body plus the titles/content of its attached **Metaphors** and **Acronyms**, but the search result is still the **Note**.
 - Searching/filtering Notes for a **RecallSession** includes the Note title/body and attached **Metaphors** and **Acronyms**, but selecting a result always selects the owning **Note**.
 - A **RecallSession** targets one or more **Notes** selected by the **User**
+- In v1, a **User** can have at most one active **RecallSession** at a time.
 - The selected Notes used to start a **RecallSession** are a temporary one-off selection, not a saved set, collection, deck, or Label.
 - In v1, **Labels** may help filter or group **Notes**, but **Labels** are not the foundation of **RecallSession** targeting.
 - Unlabeled **Notes** are recallable in v1 because **RecallSessions** target selected **Notes** directly.
@@ -180,6 +199,7 @@ _Avoid_: Product menu, sidebar navigation
 - In v1, **BreakIntervals** are intentional rest periods only; pausing an in-progress **FocusInterval** is not supported
 - In v1, an active **FocusSession** resumes from persisted active session state after browser refresh or app reopen
 - When resuming an active **FocusSession**, v1 uses real elapsed wall-clock time rather than freezing the timer while the app was closed
+- In v1, active **FocusSession** timing is reconstructed from persisted timestamps; the app does not persist timer ticks every second.
 - In v1, after a **FocusInterval** completes, the **FocusSession** enters a 30-second **IntervalTransitionWindow** before the next **BreakInterval**
 - During an **IntervalTransitionWindow**, the **User** may skip the next **BreakInterval** and immediately start another **FocusInterval**
 - If the **User** takes no action during the **IntervalTransitionWindow**, the **FocusSession** enters the **BreakInterval** automatically
@@ -194,6 +214,7 @@ _Avoid_: Product menu, sidebar navigation
 - A **FocusSession** may have multiple **FocusTargets**
 - A **FocusTarget** may refer to a **Label**, a **RecallSession**, or unlabeled Note work
 - In v1, **FocusTargets** are captured automatically from the User's observed study activity during the **FocusSession**
+- In v1, the app stores the resulting **FocusTargets** for a **FocusSession** rather than a full **StudyActivity** event log.
 - In v1, starting a **FocusSession** uses the default **FocusMethod** quickly, but the User may adjust supported timing settings before starting
 - In v1, **FocusSession** configuration does not include manual **FocusTarget** selection or additional **FocusMethods**
 - A **StudyActivity** must reflect meaningful study engagement, not incidental navigation
@@ -212,6 +233,8 @@ _Avoid_: Product menu, sidebar navigation
 - A **RecallSession** that happens during a **FocusSession** counts as study activity inside that **FocusSession**, not as separate extra time on top of it
 - In v1, analytics record which **FocusTargets** appeared in a **FocusSession**, but do not assign exact minutes to each target
 - A **User** owns all their **Notes**, **Labels**, **Metaphors**, **Acronyms**, **RecallSessions**, and **FocusSessions**
+- A **Session** belongs to exactly one **User**.
+- During the v1 exam-support pilot, creating a **User** requires the **Pilot Registration Code**.
 - All relationships are ownership-local to a single **User**. A **Note** can only be assigned to **Labels** owned by the same **User**, and a **RecallSession** can only target Notes owned by that User.
 - In v1, deleting active **Notes**, **Labels**, **Metaphors**, and **Acronyms** is a hard delete. Historical study records remain available only through the snapshots stored in **SessionResult**.
 - In v1, authenticated study work happens through the **Notes Workspace** and the **Recall Section** rather than a generic product-menu sidebar.
