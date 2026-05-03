@@ -314,6 +314,87 @@ describe("authenticated app shell", () => {
     expect(within(createdRow).queryByText("Biology")).not.toBeInTheDocument();
   });
 
+  it("shows no-results quick-create and prefills drawer name from search", async () => {
+    const userId = "user-placeholder";
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `labels-no-results-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (ownedUserId) =>
+        labelsContext.getLabelsForUser(ownedUserId).map((label) => label.id),
+      keyPrefix: `notes-no-results-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    labelsContext.createLabel({
+      name: "Science",
+      userId,
+    });
+
+    renderRoute("/labels", { labelsContext, notesContext });
+
+    const searchInput = await screen.findByPlaceholderText("Search labels...");
+    fireEvent.change(searchInput, {
+      target: { value: "mobility" },
+    });
+
+    expect(
+      screen.getByRole("heading", {
+        level: 4,
+        name: "No label found for 'mobility'",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Create it now or clear the search to see all labels."),
+    ).toBeInTheDocument();
+
+    const quickCreateButton = screen.getByRole("button", {
+      name: "Create 'mobility'",
+    });
+    fireEvent.click(quickCreateButton);
+
+    const drawer = await screen.findByRole("dialog", {
+      name: "New label",
+    });
+    expect(within(drawer).getByLabelText("Label name")).toHaveValue("mobility");
+  });
+
+  it("shows minimal empty labels state without summary toolbar or table", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `labels-empty-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (ownedUserId) =>
+        labelsContext.getLabelsForUser(ownedUserId).map((label) => label.id),
+      keyPrefix: `notes-empty-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    renderRoute("/labels", { labelsContext, notesContext });
+
+    expect(
+      await screen.findByRole("heading", { level: 4, name: "No labels yet" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Create your first label to group related notes."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "New label" }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.queryByRole("region", { name: "Labels summary" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Labels toolbar" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("table", { name: "Labels list" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("loads labels from the persistent labels service on route entry", async () => {
     const sessionContext = createRouteTestSessionContext();
 
