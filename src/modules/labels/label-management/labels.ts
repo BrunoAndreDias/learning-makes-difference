@@ -35,9 +35,15 @@ type CreateLabelInput = UserScopedLabelInput & {
   parentIds?: string[];
 };
 
+type RenameLabelInput = UserScopedLabelInput & {
+  labelId: string;
+  name: string;
+};
+
 type UpdateLabelInput = UserScopedLabelInput & {
   labelId: string;
   name: string;
+  parentIds: string[];
 };
 
 type LabelRelationshipInput = UserScopedLabelInput & {
@@ -64,7 +70,8 @@ export type AppLabelsContext = {
     input: UserScopedLabelInput & { labelId: string },
   ) => string[];
   createLabel: (input: CreateLabelInput) => AppLabel;
-  renameLabel: (input: UpdateLabelInput) => AppLabel;
+  renameLabel: (input: RenameLabelInput) => AppLabel;
+  updateLabel: (input: UpdateLabelInput) => AppLabel;
   deleteLabel: (input: UserScopedLabelInput & { labelId: string }) => void;
   addParent: (input: LabelRelationshipInput) => AppLabel;
   removeParent: (input: LabelRelationshipInput) => AppLabel;
@@ -261,6 +268,54 @@ export function createAppLabelsContext(
       const nextRecord = {
         ...label,
         name: normalizeLabelName(name),
+      };
+
+      records[labelIndex] = nextRecord;
+      writeRecords(records);
+      notifyListeners();
+
+      return toAppLabel(nextRecord);
+    },
+    updateLabel: ({ labelId, name, parentIds, userId }) => {
+      const records = readRecords();
+      const { index: labelIndex, record: label } = getOwnedLabelEntry(
+        records,
+        userId,
+        labelId,
+      );
+      const normalizedParentIds = normalizeLabelParentIds(parentIds);
+
+      if (normalizedParentIds.includes(labelId)) {
+        throw new AppLabelError(
+          "cycle_detected",
+          "A label cannot be its own parent.",
+        );
+      }
+
+      for (const parentId of normalizedParentIds) {
+        getOwnedLabelRecord(records, userId, parentId);
+      }
+
+      const userOwnedRecords = records.filter(
+        (record) => record.userId === userId,
+      );
+      const descendantIds = new Set(
+        collectLabelDescendantIds(userOwnedRecords, labelId),
+      );
+
+      for (const parentId of normalizedParentIds) {
+        if (descendantIds.has(parentId)) {
+          throw new AppLabelError(
+            "cycle_detected",
+            "This relationship would create a cycle.",
+          );
+        }
+      }
+
+      const nextRecord = {
+        ...label,
+        name: normalizeLabelName(name),
+        parentIds: normalizedParentIds,
       };
 
       records[labelIndex] = nextRecord;

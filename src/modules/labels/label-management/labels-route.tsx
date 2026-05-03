@@ -40,6 +40,26 @@ function formatParentNames(parentNames: readonly string[]) {
   return parentNames.join(", ");
 }
 
+function normalizeComparableParentIds(parentIds: readonly string[]) {
+  return [...new Set(parentIds)].sort();
+}
+
+function formatEditUsageSummary(input: {
+  childCount: number;
+  label: string;
+  noteCount: number;
+}) {
+  return `${input.label} · used in ${formatCount(input.noteCount, "note")} · ${formatCount(input.childCount, "child label")}`;
+}
+
+function formatChildLabelsPreview(childLabels: readonly string[]) {
+  if (childLabels.length === 0) {
+    return "No child labels.";
+  }
+
+  return `Child labels: ${childLabels.join(", ")}.`;
+}
+
 function LabelsPage() {
   const labels = useRouteContext({
     from: "/_protected/labels",
@@ -84,18 +104,27 @@ function LabelsPage() {
   const [createName, setCreateName] = useState("");
   const [createParentSearchQuery, setCreateParentSearchQuery] = useState("");
   const [createParentIds, setCreateParentIds] = useState<string[]>([]);
+  const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editParentSearchQuery, setEditParentSearchQuery] = useState("");
+  const [editParentIds, setEditParentIds] = useState<string[]>([]);
 
   const createDrawerDescriptionId = useId();
   const createDrawerTitleId = useId();
+  const editDrawerDescriptionId = useId();
+  const editDrawerTitleId = useId();
   const rulesPopoverId = useId();
   const createInputId = useId();
   const createParentSearchInputId = useId();
+  const editInputId = useId();
+  const editParentSearchInputId = useId();
   const feedbackMessageId = useId();
   const filterSelectId = useId();
   const searchInputId = useId();
   const sortSelectId = useId();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const createInputRef = useRef<HTMLInputElement>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   const noteRecords = useMemo(() => {
     return listNotesForUser(notesSnapshot, currentUserId);
@@ -172,6 +201,14 @@ function LabelsPage() {
     createInputRef.current?.focus();
   }, [isCreateDrawerOpen]);
 
+  useEffect(() => {
+    if (editingLabelId === null) {
+      return;
+    }
+
+    editInputRef.current?.focus();
+  }, [editingLabelId]);
+
   async function runLabelAction(action: () => void | Promise<void>) {
     try {
       await action();
@@ -209,25 +246,6 @@ function LabelsPage() {
     });
   }
 
-  async function renameLabel(labelId: string, name: string) {
-    if (currentUserId === null) {
-      return;
-    }
-
-    await runLabelAction(async () => {
-      if (persistentLabelsContext === undefined) {
-        labels.renameLabel({
-          labelId,
-          name,
-          userId: currentUserId,
-        });
-        return;
-      }
-
-      await persistentLabelsContext.renameLabel(currentUserId, labelId, name);
-    });
-  }
-
   async function deleteLabel(labelId: string) {
     if (currentUserId === null) {
       return;
@@ -243,6 +261,28 @@ function LabelsPage() {
       }
 
       await persistentLabelsContext.deleteLabel(currentUserId, labelId);
+    });
+  }
+
+  async function updateLabel(input: {
+    labelId: string;
+    name: string;
+    parentIds: string[];
+  }) {
+    if (currentUserId === null) {
+      return;
+    }
+
+    await runLabelAction(async () => {
+      if (persistentLabelsContext === undefined) {
+        labels.updateLabel({
+          ...input,
+          userId: currentUserId,
+        });
+        return;
+      }
+
+      await persistentLabelsContext.updateLabel(currentUserId, input);
     });
   }
 
@@ -262,16 +302,6 @@ function LabelsPage() {
     }
   }
 
-  function handleRenameRow(row: DerivedLabelRow) {
-    const nextName = window.prompt("Label name", row.label);
-
-    if (nextName === null) {
-      return;
-    }
-
-    void renameLabel(row.id, nextName);
-  }
-
   function handleDeleteRow(row: DerivedLabelRow) {
     const isConfirmed = window.confirm(
       `Delete label "${row.label}"? Notes will not be deleted.`,
@@ -282,6 +312,9 @@ function LabelsPage() {
     }
 
     void deleteLabel(row.id);
+    if (editingLabelId === row.id) {
+      closeEditDrawer();
+    }
   }
 
   function resetCreateDraft() {
@@ -300,6 +333,30 @@ function LabelsPage() {
     setCreateDrawerOpen(false);
   }
 
+  function resetEditDraft() {
+    setEditingLabelId(null);
+    setEditName("");
+    setEditParentIds([]);
+    setEditParentSearchQuery("");
+  }
+
+  function closeEditDrawer() {
+    resetEditDraft();
+  }
+
+  function openEditDrawer(labelId: string) {
+    const label = labelRecords.find((candidate) => candidate.id === labelId);
+
+    if (label === undefined) {
+      return;
+    }
+
+    setEditingLabelId(label.id);
+    setEditName(label.name);
+    setEditParentIds([...label.parentIds].sort());
+    setEditParentSearchQuery("");
+  }
+
   function addCreateParent(parentId: string) {
     setCreateParentIds((currentParentIds) => {
       if (currentParentIds.includes(parentId)) {
@@ -313,6 +370,23 @@ function LabelsPage() {
 
   function removeCreateParent(parentId: string) {
     setCreateParentIds((currentParentIds) =>
+      currentParentIds.filter((candidateId) => candidateId !== parentId),
+    );
+  }
+
+  function addEditParent(parentId: string) {
+    setEditParentIds((currentParentIds) => {
+      if (currentParentIds.includes(parentId)) {
+        return currentParentIds;
+      }
+
+      return [...currentParentIds, parentId].sort();
+    });
+    setEditParentSearchQuery("");
+  }
+
+  function removeEditParent(parentId: string) {
+    setEditParentIds((currentParentIds) =>
       currentParentIds.filter((candidateId) => candidateId !== parentId),
     );
   }
@@ -349,11 +423,101 @@ function LabelsPage() {
       .filter((row): row is DerivedLabelRow => row !== undefined)
       .sort((left, right) => left.label.localeCompare(right.label));
   }, [createParentIds, derivedRows]);
+  const editingLabelRecord = useMemo(() => {
+    if (editingLabelId === null) {
+      return null;
+    }
+
+    return (
+      labelRecords.find((labelRecord) => labelRecord.id === editingLabelId) ??
+      null
+    );
+  }, [editingLabelId, labelRecords]);
+  const editingRow = useMemo(() => {
+    if (editingLabelId === null) {
+      return null;
+    }
+
+    return derivedRows.find((row) => row.id === editingLabelId) ?? null;
+  }, [derivedRows, editingLabelId]);
+  const editChildRows = useMemo(() => {
+    if (editingLabelId === null) {
+      return [];
+    }
+
+    const rowById = new Map(derivedRows.map((row) => [row.id, row]));
+
+    return labelRecords
+      .filter((labelRecord) => labelRecord.parentIds.includes(editingLabelId))
+      .map((labelRecord) => rowById.get(labelRecord.id))
+      .filter((row): row is DerivedLabelRow => row !== undefined)
+      .sort((left, right) => left.label.localeCompare(right.label));
+  }, [derivedRows, editingLabelId, labelRecords]);
+  const editBlockedParentIds = useMemo(() => {
+    if (editingLabelId === null || currentUserId === null) {
+      return [];
+    }
+
+    try {
+      return normalizeComparableParentIds([
+        editingLabelId,
+        ...labels.getDescendantIds({
+          labelId: editingLabelId,
+          userId: currentUserId,
+        }),
+      ]);
+    } catch {
+      return [editingLabelId];
+    }
+  }, [currentUserId, editingLabelId, labels]);
+  const editParentOptions = useMemo(() => {
+    return deriveSelectableParentOptions({
+      blockedParentIds: editBlockedParentIds,
+      rows: derivedRows,
+      searchQuery: editParentSearchQuery,
+      selectedParentIds: editParentIds,
+    });
+  }, [derivedRows, editBlockedParentIds, editParentIds, editParentSearchQuery]);
+  const selectedEditParentRows = useMemo(() => {
+    const rowById = new Map(derivedRows.map((row) => [row.id, row]));
+
+    return editParentIds
+      .map((parentId) => rowById.get(parentId))
+      .filter((row): row is DerivedLabelRow => row !== undefined)
+      .sort((left, right) => left.label.localeCompare(right.label));
+  }, [derivedRows, editParentIds]);
 
   const hasLabels = summary.totalCount > 0;
   const createNameIsValid = createName.trim().length > 0;
+  const editNameIsValid = editName.trim().length > 0;
+  const editInitialParentIds = useMemo(() => {
+    return normalizeComparableParentIds(editingLabelRecord?.parentIds ?? []);
+  }, [editingLabelRecord]);
+  const editDraftParentIds = useMemo(() => {
+    return normalizeComparableParentIds(editParentIds);
+  }, [editParentIds]);
+  const editParentsAreDirty =
+    editingLabelRecord !== null &&
+    editInitialParentIds.join("::") !== editDraftParentIds.join("::");
+  const editNameIsDirty =
+    editingLabelRecord !== null && editName.trim() !== editingLabelRecord.name;
+  const editIsDirty = editNameIsDirty || editParentsAreDirty;
+  const canSaveEdit =
+    editingLabelRecord !== null && editNameIsValid && editIsDirty;
+  const isEditDrawerOpen = editingLabelId !== null;
   const createRelationshipPreview = formatCreateRelationshipPreview(
     selectedCreateParentRows.map((row) => row.label),
+  );
+  const editUsageSummary =
+    editingRow === null
+      ? ""
+      : formatEditUsageSummary({
+          childCount: editingRow.childCount,
+          label: editingRow.label,
+          noteCount: editingRow.directNoteCount,
+        });
+  const childLabelsPreview = formatChildLabelsPreview(
+    editChildRows.map((row) => row.label),
   );
   const summaryLabelsText = formatCount(summary.totalCount, "label");
   const summaryTopLevelText = `${summary.topLevelCount} top-level`;
@@ -362,6 +526,21 @@ function LabelsPage() {
     "relationship",
   );
   const summaryUnusedText = formatCount(summary.unusedCount, "unused");
+
+  async function handleEditLabel(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (editingLabelId === null) {
+      return;
+    }
+
+    await updateLabel({
+      labelId: editingLabelId,
+      name: editName,
+      parentIds: editDraftParentIds,
+    });
+    closeEditDrawer();
+  }
 
   return (
     <section className="labels-page" aria-labelledby="labels-route-heading">
@@ -524,8 +703,23 @@ function LabelsPage() {
                 </thead>
                 <tbody>
                   {visibleRows.map((row) => (
-                    <tr key={row.id}>
-                      <td className="labels-table__label-cell">{row.label}</td>
+                    <tr
+                      className="labels-table__row"
+                      key={row.id}
+                      onClick={() => openEditDrawer(row.id)}
+                    >
+                      <td className="labels-table__label-cell">
+                        <button
+                          className="labels-table__label-trigger"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openEditDrawer(row.id);
+                          }}
+                          type="button"
+                        >
+                          {row.label}
+                        </button>
+                      </td>
                       <td>{formatParentNames(row.parentNames)}</td>
                       <td>{row.childCount}</td>
                       <td>{row.directNoteCount}</td>
@@ -533,14 +727,20 @@ function LabelsPage() {
                         <div className="labels-table__actions">
                           <button
                             className="labels-button labels-button--inline"
-                            onClick={() => handleRenameRow(row)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openEditDrawer(row.id);
+                            }}
                             type="button"
                           >
                             Edit label
                           </button>
                           <button
                             className="labels-button labels-button--inline labels-button--danger"
-                            onClick={() => handleDeleteRow(row)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleDeleteRow(row);
+                            }}
                             type="button"
                           >
                             Delete label
@@ -556,11 +756,18 @@ function LabelsPage() {
         </section>
       ) : null}
 
-      {isCreateDrawerOpen ? (
+      {isCreateDrawerOpen || isEditDrawerOpen ? (
         <div
           aria-hidden="true"
           className="labels-drawer-overlay"
-          onClick={closeCreateDrawer}
+          onClick={() => {
+            if (isCreateDrawerOpen) {
+              closeCreateDrawer();
+              return;
+            }
+
+            closeEditDrawer();
+          }}
         />
       ) : null}
       {isCreateDrawerOpen ? (
@@ -696,6 +903,162 @@ function LabelsPage() {
                 type="submit"
               >
                 Create label
+              </button>
+            </div>
+          </form>
+        </aside>
+      ) : null}
+      {isEditDrawerOpen && editingLabelRecord !== null ? (
+        <aside
+          aria-describedby={editDrawerDescriptionId}
+          aria-labelledby={editDrawerTitleId}
+          aria-modal="true"
+          className="labels-create-drawer shell-panel"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              closeEditDrawer();
+            }
+          }}
+          role="dialog"
+        >
+          <header className="labels-create-drawer__header">
+            <h4 id={editDrawerTitleId}>Edit label</h4>
+            <p className="muted" id={editDrawerDescriptionId}>
+              {editUsageSummary}
+            </p>
+          </header>
+
+          <form
+            aria-label="Edit label form"
+            className="labels-create-drawer__form"
+            onSubmit={handleEditLabel}
+          >
+            <label className="labels-field" htmlFor={editInputId}>
+              <span>Label name</span>
+              <input
+                id={editInputId}
+                name="editLabelName"
+                onChange={(event) => setEditName(event.target.value)}
+                placeholder="e.g. Biology"
+                ref={editInputRef}
+                required
+                type="text"
+                value={editName}
+              />
+            </label>
+
+            <label className="labels-field" htmlFor={editParentSearchInputId}>
+              <span>Search parent labels</span>
+              <input
+                id={editParentSearchInputId}
+                name="searchParentLabelsForEdit"
+                onChange={(event) =>
+                  setEditParentSearchQuery(event.target.value)
+                }
+                placeholder="Search parent labels..."
+                type="search"
+                value={editParentSearchQuery}
+              />
+            </label>
+
+            <ul
+              aria-label="Parent label options"
+              className="labels-parent-options"
+            >
+              {editParentOptions.length === 0 ? (
+                <li className="labels-parent-options__empty muted">
+                  No matching parent labels.
+                </li>
+              ) : (
+                editParentOptions.map((option) => {
+                  const noteCountLabel = formatCount(
+                    option.directNoteCount,
+                    "note",
+                  );
+
+                  return (
+                    <li key={option.id}>
+                      <button
+                        aria-label={`${option.label} (${noteCountLabel})`}
+                        className="labels-button labels-button--inline"
+                        onClick={() => addEditParent(option.id)}
+                        type="button"
+                      >
+                        <span>{option.label}</span>
+                        <span className="muted">{noteCountLabel}</span>
+                      </button>
+                    </li>
+                  );
+                })
+              )}
+            </ul>
+
+            <section
+              aria-label="Selected parent labels"
+              className="labels-selected-parents"
+            >
+              <p className="section-label">Selected parents</p>
+              {selectedEditParentRows.length === 0 ? (
+                <p className="muted">No parent labels selected.</p>
+              ) : (
+                <ul aria-label="Selected parent labels" className="tag-row">
+                  {selectedEditParentRows.map((parentRow) => (
+                    <li className="tag" key={parentRow.id}>
+                      <span>{parentRow.label}</span>
+                      <button
+                        aria-label={`Remove ${parentRow.label}`}
+                        className="labels-chip-remove"
+                        onClick={() => removeEditParent(parentRow.id)}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section
+              aria-label="Child labels preview"
+              className="labels-preview-card"
+            >
+              <p className="section-label">Child labels</p>
+              <p>{childLabelsPreview}</p>
+            </section>
+
+            <section aria-label="Danger zone" className="labels-preview-card">
+              <p className="section-label">Danger zone</p>
+              <p className="muted">
+                Deleting this label will not delete notes.
+              </p>
+              <button
+                className="labels-button labels-button--danger"
+                onClick={() => {
+                  if (editingRow !== null) {
+                    handleDeleteRow(editingRow);
+                  }
+                }}
+                type="button"
+              >
+                Delete label
+              </button>
+            </section>
+
+            <div className="labels-create-inline__actions">
+              <button
+                className="labels-button"
+                onClick={closeEditDrawer}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="labels-button labels-button--primary"
+                disabled={!canSaveEdit}
+                type="submit"
+              >
+                Save changes
               </button>
             </div>
           </form>

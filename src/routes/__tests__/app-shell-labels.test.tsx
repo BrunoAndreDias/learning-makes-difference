@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { createAppLabelsContext } from "../../modules/labels/label-management/labels";
 import {
@@ -314,6 +314,158 @@ describe("authenticated app shell", () => {
     expect(within(createdRow).queryByText("Biology")).not.toBeInTheDocument();
   });
 
+  it("opens edit label drawer and saves full parent set with name update", async () => {
+    const userId = "user-placeholder";
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `labels-edit-drawer-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (ownedUserId) =>
+        labelsContext.getLabelsForUser(ownedUserId).map((label) => label.id),
+      keyPrefix: `notes-edit-drawer-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    const science = labelsContext.createLabel({
+      name: "Science",
+      userId,
+    });
+    const chemistry = labelsContext.createLabel({
+      name: "Chemistry",
+      userId,
+    });
+    const biology = labelsContext.createLabel({
+      name: "Biology",
+      parentIds: [science.id],
+      userId,
+    });
+    labelsContext.createLabel({
+      name: "Molecular Biology",
+      parentIds: [biology.id],
+      userId,
+    });
+
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "biology note 1",
+      labelIds: [biology.id],
+      metaphors: [],
+      title: "Biology note 1",
+    });
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "biology note 2",
+      labelIds: [biology.id],
+      metaphors: [],
+      title: "Biology note 2",
+    });
+
+    renderRoute("/labels", { labelsContext, notesContext });
+
+    const labelsTable = await screen.findByRole("table", {
+      name: "Labels list",
+    });
+    const biologyLabelButton = within(labelsTable).getByRole("button", {
+      name: "Biology",
+    });
+    const biologyRow = biologyLabelButton.closest("tr");
+
+    if (biologyRow === null) {
+      throw new Error("Biology row is missing.");
+    }
+
+    fireEvent.click(biologyRow);
+    const openedFromRow = await screen.findByRole("dialog", {
+      name: "Edit label",
+    });
+    fireEvent.click(
+      within(openedFromRow).getByRole("button", { name: "Cancel" }),
+    );
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Edit label" }),
+      ).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(biologyLabelButton);
+    const openedFromLabel = await screen.findByRole("dialog", {
+      name: "Edit label",
+    });
+    fireEvent.click(
+      within(openedFromLabel).getByRole("button", { name: "Cancel" }),
+    );
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Edit label" }),
+      ).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      within(biologyRow).getByRole("button", { name: "Edit label" }),
+    );
+
+    const drawer = await screen.findByRole("dialog", { name: "Edit label" });
+    expect(
+      within(drawer).getByText("Biology · used in 2 notes · 1 child label"),
+    ).toBeInTheDocument();
+    expect(
+      within(drawer).getByRole("button", { name: "Save changes" }),
+    ).toBeDisabled();
+    expect(within(drawer).getByText("Danger zone")).toBeInTheDocument();
+    expect(
+      within(drawer).getByRole("button", { name: "Delete label" }),
+    ).toBeInTheDocument();
+
+    const selectedParents = within(drawer).getByRole("list", {
+      name: "Selected parent labels",
+    });
+    expect(within(selectedParents).getByText("Science")).toBeInTheDocument();
+    expect(
+      within(drawer).getByText("Child labels: Molecular Biology."),
+    ).toBeInTheDocument();
+
+    const parentSearchInput = within(drawer).getByLabelText(
+      "Search parent labels",
+    );
+    fireEvent.change(parentSearchInput, {
+      target: { value: "chem" },
+    });
+    fireEvent.click(
+      within(drawer).getByRole("button", { name: "Chemistry (0 notes)" }),
+    );
+    fireEvent.click(
+      within(selectedParents).getByRole("button", { name: "Remove Science" }),
+    );
+    fireEvent.change(within(drawer).getByLabelText("Label name"), {
+      target: { value: "  Life Science  " },
+    });
+
+    const saveChangesButton = within(drawer).getByRole("button", {
+      name: "Save changes",
+    });
+    expect(saveChangesButton).toBeEnabled();
+    fireEvent.click(saveChangesButton);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Edit label" }),
+      ).not.toBeInTheDocument();
+    });
+    expect(
+      await screen.findByRole("button", { name: "Life Science" }),
+    ).toBeInTheDocument();
+    expect(labelsContext.getLabelsForUser(userId)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: biology.id,
+          name: "Life Science",
+          parentIds: [chemistry.id],
+        }),
+      ]),
+    );
+  });
+
   it("loads labels from the persistent labels service on route entry", async () => {
     const sessionContext = createRouteTestSessionContext();
 
@@ -353,6 +505,11 @@ describe("authenticated app shell", () => {
           id: labelId,
           name,
           parentIds: [],
+        }),
+        updateLabel: async ({ labelId, name, parentIds }) => ({
+          id: labelId,
+          name,
+          parentIds,
         }),
       },
     });

@@ -236,9 +236,29 @@
   border-bottom: 0;
 }
 
+.labels-table__row {
+  cursor: pointer;
+}
+
 .labels-table__label-cell {
   color: var(--color-content-strong);
   font-weight: 600;
+}
+
+.labels-table__label-trigger {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.labels-table__label-trigger:hover,
+.labels-table__label-trigger:focus-visible {
+  text-decoration: underline;
 }
 
 .labels-table__actions {

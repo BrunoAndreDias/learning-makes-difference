@@ -313,5 +313,69 @@ export function createLabelsService({
         ).parentIds,
       };
     },
+    async updateLabel(input: {
+      labelId: string;
+      name: string;
+      parentIds: string[];
+      userId: string;
+    }) {
+      const labels = await readOwnedLabels(database, input.userId);
+
+      getOwnedLabel(labels, input.labelId);
+
+      const name = normalizeLabelName(input.name);
+      const parentIds = normalizeLabelParentIds(input.parentIds);
+
+      if (parentIds.includes(input.labelId)) {
+        throw new AppLabelError(
+          "cycle_detected",
+          "A label cannot be its own parent.",
+        );
+      }
+
+      for (const parentId of parentIds) {
+        getOwnedLabel(labels, parentId);
+      }
+
+      const descendantIds = new Set(
+        collectLabelDescendantIds(labels, input.labelId),
+      );
+
+      for (const parentId of parentIds) {
+        if (descendantIds.has(parentId)) {
+          throw new AppLabelError(
+            "cycle_detected",
+            "This relationship would create a cycle.",
+          );
+        }
+      }
+
+      await database
+        .update(labelsTable)
+        .set({
+          name,
+          updatedAt: now(),
+        })
+        .where(eq(labelsTable.id, input.labelId));
+
+      await database
+        .delete(labelEdgesTable)
+        .where(eq(labelEdgesTable.childLabelId, input.labelId));
+
+      if (parentIds.length > 0) {
+        await database.insert(labelEdgesTable).values(
+          parentIds.map((parentId) => ({
+            childLabelId: input.labelId,
+            parentLabelId: parentId,
+          })),
+        );
+      }
+
+      return {
+        id: input.labelId,
+        name,
+        parentIds,
+      };
+    },
   };
 }

@@ -165,16 +165,21 @@ export function deriveVisibleLabelRows(input: {
 }
 
 export function deriveSelectableParentOptions(input: {
+  blockedParentIds?: readonly string[];
   rows: readonly DerivedLabelRow[];
   searchQuery: string;
   selectedParentIds: readonly string[];
 }): ParentLabelOption[] {
   const normalizedSearch = input.searchQuery.trim().toLowerCase();
   const selectedParentIds = new Set(input.selectedParentIds);
+  const blockedParentIds = new Set(input.blockedParentIds ?? []);
 
   return input.rows
     .filter((row) => {
       if (selectedParentIds.has(row.id)) {
+        return false;
+      }
+      if (blockedParentIds.has(row.id)) {
         return false;
       }
 

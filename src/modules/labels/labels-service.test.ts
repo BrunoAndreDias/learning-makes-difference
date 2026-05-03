@@ -359,4 +359,159 @@ describe("createLabelsService", () => {
       code: "cycle_detected",
     });
   });
+
+  it("updates label name with full parent set and validates cycle-safe parent selections", async () => {
+    const client = new PGlite();
+    databases.add(client);
+    const db = drizzle(client, {
+      schema: {
+        ...authSchema,
+        ...labelsSchema,
+      },
+    });
+    await migrateDatabase(db, client);
+    await db.insert(usersTable).values([
+      {
+        id: "user-casey",
+        displayName: "Casey Learner",
+        email: "casey@example.com",
+        passwordHash: "hash",
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+        createdAt: new Date("2026-05-02T12:00:00.000Z"),
+        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+      },
+      {
+        id: "user-jordan",
+        displayName: "Jordan Learner",
+        email: "jordan@example.com",
+        passwordHash: "hash",
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+        createdAt: new Date("2026-05-02T12:00:00.000Z"),
+        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+      },
+    ]);
+
+    const ids = [
+      "00000000-0000-0000-0000-000000000201",
+      "00000000-0000-0000-0000-000000000202",
+      "00000000-0000-0000-0000-000000000203",
+      "00000000-0000-0000-0000-000000000204",
+      "00000000-0000-0000-0000-000000000205",
+    ] as const;
+    let nextIdIndex = 0;
+    const labels = createLabelsService({
+      crypto: {
+        randomUUID: () => {
+          const id = ids[nextIdIndex];
+          nextIdIndex += 1;
+
+          if (id === undefined) {
+            throw new Error("Missing test label id.");
+          }
+
+          return id;
+        },
+      },
+      db,
+      now: () => new Date("2026-05-02T12:00:00.000Z"),
+    });
+
+    const science = await labels.createLabel({
+      name: "Science",
+      userId: "user-casey",
+    });
+    const chemistry = await labels.createLabel({
+      name: "Chemistry",
+      userId: "user-casey",
+    });
+    const biology = await labels.createLabel({
+      name: "Biology",
+      parentIds: [science.id],
+      userId: "user-casey",
+    });
+    const molecularBiology = await labels.createLabel({
+      name: "Molecular Biology",
+      parentIds: [biology.id],
+      userId: "user-casey",
+    });
+    const jordanTopic = await labels.createLabel({
+      name: "Jordan topic",
+      userId: "user-jordan",
+    });
+
+    await expect(
+      labels.updateLabel({
+        labelId: biology.id,
+        name: "  Life Science  ",
+        parentIds: [chemistry.id, chemistry.id],
+        userId: "user-casey",
+      }),
+    ).resolves.toEqual({
+      id: biology.id,
+      name: "Life Science",
+      parentIds: [chemistry.id],
+    });
+
+    await expect(
+      labels.listLabels({
+        userId: "user-casey",
+      }),
+    ).resolves.toEqual([
+      {
+        id: chemistry.id,
+        name: "Chemistry",
+        parentIds: [],
+      },
+      {
+        id: biology.id,
+        name: "Life Science",
+        parentIds: [chemistry.id],
+      },
+      {
+        id: molecularBiology.id,
+        name: "Molecular Biology",
+        parentIds: [biology.id],
+      },
+      {
+        id: science.id,
+        name: "Science",
+        parentIds: [],
+      },
+    ]);
+
+    await expect(
+      labels.updateLabel({
+        labelId: biology.id,
+        name: "Life Science",
+        parentIds: [biology.id],
+        userId: "user-casey",
+      }),
+    ).rejects.toMatchObject({
+      code: "cycle_detected",
+    });
+
+    await expect(
+      labels.updateLabel({
+        labelId: biology.id,
+        name: "Life Science",
+        parentIds: [molecularBiology.id],
+        userId: "user-casey",
+      }),
+    ).rejects.toMatchObject({
+      code: "cycle_detected",
+    });
+
+    await expect(
+      labels.updateLabel({
+        labelId: biology.id,
+        name: "Life Science",
+        parentIds: [jordanTopic.id],
+        userId: "user-casey",
+      }),
+    ).rejects.toMatchObject({
+      code: "not_found",
+    });
+  });
 });

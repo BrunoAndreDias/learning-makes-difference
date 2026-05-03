@@ -17,6 +17,12 @@ type RenameLabelInput = {
   name: string;
 };
 
+type UpdateLabelInput = {
+  labelId: string;
+  name: string;
+  parentIds: string[];
+};
+
 type LabelRelationshipInput = {
   labelId: string;
   parentId: string;
@@ -33,6 +39,7 @@ export type AppPersistentLabelsService = {
   listLabels: () => Promise<AppLabel[]>;
   removeParent: (input: LabelRelationshipInput) => Promise<AppLabel>;
   renameLabel: (input: RenameLabelInput) => Promise<AppLabel>;
+  updateLabel: (input: UpdateLabelInput) => Promise<AppLabel>;
 };
 
 export type AppPersistentLabelsContext = {
@@ -55,6 +62,10 @@ export type AppPersistentLabelsContext = {
     userId: string | null,
     labelId: string,
     name: string,
+  ) => Promise<AppLabel>;
+  updateLabel: (
+    userId: string | null,
+    input: UpdateLabelInput,
   ) => Promise<AppLabel>;
   subscribe: (listener: PersistentLabelsListener) => () => void;
 };
@@ -133,6 +144,11 @@ export function createReadonlyLabelsContext(
     renameLabel: () => {
       throw new Error(
         "Readonly labels context cannot rename labels. Use persistentLabels instead.",
+      );
+    },
+    updateLabel: () => {
+      throw new Error(
+        "Readonly labels context cannot update labels. Use persistentLabels instead.",
       );
     },
     subscribe: persistentLabels.subscribe,
@@ -244,6 +260,14 @@ export function createPersistentLabelsContext(
         labelId,
         name,
       });
+
+      replaceSnapshotLabel(updatedLabel, validatedUserId);
+
+      return updatedLabel;
+    },
+    async updateLabel(userId, input) {
+      const validatedUserId = requireUserId(userId);
+      const updatedLabel = await requireService().updateLabel(input);
 
       replaceSnapshotLabel(updatedLabel, validatedUserId);
 

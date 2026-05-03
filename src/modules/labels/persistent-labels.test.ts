@@ -89,6 +89,33 @@ describe("createPersistentLabelsContext", () => {
 
         return updatedLabel;
       }),
+      updateLabel: vi.fn(
+        async ({
+          labelId,
+          name,
+          parentIds,
+        }: {
+          labelId: string;
+          name: string;
+          parentIds: string[];
+        }) => {
+          const label = labelsById.get(labelId);
+
+          if (label === undefined) {
+            throw new Error("Missing label");
+          }
+
+          const updatedLabel = {
+            ...label,
+            name,
+            parentIds: [...new Set(parentIds)].sort(),
+          };
+
+          labelsById.set(labelId, updatedLabel);
+
+          return updatedLabel;
+        },
+      ),
     };
     const persistentLabels = createPersistentLabelsContext({
       service,
@@ -125,6 +152,17 @@ describe("createPersistentLabelsContext", () => {
       name: "Natural Science",
     });
     await expect(
+      persistentLabels.updateLabel("user-casey", {
+        labelId: "label-1",
+        name: "Applied Science",
+        parentIds: [],
+      }),
+    ).resolves.toMatchObject({
+      id: "label-1",
+      name: "Applied Science",
+      parentIds: [],
+    });
+    await expect(
       persistentLabels.addParent("user-casey", {
         labelId: "label-2",
         parentId: "label-1",
@@ -148,7 +186,7 @@ describe("createPersistentLabelsContext", () => {
     expect(labels.getLabelsForUser("user-casey")).toEqual([
       {
         id: "label-1",
-        name: "Natural Science",
+        name: "Applied Science",
         parentIds: [],
       },
     ]);

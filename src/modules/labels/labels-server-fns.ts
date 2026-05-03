@@ -21,6 +21,12 @@ const renameLabelInputSchema = z.object({
   name: z.string(),
 });
 
+const updateLabelInputSchema = z.object({
+  labelId: z.string(),
+  name: z.string(),
+  parentIds: z.array(z.string()),
+});
+
 const labelRelationshipInputSchema = z.object({
   labelId: z.string(),
   parentId: z.string(),
@@ -136,6 +142,24 @@ const renameLabelServerFn = createServerFn({
     });
   });
 
+const updateLabelServerFn = createServerFn({
+  method: "POST",
+})
+  .inputValidator(updateLabelInputSchema)
+  .handler(async ({ data }) => {
+    const [userId, labels] = await Promise.all([
+      requireRequestUserId(),
+      createRequestLabelsService(),
+    ]);
+
+    return labels.updateLabel({
+      labelId: data.labelId,
+      name: data.name,
+      parentIds: data.parentIds,
+      userId,
+    });
+  });
+
 const deleteLabelServerFn = createServerFn({
   method: "POST",
 })
@@ -207,5 +231,8 @@ export function createServerLabelsService(): AppPersistentLabelsService {
     renameLabel: (
       input: z.infer<typeof renameLabelInputSchema>,
     ): Promise<AppLabel> => renameLabelServerFn({ data: input }),
+    updateLabel: (
+      input: z.infer<typeof updateLabelInputSchema>,
+    ): Promise<AppLabel> => updateLabelServerFn({ data: input }),
   };
 }

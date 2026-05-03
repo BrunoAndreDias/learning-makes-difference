@@ -182,6 +182,15 @@ describe("labels management view", () => {
 
     expect(
       deriveSelectableParentOptions({
+        blockedParentIds: ["label-biology"],
+        rows,
+        searchQuery: "",
+        selectedParentIds: [],
+      }).map((option) => option.id),
+    ).not.toContain("label-biology");
+
+    expect(
+      deriveSelectableParentOptions({
         rows,
         searchQuery: "",
         selectedParentIds: ["label-science"],

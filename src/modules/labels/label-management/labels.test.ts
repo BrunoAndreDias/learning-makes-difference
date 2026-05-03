@@ -129,4 +129,64 @@ describe("label management", () => {
       }),
     ]);
   });
+
+  it("updates label name and full parent set while rejecting self and cycle-causing parents", () => {
+    const labels = createAppLabelsContext({
+      keyPrefix: "labels-test-update-with-parents",
+      storage: createMemoryStorage(),
+    });
+    const userId = "user-1";
+    const science = labels.createLabel({
+      name: "Science",
+      userId,
+    });
+    const chemistry = labels.createLabel({
+      name: "Chemistry",
+      userId,
+    });
+    const biology = labels.createLabel({
+      name: "Biology",
+      parentIds: [science.id],
+      userId,
+    });
+    const molecularBiology = labels.createLabel({
+      name: "Molecular Biology",
+      parentIds: [biology.id],
+      userId,
+    });
+
+    expect(
+      labels.updateLabel({
+        labelId: biology.id,
+        name: "  Life Science  ",
+        parentIds: [chemistry.id],
+        userId,
+      }),
+    ).toEqual({
+      id: biology.id,
+      name: "Life Science",
+      parentIds: [chemistry.id],
+    });
+    expect(
+      labels.getLabelsForUser(userId).find((label) => label.id === biology.id)
+        ?.parentIds,
+    ).toEqual([chemistry.id]);
+
+    expect(() =>
+      labels.updateLabel({
+        labelId: biology.id,
+        name: "Life Science",
+        parentIds: [biology.id],
+        userId,
+      }),
+    ).toThrowError(expect.objectContaining({ code: "cycle_detected" }));
+    expect(() =>
+      labels.updateLabel({
+        labelId: biology.id,
+        name: "Life Science",
+        parentIds: [molecularBiology.id],
+        userId,
+      }),
+    ).toThrowError(expect.objectContaining({ code: "cycle_detected" }));
+  });
 });
