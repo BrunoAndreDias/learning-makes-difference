@@ -5,6 +5,7 @@ import {
   deriveLabelsSummary,
   deriveSelectableParentOptions,
   deriveVisibleLabelRows,
+  formatCreateRelationshipPreview,
   parseLabelsFilterValue,
   parseLabelsSortValue,
 } from "./labels-management-view";
@@ -186,5 +187,17 @@ describe("labels management view", () => {
         selectedParentIds: ["label-science"],
       }).map((option) => option.id),
     ).not.toContain("label-science");
+  });
+
+  it("formats create relationship previews", () => {
+    expect(formatCreateRelationshipPreview([])).toBe(
+      "New label will be top-level.",
+    );
+    expect(formatCreateRelationshipPreview(["Science"])).toBe(
+      "New label will have 1 parent: Science.",
+    );
+    expect(formatCreateRelationshipPreview(["Biology", "Science"])).toBe(
+      "New label will have 2 parents: Biology, Science.",
+    );
   });
 });

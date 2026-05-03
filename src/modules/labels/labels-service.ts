@@ -1,5 +1,9 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { collectLabelDescendantIds, sortLabelsByName } from "./label-graph";
+import {
+  collectLabelDescendantIds,
+  normalizeLabelParentIds,
+  sortLabelsByName,
+} from "./label-graph";
 import type { AppLabel } from "./label-management/labels";
 import { AppLabelError } from "./label-management/labels";
 import { labelEdgesTable, labelsTable } from "./labels-schema";
@@ -97,12 +101,6 @@ function normalizeLabelName(name: string): string {
   }
 
   return trimmedName;
-}
-
-function normalizeParentIds(
-  parentIds: readonly string[] | undefined,
-): string[] {
-  return [...new Set(parentIds ?? [])].sort();
 }
 
 async function readOwnedLabels(db: LabelsDatabaseRuntime, userId: string) {
@@ -209,7 +207,7 @@ export function createLabelsService({
       userId: string;
     }) {
       const id = crypto.randomUUID();
-      const parentIds = normalizeParentIds(input.parentIds);
+      const parentIds = normalizeLabelParentIds(input.parentIds ?? []);
 
       if (parentIds.includes(id)) {
         throw new AppLabelError(

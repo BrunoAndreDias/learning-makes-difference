@@ -191,3 +191,17 @@ export function deriveSelectableParentOptions(input: {
     }))
     .sort((left, right) => compareNameAscending(left.label, right.label));
 }
+
+export function formatCreateRelationshipPreview(
+  parentNames: readonly string[],
+): string {
+  if (parentNames.length === 0) {
+    return "New label will be top-level.";
+  }
+
+  if (parentNames.length === 1) {
+    return `New label will have 1 parent: ${parentNames[0]}.`;
+  }
+
+  return `New label will have ${parentNames.length} parents: ${parentNames.join(", ")}.`;
+}

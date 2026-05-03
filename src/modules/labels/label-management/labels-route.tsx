@@ -21,6 +21,7 @@ import {
   deriveLabelsSummary,
   deriveSelectableParentOptions,
   deriveVisibleLabelRows,
+  formatCreateRelationshipPreview,
   type LabelsFilterValue,
   type LabelsSortValue,
   parseLabelsFilterValue,
@@ -351,15 +352,9 @@ function LabelsPage() {
 
   const hasLabels = summary.totalCount > 0;
   const createNameIsValid = createName.trim().length > 0;
-  const selectedCreateParentNames = selectedCreateParentRows.map(
-    (row) => row.label,
+  const createRelationshipPreview = formatCreateRelationshipPreview(
+    selectedCreateParentRows.map((row) => row.label),
   );
-  const createRelationshipPreview =
-    selectedCreateParentNames.length === 0
-      ? "New label will be top-level."
-      : selectedCreateParentNames.length === 1
-        ? `New label will have 1 parent: ${selectedCreateParentNames[0]}.`
-        : `New label will have ${selectedCreateParentNames.length} parents: ${selectedCreateParentNames.join(", ")}.`;
   const summaryLabelsText = formatCount(summary.totalCount, "label");
   const summaryTopLevelText = `${summary.topLevelCount} top-level`;
   const summaryRelationshipsText = formatCount(

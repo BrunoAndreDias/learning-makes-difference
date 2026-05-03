@@ -132,11 +132,6 @@
   list-style: none;
 }
 
-.labels-parent-options .labels-button {
-  width: 100%;
-  justify-content: space-between;
-}
-
 .labels-parent-options__empty {
   padding: 0.45rem 0.1rem;
   font-size: 0.86rem;
@@ -329,6 +324,11 @@
     border-color var(--motion-fast),
     color var(--motion-fast),
     transform var(--motion-fast);
+}
+
+.labels-parent-options .labels-button {
+  width: 100%;
+  justify-content: space-between;
 }
 
 .labels-button:hover:not(:disabled) {

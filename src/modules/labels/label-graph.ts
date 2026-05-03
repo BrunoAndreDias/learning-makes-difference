@@ -3,6 +3,12 @@ type LabelGraphNode = {
   parentIds: readonly string[];
 };
 
+export function normalizeLabelParentIds(
+  parentIds: readonly string[],
+): string[] {
+  return [...new Set(parentIds)].sort();
+}
+
 export function collectLabelDescendantIds(
   labels: readonly LabelGraphNode[],
   labelId: string,

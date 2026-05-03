@@ -1,4 +1,8 @@
-import { collectLabelDescendantIds, sortLabelsByName } from "../label-graph";
+import {
+  collectLabelDescendantIds,
+  normalizeLabelParentIds,
+  sortLabelsByName,
+} from "../label-graph";
 
 export type AppLabel = {
   id: string;
@@ -132,12 +136,6 @@ function normalizeLabelName(name: string): string {
   return trimmedName;
 }
 
-function normalizeParentIds(
-  parentIds: readonly string[] | undefined,
-): string[] {
-  return [...new Set(parentIds ?? [])].sort();
-}
-
 function getOwnedLabelIndex(
   records: StoredLabelRecord[],
   userId: string,
@@ -227,7 +225,7 @@ export function createAppLabelsContext(
     createLabel: ({ name, parentIds, userId }) => {
       const records = readRecords();
       const id = cryptoProvider.randomUUID();
-      const normalizedParentIds = normalizeParentIds(parentIds);
+      const normalizedParentIds = normalizeLabelParentIds(parentIds ?? []);
 
       if (normalizedParentIds.includes(id)) {
         throw new AppLabelError(
