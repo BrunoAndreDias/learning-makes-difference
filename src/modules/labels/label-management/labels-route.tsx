@@ -35,6 +35,22 @@ export const Route = createFileRoute("/_protected/labels")({
   component: LabelsPage,
 });
 
+type LabelWriteInput = {
+  name: string;
+  parentIds: string[];
+};
+
+type LabelRowActionsMenuProps = Readonly<{
+  isOpen: boolean;
+  label: string;
+  menuId: string;
+  onClose: () => void;
+  onDelete: () => void;
+  onDuplicate: () => void;
+  onEdit: () => void;
+  onToggle: () => void;
+}>;
+
 function formatParentNames(parentNames: readonly string[]) {
   if (parentNames.length === 0) {
     return "—";
@@ -276,10 +292,7 @@ function LabelsPage() {
         return;
       }
 
-      if (
-        target.closest(`[data-row-actions-id="${openRowActionsLabelId}"]`) !==
-        null
-      ) {
+      if (target.closest("[data-row-actions-menu]") !== null) {
         return;
       }
 
@@ -302,6 +315,22 @@ function LabelsPage() {
     }
   }
 
+  async function createLabelRecord(input: LabelWriteInput) {
+    if (currentUserId === null) {
+      return;
+    }
+
+    if (persistentLabelsContext === undefined) {
+      labels.createLabel({
+        ...input,
+        userId: currentUserId,
+      });
+      return;
+    }
+
+    await persistentLabelsContext.createLabel(currentUserId, input);
+  }
+
   async function handleCreateLabel(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -310,19 +339,10 @@ function LabelsPage() {
     }
 
     await runLabelAction(async () => {
-      if (persistentLabelsContext === undefined) {
-        labels.createLabel({
-          name: createName,
-          parentIds: createParentIds,
-          userId: currentUserId,
-        });
-      } else {
-        await persistentLabelsContext.createLabel(currentUserId, {
-          name: createName,
-          parentIds: createParentIds,
-        });
-      }
-
+      await createLabelRecord({
+        name: createName,
+        parentIds: createParentIds,
+      });
       resetCreateDraft("");
       setCreateDrawerOpen(false);
     });
@@ -385,16 +405,7 @@ function LabelsPage() {
     });
 
     await runLabelAction(async () => {
-      if (persistentLabelsContext === undefined) {
-        labels.createLabel({
-          name: duplicateName,
-          parentIds: labelToDuplicate.parentIds,
-          userId: currentUserId,
-        });
-        return;
-      }
-
-      await persistentLabelsContext.createLabel(currentUserId, {
+      await createLabelRecord({
         name: duplicateName,
         parentIds: labelToDuplicate.parentIds,
       });
@@ -434,13 +445,6 @@ function LabelsPage() {
 
   function closeRowActionsMenu() {
     setOpenRowActionsLabelId(null);
-  }
-
-  function handleRowActionsMenuKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      closeRowActionsMenu();
-    }
   }
 
   function toggleRowActionsMenu(rowId: string) {
@@ -853,72 +857,18 @@ function LabelsPage() {
                       <td>{row.childCount}</td>
                       <td>{row.directNoteCount}</td>
                       <td>
-                        <div
-                          className="labels-row-menu"
-                          data-row-actions-id={row.id}
-                        >
-                          <button
-                            aria-controls={`labels-row-actions-menu-${row.id}`}
-                            aria-expanded={openRowActionsLabelId === row.id}
-                            aria-haspopup="menu"
-                            aria-label={`Row actions for ${row.label}`}
-                            className="labels-button labels-button--inline labels-row-menu__trigger"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              toggleRowActionsMenu(row.id);
-                            }}
-                            onKeyDown={handleRowActionsMenuKeyDown}
-                            type="button"
-                          >
-                            <RowActionsIcon />
-                          </button>
-                          {openRowActionsLabelId === row.id ? (
-                            <div
-                              aria-label={`Row actions for ${row.label}`}
-                              className="labels-row-menu__popover shell-panel"
-                              id={`labels-row-actions-menu-${row.id}`}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                              }}
-                              onKeyDown={handleRowActionsMenuKeyDown}
-                              role="menu"
-                            >
-                              <button
-                                className="labels-row-menu__item"
-                                onClick={() => {
-                                  closeRowActionsMenu();
-                                  openEditDrawer(row.id);
-                                }}
-                                role="menuitem"
-                                type="button"
-                              >
-                                Edit label
-                              </button>
-                              <button
-                                className="labels-row-menu__item"
-                                onClick={() => {
-                                  closeRowActionsMenu();
-                                  void duplicateLabel(row.id);
-                                }}
-                                role="menuitem"
-                                type="button"
-                              >
-                                Duplicate
-                              </button>
-                              <button
-                                className="labels-row-menu__item labels-row-menu__item--danger"
-                                onClick={() => {
-                                  closeRowActionsMenu();
-                                  handleDeleteRow(row);
-                                }}
-                                role="menuitem"
-                                type="button"
-                              >
-                                Delete label
-                              </button>
-                            </div>
-                          ) : null}
-                        </div>
+                        <LabelRowActionsMenu
+                          isOpen={openRowActionsLabelId === row.id}
+                          label={row.label}
+                          menuId={`labels-row-actions-menu-${row.id}`}
+                          onClose={closeRowActionsMenu}
+                          onDelete={() => handleDeleteRow(row)}
+                          onDuplicate={() => {
+                            void duplicateLabel(row.id);
+                          }}
+                          onEdit={() => openEditDrawer(row.id)}
+                          onToggle={() => toggleRowActionsMenu(row.id)}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -1238,6 +1188,86 @@ function LabelsPage() {
         </aside>
       ) : null}
     </section>
+  );
+}
+
+function LabelRowActionsMenu({
+  isOpen,
+  label,
+  menuId,
+  onClose,
+  onDelete,
+  onDuplicate,
+  onEdit,
+  onToggle,
+}: LabelRowActionsMenuProps) {
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onClose();
+    }
+  }
+
+  function runMenuAction(action: () => void) {
+    onClose();
+    action();
+  }
+
+  return (
+    <div className="labels-row-menu" data-row-actions-menu="">
+      <button
+        aria-controls={menuId}
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+        aria-label={`Row actions for ${label}`}
+        className="labels-button labels-button--inline labels-row-menu__trigger"
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggle();
+        }}
+        onKeyDown={handleKeyDown}
+        type="button"
+      >
+        <RowActionsIcon />
+      </button>
+      {isOpen ? (
+        <div
+          aria-label={`Row actions for ${label}`}
+          className="labels-row-menu__popover shell-panel"
+          id={menuId}
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+          onKeyDown={handleKeyDown}
+          role="menu"
+        >
+          <button
+            className="labels-row-menu__item"
+            onClick={() => runMenuAction(onEdit)}
+            role="menuitem"
+            type="button"
+          >
+            Edit label
+          </button>
+          <button
+            className="labels-row-menu__item"
+            onClick={() => runMenuAction(onDuplicate)}
+            role="menuitem"
+            type="button"
+          >
+            Duplicate
+          </button>
+          <button
+            className="labels-row-menu__item labels-row-menu__item--danger"
+            onClick={() => runMenuAction(onDelete)}
+            role="menuitem"
+            type="button"
+          >
+            Delete label
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

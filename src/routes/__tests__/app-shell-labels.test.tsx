@@ -667,7 +667,6 @@ describe("authenticated app shell", () => {
   });
 
   it("duplicates labels through persistent context with parent-only snapshot copy", async () => {
-    const userId = "user-placeholder";
     const labelsById = new Map([
       [
         "label-science",
