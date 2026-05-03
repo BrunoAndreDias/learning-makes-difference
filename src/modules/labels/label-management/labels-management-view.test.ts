@@ -3,6 +3,7 @@ import type { AppLabel } from "./labels";
 import {
   deriveLabelRows,
   deriveLabelsSummary,
+  deriveSelectableParentOptions,
   deriveVisibleLabelRows,
   parseLabelsFilterValue,
   parseLabelsSortValue,
@@ -156,5 +157,34 @@ describe("labels management view", () => {
     expect(parseLabelsFilterValue("missing")).toBeNull();
     expect(parseLabelsSortValue("notes-desc")).toBe("notes-desc");
     expect(parseLabelsSortValue("missing")).toBeNull();
+  });
+
+  it("derives searchable parent options and excludes selected parents", () => {
+    const rows = deriveLabelRows({
+      labels,
+      notes,
+    });
+
+    expect(
+      deriveSelectableParentOptions({
+        rows,
+        searchQuery: "sci",
+        selectedParentIds: [],
+      }),
+    ).toEqual([
+      {
+        directNoteCount: 2,
+        id: "label-science",
+        label: "Science",
+      },
+    ]);
+
+    expect(
+      deriveSelectableParentOptions({
+        rows,
+        searchQuery: "",
+        selectedParentIds: ["label-science"],
+      }).map((option) => option.id),
+    ).not.toContain("label-science");
   });
 });

@@ -23,6 +23,12 @@ export type DerivedLabelsSummary = {
   unusedCount: number;
 };
 
+export type ParentLabelOption = {
+  directNoteCount: number;
+  id: string;
+  label: string;
+};
+
 function compareNameAscending(left: string, right: string) {
   return left.localeCompare(right);
 }
@@ -156,4 +162,32 @@ export function deriveVisibleLabelRows(input: {
 
     return compareNameAscending(left.label, right.label);
   });
+}
+
+export function deriveSelectableParentOptions(input: {
+  rows: readonly DerivedLabelRow[];
+  searchQuery: string;
+  selectedParentIds: readonly string[];
+}): ParentLabelOption[] {
+  const normalizedSearch = input.searchQuery.trim().toLowerCase();
+  const selectedParentIds = new Set(input.selectedParentIds);
+
+  return input.rows
+    .filter((row) => {
+      if (selectedParentIds.has(row.id)) {
+        return false;
+      }
+
+      if (normalizedSearch.length === 0) {
+        return true;
+      }
+
+      return row.label.toLowerCase().includes(normalizedSearch);
+    })
+    .map((row) => ({
+      directNoteCount: row.directNoteCount,
+      id: row.id,
+      label: row.label,
+    }))
+    .sort((left, right) => compareNameAscending(left.label, right.label));
 }

@@ -99,6 +99,12 @@ function normalizeLabelName(name: string): string {
   return trimmedName;
 }
 
+function normalizeParentIds(
+  parentIds: readonly string[] | undefined,
+): string[] {
+  return [...new Set(parentIds ?? [])].sort();
+}
+
 async function readOwnedLabels(db: LabelsDatabaseRuntime, userId: string) {
   const storedLabels = (await db
     .select()
@@ -197,12 +203,32 @@ export function createLabelsService({
         parentIds: [...label.parentIds, input.parentId].sort(),
       };
     },
-    async createLabel(input: { name: string; userId: string }) {
+    async createLabel(input: {
+      name: string;
+      parentIds?: string[];
+      userId: string;
+    }) {
+      const id = crypto.randomUUID();
+      const parentIds = normalizeParentIds(input.parentIds);
+
+      if (parentIds.includes(id)) {
+        throw new AppLabelError(
+          "cycle_detected",
+          "A label cannot be its own parent.",
+        );
+      }
+
+      const ownedLabels = await readOwnedLabels(database, input.userId);
+
+      for (const parentId of parentIds) {
+        getOwnedLabel(ownedLabels, parentId);
+      }
+
       const timestamp = now();
       const label = {
-        id: crypto.randomUUID(),
+        id,
         name: normalizeLabelName(input.name),
-        parentIds: [],
+        parentIds,
       } satisfies AppLabel;
 
       await database.insert(labelsTable).values({
@@ -212,6 +238,15 @@ export function createLabelsService({
         createdAt: timestamp,
         updatedAt: timestamp,
       });
+
+      if (label.parentIds.length > 0) {
+        await database.insert(labelEdgesTable).values(
+          label.parentIds.map((parentId) => ({
+            childLabelId: label.id,
+            parentLabelId: parentId,
+          })),
+        );
+      }
 
       return label;
     },

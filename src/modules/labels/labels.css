@@ -87,6 +87,106 @@
   flex-wrap: wrap;
 }
 
+.labels-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgba(15, 23, 42, 0.32);
+}
+
+.labels-create-drawer {
+  position: fixed;
+  top: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 21;
+  width: min(30rem, calc(100vw - 1.5rem));
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  overflow-y: auto;
+}
+
+.labels-create-drawer__header {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.labels-create-drawer__header h4 {
+  margin: 0;
+  color: var(--color-content-strong);
+}
+
+.labels-create-drawer__form {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+}
+
+.labels-parent-options {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.labels-parent-options .labels-button {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.labels-parent-options__empty {
+  padding: 0.45rem 0.1rem;
+  font-size: 0.86rem;
+}
+
+.labels-selected-parents {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.labels-selected-parents .tag-row {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.labels-selected-parents .tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.labels-chip-remove {
+  border: 0;
+  background: transparent;
+  color: var(--color-content-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.labels-chip-remove:hover,
+.labels-chip-remove:focus-visible {
+  color: var(--color-content-strong);
+}
+
+.labels-preview-card {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-shell-inset);
+}
+
+.labels-preview-card p {
+  margin: 0;
+}
+
 .labels-toolbar {
   display: grid;
   grid-template-columns: minmax(14rem, 1fr) repeat(2, minmax(10rem, 0.42fr));
@@ -311,5 +411,11 @@
   .labels-rules-popover__content {
     right: auto;
     left: 0;
+  }
+
+  .labels-create-drawer {
+    inset: 0;
+    width: 100%;
+    border-radius: 0;
   }
 }

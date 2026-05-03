@@ -242,4 +242,121 @@ describe("createLabelsService", () => {
       [],
     ]);
   });
+
+  it("creates labels with parent IDs and validates ownership, duplicates, and self-parent", async () => {
+    const client = new PGlite();
+    databases.add(client);
+    const db = drizzle(client, {
+      schema: {
+        ...authSchema,
+        ...labelsSchema,
+      },
+    });
+    await migrateDatabase(db, client);
+    await db.insert(usersTable).values([
+      {
+        id: "user-casey",
+        displayName: "Casey Learner",
+        email: "casey@example.com",
+        passwordHash: "hash",
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+        createdAt: new Date("2026-05-02T12:00:00.000Z"),
+        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+      },
+      {
+        id: "user-jordan",
+        displayName: "Jordan Learner",
+        email: "jordan@example.com",
+        passwordHash: "hash",
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+        createdAt: new Date("2026-05-02T12:00:00.000Z"),
+        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+      },
+    ]);
+
+    const ids = [
+      "00000000-0000-0000-0000-000000000011",
+      "00000000-0000-0000-0000-000000000012",
+      "00000000-0000-0000-0000-000000000013",
+      "00000000-0000-0000-0000-000000000011",
+      "00000000-0000-0000-0000-000000000011",
+    ] as const;
+    let nextIdIndex = 0;
+    const labels = createLabelsService({
+      crypto: {
+        randomUUID: () => {
+          const id = ids[nextIdIndex];
+          nextIdIndex += 1;
+
+          if (id === undefined) {
+            throw new Error("Missing test label id.");
+          }
+
+          return id;
+        },
+      },
+      db,
+      now: () => new Date("2026-05-02T12:00:00.000Z"),
+    });
+
+    const caseyParent = await labels.createLabel({
+      name: "Science",
+      userId: "user-casey",
+    });
+    const jordanParent = await labels.createLabel({
+      name: "Jordan topic",
+      userId: "user-jordan",
+    });
+
+    await expect(
+      labels.createLabel({
+        name: "Biology",
+        parentIds: [caseyParent.id, caseyParent.id],
+        userId: "user-casey",
+      }),
+    ).resolves.toEqual({
+      id: "00000000-0000-0000-0000-000000000013",
+      name: "Biology",
+      parentIds: [caseyParent.id],
+    });
+
+    await expect(
+      labels.listLabels({
+        userId: "user-casey",
+      }),
+    ).resolves.toEqual([
+      {
+        id: "00000000-0000-0000-0000-000000000013",
+        name: "Biology",
+        parentIds: [caseyParent.id],
+      },
+      {
+        id: caseyParent.id,
+        name: "Science",
+        parentIds: [],
+      },
+    ]);
+
+    await expect(
+      labels.createLabel({
+        name: "Invalid ownership",
+        parentIds: [jordanParent.id],
+        userId: "user-casey",
+      }),
+    ).rejects.toMatchObject({
+      code: "not_found",
+    });
+
+    await expect(
+      labels.createLabel({
+        name: "Self-parent attempt",
+        parentIds: [caseyParent.id],
+        userId: "user-casey",
+      }),
+    ).rejects.toMatchObject({
+      code: "cycle_detected",
+    });
+  });
 });

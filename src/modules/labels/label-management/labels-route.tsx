@@ -19,6 +19,7 @@ import {
   type DerivedLabelRow,
   deriveLabelRows,
   deriveLabelsSummary,
+  deriveSelectableParentOptions,
   deriveVisibleLabelRows,
   type LabelsFilterValue,
   type LabelsSortValue,
@@ -78,11 +79,16 @@ function LabelsPage() {
   const [sortValue, setSortValue] = useState<LabelsSortValue>("name-asc");
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [isRulesOpen, setRulesOpen] = useState(false);
-  const [isCreateFormOpen, setCreateFormOpen] = useState(false);
+  const [isCreateDrawerOpen, setCreateDrawerOpen] = useState(false);
   const [createName, setCreateName] = useState("");
+  const [createParentSearchQuery, setCreateParentSearchQuery] = useState("");
+  const [createParentIds, setCreateParentIds] = useState<string[]>([]);
 
+  const createDrawerDescriptionId = useId();
+  const createDrawerTitleId = useId();
   const rulesPopoverId = useId();
   const createInputId = useId();
+  const createParentSearchInputId = useId();
   const feedbackMessageId = useId();
   const filterSelectId = useId();
   const searchInputId = useId();
@@ -158,12 +164,12 @@ function LabelsPage() {
   }, [currentUserId, persistentNotesContext]);
 
   useEffect(() => {
-    if (!isCreateFormOpen) {
+    if (!isCreateDrawerOpen) {
       return;
     }
 
     createInputRef.current?.focus();
-  }, [isCreateFormOpen]);
+  }, [isCreateDrawerOpen]);
 
   async function runLabelAction(action: () => void | Promise<void>) {
     try {
@@ -185,16 +191,20 @@ function LabelsPage() {
       if (persistentLabelsContext === undefined) {
         labels.createLabel({
           name: createName,
+          parentIds: createParentIds,
           userId: currentUserId,
         });
       } else {
         await persistentLabelsContext.createLabel(currentUserId, {
           name: createName,
+          parentIds: createParentIds,
         });
       }
 
       setCreateName("");
-      setCreateFormOpen(false);
+      setCreateParentIds([]);
+      setCreateParentSearchQuery("");
+      setCreateDrawerOpen(false);
     });
   }
 
@@ -273,6 +283,39 @@ function LabelsPage() {
     void deleteLabel(row.id);
   }
 
+  function resetCreateDraft() {
+    setCreateName("");
+    setCreateParentIds([]);
+    setCreateParentSearchQuery("");
+  }
+
+  function openCreateDrawer() {
+    resetCreateDraft();
+    setCreateDrawerOpen(true);
+  }
+
+  function closeCreateDrawer() {
+    resetCreateDraft();
+    setCreateDrawerOpen(false);
+  }
+
+  function addCreateParent(parentId: string) {
+    setCreateParentIds((currentParentIds) => {
+      if (currentParentIds.includes(parentId)) {
+        return currentParentIds;
+      }
+
+      return [...currentParentIds, parentId].sort();
+    });
+    setCreateParentSearchQuery("");
+  }
+
+  function removeCreateParent(parentId: string) {
+    setCreateParentIds((currentParentIds) =>
+      currentParentIds.filter((candidateId) => candidateId !== parentId),
+    );
+  }
+
   const derivedRows = useMemo(() => {
     return deriveLabelRows({
       labels: labelRecords,
@@ -290,8 +333,33 @@ function LabelsPage() {
       sortValue,
     });
   }, [derivedRows, filterValue, searchQuery, sortValue]);
+  const createParentOptions = useMemo(() => {
+    return deriveSelectableParentOptions({
+      rows: derivedRows,
+      searchQuery: createParentSearchQuery,
+      selectedParentIds: createParentIds,
+    });
+  }, [createParentIds, createParentSearchQuery, derivedRows]);
+  const selectedCreateParentRows = useMemo(() => {
+    const rowById = new Map(derivedRows.map((row) => [row.id, row]));
+
+    return createParentIds
+      .map((parentId) => rowById.get(parentId))
+      .filter((row): row is DerivedLabelRow => row !== undefined)
+      .sort((left, right) => left.label.localeCompare(right.label));
+  }, [createParentIds, derivedRows]);
 
   const hasLabels = summary.totalCount > 0;
+  const createNameIsValid = createName.trim().length > 0;
+  const selectedCreateParentNames = selectedCreateParentRows.map(
+    (row) => row.label,
+  );
+  const createRelationshipPreview =
+    selectedCreateParentNames.length === 0
+      ? "New label will be top-level."
+      : selectedCreateParentNames.length === 1
+        ? `New label will have 1 parent: ${selectedCreateParentNames[0]}.`
+        : `New label will have ${selectedCreateParentNames.length} parents: ${selectedCreateParentNames.join(", ")}.`;
   const summaryLabelsText = formatCount(summary.totalCount, "label");
   const summaryTopLevelText = `${summary.topLevelCount} top-level`;
   const summaryRelationshipsText = formatCount(
@@ -343,15 +411,13 @@ function LabelsPage() {
             ) : null}
           </div>
 
-          {hasLabels ? (
-            <button
-              className="labels-button labels-button--primary"
-              onClick={() => setCreateFormOpen(true)}
-              type="button"
-            >
-              New label
-            </button>
-          ) : null}
+          <button
+            className="labels-button labels-button--primary"
+            onClick={openCreateDrawer}
+            type="button"
+          >
+            New label
+          </button>
         </div>
       </header>
 
@@ -366,54 +432,22 @@ function LabelsPage() {
         </p>
       ) : null}
 
-      {isCreateFormOpen || !hasLabels ? (
-        <article className="labels-create-inline shell-panel">
-          <h4>{hasLabels ? "New label" : "No labels yet"}</h4>
+      {!hasLabels ? (
+        <article className="labels-empty-card shell-panel">
+          <p className="section-label">No labels yet</p>
+          <h4>No labels yet</h4>
           <p className="muted">
-            {hasLabels
-              ? "Create a reusable topic for notes."
-              : "Create your first label to group related notes."}
+            Create your first label to group related notes.
           </p>
-          <form
-            aria-label="Create label form"
-            className="labels-create-inline__form"
-            onSubmit={handleCreateLabel}
-          >
-            <label className="labels-field" htmlFor={createInputId}>
-              <span>Label name</span>
-              <input
-                id={createInputId}
-                name="newLabelName"
-                onChange={(event) => setCreateName(event.target.value)}
-                placeholder="e.g. Biology"
-                ref={createInputRef}
-                required
-                type="text"
-                value={createName}
-              />
-            </label>
-            <div className="labels-create-inline__actions">
-              <button
-                className="labels-button labels-button--primary"
-                disabled={createName.trim().length === 0}
-                type="submit"
-              >
-                Create label
-              </button>
-              {hasLabels ? (
-                <button
-                  className="labels-button"
-                  onClick={() => {
-                    setCreateFormOpen(false);
-                    setCreateName("");
-                  }}
-                  type="button"
-                >
-                  Cancel
-                </button>
-              ) : null}
-            </div>
-          </form>
+          <div className="labels-create-inline__actions">
+            <button
+              className="labels-button labels-button--primary"
+              onClick={openCreateDrawer}
+              type="button"
+            >
+              New label
+            </button>
+          </div>
         </article>
       ) : null}
 
@@ -525,6 +559,152 @@ function LabelsPage() {
             </div>
           )}
         </section>
+      ) : null}
+
+      {isCreateDrawerOpen ? (
+        <div
+          aria-hidden="true"
+          className="labels-drawer-overlay"
+          onClick={closeCreateDrawer}
+        />
+      ) : null}
+      {isCreateDrawerOpen ? (
+        <aside
+          aria-describedby={createDrawerDescriptionId}
+          aria-labelledby={createDrawerTitleId}
+          aria-modal="true"
+          className="labels-create-drawer shell-panel"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              closeCreateDrawer();
+            }
+          }}
+          role="dialog"
+        >
+          <header className="labels-create-drawer__header">
+            <h4 id={createDrawerTitleId}>New label</h4>
+            <p className="muted" id={createDrawerDescriptionId}>
+              Create a reusable topic for notes.
+            </p>
+          </header>
+
+          <form
+            aria-label="Create label form"
+            className="labels-create-drawer__form"
+            onSubmit={handleCreateLabel}
+          >
+            <label className="labels-field" htmlFor={createInputId}>
+              <span>Label name</span>
+              <input
+                id={createInputId}
+                name="newLabelName"
+                onChange={(event) => setCreateName(event.target.value)}
+                placeholder="e.g. Biology"
+                ref={createInputRef}
+                required
+                type="text"
+                value={createName}
+              />
+            </label>
+
+            <label className="labels-field" htmlFor={createParentSearchInputId}>
+              <span>Search parent labels</span>
+              <input
+                id={createParentSearchInputId}
+                name="searchParentLabels"
+                onChange={(event) =>
+                  setCreateParentSearchQuery(event.target.value)
+                }
+                placeholder="Search parent labels..."
+                type="search"
+                value={createParentSearchQuery}
+              />
+            </label>
+
+            <ul
+              aria-label="Parent label options"
+              className="labels-parent-options"
+            >
+              {createParentOptions.length === 0 ? (
+                <li className="labels-parent-options__empty muted">
+                  No matching parent labels.
+                </li>
+              ) : (
+                createParentOptions.map((option) => {
+                  const noteCountLabel = formatCount(
+                    option.directNoteCount,
+                    "note",
+                  );
+
+                  return (
+                    <li key={option.id}>
+                      <button
+                        aria-label={`${option.label} (${noteCountLabel})`}
+                        className="labels-button labels-button--inline"
+                        onClick={() => addCreateParent(option.id)}
+                        type="button"
+                      >
+                        <span>{option.label}</span>
+                        <span className="muted">{noteCountLabel}</span>
+                      </button>
+                    </li>
+                  );
+                })
+              )}
+            </ul>
+
+            <section
+              aria-label="Selected parent labels"
+              className="labels-selected-parents"
+            >
+              <p className="section-label">Selected parents</p>
+              {selectedCreateParentRows.length === 0 ? (
+                <p className="muted">No parent labels selected.</p>
+              ) : (
+                <ul aria-label="Selected parent labels" className="tag-row">
+                  {selectedCreateParentRows.map((parentRow) => (
+                    <li className="tag" key={parentRow.id}>
+                      <span>{parentRow.label}</span>
+                      <button
+                        aria-label={`Remove ${parentRow.label}`}
+                        className="labels-chip-remove"
+                        onClick={() => removeCreateParent(parentRow.id)}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section
+              aria-label="Relationship preview"
+              className="labels-preview-card"
+            >
+              <p className="section-label">Relationship preview</p>
+              <p>{createRelationshipPreview}</p>
+            </section>
+
+            <div className="labels-create-inline__actions">
+              <button
+                className="labels-button"
+                onClick={closeCreateDrawer}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="labels-button labels-button--primary"
+                disabled={!createNameIsValid}
+                type="submit"
+              >
+                Create label
+              </button>
+            </div>
+          </form>
+        </aside>
       ) : null}
     </section>
   );

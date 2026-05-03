@@ -176,6 +176,144 @@ describe("authenticated app shell", () => {
     expect(within(bodyRows[0]).getByText("Science")).toBeInTheDocument();
   });
 
+  it("opens the new label drawer and creates a label with searchable parents", async () => {
+    const userId = "user-placeholder";
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `labels-drawer-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (ownedUserId) =>
+        labelsContext.getLabelsForUser(ownedUserId).map((label) => label.id),
+      keyPrefix: `notes-drawer-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    const science = labelsContext.createLabel({
+      name: "Science",
+      userId,
+    });
+    const biology = labelsContext.createLabel({
+      name: "Biology",
+      userId,
+    });
+
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "science note 1",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Science note 1",
+    });
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "science note 2",
+      labelIds: [science.id],
+      metaphors: [],
+      title: "Science note 2",
+    });
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "biology note",
+      labelIds: [biology.id],
+      metaphors: [],
+      title: "Biology note",
+    });
+
+    renderRoute("/labels", { labelsContext, notesContext });
+
+    const openDrawerButton = await screen.findByRole("button", {
+      name: "New label",
+    });
+
+    fireEvent.click(openDrawerButton);
+    const initialDrawer = await screen.findByRole("dialog", {
+      name: "New label",
+    });
+    fireEvent.click(
+      within(initialDrawer).getByRole("button", { name: "Cancel" }),
+    );
+    expect(
+      screen.queryByRole("dialog", { name: "New label" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(openDrawerButton);
+    const drawer = await screen.findByRole("dialog", { name: "New label" });
+    expect(
+      within(drawer).getByText("Create a reusable topic for notes."),
+    ).toBeInTheDocument();
+
+    const createButton = within(drawer).getByRole("button", {
+      name: "Create label",
+    });
+    expect(createButton).toBeDisabled();
+
+    const parentSearchInput = within(drawer).getByLabelText(
+      "Search parent labels",
+    );
+    fireEvent.change(parentSearchInput, {
+      target: { value: "sci" },
+    });
+    fireEvent.click(
+      within(drawer).getByRole("button", { name: "Science (2 notes)" }),
+    );
+
+    fireEvent.change(parentSearchInput, {
+      target: { value: "bio" },
+    });
+    fireEvent.click(
+      within(drawer).getByRole("button", { name: "Biology (1 note)" }),
+    );
+
+    const selectedParents = within(drawer).getByRole("list", {
+      name: "Selected parent labels",
+    });
+    expect(within(selectedParents).getByText("Science")).toBeInTheDocument();
+    expect(within(selectedParents).getByText("Biology")).toBeInTheDocument();
+    expect(
+      within(drawer).getByText(
+        "New label will have 2 parents: Biology, Science.",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.change(parentSearchInput, {
+      target: { value: "sci" },
+    });
+    expect(
+      within(drawer).queryByRole("button", { name: "Science (2 notes)" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(selectedParents).getByRole("button", { name: "Remove Biology" }),
+    );
+    expect(
+      within(selectedParents).queryByText("Biology"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(drawer).getByText("New label will have 1 parent: Science."),
+    ).toBeInTheDocument();
+
+    fireEvent.change(within(drawer).getByLabelText("Label name"), {
+      target: { value: "   Systems Biology   " },
+    });
+    expect(createButton).toBeEnabled();
+    fireEvent.click(createButton);
+
+    expect(
+      await screen.findByRole("row", { name: /Systems Biology/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: "New label" }),
+    ).not.toBeInTheDocument();
+
+    const labelsTable = screen.getByRole("table", { name: "Labels list" });
+    const createdRow = within(labelsTable).getByRole("row", {
+      name: /Systems Biology/i,
+    });
+    expect(within(createdRow).getByText("Science")).toBeInTheDocument();
+    expect(within(createdRow).queryByText("Biology")).not.toBeInTheDocument();
+  });
+
   it("loads labels from the persistent labels service on route entry", async () => {
     const sessionContext = createRouteTestSessionContext();
 

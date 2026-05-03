@@ -13,6 +13,7 @@ const SESSION_COOKIE_NAME = "learning-makes-difference-session";
 
 const createLabelInputSchema = z.object({
   name: z.string(),
+  parentIds: z.array(z.string()).optional(),
 });
 
 const renameLabelInputSchema = z.object({
@@ -113,6 +114,7 @@ const createLabelServerFn = createServerFn({
 
     return labels.createLabel({
       name: data.name,
+      parentIds: data.parentIds,
       userId,
     });
   });

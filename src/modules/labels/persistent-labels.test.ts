@@ -29,18 +29,18 @@ describe("createPersistentLabelsContext", () => {
 
         const updatedLabel = {
           ...label,
-          parentIds: [...label.parentIds, parentId].sort(),
+          parentIds: [...new Set([...label.parentIds, parentId])].sort(),
         };
 
         labelsById.set(labelId, updatedLabel);
 
         return updatedLabel;
       }),
-      createLabel: vi.fn(async ({ name }) => {
+      createLabel: vi.fn(async ({ name, parentIds }) => {
         const createdLabel = {
           id: "label-2",
           name,
-          parentIds: [],
+          parentIds: [...(parentIds ?? [])].sort(),
         };
 
         labelsById.set(createdLabel.id, createdLabel);
@@ -107,10 +107,16 @@ describe("createPersistentLabelsContext", () => {
     await expect(
       persistentLabels.createLabel("user-casey", {
         name: "Biology",
+        parentIds: ["label-1"],
       }),
     ).resolves.toMatchObject({
       id: "label-2",
       name: "Biology",
+      parentIds: ["label-1"],
+    });
+    expect(service.createLabel).toHaveBeenCalledWith({
+      name: "Biology",
+      parentIds: ["label-1"],
     });
     await expect(
       persistentLabels.renameLabel("user-casey", "label-1", "Natural Science"),

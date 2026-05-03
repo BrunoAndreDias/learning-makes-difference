@@ -28,6 +28,7 @@ type UserScopedLabelInput = {
 
 type CreateLabelInput = UserScopedLabelInput & {
   name: string;
+  parentIds?: string[];
 };
 
 type UpdateLabelInput = UserScopedLabelInput & {
@@ -131,6 +132,12 @@ function normalizeLabelName(name: string): string {
   return trimmedName;
 }
 
+function normalizeParentIds(
+  parentIds: readonly string[] | undefined,
+): string[] {
+  return [...new Set(parentIds ?? [])].sort();
+}
+
 function getOwnedLabelIndex(
   records: StoredLabelRecord[],
   userId: string,
@@ -217,12 +224,26 @@ export function createAppLabelsContext(
 
       return collectLabelDescendantIds(records, labelId);
     },
-    createLabel: ({ name, userId }) => {
+    createLabel: ({ name, parentIds, userId }) => {
       const records = readRecords();
+      const id = cryptoProvider.randomUUID();
+      const normalizedParentIds = normalizeParentIds(parentIds);
+
+      if (normalizedParentIds.includes(id)) {
+        throw new AppLabelError(
+          "cycle_detected",
+          "A label cannot be its own parent.",
+        );
+      }
+
+      for (const parentId of normalizedParentIds) {
+        getOwnedLabelRecord(records, userId, parentId);
+      }
+
       const nextRecord: StoredLabelRecord = {
-        id: cryptoProvider.randomUUID(),
+        id,
         name: normalizeLabelName(name),
-        parentIds: [],
+        parentIds: normalizedParentIds,
         userId,
       };
 

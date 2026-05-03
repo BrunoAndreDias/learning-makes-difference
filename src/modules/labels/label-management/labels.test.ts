@@ -99,4 +99,34 @@ describe("label management", () => {
     expect(labels.getLabelsForUser("owner")).toHaveLength(1);
     expect(labels.getLabelsForUser("other-user")).toHaveLength(0);
   });
+
+  it("creates a label with deduplicated parent IDs owned by the same user", () => {
+    const labels = createAppLabelsContext({
+      keyPrefix: "labels-test-create-with-parents",
+      storage: createMemoryStorage(),
+    });
+    const userId = "user-1";
+    const science = labels.createLabel({
+      name: "Science",
+      userId,
+    });
+
+    const biology = labels.createLabel({
+      name: "Biology",
+      parentIds: [science.id, science.id],
+      userId,
+    });
+
+    expect(biology.parentIds).toEqual([science.id]);
+    expect(labels.getLabelsForUser(userId)).toEqual([
+      expect.objectContaining({
+        id: biology.id,
+        parentIds: [science.id],
+      }),
+      expect.objectContaining({
+        id: science.id,
+        parentIds: [],
+      }),
+    ]);
+  });
 });

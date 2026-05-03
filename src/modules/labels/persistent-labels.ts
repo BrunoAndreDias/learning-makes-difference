@@ -9,6 +9,7 @@ type PersistentLabelsListener = () => void;
 
 type CreateLabelInput = {
   name: string;
+  parentIds?: string[];
 };
 
 type RenameLabelInput = {
