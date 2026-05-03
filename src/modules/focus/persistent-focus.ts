@@ -8,36 +8,19 @@ import {
   createAppFocusContext,
   type FocusRecord,
   type FocusSession,
-  type FocusTarget,
   type RecallStudyActivitySession,
+  type StoredFocusRecord,
+  type StoredFocusSession,
+  toStoredFocusRecord,
+  toStoredFocusSession,
 } from "./focus";
 
 type PersistentFocusListener = () => void;
-
-type StoredFocusSession = Omit<
-  FocusSession,
-  "isStale" | "remainingSeconds" | "stateEndsAt"
-> & {
-  focusTargets: FocusTarget[];
-  targets: FocusTarget[];
-  userId: string;
-};
-
-type StoredFocusRecord = FocusRecord & {
-  focusTargets: FocusTarget[];
-  intervals: FocusRecord["intervals"][number][];
-  targets: FocusTarget[];
-  userId: string;
-};
 
 type StartFocusSessionInput = {
   breakIntervalMinutes?: number;
   focusIntervalMinutes?: number;
   plannedFocusIntervalCount?: number | null;
-};
-
-type UpdateFocusSessionInput = {
-  userId: string;
 };
 
 type CaptureNoteStudyActivityInput = {
@@ -127,77 +110,6 @@ function getActiveSessionStorageKey(prefix: string) {
 
 function getFocusRecordsStorageKey(prefix: string) {
   return `${prefix}:records`;
-}
-
-function cloneLabel(label: AppLabel): AppLabel {
-  return {
-    ...label,
-    parentIds: [...label.parentIds],
-  };
-}
-
-function cloneNote(note: AppNote): AppNote {
-  return {
-    ...note,
-    acronyms: note.acronyms.map((acronym) => ({ ...acronym })),
-    labelIds: [...note.labelIds],
-    metaphors: note.metaphors.map((metaphor) => ({ ...metaphor })),
-  };
-}
-
-function cloneFocusTarget(target: FocusTarget): FocusTarget {
-  if (target.kind === "RecallSession") {
-    return {
-      kind: "RecallSession",
-      labels: target.labels.map(cloneLabel),
-      notes: target.notes.map(cloneNote),
-      recallSession: {
-        ...target.recallSession,
-      },
-    };
-  }
-
-  return {
-    kind: "Note",
-    labels: target.labels.map(cloneLabel),
-    note: cloneNote(target.note),
-  };
-}
-
-function toStoredFocusSession(
-  session: FocusSession | null,
-  userId: string,
-): StoredFocusSession | null {
-  if (session === null) {
-    return null;
-  }
-
-  const {
-    isStale: _isStale,
-    remainingSeconds: _remainingSeconds,
-    stateEndsAt: _stateEndsAt,
-    ...storedSession
-  } = session;
-
-  return {
-    ...storedSession,
-    focusTargets: storedSession.focusTargets.map(cloneFocusTarget),
-    targets: storedSession.targets.map(cloneFocusTarget),
-    userId,
-  };
-}
-
-function toStoredFocusRecord(
-  record: FocusRecord,
-  userId: string,
-): StoredFocusRecord {
-  return {
-    ...record,
-    focusTargets: record.focusTargets.map(cloneFocusTarget),
-    intervals: record.intervals.map((interval) => ({ ...interval })),
-    targets: record.targets.map(cloneFocusTarget),
-    userId,
-  };
 }
 
 function createReadonlyFocusContext(
@@ -313,6 +225,21 @@ export function createPersistentFocusContext(
     };
   }
 
+  function resetState() {
+    activeSessionSnapshot = null;
+    focusRecordSnapshot = [];
+    focus = createHydratedFocusContext({
+      activeSession: null,
+      focusRecords: [],
+    });
+    notifyListeners();
+
+    return {
+      activeSession: focus.getSnapshot(),
+      focusRecords: focus.getRecordSnapshot(),
+    };
+  }
+
   function requireUserId(userId: string | null) {
     if (userId === null) {
       throw createNotAuthenticatedError();
@@ -321,89 +248,85 @@ export function createPersistentFocusContext(
     return userId;
   }
 
-  const persistentFocus: AppPersistentFocusContext = {
-    async captureNoteStudyActivity(userId, input) {
-      requireUserId(userId);
-      await requireService().captureNoteStudyActivity(input);
-      await persistentFocus.refresh(userId);
-    },
-    async captureRecallSessionStudyActivity(userId, input) {
-      requireUserId(userId);
-      await requireService().captureRecallSessionStudyActivity(input);
-      await persistentFocus.refresh(userId);
-    },
-    async endFocusSession(userId) {
-      requireUserId(userId);
-      const record = await requireService().endFocusSession();
-      await persistentFocus.refresh(userId);
-      return record;
-    },
-    getRecordSnapshot() {
-      return focus.getRecordSnapshot();
-    },
-    getSnapshot() {
-      return focus.getSnapshot();
-    },
-    readonlyContext: undefined as never,
-    async refresh(userId) {
-      if (userId === null) {
-        activeSessionSnapshot = null;
-        focusRecordSnapshot = [];
-        focus = createHydratedFocusContext({
-          activeSession: null,
-          focusRecords: [],
-        });
-        notifyListeners();
+  function getRecordSnapshot() {
+    return focus.getRecordSnapshot();
+  }
 
-        return {
-          activeSession: focus.getSnapshot(),
-          focusRecords: focus.getRecordSnapshot(),
-        };
-      }
+  function getSnapshot() {
+    return focus.getSnapshot();
+  }
 
-      const [activeSession, focusRecords] = await Promise.all([
-        requireService().getActiveSession(),
-        requireService().listFocusRecords(),
-      ]);
+  async function refresh(userId: string | null) {
+    if (userId === null) {
+      return resetState();
+    }
 
-      return writeState({
-        activeSession,
-        focusRecords,
-        userId,
-      });
-    },
-    async startFocusSession(userId, input) {
-      requireUserId(userId);
-      const session = await requireService().startFocusSession(input);
-      await persistentFocus.refresh(userId);
-      return session;
-    },
-    async startNextFocusInterval(userId) {
-      requireUserId(userId);
-      const session = await requireService().startNextFocusInterval();
-      await persistentFocus.refresh(userId);
-      return session;
-    },
-    subscribe(listener) {
-      listeners.add(listener);
+    const focusService = requireService();
+    const [activeSession, focusRecords] = await Promise.all([
+      focusService.getActiveSession(),
+      focusService.listFocusRecords(),
+    ]);
 
-      return () => {
-        listeners.delete(listener);
-      };
-    },
-  };
+    return writeState({
+      activeSession,
+      focusRecords,
+      userId,
+    });
+  }
 
-  persistentFocus.readonlyContext = createReadonlyFocusContext({
+  function subscribe(listener: PersistentFocusListener) {
+    listeners.add(listener);
+
+    return () => {
+      listeners.delete(listener);
+    };
+  }
+
+  const readonlyContext = createReadonlyFocusContext({
     getActiveSessionForUser(userId) {
       return focus.getActiveSession({ userId });
     },
     getFocusRecordsForUser(userId) {
       return focus.getFocusRecords({ userId });
     },
-    getRecordSnapshot: persistentFocus.getRecordSnapshot,
-    getSnapshot: persistentFocus.getSnapshot,
-    subscribe: persistentFocus.subscribe,
+    getRecordSnapshot,
+    getSnapshot,
+    subscribe,
   });
 
-  return persistentFocus;
+  return {
+    async captureNoteStudyActivity(userId, input) {
+      const validatedUserId = requireUserId(userId);
+      await requireService().captureNoteStudyActivity(input);
+      await refresh(validatedUserId);
+    },
+    async captureRecallSessionStudyActivity(userId, input) {
+      const validatedUserId = requireUserId(userId);
+      await requireService().captureRecallSessionStudyActivity(input);
+      await refresh(validatedUserId);
+    },
+    async endFocusSession(userId) {
+      const validatedUserId = requireUserId(userId);
+      const record = await requireService().endFocusSession();
+      await refresh(validatedUserId);
+      return record;
+    },
+    getRecordSnapshot,
+    getSnapshot,
+    readonlyContext,
+    refresh,
+    async startFocusSession(userId, input) {
+      const validatedUserId = requireUserId(userId);
+      const session = await requireService().startFocusSession(input);
+      await refresh(validatedUserId);
+      return session;
+    },
+    async startNextFocusInterval(userId) {
+      const validatedUserId = requireUserId(userId);
+      const session = await requireService().startNextFocusInterval();
+      await refresh(validatedUserId);
+      return session;
+    },
+    subscribe,
+  };
 }

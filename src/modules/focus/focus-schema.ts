@@ -1,23 +1,7 @@
 import { index, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { usersTable } from "../access/session/auth-schema";
-import type { FocusRecord, FocusSession, FocusTarget } from "./focus";
-
-type StoredFocusSession = Omit<
-  FocusSession,
-  "isStale" | "remainingSeconds" | "stateEndsAt"
-> & {
-  focusTargets: FocusTarget[];
-  targets: FocusTarget[];
-  userId: string;
-};
-
-type StoredFocusRecord = FocusRecord & {
-  focusTargets: FocusTarget[];
-  intervals: FocusRecord["intervals"][number][];
-  targets: FocusTarget[];
-  userId: string;
-};
+import type { StoredFocusRecord, StoredFocusSession } from "./focus";
 
 export const activeFocusSessionsTable = pgTable(
   "focus_sessions",

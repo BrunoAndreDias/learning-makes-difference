@@ -7,10 +7,10 @@ import { createLabelsService } from "../labels/labels-service";
 import type { AppNote } from "../notes";
 import {
   createAppFocusContext,
-  type FocusRecord,
-  type FocusSession,
-  type FocusTarget,
   type RecallStudyActivitySession,
+  type StoredFocusRecord,
+  type StoredFocusSession,
+  toStoredFocusSession,
 } from "./focus";
 import { activeFocusSessionsTable, focusRecordsTable } from "./focus-schema";
 
@@ -18,22 +18,6 @@ type FocusDatabase<TSchema extends Record<string, unknown>> = PgDatabase<
   PgQueryResultHKT,
   TSchema
 >;
-
-type StoredFocusSession = Omit<
-  FocusSession,
-  "isStale" | "remainingSeconds" | "stateEndsAt"
-> & {
-  focusTargets: FocusTarget[];
-  targets: FocusTarget[];
-  userId: string;
-};
-
-type StoredFocusRecord = FocusRecord & {
-  focusTargets: FocusTarget[];
-  intervals: FocusRecord["intervals"][number][];
-  targets: FocusTarget[];
-  userId: string;
-};
 
 type FocusCrypto = Pick<Crypto, "randomUUID">;
 
@@ -94,77 +78,6 @@ function getActiveSessionStorageKey(prefix: string) {
 
 function getFocusRecordsStorageKey(prefix: string) {
   return `${prefix}:records`;
-}
-
-function toStoredFocusSession(
-  session: FocusSession | null,
-  userId: string,
-): StoredFocusSession | null {
-  if (session === null) {
-    return null;
-  }
-
-  const {
-    isStale: _isStale,
-    remainingSeconds: _remainingSeconds,
-    stateEndsAt: _stateEndsAt,
-    ...storedSession
-  } = session;
-
-  return {
-    ...storedSession,
-    focusTargets: storedSession.focusTargets.map(cloneFocusTarget),
-    targets: storedSession.targets.map(cloneFocusTarget),
-    userId,
-  };
-}
-
-function toStoredFocusRecord(
-  record: FocusRecord,
-  userId: string,
-): StoredFocusRecord {
-  return {
-    ...record,
-    focusTargets: record.focusTargets.map(cloneFocusTarget),
-    intervals: record.intervals.map((interval) => ({ ...interval })),
-    targets: record.targets.map(cloneFocusTarget),
-    userId,
-  };
-}
-
-function cloneLabel(label: AppLabel): AppLabel {
-  return {
-    ...label,
-    parentIds: [...label.parentIds],
-  };
-}
-
-function cloneNote(note: AppNote): AppNote {
-  return {
-    ...note,
-    acronyms: note.acronyms.map((acronym) => ({ ...acronym })),
-    labelIds: [...note.labelIds],
-    metaphors: note.metaphors.map((metaphor) => ({ ...metaphor })),
-  };
-}
-
-function cloneFocusTarget(target: FocusTarget): FocusTarget {
-  if (target.kind === "RecallSession") {
-    return {
-      kind: "RecallSession",
-      labels: target.labels.map(cloneLabel),
-      notes: target.notes.map(cloneNote),
-      recallSession: {
-        ...target.recallSession,
-      },
-    };
-  }
-
-  return {
-    kind: "Note",
-    labels: target.labels.map(cloneLabel),
-    note: cloneNote(target.note),
-  };
 }
 
 async function readStoredActiveSession(

@@ -88,7 +88,7 @@ export function isBreakIntervalActive(session: FocusSession | null) {
   );
 }
 
-type StoredFocusSession = Omit<
+export type StoredFocusSession = Omit<
   FocusSession,
   "isStale" | "remainingSeconds" | "stateEndsAt"
 > & {
@@ -97,7 +97,7 @@ type StoredFocusSession = Omit<
   userId: string;
 };
 
-type StoredFocusRecord = FocusRecord & {
+export type StoredFocusRecord = FocusRecord & {
   focusTargets: FocusTarget[];
   intervals: FocusRecordInterval[];
   targets: FocusTarget[];
@@ -717,6 +717,42 @@ function toPublicFocusRecord(record: StoredFocusRecord): FocusRecord {
     focusTargets: record.focusTargets.map(cloneFocusTarget),
     intervals: record.intervals.map(cloneFocusRecordInterval),
     targets: record.targets.map(cloneFocusTarget),
+  };
+}
+
+export function toStoredFocusSession(
+  session: FocusSession | null,
+  userId: string,
+): StoredFocusSession | null {
+  if (session === null) {
+    return null;
+  }
+
+  const {
+    isStale: _isStale,
+    remainingSeconds: _remainingSeconds,
+    stateEndsAt: _stateEndsAt,
+    ...storedSession
+  } = session;
+
+  return {
+    ...storedSession,
+    focusTargets: storedSession.focusTargets.map(cloneFocusTarget),
+    targets: storedSession.targets.map(cloneFocusTarget),
+    userId,
+  };
+}
+
+export function toStoredFocusRecord(
+  record: FocusRecord,
+  userId: string,
+): StoredFocusRecord {
+  return {
+    ...record,
+    focusTargets: record.focusTargets.map(cloneFocusTarget),
+    intervals: record.intervals.map(cloneFocusRecordInterval),
+    targets: record.targets.map(cloneFocusTarget),
+    userId,
   };
 }
 
