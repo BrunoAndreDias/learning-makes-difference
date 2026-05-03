@@ -1295,7 +1295,7 @@ describe("authenticated app shell", () => {
     expect(targetEditor).toHaveProperty("selectionEnd", 20);
   });
 
-  it("manages note labels through a temporary picker session and saves only after the note is saved", async () => {
+  it("saves label picker changes when the picker save action is clicked", async () => {
     const labelsContext = createAppLabelsContext({
       keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -1373,7 +1373,7 @@ describe("authenticated app shell", () => {
       screen.queryByRole("button", { name: "Save changes" }),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     const currentLabels = await screen.findByLabelText("Current labels");
     const assignedLabels =
@@ -1381,16 +1381,9 @@ describe("authenticated app shell", () => {
 
     expect(within(assignedLabels).getByText("Biology")).toBeInTheDocument();
     expect(screen.queryByLabelText("Search labels")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save changes" })).toBeVisible();
-    expect(listNotesForUser(notesContext.getSnapshot(), userId)).toEqual([
-      expect.objectContaining({
-        id: note.id,
-        labelIds: [],
-      }),
-    ]);
-
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
-
+    expect(
+      screen.queryByRole("button", { name: "Save changes" }),
+    ).not.toBeInTheDocument();
     expect(listNotesForUser(notesContext.getSnapshot(), userId)).toEqual([
       expect.objectContaining({
         id: note.id,
@@ -1725,7 +1718,7 @@ describe("authenticated app shell", () => {
       screen.getByRole("button", { name: "Go to Labels" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Done" }),
+      screen.queryByRole("button", { name: "Save" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Search labels")).not.toBeInTheDocument();
 

@@ -40,6 +40,7 @@ import {
   toNoteRecallHistories,
 } from "../learning-state";
 import {
+  getNoteEditorSaveInput,
   getSelectedNote,
   type NoteEditorDraft,
   type NoteEditorState,
@@ -427,7 +428,7 @@ type LabelPickerPanelProps = {
   searchQuery: string;
   visibleLabels: readonly AppLabel[];
   onCancel: () => void;
-  onDone: () => void;
+  onSave: () => void;
   onGoToLabels: () => void;
   onSearchQueryChange: (query: string) => void;
   onToggle: (labelId: string, checked: boolean) => void;
@@ -442,8 +443,8 @@ function LabelPickerPanel({
   searchQuery,
   visibleLabels,
   onCancel,
-  onDone,
   onGoToLabels,
+  onSave,
   onSearchQueryChange,
   onToggle,
 }: LabelPickerPanelProps) {
@@ -519,10 +520,10 @@ function LabelPickerPanel({
         {hasAvailableLabels ? (
           <button
             className="notes-action notes-action-primary"
-            onClick={onDone}
+            onClick={onSave}
             type="button"
           >
-            Done
+            Save
           </button>
         ) : (
           <button
@@ -1256,12 +1257,61 @@ function NotesWorkspace() {
     }
   }
 
-  function handleLabelPickerDone() {
-    handleEditorChange(
-      "labelIds",
-      getManagedLabelIds(labelPickerDraftIds, availableLabels),
-    );
-    closeLabelPickerAndRestoreFocus();
+  function createSaveInstructionWithInput(
+    input: NotesWorkspaceSaveInstruction["input"],
+  ): NotesWorkspaceSaveInstruction {
+    if (noteEditor.mode === "editing" && noteEditor.selectedNoteId !== null) {
+      return {
+        input,
+        noteId: noteEditor.selectedNoteId,
+        type: "updateNote",
+      };
+    }
+
+    return {
+      input,
+      type: "createNote",
+    };
+  }
+
+  async function saveEditorInstruction(
+    saveInstruction: NotesWorkspaceSaveInstruction,
+  ) {
+    const savedNote =
+      persistentNotesContext === undefined
+        ? saveLocalNoteInstruction(saveInstruction)
+        : await savePersistentNoteInstruction(
+            persistentNotesContext,
+            saveInstruction,
+          );
+    const saveResult = markEditorSaved(savedNote);
+
+    for (const instruction of saveResult.instructions) {
+      if (instruction.type === "captureStudyActivity") {
+        await captureNoteStudyActivity(instruction.note);
+      }
+    }
+  }
+
+  async function handleLabelPickerSave() {
+    setErrorMessage(null);
+
+    try {
+      await saveEditorInstruction(
+        createSaveInstructionWithInput({
+          ...getNoteEditorSaveInput(noteEditor),
+          labelIds: getManagedLabelIds(labelPickerDraftIds, availableLabels),
+        }),
+      );
+      closeLabelPickerAndRestoreFocus();
+    } catch (error) {
+      if (error instanceof AppNotesError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    }
   }
 
   function handleLabelPickerCancel() {
@@ -1721,20 +1771,7 @@ function NotesWorkspace() {
         return;
       }
 
-      const savedNote =
-        persistentNotesContext === undefined
-          ? saveLocalNoteInstruction(saveInstruction)
-          : await savePersistentNoteInstruction(
-              persistentNotesContext,
-              saveInstruction,
-            );
-      const saveResult = markEditorSaved(savedNote);
-
-      for (const instruction of saveResult.instructions) {
-        if (instruction.type === "captureStudyActivity") {
-          await captureNoteStudyActivity(instruction.note);
-        }
-      }
+      await saveEditorInstruction(saveInstruction);
     } catch (error) {
       if (error instanceof AppNotesError) {
         setErrorMessage(error.message);
@@ -1838,8 +1875,8 @@ function NotesWorkspace() {
       draftLabelIds={labelPickerDraftIds}
       goToLabelsButtonRef={labelPickerGoToLabelsRef}
       onCancel={handleLabelPickerCancel}
-      onDone={handleLabelPickerDone}
       onGoToLabels={handleGoToLabels}
+      onSave={handleLabelPickerSave}
       onSearchQueryChange={setLabelPickerSearchQuery}
       onToggle={handleLabelPickerToggle}
       searchInputId={labelPickerSearchInputId}
