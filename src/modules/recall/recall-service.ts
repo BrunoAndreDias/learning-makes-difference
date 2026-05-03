@@ -339,6 +339,15 @@ export function createRecallService({
         userId: input.userId,
       });
     },
+    async skipFlashCardQuestion(input: UpdateRecallSessionInput) {
+      return mutatePersistentRecall({
+        crypto,
+        db,
+        mutate: (recall) => recall.skipFlashCardQuestion(input),
+        shuffleNotes,
+        userId: input.userId,
+      });
+    },
     async startFlashCardSession(input: StartRecallSessionInput) {
       return mutatePersistentRecall({
         crypto,

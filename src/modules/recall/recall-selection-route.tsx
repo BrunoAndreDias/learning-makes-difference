@@ -1,10 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { RecallSelectionPage } from "./recall-route";
-import type { RecallSetupFilter } from "./recall-setup";
 
 const recallSelectionSearchSchema = z.object({
-  filter: z.enum(["due", "weak"]).optional(),
   noteIds: z.string().optional(),
 });
 
@@ -37,23 +35,11 @@ function parseSelectedNoteIds(search: RecallSelectionSearch) {
   return selectedNoteIds;
 }
 
-function getSelectedFilter(search: RecallSelectionSearch): RecallSetupFilter {
-  switch (search.filter) {
-    case "due":
-      return { kind: "due" };
-    case "weak":
-      return { kind: "weak" };
-    case undefined:
-      return { kind: "all" };
-  }
-}
-
 function RecallSelectionRoute() {
   const search = Route.useSearch();
 
   return (
     <RecallSelectionPage
-      initialSelectedFilter={getSelectedFilter(search)}
       initialSelectedNoteIds={parseSelectedNoteIds(search)}
     />
   );

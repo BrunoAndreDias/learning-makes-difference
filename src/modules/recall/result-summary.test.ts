@@ -43,30 +43,31 @@ describe("result summary", () => {
 
     const summary = summarizeSessionResult({
       attempts: [
-        { noteId: "note-1", rating: "nailed" },
-        { noteId: "note-2", rating: "partial" },
-        { noteId: "note-3", rating: "missed" },
+        { noteId: "note-1", rating: "easy" },
+        { noteId: "note-2", rating: "hard" },
+        { noteId: "note-3", rating: "forgot" },
       ],
       notes: [alphaNote, betaNote, gammaNote, deltaNote],
       questions: [
-        createQuestion(alphaNote, "nailed"),
-        createQuestion(betaNote, "partial"),
-        createQuestion(gammaNote, "missed"),
+        createQuestion(alphaNote, "easy"),
+        createQuestion(betaNote, "hard"),
+        createQuestion(gammaNote, "forgot"),
         createQuestion(deltaNote, null),
       ],
     });
 
     expect(summary.ratingTotals).toEqual({
-      missed: 1,
-      nailed: 1,
-      partial: 1,
+      forgot: 1,
+      easy: 1,
+      good: 0,
+      hard: 1,
     });
     expect(summary.completionCount).toBe(3);
     expect(summary.questionCount).toBe(4);
     expect(summary.completionRate).toBe(0.75);
     expect(summary.weakNotes).toEqual([
-      { noteId: "note-3", rating: "missed", title: "Gamma note" },
-      { noteId: "note-2", rating: "partial", title: "Beta note" },
+      { noteId: "note-3", rating: "forgot", title: "Gamma note" },
+      { noteId: "note-2", rating: "hard", title: "Beta note" },
     ]);
     expect(summary.nextAction).toBe("practice-weak-notes");
   });

@@ -199,11 +199,11 @@ function getDifficultyLabel(
     return "First-pass recall";
   }
 
-  if (ratings.some((rating) => rating === "missed" || rating === "partial")) {
+  if (ratings.some((rating) => rating === "forgot" || rating === "hard")) {
     return "Challenging mix";
   }
 
-  if (ratings.every((rating) => rating === "nailed")) {
+  if (ratings.every((rating) => rating === "easy")) {
     return "Maintenance review";
   }
 

@@ -199,7 +199,7 @@ describe("createRecallService PostgreSQL integration", () => {
     });
     await expect(
       service.rateFlashCardAnswer({
-        rating: "partial",
+        rating: "hard",
         sessionId: attemptedSession.id,
         userId: "user-casey",
       }),
@@ -224,7 +224,7 @@ describe("createRecallService PostgreSQL integration", () => {
         attempts: [
           {
             noteId: "note-1",
-            rating: "partial",
+            rating: "hard",
             text: "Casey typed this.",
           },
         ],
@@ -241,7 +241,7 @@ describe("createRecallService PostgreSQL integration", () => {
         questions: [
           {
             noteId: "note-1",
-            selfRating: "partial",
+            selfRating: "hard",
             typedAnswer: "Casey typed this.",
           },
         ],

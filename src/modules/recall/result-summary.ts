@@ -6,7 +6,7 @@ import {
   summarizeAttempts,
 } from "./recall";
 
-type WeakRating = "missed" | "partial";
+type WeakRating = "forgot" | "hard";
 
 export type ResultSummaryWeakNote = {
   noteId: string;
@@ -29,12 +29,12 @@ export type RecallResultSummary = {
 };
 
 const weakRatingOrder: Record<WeakRating, number> = {
-  missed: 0,
-  partial: 1,
+  forgot: 0,
+  hard: 1,
 };
 
 function isWeakRating(value: unknown): value is WeakRating {
-  return value === "missed" || value === "partial";
+  return value === "forgot" || value === "hard";
 }
 
 function compareWeakNotes(
@@ -131,5 +131,5 @@ export function getResultSummaryNoteCountLabel(
 export function formatResultSummaryScoreLabel(
   ratingTotals: FlashCardRecallAttemptSummary,
 ) {
-  return `Nailed ${ratingTotals.nailed} · Partial ${ratingTotals.partial} · Missed ${ratingTotals.missed}`;
+  return `Easy ${ratingTotals.easy} · Good ${ratingTotals.good} · Hard ${ratingTotals.hard} · Forgot ${ratingTotals.forgot}`;
 }

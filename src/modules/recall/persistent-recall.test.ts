@@ -85,7 +85,7 @@ function createResult(
         updatedAt: "2026-05-02T12:00:00.000Z",
       },
     ],
-    questions: [createQuestion({ noteId, selfRating: "partial" })],
+    questions: [createQuestion({ noteId, selfRating: "hard" })],
     ...rest,
   };
 }
@@ -101,7 +101,7 @@ describe("createPersistentRecallContext", () => {
         createQuestion({
           isAnswerRevealed: false,
           noteId: "note-1",
-          selfRating: "nailed",
+          selfRating: "easy",
         }),
         createQuestion({
           isAnswerRevealed: true,
@@ -303,7 +303,7 @@ describe("createPersistentRecallContext", () => {
     });
     await expect(
       persistentRecall.rateFlashCardAnswer("user-casey", {
-        rating: "partial",
+        rating: "hard",
         sessionId: "session-1",
       }),
     ).resolves.toBeNull();
@@ -332,11 +332,11 @@ describe("createPersistentRecallContext", () => {
         questions: [
           {
             noteId: "note-1",
-            selfRating: "nailed",
+            selfRating: "easy",
           },
           {
             noteId: "note-2",
-            selfRating: "partial",
+            selfRating: "hard",
             typedAnswer: "Working draft",
           },
         ],

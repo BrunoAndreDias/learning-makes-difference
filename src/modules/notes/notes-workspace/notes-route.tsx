@@ -145,7 +145,7 @@ function getLearningStateSummary(status: LearningStateStatus) {
       return "This note needs another recall pass soon.";
     case "ready_for_review":
       return "This note is due for another recall pass.";
-    case "recently_nailed":
+    case "recently_easy":
       return "This note was recalled well recently.";
   }
 }

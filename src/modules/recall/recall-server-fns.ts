@@ -23,7 +23,7 @@ const updateRecallSessionInputSchema = z.object({
 });
 
 const answerQuestionInputSchema = updateRecallSessionInputSchema.extend({
-  rating: z.enum(["missed", "partial", "nailed"]),
+  rating: z.enum(["forgot", "hard", "good", "easy"]),
 });
 
 const updateAttemptTextInputSchema = updateRecallSessionInputSchema.extend({
@@ -171,6 +171,22 @@ const rateFlashCardAnswerServerFn = createServerFn({
     });
   });
 
+const skipFlashCardQuestionServerFn = createServerFn({
+  method: "POST",
+})
+  .inputValidator(updateRecallSessionInputSchema)
+  .handler(async ({ data }) => {
+    const [userId, recall] = await Promise.all([
+      requireRequestUserId(),
+      createRequestRecallService(),
+    ]);
+
+    return recall.skipFlashCardQuestion({
+      sessionId: data.sessionId,
+      userId,
+    });
+  });
+
 const updateFlashCardAttemptTextServerFn = createServerFn({
   method: "POST",
 })
@@ -215,6 +231,8 @@ export function createServerRecallService(): AppPersistentRecallService {
       rateFlashCardAnswerServerFn({ data: input }),
     revealFlashCardAnswer: (input): Promise<RecallSession> =>
       revealFlashCardAnswerServerFn({ data: input }),
+    skipFlashCardQuestion: (input): Promise<RecallSession | null> =>
+      skipFlashCardQuestionServerFn({ data: input }),
     startFlashCardSession: (input): Promise<RecallSession> =>
       startFlashCardSessionServerFn({ data: input }),
     updateFlashCardAttemptText: (input): Promise<RecallSession> =>

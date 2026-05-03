@@ -52,7 +52,7 @@ describe("learning state", () => {
     });
   });
 
-  it("marks partial and missed notes as weak review targets", () => {
+  it("marks hard and forgot notes as weak review targets", () => {
     const note = buildNote({ id: "note-weak" });
 
     expect(
@@ -60,11 +60,11 @@ describe("learning state", () => {
         history: buildHistory(note.id, [
           {
             completedAt: "2026-04-10T09:00:00.000Z",
-            rating: "missed",
+            rating: "forgot",
           },
           {
             completedAt: "2026-04-11T09:00:00.000Z",
-            rating: "partial",
+            rating: "hard",
           },
         ]),
         note,
@@ -72,7 +72,7 @@ describe("learning state", () => {
     ).toMatchObject({
       isWeak: true,
       lastPracticedAt: "2026-04-11T09:00:00.000Z",
-      latestRating: "partial",
+      latestRating: "hard",
       nextReviewAt: "2026-04-14T09:00:00.000Z",
       practiced: true,
       recommendedAction: "review_now",
@@ -80,7 +80,7 @@ describe("learning state", () => {
     });
   });
 
-  it("marks nailed notes as ready for review once the next review date passes", () => {
+  it("marks easy notes as ready for review once the next review date passes", () => {
     const note = buildNote({ id: "note-ready" });
 
     expect(
@@ -88,7 +88,7 @@ describe("learning state", () => {
         history: buildHistory(note.id, [
           {
             completedAt: "2026-04-10T09:00:00.000Z",
-            rating: "nailed",
+            rating: "easy",
           },
         ]),
         note,
@@ -96,31 +96,31 @@ describe("learning state", () => {
       }),
     ).toMatchObject({
       isWeak: false,
-      latestRating: "nailed",
+      latestRating: "easy",
       nextReviewAt: "2026-04-17T09:00:00.000Z",
       recommendedAction: "review_now",
       status: "ready_for_review",
     });
   });
 
-  it("marks recently nailed notes as review later", () => {
-    const note = buildNote({ id: "note-nailed" });
+  it("marks recently easy notes as review later", () => {
+    const note = buildNote({ id: "note-easy" });
 
     expect(
       deriveLearningState({
         history: buildHistory(note.id, [
           {
             completedAt: "2026-04-10T09:00:00.000Z",
-            rating: "nailed",
+            rating: "easy",
           },
         ]),
         note,
         now: "2026-04-12T09:00:00.000Z",
       }),
     ).toMatchObject({
-      latestRating: "nailed",
+      latestRating: "easy",
       recommendedAction: "review_later",
-      status: "recently_nailed",
+      status: "recently_easy",
     });
   });
 
@@ -133,7 +133,7 @@ describe("learning state", () => {
           buildHistory("note-2", [
             {
               completedAt: "2026-04-15T10:00:00.000Z",
-              rating: "partial",
+              rating: "hard",
             },
           ]),
         ],

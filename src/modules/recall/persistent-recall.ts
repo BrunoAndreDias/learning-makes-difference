@@ -51,6 +51,9 @@ export type AppPersistentRecallService = {
   revealFlashCardAnswer: (
     input: UpdateRecallSessionInput,
   ) => Promise<RecallSession>;
+  skipFlashCardQuestion?: (
+    input: UpdateRecallSessionInput,
+  ) => Promise<RecallSession | null>;
   startFlashCardSession: (
     input: StartRecallSessionInput,
   ) => Promise<RecallSession>;
@@ -79,6 +82,10 @@ export type AppPersistentRecallContext = {
     userId: string | null,
     input: UpdateRecallSessionInput,
   ) => Promise<RecallSession>;
+  skipFlashCardQuestion: (
+    userId: string | null,
+    input: UpdateRecallSessionInput,
+  ) => Promise<RecallSession | null>;
   startFlashCardSession: (
     userId: string | null,
     input: StartRecallSessionInput,
@@ -413,6 +420,11 @@ export function createPersistentRecallContext(
         "Readonly recall context cannot reveal answers. Use persistentRecall instead.",
       );
     },
+    skipFlashCardQuestion: () => {
+      throw new Error(
+        "Readonly recall context cannot skip questions. Use persistentRecall instead.",
+      );
+    },
     startFlashCardSession: () => {
       throw new Error(
         "Readonly recall context cannot start sessions. Use persistentRecall instead.",
@@ -519,6 +531,34 @@ export function createPersistentRecallContext(
       });
 
       return cloneSession(revealedSession);
+    },
+    async skipFlashCardQuestion(userId, input) {
+      const validatedUserId = requireUserId(userId);
+      const skipQuestion = requireService().skipFlashCardQuestion;
+
+      if (skipQuestion === undefined) {
+        throw createMissingServiceError();
+      }
+
+      const nextSession = await skipQuestion(input);
+
+      if (nextSession !== null) {
+        writeState({
+          activeSession: toStoredRecallSession(nextSession, validatedUserId),
+          sessionResults,
+        });
+
+        return cloneSession(nextSession);
+      }
+
+      const nextResults = await requireService().listSessionResults();
+
+      writeState({
+        activeSession: null,
+        sessionResults: toStoredSessionResults(nextResults, validatedUserId),
+      });
+
+      return null;
     },
     async startFlashCardSession(userId, input) {
       const validatedUserId = requireUserId(userId);

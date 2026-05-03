@@ -5,7 +5,7 @@ import type { FlashCardSessionResult } from "./recall";
 import { searchRecallSessionResults } from "./recall-session-search";
 
 const baseSessionResult = {
-  attempts: [{ noteId: "note-1", rating: "nailed" }],
+  attempts: [{ noteId: "note-1", rating: "easy" }],
   createdAt: "2026-04-30T10:00:00.000Z",
   mode: "FlashCard",
   questions: [],

@@ -23,11 +23,6 @@ import {
 } from "../../access/session/session";
 import { FocusSessionStartControl } from "../../focus";
 import { NotesWorkspaceProvider, NotesWorkspaceSidebar } from "../../notes";
-import {
-  getRecallWorkspaceSection,
-  RecallResultsSearch,
-  RecallResultsSidebar,
-} from "../../recall";
 
 type NavigationIconName = "focus" | "label" | "note" | "recall" | "settings";
 
@@ -51,7 +46,7 @@ function getWorkspaceTitle(pathname: string) {
   return "Notes";
 }
 
-function getRecallWorkspaceTitle(pathname: string, search: unknown) {
+function getRecallWorkspaceTitle(pathname: string) {
   if (pathname === "/recall/select") {
     return "Recall setup";
   }
@@ -61,16 +56,7 @@ function getRecallWorkspaceTitle(pathname: string, search: unknown) {
   }
 
   if (pathname === "/recall" || pathname.startsWith("/recall/")) {
-    switch (getRecallWorkspaceSection(search)) {
-      case "due":
-        return "Due";
-      case "results":
-        return "Results";
-      case "weak":
-        return "Weak notes";
-      case "practice":
-        return "Practice";
-    }
+    return "Recall";
   }
 
   return null;
@@ -78,10 +64,6 @@ function getRecallWorkspaceTitle(pathname: string, search: unknown) {
 
 function isNotesWorkspacePath(pathname: string) {
   return pathname === "/notes" || pathname.startsWith("/notes/");
-}
-
-function isRecallResultsWorkspacePath(pathname: string) {
-  return pathname === "/recall";
 }
 
 export function AppLayout() {
@@ -124,16 +106,11 @@ export function AppLayout() {
       : routedSessionSnapshot;
   useSyncExternalStore(focus.subscribe, focus.getSnapshot, focus.getSnapshot);
   const workspaceTitle = getWorkspaceTitle(location.pathname);
-  const recallWorkspaceTitle = getRecallWorkspaceTitle(
-    location.pathname,
-    location.search,
-  );
+  const recallWorkspaceTitle = getRecallWorkspaceTitle(location.pathname);
   const isNotesWorkspaceRoute = isNotesWorkspacePath(location.pathname);
   const isRecallWorkspaceRoute =
     location.pathname === "/recall" || location.pathname.startsWith("/recall/");
-  const isRecallResultsWorkspaceRoute =
-    isRecallResultsWorkspacePath(location.pathname) &&
-    getRecallWorkspaceSection(location.search) === "results";
+  const isRecallResultsWorkspaceRoute = false;
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
   const sidebarToggleLabel = isSidebarCollapsed
     ? "Expand sidebar"
@@ -264,9 +241,6 @@ export function AppLayout() {
                 isSidebarVisible={!isSidebarCollapsed}
               />
             ) : null}
-            {isRecallResultsWorkspaceRoute ? (
-              <RecallResultsSidebar closeMobileSidebar={closeMobileSidebar} />
-            ) : null}
           </div>
         </aside>
 
@@ -287,7 +261,6 @@ export function AppLayout() {
             persistentFocus={persistentFocus}
             isNotesWorkspaceRoute={isNotesWorkspaceRoute}
             isRecallWorkspaceRoute={isRecallWorkspaceRoute}
-            isRecallResultsWorkspaceRoute={isRecallResultsWorkspaceRoute}
             isSidebarCollapsed={isSidebarCollapsed}
             isMobileSidebarOpen={isMobileSidebarOpen}
             mobileSidebarToggleRef={mobileSidebarToggleRef}
@@ -315,7 +288,6 @@ function WorkspaceHeader({
   persistentFocus,
   isNotesWorkspaceRoute,
   isRecallWorkspaceRoute,
-  isRecallResultsWorkspaceRoute,
   isSidebarCollapsed,
   isMobileSidebarOpen,
   mobileSidebarToggleRef,
@@ -336,7 +308,6 @@ function WorkspaceHeader({
   >[0]["persistentFocus"];
   isNotesWorkspaceRoute: boolean;
   isRecallWorkspaceRoute: boolean;
-  isRecallResultsWorkspaceRoute: boolean;
   isSidebarCollapsed: boolean;
   isMobileSidebarOpen: boolean;
   mobileSidebarToggleRef: RefObject<HTMLButtonElement | null>;
@@ -379,11 +350,6 @@ function WorkspaceHeader({
             : workspaceTitle}
         </h2>
       </div>
-      {isRecallResultsWorkspaceRoute ? (
-        <div className="app-frame__search">
-          <RecallResultsSearch userId={userId} />
-        </div>
-      ) : null}
       <div className="app-frame__actions">
         {isNotesWorkspaceRoute ? null : (
           <FocusSessionStartControl

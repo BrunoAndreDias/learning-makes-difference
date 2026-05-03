@@ -6,43 +6,18 @@ import {
   useNavigate,
   useRouteContext,
 } from "@tanstack/react-router";
-import {
-  type FormEvent,
-  type KeyboardEvent,
-  type PointerEvent as ReactPointerEvent,
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { formatCount } from "../../lib/format-count";
-import { isModifiedKeyShortcut } from "../../lib/keyboard";
 import type { AppSessionSnapshot } from "../access/session/session";
-import { AppFocusError } from "../focus";
 import type { AppLabel } from "../labels/label-management/labels";
-import { listNotesForUser } from "../notes";
+import { type AppNote, listNotesForUser } from "../notes";
 import { formatSearchMatchLabel } from "../notes/learner-copy";
 import {
-  type AppNoteSearchResult,
   formatNoteSearchResultPreview,
   searchNoteResults,
 } from "../notes/notes-workspace/note-search";
-import { AppRecallError } from "./recall";
-import {
-  deriveRecallSetupState,
-  type RecallSetupAvailableEmptyState,
-  type RecallSetupCandidate,
-  type RecallSetupFilter,
-  type RecallSetupFilterSummary,
-  type RecallSetupSelectedSummary,
-} from "./recall-setup";
-
-const NOTE_DATE_FORMATTER = new Intl.DateTimeFormat("en", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
-const recallSelectionSearchListboxId = "recall-selection-search-results";
+import { formatRecallModeLabel } from "./learner-copy";
+import { AppRecallError, type RecallMode } from "./recall";
 
 export const Route = createFileRoute("/_protected/recall")({
   component: RecallRouteShell,
@@ -50,133 +25,7 @@ export const Route = createFileRoute("/_protected/recall")({
 });
 
 function RecallRouteNotFoundRedirect() {
-  return <Navigate to="/notes" />;
-}
-
-function formatNoteDate(value: string): string {
-  return NOTE_DATE_FORMATTER.format(new Date(value));
-}
-
-function formatSelectedCount(count: number) {
-  return `${formatCount(count, "note")} selected`;
-}
-
-function formatSummarySelectedCount(count: number) {
-  return `${count} selected`;
-}
-
-function areSameOrderedNoteIds(
-  left: readonly string[],
-  right: readonly string[],
-): boolean {
-  return (
-    left.length === right.length &&
-    left.every((noteId, index) => noteId === right[index])
-  );
-}
-
-function getSelectedSummaryNoteIds(
-  selectedSummaries: readonly RecallSetupSelectedSummary[],
-): string[] {
-  return selectedSummaries.map((note) => note.id);
-}
-
-function getSearchResultLabel(result: AppNoteSearchResult) {
-  const preview = formatNoteSearchResultPreview(result);
-
-  return `${result.note.title} ${formatSearchMatchLabel(result.matchChip)}${preview === null ? "" : ` ${preview}`} Updated ${formatNoteDate(result.note.updatedAt)}`;
-}
-
-function getRecallSelectionSearchResultOptionId(noteId: string, index: number) {
-  return `recall-selection-search-option-${noteId}-${index}`;
-}
-
-function isSelectedFilter(
-  currentFilter: RecallSetupFilter,
-  candidateFilter: RecallSetupFilter,
-) {
-  if (currentFilter.kind !== candidateFilter.kind) {
-    return false;
-  }
-
-  if (currentFilter.kind !== "label" || candidateFilter.kind !== "label") {
-    return true;
-  }
-
-  return currentFilter.labelId === candidateFilter.labelId;
-}
-
-function getFilterButtonLabel(filterSummary: RecallSetupFilterSummary) {
-  switch (filterSummary.kind) {
-    case "all":
-      return "All notes";
-    case "due":
-      return "Due now";
-    case "recent":
-      return "Recent notes";
-    case "weak":
-      return "Weak notes";
-    case "label":
-      return filterSummary.labelName;
-  }
-}
-
-function getFilterButtonKey(filterSummary: RecallSetupFilterSummary) {
-  return filterSummary.kind === "label"
-    ? `${filterSummary.kind}-${filterSummary.labelId}`
-    : filterSummary.kind;
-}
-
-function toFilter(summary: RecallSetupFilterSummary): RecallSetupFilter {
-  if (summary.kind === "label") {
-    return {
-      kind: "label",
-      labelId: summary.labelId,
-    };
-  }
-
-  return {
-    kind: summary.kind,
-  };
-}
-
-function getAvailableNotesEmptyMessage({
-  availableEmptyState,
-  hasSearchQuery,
-}: {
-  availableEmptyState: RecallSetupAvailableEmptyState;
-  hasSearchQuery: boolean;
-}): string | null {
-  switch (availableEmptyState) {
-    case "no-due-notes":
-      return "No notes are due right now.";
-    case "no-search-matches":
-      return "No notes match this search.";
-    case "no-filter-matches":
-      return hasSearchQuery
-        ? "No notes match this search."
-        : "No notes match this filter yet.";
-    case "no-notes":
-      return "No recallable notes yet.";
-    case "no-weak-notes":
-      return "No weak notes yet.";
-    case "none":
-      return null;
-  }
-}
-
-function EmptyRecallSelectionPage() {
-  return (
-    <section className="recall-workspace">
-      <article className="recall-surface">
-        <h3>No recallable notes yet</h3>
-        <p>Create notes first, then come back to build a recall session.</p>
-        <Link className="notes-action notes-action-primary" to="/notes">
-          Go to Notes
-        </Link>
-      </article>
-    </section>
-  );
+  return <Navigate to="/recall" />;
 }
 
 function RecallRouteShell() {
@@ -228,330 +77,96 @@ function RecallRouteShell() {
   return <Outlet />;
 }
 
-type RecallSelectionControlsProps = {
-  canStartFocusSession: boolean;
-  hasSelectedNotes: boolean;
-  onCancel: () => void;
-  onStartFocus: () => void;
-  onStartRecall: () => void;
-  selectedCountLabel: string;
-  startDisabledReason: string | null;
+type RecallTypeOption = {
+  disabled: boolean;
+  helper: string;
+  mode: RecallMode;
 };
 
-function RecallSelectionControls({
-  canStartFocusSession,
-  hasSelectedNotes,
-  onCancel,
-  onStartFocus,
-  onStartRecall,
-  selectedCountLabel,
-  startDisabledReason,
-}: RecallSelectionControlsProps) {
-  return (
-    <div>
-      <fieldset
-        aria-label="Recall selection controls"
-        className="tag-row recall-selection-controls"
-      >
-        <span className="tag">{selectedCountLabel}</span>
-        <button className="notes-action" onClick={onCancel} type="button">
-          Cancel
-        </button>
-        {canStartFocusSession ? (
-          <button
-            className="notes-action"
-            disabled={!hasSelectedNotes}
-            onClick={onStartFocus}
-            type="button"
-          >
-            Start focus for this session
-          </button>
-        ) : null}
-        <button
-          aria-describedby={
-            hasSelectedNotes ? undefined : "recall-start-disabled-reason"
-          }
-          className="notes-action notes-action-primary"
-          disabled={!hasSelectedNotes}
-          onClick={onStartRecall}
-          type="button"
-        >
-          Start recall
-        </button>
-      </fieldset>
-      {startDisabledReason !== null ? (
-        <p className="muted" id="recall-start-disabled-reason">
-          {startDisabledReason}
-        </p>
-      ) : null}
-    </div>
-  );
-}
+const recallTypeOptions = [
+  {
+    disabled: false,
+    helper: "Reveal each Note and rate your recall.",
+    mode: "FlashCard",
+  },
+  {
+    disabled: true,
+    helper: "Connect API key to use AI Assisted recall.",
+    mode: "AiAssisted",
+  },
+  {
+    disabled: true,
+    helper: "Connect API key to use AI Graded recall.",
+    mode: "AiGraded",
+  },
+] as const satisfies readonly RecallTypeOption[];
 
-function RecallSelectionSearchResults({
-  activeSearchResultIndex,
-  isOpen,
-  onToggleNote,
-  searchResults,
-  selectedNoteIds,
-}: {
-  activeSearchResultIndex: number;
-  isOpen: boolean;
-  onToggleNote: (noteId: string) => void;
-  searchResults: AppNoteSearchResult[];
-  selectedNoteIds: ReadonlySet<string>;
-}) {
-  if (!isOpen) {
-    return null;
+function getNotePreview(note: AppNote) {
+  const body = note.body.trim();
+
+  if (body.length === 0) {
+    return "No body saved.";
   }
 
-  if (searchResults.length === 0) {
-    return (
-      <p className="notes-search__empty" role="status">
-        No notes found
-      </p>
-    );
+  return body.length > 150 ? `${body.slice(0, 147)}...` : body;
+}
+
+function getLabelNames(
+  note: AppNote,
+  labelsById: ReadonlyMap<string, AppLabel>,
+) {
+  return note.labelIds
+    .map((labelId) => labelsById.get(labelId)?.name)
+    .filter((labelName): labelName is string => labelName !== undefined);
+}
+
+function getMemoryAidCountLabel(note: AppNote) {
+  return [
+    formatCount(note.metaphors.length, "Metaphor"),
+    formatCount(note.acronyms.length, "Acronym"),
+  ].join(" · ");
+}
+
+function filterNotes(notes: readonly AppNote[], query: string) {
+  const normalizedQuery = query.trim();
+
+  if (normalizedQuery.length === 0) {
+    return [...notes];
   }
 
-  return (
-    <div
-      aria-label="Recall selection matches"
-      className="notes-search__results recall-search-results"
-      id={recallSelectionSearchListboxId}
-      aria-multiselectable="true"
-      role="listbox"
-    >
-      {searchResults.map((result, index) => {
-        const isSelected = selectedNoteIds.has(result.note.id);
-        const preview = formatNoteSearchResultPreview(result);
-
-        return (
-          <button
-            aria-label={`${isSelected ? "Selected, " : ""}${getSearchResultLabel(result)}`}
-            aria-selected={isSelected}
-            className="notes-search__option"
-            data-active={index === activeSearchResultIndex ? "true" : undefined}
-            id={getRecallSelectionSearchResultOptionId(result.note.id, index)}
-            key={`${result.note.id}-${result.matchChip}`}
-            onClick={() => onToggleNote(result.note.id)}
-            role="option"
-            tabIndex={-1}
-            type="button"
-          >
-            <span className="notes-search__option-title">
-              <strong>{result.note.title}</strong>
-              <span className="notes-search__match-chip">
-                {formatSearchMatchLabel(result.matchChip)}
-              </span>
-            </span>
-            {preview === null ? null : <span>{preview}</span>}
-            <span>{`Updated ${formatNoteDate(result.note.updatedAt)}`}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
+  return searchNoteResults(notes, normalizedQuery).map((result) => result.note);
 }
 
-function RecallSelectionFilters({
-  activeFilter,
-  filterSummaries,
-  onSelectFilter,
-}: {
-  activeFilter: RecallSetupFilter;
-  filterSummaries: RecallSetupFilterSummary[];
-  onSelectFilter: (filter: RecallSetupFilter) => void;
+function getSelectedNotes(input: {
+  notesById: ReadonlyMap<string, AppNote>;
+  selectedNoteIds: readonly string[];
 }) {
-  return (
-    <section aria-label="Recall setup filters" className="tag-row">
-      {filterSummaries.map((filterSummary) => {
-        const filter = toFilter(filterSummary);
-        const label = getFilterButtonLabel(filterSummary);
-
-        return (
-          <button
-            aria-pressed={isSelectedFilter(activeFilter, filter)}
-            className="tag"
-            key={getFilterButtonKey(filterSummary)}
-            onClick={() => onSelectFilter(filter)}
-            type="button"
-          >
-            {`${label} (${filterSummary.count})`}
-          </button>
-        );
-      })}
-    </section>
-  );
+  return input.selectedNoteIds
+    .map((noteId) => input.notesById.get(noteId))
+    .filter((note): note is AppNote => note !== undefined);
 }
 
-function RecallSetupSummary({
-  difficultyLabel,
-  estimatedTimeLabel,
-  practiceTypeLabel,
-  selectedCount,
-}: {
-  difficultyLabel: string;
-  estimatedTimeLabel: string;
-  practiceTypeLabel: string;
-  selectedCount: string;
+function getDisabledStartReason(input: {
+  selectedCount: number;
+  selectedRecallType: RecallMode;
 }) {
-  return (
-    <section aria-label="Session summary" className="recall-panel">
-      <div className="notes-list__header">
-        <div className="stack">
-          <p className="section-label">Setup</p>
-          <h4>Session summary</h4>
-          <p className="muted">
-            One honest recall prompt per note. Rate yourself after reveal.
-          </p>
-        </div>
-      </div>
-      <div className="tag-row notes-editor__labels">
-        <span className="tag">{selectedCount}</span>
-        <span className="tag">{estimatedTimeLabel}</span>
-        <span className="tag">{practiceTypeLabel}</span>
-        <span className="tag">{difficultyLabel}</span>
-      </div>
-    </section>
-  );
-}
+  if (input.selectedCount === 0) {
+    return "Select at least one Note.";
+  }
 
-function SelectableRecallNotes({
-  availableEmptyState,
-  candidates,
-  hasSearchQuery,
-  onToggleNote,
-}: {
-  availableEmptyState: RecallSetupAvailableEmptyState;
-  candidates: RecallSetupCandidate[];
-  hasSearchQuery: boolean;
-  onToggleNote: (noteId: string) => void;
-}) {
-  const emptyStateMessage = getAvailableNotesEmptyMessage({
-    availableEmptyState,
-    hasSearchQuery,
-  });
+  if (input.selectedRecallType !== "FlashCard") {
+    return "Connect API key to start this Recall type.";
+  }
 
-  return (
-    <section aria-label="Available notes" className="recall-panel notes-list">
-      <div className="notes-list__header">
-        <div className="stack">
-          <p className="section-label">Available</p>
-          <h4>Choose notes</h4>
-          <p className="muted">
-            Review what can go into this session. Selected notes stay in the
-            setup tray.
-          </p>
-        </div>
-        <span className="tag">{`${candidates.length} shown`}</span>
-      </div>
-      {emptyStateMessage !== null ? (
-        <p className="notes-search__empty" role="status">
-          {emptyStateMessage}
-        </p>
-      ) : (
-        <ul aria-label="Recallable notes" className="notes-list__items">
-          {candidates.map((candidate) => {
-            const note = candidate.note;
-
-            return (
-              <li key={note.id}>
-                <button
-                  aria-label={`${candidate.isSelected ? "Remove" : "Select"} ${note.title}`}
-                  aria-pressed={candidate.isSelected}
-                  className="notes-list__item"
-                  data-active={candidate.isSelected ? "true" : undefined}
-                  onClick={() => onToggleNote(note.id)}
-                  type="button"
-                >
-                  <span className="notes-search__option-title">
-                    <strong>{note.title}</strong>
-                    <span className="notes-search__match-chip">
-                      {candidate.isSelected ? "Selected" : "Available"}
-                    </span>
-                  </span>
-                  <span>{note.body}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function SelectedRecallNotes({
-  onRemoveNote,
-  selectedEmptyState,
-  selectedNotes,
-}: {
-  onRemoveNote: (noteId: string) => void;
-  selectedEmptyState: "none" | "no-selected-notes";
-  selectedNotes: RecallSetupSelectedSummary[];
-}) {
-  return (
-    <section aria-label="Selected notes" className="recall-panel notes-list">
-      <div className="notes-list__header">
-        <div className="stack">
-          <p className="section-label">Selected</p>
-          <h4>Review the session tray</h4>
-          <p className="muted">
-            Remove anything you do not want before you start.
-          </p>
-        </div>
-        <span className="tag">{formatCount(selectedNotes.length, "note")}</span>
-      </div>
-      {selectedEmptyState === "no-selected-notes" ? (
-        <p className="notes-search__empty" role="status">
-          No notes selected yet.
-        </p>
-      ) : (
-        <ul className="notes-list__items">
-          {selectedNotes.map((note) => (
-            <li key={note.id}>
-              <div className="notes-list__item" data-active="true">
-                <div className="stack">
-                  <strong>{note.title}</strong>
-                  <span>
-                    {note.labelNames.length > 0
-                      ? note.labelNames.join(", ")
-                      : "No label"}
-                  </span>
-                </div>
-                <button
-                  aria-label={`Remove ${note.title} from recall setup`}
-                  className="notes-action"
-                  onClick={() => onRemoveNote(note.id)}
-                  type="button"
-                >
-                  Remove
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
+  return null;
 }
 
 export function RecallSelectionPage({
-  initialSelectedFilter = { kind: "all" },
   initialSelectedNoteIds = [],
 }: {
-  initialSelectedFilter?: RecallSetupFilter;
   initialSelectedNoteIds?: readonly string[];
 }) {
   const navigate = useNavigate();
-  const focusContext = useRouteContext({
-    from: "/_protected",
-    select: (context) => context.focus,
-  });
-  const persistentFocusContext = useRouteContext({
-    from: "/_protected",
-    select: (context) => context.persistentFocus,
-  });
   const persistentRecallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.persistentRecall,
@@ -577,144 +192,37 @@ export function RecallSelectionPage({
     sessionContext.getSnapshot,
     sessionContext.getSnapshot,
   );
-  useSyncExternalStore(
-    focusContext.subscribe,
-    focusContext.getSnapshot,
-    focusContext.getSnapshot,
-  );
-  const userId = sessionSnapshot.user?.id ?? null;
-  const activeFocusSession =
-    userId === null ? null : focusContext.getActiveSession({ userId });
   const notesSnapshot = useSyncExternalStore(
     notesContext.subscribe,
     notesContext.getSnapshot,
     notesContext.getSnapshot,
   );
+  const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
-  const labels: readonly AppLabel[] =
-    userId === null ? [] : labelsContext.getLabelsForUser(userId);
-  const sessionResults =
-    userId === null ? [] : recallContext.listSessionResults({ userId });
+  const labels = userId === null ? [] : labelsContext.getLabelsForUser(userId);
+  const labelsById = new Map(labels.map((label) => [label.id, label]));
+  const notesById = new Map(notes.map((note) => [note.id, note] as const));
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState<RecallSetupFilter>(
-    initialSelectedFilter,
-  );
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>(() => [
-    ...initialSelectedNoteIds,
+    ...new Set(initialSelectedNoteIds),
   ]);
+  const [selectedRecallType, setSelectedRecallType] =
+    useState<RecallMode>("FlashCard");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [activeSearchResultIndex, setActiveSearchResultIndex] = useState(0);
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const searchRootRef = useRef<HTMLFormElement | null>(null);
-  const now = new Date().toISOString();
-  const setupState = deriveRecallSetupState({
-    labels,
-    notes,
-    now,
-    searchQuery,
-    selectedFilter,
-    selectedNoteIds,
-    sessionResults,
-  });
-  const validSelectedNoteIds = getSelectedSummaryNoteIds(
-    setupState.selectedSummaries,
+  const visibleNotes = useMemo(
+    () => filterNotes(notes, searchQuery),
+    [notes, searchQuery],
   );
-  const filterScopedState = deriveRecallSetupState({
-    labels,
-    notes,
-    now,
-    searchQuery: "",
-    selectedFilter,
-    selectedNoteIds,
-    sessionResults,
-  });
-  const searchResults = searchNoteResults(
-    filterScopedState.visibleCandidates.map((candidate) => candidate.note),
-    searchQuery,
-  );
-  const selectedCountLabel = formatSelectedCount(validSelectedNoteIds.length);
-  const hasSearchQuery = searchQuery.trim().length > 0;
-  const noteCountLabel = formatCount(notes.length, "note");
-  const canStartFocusSession = activeFocusSession === null;
-  const isSearchListboxOpen =
-    hasSearchQuery && isSearchOpen && searchResults.length > 0;
-  const activeSearchResult = searchResults[activeSearchResultIndex];
+  const selectedNotes = getSelectedNotes({ notesById, selectedNoteIds });
+  const validSelectedNoteIds = selectedNotes.map((note) => note.id);
   const selectedNoteIdSet = new Set(validSelectedNoteIds);
-  const activeSearchOptionId =
-    isSearchListboxOpen && activeSearchResult !== undefined
-      ? getRecallSelectionSearchResultOptionId(
-          activeSearchResult.note.id,
-          activeSearchResultIndex,
-        )
-      : undefined;
+  const disabledStartReason = getDisabledStartReason({
+    selectedCount: selectedNotes.length,
+    selectedRecallType,
+  });
+  const canStart = disabledStartReason === null;
 
-  useEffect(() => {
-    if (searchResults.length === 0) {
-      setActiveSearchResultIndex(0);
-      return;
-    }
-
-    setActiveSearchResultIndex((currentIndex) =>
-      Math.min(currentIndex, searchResults.length - 1),
-    );
-  }, [searchResults.length]);
-
-  useEffect(() => {
-    if (areSameOrderedNoteIds(selectedNoteIds, validSelectedNoteIds)) {
-      return;
-    }
-
-    setSelectedNoteIds(validSelectedNoteIds);
-  }, [selectedNoteIds, validSelectedNoteIds]);
-
-  useEffect(() => {
-    function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
-      if (!isModifiedKeyShortcut(event, "k")) {
-        return;
-      }
-
-      event.preventDefault();
-      searchInputRef.current?.focus();
-
-      const currentSearchValue = searchInputRef.current?.value ?? "";
-
-      if (currentSearchValue.trim().length > 0) {
-        setActiveSearchResultIndex(0);
-        setIsSearchOpen(true);
-      }
-    }
-
-    document.addEventListener("keydown", handleDocumentKeyDown);
-
-    return () => {
-      document.removeEventListener("keydown", handleDocumentKeyDown);
-    };
-  }, []);
-
-  useEffect(() => {
-    function handleDocumentMouseDown(event: MouseEvent) {
-      const target = event.target;
-
-      if (!(target instanceof Node)) {
-        return;
-      }
-
-      if (searchRootRef.current?.contains(target)) {
-        return;
-      }
-
-      setIsSearchOpen(false);
-    }
-
-    document.addEventListener("mousedown", handleDocumentMouseDown);
-
-    return () => {
-      document.removeEventListener("mousedown", handleDocumentMouseDown);
-    };
-  }, []);
-
-  function toggleSelectedNote(noteId: string) {
+  function toggleNote(noteId: string) {
     setSelectedNoteIds((currentNoteIds) =>
       currentNoteIds.includes(noteId)
         ? currentNoteIds.filter((currentNoteId) => currentNoteId !== noteId)
@@ -723,113 +231,25 @@ export function RecallSelectionPage({
     setErrorMessage(null);
   }
 
-  function handleSearchChange(value: string) {
-    setSearchQuery(value);
-    setActiveSearchResultIndex(0);
-    setIsSearchOpen(value.trim().length > 0);
-  }
-
-  function resetSearchState() {
-    setSearchQuery("");
-    setIsSearchOpen(false);
-    setActiveSearchResultIndex(0);
-  }
-
-  function handleSelectActiveSearchResult() {
-    const result = searchResults[activeSearchResultIndex];
-
-    if (result !== undefined) {
-      toggleSelectedNote(result.note.id);
-    }
-  }
-
-  function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    switch (event.key) {
-      case "Escape":
-        setIsSearchOpen(false);
-        return;
-      case "ArrowDown":
-        if (!isSearchOpen || searchResults.length === 0) {
-          return;
-        }
-
-        event.preventDefault();
-        setActiveSearchResultIndex(
-          (currentIndex) => (currentIndex + 1) % searchResults.length,
-        );
-        return;
-      case "ArrowUp":
-        if (!isSearchOpen || searchResults.length === 0) {
-          return;
-        }
-
-        event.preventDefault();
-        setActiveSearchResultIndex(
-          (currentIndex) =>
-            (currentIndex - 1 + searchResults.length) % searchResults.length,
-        );
-        return;
-      case "Enter":
-        if (!isSearchOpen || searchResults.length === 0) {
-          return;
-        }
-
-        event.preventDefault();
-        handleSelectActiveSearchResult();
-        return;
-      default:
-        return;
-    }
-  }
-
-  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    handleSelectActiveSearchResult();
-  }
-
-  function handleSearchPointerDown(event: ReactPointerEvent<HTMLFormElement>) {
-    const target = event.target;
-
-    if (!(target instanceof Element)) {
-      return;
-    }
-
-    if (target.closest(".notes-search__results")) {
-      return;
-    }
-
-    if (target.closest(".notes-search__icon")) {
-      return;
-    }
-
-    if (target !== searchInputRef.current) {
-      event.preventDefault();
-      searchInputRef.current?.focus();
-      searchInputRef.current?.select();
-    }
-  }
-
-  async function handleCancel() {
-    setSelectedNoteIds([]);
-    setSelectedFilter({ kind: "all" });
-    resetSearchState();
-    setErrorMessage(null);
+  async function cancelSelection() {
     await navigate({ to: "/recall" });
   }
 
-  async function handleStartRecall() {
-    if (userId === null || validSelectedNoteIds.length === 0) {
+  async function startRecall() {
+    if (userId === null || !canStart) {
       return;
     }
 
     try {
       if (persistentRecallContext === undefined) {
         recallContext.startFlashCardSession({
+          mode: selectedRecallType,
           noteIds: validSelectedNoteIds,
           userId,
         });
       } else {
         await persistentRecallContext.startFlashCardSession(userId, {
+          mode: selectedRecallType,
           noteIds: validSelectedNoteIds,
         });
       }
@@ -845,34 +265,6 @@ export function RecallSelectionPage({
     }
   }
 
-  async function handleStartFocusForSelection() {
-    if (userId === null || validSelectedNoteIds.length === 0) {
-      return;
-    }
-
-    try {
-      if (persistentFocusContext === undefined) {
-        focusContext.startFocusSession({
-          userId,
-        });
-      } else {
-        await persistentFocusContext.startFocusSession(userId, {});
-      }
-      setErrorMessage(null);
-    } catch (error) {
-      if (error instanceof AppFocusError) {
-        setErrorMessage(error.message);
-        return;
-      }
-
-      throw error;
-    }
-  }
-
-  if (notes.length === 0) {
-    return <EmptyRecallSelectionPage />;
-  }
-
   return (
     <section
       aria-label="Recall selection workspace"
@@ -881,119 +273,250 @@ export function RecallSelectionPage({
       <article className="recall-surface">
         <header className="recall-surface__header">
           <div className="notes-editor__title-stack">
-            <h3>Recall setup</h3>
+            <p className="section-label">Recall / Select</p>
+            <h3>Start Recall</h3>
             <p className="muted notes-editor__meta">
-              Pick notes, review the setup, then start a focused recall session.
+              Choose Notes for this temporary RecallSession.
             </p>
-            <div className="tag-row notes-editor__labels">
-              <span className="tag">{noteCountLabel}</span>
-              <span className="tag">{selectedCountLabel}</span>
-            </div>
+          </div>
+          <button
+            className="notes-action"
+            onClick={cancelSelection}
+            type="button"
+          >
+            Cancel
+          </button>
+        </header>
+
+        {notes.length === 0 ? (
+          <section className="recall-panel recall-empty-state">
+            <h4>Recall starts with notes</h4>
+            <p className="muted">
+              Create Notes first, then use Metaphors and Acronyms to reinforce
+              each concept.
+            </p>
+            <Link className="notes-action notes-action-primary" to="/notes">
+              Open Notes Workspace
+            </Link>
+          </section>
+        ) : (
+          <div className="recall-selection-layout recall-selection-layout--picker">
             <section
-              aria-label="Recall selection toolbar"
-              className="recall-selection-toolbar"
+              aria-label="Available Notes"
+              className="recall-panel recall-note-picker"
             >
-              <form
-                className="notes-search"
-                onPointerDown={handleSearchPointerDown}
-                onSubmit={handleSearchSubmit}
-                ref={searchRootRef}
-              >
-                <span className="notes-search__icon" aria-hidden="true">
-                  <SearchIcon />
-                </span>
-                <label className="sr-only" htmlFor="recall-selection-search">
-                  Search notes
-                </label>
+              <label className="recall-field" htmlFor="recall-note-search">
+                <span className="sr-only">Search Notes</span>
                 <input
-                  aria-activedescendant={activeSearchOptionId}
-                  aria-autocomplete="list"
-                  aria-controls={recallSelectionSearchListboxId}
-                  aria-expanded={isSearchListboxOpen}
-                  aria-haspopup="listbox"
-                  autoComplete="off"
-                  id="recall-selection-search"
-                  name="search"
-                  onChange={(event) => handleSearchChange(event.target.value)}
-                  onFocus={() => {
-                    if (hasSearchQuery) {
-                      setActiveSearchResultIndex(0);
-                      setIsSearchOpen(true);
-                    }
-                  }}
-                  onKeyDown={handleSearchKeyDown}
-                  placeholder="Search notes"
-                  ref={searchInputRef}
-                  role="combobox"
+                  id="recall-note-search"
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search Notes..."
                   type="search"
                   value={searchQuery}
                 />
-                <kbd>Cmd K</kbd>
-                <RecallSelectionSearchResults
-                  activeSearchResultIndex={activeSearchResultIndex}
-                  isOpen={hasSearchQuery && isSearchOpen}
-                  onToggleNote={toggleSelectedNote}
-                  searchResults={searchResults}
-                  selectedNoteIds={selectedNoteIdSet}
-                />
-              </form>
-              <RecallSelectionControls
-                hasSelectedNotes={validSelectedNoteIds.length > 0}
-                canStartFocusSession={canStartFocusSession}
-                onCancel={() => void handleCancel()}
-                onStartFocus={handleStartFocusForSelection}
-                onStartRecall={() => void handleStartRecall()}
-                selectedCountLabel={selectedCountLabel}
-                startDisabledReason={setupState.summary.startDisabledReason}
-              />
+              </label>
+
+              {searchQuery.trim().length > 0 ? (
+                <SearchMatchSummary notes={notes} query={searchQuery} />
+              ) : null}
+
+              <ol className="recall-note-picker__list">
+                {visibleNotes.map((note) => (
+                  <li key={note.id}>
+                    <label
+                      className="recall-note-row"
+                      data-selected={selectedNoteIdSet.has(note.id)}
+                    >
+                      <span className="recall-note-row__check">
+                        <input
+                          checked={selectedNoteIdSet.has(note.id)}
+                          onChange={() => toggleNote(note.id)}
+                          type="checkbox"
+                        />
+                      </span>
+                      <span className="recall-note-row__content">
+                        <strong>{note.title}</strong>
+                        <span>{getNotePreview(note)}</span>
+                        <span className="recall-note-row__meta">
+                          {getLabelNames(note, labelsById).length > 0
+                            ? getLabelNames(note, labelsById).join(", ")
+                            : "No labels"}
+                        </span>
+                        <span className="recall-note-row__meta">
+                          {getMemoryAidCountLabel(note)}
+                        </span>
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ol>
+
+              {visibleNotes.length === 0 ? (
+                <p className="notes-search__empty" role="status">
+                  No Notes match this search.
+                </p>
+              ) : null}
+
+              <footer className="recall-note-picker__footer">
+                <span>
+                  {formatCount(selectedNotes.length, "Note")} selected
+                </span>
+                <span>{formatCount(visibleNotes.length, "Note")} shown</span>
+              </footer>
             </section>
+
+            <SessionSetupPanel
+              disabledStartReason={disabledStartReason}
+              onCancel={cancelSelection}
+              onClearSelection={() => setSelectedNoteIds([])}
+              onRecallTypeChange={setSelectedRecallType}
+              onStartRecall={startRecall}
+              selectedNotes={selectedNotes}
+              selectedRecallType={selectedRecallType}
+            />
           </div>
-        </header>
+        )}
 
-        <RecallSelectionFilters
-          activeFilter={selectedFilter}
-          filterSummaries={setupState.filterSummaries}
-          onSelectFilter={setSelectedFilter}
-        />
-
-        <RecallSetupSummary
-          difficultyLabel={setupState.summary.difficultyLabel}
-          estimatedTimeLabel={setupState.summary.estimatedTimeLabel}
-          practiceTypeLabel={setupState.summary.practiceTypeLabel}
-          selectedCount={formatSummarySelectedCount(
-            setupState.summary.selectedCount,
-          )}
-        />
-
-        <div className="recall-selection-layout">
-          <SelectableRecallNotes
-            availableEmptyState={setupState.availableEmptyState}
-            candidates={setupState.visibleCandidates}
-            hasSearchQuery={hasSearchQuery}
-            onToggleNote={toggleSelectedNote}
-          />
-          <SelectedRecallNotes
-            onRemoveNote={toggleSelectedNote}
-            selectedEmptyState={setupState.selectedEmptyState}
-            selectedNotes={setupState.selectedSummaries}
-          />
-        </div>
+        {errorMessage !== null ? (
+          <p className="auth-form__error" role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
       </article>
-
-      {errorMessage !== null ? (
-        <p className="auth-form__error" role="alert">
-          {errorMessage}
-        </p>
-      ) : null}
     </section>
   );
 }
 
-function SearchIcon() {
+function SearchMatchSummary({
+  notes,
+  query,
+}: {
+  notes: readonly AppNote[];
+  query: string;
+}) {
+  const firstMatch = searchNoteResults(notes, query)[0];
+
+  if (firstMatch === undefined) {
+    return null;
+  }
+
+  const preview = formatNoteSearchResultPreview(firstMatch);
+
   return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
-      <circle cx="10.5" cy="10.5" r="6" />
-      <path d="m15 15 4.5 4.5" />
-    </svg>
+    <p className="muted recall-search-match-summary">
+      {formatSearchMatchLabel(firstMatch.matchChip)}
+      {preview === null ? "" : ` · ${preview}`}
+    </p>
+  );
+}
+
+function SessionSetupPanel({
+  disabledStartReason,
+  onCancel,
+  onClearSelection,
+  onRecallTypeChange,
+  onStartRecall,
+  selectedNotes,
+  selectedRecallType,
+}: {
+  disabledStartReason: string | null;
+  onCancel: () => void;
+  onClearSelection: () => void;
+  onRecallTypeChange: (mode: RecallMode) => void;
+  onStartRecall: () => void;
+  selectedNotes: readonly AppNote[];
+  selectedRecallType: RecallMode;
+}) {
+  const selectedRecallOption = recallTypeOptions.find(
+    (option) => option.mode === selectedRecallType,
+  );
+
+  return (
+    <aside
+      aria-label="Session setup"
+      className="recall-panel recall-session-setup"
+    >
+      <div className="notes-editor__title-stack">
+        <p className="section-label">Session setup</p>
+        <h4>{formatCount(selectedNotes.length, "Note")} selected</h4>
+        <p className="muted">
+          This selection is temporary and is used only for the next
+          RecallSession.
+        </p>
+      </div>
+
+      <button
+        className="notes-action"
+        disabled={selectedNotes.length === 0}
+        onClick={onClearSelection}
+        type="button"
+      >
+        Clear selection
+      </button>
+
+      <fieldset className="recall-type-selector">
+        <legend>Recall type</legend>
+        {recallTypeOptions.map((option) => (
+          <label
+            className="recall-type-option"
+            data-disabled={option.disabled}
+            data-selected={option.mode === selectedRecallType}
+            key={option.mode}
+          >
+            <input
+              checked={option.mode === selectedRecallType}
+              onChange={() => onRecallTypeChange(option.mode)}
+              type="radio"
+              value={option.mode}
+            />
+            <span>
+              <strong>{formatRecallModeLabel(option.mode)}</strong>
+              <span>{option.helper}</span>
+            </span>
+          </label>
+        ))}
+      </fieldset>
+
+      {selectedRecallOption?.disabled ? (
+        <p className="muted" role="status">
+          Connect API key to start {formatRecallModeLabel(selectedRecallType)}.
+        </p>
+      ) : null}
+
+      <div className="recall-session-setup__selected">
+        {selectedNotes.length === 0 ? (
+          <p className="muted">No Notes selected.</p>
+        ) : (
+          <ol>
+            {selectedNotes.map((note) => (
+              <li key={note.id}>{note.title}</li>
+            ))}
+          </ol>
+        )}
+      </div>
+
+      <div className="recall-session-setup__actions">
+        <button className="notes-action" onClick={onCancel} type="button">
+          Cancel
+        </button>
+        <button
+          aria-describedby={
+            disabledStartReason === null ? undefined : "recall-start-reason"
+          }
+          className="notes-action notes-action-primary"
+          disabled={disabledStartReason !== null}
+          onClick={onStartRecall}
+          type="button"
+        >
+          Start recall
+        </button>
+      </div>
+
+      {disabledStartReason !== null ? (
+        <p className="muted" id="recall-start-reason">
+          {disabledStartReason}
+        </p>
+      ) : null}
+    </aside>
   );
 }

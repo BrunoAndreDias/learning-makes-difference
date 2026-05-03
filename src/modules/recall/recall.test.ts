@@ -23,61 +23,65 @@ function createMemoryStorage() {
 describe("recall attempt summaries", () => {
   it("returns zero counts for empty input", () => {
     expect(summarizeAttempts([])).toEqual({
-      missed: 0,
-      nailed: 0,
-      partial: 0,
+      forgot: 0,
+      easy: 0,
+      good: 0,
+      hard: 0,
     });
   });
 
   it("returns explicit zeros for ratings outside a single bucket", () => {
     expect(
       summarizeAttempts([
-        { noteId: "note-1", rating: "missed" },
-        { noteId: "note-2", rating: "missed" },
-        { noteId: "note-3", rating: "missed" },
+        { noteId: "note-1", rating: "forgot" },
+        { noteId: "note-2", rating: "forgot" },
+        { noteId: "note-3", rating: "forgot" },
       ]),
     ).toEqual({
-      missed: 3,
-      nailed: 0,
-      partial: 0,
+      forgot: 3,
+      easy: 0,
+      good: 0,
+      hard: 0,
     });
   });
 
   it("counts mixed rating buckets", () => {
     expect(
       summarizeAttempts([
-        { noteId: "note-1", rating: "nailed" },
-        { noteId: "note-2", rating: "partial" },
-        { noteId: "note-3", rating: "missed" },
-        { noteId: "note-4", rating: "partial" },
+        { noteId: "note-1", rating: "easy" },
+        { noteId: "note-2", rating: "hard" },
+        { noteId: "note-3", rating: "forgot" },
+        { noteId: "note-4", rating: "hard" },
       ]),
     ).toEqual({
-      missed: 1,
-      nailed: 1,
-      partial: 2,
+      forgot: 1,
+      easy: 1,
+      good: 0,
+      hard: 2,
     });
   });
 
   it("handles large counts", () => {
     const attempts = [
       ...Array.from({ length: 125 }, (_, index) => ({
-        noteId: `nailed-${index}`,
-        rating: "nailed" as const,
+        noteId: `easy-${index}`,
+        rating: "easy" as const,
       })),
       ...Array.from({ length: 75 }, (_, index) => ({
-        noteId: `partial-${index}`,
-        rating: "partial" as const,
+        noteId: `hard-${index}`,
+        rating: "hard" as const,
       })),
       ...Array.from({ length: 50 }, (_, index) => ({
-        noteId: `missed-${index}`,
-        rating: "missed" as const,
+        noteId: `forgot-${index}`,
+        rating: "forgot" as const,
       })),
     ];
 
     expect(summarizeAttempts(attempts)).toEqual({
-      missed: 50,
-      nailed: 125,
-      partial: 75,
+      forgot: 50,
+      easy: 125,
+      good: 0,
+      hard: 75,
     });
   });
 });
@@ -130,7 +134,7 @@ describe("recall attempts by note", () => {
     });
     recall.revealFlashCardAnswer({ sessionId: firstSession.id, userId });
     recall.rateFlashCardAnswer({
-      rating: "partial",
+      rating: "hard",
       sessionId: firstSession.id,
       userId,
     });
@@ -149,7 +153,7 @@ describe("recall attempts by note", () => {
     });
     recall.revealFlashCardAnswer({ sessionId: secondSession.id, userId });
     recall.rateFlashCardAnswer({
-      rating: "nailed",
+      rating: "easy",
       sessionId: secondSession.id,
       userId,
     });
@@ -157,22 +161,22 @@ describe("recall attempts by note", () => {
     expect(recall.listAttemptsByNote({ userId })).toMatchObject([
       {
         currentTitle: "Updated title",
-        missed: 0,
-        nailed: 1,
+        forgot: 0,
+        easy: 1,
         noteId: note.id,
-        partial: 1,
+        hard: 1,
         snapshotTitle: "Updated title",
         totalAttempts: 2,
         attempts: [
           {
             bodySnapshot: "Original body",
-            rating: "partial",
+            rating: "hard",
             sessionId: firstSession.id,
             snapshotTitle: "Original title",
           },
           {
             bodySnapshot: "Updated body",
-            rating: "nailed",
+            rating: "easy",
             sessionId: secondSession.id,
             snapshotTitle: "Updated title",
           },
@@ -240,11 +244,11 @@ describe("recall attempts by note", () => {
       });
 
       for (const [timestamp, noteId, rating, owner] of [
-        ["2026-04-01T10:00:00.000Z", highVolumeNote.id, "partial", userId],
-        ["2026-04-02T10:00:00.000Z", olderTieNote.id, "missed", userId],
-        ["2026-04-03T10:00:00.000Z", highVolumeNote.id, "nailed", userId],
-        ["2026-04-04T10:00:00.000Z", recentTieNote.id, "partial", userId],
-        ["2026-04-05T10:00:00.000Z", otherUsersNote.id, "nailed", "other-user"],
+        ["2026-04-01T10:00:00.000Z", highVolumeNote.id, "hard", userId],
+        ["2026-04-02T10:00:00.000Z", olderTieNote.id, "forgot", userId],
+        ["2026-04-03T10:00:00.000Z", highVolumeNote.id, "easy", userId],
+        ["2026-04-04T10:00:00.000Z", recentTieNote.id, "hard", userId],
+        ["2026-04-05T10:00:00.000Z", otherUsersNote.id, "easy", "other-user"],
       ] as const) {
         vi.setSystemTime(new Date(timestamp));
         const session = recall.startFlashCardSession({
@@ -263,9 +267,9 @@ describe("recall attempts by note", () => {
         recall.listAttemptsByNote({ userId }).map((entry) => entry.noteId),
       ).toEqual([highVolumeNote.id, recentTieNote.id, olderTieNote.id]);
       expect(recall.listAttemptsByNote({ userId })[0]).toMatchObject({
-        missed: 0,
-        nailed: 1,
-        partial: 1,
+        forgot: 0,
+        easy: 1,
+        hard: 1,
         totalAttempts: 2,
       });
       expect(
@@ -315,7 +319,7 @@ describe("recall attempts by note", () => {
     });
     recall.revealFlashCardAnswer({ sessionId: firstSession.id, userId });
     recall.rateFlashCardAnswer({
-      rating: "missed",
+      rating: "forgot",
       sessionId: firstSession.id,
       userId,
     });
@@ -334,7 +338,7 @@ describe("recall attempts by note", () => {
     });
     recall.revealFlashCardAnswer({ sessionId: secondSession.id, userId });
     recall.rateFlashCardAnswer({
-      rating: "partial",
+      rating: "hard",
       sessionId: secondSession.id,
       userId,
     });
@@ -412,7 +416,7 @@ describe("recall focus target capture", () => {
 
       recall.revealAnswer({ sessionId: session.id, userId });
       recall.answerQuestion({
-        rating: "nailed",
+        rating: "easy",
         sessionId: session.id,
         userId,
       });
@@ -493,7 +497,7 @@ describe("recall focus target capture", () => {
 
       recall.revealAnswer({ sessionId: session.id, userId });
       recall.answerQuestion({
-        rating: "partial",
+        rating: "hard",
         sessionId: session.id,
         userId,
       });
@@ -680,7 +684,7 @@ describe("recall session setup", () => {
 
     expect(
       recall.answerQuestion({
-        rating: "nailed",
+        rating: "easy",
         sessionId: session.id,
         userId,
       }),
@@ -692,7 +696,7 @@ describe("recall session setup", () => {
         {
           isAnswerRevealed: false,
           noteId: note.id,
-          selfRating: "nailed",
+          selfRating: "easy",
         },
       ],
     });
@@ -836,7 +840,7 @@ describe("recall session setup", () => {
     });
     expect(
       recall.rateFlashCardAnswer({
-        rating: "partial",
+        rating: "hard",
         sessionId: attemptedSession.id,
         userId,
       }),
@@ -844,7 +848,7 @@ describe("recall session setup", () => {
 
     expect(recall.listSessionResults({ userId })).toMatchObject([
       {
-        attempts: [{ noteId: note.id, rating: "partial" }],
+        attempts: [{ noteId: note.id, rating: "hard" }],
         id: attemptedSession.id,
       },
     ]);
@@ -909,7 +913,7 @@ describe("recall session setup", () => {
 
     expect(() =>
       recall.rateFlashCardAnswer({
-        rating: "partial",
+        rating: "hard",
         sessionId: session.id,
         userId,
       }),
@@ -923,13 +927,13 @@ describe("recall session setup", () => {
     expect(revealedSession.isAnswerRevealed).toBe(true);
 
     const advancedSession = recall.rateFlashCardAnswer({
-      rating: "partial",
+      rating: "hard",
       sessionId: session.id,
       userId,
     });
 
     expect(advancedSession).toMatchObject({
-      attempts: [{ noteId: session.notes[0].id, rating: "partial" }],
+      attempts: [{ noteId: session.notes[0].id, rating: "hard" }],
       currentIndex: 1,
       isAnswerRevealed: false,
     });
@@ -985,7 +989,7 @@ describe("recall session setup", () => {
       userId,
     });
     recall.rateFlashCardAnswer({
-      rating: "nailed",
+      rating: "easy",
       sessionId: attemptedSession.id,
       userId,
     });
@@ -1006,7 +1010,7 @@ describe("recall session setup", () => {
 
     expect(reloadedRecall.listSessionResults({ userId })).toMatchObject([
       {
-        attempts: [{ noteId: note.id, rating: "nailed" }],
+        attempts: [{ noteId: note.id, rating: "easy" }],
         id: attemptedSession.id,
         notes: [
           {
@@ -1070,7 +1074,7 @@ describe("recall session setup", () => {
 
     recall.revealFlashCardAnswer({ sessionId: session.id, userId });
     recall.rateFlashCardAnswer({
-      rating: "partial",
+      rating: "hard",
       sessionId: session.id,
       userId,
     });
@@ -1085,17 +1089,12 @@ describe("recall session setup", () => {
 
     expect(reloadedRecall.listSessionResults({ userId })).toMatchObject([
       {
-        attempts: [{ noteId: firstNote.id, rating: "partial" }],
+        attempts: [{ noteId: firstNote.id, rating: "hard" }],
         questions: [
           {
             isAnswerRevealed: false,
             noteId: firstNote.id,
-            selfRating: "partial",
-          },
-          {
-            isAnswerRevealed: true,
-            noteId: secondNote.id,
-            selfRating: null,
+            selfRating: "hard",
           },
         ],
       },
@@ -1151,7 +1150,7 @@ describe("recall session setup", () => {
 
     recall.revealFlashCardAnswer({ sessionId: session.id, userId });
     recall.rateFlashCardAnswer({
-      rating: "partial",
+      rating: "hard",
       sessionId: session.id,
       userId,
     });
@@ -1193,7 +1192,7 @@ describe("recall session setup", () => {
         userId,
       }),
     ).toMatchObject({
-      attempts: [{ noteId: attemptedNote.id, rating: "partial" }],
+      attempts: [{ noteId: attemptedNote.id, rating: "hard" }],
       notes: [
         {
           acronyms: [{ description: "OE means Original Expansion." }],
@@ -1291,7 +1290,7 @@ describe("recall session setup", () => {
         userId: owner,
       });
       recall.rateFlashCardAnswer({
-        rating: "partial",
+        rating: "hard",
         sessionId: session.id,
         userId: owner,
       });

@@ -86,14 +86,14 @@ describe("recall setup", () => {
     ];
     const sessionResults = [
       buildSessionResult({
-        attempts: [{ noteId: "note-2", rating: "partial" }],
+        attempts: [{ noteId: "note-2", rating: "hard" }],
         completedAt: "2026-04-29T10:00:00.000Z",
         createdAt: "2026-04-29T09:50:00.000Z",
         id: "session-1",
         notes: [notes[1]],
       }),
       buildSessionResult({
-        attempts: [{ noteId: "note-3", rating: "nailed" }],
+        attempts: [{ noteId: "note-3", rating: "easy" }],
         completedAt: "2026-04-30T10:00:00.000Z",
         createdAt: "2026-04-30T09:50:00.000Z",
         id: "session-2",
@@ -118,7 +118,7 @@ describe("recall setup", () => {
       expect.objectContaining({
         id: "note-2",
         labelNames: ["Biology"],
-        latestRating: "partial",
+        latestRating: "hard",
         title: "Mitochondria",
       }),
       expect.objectContaining({
@@ -152,11 +152,11 @@ describe("recall setup", () => {
     );
   });
 
-  it("keeps recently nailed notes out of Due now until the learning-state review window passes", () => {
+  it("keeps recently easy notes out of Due now until the learning-state review window passes", () => {
     const notes = [
       buildNote({
         id: "note-ready-later",
-        title: "Recently nailed note",
+        title: "Recently easy note",
       }),
       buildNote({
         id: "note-ready-now",
@@ -169,14 +169,14 @@ describe("recall setup", () => {
     ];
     const sessionResults = [
       buildSessionResult({
-        attempts: [{ noteId: "note-ready-later", rating: "nailed" }],
+        attempts: [{ noteId: "note-ready-later", rating: "easy" }],
         completedAt: "2026-04-28T09:00:00.000Z",
         createdAt: "2026-04-28T08:50:00.000Z",
         id: "session-1",
         notes: [notes[0]],
       }),
       buildSessionResult({
-        attempts: [{ noteId: "note-ready-now", rating: "nailed" }],
+        attempts: [{ noteId: "note-ready-now", rating: "easy" }],
         completedAt: "2026-04-24T09:00:00.000Z",
         createdAt: "2026-04-24T08:50:00.000Z",
         id: "session-2",
@@ -217,7 +217,7 @@ describe("recall setup", () => {
     ];
     const sessionResults = [
       buildSessionResult({
-        attempts: [{ noteId: "note-strong", rating: "nailed" }],
+        attempts: [{ noteId: "note-strong", rating: "easy" }],
         completedAt: "2026-05-01T09:00:00.000Z",
         createdAt: "2026-05-01T08:50:00.000Z",
         id: "session-1",
@@ -254,7 +254,7 @@ describe("recall setup", () => {
     ];
     const sessionResults = [
       buildSessionResult({
-        attempts: [{ noteId: "note-strong", rating: "nailed" }],
+        attempts: [{ noteId: "note-strong", rating: "easy" }],
         completedAt: "2026-05-01T09:00:00.000Z",
         createdAt: "2026-05-01T08:50:00.000Z",
         id: "session-1",

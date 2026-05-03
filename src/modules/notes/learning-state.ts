@@ -17,7 +17,7 @@ type NoteRecallHistorySource = {
 };
 
 export type LearningStateStatus =
-  | "recently_nailed"
+  | "recently_easy"
   | "ready_for_review"
   | "unpracticed"
   | "weak";
@@ -49,8 +49,8 @@ export function formatLearningStateStatusLabel(
       return "Weak";
     case "ready_for_review":
       return "Ready for review";
-    case "recently_nailed":
-      return "Recently nailed";
+    case "recently_easy":
+      return "Recently easy";
   }
 }
 
@@ -62,12 +62,14 @@ export function formatLearningStateRatingLabel(
   }
 
   switch (rating) {
-    case "missed":
-      return "Missed";
-    case "partial":
-      return "Partial";
-    case "nailed":
-      return "Nailed";
+    case "forgot":
+      return "Forgot";
+    case "hard":
+      return "Hard";
+    case "good":
+      return "Good";
+    case "easy":
+      return "Easy";
   }
 }
 
@@ -79,11 +81,13 @@ function addDays(timestamp: string, days: number): string {
 
 function getReviewOffsetDays(rating: RecallSelfRating): number {
   switch (rating) {
-    case "missed":
+    case "forgot":
       return 1;
-    case "partial":
+    case "hard":
       return 3;
-    case "nailed":
+    case "good":
+      return 5;
+    case "easy":
       return 7;
   }
 }
@@ -118,7 +122,7 @@ export function deriveLearningState(input: {
     getReviewOffsetDays(latestAttempt.rating),
   );
   const isWeak =
-    latestAttempt.rating === "missed" || latestAttempt.rating === "partial";
+    latestAttempt.rating === "forgot" || latestAttempt.rating === "hard";
 
   if (isWeak) {
     return {
@@ -146,7 +150,7 @@ export function deriveLearningState(input: {
     noteId: input.note.id,
     practiced: true,
     recommendedAction: isReadyForReview ? "review_now" : "review_later",
-    status: isReadyForReview ? "ready_for_review" : "recently_nailed",
+    status: isReadyForReview ? "ready_for_review" : "recently_easy",
   };
 }
 

@@ -3,10 +3,10 @@ import type { RecallMode } from "./recall";
 export function formatRecallModeLabel(mode: RecallMode): string {
   switch (mode) {
     case "FlashCard":
-      return "Recall";
+      return "FlashCard";
     case "AiAssisted":
-      return "AI recall";
+      return "AI Assisted";
     case "AiGraded":
-      return "AI review";
+      return "AI Graded";
   }
 }

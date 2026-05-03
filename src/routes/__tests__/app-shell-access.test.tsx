@@ -56,15 +56,18 @@ describe("authenticated app shell", () => {
     expect(router.state.location.pathname).toBe("/notes");
   });
 
-  it("redirects the removed /recall/results route to the notes workspace", async () => {
+  it("redirects the removed /recall/results route to the canonical Recall workspace", async () => {
     const { router } = renderRoute("/recall/results");
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Recall starts with notes",
+      }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/notes");
+    expect(router.state.location.pathname).toBe("/recall");
     expect(
-      screen.queryByRole("heading", { level: 3, name: "Results" }),
+      screen.queryByRole("heading", { level: 3, name: "Practice" }),
     ).not.toBeInTheDocument();
   });
 
@@ -318,7 +321,7 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", {
         level: 3,
-        name: "Practice",
+        name: "Recall starts with notes",
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("Jordan Review")).toBeInTheDocument();

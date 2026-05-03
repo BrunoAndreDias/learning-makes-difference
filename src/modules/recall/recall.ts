@@ -13,7 +13,9 @@ export type RecallNoteSnapshot = AppNote & {
   labels?: RecallLabelSnapshot[];
 };
 
-export type RecallSelfRating = "missed" | "partial" | "nailed";
+export type LegacyRecallSelfRating = "missed" | "partial" | "nailed";
+
+export type RecallSelfRating = "forgot" | "hard" | "good" | "easy";
 
 export type RecallAttempt = {
   noteId: string;
@@ -22,15 +24,17 @@ export type RecallAttempt = {
 };
 
 export type RecallAttemptSummary = {
-  missed: number;
-  nailed: number;
-  partial: number;
+  easy: number;
+  forgot: number;
+  good: number;
+  hard: number;
 };
 
 export type RecallQuestion = {
   isAnswerRevealed: boolean;
   noteId: string;
   noteSnapshot: RecallNoteSnapshot;
+  score?: number | null;
   selfRating: RecallSelfRating | null;
   typedAnswer?: string;
 };
@@ -56,6 +60,7 @@ export type SessionResult = {
   mode: RecallMode;
   notes: RecallNoteSnapshot[];
   questions: RecallQuestion[];
+  score?: number | null;
 };
 
 export type FlashCardRecallMode = "FlashCard";
@@ -129,6 +134,8 @@ type AnswerQuestionInput = UpdateRecallSessionInput & {
   rating: RecallSelfRating;
 };
 
+type SkipQuestionInput = UpdateRecallSessionInput;
+
 type UpdateAttemptTextInput = UpdateRecallSessionInput & {
   text: string;
 };
@@ -159,9 +166,10 @@ export function summarizeAttempts(
   attempts: readonly FlashCardRecallAttempt[],
 ): FlashCardRecallAttemptSummary {
   const summary: FlashCardRecallAttemptSummary = {
-    missed: 0,
-    nailed: 0,
-    partial: 0,
+    easy: 0,
+    forgot: 0,
+    good: 0,
+    hard: 0,
   };
 
   for (const attempt of attempts) {
@@ -169,6 +177,37 @@ export function summarizeAttempts(
   }
 
   return summary;
+}
+
+export function normalizeRecallSelfRating(
+  rating: RecallSelfRating | LegacyRecallSelfRating,
+): RecallSelfRating {
+  switch (rating) {
+    case "missed":
+      return "forgot";
+    case "partial":
+      return "hard";
+    case "nailed":
+      return "easy";
+    case "forgot":
+    case "hard":
+    case "good":
+    case "easy":
+      return rating;
+  }
+}
+
+export function getRecallSelfRatingScore(rating: RecallSelfRating): number {
+  switch (rating) {
+    case "forgot":
+      return 0;
+    case "hard":
+      return 50;
+    case "good":
+      return 75;
+    case "easy":
+      return 100;
+  }
 }
 
 export type AppRecallContext = {
@@ -182,6 +221,7 @@ export type AppRecallContext = {
     input: ListAttemptsByNoteInput,
   ) => FlashCardRecallAttemptsByNote[];
   revealAnswer: (input: UpdateRecallSessionInput) => RecallSession;
+  skipFlashCardQuestion: (input: SkipQuestionInput) => RecallSession | null;
   startRecallSession: (input: StartRecallSessionInput) => RecallSession;
   endFlashCardSession: (input: UpdateRecallSessionInput) => RecallSession;
   rateFlashCardAnswer: (input: AnswerQuestionInput) => RecallSession | null;
@@ -251,7 +291,16 @@ function isRecallNoteSnapshot(note: unknown): note is RecallNoteSnapshot {
   );
 }
 
-function isRecallAttempt(attempt: unknown): attempt is RecallAttempt {
+type StoredRecallAttempt = Omit<RecallAttempt, "rating"> & {
+  rating: LegacyRecallSelfRating | RecallSelfRating;
+};
+
+type StoredRecallQuestion = Omit<RecallQuestion, "score" | "selfRating"> & {
+  score?: number | null;
+  selfRating: LegacyRecallSelfRating | RecallSelfRating | null;
+};
+
+function isRecallAttempt(attempt: unknown): attempt is StoredRecallAttempt {
   const candidate = asRecord(attempt);
 
   return (
@@ -260,15 +309,32 @@ function isRecallAttempt(attempt: unknown): attempt is RecallAttempt {
     (!("text" in candidate) ||
       candidate.text === null ||
       typeof candidate.text === "string") &&
-    isRecallSelfRating(candidate.rating)
+    isStoredRecallSelfRating(candidate.rating)
   );
 }
 
 function isRecallSelfRating(value: unknown): value is RecallSelfRating {
+  return (
+    value === "forgot" ||
+    value === "hard" ||
+    value === "good" ||
+    value === "easy"
+  );
+}
+
+function isLegacyRecallSelfRating(
+  value: unknown,
+): value is LegacyRecallSelfRating {
   return value === "missed" || value === "partial" || value === "nailed";
 }
 
-function isRecallQuestion(question: unknown): question is RecallQuestion {
+function isStoredRecallSelfRating(
+  value: unknown,
+): value is LegacyRecallSelfRating | RecallSelfRating {
+  return isRecallSelfRating(value) || isLegacyRecallSelfRating(value);
+}
+
+function isRecallQuestion(question: unknown): question is StoredRecallQuestion {
   const candidate = asRecord(question);
 
   return (
@@ -276,7 +342,11 @@ function isRecallQuestion(question: unknown): question is RecallQuestion {
     typeof candidate.isAnswerRevealed === "boolean" &&
     typeof candidate.noteId === "string" &&
     isRecallNoteSnapshot(candidate.noteSnapshot) &&
-    (candidate.selfRating === null || isRecallSelfRating(candidate.selfRating))
+    (candidate.selfRating === null ||
+      isStoredRecallSelfRating(candidate.selfRating)) &&
+    (!("score" in candidate) ||
+      candidate.score === null ||
+      typeof candidate.score === "number")
   );
 }
 
@@ -286,10 +356,12 @@ function normalizeRecallAttemptText(text: string): string | null {
   return normalizedText.length === 0 ? null : normalizedText;
 }
 
-function normalizeStoredRecallAttempt(attempt: RecallAttempt): RecallAttempt {
+function normalizeStoredRecallAttempt(
+  attempt: StoredRecallAttempt,
+): RecallAttempt {
   return {
     noteId: attempt.noteId,
-    rating: attempt.rating,
+    rating: normalizeRecallSelfRating(attempt.rating),
     text: attempt.text ?? null,
   };
 }
@@ -339,6 +411,12 @@ function getTypedAnswerForQuestion(input: {
   return "";
 }
 
+function getRecallQuestionScore(attempt: RecallAttempt | undefined) {
+  return attempt === undefined
+    ? null
+    : getRecallSelfRatingScore(attempt.rating);
+}
+
 function getRecallQuestionState(
   input: {
     currentIndex: number;
@@ -358,6 +436,7 @@ function getRecallQuestionState(
       input.isAnswerRevealed,
     noteId: input.note.id,
     noteSnapshot: cloneRecallNoteSnapshot(input.note),
+    score: getRecallQuestionScore(attempt),
     selfRating: attempt?.rating ?? null,
     typedAnswer: getTypedAnswerForQuestion({
       attempt,
@@ -455,10 +534,9 @@ function restoreStoredSessionResultQuestions(
 ): RecallQuestion[] {
   if (
     Array.isArray(result.questions) &&
-    result.questions.length === notes.length &&
     result.questions.every((question: unknown) => isRecallQuestion(question))
   ) {
-    return result.questions.map(cloneRecallQuestion);
+    return result.questions.map(normalizeStoredRecallQuestion);
   }
 
   return createQuestionsFromProgress({
@@ -467,7 +545,7 @@ function restoreStoredSessionResultQuestions(
     isAnswerRevealed: false,
     notes,
     questionIndex: notes.length,
-  });
+  }).filter((question) => question.selfRating !== null);
 }
 
 function parseStoredSessionResults(
@@ -517,7 +595,14 @@ function parseStoredSessionResults(
             notes,
           ),
         };
-      });
+      })
+      .map((result) => ({
+        ...result,
+        score:
+          typeof result.score === "number"
+            ? result.score
+            : getAverageQuestionScore(result.questions),
+      }));
   } catch {
     return [];
   }
@@ -562,6 +647,39 @@ function cloneRecallQuestion(question: RecallQuestion): RecallQuestion {
     ...question,
     noteSnapshot: cloneRecallNoteSnapshot(question.noteSnapshot),
   };
+}
+
+function normalizeStoredRecallQuestion(
+  question: StoredRecallQuestion,
+): RecallQuestion {
+  const selfRating =
+    question.selfRating === null
+      ? null
+      : normalizeRecallSelfRating(question.selfRating);
+
+  return {
+    ...question,
+    noteSnapshot: cloneRecallNoteSnapshot(question.noteSnapshot),
+    score:
+      typeof question.score === "number"
+        ? question.score
+        : selfRating === null
+          ? null
+          : getRecallSelfRatingScore(selfRating),
+    selfRating,
+  };
+}
+
+function getAverageQuestionScore(questions: readonly RecallQuestion[]) {
+  const scores = questions
+    .map((question) => question.score)
+    .filter((score): score is number => typeof score === "number");
+
+  if (scores.length === 0) {
+    return null;
+  }
+
+  return scores.reduce((total, score) => total + score, 0) / scores.length;
 }
 
 function cloneSessionResult(result: StoredSessionResult): StoredSessionResult {
@@ -749,6 +867,10 @@ export function createAppRecallContext(
   }
 
   function toSessionResult(session: StoredRecallSession): StoredSessionResult {
+    const questions = session.questions
+      .filter((question) => question.selfRating !== null)
+      .map(cloneRecallQuestion);
+
     return {
       attempts: [...session.attempts],
       completedAt: new Date().toISOString(),
@@ -756,7 +878,8 @@ export function createAppRecallContext(
       id: session.id,
       mode: session.mode,
       notes: cloneRecallNoteSnapshots(session.notes),
-      questions: session.questions.map(cloneRecallQuestion),
+      questions,
+      score: getAverageQuestionScore(questions),
       userId: session.userId,
     };
   }
@@ -860,6 +983,43 @@ export function createAppRecallContext(
 
     writeSnapshot(nextSession);
     emitStudyActivity(nextSession);
+
+    return nextSession;
+  }
+
+  function skipFlashCardQuestion({
+    sessionId,
+    userId,
+  }: SkipQuestionInput): RecallSession | null {
+    const activeSession = getActiveSessionForUser({ sessionId, userId });
+
+    if (activeSession.notes[activeSession.currentQuestionIndex] === undefined) {
+      throw new AppRecallError("invalid_input", "Recall session is complete.");
+    }
+
+    const currentQuestionIndex = activeSession.currentQuestionIndex + 1;
+    const nextSession: StoredRecallSession = {
+      ...activeSession,
+      currentIndex: currentQuestionIndex,
+      currentQuestionIndex,
+      draftAnswer: "",
+      isAnswerRevealed: false,
+      questions: createQuestionsFromProgress({
+        attempts: activeSession.attempts,
+        draftAnswer: "",
+        isAnswerRevealed: false,
+        notes: activeSession.notes,
+        questionIndex: currentQuestionIndex,
+      }),
+    };
+
+    if (nextSession.currentQuestionIndex >= nextSession.notes.length) {
+      persistSessionResult(nextSession);
+      writeSnapshot(null);
+      return null;
+    }
+
+    writeSnapshot(nextSession);
 
     return nextSession;
   }
@@ -1077,6 +1237,7 @@ export function createAppRecallContext(
     rateFlashCardAnswer: answerQuestion,
     revealAnswer,
     revealFlashCardAnswer: revealAnswer,
+    skipFlashCardQuestion,
     startFlashCardSession: startRecallSession,
     startRecallSession,
     updateAttemptText,

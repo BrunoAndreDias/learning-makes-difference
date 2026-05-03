@@ -40,7 +40,17 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .recall-results-workspace,
+  .recall-selection-layout--picker {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .recall-session-setup {
+    position: static;
+  }
+
   .recall-results-hero,
+  .recall-results-detail__header,
   .recall-question-card__header {
     align-items: stretch;
     flex-direction: column;

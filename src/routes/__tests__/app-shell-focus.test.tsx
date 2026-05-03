@@ -76,7 +76,7 @@ describe("authenticated app shell", () => {
     focusContext.startNextFocusInterval({ userId });
     createCompletedRecallSession(recallContext, {
       noteId: recallNote.id,
-      rating: "nailed",
+      rating: "easy",
       timestamp: "2026-04-30T10:31:00.000Z",
       userId,
     });
@@ -252,7 +252,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Practice" }),
+      await screen.findByRole("heading", { level: 2, name: "Recall" }),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
@@ -1081,14 +1081,12 @@ describe("authenticated app shell", () => {
       },
     });
 
-    expect(
-      await screen.findByRole("heading", { name: "Recall session" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Recall / Session")).toBeInTheDocument();
 
     const overlay = screen.getByRole("region", {
       name: "Break interval reminder",
     });
-    const revealButton = screen.getByRole("button", { name: "Reveal answer" });
+    const revealButton = screen.getByRole("button", { name: "Reveal note" });
 
     expect(revealButton).toBeDisabled();
     fireEvent.click(
@@ -1104,7 +1102,8 @@ describe("authenticated app shell", () => {
     expect(revealButton).not.toBeDisabled();
 
     fireEvent.click(revealButton);
-    fireEvent.click(screen.getByRole("button", { name: "Nailed it" }));
+    fireEvent.click(screen.getByRole("button", { name: "Easy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next note" }));
 
     expect(router.state.location.pathname).toBe("/recall");
     expect(

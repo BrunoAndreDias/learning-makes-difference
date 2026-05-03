@@ -4,8 +4,7 @@ import {
   useNavigate,
   useRouteContext,
 } from "@tanstack/react-router";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { AppSessionSnapshot } from "../access/session/session";
 import { BreakIntervalOverlay, isBreakIntervalActive } from "../focus";
 import { formatRecallModeLabel } from "./learner-copy";
@@ -15,39 +14,60 @@ import {
   type FlashCardRecallNote,
   type FlashCardRecallRating,
   type RecallSession,
-  summarizeAttempts,
 } from "./recall";
 
-type RecallSessionRouteOptions = {
-  breadcrumbCurrent: string;
-  breadcrumbLabel: string;
-  breadcrumbTo: "/notes" | "/recall";
-  returnTo: "/notes" | "/recall";
-};
-
-type RecallQuestionSnapshotState = {
-  isAnswerRevealed: boolean;
-  selfRating: FlashCardRecallRating | null;
-};
-
-type RecallSessionFocusTarget = "missed-rating" | "prompt" | "reveal" | null;
+const recallSessionSavedMessageKey = "learning-makes-difference:recall-saved";
+const ratingOptions = [
+  {
+    description: "Could not recall it.",
+    label: "Forgot",
+    rating: "forgot",
+  },
+  {
+    description: "Recalled it with major effort.",
+    label: "Hard",
+    rating: "hard",
+  },
+  {
+    description: "Recalled the important parts.",
+    label: "Good",
+    rating: "good",
+  },
+  {
+    description: "Recalled it clearly.",
+    label: "Easy",
+    rating: "easy",
+  },
+] as const satisfies readonly {
+  description: string;
+  label: string;
+  rating: FlashCardRecallRating;
+}[];
 
 export const Route = createFileRoute("/_protected/recall/session")({
   component: RecallSessionPage,
 });
 
-function RecallSessionPage() {
-  return (
-    <FlashCardRecallSessionPage
-      breadcrumbCurrent="Session"
-      breadcrumbLabel="Recall"
-      breadcrumbTo="/recall"
-      returnTo="/recall"
-    />
-  );
+function setRecallSavedMessage() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.setItem(recallSessionSavedMessageKey, "true");
 }
 
-function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
+function formatElapsedTime(startedAt: string, now: number) {
+  const elapsedSeconds = Math.max(
+    0,
+    Math.floor((now - new Date(startedAt).getTime()) / 1000),
+  );
+  const minutes = Math.floor(elapsedSeconds / 60);
+  const seconds = elapsedSeconds % 60;
+
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function RecallSessionPage() {
   const navigate = useNavigate();
   const focusContext = useRouteContext({
     from: "/_protected",
@@ -85,64 +105,57 @@ function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
     focusContext.getSnapshot,
   );
   const userId = sessionSnapshot.user?.id ?? null;
-  const activeFocusSession =
-    userId === null ? null : focusContext.getActiveSession({ userId });
-  const isBreakActive = isBreakIntervalActive(activeFocusSession);
   const activeSession =
     userId !== null && recallSnapshot?.userId === userId
       ? recallSnapshot
       : null;
+  const activeFocusSession =
+    userId === null ? null : focusContext.getActiveSession({ userId });
+  const isBreakActive = isBreakIntervalActive(activeFocusSession);
   const currentNote =
-    activeSession !== null
-      ? (activeSession.notes[activeSession.currentIndex] ?? null)
-      : null;
+    activeSession === null
+      ? null
+      : (activeSession.notes[activeSession.currentQuestionIndex] ?? null);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
-  const [selectedSnapshotNoteId, setSelectedSnapshotNoteId] = useState<
-    string | null
-  >(null);
-  const promptButtonRef = useRef<HTMLButtonElement | null>(null);
-  const revealButtonRef = useRef<HTMLButtonElement | null>(null);
-  const missedRatingButtonRef = useRef<HTMLButtonElement | null>(null);
-  const previousCurrentNoteIdRef = useRef<string | null>(null);
-  const previousRevealStateRef = useRef(false);
+  const [pendingRating, setPendingRating] =
+    useState<FlashCardRecallRating | null>(null);
+  const [isEndDialogOpen, setEndDialogOpen] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     if (activeSession !== null) {
       return;
     }
 
-    void navigate({ replace: true, to: props.returnTo });
-  }, [activeSession, navigate, props.returnTo]);
+    void navigate({ replace: true, to: "/recall" });
+  }, [activeSession, navigate]);
 
   useEffect(() => {
-    if (currentNote === null) {
+    if (activeSession === null) {
       return;
     }
 
-    const focusTarget = getRecallSessionFocusTarget({
-      isAnswerRevealed: activeSession?.isAnswerRevealed ?? false,
-      noteId: currentNote.id,
-      previousIsAnswerRevealed: previousRevealStateRef.current,
-      previousNoteId: previousCurrentNoteIdRef.current,
-    });
+    setPendingRating(null);
+  }, [activeSession]);
 
-    switch (focusTarget) {
-      case "missed-rating":
-        missedRatingButtonRef.current?.focus();
-        break;
-      case "prompt":
-        promptButtonRef.current?.focus();
-        break;
-      case "reveal":
-        revealButtonRef.current?.focus();
-        break;
-      case null:
-        break;
+  useEffect(() => {
+    const timerId = window.setInterval(() => setNow(Date.now()), 1000);
+
+    return () => window.clearInterval(timerId);
+  }, []);
+
+  async function skipBreakInterval() {
+    if (userId === null) {
+      return;
     }
 
-    previousCurrentNoteIdRef.current = currentNote.id;
-    previousRevealStateRef.current = activeSession?.isAnswerRevealed ?? false;
-  }, [activeSession?.isAnswerRevealed, currentNote]);
+    if (persistentFocusContext === undefined) {
+      focusContext.startNextFocusInterval({ userId });
+      return;
+    }
+
+    await persistentFocusContext.startNextFocusInterval(userId);
+  }
 
   function handleRecallError(error: unknown) {
     if (error instanceof AppRecallError) {
@@ -153,7 +166,7 @@ function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
     throw error;
   }
 
-  async function handleRevealAnswer() {
+  async function revealNote() {
     if (userId === null || activeSession === null || isBreakActive) {
       return;
     }
@@ -175,7 +188,7 @@ function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
     }
   }
 
-  async function handleRateAnswer(rating: FlashCardRecallRating) {
+  async function skipNote() {
     if (userId === null || activeSession === null || isBreakActive) {
       return;
     }
@@ -184,16 +197,14 @@ function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
       let nextSession: RecallSession | null;
 
       if (persistentRecallContext === undefined) {
-        nextSession = recallContext.rateFlashCardAnswer({
-          rating,
+        nextSession = recallContext.skipFlashCardQuestion({
           sessionId: activeSession.id,
           userId,
         });
       } else {
-        nextSession = await persistentRecallContext.rateFlashCardAnswer(
+        nextSession = await persistentRecallContext.skipFlashCardQuestion(
           userId,
           {
-            rating,
             sessionId: activeSession.id,
           },
         );
@@ -202,14 +213,58 @@ function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
       setFeedbackMessage(null);
 
       if (nextSession === null) {
-        await navigate({ to: props.returnTo });
+        if (activeSession.attempts.length > 0) {
+          setRecallSavedMessage();
+        }
+        await navigate({ to: "/recall" });
       }
     } catch (error) {
       handleRecallError(error);
     }
   }
 
-  async function handleEndSession() {
+  async function submitRating() {
+    if (
+      userId === null ||
+      activeSession === null ||
+      pendingRating === null ||
+      isBreakActive
+    ) {
+      return;
+    }
+
+    try {
+      let nextSession: RecallSession | null;
+
+      if (persistentRecallContext === undefined) {
+        nextSession = recallContext.rateFlashCardAnswer({
+          rating: pendingRating,
+          sessionId: activeSession.id,
+          userId,
+        });
+      } else {
+        nextSession = await persistentRecallContext.rateFlashCardAnswer(
+          userId,
+          {
+            rating: pendingRating,
+            sessionId: activeSession.id,
+          },
+        );
+      }
+
+      setFeedbackMessage(null);
+      setPendingRating(null);
+
+      if (nextSession === null) {
+        setRecallSavedMessage();
+        await navigate({ to: "/recall" });
+      }
+    } catch (error) {
+      handleRecallError(error);
+    }
+  }
+
+  async function confirmEndSession() {
     if (userId === null || activeSession === null) {
       return;
     }
@@ -225,107 +280,65 @@ function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
           sessionId: activeSession.id,
         });
       }
-      setFeedbackMessage(null);
-      await navigate({ to: props.returnTo });
-    } catch (error) {
-      handleRecallError(error);
-    }
-  }
 
-  async function handleAttemptTextChange(text: string) {
-    if (userId === null || activeSession === null || isBreakActive) {
-      return;
-    }
-
-    try {
-      if (persistentRecallContext === undefined) {
-        recallContext.updateFlashCardAttemptText({
-          sessionId: activeSession.id,
-          text,
-          userId,
-        });
-      } else {
-        await persistentRecallContext.updateFlashCardAttemptText(userId, {
-          sessionId: activeSession.id,
-          text,
-        });
+      if (activeSession.attempts.length > 0) {
+        setRecallSavedMessage();
       }
+
       setFeedbackMessage(null);
+      setEndDialogOpen(false);
+      await navigate({ to: "/recall" });
     } catch (error) {
       handleRecallError(error);
     }
   }
 
-  async function skipBreakInterval() {
-    if (userId === null) {
-      return;
+  const progress = useMemo(() => {
+    if (activeSession === null) {
+      return {
+        answeredCount: 0,
+        currentPosition: 0,
+        progressPercent: 0,
+        remainingCount: 0,
+        totalCount: 0,
+      };
     }
 
-    if (persistentFocusContext === undefined) {
-      focusContext.startNextFocusInterval({
-        userId,
-      });
-      return;
-    }
+    const totalCount = activeSession.notes.length;
+    const answeredCount = activeSession.attempts.length;
+    const currentPosition = Math.min(
+      activeSession.currentQuestionIndex + 1,
+      totalCount,
+    );
 
-    await persistentFocusContext.startNextFocusInterval(userId);
-  }
+    return {
+      answeredCount,
+      currentPosition,
+      progressPercent:
+        totalCount === 0 ? 0 : Math.round((answeredCount / totalCount) * 100),
+      remainingCount: Math.max(totalCount - answeredCount, 0),
+      totalCount,
+    };
+  }, [activeSession]);
 
   if (activeSession === null || currentNote === null) {
     return null;
   }
-
-  const totalCount = activeSession.notes.length;
-  const completedCount = activeSession.attempts.length;
-  const positionLabel = `Question ${activeSession.currentIndex + 1} of ${totalCount}`;
-  const completedLabel = `Completed ${completedCount} of ${totalCount} questions`;
-  const progressPercent =
-    totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
-  const ratingTotals = summarizeAttempts(activeSession.attempts);
-  const progressValueText = getRecallProgressValueText({
-    completedCount,
-    positionLabel,
-    ratingTotals,
-    totalCount,
-  });
-  const selectedSnapshotNote =
-    selectedSnapshotNoteId === null
-      ? null
-      : (activeSession.notes.find(
-          (note) => note.id === selectedSnapshotNoteId,
-        ) ?? null);
-  const selectedSnapshotQuestion =
-    selectedSnapshotNoteId === null
-      ? null
-      : (activeSession.questions.find(
-          (question) => question.noteId === selectedSnapshotNoteId,
-        ) ?? null);
 
   return (
     <section className="recall-shell" aria-label="Recall session">
       <header className="recall-shell__header">
         <div className="recall-shell__bar">
           <div className="recall-shell__context">
-            <nav
-              aria-label="Workspace breadcrumb"
-              className="workspace-breadcrumb recall-shell__breadcrumb"
-            >
-              <ol>
-                <li>
-                  <Link to={props.breadcrumbTo}>{props.breadcrumbLabel}</Link>
-                </li>
-                <li aria-hidden="true">/</li>
-                <li aria-current="page">{props.breadcrumbCurrent}</li>
-              </ol>
-            </nav>
-            <p className="sr-only">
-              {formatRecallModeLabel(activeSession.mode)} session
+            <p className="section-label">Recall / Session</p>
+            <h3>Recall session</h3>
+            <p className="muted">
+              Try to recall each note before revealing it.
             </p>
-            <p className="recall-shell__label">Selected notes</p>
           </div>
           <button
             className="notes-action recall-shell__end"
-            onClick={() => void handleEndSession()}
+            onClick={() => setEndDialogOpen(true)}
             type="button"
           >
             End session
@@ -333,44 +346,24 @@ function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
         </div>
 
         <div className="recall-progress">
+          <div className="recall-progress__summary">
+            <strong>{`${progress.currentPosition} of ${progress.totalCount}`}</strong>
+            <span>Notes</span>
+            <span>{formatRecallModeLabel(activeSession.mode)}</span>
+            <span>{formatElapsedTime(activeSession.createdAt, now)}</span>
+          </div>
           <div
             aria-label="Recall progress"
-            aria-valuemax={totalCount}
+            aria-valuemax={progress.totalCount}
             aria-valuemin={0}
-            aria-valuenow={completedCount}
-            aria-valuetext={progressValueText}
+            aria-valuenow={progress.answeredCount}
             className="recall-progress__track"
             role="progressbar"
           >
             <div
               className="recall-progress__fill"
-              style={{ width: `${progressPercent}%` }}
+              style={{ width: `${progress.progressPercent}%` }}
             />
-          </div>
-          <div className="recall-progress__meta">
-            <span className="recall-progress__position">{positionLabel}</span>
-            <span aria-hidden="true" className="recall-progress__divider">
-              ·
-            </span>
-            <span>{completedLabel}</span>
-            {completedCount > 0 ? (
-              <>
-                <span aria-hidden="true" className="recall-progress__divider">
-                  ·
-                </span>
-                <span className="recall-progress__tally">
-                  <span className="recall-tally recall-tally--nailed">
-                    {ratingTotals.nailed} nailed
-                  </span>
-                  <span className="recall-tally recall-tally--partial">
-                    {ratingTotals.partial} partial
-                  </span>
-                  <span className="recall-tally recall-tally--missed">
-                    {ratingTotals.missed} missed
-                  </span>
-                </span>
-              </>
-            ) : null}
           </div>
         </div>
       </header>
@@ -390,344 +383,232 @@ function FlashCardRecallSessionPage(props: RecallSessionRouteOptions) {
             className="recall-card__study-surface"
             disabled={isBreakActive}
           >
-            <legend className="sr-only">Recall study surface</legend>
-            <div className="recall-card__top">
+            <legend className="sr-only">FlashCard recall</legend>
+            <div className="recall-card__top recall-card__top--single">
               <div className="recall-card__face recall-card__face--prompt">
-                <button
-                  aria-label={`Show note snapshot for ${currentNote.title}`}
-                  className="recall-card__question"
-                  onClick={() => setSelectedSnapshotNoteId(currentNote.id)}
-                  ref={promptButtonRef}
-                  type="button"
-                >
-                  {currentNote.title}
-                </button>
+                <h4 className="recall-card__question">{currentNote.title}</h4>
                 {!activeSession.isAnswerRevealed ? (
-                  <p className="muted recall-card__hint">
-                    Recall the answer, then reveal it to compare.
-                  </p>
-                ) : null}
-                {!activeSession.isAnswerRevealed ? (
-                  <label className="recall-card__attempt-field">
-                    <span>What do you remember?</span>
-                    <textarea
-                      name="typed-recall-attempt"
-                      onChange={(event) =>
-                        void handleAttemptTextChange(event.target.value)
-                      }
-                      placeholder="Type your answer or leave this blank."
-                      rows={5}
-                      value={activeSession.draftAnswer ?? ""}
-                    />
-                  </label>
-                ) : null}
-              </div>
-
-              <div className="recall-card__actions">
-                {!activeSession.isAnswerRevealed ? (
-                  <button
-                    className="notes-action notes-action-primary recall-card__reveal"
-                    onClick={() => void handleRevealAnswer()}
-                    ref={revealButtonRef}
-                    type="button"
-                  >
-                    Reveal answer
-                  </button>
+                  <div className="recall-card__hidden-body">
+                    <p>Note body hidden</p>
+                    <span>Recall the answer, then reveal the Note.</span>
+                  </div>
                 ) : (
-                  <fieldset className="recall-rating-row">
-                    <legend className="sr-only">Rate your recall</legend>
-                    <button
-                      aria-label="Missed it"
-                      className="notes-action recall-rating recall-rating--missed"
-                      onClick={() => void handleRateAnswer("missed")}
-                      ref={missedRatingButtonRef}
-                      type="button"
-                    >
-                      <span className="recall-rating__label">Missed it</span>
-                      <span className="recall-rating__description">
-                        Could not recall it.
-                      </span>
-                    </button>
-                    <button
-                      aria-label="Partly recalled"
-                      className="notes-action recall-rating recall-rating--partial"
-                      onClick={() => void handleRateAnswer("partial")}
-                      type="button"
-                    >
-                      <span className="recall-rating__label">
-                        Partly recalled
-                      </span>
-                      <span className="recall-rating__description">
-                        Some gaps remained.
-                      </span>
-                    </button>
-                    <button
-                      aria-label="Nailed it"
-                      className="notes-action recall-rating recall-rating--nailed"
-                      onClick={() => void handleRateAnswer("nailed")}
-                      type="button"
-                    >
-                      <span className="recall-rating__label">Nailed it</span>
-                      <span className="recall-rating__description">
-                        Recalled it clearly.
-                      </span>
-                    </button>
-                  </fieldset>
+                  <RecallNoteDetails note={currentNote} />
                 )}
               </div>
             </div>
 
-            {activeSession.isAnswerRevealed ? (
-              <RecallNoteDetails note={currentNote} />
-            ) : null}
+            {!activeSession.isAnswerRevealed ? (
+              <div className="recall-card__footer">
+                <button
+                  className="notes-action notes-action-primary recall-card__reveal"
+                  onClick={revealNote}
+                  type="button"
+                >
+                  Reveal note
+                </button>
+                <button
+                  className="notes-action"
+                  onClick={skipNote}
+                  type="button"
+                >
+                  Skip
+                </button>
+                <button
+                  className="notes-action"
+                  onClick={() => setEndDialogOpen(true)}
+                  type="button"
+                >
+                  End session
+                </button>
+              </div>
+            ) : (
+              <div className="recall-card__footer recall-card__footer--ratings">
+                <fieldset className="recall-rating-row">
+                  <legend>Self-rating</legend>
+                  {ratingOptions.map((option) => (
+                    <button
+                      aria-label={option.label}
+                      aria-pressed={pendingRating === option.rating}
+                      className={`notes-action recall-rating recall-rating--${option.rating}`}
+                      data-selected={pendingRating === option.rating}
+                      key={option.rating}
+                      onClick={() => setPendingRating(option.rating)}
+                      type="button"
+                    >
+                      <span className="recall-rating__label">
+                        {option.label}
+                      </span>
+                      <span className="recall-rating__description">
+                        {option.description}
+                      </span>
+                    </button>
+                  ))}
+                </fieldset>
+                <button
+                  className="notes-action notes-action-primary"
+                  disabled={pendingRating === null}
+                  onClick={submitRating}
+                  type="button"
+                >
+                  Next note
+                </button>
+              </div>
+            )}
           </fieldset>
           {isBreakActive && userId !== null ? (
             <BreakIntervalOverlay onSkipBreak={skipBreakInterval} />
           ) : null}
         </article>
 
-        <aside
-          aria-label="Session questions and note snapshot"
-          className="recall-session-side"
-        >
-          <ol aria-label="Session questions" className="recall-question-list">
-            {activeSession.notes.map((note, index) => {
-              const attempt = activeSession.attempts.find(
-                (entry) => entry.noteId === note.id,
-              );
-              const isCurrent = note.id === currentNote.id;
-              const isSelected = note.id === selectedSnapshotNote?.id;
-              const questionButtonLabel = getRecallQuestionButtonLabel({
-                attempt,
-                index,
-                isCurrent,
-                isSelected,
-                noteTitle: note.title,
-                totalCount,
-              });
-
-              return (
-                <li key={note.id}>
-                  <button
-                    aria-current={isCurrent ? "step" : undefined}
-                    aria-label={questionButtonLabel}
-                    aria-pressed={isSelected}
-                    className="recall-question-list__button"
-                    data-current={isCurrent}
-                    data-selected={isSelected}
-                    onClick={() => setSelectedSnapshotNoteId(note.id)}
-                    type="button"
-                  >
-                    <span className="recall-question-list__index">
-                      {index + 1}
-                    </span>
-                    <span className="recall-question-list__title">
-                      {note.title}
-                    </span>
-                    <span className="recall-question-list__states">
-                      {isCurrent ? (
-                        <span className="recall-question-list__state">
-                          Current
-                        </span>
-                      ) : null}
-                      {isSelected ? (
-                        <span className="recall-question-list__state">
-                          Snapshot open
-                        </span>
-                      ) : null}
-                    </span>
-                    {attempt !== undefined ? (
-                      <span
-                        className="recall-question-list__rating"
-                        data-rating={attempt.rating}
-                      >
-                        {formatRecallAttemptRating(attempt.rating)}
-                      </span>
-                    ) : null}
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-
-          <NoteSnapshotPanel
-            note={selectedSnapshotNote}
-            question={selectedSnapshotQuestion}
-          />
-        </aside>
+        <SessionOverviewPanel
+          answeredCount={progress.answeredCount}
+          currentNote={currentNote}
+          notes={activeSession.notes}
+          remainingCount={progress.remainingCount}
+        />
       </div>
+
+      {isEndDialogOpen ? (
+        <EndSessionDialog
+          hasAttempts={activeSession.attempts.length > 0}
+          onCancel={() => setEndDialogOpen(false)}
+          onConfirm={confirmEndSession}
+        />
+      ) : null}
     </section>
   );
 }
 
 function RecallNoteDetails({ note }: { note: FlashCardRecallNote }) {
   return (
-    <>
+    <div className="recall-note-details">
       <p className="recall-card__body">{note.body}</p>
-      {note.metaphors.length > 0 ? (
-        <section aria-label="Metaphors">
-          <h3>Metaphors</h3>
-          <ul>
-            {note.metaphors.map((metaphor) => (
-              <li key={metaphor.description}>
-                <p>{metaphor.description}</p>
-              </li>
-            ))}
-          </ul>
-        </section>
+      {note.metaphors.length > 0 || note.acronyms.length > 0 ? (
+        <div className="recall-memory-aids">
+          {note.metaphors.length > 0 ? (
+            <section aria-label="Metaphors">
+              <h5>Metaphors</h5>
+              <ul>
+                {note.metaphors.map((metaphor) => (
+                  <li key={metaphor.description}>{metaphor.description}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+          {note.acronyms.length > 0 ? (
+            <section aria-label="Acronyms">
+              <h5>Acronyms</h5>
+              <ul>
+                {note.acronyms.map((acronym) => (
+                  <li key={acronym.description}>{acronym.description}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </div>
       ) : null}
-      {note.acronyms.length > 0 ? (
-        <section aria-label="Acronyms">
-          <h3>Acronyms</h3>
-          <ul>
-            {note.acronyms.map((acronym) => (
-              <li key={acronym.description}>
-                <p>{acronym.description}</p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-    </>
+    </div>
   );
 }
 
-function NoteSnapshotPanel({
-  note,
-  question,
+function SessionOverviewPanel({
+  answeredCount,
+  currentNote,
+  notes,
+  remainingCount,
 }: {
-  note: FlashCardRecallNote | null;
-  question: RecallQuestionSnapshotState | null;
+  answeredCount: number;
+  currentNote: FlashCardRecallNote;
+  notes: readonly FlashCardRecallNote[];
+  remainingCount: number;
 }) {
-  if (note === null || question === null) {
-    return (
-      <section
-        aria-live="polite"
-        className="recall-note-snapshot recall-note-snapshot--empty"
-        role="status"
-      >
-        <p>Select a question to see its note snapshot.</p>
-      </section>
-    );
-  }
-
-  if (!question.isAnswerRevealed && question.selfRating === null) {
-    return (
-      <section
-        aria-live="polite"
-        className="recall-note-snapshot recall-note-snapshot--empty"
-        role="status"
-      >
-        <p>Reveal the answer to review the note snapshot.</p>
-      </section>
-    );
-  }
-
   return (
-    <section aria-label="Note snapshot" className="recall-note-snapshot">
-      <p className="recall-note-snapshot__label">Note snapshot</p>
-      <h3>{note.title}</h3>
-      <RecallNoteDetails note={note} />
-    </section>
+    <aside
+      aria-label="Session overview"
+      className="recall-session-side recall-session-overview"
+    >
+      <div className="recall-overview-metrics">
+        <div>
+          <span className="section-label">Selected Notes</span>
+          <strong>{notes.length}</strong>
+        </div>
+        <div>
+          <span className="section-label">Answered</span>
+          <strong>{answeredCount}</strong>
+        </div>
+        <div>
+          <span className="section-label">Remaining</span>
+          <strong>{remainingCount}</strong>
+        </div>
+      </div>
+      <section>
+        <p className="section-label">Randomized order</p>
+        <ol className="recall-question-list">
+          {notes.map((note, index) => (
+            <li key={note.id}>
+              <span
+                className="recall-question-list__button"
+                data-current={note.id === currentNote.id}
+              >
+                <span className="recall-question-list__index">{index + 1}</span>
+                <span className="recall-question-list__title">
+                  {note.title}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      </section>
+      <Link className="notes-action" to="/recall">
+        Results
+      </Link>
+    </aside>
   );
 }
 
-function getRecallSessionFocusTarget({
-  isAnswerRevealed,
-  noteId,
-  previousIsAnswerRevealed,
-  previousNoteId,
+function EndSessionDialog({
+  hasAttempts,
+  onCancel,
+  onConfirm,
 }: {
-  isAnswerRevealed: boolean;
-  noteId: string;
-  previousIsAnswerRevealed: boolean;
-  previousNoteId: string | null;
-}): RecallSessionFocusTarget {
-  if (!previousIsAnswerRevealed && isAnswerRevealed) {
-    return "missed-rating";
-  }
-
-  if (previousNoteId !== noteId) {
-    return "prompt";
-  }
-
-  if (!isAnswerRevealed) {
-    return "reveal";
-  }
-
-  return null;
-}
-
-function getRecallProgressValueText({
-  completedCount,
-  positionLabel,
-  ratingTotals,
-  totalCount,
-}: {
-  completedCount: number;
-  positionLabel: string;
-  ratingTotals: ReturnType<typeof summarizeAttempts>;
-  totalCount: number;
+  hasAttempts: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
 }) {
-  const segments = [
-    positionLabel,
-    `Completed ${completedCount} of ${totalCount} questions`,
-  ];
-
-  if (completedCount > 0) {
-    segments.push(
-      `${ratingTotals.nailed} nailed, ${ratingTotals.partial} partial, ${ratingTotals.missed} missed`,
-    );
-  }
-
-  return `${segments.join(". ")}.`;
-}
-
-function formatRecallAttemptRating(rating: FlashCardRecallRating) {
-  switch (rating) {
-    case "missed":
-      return "Missed";
-    case "partial":
-      return "Partial";
-    case "nailed":
-      return "Nailed";
-  }
-}
-
-function getRecallQuestionButtonLabel({
-  attempt,
-  index,
-  isCurrent,
-  isSelected,
-  noteTitle,
-  totalCount,
-}: {
-  attempt:
-    | {
-        noteId: string;
-        rating: FlashCardRecallRating;
-        text?: string | null;
-      }
-    | undefined;
-  index: number;
-  isCurrent: boolean;
-  isSelected: boolean;
-  noteTitle: string;
-  totalCount: number;
-}) {
-  const segments = [`Question ${index + 1} of ${totalCount}`, noteTitle];
-
-  if (isCurrent) {
-    segments.push("Current prompt");
-  }
-
-  if (isSelected) {
-    segments.push("Snapshot open");
-  }
-
-  if (attempt !== undefined) {
-    segments.push(`Rating ${formatRecallAttemptRating(attempt.rating)}`);
-  }
-
-  return `${segments.join(". ")}.`;
+  return (
+    <div
+      aria-labelledby="recall-end-dialog-title"
+      className="recall-dialog-backdrop"
+      role="presentation"
+    >
+      <section
+        aria-labelledby="recall-end-dialog-title"
+        aria-modal="true"
+        className="recall-dialog"
+        role="dialog"
+      >
+        <h4 id="recall-end-dialog-title">
+          {hasAttempts ? "End recall session?" : "Discard recall session?"}
+        </h4>
+        <p className="muted">
+          {hasAttempts
+            ? "Attempted Questions will be saved to Results."
+            : "No attempted Questions will be saved."}
+        </p>
+        <div className="recall-dialog__actions">
+          <button className="notes-action" onClick={onCancel} type="button">
+            Cancel
+          </button>
+          <button
+            className="notes-action notes-action-primary"
+            onClick={onConfirm}
+            type="button"
+          >
+            {hasAttempts ? "End session" : "Discard session"}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
 }
