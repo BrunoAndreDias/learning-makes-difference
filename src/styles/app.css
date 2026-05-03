@@ -274,11 +274,20 @@ h3 {
   color: var(--color-content-muted);
 }
 
-.workspace-breadcrumb {
+.workspace-breadcrumb,
+.recall-breadcrumb {
+  margin: 0;
   color: var(--color-content-muted);
+  font-family: var(--font-body);
   font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.2;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.recall-breadcrumb span {
+  color: inherit;
 }
 
 .workspace-breadcrumb ol {
@@ -297,6 +306,25 @@ h3 {
 
 .workspace-breadcrumb a:hover {
   color: var(--color-content-strong);
+}
+
+.notes-workspace__identity h1,
+.recall-surface__header h3 {
+  color: var(--color-content-strong);
+  font-family: var(--font-body);
+  font-size: clamp(1.65rem, 2.2vw, 1.9rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.notes-workspace__identity p,
+.recall-surface__header .notes-editor__meta {
+  color: var(--color-content-muted);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 400;
+  line-height: 1.45;
 }
 
 .nav-list,

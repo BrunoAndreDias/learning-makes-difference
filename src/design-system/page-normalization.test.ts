@@ -3,10 +3,20 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 function getCssRules(css: string, selector: string) {
-  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const rulePattern = new RegExp(`${escapedSelector}\\s*\\{([^}]*)\\}`, "g");
+  const rulePattern = /([^{}@]+)\{([^{}]*)\}/g;
+  const normalizedSelector = selector.replace(/\s+/g, " ").trim();
 
-  return Array.from(css.matchAll(rulePattern), (match) => match[1] ?? "");
+  return Array.from(css.matchAll(rulePattern)).flatMap((match) => {
+    const selectorList = (match[1] ?? "")
+      .split(",")
+      .map((candidate) => candidate.replace(/\s+/g, " ").trim());
+
+    if (!selectorList.includes(normalizedSelector)) {
+      return [];
+    }
+
+    return match[2] ?? "";
+  });
 }
 
 function expectSelectorToUsePageTypeAndColor(css: string, selector: string) {
@@ -68,5 +78,63 @@ describe("page style normalization", () => {
       workspaceShellCss,
       ".authenticated-shell",
     );
+  });
+
+  it("keeps workspace page header copy consistent by role", () => {
+    const appCss = readFileSync(new URL("../styles/app.css", import.meta.url), {
+      encoding: "utf8",
+    });
+    const breadcrumbStyle = getCssRules(appCss, ".workspace-breadcrumb").join(
+      "\n",
+    );
+    const recallBreadcrumbStyle = getCssRules(
+      appCss,
+      ".recall-breadcrumb",
+    ).join("\n");
+    const recallBreadcrumbSpanStyle = getCssRules(
+      appCss,
+      ".recall-breadcrumb span",
+    ).join("\n");
+    const notesTitleStyle = getCssRules(
+      appCss,
+      ".notes-workspace__identity h1",
+    ).join("\n");
+    const recallTitleStyle = getCssRules(
+      appCss,
+      ".recall-surface__header h3",
+    ).join("\n");
+    const notesDescriptionStyle = getCssRules(
+      appCss,
+      ".notes-workspace__identity p",
+    ).join("\n");
+    const recallDescriptionStyle = getCssRules(
+      appCss,
+      ".recall-surface__header .notes-editor__meta",
+    ).join("\n");
+
+    for (const breadcrumbRule of [breadcrumbStyle, recallBreadcrumbStyle]) {
+      expect(breadcrumbRule).toContain("color: var(--color-content-muted);");
+      expect(breadcrumbRule).toContain("font-family: var(--font-body);");
+      expect(breadcrumbRule).toContain("letter-spacing: 0.08em;");
+      expect(breadcrumbRule).toContain("text-transform: uppercase;");
+    }
+    expect(recallBreadcrumbSpanStyle).toContain("color: inherit;");
+
+    for (const titleRule of [notesTitleStyle, recallTitleStyle]) {
+      expect(titleRule).toContain("color: var(--color-content-strong);");
+      expect(titleRule).toContain("font-family: var(--font-body);");
+      expect(titleRule).toContain("font-weight: 700;");
+      expect(titleRule).toContain("letter-spacing: 0;");
+    }
+
+    for (const descriptionRule of [
+      notesDescriptionStyle,
+      recallDescriptionStyle,
+    ]) {
+      expect(descriptionRule).toContain("color: var(--color-content-muted);");
+      expect(descriptionRule).toContain("font-family: var(--font-body);");
+      expect(descriptionRule).toContain("font-size: 0.95rem;");
+      expect(descriptionRule).toContain("line-height: 1.45;");
+    }
   });
 });
