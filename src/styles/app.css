@@ -8,6 +8,97 @@
 @import "../modules/labels/labels.css";
 @import "../modules/access/access.css";
 
+.app-shell:has(.authenticated-shell) {
+  --workspace-page-inline: clamp(1rem, 3vw, 1.9rem);
+  --workspace-page-block-start: 1.15rem;
+  --workspace-page-block-end: 2rem;
+}
+
+.app-shell:has(.authenticated-shell) .app-frame {
+  gap: 0;
+}
+
+.app-shell:has(.authenticated-shell) .app-frame__workspace-header {
+  padding-inline: var(--workspace-page-inline);
+}
+
+.app-shell:has(.authenticated-shell) .notes-workspace {
+  --notes-workspace-inline: var(--workspace-page-inline);
+}
+
+.app-shell:has(.authenticated-shell) .notes-workspace__page-header,
+.app-shell:has(.authenticated-shell) .recall-surface,
+.app-shell:has(.authenticated-shell) .labels-page,
+.app-shell:has(.authenticated-shell) .focus-workspace,
+.app-shell:has(.authenticated-shell) .settings-layout {
+  padding-inline: var(--workspace-page-inline);
+  padding-block-start: var(--workspace-page-block-start);
+}
+
+.app-shell:has(.authenticated-shell) .recall-surface,
+.app-shell:has(.authenticated-shell) .labels-page,
+.app-shell:has(.authenticated-shell) .focus-workspace,
+.app-shell:has(.authenticated-shell) .settings-layout {
+  padding-block-end: var(--workspace-page-block-end);
+}
+
+.authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="notes"]
+  .notes-workspace {
+  --notes-workspace-inline: var(--workspace-page-inline);
+}
+
+.authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="notes"],
+.authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="recall-results"],
+.authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="labels"] {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="notes"]
+  .app-frame__workspace-header {
+  position: sticky;
+  inset: 0 0 auto 0;
+  z-index: 22;
+  width: auto;
+  height: auto;
+  min-height: 4.25rem;
+  padding-block: 1rem;
+  border-bottom: 1px solid #e8edf5;
+  background: var(--color-shell-panel);
+  pointer-events: auto;
+}
+
+.authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="notes"]
+  .app-frame__workspace-header
+  .app-frame__actions {
+  display: flex;
+}
+
+@media (max-width: 42rem) {
+  .app-shell:has(.authenticated-shell) {
+    --workspace-page-inline: 1rem;
+  }
+
+  .app-frame[data-workspace="notes"] .app-frame__workspace-header,
+  .authenticated-shell[data-sidebar-state="collapsed"]
+    .app-frame[data-workspace="notes"]
+    .app-frame__workspace-header {
+    position: static;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    padding-block: 1rem;
+    border-bottom: 1px solid #e8edf5;
+    background: #ffffff;
+    pointer-events: auto;
+  }
+}
+
 .shell {
   width: min(100%, 90rem);
   margin: 0 auto;
