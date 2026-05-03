@@ -14,6 +14,7 @@ import { formatCount } from "../../../lib/format-count";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import type { AppSessionSnapshot } from "../../access/session/session";
 import { listNotesForUser } from "../../notes";
+import { normalizeLabelParentIds } from "../label-graph";
 import { type AppLabel, AppLabelError } from "./labels";
 import {
   type DerivedLabelRow,
@@ -40,8 +41,57 @@ function formatParentNames(parentNames: readonly string[]) {
   return parentNames.join(", ");
 }
 
-function normalizeComparableParentIds(parentIds: readonly string[]) {
-  return [...new Set(parentIds)].sort();
+function addParentId(parentIds: string[], parentId: string) {
+  if (parentIds.includes(parentId)) {
+    return parentIds;
+  }
+
+  return normalizeLabelParentIds([...parentIds, parentId]);
+}
+
+function removeParentId(parentIds: readonly string[], parentId: string) {
+  return parentIds.filter((candidateId) => candidateId !== parentId);
+}
+
+function parentIdsMatch(left: readonly string[], right: readonly string[]) {
+  const normalizedLeft = normalizeLabelParentIds(left);
+  const normalizedRight = normalizeLabelParentIds(right);
+
+  return (
+    normalizedLeft.length === normalizedRight.length &&
+    normalizedLeft.every(
+      (parentId, index) => parentId === normalizedRight[index],
+    )
+  );
+}
+
+function sortRowsByLabel(rows: readonly DerivedLabelRow[]) {
+  return [...rows].sort((left, right) => left.label.localeCompare(right.label));
+}
+
+function getRowsByIds(
+  rows: readonly DerivedLabelRow[],
+  rowIds: readonly string[],
+) {
+  const rowById = new Map(rows.map((row) => [row.id, row]));
+
+  return sortRowsByLabel(
+    rowIds
+      .map((rowId) => rowById.get(rowId))
+      .filter((row): row is DerivedLabelRow => row !== undefined),
+  );
+}
+
+function getChildRows(input: {
+  labelId: string;
+  labels: readonly AppLabel[];
+  rows: readonly DerivedLabelRow[];
+}) {
+  const childIds = input.labels
+    .filter((labelRecord) => labelRecord.parentIds.includes(input.labelId))
+    .map((labelRecord) => labelRecord.id);
+
+  return getRowsByIds(input.rows, childIds);
 }
 
 function formatEditUsageSummary(input: {
@@ -353,41 +403,33 @@ function LabelsPage() {
 
     setEditingLabelId(label.id);
     setEditName(label.name);
-    setEditParentIds([...label.parentIds].sort());
+    setEditParentIds(normalizeLabelParentIds(label.parentIds));
     setEditParentSearchQuery("");
   }
 
   function addCreateParent(parentId: string) {
-    setCreateParentIds((currentParentIds) => {
-      if (currentParentIds.includes(parentId)) {
-        return currentParentIds;
-      }
-
-      return [...currentParentIds, parentId].sort();
-    });
+    setCreateParentIds((currentParentIds) =>
+      addParentId(currentParentIds, parentId),
+    );
     setCreateParentSearchQuery("");
   }
 
   function removeCreateParent(parentId: string) {
     setCreateParentIds((currentParentIds) =>
-      currentParentIds.filter((candidateId) => candidateId !== parentId),
+      removeParentId(currentParentIds, parentId),
     );
   }
 
   function addEditParent(parentId: string) {
-    setEditParentIds((currentParentIds) => {
-      if (currentParentIds.includes(parentId)) {
-        return currentParentIds;
-      }
-
-      return [...currentParentIds, parentId].sort();
-    });
+    setEditParentIds((currentParentIds) =>
+      addParentId(currentParentIds, parentId),
+    );
     setEditParentSearchQuery("");
   }
 
   function removeEditParent(parentId: string) {
     setEditParentIds((currentParentIds) =>
-      currentParentIds.filter((candidateId) => candidateId !== parentId),
+      removeParentId(currentParentIds, parentId),
     );
   }
 
@@ -416,12 +458,7 @@ function LabelsPage() {
     });
   }, [createParentIds, createParentSearchQuery, derivedRows]);
   const selectedCreateParentRows = useMemo(() => {
-    const rowById = new Map(derivedRows.map((row) => [row.id, row]));
-
-    return createParentIds
-      .map((parentId) => rowById.get(parentId))
-      .filter((row): row is DerivedLabelRow => row !== undefined)
-      .sort((left, right) => left.label.localeCompare(right.label));
+    return getRowsByIds(derivedRows, createParentIds);
   }, [createParentIds, derivedRows]);
   const editingLabelRecord = useMemo(() => {
     if (editingLabelId === null) {
@@ -445,13 +482,11 @@ function LabelsPage() {
       return [];
     }
 
-    const rowById = new Map(derivedRows.map((row) => [row.id, row]));
-
-    return labelRecords
-      .filter((labelRecord) => labelRecord.parentIds.includes(editingLabelId))
-      .map((labelRecord) => rowById.get(labelRecord.id))
-      .filter((row): row is DerivedLabelRow => row !== undefined)
-      .sort((left, right) => left.label.localeCompare(right.label));
+    return getChildRows({
+      labelId: editingLabelId,
+      labels: labelRecords,
+      rows: derivedRows,
+    });
   }, [derivedRows, editingLabelId, labelRecords]);
   const editBlockedParentIds = useMemo(() => {
     if (editingLabelId === null || currentUserId === null) {
@@ -459,7 +494,7 @@ function LabelsPage() {
     }
 
     try {
-      return normalizeComparableParentIds([
+      return normalizeLabelParentIds([
         editingLabelId,
         ...labels.getDescendantIds({
           labelId: editingLabelId,
@@ -479,26 +514,18 @@ function LabelsPage() {
     });
   }, [derivedRows, editBlockedParentIds, editParentIds, editParentSearchQuery]);
   const selectedEditParentRows = useMemo(() => {
-    const rowById = new Map(derivedRows.map((row) => [row.id, row]));
-
-    return editParentIds
-      .map((parentId) => rowById.get(parentId))
-      .filter((row): row is DerivedLabelRow => row !== undefined)
-      .sort((left, right) => left.label.localeCompare(right.label));
+    return getRowsByIds(derivedRows, editParentIds);
   }, [derivedRows, editParentIds]);
 
   const hasLabels = summary.totalCount > 0;
   const createNameIsValid = createName.trim().length > 0;
   const editNameIsValid = editName.trim().length > 0;
-  const editInitialParentIds = useMemo(() => {
-    return normalizeComparableParentIds(editingLabelRecord?.parentIds ?? []);
-  }, [editingLabelRecord]);
   const editDraftParentIds = useMemo(() => {
-    return normalizeComparableParentIds(editParentIds);
+    return normalizeLabelParentIds(editParentIds);
   }, [editParentIds]);
   const editParentsAreDirty =
     editingLabelRecord !== null &&
-    editInitialParentIds.join("::") !== editDraftParentIds.join("::");
+    !parentIdsMatch(editingLabelRecord.parentIds, editParentIds);
   const editNameIsDirty =
     editingLabelRecord !== null && editName.trim() !== editingLabelRecord.name;
   const editIsDirty = editNameIsDirty || editParentsAreDirty;
