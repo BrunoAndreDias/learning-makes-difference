@@ -757,7 +757,12 @@ describe("authenticated app shell", () => {
     const getBoundingClientRect = vi
       .spyOn(Element.prototype, "getBoundingClientRect")
       .mockImplementation(function getElementRect(this: Element) {
-        const width = this instanceof HTMLFormElement ? 620 : 1000;
+        const width =
+          this instanceof HTMLFormElement
+            ? 620
+            : this instanceof HTMLHRElement
+              ? 20
+              : 1000;
 
         return {
           bottom: 100,
@@ -1373,7 +1378,12 @@ describe("authenticated app shell", () => {
       screen.queryByRole("button", { name: "Save changes" }),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "Manage labels" })).getByRole(
+        "button",
+        { name: "Save" },
+      ),
+    );
 
     const currentLabels = await screen.findByLabelText("Current labels");
     const assignedLabels =
@@ -1713,16 +1723,24 @@ describe("authenticated app shell", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Manage labels" }));
 
+    const labelPicker = await screen.findByRole("dialog", {
+      name: "Manage labels",
+    });
+
     expect(await screen.findByText("No labels available")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Go to Labels" }),
+      within(labelPicker).getByRole("button", { name: "Go to Labels" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Save" }),
+      within(labelPicker).queryByRole("button", { name: "Save" }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Search labels")).not.toBeInTheDocument();
+    expect(
+      within(labelPicker).queryByLabelText("Search labels"),
+    ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Go to Labels" }));
+    fireEvent.click(
+      within(labelPicker).getByRole("button", { name: "Go to Labels" }),
+    );
 
     const dialog = await screen.findByRole("dialog", {
       name: "Discard unsaved changes?",
@@ -1744,7 +1762,12 @@ describe("authenticated app shell", () => {
     expect(screen.getByText("No labels available")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/notes");
 
-    fireEvent.click(screen.getByRole("button", { name: "Go to Labels" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "Manage labels" })).getByRole(
+        "button",
+        { name: "Go to Labels" },
+      ),
+    );
     fireEvent.click(
       within(
         await screen.findByRole("dialog", {
@@ -1779,27 +1802,24 @@ describe("authenticated app shell", () => {
     const memoryHooks = screen.getByLabelText("Memory hooks");
     expect(
       within(memoryHooks).getByRole("tab", {
-        name: "Metaphors",
+        name: "Metaphor",
         selected: true,
       }),
     ).toBeInTheDocument();
     expect(
       within(memoryHooks).getByRole("tab", {
-        name: "Acronyms",
+        name: "Acronym",
         selected: false,
       }),
     ).toBeInTheDocument();
     expect(
       within(memoryHooks).getByText(
-        "Turn this note into a vivid comparison or image you can recall later.",
+        "The metaphor helps you connect the concept to a vivid mental image.",
       ),
     ).toBeInTheDocument();
     expect(
-      within(memoryHooks).getByRole("button", { name: "Create metaphor" }),
+      within(memoryHooks).getByLabelText("Your metaphor"),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByLabelText("Metaphor description"),
-    ).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "Action potentials" },
@@ -1809,11 +1829,9 @@ describe("authenticated app shell", () => {
         value: "Neurons fire once membrane voltage crosses threshold.",
       },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Create metaphor" }));
 
-    const metaphorDescription = screen.getByLabelText("Metaphor description");
+    const metaphorDescription = screen.getByLabelText("Your metaphor");
 
-    expect(metaphorDescription).toHaveFocus();
     expect(screen.getByRole("button", { name: "Create note" })).toBeVisible();
 
     fireEvent.change(metaphorDescription, {
@@ -1829,17 +1847,17 @@ describe("authenticated app shell", () => {
       ),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Acronyms" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Acronym" }));
 
     expect(
       within(memoryHooks).getByRole("tab", {
-        name: "Acronyms",
+        name: "Acronym",
         selected: true,
       }),
     ).toBeInTheDocument();
     expect(
       within(memoryHooks).getByText(
-        "Capture a short cue or shorthand that unlocks the whole idea.",
+        "The acronym helps you remember the concept through a compact cue.",
       ),
     ).toBeInTheDocument();
     expect(
@@ -1847,11 +1865,9 @@ describe("authenticated app shell", () => {
         "Domino line: crossing threshold is like tipping the first domino so the whole line falls.",
       ),
     ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Create acronym" }));
 
-    const acronymDescription = screen.getByLabelText("Acronym description");
+    const acronymDescription = screen.getByLabelText("Your acronym");
 
-    expect(acronymDescription).toHaveFocus();
     fireEvent.change(acronymDescription, {
       target: {
         value: "ATP means Action Threshold Propagation.",
@@ -1862,11 +1878,11 @@ describe("authenticated app shell", () => {
       screen.getByDisplayValue("ATP means Action Threshold Propagation."),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Metaphors" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Metaphor" }));
 
     expect(
       within(memoryHooks).getByRole("tab", {
-        name: "Metaphors",
+        name: "Metaphor",
         selected: true,
       }),
     ).toBeInTheDocument();
@@ -1936,7 +1952,7 @@ describe("authenticated app shell", () => {
 
     expect(
       within(memoryHooks).getByRole("tab", {
-        name: "Metaphors",
+        name: "Metaphor",
         selected: true,
       }),
     ).toBeInTheDocument();
@@ -1947,11 +1963,11 @@ describe("authenticated app shell", () => {
       screen.queryByDisplayValue("SNS means Second Note Shortcut."),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Acronyms" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Acronym" }));
     expect(
       await screen.findByDisplayValue("SNS means Second Note Shortcut."),
     ).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Acronyms" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "Acronym" })).toHaveAttribute(
       "aria-selected",
       "true",
     );
@@ -1963,7 +1979,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(
       within(memoryHooks).getByRole("tab", {
-        name: "Metaphors",
+        name: "Metaphor",
         selected: true,
       }),
     ).toBeInTheDocument();
@@ -2015,7 +2031,7 @@ describe("authenticated app shell", () => {
       screen.queryByRole("button", { name: "Save changes" }),
     ).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Metaphor description"), {
+    fireEvent.change(screen.getByLabelText("Your metaphor"), {
       target: {
         value: "Updated bridge metaphor.",
       },
@@ -2026,14 +2042,14 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      within(metaphorEditor).getByRole("button", { name: "Save changes" }),
+      within(metaphorEditor).getByRole("button", { name: "Save" }),
     ).toBeVisible();
     expect(
       screen.getByRole("button", { name: "Discard changes" }),
     ).toBeVisible();
 
     fireEvent.click(
-      within(metaphorEditor).getByRole("button", { name: "Save changes" }),
+      within(metaphorEditor).getByRole("button", { name: "Save" }),
     );
 
     expect(
@@ -2043,11 +2059,11 @@ describe("authenticated app shell", () => {
       screen.queryByRole("button", { name: "Discard changes" }),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Acronyms" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Acronym" }));
     expect(
       await screen.findByDisplayValue("MAP means Memory Anchor Phrase."),
     ).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Acronym description"), {
+    fireEvent.change(screen.getByLabelText("Your acronym"), {
       target: {
         value: "MAP means Memory Access Prompt.",
       },

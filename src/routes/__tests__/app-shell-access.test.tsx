@@ -267,11 +267,11 @@ describe("authenticated app shell", () => {
       name: "Memory hook types",
     });
     const metaphorTab = within(tablist).getByRole("tab", {
-      name: "Metaphors",
+      name: "Metaphor",
       selected: true,
     });
     const acronymTab = within(tablist).getByRole("tab", {
-      name: "Acronyms",
+      name: "Acronym",
       selected: false,
     });
 
@@ -447,16 +447,14 @@ describe("authenticated app shell", () => {
         value: "Repeated threshold crossings reinforce the same neural path.",
       },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Create metaphor" }));
-    fireEvent.change(screen.getByLabelText("Metaphor description"), {
+    fireEvent.change(screen.getByLabelText("Your metaphor"), {
       target: {
         value:
           "Domino line: crossing threshold is like tipping the first domino so the whole chain commits.",
       },
     });
-    fireEvent.click(screen.getByRole("tab", { name: "Acronyms" }));
-    fireEvent.click(screen.getByRole("button", { name: "Create acronym" }));
-    fireEvent.change(screen.getByLabelText("Acronym description"), {
+    fireEvent.click(screen.getByRole("tab", { name: "Acronym" }));
+    fireEvent.change(screen.getByLabelText("Your acronym"), {
       target: { value: "LTP means Long-Term Potentiation." },
     });
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
@@ -466,7 +464,7 @@ describe("authenticated app shell", () => {
         "Domino line: crossing threshold is like tipping the first domino so the whole chain commits.",
       ),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Acronyms" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Acronym" }));
     expect(
       await screen.findByDisplayValue("LTP means Long-Term Potentiation."),
     ).toBeInTheDocument();
@@ -512,7 +510,7 @@ describe("authenticated app shell", () => {
         "Domino line: crossing threshold is like tipping the first domino so the whole chain commits.",
       ),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Acronyms" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Acronym" }));
     expect(
       screen.getByDisplayValue("LTP means Long-Term Potentiation."),
     ).toBeInTheDocument();

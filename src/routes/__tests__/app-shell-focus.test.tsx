@@ -731,12 +731,10 @@ describe("authenticated app shell", () => {
       name: "Break interval reminder",
     });
     const bodyField = screen.getByLabelText("Body");
-    const createMetaphorButton = screen.getByRole("button", {
-      name: "Create metaphor",
-    });
+    const metaphorField = screen.getByLabelText("Your metaphor");
 
     expect(bodyField).toBeDisabled();
-    expect(createMetaphorButton).toBeDisabled();
+    expect(metaphorField).toBeDisabled();
     expect(within(overlay).getByText("Break in progress")).toBeInTheDocument();
 
     fireEvent.click(
@@ -753,7 +751,7 @@ describe("authenticated app shell", () => {
       screen.queryByRole("region", { name: "Break interval reminder" }),
     ).toBeNull();
     expect(bodyField).not.toBeDisabled();
-    expect(createMetaphorButton).not.toBeDisabled();
+    expect(metaphorField).not.toBeDisabled();
 
     fireEvent.change(bodyField, {
       target: { value: "Updated after break" },
