@@ -4,6 +4,8 @@ import {
   deriveLabelRows,
   deriveLabelsSummary,
   deriveVisibleLabelRows,
+  parseLabelsFilterValue,
+  parseLabelsSortValue,
 } from "./labels-management-view";
 
 const labels: AppLabel[] = [
@@ -80,10 +82,7 @@ describe("labels management view", () => {
       labels,
       notes,
     });
-    const summary = deriveLabelsSummary({
-      labels,
-      rows,
-    });
+    const summary = deriveLabelsSummary(rows);
 
     expect(summary).toEqual({
       relationshipCount: 2,
@@ -150,5 +149,12 @@ describe("labels management view", () => {
         sortValue: "children-desc",
       }).map((row) => row.label),
     ).toEqual(["Science", "Biology", "Chemistry", "Dormant"]);
+  });
+
+  it("parses known filter and sort values", () => {
+    expect(parseLabelsFilterValue("unused")).toBe("unused");
+    expect(parseLabelsFilterValue("missing")).toBeNull();
+    expect(parseLabelsSortValue("notes-desc")).toBe("notes-desc");
+    expect(parseLabelsSortValue("missing")).toBeNull();
   });
 });

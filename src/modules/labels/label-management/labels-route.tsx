@@ -1,5 +1,6 @@
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import {
+  type ChangeEvent,
   type FormEvent,
   useCallback,
   useEffect,
@@ -15,16 +16,27 @@ import type { AppSessionSnapshot } from "../../access/session/session";
 import { listNotesForUser } from "../../notes";
 import { type AppLabel, AppLabelError } from "./labels";
 import {
+  type DerivedLabelRow,
   deriveLabelRows,
   deriveLabelsSummary,
   deriveVisibleLabelRows,
   type LabelsFilterValue,
   type LabelsSortValue,
+  parseLabelsFilterValue,
+  parseLabelsSortValue,
 } from "./labels-management-view";
 
 export const Route = createFileRoute("/_protected/labels")({
   component: LabelsPage,
 });
+
+function formatParentNames(parentNames: readonly string[]) {
+  if (parentNames.length === 0) {
+    return "—";
+  }
+
+  return parentNames.join(", ");
+}
 
 function LabelsPage() {
   const labels = useRouteContext({
@@ -72,7 +84,9 @@ function LabelsPage() {
   const rulesPopoverId = useId();
   const createInputId = useId();
   const feedbackMessageId = useId();
+  const filterSelectId = useId();
   const searchInputId = useId();
+  const sortSelectId = useId();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const createInputRef = useRef<HTMLInputElement>(null);
 
@@ -221,6 +235,44 @@ function LabelsPage() {
     });
   }
 
+  function handleFilterChange(event: ChangeEvent<HTMLSelectElement>) {
+    const nextFilterValue = parseLabelsFilterValue(event.target.value);
+
+    if (nextFilterValue !== null) {
+      setFilterValue(nextFilterValue);
+    }
+  }
+
+  function handleSortChange(event: ChangeEvent<HTMLSelectElement>) {
+    const nextSortValue = parseLabelsSortValue(event.target.value);
+
+    if (nextSortValue !== null) {
+      setSortValue(nextSortValue);
+    }
+  }
+
+  function handleRenameRow(row: DerivedLabelRow) {
+    const nextName = window.prompt("Label name", row.label);
+
+    if (nextName === null) {
+      return;
+    }
+
+    void renameLabel(row.id, nextName);
+  }
+
+  function handleDeleteRow(row: DerivedLabelRow) {
+    const isConfirmed = window.confirm(
+      `Delete label "${row.label}"? Notes will not be deleted.`,
+    );
+
+    if (!isConfirmed) {
+      return;
+    }
+
+    void deleteLabel(row.id);
+  }
+
   const derivedRows = useMemo(() => {
     return deriveLabelRows({
       labels: labelRecords,
@@ -228,11 +280,8 @@ function LabelsPage() {
     });
   }, [labelRecords, noteRecords]);
   const summary = useMemo(() => {
-    return deriveLabelsSummary({
-      labels: labelRecords,
-      rows: derivedRows,
-    });
-  }, [labelRecords, derivedRows]);
+    return deriveLabelsSummary(derivedRows);
+  }, [derivedRows]);
   const visibleRows = useMemo(() => {
     return deriveVisibleLabelRows({
       filterValue,
@@ -394,13 +443,11 @@ function LabelsPage() {
             />
           </div>
 
-          <label className="labels-field" htmlFor="labels-filter">
+          <label className="labels-field" htmlFor={filterSelectId}>
             <span>Filter labels</span>
             <select
-              id="labels-filter"
-              onChange={(event) =>
-                setFilterValue(event.target.value as LabelsFilterValue)
-              }
+              id={filterSelectId}
+              onChange={handleFilterChange}
               value={filterValue}
             >
               <option value="all">All labels</option>
@@ -409,13 +456,11 @@ function LabelsPage() {
             </select>
           </label>
 
-          <label className="labels-field" htmlFor="labels-sort">
+          <label className="labels-field" htmlFor={sortSelectId}>
             <span>Sort labels</span>
             <select
-              id="labels-sort"
-              onChange={(event) =>
-                setSortValue(event.target.value as LabelsSortValue)
-              }
+              id={sortSelectId}
+              onChange={handleSortChange}
               value={sortValue}
             >
               <option value="name-asc">Name (A-Z)</option>
@@ -452,46 +497,21 @@ function LabelsPage() {
                   {visibleRows.map((row) => (
                     <tr key={row.id}>
                       <td className="labels-table__label-cell">{row.label}</td>
-                      <td>
-                        {row.parentNames.length === 0
-                          ? "—"
-                          : row.parentNames.join(", ")}
-                      </td>
+                      <td>{formatParentNames(row.parentNames)}</td>
                       <td>{row.childCount}</td>
                       <td>{row.directNoteCount}</td>
                       <td>
                         <div className="labels-table__actions">
                           <button
                             className="labels-button labels-button--inline"
-                            onClick={() => {
-                              const nextName = window.prompt(
-                                "Label name",
-                                row.label,
-                              );
-
-                              if (nextName === null) {
-                                return;
-                              }
-
-                              void renameLabel(row.id, nextName);
-                            }}
+                            onClick={() => handleRenameRow(row)}
                             type="button"
                           >
                             Edit label
                           </button>
                           <button
                             className="labels-button labels-button--inline labels-button--danger"
-                            onClick={() => {
-                              const isConfirmed = window.confirm(
-                                `Delete label "${row.label}"? Notes will not be deleted.`,
-                              );
-
-                              if (!isConfirmed) {
-                                return;
-                              }
-
-                              void deleteLabel(row.id);
-                            }}
+                            onClick={() => handleDeleteRow(row)}
                             type="button"
                           >
                             Delete label

@@ -27,6 +27,34 @@ function compareNameAscending(left: string, right: string) {
   return left.localeCompare(right);
 }
 
+function incrementCount(counts: Map<string, number>, id: string) {
+  counts.set(id, (counts.get(id) ?? 0) + 1);
+}
+
+export function parseLabelsFilterValue(
+  value: string,
+): LabelsFilterValue | null {
+  switch (value) {
+    case "all":
+    case "top-level":
+    case "unused":
+      return value;
+    default:
+      return null;
+  }
+}
+
+export function parseLabelsSortValue(value: string): LabelsSortValue | null {
+  switch (value) {
+    case "children-desc":
+    case "name-asc":
+    case "notes-desc":
+      return value;
+    default:
+      return null;
+  }
+}
+
 export function deriveLabelRows(input: {
   labels: readonly AppLabel[];
   notes: readonly Pick<AppNote, "labelIds">[];
@@ -39,19 +67,13 @@ export function deriveLabelRows(input: {
 
   for (const note of input.notes) {
     for (const labelId of note.labelIds) {
-      directNoteCountByLabelId.set(
-        labelId,
-        (directNoteCountByLabelId.get(labelId) ?? 0) + 1,
-      );
+      incrementCount(directNoteCountByLabelId, labelId);
     }
   }
 
   for (const label of input.labels) {
     for (const parentId of label.parentIds) {
-      childCountByLabelId.set(
-        parentId,
-        (childCountByLabelId.get(parentId) ?? 0) + 1,
-      );
+      incrementCount(childCountByLabelId, parentId);
     }
   }
 
@@ -76,18 +98,14 @@ export function deriveLabelRows(input: {
   });
 }
 
-export function deriveLabelsSummary(input: {
-  labels: readonly AppLabel[];
-  rows: readonly DerivedLabelRow[];
-}): DerivedLabelsSummary {
+export function deriveLabelsSummary(
+  rows: readonly DerivedLabelRow[],
+): DerivedLabelsSummary {
   return {
-    relationshipCount: input.labels.reduce(
-      (total, label) => total + label.parentIds.length,
-      0,
-    ),
-    topLevelCount: input.rows.filter((row) => row.isTopLevel).length,
-    totalCount: input.rows.length,
-    unusedCount: input.rows.filter((row) => row.isUnused).length,
+    relationshipCount: rows.reduce((total, row) => total + row.parentCount, 0),
+    topLevelCount: rows.filter((row) => row.isTopLevel).length,
+    totalCount: rows.length,
+    unusedCount: rows.filter((row) => row.isUnused).length,
   };
 }
 
@@ -112,26 +130,28 @@ export function deriveVisibleLabelRows(input: {
       case "unused":
         return row.isUnused;
       case "all":
-      default:
         return true;
     }
+
+    return true;
   });
 
   return [...filteredRows].sort((left, right) => {
-    if (input.sortValue === "notes-desc") {
-      if (left.directNoteCount !== right.directNoteCount) {
-        return right.directNoteCount - left.directNoteCount;
-      }
+    switch (input.sortValue) {
+      case "notes-desc":
+        if (left.directNoteCount !== right.directNoteCount) {
+          return right.directNoteCount - left.directNoteCount;
+        }
 
-      return compareNameAscending(left.label, right.label);
-    }
+        return compareNameAscending(left.label, right.label);
+      case "children-desc":
+        if (left.childCount !== right.childCount) {
+          return right.childCount - left.childCount;
+        }
 
-    if (input.sortValue === "children-desc") {
-      if (left.childCount !== right.childCount) {
-        return right.childCount - left.childCount;
-      }
-
-      return compareNameAscending(left.label, right.label);
+        return compareNameAscending(left.label, right.label);
+      case "name-asc":
+        return compareNameAscending(left.label, right.label);
     }
 
     return compareNameAscending(left.label, right.label);
