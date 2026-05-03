@@ -289,9 +289,7 @@ function LabelsPage() {
         });
       }
 
-      setCreateName("");
-      setCreateParentIds([]);
-      setCreateParentSearchQuery("");
+      resetCreateDraft("");
       setCreateDrawerOpen(false);
     });
   }
@@ -367,19 +365,23 @@ function LabelsPage() {
     }
   }
 
-  function resetCreateDraft() {
-    setCreateName("");
+  function resetCreateDraft(nextName: string) {
+    setCreateName(nextName);
     setCreateParentIds([]);
     setCreateParentSearchQuery("");
   }
 
-  function openCreateDrawer() {
-    resetCreateDraft();
+  function openCreateDrawerWithName(name: string) {
+    resetCreateDraft(name);
     setCreateDrawerOpen(true);
   }
 
+  function openEmptyCreateDrawer() {
+    openCreateDrawerWithName("");
+  }
+
   function closeCreateDrawer() {
-    resetCreateDraft();
+    resetCreateDraft("");
     setCreateDrawerOpen(false);
   }
 
@@ -518,6 +520,8 @@ function LabelsPage() {
   }, [derivedRows, editParentIds]);
 
   const hasLabels = summary.totalCount > 0;
+  const normalizedSearchQuery = searchQuery.trim();
+  const hasSearchQuery = normalizedSearchQuery.length > 0;
   const createNameIsValid = createName.trim().length > 0;
   const editNameIsValid = editName.trim().length > 0;
   const editDraftParentIds = useMemo(() => {
@@ -575,46 +579,50 @@ function LabelsPage() {
         <div className="labels-management-header__copy">
           <h3 id="labels-route-heading">Labels</h3>
           <p className="muted">Organize notes with reusable topics.</p>
-          <section
-            aria-label="Labels summary"
-            className="labels-management-header__summary tag-row"
-          >
-            <span className="tag">{summaryLabelsText}</span>
-            <span className="tag">{summaryTopLevelText}</span>
-            <span className="tag">{summaryRelationshipsText}</span>
-            <span className="tag">{summaryUnusedText}</span>
-          </section>
+          {hasLabels ? (
+            <section
+              aria-label="Labels summary"
+              className="labels-management-header__summary tag-row"
+            >
+              <span className="tag">{summaryLabelsText}</span>
+              <span className="tag">{summaryTopLevelText}</span>
+              <span className="tag">{summaryRelationshipsText}</span>
+              <span className="tag">{summaryUnusedText}</span>
+            </section>
+          ) : null}
         </div>
 
         <div className="labels-management-header__actions">
-          <div className="labels-rules-popover">
-            <button
-              aria-controls={rulesPopoverId}
-              aria-expanded={isRulesOpen}
-              className="labels-button"
-              onClick={() => setRulesOpen((value) => !value)}
-              type="button"
-            >
-              Label rules
-            </button>
-            {isRulesOpen ? (
-              <article
-                aria-label="Label rules"
-                className="labels-rules-popover__content"
-                id={rulesPopoverId}
+          {hasLabels ? (
+            <div className="labels-rules-popover">
+              <button
+                aria-controls={rulesPopoverId}
+                aria-expanded={isRulesOpen}
+                className="labels-button"
+                onClick={() => setRulesOpen((value) => !value)}
+                type="button"
               >
-                <ul>
-                  <li>Labels can have more than one parent.</li>
-                  <li>Circular relationships are blocked automatically.</li>
-                  <li>Deleting a label never deletes notes.</li>
-                </ul>
-              </article>
-            ) : null}
-          </div>
+                Label rules
+              </button>
+              {isRulesOpen ? (
+                <article
+                  aria-label="Label rules"
+                  className="labels-rules-popover__content"
+                  id={rulesPopoverId}
+                >
+                  <ul>
+                    <li>Labels can have more than one parent.</li>
+                    <li>Circular relationships are blocked automatically.</li>
+                    <li>Deleting a label never deletes notes.</li>
+                  </ul>
+                </article>
+              ) : null}
+            </div>
+          ) : null}
 
           <button
             className="labels-button labels-button--primary"
-            onClick={openCreateDrawer}
+            onClick={openEmptyCreateDrawer}
             type="button"
           >
             New label
@@ -640,15 +648,6 @@ function LabelsPage() {
           <p className="muted">
             Create your first label to group related notes.
           </p>
-          <div className="labels-create-inline__actions">
-            <button
-              className="labels-button labels-button--primary"
-              onClick={openCreateDrawer}
-              type="button"
-            >
-              New label
-            </button>
-          </div>
         </article>
       ) : null}
 
@@ -711,10 +710,27 @@ function LabelsPage() {
           {visibleRows.length === 0 ? (
             <article className="labels-empty-card">
               <p className="section-label">No labels found</p>
-              <h4>No label found for "{searchQuery.trim()}"</h4>
+              {hasSearchQuery ? (
+                <h4>No label found for '{normalizedSearchQuery}'</h4>
+              ) : (
+                <h4>No labels match the current filters.</h4>
+              )}
               <p className="muted">
                 Create it now or clear the search to see all labels.
               </p>
+              {hasSearchQuery ? (
+                <div className="labels-create-inline__actions">
+                  <button
+                    className="labels-button labels-button--primary"
+                    onClick={() =>
+                      openCreateDrawerWithName(normalizedSearchQuery)
+                    }
+                    type="button"
+                  >
+                    {`Create '${normalizedSearchQuery}'`}
+                  </button>
+                </div>
+              ) : null}
             </article>
           ) : (
             <div className="labels-table-scroll">
