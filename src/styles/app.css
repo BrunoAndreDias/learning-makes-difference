@@ -27,7 +27,11 @@
   --notes-workspace-inline: var(--workspace-page-inline);
 }
 
-.app-shell:has(.authenticated-shell) .notes-workspace__page-header,
+.app-shell:has(.authenticated-shell) .notes-workspace__page-header {
+  padding-inline: var(--notes-workspace-inline);
+  padding-block-start: var(--workspace-page-block-start);
+}
+
 .app-shell:has(.authenticated-shell) .recall-surface,
 .app-shell:has(.authenticated-shell) .labels-page,
 .app-shell:has(.authenticated-shell) .focus-workspace,

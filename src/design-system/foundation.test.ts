@@ -107,6 +107,26 @@ describe("foundationTokens", () => {
     expect(notesResponsiveCss).toContain("align-items: start;");
   });
 
+  it("aligns the Notes page header copy with the in-page card column", () => {
+    const appCss = readFileSync(new URL("../styles/app.css", import.meta.url), {
+      encoding: "utf8",
+    });
+    const notesHeaderRule = getCssRule(
+      appCss,
+      ".app-shell:has(.authenticated-shell) .notes-workspace__page-header",
+    );
+
+    expect(notesHeaderRule).toContain(
+      "padding-inline: var(--notes-workspace-inline);",
+    );
+    expect(notesHeaderRule).toContain(
+      "padding-block-start: var(--workspace-page-block-start);",
+    );
+    expect(appCss).toContain(
+      "--notes-workspace-inline: var(--workspace-collapsed-header-offset);",
+    );
+  });
+
   it("keeps the notes inspector aligned with the editor header while mobile stays stacked", () => {
     const notesEditorCss = readFileSync(
       new URL(
