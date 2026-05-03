@@ -58,6 +58,8 @@
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 100%;
   background: var(--color-shell-panel);
+  color: var(--color-content-default);
+  font-family: var(--font-body);
 }
 
 .recall-workspace__toolbar {
@@ -96,6 +98,8 @@
   min-width: 0;
   padding: clamp(1.55rem, 3vw, 1.9rem) clamp(1rem, 3vw, 1.9rem) 2rem;
   background: var(--color-shell-panel);
+  color: var(--color-content-default);
+  font-family: var(--font-body);
 }
 
 .recall-results-top {

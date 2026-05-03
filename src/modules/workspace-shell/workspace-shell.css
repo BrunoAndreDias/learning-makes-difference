@@ -273,7 +273,8 @@
   gap: 0;
   align-items: stretch;
   min-height: 100vh;
-  color: var(--color-content-strong);
+  color: var(--color-content-default);
+  font-family: var(--font-body);
 }
 
 .app-sidebar {

@@ -6,6 +6,8 @@
   gap: 0;
   min-height: 100vh;
   background: var(--color-shell-panel);
+  color: var(--color-content-default);
+  font-family: var(--font-body);
 }
 
 .notes-workspace__page-header {

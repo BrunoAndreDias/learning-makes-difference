@@ -7,6 +7,8 @@
   background:
     linear-gradient(135deg, rgba(248, 251, 255, 0.86), transparent 36rem),
     var(--color-shell-panel);
+  color: var(--color-content-default);
+  font-family: var(--font-body);
 }
 
 .focus-hero,
