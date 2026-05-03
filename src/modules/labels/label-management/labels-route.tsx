@@ -202,9 +202,7 @@ function LabelsPage() {
         });
       }
 
-      setCreateName("");
-      setCreateParentIds([]);
-      setCreateParentSearchQuery("");
+      resetCreateDraft("");
       setCreateDrawerOpen(false);
     });
   }
@@ -284,23 +282,23 @@ function LabelsPage() {
     void deleteLabel(row.id);
   }
 
-  function resetCreateDraft(nextCreateName = "") {
-    setCreateName(nextCreateName);
+  function resetCreateDraft(nextName: string) {
+    setCreateName(nextName);
     setCreateParentIds([]);
     setCreateParentSearchQuery("");
   }
 
-  function openCreateDrawerWithName(nextCreateName: string) {
-    resetCreateDraft(nextCreateName);
+  function openCreateDrawerWithName(name: string) {
+    resetCreateDraft(name);
     setCreateDrawerOpen(true);
   }
 
-  function openCreateDrawer() {
+  function openEmptyCreateDrawer() {
     openCreateDrawerWithName("");
   }
 
   function closeCreateDrawer() {
-    resetCreateDraft();
+    resetCreateDraft("");
     setCreateDrawerOpen(false);
   }
 
@@ -356,6 +354,7 @@ function LabelsPage() {
 
   const hasLabels = summary.totalCount > 0;
   const normalizedSearchQuery = searchQuery.trim();
+  const hasSearchQuery = normalizedSearchQuery.length > 0;
   const createNameIsValid = createName.trim().length > 0;
   const createRelationshipPreview = formatCreateRelationshipPreview(
     selectedCreateParentRows.map((row) => row.label),
@@ -417,7 +416,7 @@ function LabelsPage() {
 
           <button
             className="labels-button labels-button--primary"
-            onClick={openCreateDrawer}
+            onClick={openEmptyCreateDrawer}
             type="button"
           >
             New label
@@ -505,7 +504,7 @@ function LabelsPage() {
           {visibleRows.length === 0 ? (
             <article className="labels-empty-card">
               <p className="section-label">No labels found</p>
-              {normalizedSearchQuery.length > 0 ? (
+              {hasSearchQuery ? (
                 <h4>No label found for '{normalizedSearchQuery}'</h4>
               ) : (
                 <h4>No labels match the current filters.</h4>
@@ -513,7 +512,7 @@ function LabelsPage() {
               <p className="muted">
                 Create it now or clear the search to see all labels.
               </p>
-              {normalizedSearchQuery.length > 0 ? (
+              {hasSearchQuery ? (
                 <div className="labels-create-inline__actions">
                   <button
                     className="labels-button labels-button--primary"
