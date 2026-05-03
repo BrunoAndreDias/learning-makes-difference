@@ -51,6 +51,13 @@ type LabelRowActionsMenuProps = Readonly<{
   onToggle: () => void;
 }>;
 
+type PendingDeleteDraft = Readonly<{
+  childCount: number;
+  id: string;
+  label: string;
+  noteCount: number;
+}>;
+
 function formatParentNames(parentNames: readonly string[]) {
   if (parentNames.length === 0) {
     return "—";
@@ -128,6 +135,14 @@ function formatChildLabelsPreview(childLabels: readonly string[]) {
   return `Child labels: ${childLabels.join(", ")}.`;
 }
 
+function formatDeleteChildrenImpact(childCount: number) {
+  if (childCount === 0) {
+    return "No child labels are attached to this label.";
+  }
+
+  return `${formatCount(childCount, "child label")} will remain available.`;
+}
+
 function LabelsPage() {
   const labels = useRouteContext({
     from: "/_protected/labels",
@@ -176,6 +191,8 @@ function LabelsPage() {
   const [editName, setEditName] = useState("");
   const [editParentSearchQuery, setEditParentSearchQuery] = useState("");
   const [editParentIds, setEditParentIds] = useState<string[]>([]);
+  const [pendingDeleteDraft, setPendingDeleteDraft] =
+    useState<PendingDeleteDraft | null>(null);
   const [openRowActionsLabelId, setOpenRowActionsLabelId] = useState<
     string | null
   >(null);
@@ -184,6 +201,8 @@ function LabelsPage() {
   const createDrawerTitleId = useId();
   const editDrawerDescriptionId = useId();
   const editDrawerTitleId = useId();
+  const deleteDialogDescriptionId = useId();
+  const deleteDialogTitleId = useId();
   const rulesPopoverId = useId();
   const createInputId = useId();
   const createParentSearchInputId = useId();
@@ -195,6 +214,7 @@ function LabelsPage() {
   const sortSelectId = useId();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const createInputRef = useRef<HTMLInputElement>(null);
+  const deleteCancelButtonRef = useRef<HTMLButtonElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
 
   const noteRecords = useMemo(() => {
@@ -279,6 +299,14 @@ function LabelsPage() {
 
     editInputRef.current?.focus();
   }, [editingLabelId]);
+
+  useEffect(() => {
+    if (pendingDeleteDraft === null) {
+      return;
+    }
+
+    deleteCancelButtonRef.current?.focus();
+  }, [pendingDeleteDraft]);
 
   useEffect(() => {
     if (openRowActionsLabelId === null) {
@@ -428,17 +456,31 @@ function LabelsPage() {
     }
   }
 
-  function handleDeleteRow(row: DerivedLabelRow) {
-    const isConfirmed = window.confirm(
-      `Delete label "${row.label}"? Notes will not be deleted.`,
-    );
+  function openDeleteDialog(row: DerivedLabelRow) {
+    closeRowActionsMenu();
+    setPendingDeleteDraft({
+      childCount: row.childCount,
+      id: row.id,
+      label: row.label,
+      noteCount: row.directNoteCount,
+    });
+  }
 
-    if (!isConfirmed) {
+  function closeDeleteDialog() {
+    setPendingDeleteDraft(null);
+  }
+
+  async function handleConfirmDelete() {
+    if (pendingDeleteDraft === null) {
       return;
     }
 
-    void deleteLabel(row.id);
-    if (editingLabelId === row.id) {
+    const labelId = pendingDeleteDraft.id;
+
+    closeDeleteDialog();
+    await deleteLabel(labelId);
+
+    if (editingLabelId === labelId) {
       closeEditDrawer();
     }
   }
@@ -862,7 +904,7 @@ function LabelsPage() {
                           label={row.label}
                           menuId={`labels-row-actions-menu-${row.id}`}
                           onClose={closeRowActionsMenu}
-                          onDelete={() => handleDeleteRow(row)}
+                          onDelete={() => openDeleteDialog(row)}
                           onDuplicate={() => {
                             void duplicateLabel(row.id);
                           }}
@@ -1159,7 +1201,7 @@ function LabelsPage() {
                 className="labels-button labels-button--danger"
                 onClick={() => {
                   if (editingRow !== null) {
-                    handleDeleteRow(editingRow);
+                    openDeleteDialog(editingRow);
                   }
                 }}
                 type="button"
@@ -1186,6 +1228,62 @@ function LabelsPage() {
             </div>
           </form>
         </aside>
+      ) : null}
+      {pendingDeleteDraft !== null ? (
+        <div className="labels-delete-dialog" role="presentation">
+          <button
+            aria-label="Close delete confirmation"
+            className="labels-delete-dialog__backdrop"
+            onClick={closeDeleteDialog}
+            type="button"
+          />
+          <div
+            aria-describedby={deleteDialogDescriptionId}
+            aria-labelledby={deleteDialogTitleId}
+            aria-modal="true"
+            className="labels-delete-dialog__panel shell-panel"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                closeDeleteDialog();
+              }
+            }}
+            role="dialog"
+          >
+            <h4
+              id={deleteDialogTitleId}
+            >{`Delete '${pendingDeleteDraft.label}'?`}</h4>
+            <div
+              className="labels-delete-dialog__body"
+              id={deleteDialogDescriptionId}
+            >
+              <p>{`${formatCount(pendingDeleteDraft.noteCount, "note")} will lose this label.`}</p>
+              <p>{formatDeleteChildrenImpact(pendingDeleteDraft.childCount)}</p>
+              {pendingDeleteDraft.childCount > 0 ? (
+                <p>Child labels with no other parents will become top-level.</p>
+              ) : null}
+              <p>Notes will not be deleted.</p>
+            </div>
+            <div className="labels-delete-dialog__actions">
+              <button
+                className="labels-button"
+                onClick={closeDeleteDialog}
+                ref={deleteCancelButtonRef}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="labels-button labels-button--danger-fill"
+                onClick={() => {
+                  void handleConfirmDelete();
+                }}
+                type="button"
+              >
+                Delete label
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </section>
   );

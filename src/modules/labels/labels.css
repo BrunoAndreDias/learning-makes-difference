@@ -87,6 +87,53 @@
   flex-wrap: wrap;
 }
 
+.labels-delete-dialog {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.labels-delete-dialog__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(15, 23, 42, 0.38);
+}
+
+.labels-delete-dialog__panel {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 28rem);
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.labels-delete-dialog__panel h4 {
+  margin: 0;
+  color: var(--color-content-strong);
+}
+
+.labels-delete-dialog__body {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.labels-delete-dialog__body p {
+  margin: 0;
+}
+
+.labels-delete-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
 .labels-drawer-overlay {
   position: fixed;
   inset: 0;
@@ -436,6 +483,17 @@
   background: rgba(159, 18, 57, 0.08);
 }
 
+.labels-button--danger-fill {
+  border-color: #9f1239;
+  background: #9f1239;
+  color: #fffdfa;
+}
+
+.labels-button--danger-fill:hover:not(:disabled) {
+  border-color: #881337;
+  background: #881337;
+}
+
 .labels-button--inline {
   min-height: 2rem;
   padding: 0.35rem 0.55rem;
@@ -468,7 +526,8 @@
   }
 
   .labels-create-inline__actions .labels-button,
-  .labels-management-header__actions .labels-button {
+  .labels-management-header__actions .labels-button,
+  .labels-delete-dialog__actions .labels-button {
     width: 100%;
   }
 

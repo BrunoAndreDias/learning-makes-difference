@@ -8,7 +8,7 @@ import {
   createPersistentLabelsContext,
   createReadonlyLabelsContext,
 } from "../../modules/labels/persistent-labels";
-import { createAppNotesContext } from "../../modules/notes";
+import { createAppNotesContext, listNotesForUser } from "../../modules/notes";
 import {
   createRouteTestSessionContext,
   renderRoute,
@@ -583,6 +583,449 @@ describe("authenticated app shell", () => {
     });
     expect(within(duplicateRow).getByText("Science")).toBeInTheDocument();
     expect(within(duplicateRow).getAllByText("0")).toHaveLength(2);
+  });
+
+  it("opens a delete confirmation modal from row actions with impact copy and cancel", async () => {
+    const userId = "user-placeholder";
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `labels-delete-modal-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (ownedUserId) =>
+        labelsContext.getLabelsForUser(ownedUserId).map((label) => label.id),
+      keyPrefix: `notes-delete-modal-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    const science = labelsContext.createLabel({
+      name: "Science",
+      userId,
+    });
+    const biology = labelsContext.createLabel({
+      name: "Biology",
+      parentIds: [science.id],
+      userId,
+    });
+    labelsContext.createLabel({
+      name: "Molecular Biology",
+      parentIds: [biology.id],
+      userId,
+    });
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "biology note 1",
+      labelIds: [biology.id],
+      metaphors: [],
+      title: "Biology note 1",
+    });
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "biology note 2",
+      labelIds: [biology.id],
+      metaphors: [],
+      title: "Biology note 2",
+    });
+
+    renderRoute("/labels", { labelsContext, notesContext });
+
+    const labelsTable = await screen.findByRole("table", {
+      name: "Labels list",
+    });
+    const biologyLabelButton = within(labelsTable).getByRole("button", {
+      name: "Biology",
+    });
+    const biologyRow = biologyLabelButton.closest("tr");
+
+    if (biologyRow === null) {
+      throw new Error("Biology row is missing.");
+    }
+
+    fireEvent.click(
+      within(biologyRow).getByRole("button", {
+        name: "Row actions for Biology",
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Delete label" }),
+    );
+
+    const deleteModal = await screen.findByRole("dialog", {
+      name: "Delete 'Biology'?",
+    });
+
+    expect(
+      within(deleteModal).getByText("2 notes will lose this label."),
+    ).toBeInTheDocument();
+    expect(
+      within(deleteModal).getByText("1 child label will remain available."),
+    ).toBeInTheDocument();
+    expect(
+      within(deleteModal).getByText("Notes will not be deleted."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(deleteModal).getByRole("button", { name: "Cancel" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Delete 'Biology'?" }),
+      ).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "Biology" })).toBeInTheDocument();
+  });
+
+  it("confirms delete from edit drawer danger zone and preserves notes with child cleanup", async () => {
+    const userId = "user-placeholder";
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `labels-delete-confirm-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (ownedUserId) =>
+        labelsContext.getLabelsForUser(ownedUserId).map((label) => label.id),
+      keyPrefix: `notes-delete-confirm-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    const science = labelsContext.createLabel({
+      name: "Science",
+      userId,
+    });
+    const chemistry = labelsContext.createLabel({
+      name: "Chemistry",
+      userId,
+    });
+    const biology = labelsContext.createLabel({
+      name: "Biology",
+      parentIds: [science.id],
+      userId,
+    });
+    labelsContext.createLabel({
+      name: "Molecular Biology",
+      parentIds: [biology.id],
+      userId,
+    });
+    labelsContext.createLabel({
+      name: "Applied Science",
+      parentIds: [biology.id, chemistry.id],
+      userId,
+    });
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "biology and chemistry note",
+      labelIds: [biology.id, chemistry.id],
+      metaphors: [],
+      title: "Biology and chemistry note",
+    });
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "biology only note",
+      labelIds: [biology.id],
+      metaphors: [],
+      title: "Biology only note",
+    });
+
+    renderRoute("/labels", { labelsContext, notesContext });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Biology" }));
+
+    const drawer = await screen.findByRole("dialog", { name: "Edit label" });
+    fireEvent.click(
+      within(drawer).getByRole("button", { name: "Delete label" }),
+    );
+
+    const deleteModal = await screen.findByRole("dialog", {
+      name: "Delete 'Biology'?",
+    });
+    fireEvent.click(
+      within(deleteModal).getByRole("button", {
+        name: "Delete label",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Delete 'Biology'?" }),
+      ).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Edit label" }),
+      ).not.toBeInTheDocument();
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Biology" }),
+    ).not.toBeInTheDocument();
+
+    const appliedScienceRowButton = screen.getByRole("button", {
+      name: "Applied Science",
+    });
+    const appliedScienceRow = appliedScienceRowButton.closest("tr");
+
+    if (appliedScienceRow === null) {
+      throw new Error("Applied Science row is missing.");
+    }
+
+    expect(
+      within(appliedScienceRow).getByText("Chemistry"),
+    ).toBeInTheDocument();
+
+    const molecularRowButton = screen.getByRole("button", {
+      name: "Molecular Biology",
+    });
+    const molecularRow = molecularRowButton.closest("tr");
+
+    if (molecularRow === null) {
+      throw new Error("Molecular Biology row is missing.");
+    }
+
+    expect(within(molecularRow).getByText("—")).toBeInTheDocument();
+
+    const notesAfterDelete = listNotesForUser(
+      notesContext.getSnapshot(),
+      userId,
+    );
+    const biologyAndChemistryNote = notesAfterDelete.find(
+      (note) => note.title === "Biology and chemistry note",
+    );
+    const biologyOnlyNote = notesAfterDelete.find(
+      (note) => note.title === "Biology only note",
+    );
+
+    expect(notesAfterDelete).toHaveLength(2);
+    expect(biologyAndChemistryNote).toMatchObject({
+      labelIds: [chemistry.id],
+    });
+    expect(biologyOnlyNote).toMatchObject({
+      labelIds: [],
+    });
+  });
+
+  it("confirms delete in persistent labels context and cleans snapshot parent links", async () => {
+    const labelsById = new Map([
+      [
+        "label-science",
+        {
+          id: "label-science",
+          name: "Science",
+          parentIds: [] as string[],
+        },
+      ],
+      [
+        "label-chemistry",
+        {
+          id: "label-chemistry",
+          name: "Chemistry",
+          parentIds: [] as string[],
+        },
+      ],
+      [
+        "label-biology",
+        {
+          id: "label-biology",
+          name: "Biology",
+          parentIds: ["label-science"],
+        },
+      ],
+      [
+        "label-applied-science",
+        {
+          id: "label-applied-science",
+          name: "Applied Science",
+          parentIds: ["label-biology", "label-chemistry"],
+        },
+      ],
+      [
+        "label-molecular-biology",
+        {
+          id: "label-molecular-biology",
+          name: "Molecular Biology",
+          parentIds: ["label-biology"],
+        },
+      ],
+    ]);
+    const persistentService: AppPersistentLabelsService = {
+      addParent: vi.fn(async ({ labelId, parentId }) => {
+        const label = labelsById.get(labelId);
+
+        if (label === undefined) {
+          throw new Error("Missing label.");
+        }
+
+        const nextLabel = {
+          ...label,
+          parentIds: [...new Set([...label.parentIds, parentId])].sort(),
+        };
+
+        labelsById.set(labelId, nextLabel);
+
+        return nextLabel;
+      }),
+      createLabel: vi.fn(
+        async ({ name, parentIds }: { name: string; parentIds?: string[] }) => {
+          const createdLabel = {
+            id: "label-created",
+            name,
+            parentIds: [...new Set(parentIds ?? [])].sort(),
+          };
+
+          labelsById.set(createdLabel.id, createdLabel);
+
+          return createdLabel;
+        },
+      ),
+      deleteLabel: vi.fn(async ({ labelId }) => {
+        labelsById.delete(labelId);
+      }),
+      listLabels: vi.fn(async () =>
+        [...labelsById.values()].sort((left, right) =>
+          left.name.localeCompare(right.name),
+        ),
+      ),
+      removeParent: vi.fn(async ({ labelId, parentId }) => {
+        const label = labelsById.get(labelId);
+
+        if (label === undefined) {
+          throw new Error("Missing label.");
+        }
+
+        const nextLabel = {
+          ...label,
+          parentIds: label.parentIds.filter(
+            (candidateId) => candidateId !== parentId,
+          ),
+        };
+
+        labelsById.set(labelId, nextLabel);
+
+        return nextLabel;
+      }),
+      renameLabel: vi.fn(async ({ labelId, name }) => {
+        const label = labelsById.get(labelId);
+
+        if (label === undefined) {
+          throw new Error("Missing label.");
+        }
+
+        const nextLabel = {
+          ...label,
+          name,
+        };
+
+        labelsById.set(labelId, nextLabel);
+
+        return nextLabel;
+      }),
+      updateLabel: vi.fn(
+        async ({
+          labelId,
+          name,
+          parentIds,
+        }: {
+          labelId: string;
+          name: string;
+          parentIds: string[];
+        }) => {
+          const label = labelsById.get(labelId);
+
+          if (label === undefined) {
+            throw new Error("Missing label.");
+          }
+
+          const nextLabel = {
+            ...label,
+            name,
+            parentIds: [...new Set(parentIds)].sort(),
+          };
+
+          labelsById.set(labelId, nextLabel);
+
+          return nextLabel;
+        },
+      ),
+    };
+    const persistentLabelsContext = createPersistentLabelsContext({
+      service: persistentService,
+    });
+    const labelsContext = createReadonlyLabelsContext(persistentLabelsContext);
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (ownedUserId) =>
+        labelsContext.getLabelsForUser(ownedUserId).map((label) => label.id),
+      keyPrefix: `notes-persistent-delete-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    renderRoute("/labels", {
+      labelsContext,
+      notesContext,
+      persistentLabelsContext,
+    });
+
+    const labelsTable = await screen.findByRole("table", {
+      name: "Labels list",
+    });
+    const biologyRowButton = within(labelsTable).getByRole("button", {
+      name: "Biology",
+    });
+    const biologyRow = biologyRowButton.closest("tr");
+
+    if (biologyRow === null) {
+      throw new Error("Biology row is missing.");
+    }
+
+    fireEvent.click(
+      within(biologyRow).getByRole("button", {
+        name: "Row actions for Biology",
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Delete label" }),
+    );
+
+    const deleteModal = await screen.findByRole("dialog", {
+      name: "Delete 'Biology'?",
+    });
+    fireEvent.click(
+      within(deleteModal).getByRole("button", {
+        name: "Delete label",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(persistentService.deleteLabel).toHaveBeenCalledWith({
+        labelId: "label-biology",
+      });
+    });
+    expect(
+      screen.queryByRole("button", { name: "Biology" }),
+    ).not.toBeInTheDocument();
+
+    const appliedScienceRowButton = screen.getByRole("button", {
+      name: "Applied Science",
+    });
+    const appliedScienceRow = appliedScienceRowButton.closest("tr");
+
+    if (appliedScienceRow === null) {
+      throw new Error("Applied Science row is missing.");
+    }
+
+    expect(
+      within(appliedScienceRow).getByText("Chemistry"),
+    ).toBeInTheDocument();
+
+    const molecularRowButton = screen.getByRole("button", {
+      name: "Molecular Biology",
+    });
+    const molecularRow = molecularRowButton.closest("tr");
+
+    if (molecularRow === null) {
+      throw new Error("Molecular Biology row is missing.");
+    }
+
+    expect(within(molecularRow).getByText("—")).toBeInTheDocument();
   });
 
   it("shows no-results quick-create and prefills drawer name from search", async () => {
