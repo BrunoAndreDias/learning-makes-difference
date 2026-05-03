@@ -155,6 +155,33 @@ function formatDeleteNotesImpact(noteCount: number) {
   return `${formatCount(noteCount, "note")} will lose this label.`;
 }
 
+function getActiveFocusableElement() {
+  if (!(document.activeElement instanceof HTMLElement)) {
+    return null;
+  }
+
+  if (
+    document.activeElement === document.body ||
+    document.activeElement === document.documentElement
+  ) {
+    return null;
+  }
+
+  return document.activeElement;
+}
+
+function restoreFocusIfAvailable(element: HTMLElement | null) {
+  if (element === null) {
+    return;
+  }
+
+  if (!element.isConnected) {
+    return;
+  }
+
+  element.focus();
+}
+
 function LabelsPage() {
   const labels = useRouteContext({
     from: "/_protected/labels",
@@ -227,6 +254,11 @@ function LabelsPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const createInputRef = useRef<HTMLInputElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
+  const rulesButtonRef = useRef<HTMLButtonElement>(null);
+  const rulesPopoverRef = useRef<HTMLElement>(null);
+  const createDrawerTriggerRef = useRef<HTMLElement | null>(null);
+  const editDrawerTriggerRef = useRef<HTMLElement | null>(null);
+  const deleteDialogTriggerRef = useRef<HTMLElement | null>(null);
 
   const noteRecords = useMemo(() => {
     return listNotesForUser(notesSnapshot, currentUserId);
@@ -310,6 +342,14 @@ function LabelsPage() {
 
     editInputRef.current?.focus();
   }, [editingLabelId]);
+
+  useEffect(() => {
+    if (!isRulesOpen) {
+      return;
+    }
+
+    rulesPopoverRef.current?.focus();
+  }, [isRulesOpen]);
 
   useEffect(() => {
     if (openRowActionsLabelId === null) {
@@ -461,6 +501,7 @@ function LabelsPage() {
 
   function openDeleteDialog(row: DerivedLabelRow) {
     closeRowActionsMenu();
+    deleteDialogTriggerRef.current = getActiveFocusableElement();
     setPendingDeleteDraft({
       childCount: row.childCount,
       id: row.id,
@@ -471,6 +512,8 @@ function LabelsPage() {
 
   function closeDeleteDialog() {
     setPendingDeleteDraft(null);
+    restoreFocusIfAvailable(deleteDialogTriggerRef.current);
+    deleteDialogTriggerRef.current = null;
   }
 
   async function handleConfirmDelete() {
@@ -504,19 +547,27 @@ function LabelsPage() {
     setCreateParentSearchQuery("");
   }
 
-  function openCreateDrawerWithName(name: string) {
+  function openCreateDrawerWithName(
+    name: string,
+    triggerElement: HTMLElement | null = getActiveFocusableElement(),
+  ) {
     closeRowActionsMenu();
+    createDrawerTriggerRef.current = triggerElement;
     resetCreateDraft(name);
     setCreateDrawerOpen(true);
   }
 
-  function openEmptyCreateDrawer() {
-    openCreateDrawerWithName("");
+  function openEmptyCreateDrawer(
+    triggerElement: HTMLElement | null = getActiveFocusableElement(),
+  ) {
+    openCreateDrawerWithName("", triggerElement);
   }
 
   function closeCreateDrawer() {
     resetCreateDraft("");
     setCreateDrawerOpen(false);
+    restoreFocusIfAvailable(createDrawerTriggerRef.current);
+    createDrawerTriggerRef.current = null;
   }
 
   function resetEditDraft() {
@@ -528,15 +579,21 @@ function LabelsPage() {
 
   function closeEditDrawer() {
     resetEditDraft();
+    restoreFocusIfAvailable(editDrawerTriggerRef.current);
+    editDrawerTriggerRef.current = null;
   }
 
-  function openEditDrawer(labelId: string) {
+  function openEditDrawer(
+    labelId: string,
+    triggerElement: HTMLElement | null = getActiveFocusableElement(),
+  ) {
     const label = labelRecords.find((candidate) => candidate.id === labelId);
 
     if (label === undefined) {
       return;
     }
 
+    editDrawerTriggerRef.current = triggerElement;
     closeRowActionsMenu();
     setEditingLabelId(label.id);
     setEditName(label.name);
@@ -733,8 +790,10 @@ function LabelsPage() {
               <button
                 aria-controls={rulesPopoverId}
                 aria-expanded={isRulesOpen}
+                aria-haspopup="dialog"
                 className="labels-button"
                 onClick={() => setRulesOpen((value) => !value)}
+                ref={rulesButtonRef}
                 type="button"
               >
                 Label rules
@@ -742,8 +801,19 @@ function LabelsPage() {
               {isRulesOpen ? (
                 <article
                   aria-label="Label rules"
+                  aria-modal="false"
                   className="labels-rules-popover__content"
                   id={rulesPopoverId}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      setRulesOpen(false);
+                      rulesButtonRef.current?.focus();
+                    }
+                  }}
+                  ref={rulesPopoverRef}
+                  role="dialog"
+                  tabIndex={-1}
                 >
                   <ul>
                     <li>Labels can have more than one parent.</li>
@@ -757,7 +827,7 @@ function LabelsPage() {
 
           <button
             className="labels-button labels-button--primary"
-            onClick={openEmptyCreateDrawer}
+            onClick={(event) => openEmptyCreateDrawer(event.currentTarget)}
             type="button"
           >
             New label
@@ -857,8 +927,11 @@ function LabelsPage() {
                 <div className="labels-create-inline__actions">
                   <button
                     className="labels-button labels-button--primary"
-                    onClick={() =>
-                      openCreateDrawerWithName(normalizedSearchQuery)
+                    onClick={(event) =>
+                      openCreateDrawerWithName(
+                        normalizedSearchQuery,
+                        event.currentTarget,
+                      )
                     }
                     type="button"
                   >
@@ -884,14 +957,16 @@ function LabelsPage() {
                     <tr
                       className="labels-table__row"
                       key={row.id}
-                      onClick={() => openEditDrawer(row.id)}
+                      onClick={(event) =>
+                        openEditDrawer(row.id, event.currentTarget)
+                      }
                     >
                       <td className="labels-table__label-cell">
                         <button
                           className="labels-table__label-trigger"
                           onClick={(event) => {
                             event.stopPropagation();
-                            openEditDrawer(row.id);
+                            openEditDrawer(row.id, event.currentTarget);
                           }}
                           type="button"
                         >
@@ -1323,15 +1398,22 @@ function LabelRowActionsMenu({
   onEdit,
   onToggle,
 }: LabelRowActionsMenuProps) {
+  const triggerButtonRef = useRef<HTMLButtonElement>(null);
+
+  function closeMenuAndRestoreFocus() {
+    triggerButtonRef.current?.focus();
+    onClose();
+  }
+
   function handleKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
-      onClose();
+      closeMenuAndRestoreFocus();
     }
   }
 
   function runMenuAction(action: () => void) {
-    onClose();
+    closeMenuAndRestoreFocus();
     action();
   }
 
@@ -1348,6 +1430,7 @@ function LabelRowActionsMenu({
           onToggle();
         }}
         onKeyDown={handleKeyDown}
+        ref={triggerButtonRef}
         type="button"
       >
         <RowActionsIcon />

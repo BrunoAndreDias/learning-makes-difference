@@ -343,6 +343,37 @@ describe("authenticated app shell", () => {
     expect(within(bodyRows[0]).getByText("Science")).toBeInTheDocument();
   });
 
+  it("opens label rules as an accessible popover dialog and restores focus on escape", async () => {
+    const { labelsContext, notesContext, userId } =
+      createLabelsRouteContexts("rules-popover-a11y");
+
+    labelsContext.createLabel({
+      name: "Science",
+      userId,
+    });
+
+    renderRoute("/labels", { labelsContext, notesContext });
+
+    const rulesButton = await screen.findByRole("button", {
+      name: "Label rules",
+    });
+
+    fireEvent.click(rulesButton);
+    const popover = await screen.findByRole("dialog", {
+      name: "Label rules",
+    });
+    expect(popover).toHaveFocus();
+
+    fireEvent.keyDown(popover, { key: "Escape" });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Label rules" }),
+      ).not.toBeInTheDocument();
+    });
+    expect(rulesButton).toHaveFocus();
+    expect(rulesButton).toHaveAttribute("aria-expanded", "false");
+  });
+
   it("opens the new label drawer and creates a label with searchable parents", async () => {
     const userId = "user-placeholder";
     const labelsContext = createAppLabelsContext({
@@ -479,6 +510,35 @@ describe("authenticated app shell", () => {
     });
     expect(within(createdRow).getByText("Science")).toBeInTheDocument();
     expect(within(createdRow).queryByText("Biology")).not.toBeInTheDocument();
+  });
+
+  it("returns focus to new label trigger when create drawer closes with escape", async () => {
+    const { labelsContext, notesContext, userId } = createLabelsRouteContexts(
+      "create-drawer-focus",
+    );
+
+    labelsContext.createLabel({
+      name: "Science",
+      userId,
+    });
+
+    renderRoute("/labels", { labelsContext, notesContext });
+
+    const newLabelButton = await screen.findByRole("button", {
+      name: "New label",
+    });
+
+    fireEvent.click(newLabelButton);
+    const drawer = await screen.findByRole("dialog", { name: "New label" });
+    expect(within(drawer).getByLabelText("Label name")).toHaveFocus();
+
+    fireEvent.keyDown(drawer, { key: "Escape" });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "New label" }),
+      ).not.toBeInTheDocument();
+    });
+    expect(newLabelButton).toHaveFocus();
   });
 
   it("opens edit label drawer and saves full parent set with name update", async () => {
@@ -638,6 +698,32 @@ describe("authenticated app shell", () => {
     );
   });
 
+  it("returns focus to label trigger when edit drawer closes with escape", async () => {
+    const { labelsContext, notesContext, userId } =
+      createLabelsRouteContexts("edit-drawer-focus");
+
+    labelsContext.createLabel({
+      name: "Biology",
+      userId,
+    });
+
+    renderRoute("/labels", { labelsContext, notesContext });
+
+    const labelButton = await screen.findByRole("button", { name: "Biology" });
+    fireEvent.click(labelButton);
+
+    const drawer = await screen.findByRole("dialog", { name: "Edit label" });
+    expect(within(drawer).getByLabelText("Label name")).toHaveFocus();
+
+    fireEvent.keyDown(drawer, { key: "Escape" });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Edit label" }),
+      ).not.toBeInTheDocument();
+    });
+    expect(labelButton).toHaveFocus();
+  });
+
   it("renders row overflow actions menu and duplicates label with parent-only copy", async () => {
     const userId = "user-placeholder";
     const labelsContext = createAppLabelsContext({
@@ -751,6 +837,44 @@ describe("authenticated app shell", () => {
     expect(within(duplicateRow).getAllByText("0")).toHaveLength(2);
   });
 
+  it("returns focus to the row actions trigger when the menu closes with escape", async () => {
+    const { labelsContext, notesContext, userId } =
+      createLabelsRouteContexts("row-menu-focus");
+
+    labelsContext.createLabel({
+      name: "Biology",
+      userId,
+    });
+
+    renderRoute("/labels", { labelsContext, notesContext });
+
+    const labelsTable = await screen.findByRole("table", {
+      name: "Labels list",
+    });
+    const labelRow = getLabelRow(labelsTable, "Biology");
+    const menuTrigger = within(labelRow).getByRole("button", {
+      name: "Row actions for Biology",
+    });
+
+    fireEvent.click(menuTrigger);
+    const menu = await screen.findByRole("menu", {
+      name: "Row actions for Biology",
+    });
+    const editMenuItem = within(menu).getByRole("menuitem", {
+      name: "Edit label",
+    });
+    editMenuItem.focus();
+    expect(editMenuItem).toHaveFocus();
+
+    fireEvent.keyDown(editMenuItem, { key: "Escape" });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("menu", { name: "Row actions for Biology" }),
+      ).not.toBeInTheDocument();
+    });
+    expect(menuTrigger).toHaveFocus();
+  });
+
   it("opens a delete confirmation modal from row actions with impact copy and cancel", async () => {
     const { labelsContext, notesContext, userId } =
       createLabelsRouteContexts("delete-modal");
@@ -808,6 +932,46 @@ describe("authenticated app shell", () => {
       ).not.toBeInTheDocument();
     });
     expect(screen.getByRole("button", { name: "Biology" })).toBeInTheDocument();
+  });
+
+  it("closes delete confirmation modal with escape and restores focus to row actions trigger", async () => {
+    const { labelsContext, notesContext, userId } =
+      createLabelsRouteContexts("delete-modal-focus");
+
+    labelsContext.createLabel({
+      name: "Biology",
+      userId,
+    });
+
+    renderRoute("/labels", { labelsContext, notesContext });
+
+    const labelsTable = await screen.findByRole("table", {
+      name: "Labels list",
+    });
+    const labelRow = getLabelRow(labelsTable, "Biology");
+    const menuTrigger = within(labelRow).getByRole("button", {
+      name: "Row actions for Biology",
+    });
+
+    fireEvent.click(menuTrigger);
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Delete label" }),
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Delete 'Biology'?",
+    });
+    expect(
+      within(dialog).getByRole("button", { name: "Cancel" }),
+    ).toHaveFocus();
+
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Delete 'Biology'?" }),
+      ).not.toBeInTheDocument();
+    });
+    expect(menuTrigger).toHaveFocus();
   });
 
   it("confirms delete from edit drawer danger zone and preserves notes with child cleanup", async () => {
