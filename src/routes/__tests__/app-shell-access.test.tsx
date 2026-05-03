@@ -8,6 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { createAppSessionContext } from "../../modules/access/session/session";
 import {
   createAppNotesContext,
   createRouteTestSessionContext,
@@ -32,7 +33,7 @@ describe("authenticated app shell", () => {
     const { router } = renderRoute("/");
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/notes");
   });
@@ -51,7 +52,7 @@ describe("authenticated app shell", () => {
     const { router } = renderRoute("/qweqwe");
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/notes");
   });
@@ -79,6 +80,36 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/login");
     expect(router.state.location.search.redirect).toBe("/settings");
+  });
+
+  it("redirects to login when persisted session restoration fails", async () => {
+    const sessionContext = createAppSessionContext({
+      initialSnapshot: {
+        user: {
+          displayName: "Stale Casey",
+          email: "casey@example.com",
+          id: "user-stale-casey",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+      service: {
+        getSessionSnapshot: vi.fn(async () => {
+          throw new Error("Failed query: select from auth_sessions");
+        }),
+        login: vi.fn(async () => ({ user: null })),
+        logout: vi.fn(async () => ({ user: null })),
+        register: vi.fn(async () => ({ user: null })),
+        updatePreferences: vi.fn(async () => ({ user: null })),
+      },
+    });
+    const { router } = renderRoute("/notes", { sessionContext });
+
+    expect(
+      await screen.findByRole("heading", { name: "Welcome back" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/login");
+    expect(router.state.location.search.redirect).toBe("/notes");
   });
 
   it("registers a new account into the intended protected route and logs out cleanly", async () => {
@@ -249,12 +280,27 @@ describe("authenticated app shell", () => {
   });
 
   it("supports keyboard navigation across memory hook tabs", async () => {
+    const userId = "user-jordan";
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-keyboard-hooks-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "Neurons fire once membrane voltage crosses threshold.",
+      labelIds: [],
+      metaphors: [],
+      title: "Action potentials",
+    });
+
     renderRoute("/notes", {
+      notesContext,
       session: {
         user: {
           displayName: "Jordan Review",
           email: "jordan@example.com",
-          id: "user-jordan",
+          id: userId,
           interfaceLanguage: "en",
           studyLanguage: "en",
         },
@@ -262,7 +308,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     const memoryHooks = screen.getByLabelText("Memory hooks");
@@ -326,6 +372,43 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Jordan Review")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
+  });
+
+  it("shows serialized authentication errors from the login service", async () => {
+    renderRoute("/login", {
+      sessionContext: {
+        getSnapshot: () => ({ user: null }),
+        refresh: () => Promise.resolve({ user: null }),
+        subscribe: () => () => undefined,
+        login: () =>
+          Promise.reject({
+            code: "invalid_credentials",
+            message: "Email or password is incorrect.",
+          }),
+        logout: () => Promise.resolve({ user: null }),
+        register: () => Promise.resolve({ user: null }),
+        updatePreferences: () => Promise.resolve({ user: null }),
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Welcome back" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "casey@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "wrong password" },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Sign in form" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Email or password is incorrect.",
+    );
+    expect(
+      screen.queryByText("Authentication failed. Try again."),
+    ).not.toBeInTheDocument();
   });
 
   it("updates account preferences from settings and restores them for the same account", async () => {
@@ -439,7 +522,7 @@ describe("authenticated app shell", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Sign up form" }));
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Title"), {
@@ -450,17 +533,40 @@ describe("authenticated app shell", () => {
         value: "Repeated threshold crossings reinforce the same neural path.",
       },
     });
+    fireEvent.click(screen.getByRole("button", { name: "Create note" }));
+
+    expect(
+      await screen.findByRole("tab", {
+        name: "Metaphor",
+        selected: true,
+      }),
+    ).toBeInTheDocument();
+
     fireEvent.change(screen.getByLabelText("Your metaphor"), {
       target: {
         value:
           "Domino line: crossing threshold is like tipping the first domino so the whole chain commits.",
       },
     });
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Metaphor editor" })).getByRole(
+        "button",
+        { name: "Save" },
+      ),
+    );
+
     fireEvent.click(screen.getByRole("tab", { name: "Acronym" }));
     fireEvent.change(screen.getByLabelText("Your acronym"), {
       target: { value: "LTP means Long-Term Potentiation." },
     });
-    fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Acronym editor" })).getByRole(
+        "button",
+        { name: "Save" },
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Metaphor" }));
 
     expect(
       await screen.findByDisplayValue(
@@ -505,7 +611,7 @@ describe("authenticated app shell", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Sign in form" }));
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
     expect(screen.getByDisplayValue("Action potentials")).toBeInTheDocument();
     expect(

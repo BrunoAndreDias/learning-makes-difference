@@ -1,9 +1,56 @@
 .notes-workspace {
-  --notes-toolbar-title-offset: 9rem;
+  --notes-workspace-inline: clamp(1rem, 2.4vw, 1.5rem);
 
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 0;
+  min-height: 100vh;
+  background: var(--color-shell-panel);
+}
+
+.notes-workspace__page-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.45rem;
+  min-height: 5.25rem;
+  padding: 1.15rem var(--notes-workspace-inline) 1rem;
+  background: var(--color-shell-panel);
+}
+
+.notes-workspace__header-copy {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.notes-workspace__identity {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.notes-workspace__identity h1,
+.notes-workspace__identity p {
+  margin: 0;
+}
+
+.notes-workspace__identity h1 {
+  font-size: clamp(1.65rem, 2.2vw, 2rem);
+}
+
+.notes-workspace__quick-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.notes-workspace__quick-actions .app-focus-session-start,
+.notes-workspace__quick-actions .app-focus-session-status {
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 .notes-workspace__toolbar {

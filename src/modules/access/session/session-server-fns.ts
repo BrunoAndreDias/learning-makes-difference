@@ -8,7 +8,11 @@ import { z } from "zod";
 
 import type { AppSessionService } from "./session";
 import {
+  AppAuthError,
+  type AppAuthErrorCode,
+  type AppSessionSnapshot,
   appLanguagePreferences,
+  getAppAuthError,
   type LoginInput,
   type RegisterInput,
   type UpdatePreferencesInput,
@@ -33,6 +37,54 @@ const updatePreferencesInputSchema = z.object({
   interfaceLanguage: z.enum(appLanguagePreferences),
   studyLanguage: z.enum(appLanguagePreferences),
 });
+
+type SessionMutationResult =
+  | {
+      ok: true;
+      snapshot: AppSessionSnapshot;
+    }
+  | {
+      error: {
+        code: AppAuthErrorCode;
+        message: string;
+      };
+      ok: false;
+    };
+
+async function handleSessionMutation(
+  operation: () => Promise<AppSessionSnapshot>,
+): Promise<SessionMutationResult> {
+  try {
+    return {
+      ok: true,
+      snapshot: await operation(),
+    };
+  } catch (error) {
+    const appAuthError = getAppAuthError(error);
+
+    if (appAuthError !== null) {
+      return {
+        error: {
+          code: appAuthError.code,
+          message: appAuthError.message,
+        },
+        ok: false,
+      };
+    }
+
+    throw error;
+  }
+}
+
+function unwrapSessionMutation(
+  result: SessionMutationResult,
+): AppSessionSnapshot {
+  if (result.ok) {
+    return result.snapshot;
+  }
+
+  throw new AppAuthError(result.error.code, result.error.message);
+}
 
 async function createRequestAuthService() {
   const [{ createAuthService }, { loadAppEnv }, { getAuthDb }] =
@@ -75,7 +127,7 @@ const registerServerFn = createServerFn({
   .inputValidator(registerInputSchema)
   .handler(async ({ data }) => {
     const auth = await createRequestAuthService();
-    return auth.register(data as RegisterInput);
+    return handleSessionMutation(() => auth.register(data as RegisterInput));
   });
 
 const loginServerFn = createServerFn({
@@ -84,7 +136,7 @@ const loginServerFn = createServerFn({
   .inputValidator(loginInputSchema)
   .handler(async ({ data }) => {
     const auth = await createRequestAuthService();
-    return auth.login(data as LoginInput);
+    return handleSessionMutation(() => auth.login(data as LoginInput));
   });
 
 const logoutServerFn = createServerFn({
@@ -100,15 +152,20 @@ const updatePreferencesServerFn = createServerFn({
   .inputValidator(updatePreferencesInputSchema)
   .handler(async ({ data }) => {
     const auth = await createRequestAuthService();
-    return auth.updatePreferences(data as UpdatePreferencesInput);
+    return handleSessionMutation(() =>
+      auth.updatePreferences(data as UpdatePreferencesInput),
+    );
   });
 
 export function createServerSessionService(): AppSessionService {
   return {
     getSessionSnapshot: () => getSessionSnapshotServerFn(),
-    login: (input) => loginServerFn({ data: input }),
+    login: async (input) =>
+      unwrapSessionMutation(await loginServerFn({ data: input })),
     logout: () => logoutServerFn(),
-    register: (input) => registerServerFn({ data: input }),
-    updatePreferences: (input) => updatePreferencesServerFn({ data: input }),
+    register: async (input) =>
+      unwrapSessionMutation(await registerServerFn({ data: input })),
+    updatePreferences: async (input) =>
+      unwrapSessionMutation(await updatePreferencesServerFn({ data: input })),
   };
 }

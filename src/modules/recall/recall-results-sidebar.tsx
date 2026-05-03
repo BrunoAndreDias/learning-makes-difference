@@ -21,11 +21,17 @@ import {
 } from "./result-summary";
 
 function formatDateTime(timestamp: string) {
+  const resultDate = new Date(timestamp);
+
+  if (Number.isNaN(resultDate.getTime())) {
+    return "Unknown date";
+  }
+
   return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone: "UTC",
-  }).format(new Date(timestamp));
+  }).format(resultDate);
 }
 
 function formatScoreSummary(result: RecallSessionSearchResult) {

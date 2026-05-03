@@ -23,11 +23,13 @@ const DEFAULT_FOCUS_SESSION_START_VALUES: FocusSessionStartValues = {
 
 export function FocusSessionStartControl({
   activeFocusSession,
+  actionButtonClassName = "notes-action notes-action-primary",
   focus,
   persistentFocus,
   userId,
 }: Readonly<{
   activeFocusSession: FocusSession | null;
+  actionButtonClassName?: string;
   focus: AppFocusContext;
   persistentFocus?: AppPersistentFocusContext;
   userId: string | null;
@@ -116,7 +118,7 @@ export function FocusSessionStartControl({
           <>
             {currentActiveFocusSession.isStale ? (
               <button
-                className="notes-action notes-action-primary"
+                className={actionButtonClassName}
                 onClick={() => {
                   void startNewFocusSession();
                 }}
@@ -127,7 +129,7 @@ export function FocusSessionStartControl({
               </button>
             ) : (
               <button
-                className="notes-action notes-action-primary"
+                className={actionButtonClassName}
                 onClick={() => {
                   if (persistentFocus === undefined) {
                     focus.endFocusSession({
@@ -206,7 +208,7 @@ export function FocusSessionStartControl({
   return (
     <div className="app-focus-session-start tag-row">
       <button
-        className="notes-action notes-action-primary"
+        className={actionButtonClassName}
         onClick={startDefaultFocusSession}
         type="button"
       >

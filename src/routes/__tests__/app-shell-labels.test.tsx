@@ -1,5 +1,8 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -196,7 +199,62 @@ function createTestPersistentLabelsService(initialLabels: readonly AppLabel[]) {
 }
 
 describe("authenticated app shell", () => {
-  it("renders compact header, rules popover, and derived labels table controls", async () => {
+  it("keeps the labels search icon from overlapping placeholder text", () => {
+    const css = readFileSync(
+      join(process.cwd(), "src/modules/labels/labels.css"),
+      "utf8",
+    );
+    const sharedInputRuleIndex = css.indexOf(
+      ".labels-field input,\n.labels-field select,\n.labels-toolbar__search input",
+    );
+    const iconPaddingRuleIndex = css.lastIndexOf(
+      ".labels-input-with-icon input {\n  padding-left: 3rem;\n}",
+    );
+
+    expect(sharedInputRuleIndex).toBeGreaterThan(-1);
+    expect(iconPaddingRuleIndex).toBeGreaterThan(sharedInputRuleIndex);
+  });
+
+  it("keeps the labels table header sticky inside the list shell", () => {
+    const css = readFileSync(
+      join(process.cwd(), "src/modules/labels/labels.css"),
+      "utf8",
+    );
+
+    expect(css).toContain(".labels-table th {\n  position: sticky;\n  top: 0;");
+  });
+
+  it("keeps label row dividers inset and avoids whole-row hover fills", () => {
+    const css = readFileSync(
+      join(process.cwd(), "src/modules/labels/labels.css"),
+      "utf8",
+    );
+
+    expect(css).toContain(
+      ".labels-table__row td::after {\n  position: absolute;\n  right: 0;",
+    );
+    expect(css).toContain(
+      ".labels-table__row td:first-child::after {\n  left: 0.85rem;",
+    );
+    expect(css).toContain(
+      ".labels-table__row td:last-child::after {\n  right: 0.85rem;",
+    );
+    expect(css).toContain(
+      ".labels-table__row--active td::before {\n  position: absolute;\n  top: 0.5rem;",
+    );
+    expect(css).toContain(
+      ".labels-table__row--active td:first-child::before {\n  left: 0.85rem;",
+    );
+    expect(css).toContain(
+      ".labels-table__row--active td:last-child::before {\n  right: 0.85rem;",
+    );
+    expect(css).not.toContain(
+      ".labels-table tbody tr:last-child td {\n  border-bottom: 0;",
+    );
+    expect(css).not.toContain(".labels-table__row:hover td");
+  });
+
+  it("renders compact header, small rules note, and derived labels table controls", async () => {
     const userId = "user-placeholder";
     const labelsContext = createAppLabelsContext({
       keyPrefix: `labels-compact-${Math.random().toString(36).slice(2)}`,
@@ -279,43 +337,61 @@ describe("authenticated app shell", () => {
     expect(screen.getByText("2 relationships")).toBeInTheDocument();
     expect(screen.getByText("1 unused")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Label rules" }),
+      screen.getByText(
+        "Rules: multiple parents allowed, cycles blocked, deleting labels keeps notes.",
+      ),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "New label" }),
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Label rules" }));
-    expect(
-      await screen.findByText("Labels can have more than one parent."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Circular relationships are blocked automatically."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Deleting a label never deletes notes."),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "Label rules" }),
+    ).not.toBeInTheDocument();
+    const startFocusButton = screen.getByRole("button", {
+      name: "Start Focus",
+    });
+    const newLabelButton = screen.getByRole("button", { name: "New label" });
+    expect(startFocusButton).toHaveClass(
+      "labels-button",
+      "labels-button--primary",
+    );
+    expect(newLabelButton).toHaveClass(
+      "labels-button",
+      "labels-button--primary",
+    );
 
     const searchInput = screen.getByPlaceholderText("Search labels...");
     expect(searchInput).toBeInTheDocument();
     expect(screen.getByLabelText("Filter labels")).toBeInTheDocument();
-    expect(screen.getByLabelText("Sort labels")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Sort labels")).not.toBeInTheDocument();
 
     const labelsTable = screen.getByRole("table", { name: "Labels list" });
-    expect(
-      within(labelsTable).getByRole("columnheader", { name: "Label" }),
-    ).toBeInTheDocument();
+    const labelHeader = within(labelsTable).getByRole("columnheader", {
+      name: "Label",
+    });
+    const childrenHeader = within(labelsTable).getByRole("columnheader", {
+      name: /Children/i,
+    });
+    const notesHeader = within(labelsTable).getByRole("columnheader", {
+      name: /Notes/i,
+    });
+
+    expect(labelHeader).toBeInTheDocument();
     expect(
       within(labelsTable).getByRole("columnheader", { name: "Parents" }),
     ).toBeInTheDocument();
-    expect(
-      within(labelsTable).getByRole("columnheader", { name: "Children" }),
-    ).toBeInTheDocument();
-    expect(
-      within(labelsTable).getByRole("columnheader", { name: "Notes" }),
-    ).toBeInTheDocument();
+    expect(childrenHeader).toBeInTheDocument();
+    expect(notesHeader).toBeInTheDocument();
     expect(
       within(labelsTable).getByRole("columnheader", { name: "Row actions" }),
+    ).toBeInTheDocument();
+    expect(labelHeader).toHaveAttribute("aria-sort", "ascending");
+    expect(
+      within(childrenHeader).getByRole("button", {
+        name: "Sort by children, high to low",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(notesHeader).getByRole("button", {
+        name: "Sort by notes, high to low",
+      }),
     ).toBeInTheDocument();
 
     const biologyRow = within(labelsTable).getByRole("row", {
@@ -349,17 +425,32 @@ describe("authenticated app shell", () => {
     fireEvent.change(screen.getByLabelText("Filter labels"), {
       target: { value: "all" },
     });
-    fireEvent.change(screen.getByLabelText("Sort labels"), {
-      target: { value: "children-desc" },
-    });
+    fireEvent.click(
+      within(childrenHeader).getByRole("button", {
+        name: "Sort by children, high to low",
+      }),
+    );
 
-    const bodyRows = within(labelsTable).getAllByRole("row").slice(1);
+    let bodyRows = within(labelsTable).getAllByRole("row").slice(1);
     expect(within(bodyRows[0]).getByText("Science")).toBeInTheDocument();
+    expect(childrenHeader).toHaveAttribute("aria-sort", "descending");
+    expect(labelHeader).not.toHaveAttribute("aria-sort");
+
+    fireEvent.click(
+      within(notesHeader).getByRole("button", {
+        name: "Sort by notes, high to low",
+      }),
+    );
+
+    bodyRows = within(labelsTable).getAllByRole("row").slice(1);
+    expect(within(bodyRows[0]).getByText("Science")).toBeInTheDocument();
+    expect(notesHeader).toHaveAttribute("aria-sort", "descending");
+    expect(childrenHeader).not.toHaveAttribute("aria-sort");
   });
 
-  it("opens label rules as an accessible popover dialog and restores focus on escape", async () => {
+  it("shows a static rules note without a rules toggle control", async () => {
     const { labelsContext, notesContext, userId } =
-      createLabelsRouteContexts("rules-popover-a11y");
+      createLabelsRouteContexts("rules-region-a11y");
 
     labelsContext.createLabel({
       name: "Science",
@@ -368,20 +459,15 @@ describe("authenticated app shell", () => {
 
     renderRoute("/labels", { labelsContext, notesContext });
 
-    const rulesButton = await screen.findByRole("button", {
-      name: "Label rules",
-    });
-
-    fireEvent.click(rulesButton);
-    const popover = await screen.findByRole("dialog", {
-      name: "Label rules",
-    });
-    expect(popover).toHaveFocus();
-
-    fireEvent.keyDown(popover, { key: "Escape" });
-    await expectDialogToBeClosed("Label rules");
-    expect(rulesButton).toHaveFocus();
-    expect(rulesButton).toHaveAttribute("aria-expanded", "false");
+    await screen.findByRole("heading", { level: 3, name: "Labels" });
+    expect(
+      screen.getByText(
+        "Rules: multiple parents allowed, cycles blocked, deleting labels keeps notes.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Label rules" }),
+    ).not.toBeInTheDocument();
   });
 
   it("opens the new label drawer and creates a label with searchable parents", async () => {

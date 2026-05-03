@@ -2,6 +2,7 @@
 
 import { act, fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { createPersistentNotesContext } from "../../modules/notes";
 import {
   createAppFocusContext,
   createAppLabelsContext,
@@ -12,7 +13,7 @@ import {
 } from "./app-shell-test-support";
 
 describe("authenticated app shell", () => {
-  it("keeps the discard dialog focused when a mobile sidebar note change is guarded", async () => {
+  it("keeps the discard dialog focused when an in-page note change is guarded", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -49,10 +50,7 @@ describe("authenticated app shell", () => {
     const bodyEditor = await screen.findByDisplayValue(
       "Current note has work in progress.",
     );
-    const sidebar = screen.getByRole("complementary", {
-      name: "Notes workspace",
-    });
-    const notesList = within(sidebar).getByRole("navigation", {
+    const notesList = screen.getByRole("navigation", {
       name: "Notes list",
     });
 
@@ -77,7 +75,7 @@ describe("authenticated app shell", () => {
     expect(screen.getByLabelText("Title")).not.toHaveFocus();
   });
 
-  it("renders the notes list inside the app sidebar for the notes workspace", async () => {
+  it("renders the notes list inside the notes workspace content", async () => {
     const labelsContext = createAppLabelsContext({
       keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -125,13 +123,24 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
-    const sidebar = screen.getByRole("complementary", {
+    expect(screen.getByText("Notes / Workspace")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Capture small concepts and reinforce them through recall.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Notes" })).toHaveLength(1);
+
+    const appSidebar = screen.getByRole("complementary", {
       name: "Notes workspace",
     });
-    const notesNavigation = within(sidebar).getByRole("navigation", {
+    const notesCatalog = screen.getByRole("complementary", {
+      name: "Notes catalog",
+    });
+    const notesNavigation = within(notesCatalog).getByRole("navigation", {
       name: "Notes list",
     });
     const notesLinks = within(notesNavigation).getAllByRole("button", {
@@ -139,31 +148,46 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      within(sidebar).getByRole("button", { name: "New note" }),
+      within(notesCatalog).getByRole("button", { name: "New note" }),
     ).toBeInTheDocument();
     expect(notesLinks).toHaveLength(2);
     expect(notesLinks[0]).toHaveTextContent("Neural pathways");
     expect(notesLinks[1]).toHaveTextContent("Second note");
     expect(notesLinks[0]).toHaveAttribute("aria-current", "page");
     expect(
-      within(notesNavigation).getAllByRole("button", {
+      within(notesNavigation).queryByRole("button", {
         name: /^Delete (Neural pathways|Second note)$/,
       }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(notesNavigation).getAllByRole("button", {
+        name: /^Actions for (Neural pathways|Second note)$/,
+      }),
     ).toHaveLength(2);
-    const shellHeader = screen.getByLabelText("Notes workspace toolbar");
 
     expect(
-      within(shellHeader).getByRole("combobox", { name: "Search notes" }),
+      within(notesCatalog).getByRole("combobox", { name: "Search notes" }),
     ).toBeInTheDocument();
-    expect(within(shellHeader).getByText("2 notes")).toBeInTheDocument();
+    expect(within(notesCatalog).getByText("2 notes")).toBeInTheDocument();
+    expect(
+      within(notesCatalog).getByText("Showing 1-2 of 2 notes"),
+    ).toBeInTheDocument();
+    expect(
+      within(notesCatalog).getByRole("combobox", { name: "Filter by label" }),
+    ).toBeInTheDocument();
+    expect(
+      within(notesCatalog).getByRole("combobox", { name: "Sort notes" }),
+    ).toBeInTheDocument();
 
     expect(screen.getByLabelText("Note editor surface")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Notes catalog")).not.toBeInTheDocument();
+    expect(
+      within(appSidebar).queryByRole("navigation", { name: "Notes list" }),
+    ).not.toBeInTheDocument();
     expect(screen.getAllByText("Biology").length).toBeGreaterThan(0);
     expect(firstNote.title).toBe("Neural pathways");
   });
 
-  it("lets an authenticated user delete notes from the sidebar notes list", async () => {
+  it("lets an authenticated user delete notes from the in-page notes list", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -179,7 +203,7 @@ describe("authenticated app shell", () => {
     });
     notesContext.createNote(userId, {
       acronyms: [],
-      body: "This note can be removed from the sidebar list.",
+      body: "This note can be removed from the notes list.",
       labelIds: [],
       metaphors: [],
       title: "Disposable note",
@@ -199,7 +223,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     const notesNavigation = screen.getByRole("navigation", {
@@ -213,8 +237,24 @@ describe("authenticated app shell", () => {
 
     fireEvent.click(
       within(disposableNoteRow as HTMLElement).getByRole("button", {
-        name: "Delete Disposable note",
+        name: "Actions for Disposable note",
       }),
+    );
+    fireEvent.click(
+      within(disposableNoteRow as HTMLElement).getByRole("menuitem", {
+        name: "Delete note",
+      }),
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Delete this note?" });
+
+    expect(
+      within(dialog).getByText(
+        "This will permanently delete the note and its memory hooks. Past results keep their saved snapshots.",
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Delete note" }),
     );
 
     expect(
@@ -232,7 +272,7 @@ describe("authenticated app shell", () => {
     ).not.toContain("Disposable note");
   });
 
-  it("renders every note in the sidebar notes list without a fixed item cap", async () => {
+  it("renders every note in the in-page notes list without a fixed item cap", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -263,12 +303,10 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
-    const notesNavigation = within(
-      screen.getByRole("complementary", { name: "Notes workspace" }),
-    ).getByRole("navigation", {
+    const notesNavigation = screen.getByRole("navigation", {
       name: "Notes list",
     });
 
@@ -282,7 +320,64 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
   });
 
-  it("uses the app sidebar collapse as the only notes list visibility control", async () => {
+  it("does not crash when opening Notes from Recall if a persisted note has an invalid updated timestamp", async () => {
+    const persistentNotesContext = createPersistentNotesContext({
+      service: {
+        createNote: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        deleteNote: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        listNotes: vi.fn(async () => [
+          {
+            acronyms: [],
+            body: "Persisted note body.",
+            createdAt: "2026-05-02T12:00:00.000Z",
+            id: "persisted-note-1",
+            labelIds: [],
+            metaphors: [],
+            title: "Persisted note",
+            updatedAt: "",
+          },
+        ]),
+        updateNote: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+      },
+    });
+
+    renderRoute("/recall", {
+      persistentNotesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Recall starts with notes",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Notes" }));
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Persisted note" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the in-page notes list visible when the app sidebar collapses", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -317,13 +412,13 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     const sidebar = screen.getByRole("complementary", {
       name: "Notes workspace",
     });
-    const notesList = within(sidebar).getByRole("navigation", {
+    const notesList = screen.getByRole("navigation", {
       name: "Notes list",
     });
     const collapseSidebarButton = within(sidebar).getByRole("button", {
@@ -336,7 +431,7 @@ describe("authenticated app shell", () => {
       screen.getAllByRole("button", { name: "Collapse sidebar" }),
     ).toHaveLength(1);
     fireEvent.click(
-      within(sidebar).getByRole("button", { name: "Spaced repetition" }),
+      within(notesList).getByRole("button", { name: "Spaced repetition" }),
     );
     expect(
       screen.getByDisplayValue(
@@ -344,12 +439,13 @@ describe("authenticated app shell", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Hide notes catalog" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("complementary", { name: "Notes catalog" }),
+    ).toBeVisible();
 
     fireEvent.click(collapseSidebarButton);
 
     expect(sidebar).not.toBeVisible();
+    expect(notesList).toBeVisible();
     expect(
       screen.getByRole("button", { name: "Expand sidebar" }),
     ).toHaveFocus();
@@ -380,21 +476,19 @@ describe("authenticated app shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
 
     expect(sidebar).toBeVisible();
+    expect(notesList).toBeVisible();
     expect(
-      within(sidebar).getByRole("navigation", { name: "Notes list" }),
-    ).toBeVisible();
-    expect(
-      within(sidebar).getByRole("button", { name: "Retrieval practice" }),
+      within(notesList).getByRole("button", { name: "Retrieval practice" }),
     ).toHaveAttribute("aria-current", "page");
   });
 
-  it("keeps account utilities at the top of the sidebar while long notes stay reachable", async () => {
+  it("keeps account utilities in the app sidebar while long notes stay reachable", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
     });
     const longTitle =
-      "Very long note title that should still stay reachable from the notes sidebar navigation";
+      "Very long note title that should still stay reachable from the notes list";
 
     notesContext.createNote("user-jordan", {
       acronyms: [],
@@ -418,13 +512,13 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     const sidebar = screen.getByRole("complementary", {
       name: "Notes workspace",
     });
-    const notesList = within(sidebar).getByRole("navigation", {
+    const notesList = screen.getByRole("navigation", {
       name: "Notes list",
     });
     const accountMenuButton = within(sidebar).getByRole("button", {
@@ -435,15 +529,12 @@ describe("authenticated app shell", () => {
       within(sidebar).getByRole("navigation", { name: "App sections" }),
     ).toBeInTheDocument();
     expect(
+      within(sidebar).queryByRole("navigation", { name: "Notes list" }),
+    ).not.toBeInTheDocument();
+    expect(
       within(notesList).getByRole("button", { name: longTitle }),
     ).toBeInTheDocument();
     expect(sidebar).toContainElement(accountMenuButton);
-    expect(
-      Boolean(
-        accountMenuButton.compareDocumentPosition(notesList) &
-          Node.DOCUMENT_POSITION_FOLLOWING,
-      ),
-    ).toBe(true);
     expect(
       within(accountMenuButton).getByText(/Jordan Alexandria Review/),
     ).toBeVisible();
@@ -482,7 +573,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
     expect(screen.getByText("No notes yet")).toBeInTheDocument();
     expect(screen.getByLabelText("Title").closest("header")).toContainElement(
@@ -490,9 +581,9 @@ describe("authenticated app shell", () => {
     );
     expect(
       within(
-        screen.getByRole("complementary", { name: "Notes workspace" }),
-      ).getByRole("button", { name: "New note" }),
-    ).toBeDisabled();
+        screen.getByRole("complementary", { name: "Notes catalog" }),
+      ).getAllByRole("button", { name: "New note" }),
+    ).toHaveLength(2);
 
     fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "Spaced repetition" },
@@ -523,7 +614,7 @@ describe("authenticated app shell", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Note editor" }));
     fireEvent.click(
       within(
-        screen.getByRole("complementary", { name: "Notes workspace" }),
+        screen.getByRole("complementary", { name: "Notes catalog" }),
       ).getByRole("button", { name: "New note" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Spaced repetition" }));
@@ -566,7 +657,7 @@ describe("authenticated app shell", () => {
       await screen.findByDisplayValue("Spaced repetition"),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Save changes" }),
+      screen.queryByRole("button", { name: "Save" }),
     ).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Body"), {
@@ -576,7 +667,7 @@ describe("authenticated app shell", () => {
       },
     });
 
-    const saveButton = screen.getByRole("button", { name: "Save changes" });
+    const saveButton = screen.getByRole("button", { name: "Save" });
     const titleHeader = screen.getByLabelText("Title").closest("header");
     const memoryHooks = screen.getByLabelText("Memory hooks");
 
@@ -592,11 +683,11 @@ describe("authenticated app shell", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Save changes" }),
+      screen.queryByRole("button", { name: "Save" }),
     ).not.toBeInTheDocument();
   });
 
-  it("opens notes search results without live-filtering the stable sidebar notes list", async () => {
+  it("filters the in-page notes list while keeping the selected note editor stable", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -651,7 +742,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     const searchInput = screen.getByRole("combobox", {
@@ -680,8 +771,8 @@ describe("authenticated app shell", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      notesList.getByRole("button", { name: "Working memory" }),
-    ).toBeInTheDocument();
+      notesList.queryByRole("button", { name: "Working memory" }),
+    ).not.toBeInTheDocument();
     expect(
       notesList.getByRole("button", { name: "Synaptic plasticity" }),
     ).toBeInTheDocument();
@@ -709,14 +800,14 @@ describe("authenticated app shell", () => {
 
     expect(screen.getByText("No notes found")).toBeInTheDocument();
     expect(
-      notesList.getByRole("button", { name: "Working memory" }),
-    ).toBeInTheDocument();
+      notesList.queryByRole("button", { name: "Working memory" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByDisplayValue("Short-term storage supports active reasoning."),
     ).toBeInTheDocument();
   });
 
-  it("keeps the notes inspector outside the note form while preserving hook-first order", async () => {
+  it("keeps the notes list, editor, and inspector as direct workspace columns", async () => {
     renderRoute("/notes", {
       session: {
         user: {
@@ -730,13 +821,26 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
+    const workspaceSurface = screen.getByLabelText("Notes workspace surface");
+    const notesLayout = workspaceSurface.querySelector(".notes-layout");
+    const notesCatalog = screen.getByLabelText("Notes catalog");
+    const noteEditorSurface = screen.getByLabelText("Note editor surface");
     const noteForm = screen.getByLabelText("Note editor");
+    const memoryHooksPanel = screen.getByLabelText("Memory hooks panel");
     const memoryHooks = screen.getByLabelText("Memory hooks");
     const learningState = screen.getByLabelText("Learning state");
+    const layoutColumns =
+      notesLayout === null ? [] : Array.from(notesLayout.children);
 
+    expect(layoutColumns).toEqual([
+      notesCatalog,
+      noteEditorSurface,
+      memoryHooksPanel,
+    ]);
+    expect(noteEditorSurface).not.toContainElement(memoryHooksPanel);
     expect(noteForm).not.toContainElement(memoryHooks);
     expect(noteForm).not.toContainElement(learningState);
     expect(
@@ -874,7 +978,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     fireEvent.change(
@@ -940,7 +1044,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     const searchInput = screen.getByRole("combobox", {
@@ -1182,10 +1286,17 @@ describe("authenticated app shell", () => {
         "The search phrase appears in this older note.",
       ),
     ).toBeInTheDocument();
-    expect(targetSidebarNote).toHaveAttribute("aria-current", "page");
-    expect(currentSidebarNote).not.toHaveAttribute("aria-current");
+    const updatedTargetNote = notesList.getByRole("button", {
+      name: "Older target note",
+    });
+    const updatedCurrentNote = notesList.getByRole("button", {
+      name: "Current note",
+    });
+
+    expect(updatedTargetNote).toHaveAttribute("aria-current", "page");
+    expect(updatedCurrentNote).not.toHaveAttribute("aria-current");
     expect(scrollIntoView).toHaveBeenCalled();
-    expect(scrollIntoView.mock.contexts).toContain(targetSidebarNote);
+    expect(scrollIntoView.mock.contexts).toContain(updatedTargetNote);
   });
 
   it("guards search navigation when the current note has unsaved edits", async () => {
@@ -1344,25 +1455,28 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
     expect(await screen.findByDisplayValue("Cell respiration")).toBeVisible();
+    const titleHeader = screen.getByLabelText("Title").closest("header");
+
+    expect(titleHeader).not.toBeNull();
     expect(screen.getByText("No labels yet")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Add label" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Manage labels" }),
+      screen.getByRole("button", { name: "Assign labels" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("checkbox", { name: "Biology" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Save changes" }),
+      (titleHeader as HTMLElement).querySelector(".notes-editor__save-inline"),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Manage labels" }));
-    fireEvent.change(await screen.findByLabelText("Search labels"), {
+    fireEvent.click(screen.getByRole("button", { name: "Assign labels" }));
+    fireEvent.change(await screen.findByLabelText("Search existing labels"), {
       target: { value: "bio" },
     });
 
@@ -1375,11 +1489,11 @@ describe("authenticated app shell", () => {
 
     expect(screen.getByText("No labels yet")).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Save changes" }),
+      (titleHeader as HTMLElement).querySelector(".notes-editor__save-inline"),
     ).not.toBeInTheDocument();
 
     fireEvent.click(
-      within(screen.getByRole("dialog", { name: "Manage labels" })).getByRole(
+      within(screen.getByRole("dialog", { name: "Assign labels" })).getByRole(
         "button",
         { name: "Save" },
       ),
@@ -1390,9 +1504,11 @@ describe("authenticated app shell", () => {
       within(currentLabels).getByLabelText("Assigned labels");
 
     expect(within(assignedLabels).getByText("Biology")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Search labels")).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Save changes" }),
+      screen.queryByLabelText("Search existing labels"),
+    ).not.toBeInTheDocument();
+    expect(
+      (titleHeader as HTMLElement).querySelector(".notes-editor__save-inline"),
     ).not.toBeInTheDocument();
     expect(listNotesForUser(notesContext.getSnapshot(), userId)).toEqual([
       expect.objectContaining({
@@ -1446,9 +1562,12 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
     expect(await screen.findByDisplayValue("Saved label note")).toBeVisible();
+    const titleHeader = screen.getByLabelText("Title").closest("header");
+
+    expect(titleHeader).not.toBeNull();
 
     const currentLabels = screen.getByLabelText("Current labels");
     const assignedLabels =
@@ -1459,10 +1578,10 @@ describe("authenticated app shell", () => {
       within(assignedLabels).queryByText("Biology"),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Save changes" }),
+      (titleHeader as HTMLElement).querySelector(".notes-editor__save-inline"),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Manage labels" }));
+    fireEvent.click(screen.getByRole("button", { name: "Assign labels" }));
     fireEvent.click(await screen.findByRole("checkbox", { name: "Biology" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Science" }));
 
@@ -1471,31 +1590,35 @@ describe("authenticated app shell", () => {
       within(assignedLabels).queryByText("Biology"),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Save changes" }),
+      (titleHeader as HTMLElement).querySelector(".notes-editor__save-inline"),
     ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-    expect(screen.queryByLabelText("Search labels")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Search existing labels"),
+    ).not.toBeInTheDocument();
     expect(within(assignedLabels).getByText("Science")).toBeInTheDocument();
     expect(
       within(assignedLabels).queryByText("Biology"),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Save changes" }),
+      (titleHeader as HTMLElement).querySelector(".notes-editor__save-inline"),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Manage labels" }));
+    fireEvent.click(screen.getByRole("button", { name: "Assign labels" }));
     fireEvent.click(await screen.findByRole("checkbox", { name: "Biology" }));
     fireEvent.pointerDown(document.body);
 
-    expect(screen.queryByLabelText("Search labels")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Search existing labels"),
+    ).not.toBeInTheDocument();
     expect(within(assignedLabels).getByText("Science")).toBeInTheDocument();
     expect(
       within(assignedLabels).queryByText("Biology"),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Save changes" }),
+      (titleHeader as HTMLElement).querySelector(".notes-editor__save-inline"),
     ).not.toBeInTheDocument();
     expect(listNotesForUser(notesContext.getSnapshot(), userId)).toEqual([
       expect.objectContaining({
@@ -1547,7 +1670,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
     expect(await screen.findByDisplayValue("Label removal note")).toBeVisible();
 
@@ -1558,7 +1681,7 @@ describe("authenticated app shell", () => {
     expect(within(assignedLabels).getByText("Biology")).toBeInTheDocument();
     expect(within(assignedLabels).getByText("Science")).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Save changes" }),
+      screen.queryByRole("button", { name: "Save" }),
     ).not.toBeInTheDocument();
 
     fireEvent.click(
@@ -1571,7 +1694,7 @@ describe("authenticated app shell", () => {
       within(assignedLabels).queryByText("Biology"),
     ).not.toBeInTheDocument();
     expect(within(assignedLabels).getByText("Science")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save changes" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Save" })).toBeVisible();
     expect(listNotesForUser(notesContext.getSnapshot(), userId)).toEqual([
       expect.objectContaining({
         id: note.id,
@@ -1579,7 +1702,7 @@ describe("authenticated app shell", () => {
       }),
     ]);
 
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(listNotesForUser(notesContext.getSnapshot(), userId)).toEqual([
       expect.objectContaining({
@@ -1629,7 +1752,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
     expect(
       await screen.findByDisplayValue("Discard label removal note"),
@@ -1651,9 +1774,9 @@ describe("authenticated app shell", () => {
       within(currentLabels).queryByLabelText("Assigned labels"),
     ).not.toBeInTheDocument();
     expect(screen.getByText("No labels yet")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save changes" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Save" })).toBeVisible();
 
-    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
 
     const restoredAssignedLabels =
       within(currentLabels).getByLabelText("Assigned labels");
@@ -1662,7 +1785,7 @@ describe("authenticated app shell", () => {
       within(restoredAssignedLabels).getByText("Science"),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Save changes" }),
+      screen.queryByRole("button", { name: "Save" }),
     ).not.toBeInTheDocument();
     expect(listNotesForUser(notesContext.getSnapshot(), userId)).toEqual([
       expect.objectContaining({
@@ -1707,7 +1830,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     fireEvent.change(
@@ -1721,25 +1844,25 @@ describe("authenticated app shell", () => {
       },
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Manage labels" }));
+    fireEvent.click(screen.getByRole("button", { name: "Assign labels" }));
 
     const labelPicker = await screen.findByRole("dialog", {
-      name: "Manage labels",
+      name: "Assign labels",
     });
 
     expect(await screen.findByText("No labels available")).toBeInTheDocument();
     expect(
-      within(labelPicker).getByRole("button", { name: "Go to Labels" }),
+      within(labelPicker).getByRole("button", { name: "Open Labels" }),
     ).toBeInTheDocument();
     expect(
       within(labelPicker).queryByRole("button", { name: "Save" }),
     ).not.toBeInTheDocument();
     expect(
-      within(labelPicker).queryByLabelText("Search labels"),
+      within(labelPicker).queryByLabelText("Search existing labels"),
     ).not.toBeInTheDocument();
 
     fireEvent.click(
-      within(labelPicker).getByRole("button", { name: "Go to Labels" }),
+      within(labelPicker).getByRole("button", { name: "Open Labels" }),
     );
 
     const dialog = await screen.findByRole("dialog", {
@@ -1763,9 +1886,9 @@ describe("authenticated app shell", () => {
     expect(router.state.location.pathname).toBe("/notes");
 
     fireEvent.click(
-      within(screen.getByRole("dialog", { name: "Manage labels" })).getByRole(
+      within(screen.getByRole("dialog", { name: "Assign labels" })).getByRole(
         "button",
-        { name: "Go to Labels" },
+        { name: "Open Labels" },
       ),
     );
     fireEvent.click(
@@ -1782,7 +1905,7 @@ describe("authenticated app shell", () => {
     expect(router.state.location.pathname).toBe("/labels");
   });
 
-  it("renders tabbed memory hooks with per-tab create flow and preserved drafts", async () => {
+  it("disables memory hooks for drafts and preserves per-tab hook drafts after saving", async () => {
     renderRoute("/notes", {
       session: {
         user: {
@@ -1796,12 +1919,39 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     const memoryHooks = screen.getByLabelText("Memory hooks");
     expect(
-      within(memoryHooks).getByRole("tab", {
+      within(memoryHooks).getByText("Save the note first"),
+    ).toBeInTheDocument();
+    expect(
+      within(memoryHooks).getByText(
+        "Memory hooks are attached to saved notes.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(memoryHooks).queryByRole("tab", { name: "Metaphor" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Learning state").textContent).toContain(
+      "Save the note first",
+    );
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Action potentials" },
+    });
+    fireEvent.change(screen.getByLabelText("Body"), {
+      target: {
+        value: "Neurons fire once membrane voltage crosses threshold.",
+      },
+    });
+
+    expect(screen.getByRole("button", { name: "Create note" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Create note" }));
+
+    expect(
+      await screen.findByRole("tab", {
         name: "Metaphor",
         selected: true,
       }),
@@ -1817,22 +1967,12 @@ describe("authenticated app shell", () => {
         "The metaphor helps you connect the concept to a vivid mental image.",
       ),
     ).toBeInTheDocument();
-    expect(
-      within(memoryHooks).getByLabelText("Your metaphor"),
-    ).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("Title"), {
-      target: { value: "Action potentials" },
-    });
-    fireEvent.change(screen.getByLabelText("Body"), {
-      target: {
-        value: "Neurons fire once membrane voltage crosses threshold.",
-      },
-    });
 
     const metaphorDescription = screen.getByLabelText("Your metaphor");
 
-    expect(screen.getByRole("button", { name: "Create note" })).toBeVisible();
+    expect(
+      within(memoryHooks).queryByRole("button", { name: "Save" }),
+    ).not.toBeInTheDocument();
 
     fireEvent.change(metaphorDescription, {
       target: {
@@ -1846,6 +1986,9 @@ describe("authenticated app shell", () => {
         "Domino line: crossing threshold is like tipping the first domino so the whole line falls.",
       ),
     ).toBeInTheDocument();
+    expect(
+      within(memoryHooks).getByRole("button", { name: "Save" }),
+    ).toBeVisible();
 
     fireEvent.click(screen.getByRole("tab", { name: "Acronym" }));
 
@@ -1868,6 +2011,10 @@ describe("authenticated app shell", () => {
 
     const acronymDescription = screen.getByLabelText("Your acronym");
 
+    expect(
+      within(memoryHooks).queryByRole("button", { name: "Save" }),
+    ).not.toBeInTheDocument();
+
     fireEvent.change(acronymDescription, {
       target: {
         value: "ATP means Action Threshold Propagation.",
@@ -1877,6 +2024,9 @@ describe("authenticated app shell", () => {
     expect(
       screen.getByDisplayValue("ATP means Action Threshold Propagation."),
     ).toBeInTheDocument();
+    expect(
+      within(memoryHooks).getByRole("button", { name: "Save" }),
+    ).toBeVisible();
 
     fireEvent.click(screen.getByRole("tab", { name: "Metaphor" }));
 
@@ -1945,7 +2095,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     const memoryHooks = screen.getByLabelText("Memory hooks");
@@ -2028,7 +2178,7 @@ describe("authenticated app shell", () => {
       await screen.findByDisplayValue("Original lighthouse metaphor."),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Save changes" }),
+      screen.queryByRole("button", { name: "Save" }),
     ).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Your metaphor"), {
@@ -2044,9 +2194,7 @@ describe("authenticated app shell", () => {
     expect(
       within(metaphorEditor).getByRole("button", { name: "Save" }),
     ).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Discard changes" }),
-    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Discard" })).toBeVisible();
 
     fireEvent.click(
       within(metaphorEditor).getByRole("button", { name: "Save" }),
@@ -2056,7 +2204,7 @@ describe("authenticated app shell", () => {
       await screen.findByDisplayValue("Updated bridge metaphor."),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Discard changes" }),
+      screen.queryByRole("button", { name: "Discard" }),
     ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Acronym" }));
@@ -2068,17 +2216,15 @@ describe("authenticated app shell", () => {
         value: "MAP means Memory Access Prompt.",
       },
     });
-    expect(
-      screen.getByRole("button", { name: "Discard changes" }),
-    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Discard" })).toBeVisible();
 
-    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
 
     expect(
       await screen.findByDisplayValue("MAP means Memory Anchor Phrase."),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Discard changes" }),
+      screen.queryByRole("button", { name: "Discard" }),
     ).not.toBeInTheDocument();
     expect(listNotesForUser(notesContext.getSnapshot(), userId)).toEqual([
       expect.objectContaining({
@@ -2136,7 +2282,7 @@ describe("authenticated app shell", () => {
       target: { value: "Original note body with unsaved focus edits." },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Focus on this note" }));
+    fireEvent.click(screen.getByRole("button", { name: "Focus here" }));
 
     expect(router.state.location.pathname).toBe("/notes");
     expect(
@@ -2146,7 +2292,7 @@ describe("authenticated app shell", () => {
       screen.queryByRole("dialog", { name: "Discard unsaved changes?" }),
     ).toBeNull();
     expect(
-      screen.getByRole("button", { name: "End focus" }),
+      screen.getByRole("button", { name: "Focus here" }),
     ).toBeInTheDocument();
     expect(focusContext.getActiveSession({ userId })).toMatchObject({
       currentInterval: "Focus",

@@ -124,6 +124,34 @@ describe("learning state", () => {
     });
   });
 
+  it.each([
+    ["empty", ""],
+    ["overflowing", "+275760-09-13T00:00:00.000Z"],
+  ])("marks notes with %s recall dates as ready for review", (_name, completedAt) => {
+    const note = buildNote({ id: "note-overflow-date" });
+
+    expect(
+      deriveLearningState({
+        history: buildHistory(note.id, [
+          {
+            completedAt,
+            rating: "easy",
+          },
+        ]),
+        note,
+        now: "2026-04-12T09:00:00.000Z",
+      }),
+    ).toMatchObject({
+      isWeak: false,
+      lastPracticedAt: null,
+      latestRating: "easy",
+      nextReviewAt: null,
+      practiced: true,
+      recommendedAction: "review_now",
+      status: "ready_for_review",
+    });
+  });
+
   it("derives states for each note from recall history lookup", () => {
     const notes = [buildNote({ id: "note-1" }), buildNote({ id: "note-2" })];
 

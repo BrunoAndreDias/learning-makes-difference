@@ -24,6 +24,50 @@
 import * as sandcastle from "@ai-hero/sandcastle";
 import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
 
+type PlanIssue = { id: string; title: string; branch: string };
+type Plan = { issues: PlanIssue[] };
+
+const stripMarkdownFence = (value: string) =>
+  value
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+
+const parsePlanJson = (rawPlan: string): Plan => {
+  const strippedPlan = stripMarkdownFence(rawPlan);
+  const candidates = [
+    strippedPlan,
+    strippedPlan.replace(/\\n/g, "\n").replace(/\\"/g, '"').trim(),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate) as unknown;
+      const plan =
+        typeof parsed === "string"
+          ? (JSON.parse(stripMarkdownFence(parsed)) as unknown)
+          : parsed;
+
+      if (
+        plan &&
+        typeof plan === "object" &&
+        "issues" in plan &&
+        Array.isArray((plan as { issues: unknown }).issues)
+      ) {
+        return plan as Plan;
+      }
+    } catch {
+      // Try the next known planner output shape.
+    }
+  }
+
+  throw new Error(
+    "Planning agent produced plan JSON without an issues array.\n\n" +
+      rawPlan.trim(),
+  );
+};
+
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
@@ -42,7 +86,7 @@ const sandboxProvider = docker({
   mounts: [
     {
       hostPath: "~/.codex/auth.json",
-      sandboxPath: "~/.codex/auth.json",
+      sandboxPath: "/home/agent/.codex/auth.json",
       readonly: true,
     },
   ],
@@ -84,9 +128,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   }
 
   // The plan JSON contains an array of issues, each with id, title, branch.
-  const { issues } = JSON.parse(planMatch[1]!) as {
-    issues: { id: string; title: string; branch: string }[];
-  };
+  const { issues } = parsePlanJson(planMatch[1]!);
 
   if (issues.length === 0) {
     // No unblocked work — either everything is done or everything is blocked.
@@ -124,7 +166,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
         const implement = await sandbox.run({
           name: "implementer",
           maxIterations: 100,
-          agent: sandcastle.codex("gpt-5.4", { effort: "high" }),
+          agent: sandcastle.codex("gpt-5.3-codex", { effort: "xhigh" }),
           promptFile: "./.sandcastle/implement-prompt.md",
           promptArgs: {
             TASK_ID: issue.id,
@@ -138,7 +180,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           const review = await sandbox.run({
             name: "reviewer",
             maxIterations: 1,
-            agent: sandcastle.codex("gpt-5.5", { effort: "high" }),
+            agent: sandcastle.codex("gpt-5.5", { effort: "xhigh" }),
             promptFile: "./.sandcastle/review-prompt.md",
             promptArgs: {
               BRANCH: issue.branch,

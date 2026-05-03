@@ -113,7 +113,9 @@ describe("authenticated recall workspace", () => {
       session: createSession(),
     });
 
-    expect(await screen.findByText("Recall / Session")).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Recall\s*\/\s*Session/),
+    ).toBeInTheDocument();
     expect(screen.getAllByText("Stored prompt title").length).toBeGreaterThan(
       0,
     );
@@ -129,6 +131,97 @@ describe("authenticated recall workspace", () => {
     expect(
       screen.getByRole("link", { name: "Open Notes Workspace" }),
     ).toHaveAttribute("href", "/notes");
+  });
+
+  it("does not crash when switching from Recall results to Notes if a persisted result has an overflowing completed timestamp", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const note = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "Recall body",
+      title: "Recall note",
+    });
+    const persistentRecallContext = createPersistentRecallContext({
+      service: {
+        endRecallSession: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        getActiveSession: vi.fn(async () => null),
+        listSessionResults: vi.fn(async () => [
+          {
+            attempts: [
+              {
+                noteId: note.id,
+                rating: "good" as const,
+              },
+            ],
+            completedAt: "+275760-09-13T00:00:00.000Z",
+            createdAt: "2026-05-02T12:00:00.000Z",
+            id: "session-invalid-date",
+            mode: "FlashCard" as const,
+            notes: [
+              {
+                acronyms: [],
+                body: note.body,
+                createdAt: note.createdAt,
+                id: note.id,
+                labelIds: [],
+                metaphors: [],
+                title: note.title,
+                updatedAt: note.updatedAt,
+              },
+            ],
+            questions: [
+              {
+                isAnswerRevealed: true,
+                noteId: note.id,
+                noteSnapshot: {
+                  acronyms: [],
+                  body: note.body,
+                  createdAt: note.createdAt,
+                  id: note.id,
+                  labelIds: [],
+                  metaphors: [],
+                  title: note.title,
+                  updatedAt: note.updatedAt,
+                },
+                score: null,
+                selfRating: "good" as const,
+                typedAnswer: "",
+              },
+            ],
+            score: null,
+          },
+        ]),
+        rateFlashCardAnswer: vi.fn(async () => null),
+        revealFlashCardAnswer: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        startFlashCardSession: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        updateFlashCardAttemptText: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+      },
+    });
+
+    renderRoute("/recall", {
+      ...contexts,
+      persistentRecallContext,
+      session: createSession(),
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Recall" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Notes" }));
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Recall note" }),
+    ).toBeInTheDocument();
   });
 
   it("keeps the Results layout empty state when Notes exist but Results do not", async () => {
@@ -150,6 +243,13 @@ describe("authenticated recall workspace", () => {
     expect(
       screen.getAllByRole("link", { name: "Start Recall" })[0],
     ).toHaveAttribute("href", "/recall/select");
+    expect(screen.getAllByRole("link", { name: "Start Recall" })).toHaveLength(
+      1,
+    );
+    expect(
+      screen.getByRole("option", { name: "All modes" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Showing/)).toBeNull();
   });
 
   it("selects the newest Result by default and changes selection without changing route", async () => {
@@ -187,6 +287,7 @@ describe("authenticated recall workspace", () => {
     expect(
       within(detail).getAllByText("Newest result body.").length,
     ).toBeGreaterThan(0);
+    expect(screen.getByText("Showing 1-2 of 2 results")).toBeInTheDocument();
 
     const results = screen.getByRole("region", { name: "Recall results" });
     const resultButtons = within(results).getAllByRole("button");
@@ -263,7 +364,7 @@ describe("authenticated recall workspace", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Start Recall" }),
+      await screen.findByRole("heading", { level: 3, name: "Select notes" }),
     ).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Search Notes"), {
       target: { value: "lighthouse" },
@@ -279,13 +380,15 @@ describe("authenticated recall workspace", () => {
     fireEvent.click(screen.getByRole("radio", { name: /FlashCard/ }));
     expect(screen.getByRole("button", { name: "Start recall" })).toBeEnabled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear selection" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Searchable Note/ }));
     expect(screen.getByRole("button", { name: "Start recall" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("checkbox", { name: /Searchable Note/ }));
     fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
 
-    expect(await screen.findByText("Recall / Session")).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Recall\s*\/\s*Session/),
+    ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall/session");
   });
 
@@ -305,7 +408,9 @@ describe("authenticated recall workspace", () => {
       session: createSession(),
     });
 
-    expect(await screen.findByText("Note body hidden")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Try to recall this note before revealing it."),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Saved result body.")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Reveal note" }));
@@ -336,7 +441,7 @@ describe("authenticated recall workspace", () => {
       session: createSession(),
     });
 
-    await screen.findByText("Recall / Session");
+    await screen.findByText(/Recall\s*\/\s*Session/);
     fireEvent.click(screen.getAllByRole("button", { name: "End session" })[0]);
     expect(
       screen.getByRole("dialog", { name: "Discard recall session?" }),

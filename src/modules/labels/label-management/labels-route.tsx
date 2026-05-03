@@ -14,6 +14,7 @@ import {
 import { formatCount } from "../../../lib/format-count";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import type { AppSessionSnapshot } from "../../access/session/session";
+import { FocusSessionStartControl } from "../../focus";
 import { listNotesForUser } from "../../notes";
 import { normalizeLabelParentIds } from "../label-graph";
 import { type AppLabel, AppLabelError } from "./labels";
@@ -27,7 +28,6 @@ import {
   type LabelsFilterValue,
   type LabelsSortValue,
   parseLabelsFilterValue,
-  parseLabelsSortValue,
 } from "./labels-management-view";
 
 export const Route = createFileRoute("/_protected/labels")({
@@ -68,6 +68,11 @@ type DeleteLabelDialogProps = Readonly<{
 type FocusRestoreRef = {
   current: HTMLElement | null;
 };
+
+type CountColumnSortValue = Extract<
+  LabelsSortValue,
+  "children-desc" | "notes-desc"
+>;
 
 function formatParentNames(parentNames: readonly string[]) {
   if (parentNames.length === 0) {
@@ -116,6 +121,17 @@ function getRowsByIds(
       .map((rowId) => rowById.get(rowId))
       .filter((row): row is DerivedLabelRow => row !== undefined),
   );
+}
+
+function getColumnSortButtonLabel(input: {
+  columnLabel: "Children" | "Notes";
+  isActive: boolean;
+}) {
+  if (input.isActive) {
+    return `Clear ${input.columnLabel.toLowerCase()} sort`;
+  }
+
+  return `Sort by ${input.columnLabel.toLowerCase()}, high to low`;
 }
 
 function getChildRows(input: {
@@ -227,6 +243,14 @@ function LabelsPage() {
     from: "/_protected/labels",
     select: (context) => context.persistentNotes,
   });
+  const focus = useRouteContext({
+    from: "/_protected/labels",
+    select: (context) => context.focus,
+  });
+  const persistentFocus = useRouteContext({
+    from: "/_protected/labels",
+    select: (context) => context.persistentFocus,
+  });
   const session = useRouteContext({
     from: "/_protected/labels",
     select: (context) => context.session,
@@ -242,14 +266,18 @@ function LabelsPage() {
     notes.getSnapshot,
     notes.getSnapshot,
   );
+  useSyncExternalStore(focus.subscribe, focus.getSnapshot, focus.getSnapshot);
   const currentUserId = sessionSnapshot.user?.id ?? null;
+  const activeFocusSession =
+    currentUserId === null
+      ? null
+      : focus.getActiveSession({ userId: currentUserId });
 
   const [labelRecords, setLabelRecords] = useState<AppLabel[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterValue, setFilterValue] = useState<LabelsFilterValue>("all");
   const [sortValue, setSortValue] = useState<LabelsSortValue>("name-asc");
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
-  const [isRulesOpen, setRulesOpen] = useState(false);
   const [isCreateDrawerOpen, setCreateDrawerOpen] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createParentSearchQuery, setCreateParentSearchQuery] = useState("");
@@ -270,7 +298,6 @@ function LabelsPage() {
   const editDrawerTitleId = useId();
   const deleteDialogDescriptionId = useId();
   const deleteDialogTitleId = useId();
-  const rulesPopoverId = useId();
   const createInputId = useId();
   const createParentSearchInputId = useId();
   const editInputId = useId();
@@ -278,12 +305,9 @@ function LabelsPage() {
   const feedbackMessageId = useId();
   const filterSelectId = useId();
   const searchInputId = useId();
-  const sortSelectId = useId();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const createInputRef = useRef<HTMLInputElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
-  const rulesButtonRef = useRef<HTMLButtonElement>(null);
-  const rulesPopoverRef = useRef<HTMLElement>(null);
   const createDrawerTriggerRef = useRef<HTMLElement | null>(null);
   const editDrawerTriggerRef = useRef<HTMLElement | null>(null);
   const deleteDialogTriggerRef = useRef<HTMLElement | null>(null);
@@ -370,14 +394,6 @@ function LabelsPage() {
 
     editInputRef.current?.focus();
   }, [editingLabelId]);
-
-  useEffect(() => {
-    if (!isRulesOpen) {
-      return;
-    }
-
-    rulesPopoverRef.current?.focus();
-  }, [isRulesOpen]);
 
   useEffect(() => {
     if (openRowActionsLabelId === null) {
@@ -519,14 +535,6 @@ function LabelsPage() {
     }
   }
 
-  function handleSortChange(event: ChangeEvent<HTMLSelectElement>) {
-    const nextSortValue = parseLabelsSortValue(event.target.value);
-
-    if (nextSortValue !== null) {
-      setSortValue(nextSortValue);
-    }
-  }
-
   function openDeleteDialog(row: DerivedLabelRow) {
     closeRowActionsMenu();
     deleteDialogTriggerRef.current = getActiveFocusRestoreTarget();
@@ -626,18 +634,6 @@ function LabelsPage() {
     setEditParentSearchQuery("");
   }
 
-  function closeRulesPopover() {
-    setRulesOpen(false);
-    rulesButtonRef.current?.focus();
-  }
-
-  function handleRulesPopoverKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      closeRulesPopover();
-    }
-  }
-
   function handleCreateDrawerKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
     if (event.key === "Escape") {
       closeCreateDrawer();
@@ -648,6 +644,12 @@ function LabelsPage() {
     if (event.key === "Escape") {
       closeEditDrawer();
     }
+  }
+
+  function handleCountColumnSort(nextSortValue: CountColumnSortValue) {
+    setSortValue((currentSortValue) =>
+      currentSortValue === nextSortValue ? "name-asc" : nextSortValue,
+    );
   }
 
   function addCreateParent(parentId: string) {
@@ -815,59 +817,46 @@ function LabelsPage() {
   return (
     <section className="labels-page" aria-labelledby="labels-route-heading">
       <header className="labels-management-header">
-        <div className="labels-management-header__copy">
-          <h3 id="labels-route-heading">Labels</h3>
-          <p className="muted">Organize notes with reusable topics.</p>
+        <div className="labels-management-header__copy recall-surface__header">
+          <div className="notes-editor__title-stack">
+            <p className="recall-breadcrumb">
+              <span>Labels</span> / Management
+            </p>
+            <h3 id="labels-route-heading">Labels</h3>
+            <p className="muted notes-editor__meta">
+              Organize notes with reusable topics.
+            </p>
+          </div>
           {hasLabels ? (
             <section
               aria-label="Labels summary"
               className="labels-management-header__summary"
             >
-              <span>{summaryLabelsText}</span>
-              <span aria-hidden="true">·</span>
-              <span>{summaryTopLevelText}</span>
-              <span aria-hidden="true">·</span>
-              <span>{summaryRelationshipsText}</span>
-              <span aria-hidden="true">·</span>
-              <span>{summaryUnusedText}</span>
-              <div className="labels-rules-popover">
-                <button
-                  aria-controls={rulesPopoverId}
-                  aria-expanded={isRulesOpen}
-                  aria-haspopup="dialog"
-                  className="labels-rules-button"
-                  onClick={() => setRulesOpen((value) => !value)}
-                  ref={rulesButtonRef}
-                  type="button"
-                >
-                  <span>Label rules</span>
-                  <InfoIcon />
-                </button>
-                {isRulesOpen ? (
-                  <article
-                    aria-label="Label rules"
-                    aria-modal="false"
-                    className="labels-rules-popover__content"
-                    id={rulesPopoverId}
-                    onKeyDown={handleRulesPopoverKeyDown}
-                    ref={rulesPopoverRef}
-                    role="dialog"
-                    tabIndex={-1}
-                  >
-                    <h4>Label rules</h4>
-                    <ul>
-                      <li>Labels can have more than one parent.</li>
-                      <li>Circular relationships are blocked automatically.</li>
-                      <li>Deleting a label never deletes notes.</li>
-                    </ul>
-                  </article>
-                ) : null}
+              <div className="labels-management-header__summary-metrics">
+                <span>{summaryLabelsText}</span>
+                <span aria-hidden="true">·</span>
+                <span>{summaryTopLevelText}</span>
+                <span aria-hidden="true">·</span>
+                <span>{summaryRelationshipsText}</span>
+                <span aria-hidden="true">·</span>
+                <span>{summaryUnusedText}</span>
               </div>
+              <p className="labels-management-header__rules-note">
+                Rules: multiple parents allowed, cycles blocked, deleting labels
+                keeps notes.
+              </p>
             </section>
           ) : null}
         </div>
 
         <div className="labels-management-header__actions">
+          <FocusSessionStartControl
+            activeFocusSession={activeFocusSession}
+            actionButtonClassName="labels-button labels-button--primary"
+            focus={focus}
+            persistentFocus={persistentFocus}
+            userId={currentUserId}
+          />
           <button
             className="labels-button labels-button--primary"
             onClick={(event) => openEmptyCreateDrawer(event.currentTarget)}
@@ -927,22 +916,6 @@ function LabelsPage() {
               <option value="all">All labels</option>
               <option value="top-level">Top-level</option>
               <option value="unused">Unused</option>
-            </select>
-          </label>
-
-          <label
-            className="labels-field labels-field--control"
-            htmlFor={sortSelectId}
-          >
-            <span className="sr-only">Sort labels</span>
-            <select
-              id={sortSelectId}
-              onChange={handleSortChange}
-              value={sortValue}
-            >
-              <option value="name-asc">Sort</option>
-              <option value="notes-desc">Notes (high-low)</option>
-              <option value="children-desc">Children (high-low)</option>
             </select>
           </label>
         </section>
@@ -1006,14 +979,65 @@ function LabelsPage() {
             </div>
           </article>
         ) : (
-          <div className="labels-table-scroll">
+          <div className="labels-table-scroll" data-labels-table-scroll="">
             <table aria-label="Labels list" className="labels-table">
               <thead>
                 <tr>
-                  <th scope="col">Label</th>
+                  <th
+                    aria-sort={
+                      sortValue === "name-asc" ? "ascending" : undefined
+                    }
+                    scope="col"
+                  >
+                    Label
+                  </th>
                   <th scope="col">Parents</th>
-                  <th scope="col">Children</th>
-                  <th scope="col">Notes</th>
+                  <th
+                    aria-sort={
+                      sortValue === "children-desc" ? "descending" : undefined
+                    }
+                    scope="col"
+                  >
+                    <button
+                      aria-label={getColumnSortButtonLabel({
+                        columnLabel: "Children",
+                        isActive: sortValue === "children-desc",
+                      })}
+                      className={`labels-table-sort-button${
+                        sortValue === "children-desc"
+                          ? " labels-table-sort-button--active"
+                          : ""
+                      }`}
+                      onClick={() => handleCountColumnSort("children-desc")}
+                      type="button"
+                    >
+                      <span>Children</span>
+                      <SortDescendingIcon />
+                    </button>
+                  </th>
+                  <th
+                    aria-sort={
+                      sortValue === "notes-desc" ? "descending" : undefined
+                    }
+                    scope="col"
+                  >
+                    <button
+                      aria-label={getColumnSortButtonLabel({
+                        columnLabel: "Notes",
+                        isActive: sortValue === "notes-desc",
+                      })}
+                      className={`labels-table-sort-button${
+                        sortValue === "notes-desc"
+                          ? " labels-table-sort-button--active"
+                          : ""
+                      }`}
+                      onClick={() => handleCountColumnSort("notes-desc")}
+                      type="button"
+                    >
+                      <span>Notes</span>
+                      <SortDescendingIcon />
+                    </button>
+                  </th>
                   <th scope="col">
                     <span className="sr-only">Row actions</span>
                   </th>
@@ -1530,7 +1554,74 @@ function LabelRowActionsMenu({
   onEdit,
   onToggle,
 }: LabelRowActionsMenuProps) {
+  const menuContainerRef = useRef<HTMLDivElement>(null);
+  const menuPopoverRef = useRef<HTMLDivElement>(null);
   const triggerButtonRef = useRef<HTMLButtonElement>(null);
+  const [menuDirection, setMenuDirection] = useState<"down" | "up">("down");
+
+  const updateMenuDirection = useCallback(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const triggerButton = triggerButtonRef.current;
+    const menuPopover = menuPopoverRef.current;
+
+    if (triggerButton === null || menuPopover === null) {
+      return;
+    }
+
+    const triggerRect = triggerButton.getBoundingClientRect();
+    const popoverHeight =
+      menuPopover.offsetHeight || menuPopover.getBoundingClientRect().height;
+    const shellElement = menuContainerRef.current?.closest(
+      "[data-labels-table-scroll]",
+    );
+    const shellRect =
+      shellElement instanceof HTMLElement
+        ? shellElement.getBoundingClientRect()
+        : null;
+    const topBoundary = shellRect?.top ?? 0;
+    const bottomBoundary = shellRect?.bottom ?? window.innerHeight;
+    const spaceAbove = triggerRect.top - topBoundary;
+    const spaceBelow = bottomBoundary - triggerRect.bottom;
+    const minimumGap = 12;
+    const shouldOpenUpward =
+      spaceBelow < popoverHeight + minimumGap && spaceAbove > spaceBelow;
+
+    setMenuDirection(shouldOpenUpward ? "up" : "down");
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setMenuDirection("down");
+      return;
+    }
+
+    updateMenuDirection();
+
+    const menuContainer = menuContainerRef.current;
+    const shellElement = menuContainer?.closest("[data-labels-table-scroll]");
+    const handleLayoutChange = () => {
+      updateMenuDirection();
+    };
+
+    window.addEventListener("resize", handleLayoutChange);
+    window.addEventListener("scroll", handleLayoutChange, true);
+
+    if (shellElement instanceof HTMLElement) {
+      shellElement.addEventListener("scroll", handleLayoutChange);
+    }
+
+    return () => {
+      window.removeEventListener("resize", handleLayoutChange);
+      window.removeEventListener("scroll", handleLayoutChange, true);
+
+      if (shellElement instanceof HTMLElement) {
+        shellElement.removeEventListener("scroll", handleLayoutChange);
+      }
+    };
+  }, [isOpen, updateMenuDirection]);
 
   function closeMenuAndRestoreFocus() {
     triggerButtonRef.current?.focus();
@@ -1550,7 +1641,13 @@ function LabelRowActionsMenu({
   }
 
   return (
-    <div className="labels-row-menu" data-row-actions-menu="">
+    <div
+      className={`labels-row-menu${
+        isOpen && menuDirection === "up" ? " labels-row-menu--open-upward" : ""
+      }`}
+      data-row-actions-menu=""
+      ref={menuContainerRef}
+    >
       <button
         aria-controls={menuId}
         aria-expanded={isOpen}
@@ -1576,6 +1673,7 @@ function LabelRowActionsMenu({
             event.stopPropagation();
           }}
           onKeyDown={handleKeyDown}
+          ref={menuPopoverRef}
           role="menu"
         >
           <button
@@ -1626,21 +1724,6 @@ function RowActionsIcon() {
   );
 }
 
-function InfoIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      className="labels-inline-icon"
-      focusable="false"
-      viewBox="0 0 24 24"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 11v5" />
-      <path d="M12 8h.01" />
-    </svg>
-  );
-}
-
 function SearchIcon() {
   return (
     <svg
@@ -1651,6 +1734,22 @@ function SearchIcon() {
     >
       <circle cx="11" cy="11" r="7" />
       <path d="m16 16 4 4" />
+    </svg>
+  );
+}
+
+function SortDescendingIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="labels-inline-icon labels-table-sort-button__icon"
+      focusable="false"
+      viewBox="0 0 24 24"
+    >
+      <path d="M12 5v14" />
+      <path d="m7 14 5 5 5-5" />
+      <path d="M5 7h6" />
+      <path d="M5 11h4" />
     </svg>
   );
 }

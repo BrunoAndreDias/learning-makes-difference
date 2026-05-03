@@ -14,10 +14,16 @@ import { type AppStoredNote, listNotesForUser } from "./notes";
 import { useNotesWorkspace } from "./notes-workspace";
 
 function formatSidebarNoteDate(value: string): string {
+  const noteDate = new Date(value);
+
+  if (Number.isNaN(noteDate.getTime())) {
+    return "Unknown date";
+  }
+
   return new Intl.DateTimeFormat("en", {
     day: "numeric",
     month: "short",
-  }).format(new Date(value));
+  }).format(noteDate);
 }
 
 export function NotesWorkspaceSidebar({

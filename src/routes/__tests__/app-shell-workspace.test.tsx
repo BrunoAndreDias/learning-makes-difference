@@ -103,7 +103,7 @@ describe("authenticated app shell", () => {
     const { router } = renderRoute("/notes");
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     const sidebar = screen.getByRole("complementary", {
@@ -161,7 +161,7 @@ describe("authenticated app shell", () => {
     const { router } = renderRoute("/notes");
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     const sidebar = screen.getByRole("complementary", {
@@ -187,7 +187,7 @@ describe("authenticated app shell", () => {
     renderRoute("/notes");
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     const skipLink = screen.getByRole("link", { name: "Skip to main content" });
@@ -201,7 +201,7 @@ describe("authenticated app shell", () => {
     ).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("uses the notes sidebar with a header navigation opener", async () => {
+  it("uses the in-page notes list with a header navigation opener", async () => {
     const notesContext = createAppNotesContext({
       getOwnedLabelIdsForUser: () => [],
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
@@ -237,21 +237,26 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     const sidebar = screen.getByRole("complementary", {
       name: "Notes workspace",
     });
-
-    const notesList = within(sidebar).getByRole("navigation", {
+    const notesCatalog = screen.getByRole("complementary", {
+      name: "Notes catalog",
+    });
+    const notesList = within(notesCatalog).getByRole("navigation", {
       name: "Notes list",
     });
 
     expect(sidebar).toHaveAttribute("data-mobile-open", "false");
     expect(
-      within(sidebar).getByRole("button", { name: "New note" }),
+      within(notesCatalog).getByRole("button", { name: "New note" }),
     ).toBeInTheDocument();
+    expect(
+      within(sidebar).queryByRole("navigation", { name: "Notes list" }),
+    ).not.toBeInTheDocument();
     expect(
       within(sidebar).getByRole("navigation", { name: "App sections" }),
     ).toBeInTheDocument();
@@ -281,7 +286,7 @@ describe("authenticated app shell", () => {
     renderRoute("/notes");
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     const sidebar = screen.getByRole("complementary", {

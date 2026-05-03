@@ -26,7 +26,13 @@ const RECALL_RESULT_DATE_FORMATTER = new Intl.DateTimeFormat("en", {
 });
 
 function formatRecallResultDate(value: string) {
-  return RECALL_RESULT_DATE_FORMATTER.format(new Date(value));
+  const resultDate = new Date(value);
+
+  if (Number.isNaN(resultDate.getTime())) {
+    return "Unknown date";
+  }
+
+  return RECALL_RESULT_DATE_FORMATTER.format(resultDate);
 }
 
 function getRecallSearchResultOptionId(sessionId: string) {

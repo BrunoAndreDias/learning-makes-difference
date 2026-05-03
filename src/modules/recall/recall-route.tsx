@@ -7,15 +7,10 @@ import {
   useRouteContext,
 } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { formatCount } from "../../lib/format-count";
 import type { AppSessionSnapshot } from "../access/session/session";
 import type { AppLabel } from "../labels/label-management/labels";
 import { type AppNote, listNotesForUser } from "../notes";
-import { formatSearchMatchLabel } from "../notes/learner-copy";
-import {
-  formatNoteSearchResultPreview,
-  searchNoteResults,
-} from "../notes/notes-workspace/note-search";
+import { searchNoteResults } from "../notes/notes-workspace/note-search";
 import { formatRecallModeLabel } from "./learner-copy";
 import { AppRecallError, type RecallMode } from "./recall";
 
@@ -101,6 +96,12 @@ const recallTypeOptions = [
   },
 ] as const satisfies readonly RecallTypeOption[];
 
+const recallQuestionStylePlaceholderFields = [
+  "Question format",
+  "Difficulty",
+  "Number of questions",
+] as const;
+
 function getNotePreview(note: AppNote) {
   const body = note.body.trim();
 
@@ -118,13 +119,6 @@ function getLabelNames(
   return note.labelIds
     .map((labelId) => labelsById.get(labelId)?.name)
     .filter((labelName): labelName is string => labelName !== undefined);
-}
-
-function getMemoryAidCountLabel(note: AppNote) {
-  return [
-    formatCount(note.metaphors.length, "Metaphor"),
-    formatCount(note.acronyms.length, "Acronym"),
-  ].join(" · ");
 }
 
 function filterNotes(notes: readonly AppNote[], query: string) {
@@ -231,10 +225,6 @@ export function RecallSelectionPage({
     setErrorMessage(null);
   }
 
-  async function cancelSelection() {
-    await navigate({ to: "/recall" });
-  }
-
   async function startRecall() {
     if (userId === null || !canStart) {
       return;
@@ -271,21 +261,16 @@ export function RecallSelectionPage({
       className="recall-workspace"
     >
       <article className="recall-surface">
-        <header className="recall-surface__header">
+        <header className="recall-surface__header recall-select__header">
           <div className="notes-editor__title-stack">
-            <p className="section-label">Recall / Select</p>
-            <h3>Start Recall</h3>
+            <p className="recall-breadcrumb">
+              <span>Recall</span> / Select notes
+            </p>
+            <h3>Select notes</h3>
             <p className="muted notes-editor__meta">
-              Choose Notes for this temporary RecallSession.
+              Choose the notes for this recall session.
             </p>
           </div>
-          <button
-            className="notes-action"
-            onClick={cancelSelection}
-            type="button"
-          >
-            Cancel
-          </button>
         </header>
 
         {notes.length === 0 ? (
@@ -303,52 +288,79 @@ export function RecallSelectionPage({
           <div className="recall-selection-layout recall-selection-layout--picker">
             <section
               aria-label="Available Notes"
-              className="recall-panel recall-note-picker"
+              className="recall-panel recall-note-picker recall-select-note-picker"
             >
-              <label className="recall-field" htmlFor="recall-note-search">
+              <label
+                className="recall-field recall-search-field"
+                htmlFor="recall-note-search"
+              >
                 <span className="sr-only">Search Notes</span>
+                <SearchIcon />
                 <input
                   id="recall-note-search"
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search Notes..."
+                  placeholder="Search notes"
                   type="search"
                   value={searchQuery}
                 />
               </label>
 
-              {searchQuery.trim().length > 0 ? (
-                <SearchMatchSummary notes={notes} query={searchQuery} />
-              ) : null}
-
               <ol className="recall-note-picker__list">
-                {visibleNotes.map((note) => (
-                  <li key={note.id}>
-                    <label
-                      className="recall-note-row"
-                      data-selected={selectedNoteIdSet.has(note.id)}
-                    >
-                      <span className="recall-note-row__check">
-                        <input
-                          checked={selectedNoteIdSet.has(note.id)}
-                          onChange={() => toggleNote(note.id)}
-                          type="checkbox"
-                        />
-                      </span>
-                      <span className="recall-note-row__content">
-                        <strong>{note.title}</strong>
-                        <span>{getNotePreview(note)}</span>
-                        <span className="recall-note-row__meta">
-                          {getLabelNames(note, labelsById).length > 0
-                            ? getLabelNames(note, labelsById).join(", ")
-                            : "No labels"}
+                {visibleNotes.map((note) => {
+                  const labelNames = getLabelNames(note, labelsById);
+
+                  return (
+                    <li key={note.id}>
+                      <label
+                        className="recall-note-row recall-select-note-row"
+                        data-selected={selectedNoteIdSet.has(note.id)}
+                      >
+                        <span className="recall-note-row__check">
+                          <input
+                            checked={selectedNoteIdSet.has(note.id)}
+                            onChange={() => toggleNote(note.id)}
+                            type="checkbox"
+                          />
                         </span>
-                        <span className="recall-note-row__meta">
-                          {getMemoryAidCountLabel(note)}
+                        <span className="recall-select-note-row__main">
+                          <span className="recall-select-note-row__content">
+                            <strong>{note.title}</strong>
+                            <span>{getNotePreview(note)}</span>
+                            <span className="recall-select-note-row__labels">
+                              {labelNames.length > 0 ? (
+                                labelNames.slice(0, 2).map((labelName) => (
+                                  <span
+                                    className="recall-select-note-row__label"
+                                    key={`${note.id}-${labelName}`}
+                                  >
+                                    {labelName}
+                                  </span>
+                                ))
+                              ) : (
+                                <span
+                                  className="recall-select-note-row__label"
+                                  data-tone="muted"
+                                >
+                                  No label
+                                </span>
+                              )}
+                            </span>
+                          </span>
+                          <span className="recall-select-note-row__counts">
+                            <span className="recall-select-note-row__count">
+                              <span>Metaphors</span>
+                              <strong>{note.metaphors.length}</strong>
+                            </span>
+                            <span className="recall-select-note-row__count">
+                              <span>Acronyms</span>
+                              <strong>{note.acronyms.length}</strong>
+                            </span>
+                          </span>
                         </span>
-                      </span>
-                    </label>
-                  </li>
-                ))}
+                      </label>
+                    </li>
+                  );
+                })}
               </ol>
 
               {visibleNotes.length === 0 ? (
@@ -358,17 +370,12 @@ export function RecallSelectionPage({
               ) : null}
 
               <footer className="recall-note-picker__footer">
-                <span>
-                  {formatCount(selectedNotes.length, "Note")} selected
-                </span>
-                <span>{formatCount(visibleNotes.length, "Note")} shown</span>
+                Showing {visibleNotes.length} of {notes.length} notes
               </footer>
             </section>
 
             <SessionSetupPanel
               disabledStartReason={disabledStartReason}
-              onCancel={cancelSelection}
-              onClearSelection={() => setSelectedNoteIds([])}
               onRecallTypeChange={setSelectedRecallType}
               onStartRecall={startRecall}
               selectedNotes={selectedNotes}
@@ -387,41 +394,14 @@ export function RecallSelectionPage({
   );
 }
 
-function SearchMatchSummary({
-  notes,
-  query,
-}: {
-  notes: readonly AppNote[];
-  query: string;
-}) {
-  const firstMatch = searchNoteResults(notes, query)[0];
-
-  if (firstMatch === undefined) {
-    return null;
-  }
-
-  const preview = formatNoteSearchResultPreview(firstMatch);
-
-  return (
-    <p className="muted recall-search-match-summary">
-      {formatSearchMatchLabel(firstMatch.matchChip)}
-      {preview === null ? "" : ` · ${preview}`}
-    </p>
-  );
-}
-
 function SessionSetupPanel({
   disabledStartReason,
-  onCancel,
-  onClearSelection,
   onRecallTypeChange,
   onStartRecall,
   selectedNotes,
   selectedRecallType,
 }: {
   disabledStartReason: string | null;
-  onCancel: () => void;
-  onClearSelection: () => void;
   onRecallTypeChange: (mode: RecallMode) => void;
   onStartRecall: () => void;
   selectedNotes: readonly AppNote[];
@@ -430,80 +410,94 @@ function SessionSetupPanel({
   const selectedRecallOption = recallTypeOptions.find(
     (option) => option.mode === selectedRecallType,
   );
+  const recallTypeWarning =
+    selectedRecallOption?.disabled === true
+      ? `Connect API key to start ${formatRecallModeLabel(selectedRecallType)}.`
+      : null;
 
   return (
     <aside
       aria-label="Session setup"
-      className="recall-panel recall-session-setup"
+      className="recall-panel recall-session-setup recall-select-session-setup"
     >
-      <div className="notes-editor__title-stack">
+      <header className="recall-select-session-setup__header">
         <p className="section-label">Session setup</p>
-        <h4>{formatCount(selectedNotes.length, "Note")} selected</h4>
-        <p className="muted">
-          This selection is temporary and is used only for the next
-          RecallSession.
+        <PinIcon />
+      </header>
+
+      <div className="recall-select-session-setup__selected-notes">
+        <p className="muted">Selected notes</p>
+        <p className="recall-select-session-setup__selected-count">
+          {selectedNotes.length}
         </p>
       </div>
 
-      <button
-        className="notes-action"
-        disabled={selectedNotes.length === 0}
-        onClick={onClearSelection}
-        type="button"
-      >
-        Clear selection
-      </button>
+      <div className="recall-select-session-setup__divider" />
 
-      <fieldset className="recall-type-selector">
+      <fieldset className="recall-type-selector recall-select-type-selector">
         <legend>Recall type</legend>
-        {recallTypeOptions.map((option) => (
-          <label
-            className="recall-type-option"
-            data-disabled={option.disabled}
-            data-selected={option.mode === selectedRecallType}
-            key={option.mode}
-          >
-            <input
-              checked={option.mode === selectedRecallType}
-              onChange={() => onRecallTypeChange(option.mode)}
-              type="radio"
-              value={option.mode}
-            />
-            <span>
-              <strong>{formatRecallModeLabel(option.mode)}</strong>
-              <span>{option.helper}</span>
-            </span>
-          </label>
-        ))}
+        <div className="recall-select-type-selector__options">
+          {recallTypeOptions.map((option) => (
+            <label
+              className="recall-type-option recall-select-type-option"
+              data-disabled={option.disabled}
+              data-mode={option.mode}
+              data-selected={option.mode === selectedRecallType}
+              key={option.mode}
+            >
+              <input
+                checked={option.mode === selectedRecallType}
+                onChange={() => onRecallTypeChange(option.mode)}
+                type="radio"
+                value={option.mode}
+              />
+              <span
+                className="recall-select-type-option__icon"
+                aria-hidden="true"
+              >
+                <RecallTypeIcon mode={option.mode} />
+              </span>
+              <span>
+                <strong>{formatRecallModeLabel(option.mode)}</strong>
+                <span>{option.helper}</span>
+              </span>
+            </label>
+          ))}
+        </div>
       </fieldset>
 
-      {selectedRecallOption?.disabled ? (
-        <p className="muted" role="status">
-          Connect API key to start {formatRecallModeLabel(selectedRecallType)}.
-        </p>
-      ) : null}
+      <section className="recall-select-session-setup__question-style">
+        <h5 className="recall-select-session-setup__section-title">
+          Question style
+          <InfoIcon />
+        </h5>
+        {recallQuestionStylePlaceholderFields.map((field) => {
+          const fieldId = `recall-${field.toLowerCase().replaceAll(" ", "-")}`;
 
-      <div className="recall-session-setup__selected">
-        {selectedNotes.length === 0 ? (
-          <p className="muted">No Notes selected.</p>
-        ) : (
-          <ol>
-            {selectedNotes.map((note) => (
-              <li key={note.id}>{note.title}</li>
-            ))}
-          </ol>
-        )}
-      </div>
+          return (
+            <label className="recall-field" htmlFor={fieldId} key={field}>
+              <span className="sr-only">{field}</span>
+              <select id={fieldId} disabled value={field}>
+                <option value={field}>{field}</option>
+              </select>
+            </label>
+          );
+        })}
+      </section>
+
+      <p className="recall-select-session-setup__hint">
+        <InfoIcon />
+        <span>
+          Your selection is temporary and used only for this recall session.
+        </span>
+      </p>
 
       <div className="recall-session-setup__actions">
-        <button className="notes-action" onClick={onCancel} type="button">
-          Cancel
-        </button>
         <button
           aria-describedby={
-            disabledStartReason === null ? undefined : "recall-start-reason"
+            recallTypeWarning === null ? undefined : "recall-start-reason"
           }
-          className="notes-action notes-action-primary"
+          className="notes-action notes-action-primary recall-select-session-setup__start"
           disabled={disabledStartReason !== null}
           onClick={onStartRecall}
           type="button"
@@ -512,11 +506,148 @@ function SessionSetupPanel({
         </button>
       </div>
 
-      {disabledStartReason !== null ? (
+      {recallTypeWarning !== null ? (
         <p className="muted" id="recall-start-reason">
-          {disabledStartReason}
+          {recallTypeWarning}
         </p>
       ) : null}
     </aside>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="17"
+      viewBox="0 0 24 24"
+      width="17"
+    >
+      <path
+        d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="16"
+      viewBox="0 0 24 24"
+      width="16"
+    >
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M12 10v5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+      <circle cx="12" cy="7.5" fill="currentColor" r="1.1" />
+    </svg>
+  );
+}
+
+function PinIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="18"
+      viewBox="0 0 24 24"
+      width="18"
+    >
+      <path
+        d="M8 4h8m-1 0v5l3 3H6l3-3V4m3 8v8"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+    </svg>
+  );
+}
+
+function RecallTypeIcon({ mode }: { mode: RecallMode }) {
+  if (mode === "FlashCard") {
+    return (
+      <svg
+        aria-hidden="true"
+        fill="none"
+        height="14"
+        viewBox="0 0 24 24"
+        width="14"
+      >
+        <rect
+          height="13"
+          rx="2.2"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          width="16"
+          x="4"
+          y="5"
+        />
+        <path
+          d="M8 10h8M8 13h5"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeWidth="1.8"
+        />
+      </svg>
+    );
+  }
+
+  if (mode === "AiAssisted") {
+    return (
+      <svg
+        aria-hidden="true"
+        fill="none"
+        height="14"
+        viewBox="0 0 24 24"
+        width="14"
+      >
+        <path
+          d="m12 4 1.6 4.4L18 10l-4.4 1.6L12 16l-1.6-4.4L6 10l4.4-1.6L12 4Z"
+          stroke="currentColor"
+          strokeLinejoin="round"
+          strokeWidth="1.8"
+        />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="14"
+      viewBox="0 0 24 24"
+      width="14"
+    >
+      <rect
+        height="14"
+        rx="2.3"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        width="14"
+        x="5"
+        y="5"
+      />
+      <path
+        d="m9 12 2.2 2.2L15.5 10"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
   );
 }

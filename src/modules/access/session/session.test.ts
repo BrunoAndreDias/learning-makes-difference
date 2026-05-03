@@ -131,6 +131,65 @@ describe("app session context", () => {
     ).toBe(false);
   });
 
+  it("falls back to an anonymous snapshot when persisted session restoration fails", async () => {
+    const session = createAppSessionContext({
+      initialSnapshot: {
+        user: {
+          displayName: "Stale Casey",
+          email: "casey@example.com",
+          id: "user-stale-casey",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+      service: {
+        getSessionSnapshot: async () => {
+          throw new Error("Failed query: select from auth_sessions");
+        },
+        login: async () => {
+          throw new Error("Unused login");
+        },
+        logout: async () => ({ user: null }),
+        register: async () => {
+          throw new Error("Unused registration");
+        },
+        updatePreferences: async () => {
+          throw new Error("Unused preferences update");
+        },
+      },
+    });
+
+    await expect(session.refresh()).resolves.toEqual({ user: null });
+    expect(session.getSnapshot()).toEqual({ user: null });
+  });
+
+  it("rehydrates serialized authentication failures from session services", async () => {
+    const session = createAppSessionContext({
+      service: {
+        getSessionSnapshot: async () => ({ user: null }),
+        login: async () => {
+          throw {
+            code: "invalid_credentials",
+            message: "Email or password is incorrect.",
+          };
+        },
+        logout: async () => ({ user: null }),
+        register: async () => ({ user: null }),
+        updatePreferences: async () => ({ user: null }),
+      },
+    });
+
+    await expect(
+      session.login({
+        email: "casey@example.com",
+        password: "wrong password",
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_credentials",
+      message: "Email or password is incorrect.",
+    } satisfies Pick<AppAuthError, "code" | "message">);
+  });
+
   it("rejects cross-account access when credentials do not match", async () => {
     const store = createMemorySessionStore();
     const session = createAppSessionContext({

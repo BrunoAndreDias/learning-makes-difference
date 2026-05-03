@@ -1,10 +1,15 @@
 import {
   createFileRoute,
-  Link,
   useNavigate,
   useRouteContext,
 } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { AppSessionSnapshot } from "../access/session/session";
 import { BreakIntervalOverlay, isBreakIntervalActive } from "../focus";
 import { formatRecallModeLabel } from "./learner-copy";
@@ -61,10 +66,20 @@ function formatElapsedTime(startedAt: string, now: number) {
     0,
     Math.floor((now - new Date(startedAt).getTime()) / 1000),
   );
-  const minutes = Math.floor(elapsedSeconds / 60);
-  const seconds = elapsedSeconds % 60;
+  const totalMinutes = Math.floor(elapsedSeconds / 60);
 
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  if (totalMinutes < 60) {
+    return `${totalMinutes} min`;
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (minutes === 0) {
+    return `${hours} hr`;
+  }
+
+  return `${hours} hr ${minutes} min`;
 }
 
 function RecallSessionPage() {
@@ -315,7 +330,7 @@ function RecallSessionPage() {
       answeredCount,
       currentPosition,
       progressPercent:
-        totalCount === 0 ? 0 : Math.round((answeredCount / totalCount) * 100),
+        totalCount === 0 ? 0 : Math.round((currentPosition / totalCount) * 100),
       remainingCount: Math.max(totalCount - answeredCount, 0),
       totalCount,
     };
@@ -328,43 +343,38 @@ function RecallSessionPage() {
   return (
     <section className="recall-shell" aria-label="Recall session">
       <header className="recall-shell__header">
-        <div className="recall-shell__bar">
-          <div className="recall-shell__context">
-            <p className="section-label">Recall / Session</p>
-            <h3>Recall session</h3>
-            <p className="muted">
-              Try to recall each note before revealing it.
-            </p>
-          </div>
-          <button
-            className="notes-action recall-shell__end"
-            onClick={() => setEndDialogOpen(true)}
-            type="button"
-          >
-            End session
-          </button>
+        <div className="recall-shell__context">
+          <p className="recall-breadcrumb">Recall / Session</p>
+          <h3>Recall session</h3>
         </div>
 
-        <div className="recall-progress">
-          <div className="recall-progress__summary">
+        <div className="recall-progress-card">
+          <div className="recall-progress-card__count">
             <strong>{`${progress.currentPosition} of ${progress.totalCount}`}</strong>
             <span>Notes</span>
-            <span>{formatRecallModeLabel(activeSession.mode)}</span>
-            <span>{formatElapsedTime(activeSession.createdAt, now)}</span>
           </div>
           <div
             aria-label="Recall progress"
             aria-valuemax={progress.totalCount}
             aria-valuemin={0}
-            aria-valuenow={progress.answeredCount}
-            className="recall-progress__track"
+            aria-valuenow={progress.currentPosition}
+            className="recall-progress-card__track"
             role="progressbar"
           >
             <div
-              className="recall-progress__fill"
+              className="recall-progress-card__fill"
               style={{ width: `${progress.progressPercent}%` }}
             />
           </div>
+          <p className="recall-progress-card__mode">
+            <FlashCardModeIcon />
+            <span>{formatRecallModeLabel(activeSession.mode)}</span>
+          </p>
+          <p className="recall-progress-card__time">
+            <ClockLineIcon />
+            <span>{formatElapsedTime(activeSession.createdAt, now)}</span>
+            <small>elapsed</small>
+          </p>
         </div>
       </header>
 
@@ -375,97 +385,105 @@ function RecallSessionPage() {
       ) : null}
 
       <div className="recall-session-layout">
-        <article
-          className="recall-card"
-          data-revealed={activeSession.isAnswerRevealed}
-        >
-          <fieldset
-            className="recall-card__study-surface"
-            disabled={isBreakActive}
+        <div className="recall-session-main">
+          <article
+            className="recall-card"
+            data-revealed={activeSession.isAnswerRevealed}
           >
-            <legend className="sr-only">FlashCard recall</legend>
-            <div className="recall-card__top recall-card__top--single">
-              <div className="recall-card__face recall-card__face--prompt">
-                <h4 className="recall-card__question">{currentNote.title}</h4>
-                {!activeSession.isAnswerRevealed ? (
-                  <div className="recall-card__hidden-body">
-                    <p>Note body hidden</p>
-                    <span>Recall the answer, then reveal the Note.</span>
-                  </div>
-                ) : (
+            <fieldset
+              className="recall-card__study-surface"
+              disabled={isBreakActive}
+            >
+              <legend className="sr-only">FlashCard recall</legend>
+              {!activeSession.isAnswerRevealed ? (
+                <div className="recall-card__hidden-state">
+                  <span aria-hidden="true" className="recall-card__prompt-icon">
+                    <QuestionPromptIcon />
+                  </span>
+                  <h4 className="recall-card__question">{currentNote.title}</h4>
+                  <span className="recall-card__divider" />
+                  <p className="recall-card__hint">
+                    <SparkIcon />
+                    <span>Try to recall this note before revealing it.</span>
+                  </p>
+                  <button
+                    className="notes-action notes-action-primary recall-card__reveal"
+                    onClick={revealNote}
+                    type="button"
+                  >
+                    <RevealIcon />
+                    <span>Reveal note</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="recall-card__revealed-state">
+                  <h4 className="recall-card__question">{currentNote.title}</h4>
                   <RecallNoteDetails note={currentNote} />
-                )}
-              </div>
-            </div>
-
-            {!activeSession.isAnswerRevealed ? (
-              <div className="recall-card__footer">
-                <button
-                  className="notes-action notes-action-primary recall-card__reveal"
-                  onClick={revealNote}
-                  type="button"
-                >
-                  Reveal note
-                </button>
-                <button
-                  className="notes-action"
-                  onClick={skipNote}
-                  type="button"
-                >
-                  Skip
-                </button>
-                <button
-                  className="notes-action"
-                  onClick={() => setEndDialogOpen(true)}
-                  type="button"
-                >
-                  End session
-                </button>
-              </div>
-            ) : (
-              <div className="recall-card__footer recall-card__footer--ratings">
-                <fieldset className="recall-rating-row">
-                  <legend>Self-rating</legend>
-                  {ratingOptions.map((option) => (
+                  <div className="recall-card__footer recall-card__footer--ratings">
+                    <fieldset className="recall-rating-row">
+                      <legend>Self-rating</legend>
+                      {ratingOptions.map((option) => (
+                        <button
+                          aria-label={option.label}
+                          aria-pressed={pendingRating === option.rating}
+                          className={`notes-action recall-rating recall-rating--${option.rating}`}
+                          data-selected={pendingRating === option.rating}
+                          key={option.rating}
+                          onClick={() => setPendingRating(option.rating)}
+                          type="button"
+                        >
+                          <span className="recall-rating__label">
+                            {option.label}
+                          </span>
+                          <span className="recall-rating__description">
+                            {option.description}
+                          </span>
+                        </button>
+                      ))}
+                    </fieldset>
                     <button
-                      aria-label={option.label}
-                      aria-pressed={pendingRating === option.rating}
-                      className={`notes-action recall-rating recall-rating--${option.rating}`}
-                      data-selected={pendingRating === option.rating}
-                      key={option.rating}
-                      onClick={() => setPendingRating(option.rating)}
+                      className="notes-action notes-action-primary"
+                      disabled={pendingRating === null}
+                      onClick={submitRating}
                       type="button"
                     >
-                      <span className="recall-rating__label">
-                        {option.label}
-                      </span>
-                      <span className="recall-rating__description">
-                        {option.description}
-                      </span>
+                      Next note
                     </button>
-                  ))}
-                </fieldset>
-                <button
-                  className="notes-action notes-action-primary"
-                  disabled={pendingRating === null}
-                  onClick={submitRating}
-                  type="button"
-                >
-                  Next note
-                </button>
-              </div>
-            )}
-          </fieldset>
-          {isBreakActive && userId !== null ? (
-            <BreakIntervalOverlay onSkipBreak={skipBreakInterval} />
-          ) : null}
-        </article>
+                  </div>
+                </div>
+              )}
+            </fieldset>
+            {isBreakActive && userId !== null ? (
+              <BreakIntervalOverlay onSkipBreak={skipBreakInterval} />
+            ) : null}
+          </article>
+
+          <div className="recall-session-main__actions">
+            <button
+              className="notes-action recall-session-main__action"
+              disabled={isBreakActive}
+              onClick={skipNote}
+              type="button"
+            >
+              <SkipIcon />
+              <span>Skip</span>
+            </button>
+            <button
+              className="notes-action recall-session-main__action"
+              disabled={isBreakActive}
+              onClick={() => setEndDialogOpen(true)}
+              type="button"
+            >
+              <EndSessionIcon />
+              <span>End session</span>
+            </button>
+          </div>
+        </div>
 
         <SessionOverviewPanel
           answeredCount={progress.answeredCount}
-          currentNote={currentNote}
-          notes={activeSession.notes}
           remainingCount={progress.remainingCount}
+          selectedCount={progress.totalCount}
         />
       </div>
 
@@ -514,56 +532,71 @@ function RecallNoteDetails({ note }: { note: FlashCardRecallNote }) {
 
 function SessionOverviewPanel({
   answeredCount,
-  currentNote,
-  notes,
   remainingCount,
+  selectedCount,
 }: {
   answeredCount: number;
-  currentNote: FlashCardRecallNote;
-  notes: readonly FlashCardRecallNote[];
   remainingCount: number;
+  selectedCount: number;
 }) {
   return (
-    <aside
-      aria-label="Session overview"
-      className="recall-session-side recall-session-overview"
-    >
-      <div className="recall-overview-metrics">
-        <div>
-          <span className="section-label">Selected Notes</span>
-          <strong>{notes.length}</strong>
-        </div>
-        <div>
-          <span className="section-label">Answered</span>
-          <strong>{answeredCount}</strong>
-        </div>
-        <div>
-          <span className="section-label">Remaining</span>
-          <strong>{remainingCount}</strong>
-        </div>
+    <aside aria-label="Session overview" className="recall-session-overview">
+      <h4>Session overview</h4>
+      <div className="recall-session-overview__metrics">
+        <SessionOverviewMetric
+          icon={<SelectedNotesIcon />}
+          label="Selected notes"
+          tone="selected"
+          value={selectedCount}
+        />
+        <SessionOverviewMetric
+          icon={<AnsweredIcon />}
+          label="Answered"
+          tone="answered"
+          value={answeredCount}
+        />
+        <SessionOverviewMetric
+          icon={<RemainingIcon />}
+          label="Remaining"
+          tone="remaining"
+          value={remainingCount}
+        />
       </div>
-      <section>
-        <p className="section-label">Randomized order</p>
-        <ol className="recall-question-list">
-          {notes.map((note, index) => (
-            <li key={note.id}>
-              <span
-                className="recall-question-list__button"
-                data-current={note.id === currentNote.id}
-              >
-                <span className="recall-question-list__index">{index + 1}</span>
-                <span className="recall-question-list__title">
-                  {note.title}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ol>
-      </section>
-      <Link className="notes-action" to="/recall">
-        Results
-      </Link>
+      <p className="recall-session-overview__hint">
+        <InfoIcon />
+        <span>Notes are shown in a randomized order.</span>
+      </p>
     </aside>
+  );
+}
+
+type SessionOverviewMetricTone = "answered" | "remaining" | "selected";
+
+function SessionOverviewMetric({
+  icon,
+  label,
+  tone,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  tone: SessionOverviewMetricTone;
+  value: number;
+}) {
+  return (
+    <div className="recall-overview-metric">
+      <span
+        aria-hidden="true"
+        className="recall-overview-metric__icon"
+        data-tone={tone}
+      >
+        {icon}
+      </span>
+      <div className="recall-overview-metric__content">
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </div>
+    </div>
   );
 }
 
@@ -610,5 +643,255 @@ function EndSessionDialog({
         </div>
       </section>
     </div>
+  );
+}
+
+function FlashCardModeIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="14"
+      viewBox="0 0 24 24"
+      width="14"
+    >
+      <rect
+        height="12"
+        rx="2.2"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        width="16"
+        x="4"
+        y="6"
+      />
+      <path
+        d="M8 10.5h8M8 13.5h5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function ClockLineIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="15"
+      viewBox="0 0 24 24"
+      width="15"
+    >
+      <circle cx="12" cy="12" r="8.6" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M12 7.8v4.7l2.9 2.1"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function QuestionPromptIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="20"
+      viewBox="0 0 24 24"
+      width="20"
+    >
+      <rect
+        height="15"
+        rx="2.6"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        width="15"
+        x="4.5"
+        y="4.5"
+      />
+      <path
+        d="M10.8 10.1a1.9 1.9 0 1 1 2.8 1.7c-.9.5-1.3.9-1.3 1.6v.2"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <circle cx="12.3" cy="16.8" fill="currentColor" r="1.1" />
+    </svg>
+  );
+}
+
+function SparkIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="15"
+      viewBox="0 0 24 24"
+      width="15"
+    >
+      <path
+        d="m12 3 1.4 3.6L17 8l-3.6 1.4L12 13l-1.4-3.6L7 8l3.6-1.4L12 3Zm6.2 10.8.8 2.1 2.1.8-2.1.8-.8 2.1-.8-2.1-2.1-.8 2.1-.8.8-2.1ZM5.4 13.8l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9.9-2.3Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function RevealIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="16"
+      viewBox="0 0 24 24"
+      width="16"
+    >
+      <path
+        d="M2.5 12s3.3-6 9.5-6 9.5 6 9.5 6-3.3 6-9.5 6-9.5-6-9.5-6Z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <circle cx="12" cy="12" r="2.8" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function SkipIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="14"
+      viewBox="0 0 24 24"
+      width="14"
+    >
+      <path
+        d="m7.2 7 4.8 5-4.8 5M12 7l4.8 5-4.8 5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function EndSessionIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="14"
+      viewBox="0 0 24 24"
+      width="14"
+    >
+      <rect
+        height="10.5"
+        rx="1.8"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        width="10.5"
+        x="6.75"
+        y="6.75"
+      />
+    </svg>
+  );
+}
+
+function SelectedNotesIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="18"
+      viewBox="0 0 24 24"
+      width="18"
+    >
+      <rect
+        height="15"
+        rx="2.2"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        width="13"
+        x="6.5"
+        y="4.5"
+      />
+      <path
+        d="M9.3 9.2h6M9.3 12h6M9.3 14.8h4.2M8.5 7.3H6.2a1.7 1.7 0 0 0-1.7 1.7v8.8a1.7 1.7 0 0 0 1.7 1.7h8.8a1.7 1.7 0 0 0 1.7-1.7v-2.3"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function AnsweredIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="18"
+      viewBox="0 0 24 24"
+      width="18"
+    >
+      <circle cx="12" cy="12" r="8.6" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="m8.3 12.2 2.4 2.5 5-5.1"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function RemainingIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="18"
+      viewBox="0 0 24 24"
+      width="18"
+    >
+      <circle cx="12" cy="12" r="8.6" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M12 8.2v4.3l2.7 1.9"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="15"
+      viewBox="0 0 24 24"
+      width="15"
+    >
+      <circle cx="12" cy="12" r="8.7" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M12 10.2v5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+      <circle cx="12" cy="7.8" fill="currentColor" r="1.1" />
+    </svg>
   );
 }

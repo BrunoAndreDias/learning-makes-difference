@@ -3,6 +3,7 @@ import {
   type AppLanguagePreference,
   type AppSessionSnapshot,
   buildAnonymousSnapshot,
+  getAppAuthError,
   isLanguagePreference,
   type LoginInput,
   type RegisterInput,
@@ -16,6 +17,7 @@ export {
   type AppSessionSnapshot,
   type AppSessionUser,
   appLanguagePreferences,
+  getAppAuthError,
 } from "./session-contract";
 
 type SessionListener = () => void;
@@ -112,6 +114,12 @@ export function createMemorySessionStore(): MemorySessionStore {
 
 function createNotAuthenticatedError(): AppAuthError {
   return new AppAuthError("not_authenticated", NOT_AUTHENTICATED_MESSAGE);
+}
+
+function rethrowAppAuthError(error: unknown): never {
+  const appAuthError = getAppAuthError(error);
+
+  throw appAuthError ?? error;
 }
 
 function normalizeEmail(email: string): string {
@@ -442,7 +450,14 @@ export function createAppSessionContext(
   return {
     getSnapshot: () => snapshot,
     refresh: async () => {
-      const nextSnapshot = await service.getSessionSnapshot();
+      let nextSnapshot: AppSessionSnapshot;
+
+      try {
+        nextSnapshot = await service.getSessionSnapshot();
+      } catch {
+        nextSnapshot = buildAnonymousSnapshot();
+      }
+
       commitSnapshot(nextSnapshot);
       return snapshot;
     },
@@ -454,14 +469,22 @@ export function createAppSessionContext(
       };
     },
     register: async (input) => {
-      const nextSnapshot = await service.register(input);
-      commitSnapshot(nextSnapshot);
-      return snapshot;
+      try {
+        const nextSnapshot = await service.register(input);
+        commitSnapshot(nextSnapshot);
+        return snapshot;
+      } catch (error) {
+        rethrowAppAuthError(error);
+      }
     },
     login: async (input) => {
-      const nextSnapshot = await service.login(input);
-      commitSnapshot(nextSnapshot);
-      return snapshot;
+      try {
+        const nextSnapshot = await service.login(input);
+        commitSnapshot(nextSnapshot);
+        return snapshot;
+      } catch (error) {
+        rethrowAppAuthError(error);
+      }
     },
     logout: async () => {
       const nextSnapshot = await service.logout();
@@ -469,9 +492,13 @@ export function createAppSessionContext(
       return snapshot;
     },
     updatePreferences: async (input) => {
-      const nextSnapshot = await service.updatePreferences(input);
-      commitSnapshot(nextSnapshot);
-      return snapshot;
+      try {
+        const nextSnapshot = await service.updatePreferences(input);
+        commitSnapshot(nextSnapshot);
+        return snapshot;
+      } catch (error) {
+        rethrowAppAuthError(error);
+      }
     },
   };
 }

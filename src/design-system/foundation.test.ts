@@ -4,6 +4,13 @@ import { describe, expect, it } from "vitest";
 
 import { foundationTokens } from "./tokens.js";
 
+function getCssRule(css: string, selector: string) {
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = new RegExp(`${escapedSelector}\\s*\\{([^}]*)\\}`).exec(css);
+
+  return match?.[1] ?? "";
+}
+
 describe("foundationTokens", () => {
   it("captures the issue 14 design-system contract from docs/layout", () => {
     expect(foundationTokens.brand.logoSource).toBe("docs/layout/logo.svg");
@@ -46,6 +53,23 @@ describe("foundationTokens", () => {
 
     expect(css).toContain("grid-template-rows: auto auto minmax(0, 1fr);");
     expect(css).toContain("align-content: start;");
+  });
+
+  it("keeps the authenticated shell connected instead of framed as cards", () => {
+    const css = readFileSync(
+      new URL(
+        "../modules/workspace-shell/workspace-shell.css",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+
+    expect(css).toContain("padding: 0;");
+    expect(css).toContain("gap: 0;");
+    expect(css).toContain("border-right: 1px solid");
+    expect(css).toContain("border-radius: 0;");
+    expect(css).toContain("box-shadow: none;");
+    expect(css).toContain("min-height: 100vh;");
   });
 
   it("keeps the promoted notes workspace from reserving the old catalog column", () => {
@@ -112,5 +136,69 @@ describe("foundationTokens", () => {
     expect(notesResponsiveCss).toContain("display: none;");
     expect(notesResponsiveCss).toContain("grid-column: auto;");
     expect(notesResponsiveCss).toContain("grid-row: auto;");
+  });
+
+  it("keeps Recall Results fixed-height with internal result scrolling", () => {
+    const workspaceShellCss = readFileSync(
+      new URL(
+        "../modules/workspace-shell/workspace-shell.css",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const recallWorkspaceCss = readFileSync(
+      new URL("../modules/recall/recall-workspaces.css", import.meta.url),
+      "utf8",
+    );
+    const recallResponsiveCss = readFileSync(
+      new URL("../modules/recall/recall-responsive.css", import.meta.url),
+      "utf8",
+    );
+
+    expect(workspaceShellCss).toContain(
+      '.app-frame[data-workspace="recall-results"] {',
+    );
+    expect(workspaceShellCss).toContain("height: calc(100dvh - 2rem);");
+    expect(workspaceShellCss).toContain(
+      '.app-frame[data-workspace="recall-results"] .app-frame__content',
+    );
+    expect(recallWorkspaceCss).toContain(
+      '.app-frame[data-workspace="recall-results"] .recall-results-surface',
+    );
+    expect(recallWorkspaceCss).toContain(
+      "grid-template-rows: auto minmax(0, 1fr);",
+    );
+    expect(recallWorkspaceCss).toContain(
+      '.app-frame[data-workspace="recall-results"] .recall-results-master',
+    );
+    expect(recallWorkspaceCss).toContain(
+      "grid-template-rows: auto auto auto minmax(0, 1fr);",
+    );
+    expect(recallWorkspaceCss).toContain(
+      '.app-frame[data-workspace="recall-results"] .recall-results-list',
+    );
+    expect(recallWorkspaceCss).toContain(".recall-results-list-frame");
+    expect(
+      getCssRule(recallWorkspaceCss, ".recall-results-list-frame"),
+    ).not.toContain("border:");
+    expect(
+      getCssRule(recallWorkspaceCss, ".recall-results-list-frame"),
+    ).not.toContain("border-radius:");
+    expect(
+      getCssRule(recallWorkspaceCss, ".recall-results-list-frame"),
+    ).not.toContain("background:");
+    expect(recallWorkspaceCss).toContain("align-content: start;");
+    expect(recallWorkspaceCss).toContain("gap: 0.5rem;");
+    expect(recallWorkspaceCss).toContain("border-left-width: 0.1875rem;");
+    expect(recallWorkspaceCss).toContain("border-radius: 0.45rem;");
+    expect(recallWorkspaceCss).toContain(".recall-results-count");
+    expect(recallWorkspaceCss).not.toContain(
+      ".recall-results-list li + li .recall-result-row",
+    );
+    expect(recallWorkspaceCss).toContain("max-height: none;");
+    expect(recallWorkspaceCss).toContain("overflow-y: auto;");
+    expect(recallResponsiveCss).toContain(
+      "grid-template-rows: minmax(0, 0.95fr) minmax(0, 1.05fr);",
+    );
   });
 });

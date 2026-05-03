@@ -33,7 +33,6 @@ import {
   isBreakIntervalActive,
 } from "../../focus";
 import type { AppLabel } from "../../labels/label-management/labels";
-import { AppRecallError } from "../../recall";
 import type { AppPersistentNotesContext } from "..";
 import {
   deriveLearningStates,
@@ -88,7 +87,13 @@ export const Route = createFileRoute("/_protected/notes")({
 });
 
 function formatNoteDate(value: string): string {
-  return NOTE_DATE_FORMATTER.format(new Date(value));
+  const noteDate = new Date(value);
+
+  if (Number.isNaN(noteDate.getTime())) {
+    return "Unknown date";
+  }
+
+  return NOTE_DATE_FORMATTER.format(noteDate);
 }
 
 function getSearchResultOptionId(noteId: string): string {
@@ -336,16 +341,7 @@ function MemoryHookEmptyState({
           value=""
         />
       </label>
-      <div className="notes-memory-hooks__footer">
-        <p className="muted notes-memory-hooks__helper">{helperText}</p>
-        <button
-          className="notes-action notes-action-primary notes-memory-hooks__save"
-          form={noteEditorFormId}
-          type="submit"
-        >
-          Save
-        </button>
-      </div>
+      <p className="muted notes-memory-hooks__helper">{helperText}</p>
     </div>
   );
 }
@@ -355,6 +351,7 @@ type MemoryHookDescriptionEditorProps = {
   descriptionLabel: string;
   helperText: string;
   index: number;
+  isChanged: boolean;
   kindLabel: "Acronym" | "Metaphor";
   placeholder: string;
   onDescriptionChange: (index: number, value: string) => void;
@@ -369,6 +366,7 @@ function MemoryHookDescriptionEditor({
   descriptionLabel,
   helperText,
   index,
+  isChanged,
   kindLabel,
   placeholder,
   onDescriptionChange,
@@ -397,15 +395,37 @@ function MemoryHookDescriptionEditor({
       </label>
       <div className="notes-memory-hooks__footer">
         <p className="muted notes-memory-hooks__helper">{helperText}</p>
-        <button
-          className="notes-action notes-action-primary notes-memory-hooks__save"
-          form={noteEditorFormId}
-          type="submit"
-        >
-          Save
-        </button>
+        {isChanged ? (
+          <button
+            className="notes-action notes-action-primary notes-memory-hooks__save"
+            form={noteEditorFormId}
+            type="submit"
+          >
+            Save
+          </button>
+        ) : null}
       </div>
     </fieldset>
+  );
+}
+
+function MemoryHookDraftNotice() {
+  return (
+    <div className="notes-inspector-empty" aria-disabled="true">
+      <strong>Save the note first</strong>
+      <p className="muted">Memory hooks are attached to saved notes.</p>
+    </div>
+  );
+}
+
+function LearningStateDraftNotice() {
+  return (
+    <div className="notes-inspector-empty" aria-disabled="true">
+      <strong>Save the note first</strong>
+      <p className="muted">
+        Learning state is available after this note has been saved.
+      </p>
+    </div>
   );
 }
 
@@ -443,7 +463,7 @@ function LabelPickerPanel({
 
   return (
     <section
-      aria-label="Manage labels"
+      aria-label="Assign labels"
       aria-modal="false"
       className="notes-label-picker"
       id={labelPickerPanelId}
@@ -452,7 +472,7 @@ function LabelPickerPanel({
       <div className="notes-label-picker__header">
         <div>
           <p className="section-label">Labels</p>
-          <h4>Manage labels</h4>
+          <h4>Assign labels</h4>
         </div>
         {hasAvailableLabels ? (
           <span className="tag">{`${draftLabelIds.length} selected`}</span>
@@ -462,11 +482,11 @@ function LabelPickerPanel({
       {hasAvailableLabels ? (
         <>
           <label className="notes-label-picker__search" htmlFor={searchInputId}>
-            <span>Search labels</span>
+            <span>Search existing labels</span>
             <input
               id={searchInputId}
               onChange={(event) => onSearchQueryChange(event.target.value)}
-              placeholder="Search labels"
+              placeholder="Search existing labels"
               ref={searchInputRef}
               type="search"
               value={searchQuery}
@@ -498,7 +518,7 @@ function LabelPickerPanel({
         <div className="notes-label-picker__empty-state">
           <p className="muted notes-label-picker__empty">No labels available</p>
           <p className="muted notes-label-picker__empty-copy">
-            Create labels and manage their graph in the Labels workspace.
+            Create and manage Labels in the Labels section.
           </p>
         </div>
       )}
@@ -522,7 +542,7 @@ function LabelPickerPanel({
             ref={goToLabelsButtonRef}
             type="button"
           >
-            Go to Labels
+            Open Labels
           </button>
         )}
       </div>
@@ -639,6 +659,7 @@ function NotesWorkspace() {
   const userId = effectiveSessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
   const {
+    activeNoteId,
     activateNoteTarget,
     addEditorAcronym,
     addEditorMetaphor,
@@ -653,18 +674,29 @@ function NotesWorkspace() {
     noteEditor,
     pendingSearchJump,
     requestEditorSave,
+    startNewNoteDraft,
     syncEditorWithNotes,
     updateEditorAcronym,
     updateEditorDraftField,
     updateEditorMetaphor,
   } = useNotesWorkspace();
   const [searchQuery, setSearchQuery] = useState("");
-  const searchResults = searchNoteResults(notes, searchQuery);
+  const [selectedListLabelId, setSelectedListLabelId] = useState("");
+  const [openNoteMenuId, setOpenNoteMenuId] = useState<string | null>(null);
+  const [deleteCandidateNoteId, setDeleteCandidateNoteId] = useState<
+    string | null
+  >(null);
+  const listBaseNotes =
+    selectedListLabelId.length === 0
+      ? notes
+      : notes.filter((note) => note.labelIds.includes(selectedListLabelId));
+  const searchResults = searchNoteResults(listBaseNotes, searchQuery);
   const hasSearchQuery = searchQuery.trim().length > 0;
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeSearchResultIndex, setActiveSearchResultIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchRootRef = useRef<HTMLFormElement>(null);
+  const activeNoteRowRef = useRef<HTMLButtonElement | null>(null);
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
   const editorState = noteEditor.draft;
   const labelPickerSearchInputId = useId();
@@ -821,6 +853,29 @@ function NotesWorkspace() {
 
     return labelsContext.subscribe(syncLabels);
   }, [labelsContext, userId]);
+
+  useEffect(() => {
+    if (selectedListLabelId.length === 0) {
+      return;
+    }
+
+    if (availableLabels.some((label) => label.id === selectedListLabelId)) {
+      return;
+    }
+
+    setSelectedListLabelId("");
+  }, [availableLabels, selectedListLabelId]);
+
+  useLayoutEffect(() => {
+    if (activeNoteId === null) {
+      return;
+    }
+
+    activeNoteRowRef.current?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [activeNoteId]);
 
   useEffect(() => {
     if (searchResults.length === 0) {
@@ -1411,6 +1466,7 @@ function NotesWorkspace() {
                 descriptionLabel="Your metaphor"
                 helperText="The metaphor helps you connect the concept to a vivid mental image."
                 index={index}
+                isChanged={isMetaphorDraftChanged(noteEditor, index)}
                 key={metaphor.key}
                 kindLabel="Metaphor"
                 onDescriptionChange={handleMetaphorDescriptionChange}
@@ -1444,6 +1500,7 @@ function NotesWorkspace() {
                 descriptionLabel="Your acronym"
                 helperText="The acronym helps you remember the concept through a compact cue."
                 index={index}
+                isChanged={isAcronymDraftChanged(noteEditor, index)}
                 key={acronym.key}
                 kindLabel="Acronym"
                 onDescriptionChange={handleAcronymDescriptionChange}
@@ -1483,6 +1540,7 @@ function NotesWorkspace() {
 
   function handleSelectSearchResult(result: AppNoteSearchResult) {
     setErrorMessage(null);
+    setOpenNoteMenuId(null);
 
     const transitionResult = activateNoteTarget(
       {
@@ -1494,6 +1552,69 @@ function NotesWorkspace() {
 
     if (transitionResult.status !== "pending") {
       resetSearchNavigationState();
+    }
+  }
+
+  function handleSelectNoteRow(noteId: string) {
+    setErrorMessage(null);
+    setOpenNoteMenuId(null);
+
+    activateNoteTarget(
+      {
+        noteId,
+        type: "note",
+      },
+      notes,
+    );
+  }
+
+  function handleCreateFromSearch() {
+    const trimmedSearchQuery = searchQuery.trim();
+
+    startNewNoteDraft();
+
+    if (trimmedSearchQuery.length > 0) {
+      updateEditorDraftField("title", trimmedSearchQuery);
+    }
+
+    resetSearchNavigationState();
+    setOpenNoteMenuId(null);
+    requestAnimationFrame(() => {
+      titleInputRef.current?.focus();
+    });
+  }
+
+  function handleStartNewNote() {
+    startNewNoteDraft();
+    resetSearchNavigationState();
+    setOpenNoteMenuId(null);
+    requestAnimationFrame(() => {
+      titleInputRef.current?.focus();
+    });
+  }
+
+  async function handleConfirmDeleteNote() {
+    if (userId === null || deleteCandidateNoteId === null) {
+      return;
+    }
+
+    try {
+      if (persistentNotesContext !== undefined) {
+        await persistentNotesContext.deleteNote(userId, deleteCandidateNoteId);
+      } else {
+        notesContext.deleteNote(userId, deleteCandidateNoteId);
+      }
+
+      setDeleteCandidateNoteId(null);
+      setOpenNoteMenuId(null);
+      setErrorMessage(null);
+    } catch (error) {
+      if (error instanceof AppNotesError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
     }
   }
 
@@ -1784,26 +1905,9 @@ function NotesWorkspace() {
     }
   }
 
-  async function handlePracticeThisNote() {
-    if (userId === null || selectedNote === null) {
-      return;
-    }
-
-    try {
-      recallContext.startFlashCardSession({
-        noteIds: [selectedNote.id],
-        userId,
-      });
-      setErrorMessage(null);
-      await navigate({ to: "/recall/session" });
-    } catch (error) {
-      if (error instanceof AppRecallError) {
-        setErrorMessage(error.message);
-        return;
-      }
-
-      throw error;
-    }
+  async function handleOpenRecallSelection() {
+    setErrorMessage(null);
+    await navigate({ to: "/recall/select" });
   }
 
   async function handleStartFocusForSelectedNote() {
@@ -1812,13 +1916,28 @@ function NotesWorkspace() {
     }
 
     try {
-      if (persistentFocusContext === undefined) {
-        focusContext.startFocusSession({
-          userId,
-        });
-      } else {
-        await persistentFocusContext.startFocusSession(userId, {});
+      if (activeFocusSession?.isStale) {
+        if (persistentFocusContext === undefined) {
+          focusContext.endFocusSession({
+            userId,
+          });
+          focusContext.startFocusSession({
+            userId,
+          });
+        } else {
+          await persistentFocusContext.endFocusSession(userId);
+          await persistentFocusContext.startFocusSession(userId, {});
+        }
+      } else if (activeFocusSession === null) {
+        if (persistentFocusContext === undefined) {
+          focusContext.startFocusSession({
+            userId,
+          });
+        } else {
+          await persistentFocusContext.startFocusSession(userId, {});
+        }
       }
+
       await captureNoteStudyActivity(selectedNote);
       setErrorMessage(null);
     } catch (error) {
@@ -1846,6 +1965,27 @@ function NotesWorkspace() {
   const shouldShowEditorActions = isCreating || hasUnsavedChanges;
   const shouldShowInlineSave =
     isCreating || (hasUnsavedChanges && !hasUnsavedHookChanges);
+  const visibleNoteRows = hasSearchQuery
+    ? searchResults.map((result) => ({
+        note: result.note,
+        result,
+      }))
+    : listBaseNotes.map((note) => ({
+        note,
+        result: null,
+      }));
+  const trimmedSearchQuery = searchQuery.trim();
+  const notesListSummaryLabel =
+    visibleNoteRows.length === 0
+      ? "Showing 0 of 0 notes"
+      : `Showing 1-${visibleNoteRows.length} of ${formatCount(
+          visibleNoteRows.length,
+          "note",
+        )}`;
+  const deleteCandidateNote =
+    deleteCandidateNoteId === null
+      ? null
+      : (notes.find((note) => note.id === deleteCandidateNoteId) ?? null);
   const bodyWidthPercent = Math.round(bodyFraction * 100);
   const notesEditorLayoutStyle: NotesEditorLayoutStyle = {
     "--notes-body-fraction": bodyFraction,
@@ -1853,7 +1993,9 @@ function NotesWorkspace() {
   const selectedNoteUpdatedLabel =
     selectedNote === null
       ? "Unsaved draft"
-      : `Last edited ${formatNoteDate(selectedNote.updatedAt)}`;
+      : hasUnsavedChanges
+        ? "Unsaved changes"
+        : "Saved";
   const isSearchListboxOpen =
     hasSearchQuery && isSearchOpen && searchResults.length > 0;
   const activeSearchResult = searchResults[activeSearchResultIndex];
@@ -1869,8 +2011,6 @@ function NotesWorkspace() {
     selectedLearningState === null
       ? null
       : formatLearningStateRatingLabel(selectedLearningState.latestRating);
-  const canStartFocusForSelectedNote =
-    selectedNote !== null && activeFocusSession === null;
   const labelPickerContent = isLabelPickerOpen ? (
     <LabelPickerPanel
       availableLabels={availableLabels}
@@ -1890,50 +2030,42 @@ function NotesWorkspace() {
 
   let searchResultsContent: ReactNode = null;
 
-  if (hasSearchQuery && isSearchOpen) {
-    if (searchResults.length === 0) {
-      searchResultsContent = (
-        <p className="notes-search__empty" role="status">
-          No notes found
-        </p>
-      );
-    } else {
-      searchResultsContent = (
-        <div
-          aria-label="Notes search results"
-          className="notes-search__results"
-          id={notesSearchListboxId}
-          role="listbox"
-        >
-          {searchResults.map((result, index) => {
-            const preview = formatNoteSearchResultPreview(result);
+  if (hasSearchQuery && isSearchOpen && searchResults.length > 0) {
+    searchResultsContent = (
+      <div
+        aria-label="Notes search results"
+        className="notes-search__results"
+        id={notesSearchListboxId}
+        role="listbox"
+      >
+        {searchResults.map((result, index) => {
+          const preview = formatNoteSearchResultPreview(result);
 
-            return (
-              <button
-                aria-label={getSearchResultLabel(result)}
-                aria-selected={index === activeSearchResultIndex}
-                className="notes-search__option"
-                id={getSearchResultOptionId(result.note.id)}
-                key={result.note.id}
-                onClick={() => handleSelectSearchResult(result)}
-                role="option"
-                tabIndex={-1}
-                type="button"
-              >
-                <span className="notes-search__option-title">
-                  <strong>{result.note.title}</strong>
-                  <span className="notes-search__match-chip">
-                    {result.matchChip}
-                  </span>
+          return (
+            <button
+              aria-label={getSearchResultLabel(result)}
+              aria-selected={index === activeSearchResultIndex}
+              className="notes-search__option"
+              id={getSearchResultOptionId(result.note.id)}
+              key={result.note.id}
+              onClick={() => handleSelectSearchResult(result)}
+              role="option"
+              tabIndex={-1}
+              type="button"
+            >
+              <span className="notes-search__option-title">
+                <strong>{result.note.title}</strong>
+                <span className="notes-search__match-chip">
+                  {result.matchChip}
                 </span>
-                {preview === null ? null : <span>{preview}</span>}
-                <span>{`Updated ${formatNoteDate(result.note.updatedAt)}`}</span>
-              </button>
-            );
-          })}
-        </div>
-      );
-    }
+              </span>
+              {preview === null ? null : <span>{preview}</span>}
+              <span>{`Updated ${formatNoteDate(result.note.updatedAt)}`}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
   }
 
   if (location.pathname !== "/notes") {
@@ -1942,58 +2074,22 @@ function NotesWorkspace() {
 
   return (
     <section aria-label="Notes workspace surface" className="notes-workspace">
-      <section
-        aria-label="Notes workspace toolbar"
-        className="notes-workspace__toolbar"
-      >
-        <p className="sr-only">Study workspace</p>
-        <span className="sr-only">{noteCountLabel}</span>
-        <h3 className="sr-only">Notes workspace</h3>
-        <form
-          className="notes-search"
-          onPointerDown={handleSearchPointerDown}
-          onSubmit={handleSearchSubmit}
-          ref={searchRootRef}
-        >
-          <span className="notes-search__icon" aria-hidden="true">
-            <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
-              <circle cx="10.5" cy="10.5" r="6" />
-              <path d="m15 15 4.5 4.5" />
-            </svg>
-          </span>
-          <label className="sr-only" htmlFor="notes-search">
-            Search notes
-          </label>
-          <input
-            aria-activedescendant={activeSearchOptionId}
-            aria-controls={notesSearchListboxId}
-            aria-expanded={isSearchListboxOpen}
-            aria-haspopup="listbox"
-            aria-autocomplete="list"
-            autoComplete="off"
-            id="notes-search"
-            name="search"
-            onChange={(event) => handleSearchChange(event.target.value)}
-            onFocus={() => {
-              if (hasSearchQuery) {
-                setActiveSearchResultIndex(0);
-                setIsSearchOpen(true);
-              }
-            }}
-            onKeyDown={handleSearchKeyDown}
-            placeholder="Search notes"
-            ref={searchInputRef}
-            role="combobox"
-            type="search"
-            value={searchQuery}
-          />
-          <kbd>Cmd K</kbd>
-          {searchResultsContent}
-        </form>
-        <div className="notes-workspace__toolbar-actions">
+      <header className="notes-workspace__page-header">
+        <div className="notes-workspace__header-copy">
+          <nav aria-label="Breadcrumb" className="workspace-breadcrumb">
+            Notes / Workspace
+          </nav>
+          <div className="notes-workspace__identity">
+            <h1>Notes</h1>
+            <p className="muted">
+              Capture small concepts and reinforce them through recall.
+            </p>
+          </div>
+        </div>
+        <div className="notes-workspace__quick-actions">
           <button
-            className="notes-action notes-action-primary notes-recall-entry-action"
-            onClick={() => void navigate({ to: "/recall/select" })}
+            className="notes-action notes-recall-entry-action"
+            onClick={() => void handleOpenRecallSelection()}
             type="button"
           >
             Start Recall
@@ -2005,7 +2101,7 @@ function NotesWorkspace() {
             userId={userId}
           />
         </div>
-      </section>
+      </header>
 
       <section className="notes-mobile-summary" aria-label="Workspace summary">
         <div className="tag-row notes-workspace__tags">
@@ -2016,6 +2112,257 @@ function NotesWorkspace() {
       </section>
 
       <div className="notes-layout">
+        <aside aria-label="Notes catalog" className="notes-list-panel">
+          <div className="notes-list__toolbar">
+            <div className="notes-list__heading">
+              <h2>All notes</h2>
+              <span className="notes-list__count-badge" aria-hidden="true">
+                {notes.length}
+              </span>
+              <span className="sr-only">{noteCountLabel}</span>
+            </div>
+            <button
+              className="notes-action notes-action-primary notes-list__new"
+              onClick={handleStartNewNote}
+              type="button"
+            >
+              New note
+            </button>
+          </div>
+
+          <form
+            className="notes-search notes-list__search"
+            onPointerDown={handleSearchPointerDown}
+            onSubmit={handleSearchSubmit}
+            ref={searchRootRef}
+          >
+            <span className="notes-search__icon" aria-hidden="true">
+              <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+                <circle cx="10.5" cy="10.5" r="6" />
+                <path d="m15 15 4.5 4.5" />
+              </svg>
+            </span>
+            <label className="sr-only" htmlFor="notes-search">
+              Search notes
+            </label>
+            <input
+              aria-activedescendant={activeSearchOptionId}
+              aria-controls={notesSearchListboxId}
+              aria-expanded={isSearchListboxOpen}
+              aria-haspopup="listbox"
+              aria-autocomplete="list"
+              autoComplete="off"
+              id="notes-search"
+              name="search"
+              onChange={(event) => handleSearchChange(event.target.value)}
+              onFocus={() => {
+                if (hasSearchQuery) {
+                  setActiveSearchResultIndex(0);
+                  setIsSearchOpen(true);
+                }
+              }}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="Search notes"
+              ref={searchInputRef}
+              role="combobox"
+              type="search"
+              value={searchQuery}
+            />
+            <kbd>Cmd K</kbd>
+            {searchResultsContent}
+          </form>
+
+          <fieldset className="notes-list__filters">
+            <legend className="sr-only">Notes filters</legend>
+            <label>
+              <span className="sr-only">Filter by label</span>
+              <select
+                aria-label="Filter by label"
+                onChange={(event) => setSelectedListLabelId(event.target.value)}
+                value={selectedListLabelId}
+              >
+                <option value="">All labels</option>
+                {availableLabels.map((label) => (
+                  <option key={label.id} value={label.id}>
+                    {label.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span className="sr-only">Sort notes</span>
+              <select
+                aria-label="Sort notes"
+                value="recent"
+                onChange={() => {}}
+              >
+                <option value="recent">Recent</option>
+              </select>
+            </label>
+          </fieldset>
+
+          <nav aria-label="Notes list" className="notes-list__nav">
+            {notes.length === 0 ? (
+              <div className="notes-list__empty-state">
+                <h3>No notes yet</h3>
+                <p className="muted">
+                  Create your first small concept to start the learning loop.
+                </p>
+                <button
+                  className="notes-action notes-action-primary"
+                  onClick={handleStartNewNote}
+                  type="button"
+                >
+                  New note
+                </button>
+              </div>
+            ) : visibleNoteRows.length === 0 ? (
+              <div className="notes-list__empty-state">
+                <h3>No notes found</h3>
+                <p className="muted">
+                  No saved notes match "{trimmedSearchQuery}".
+                </p>
+                <div className="notes-list__empty-actions">
+                  <button
+                    className="notes-action notes-action-primary"
+                    onClick={handleCreateFromSearch}
+                    type="button"
+                  >
+                    Create from search
+                  </button>
+                  <button
+                    className="notes-action"
+                    onClick={resetSearchNavigationState}
+                    type="button"
+                  >
+                    Clear search
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <ul className="notes-list__items">
+                {visibleNoteRows.map((row) => {
+                  const note = row.note;
+                  const learningState = noteLearningStatesById.get(note.id);
+                  const rowLabels = availableLabels.filter((label) =>
+                    note.labelIds.includes(label.id),
+                  );
+                  const primaryLabel = rowLabels[0]?.name ?? null;
+                  const learningStateLabel =
+                    learningState === undefined
+                      ? "Unpracticed"
+                      : formatLearningStateStatusLabel(learningState.status);
+                  const hookCount =
+                    note.metaphors.length + note.acronyms.length;
+                  const preview =
+                    row.result === null
+                      ? null
+                      : formatNoteSearchResultPreview(row.result);
+
+                  return (
+                    <li className="notes-list__row" key={note.id}>
+                      <button
+                        aria-current={
+                          activeNoteId === note.id ? "page" : undefined
+                        }
+                        aria-label={note.title}
+                        className="notes-list__item"
+                        data-active={
+                          activeNoteId === note.id ? "true" : undefined
+                        }
+                        onClick={() =>
+                          row.result === null
+                            ? handleSelectNoteRow(note.id)
+                            : handleSelectSearchResult(row.result)
+                        }
+                        ref={activeNoteId === note.id ? activeNoteRowRef : null}
+                        type="button"
+                      >
+                        <span className="notes-list__item-main">
+                          <span className="notes-list__item-title">
+                            <strong>{note.title}</strong>
+                            {row.result === null ? null : (
+                              <span className="notes-search__match-chip">
+                                {row.result.matchChip}
+                              </span>
+                            )}
+                          </span>
+                          {preview === null ? null : (
+                            <span className="notes-list__item-preview">
+                              {preview}
+                            </span>
+                          )}
+                          <span className="notes-list__item-status">
+                            {primaryLabel === null ? null : (
+                              <>
+                                <span>{primaryLabel}</span>
+                                <span aria-hidden="true"> · </span>
+                              </>
+                            )}
+                            <span>{learningStateLabel}</span>
+                          </span>
+                        </span>
+                        <span className="notes-list__item-meta">
+                          <span className="notes-list__item-date">
+                            {formatNoteDate(note.updatedAt)}
+                          </span>
+                          <span
+                            className="notes-list__item-hook-count"
+                            data-has-hooks={hookCount > 0 ? "true" : "false"}
+                          >
+                            {formatHookCountLabel(hookCount)}
+                          </span>
+                        </span>
+                        <span className="sr-only">
+                          {formatNoteDate(note.updatedAt)}
+                          {" · "}
+                          {formatHookCountLabel(hookCount)}
+                        </span>
+                      </button>
+                      <div className="notes-list__row-actions">
+                        <button
+                          aria-expanded={openNoteMenuId === note.id}
+                          aria-haspopup="menu"
+                          aria-label={`Actions for ${note.title}`}
+                          className="notes-list__menu-button"
+                          onClick={() =>
+                            setOpenNoteMenuId((currentNoteId) =>
+                              currentNoteId === note.id ? null : note.id,
+                            )
+                          }
+                          type="button"
+                        >
+                          <span>Actions</span>
+                        </button>
+                        {openNoteMenuId === note.id ? (
+                          <div
+                            aria-label={`Actions for ${note.title}`}
+                            className="notes-list__menu"
+                            role="menu"
+                          >
+                            <button
+                              onClick={() => {
+                                setDeleteCandidateNoteId(note.id);
+                                setOpenNoteMenuId(null);
+                              }}
+                              role="menuitem"
+                              type="button"
+                            >
+                              Delete note
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </nav>
+
+          <p className="notes-list__summary">{notesListSummaryLabel}</p>
+        </aside>
+
         <article aria-label="Note editor surface" className="notes-editor">
           <fieldset
             className="notes-editor__study-surface"
@@ -2056,7 +2403,7 @@ function NotesWorkspace() {
                             form={noteEditorFormId}
                             type="submit"
                           >
-                            {isCreating ? "Create note" : "Save changes"}
+                            {isCreating ? "Create note" : "Save"}
                           </button>
                         ) : null}
                         {hasUnsavedChanges ? (
@@ -2065,7 +2412,7 @@ function NotesWorkspace() {
                             onClick={() => discardEditorChanges(notes)}
                             type="button"
                           >
-                            Discard changes
+                            Discard
                           </button>
                         ) : null}
                       </span>
@@ -2111,7 +2458,7 @@ function NotesWorkspace() {
                           aria-expanded={isLabelPickerOpen}
                           aria-controls={labelPickerPanelId}
                           aria-haspopup="dialog"
-                          aria-label="Manage labels"
+                          aria-label="Assign labels"
                           className="notes-inline-action"
                           onClick={() =>
                             isLabelPickerOpen
@@ -2121,7 +2468,7 @@ function NotesWorkspace() {
                           ref={labelPickerTriggerRef}
                           type="button"
                         >
-                          Manage labels
+                          Assign labels
                         </button>
                         {labelPickerContent}
                       </span>
@@ -2174,121 +2521,159 @@ function NotesWorkspace() {
                 ref={bodySplitterRef}
                 tabIndex={0}
               />
-
-              <aside
-                aria-hidden={isInspectorHidden}
-                aria-label="Memory hooks panel"
-                className="notes-editor__inspector"
-              >
-                <section
-                  aria-label="Memory hooks"
-                  className="notes-memory-hooks notes-inspector-card"
-                >
-                  <div className="notes-inspector-card__header">
-                    <h4>Memory hooks</h4>
-                    <p>
-                      Use a metaphor or acronym to make this concept easier to
-                      remember.
-                    </p>
-                  </div>
-                  <MemoryHookTabs
-                    activeTab={activeMemoryHookTab}
-                    onSelect={setActiveMemoryHookTab}
-                  />
-                  {renderActiveMemoryHookPanel()}
-                </section>
-                <section
-                  aria-label="Learning state"
-                  className="notes-inspector-card notes-learning-state"
-                >
-                  <div className="notes-inspector-card__header">
-                    <h4>Learning state</h4>
-                    {selectedLearningState === null ? null : (
-                      <span className="tag">{selectedLearningStateLabel}</span>
-                    )}
-                  </div>
-
-                  {selectedLearningState === null ? (
-                    <p className="muted">
-                      Save this note to track practice, review timing, and hook
-                      support.
-                    </p>
-                  ) : (
-                    <>
-                      <div className="notes-learning-state__summary">
-                        <p className="muted">
-                          {getLearningStateSummary(
-                            selectedLearningState.status,
-                          )}
-                        </p>
-                        <div className="notes-learning-state__tags tag-row">
-                          <span className="tag">
-                            {formatHookCountLabel(
-                              selectedLearningState.hookCount,
-                            )}
-                          </span>
-                          {selectedLearningState.practiced ? (
-                            <span className="tag">Practiced</span>
-                          ) : null}
-                        </div>
-                      </div>
-                      <dl className="notes-learning-state__details">
-                        <div>
-                          <dt>Latest rating</dt>
-                          <dd>
-                            {selectedLearningStateRating ?? "Not practiced yet"}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt>Last practiced</dt>
-                          <dd>
-                            {selectedLearningState.lastPracticedAt === null
-                              ? "Not practiced yet"
-                              : formatNoteDate(
-                                  selectedLearningState.lastPracticedAt,
-                                )}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt>Next review</dt>
-                          <dd>
-                            {selectedLearningState.nextReviewAt === null
-                              ? "Practice when ready"
-                              : formatNoteDate(
-                                  selectedLearningState.nextReviewAt,
-                                )}
-                          </dd>
-                        </div>
-                      </dl>
-                      <div className="notes-inspector-card__actions">
-                        <button
-                          className="notes-action notes-action-primary"
-                          onClick={() => void handlePracticeThisNote()}
-                          type="button"
-                        >
-                          Practice this note
-                        </button>
-                        {canStartFocusForSelectedNote ? (
-                          <button
-                            className="notes-action"
-                            onClick={handleStartFocusForSelectedNote}
-                            type="button"
-                          >
-                            Focus on this note
-                          </button>
-                        ) : null}
-                      </div>
-                    </>
-                  )}
-                </section>
-              </aside>
             </div>
           </fieldset>
           {isBreakActive && userId !== null ? (
             <BreakIntervalOverlay onSkipBreak={skipBreakInterval} />
           ) : null}
         </article>
+
+        <aside
+          aria-hidden={isInspectorHidden}
+          aria-label="Memory hooks panel"
+          className="notes-editor__inspector"
+        >
+          <section
+            aria-label="Memory hooks"
+            className="notes-memory-hooks notes-inspector-card"
+          >
+            <div className="notes-inspector-card__header">
+              <h4>Memory hooks</h4>
+              <p>
+                Use a metaphor or acronym to make this concept easier to
+                remember.
+              </p>
+            </div>
+            {isCreating ? (
+              <MemoryHookDraftNotice />
+            ) : (
+              <>
+                <MemoryHookTabs
+                  activeTab={activeMemoryHookTab}
+                  onSelect={setActiveMemoryHookTab}
+                />
+                {renderActiveMemoryHookPanel()}
+              </>
+            )}
+          </section>
+          <section
+            aria-label="Learning state"
+            className="notes-inspector-card notes-learning-state"
+          >
+            <div className="notes-inspector-card__header">
+              <h4>Learning state</h4>
+              {selectedLearningState === null ? null : (
+                <span className="tag">{selectedLearningStateLabel}</span>
+              )}
+            </div>
+
+            {isCreating ? (
+              <LearningStateDraftNotice />
+            ) : selectedLearningState === null ? (
+              <p className="muted">Learning state is unavailable.</p>
+            ) : (
+              <>
+                <div className="notes-learning-state__summary">
+                  <p className="muted">
+                    {getLearningStateSummary(selectedLearningState.status)}
+                  </p>
+                  <div className="notes-learning-state__tags tag-row">
+                    <span className="tag">
+                      {formatHookCountLabel(selectedLearningState.hookCount)}
+                    </span>
+                    {selectedLearningState.practiced ? (
+                      <span className="tag">Practiced</span>
+                    ) : null}
+                  </div>
+                </div>
+                <dl className="notes-learning-state__details">
+                  <div>
+                    <dt>Status</dt>
+                    <dd>{selectedLearningStateLabel}</dd>
+                  </div>
+                  <div>
+                    <dt>Next review</dt>
+                    <dd>
+                      {selectedLearningState.nextReviewAt === null
+                        ? "Practice when ready"
+                        : formatNoteDate(selectedLearningState.nextReviewAt)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Latest rating</dt>
+                    <dd>
+                      {selectedLearningStateRating ?? "Not practiced yet"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Last practiced</dt>
+                    <dd>
+                      {selectedLearningState.lastPracticedAt === null
+                        ? "Not practiced yet"
+                        : formatNoteDate(selectedLearningState.lastPracticedAt)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Hook count</dt>
+                    <dd>
+                      {formatHookCountLabel(selectedLearningState.hookCount)}
+                    </dd>
+                  </div>
+                </dl>
+                <div className="notes-inspector-card__actions">
+                  <button
+                    className="notes-action notes-action-primary"
+                    onClick={() => void handleOpenRecallSelection()}
+                    type="button"
+                  >
+                    Open Recall
+                  </button>
+                  <button
+                    className="notes-action"
+                    onClick={() => void handleStartFocusForSelectedNote()}
+                    type="button"
+                  >
+                    Focus here
+                  </button>
+                </div>
+              </>
+            )}
+          </section>
+        </aside>
       </div>
+      {deleteCandidateNote === null ? null : (
+        <div
+          aria-labelledby="notes-delete-title"
+          aria-describedby="notes-delete-description"
+          aria-modal="true"
+          className="notes-delete-dialog"
+          role="dialog"
+        >
+          <div className="notes-delete-dialog__panel">
+            <h3 id="notes-delete-title">Delete this note?</h3>
+            <p id="notes-delete-description">
+              This will permanently delete the note and its memory hooks. Past
+              results keep their saved snapshots.
+            </p>
+            <div className="notes-delete-dialog__actions">
+              <button
+                className="notes-action"
+                onClick={() => setDeleteCandidateNoteId(null)}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="notes-action notes-action-danger"
+                onClick={() => void handleConfirmDeleteNote()}
+                type="button"
+              >
+                Delete note
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {hasPendingGuardedWorkspaceTransition ? (
         <div
           aria-labelledby="notes-unsaved-search-title"

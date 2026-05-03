@@ -75,7 +75,17 @@ export function formatLearningStateRatingLabel(
 
 function addDays(timestamp: string, days: number): string {
   const date = new Date(timestamp);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
   date.setUTCDate(date.getUTCDate() + days);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
   return date.toISOString();
 }
 
@@ -121,6 +131,7 @@ export function deriveLearningState(input: {
     latestAttempt.completedAt,
     getReviewOffsetDays(latestAttempt.rating),
   );
+  const hasValidPracticeTimestamp = nextReviewAt.length > 0;
   const isWeak =
     latestAttempt.rating === "forgot" || latestAttempt.rating === "hard";
 
@@ -128,9 +139,11 @@ export function deriveLearningState(input: {
     return {
       hookCount,
       isWeak: true,
-      lastPracticedAt: latestAttempt.completedAt,
+      lastPracticedAt: hasValidPracticeTimestamp
+        ? latestAttempt.completedAt
+        : null,
       latestRating: latestAttempt.rating,
-      nextReviewAt,
+      nextReviewAt: hasValidPracticeTimestamp ? nextReviewAt : null,
       noteId: input.note.id,
       practiced: true,
       recommendedAction: "review_now",
@@ -139,6 +152,19 @@ export function deriveLearningState(input: {
   }
 
   const now = input.now ?? new Date().toISOString();
+  if (!hasValidPracticeTimestamp) {
+    return {
+      hookCount,
+      isWeak: false,
+      lastPracticedAt: null,
+      latestRating: latestAttempt.rating,
+      nextReviewAt: null,
+      noteId: input.note.id,
+      practiced: true,
+      recommendedAction: "review_now",
+      status: "ready_for_review",
+    };
+  }
   const isReadyForReview = nextReviewAt <= now;
 
   return {

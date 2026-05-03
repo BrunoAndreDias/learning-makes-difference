@@ -8,10 +8,10 @@ import {
 } from "react";
 
 import {
-  AppAuthError,
   type AppLanguagePreference,
   type AppSessionSnapshot,
   appLanguagePreferences,
+  getAppAuthError,
 } from "./session";
 
 export const Route = createFileRoute("/_protected/settings")({
@@ -77,8 +77,10 @@ function SettingsPage() {
       });
       setStatusMessage("Preferences saved.");
     } catch (error) {
-      if (error instanceof AppAuthError) {
-        setErrorMessage(error.message);
+      const appAuthError = getAppAuthError(error);
+
+      if (appAuthError !== null) {
+        setErrorMessage(appAuthError.message);
       } else {
         setErrorMessage("Settings could not be saved. Try again.");
       }

@@ -272,7 +272,7 @@ describe("authenticated app shell", () => {
 
     fireEvent.click(screen.getByRole("link", { name: "Notes" }));
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/notes");
     expect(
@@ -613,7 +613,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
@@ -724,7 +724,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     const overlay = screen.getByRole("region", {
@@ -793,7 +793,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
@@ -812,7 +812,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
     expect(
       completedBreakFocusContext.getActiveSession({ userId }),
@@ -882,7 +882,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
@@ -924,7 +924,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
@@ -997,7 +997,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Notes workspace" }),
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
     expect(
       screen.getByDisplayValue(
@@ -1081,7 +1081,9 @@ describe("authenticated app shell", () => {
       },
     });
 
-    expect(await screen.findByText("Recall / Session")).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Recall\s*\/\s*Session/),
+    ).toBeInTheDocument();
 
     const overlay = screen.getByRole("region", {
       name: "Break interval reminder",

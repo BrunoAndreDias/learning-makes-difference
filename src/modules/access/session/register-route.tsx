@@ -8,7 +8,7 @@ import {
 import { type FormEvent, useState } from "react";
 import { z } from "zod";
 
-import { AppAuthError, hasActiveSession } from "./session";
+import { getAppAuthError, hasActiveSession } from "./session";
 
 export const Route = createFileRoute("/_auth/register")({
   validateSearch: z.object({
@@ -57,8 +57,10 @@ function RegisterPage() {
       await router.invalidate();
       await navigate({ to: redirectTarget });
     } catch (error) {
-      if (error instanceof AppAuthError) {
-        setErrorMessage(error.message);
+      const appAuthError = getAppAuthError(error);
+
+      if (appAuthError !== null) {
+        setErrorMessage(appAuthError.message);
       } else {
         setErrorMessage("Could not create account. Try again.");
       }

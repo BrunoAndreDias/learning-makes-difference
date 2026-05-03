@@ -22,7 +22,7 @@ import {
   hasActiveSession,
 } from "../../access/session/session";
 import { FocusSessionStartControl } from "../../focus";
-import { NotesWorkspaceProvider, NotesWorkspaceSidebar } from "../../notes";
+import { NotesWorkspaceProvider } from "../../notes";
 
 type NavigationIconName = "focus" | "label" | "note" | "recall" | "settings";
 
@@ -110,7 +110,9 @@ export function AppLayout() {
   const isNotesWorkspaceRoute = isNotesWorkspacePath(location.pathname);
   const isRecallWorkspaceRoute =
     location.pathname === "/recall" || location.pathname.startsWith("/recall/");
-  const isRecallResultsWorkspaceRoute = false;
+  const isRecallResultsWorkspaceRoute = location.pathname === "/recall";
+  const isLabelsWorkspaceRoute =
+    location.pathname === "/labels" || location.pathname.startsWith("/labels/");
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
   const sidebarToggleLabel = isSidebarCollapsed
     ? "Expand sidebar"
@@ -232,16 +234,6 @@ export function AppLayout() {
           </div>
 
           <GlobalNavigation onNavigate={closeMobileSidebar} />
-
-          <div className="app-sidebar__body app-sidebar__body--notes">
-            {isNotesWorkspaceRoute ? (
-              <NotesWorkspaceSidebar
-                closeMobileSidebar={closeMobileSidebar}
-                isMobileSidebarOpen={isMobileSidebarOpen}
-                isSidebarVisible={!isSidebarCollapsed}
-              />
-            ) : null}
-          </div>
         </aside>
 
         <div
@@ -251,7 +243,11 @@ export function AppLayout() {
               ? "notes"
               : isRecallResultsWorkspaceRoute
                 ? "recall-results"
-                : undefined
+                : isRecallWorkspaceRoute
+                  ? "recall"
+                  : isLabelsWorkspaceRoute
+                    ? "labels"
+                    : undefined
           }
         >
           <WorkspaceHeader
@@ -261,6 +257,7 @@ export function AppLayout() {
             persistentFocus={persistentFocus}
             isNotesWorkspaceRoute={isNotesWorkspaceRoute}
             isRecallWorkspaceRoute={isRecallWorkspaceRoute}
+            isLabelsWorkspaceRoute={isLabelsWorkspaceRoute}
             isSidebarCollapsed={isSidebarCollapsed}
             isMobileSidebarOpen={isMobileSidebarOpen}
             mobileSidebarToggleRef={mobileSidebarToggleRef}
@@ -288,6 +285,7 @@ function WorkspaceHeader({
   persistentFocus,
   isNotesWorkspaceRoute,
   isRecallWorkspaceRoute,
+  isLabelsWorkspaceRoute,
   isSidebarCollapsed,
   isMobileSidebarOpen,
   mobileSidebarToggleRef,
@@ -308,6 +306,7 @@ function WorkspaceHeader({
   >[0]["persistentFocus"];
   isNotesWorkspaceRoute: boolean;
   isRecallWorkspaceRoute: boolean;
+  isLabelsWorkspaceRoute: boolean;
   isSidebarCollapsed: boolean;
   isMobileSidebarOpen: boolean;
   mobileSidebarToggleRef: RefObject<HTMLButtonElement | null>;
@@ -344,14 +343,22 @@ function WorkspaceHeader({
             <SidebarReopenIcon />
           </button>
         ) : null}
-        <h2>
-          {isRecallWorkspaceRoute
-            ? (recallWorkspaceTitle ?? workspaceTitle)
-            : workspaceTitle}
-        </h2>
+        {isNotesWorkspaceRoute ? null : (
+          <h2
+            className={
+              isRecallWorkspaceRoute || isLabelsWorkspaceRoute
+                ? "sr-only"
+                : undefined
+            }
+          >
+            {isRecallWorkspaceRoute
+              ? (recallWorkspaceTitle ?? workspaceTitle)
+              : workspaceTitle}
+          </h2>
+        )}
       </div>
       <div className="app-frame__actions">
-        {isNotesWorkspaceRoute ? null : (
+        {isNotesWorkspaceRoute || isLabelsWorkspaceRoute ? null : (
           <FocusSessionStartControl
             activeFocusSession={activeFocusSession}
             focus={focus}
