@@ -261,10 +261,54 @@
   text-decoration: underline;
 }
 
-.labels-table__actions {
+.labels-row-menu {
+  position: relative;
   display: flex;
-  gap: 0.35rem;
-  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.labels-row-menu__trigger {
+  min-width: 2rem;
+  padding: 0.35rem;
+}
+
+.labels-row-menu__icon {
+  width: 1rem;
+  height: 1rem;
+  fill: currentColor;
+}
+
+.labels-row-menu__popover {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 6;
+  min-width: 9.5rem;
+  padding: 0.25rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.labels-row-menu__item {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-content-default);
+  text-align: left;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.42rem 0.52rem;
+  cursor: pointer;
+}
+
+.labels-row-menu__item:hover,
+.labels-row-menu__item:focus-visible {
+  outline: none;
+  background: var(--color-shell-inset);
+}
+
+.labels-row-menu__item--danger {
+  color: #9f1239;
 }
 
 .labels-empty-card {

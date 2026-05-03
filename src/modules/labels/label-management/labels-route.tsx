@@ -2,6 +2,7 @@ import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import {
   type ChangeEvent,
   type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
   useEffect,
   useId,
@@ -18,6 +19,7 @@ import { normalizeLabelParentIds } from "../label-graph";
 import { type AppLabel, AppLabelError } from "./labels";
 import {
   type DerivedLabelRow,
+  deriveDuplicateLabelName,
   deriveLabelRows,
   deriveLabelsSummary,
   deriveSelectableParentOptions,
@@ -158,6 +160,9 @@ function LabelsPage() {
   const [editName, setEditName] = useState("");
   const [editParentSearchQuery, setEditParentSearchQuery] = useState("");
   const [editParentIds, setEditParentIds] = useState<string[]>([]);
+  const [openRowActionsLabelId, setOpenRowActionsLabelId] = useState<
+    string | null
+  >(null);
 
   const createDrawerDescriptionId = useId();
   const createDrawerTitleId = useId();
@@ -259,6 +264,35 @@ function LabelsPage() {
     editInputRef.current?.focus();
   }, [editingLabelId]);
 
+  useEffect(() => {
+    if (openRowActionsLabelId === null) {
+      return;
+    }
+
+    function handleDocumentMouseDown(event: MouseEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      if (
+        target.closest(`[data-row-actions-id="${openRowActionsLabelId}"]`) !==
+        null
+      ) {
+        return;
+      }
+
+      setOpenRowActionsLabelId(null);
+    }
+
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentMouseDown);
+    };
+  }, [openRowActionsLabelId]);
+
   async function runLabelAction(action: () => void | Promise<void>) {
     try {
       await action();
@@ -334,6 +368,39 @@ function LabelsPage() {
     });
   }
 
+  async function duplicateLabel(labelId: string) {
+    if (currentUserId === null) {
+      return;
+    }
+
+    const labelToDuplicate = labelRecords.find((label) => label.id === labelId);
+
+    if (labelToDuplicate === undefined) {
+      return;
+    }
+
+    const duplicateName = deriveDuplicateLabelName({
+      existingLabelNames: labelRecords.map((label) => label.name),
+      sourceLabelName: labelToDuplicate.name,
+    });
+
+    await runLabelAction(async () => {
+      if (persistentLabelsContext === undefined) {
+        labels.createLabel({
+          name: duplicateName,
+          parentIds: labelToDuplicate.parentIds,
+          userId: currentUserId,
+        });
+        return;
+      }
+
+      await persistentLabelsContext.createLabel(currentUserId, {
+        name: duplicateName,
+        parentIds: labelToDuplicate.parentIds,
+      });
+    });
+  }
+
   function handleFilterChange(event: ChangeEvent<HTMLSelectElement>) {
     const nextFilterValue = parseLabelsFilterValue(event.target.value);
 
@@ -365,6 +432,23 @@ function LabelsPage() {
     }
   }
 
+  function closeRowActionsMenu() {
+    setOpenRowActionsLabelId(null);
+  }
+
+  function handleRowActionsMenuKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeRowActionsMenu();
+    }
+  }
+
+  function toggleRowActionsMenu(rowId: string) {
+    setOpenRowActionsLabelId((currentRowId) =>
+      currentRowId === rowId ? null : rowId,
+    );
+  }
+
   function resetCreateDraft(nextName: string) {
     setCreateName(nextName);
     setCreateParentIds([]);
@@ -372,6 +456,7 @@ function LabelsPage() {
   }
 
   function openCreateDrawerWithName(name: string) {
+    closeRowActionsMenu();
     resetCreateDraft(name);
     setCreateDrawerOpen(true);
   }
@@ -403,6 +488,7 @@ function LabelsPage() {
       return;
     }
 
+    closeRowActionsMenu();
     setEditingLabelId(label.id);
     setEditName(label.name);
     setEditParentIds(normalizeLabelParentIds(label.parentIds));
@@ -767,27 +853,71 @@ function LabelsPage() {
                       <td>{row.childCount}</td>
                       <td>{row.directNoteCount}</td>
                       <td>
-                        <div className="labels-table__actions">
+                        <div
+                          className="labels-row-menu"
+                          data-row-actions-id={row.id}
+                        >
                           <button
-                            className="labels-button labels-button--inline"
+                            aria-controls={`labels-row-actions-menu-${row.id}`}
+                            aria-expanded={openRowActionsLabelId === row.id}
+                            aria-haspopup="menu"
+                            aria-label={`Row actions for ${row.label}`}
+                            className="labels-button labels-button--inline labels-row-menu__trigger"
                             onClick={(event) => {
                               event.stopPropagation();
-                              openEditDrawer(row.id);
+                              toggleRowActionsMenu(row.id);
                             }}
+                            onKeyDown={handleRowActionsMenuKeyDown}
                             type="button"
                           >
-                            Edit label
+                            <RowActionsIcon />
                           </button>
-                          <button
-                            className="labels-button labels-button--inline labels-button--danger"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleDeleteRow(row);
-                            }}
-                            type="button"
-                          >
-                            Delete label
-                          </button>
+                          {openRowActionsLabelId === row.id ? (
+                            <div
+                              aria-label={`Row actions for ${row.label}`}
+                              className="labels-row-menu__popover shell-panel"
+                              id={`labels-row-actions-menu-${row.id}`}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                              }}
+                              onKeyDown={handleRowActionsMenuKeyDown}
+                              role="menu"
+                            >
+                              <button
+                                className="labels-row-menu__item"
+                                onClick={() => {
+                                  closeRowActionsMenu();
+                                  openEditDrawer(row.id);
+                                }}
+                                role="menuitem"
+                                type="button"
+                              >
+                                Edit label
+                              </button>
+                              <button
+                                className="labels-row-menu__item"
+                                onClick={() => {
+                                  closeRowActionsMenu();
+                                  void duplicateLabel(row.id);
+                                }}
+                                role="menuitem"
+                                type="button"
+                              >
+                                Duplicate
+                              </button>
+                              <button
+                                className="labels-row-menu__item labels-row-menu__item--danger"
+                                onClick={() => {
+                                  closeRowActionsMenu();
+                                  handleDeleteRow(row);
+                                }}
+                                role="menuitem"
+                                type="button"
+                              >
+                                Delete label
+                              </button>
+                            </div>
+                          ) : null}
                         </div>
                       </td>
                     </tr>
@@ -1108,5 +1238,20 @@ function LabelsPage() {
         </aside>
       ) : null}
     </section>
+  );
+}
+
+function RowActionsIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="labels-row-menu__icon"
+      focusable="false"
+      viewBox="0 0 24 24"
+    >
+      <circle cx="12" cy="5" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="12" cy="19" r="1.6" />
+    </svg>
   );
 }

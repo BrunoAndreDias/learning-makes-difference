@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AppLabel } from "./labels";
 import {
+  deriveDuplicateLabelName,
   deriveLabelRows,
   deriveLabelsSummary,
   deriveSelectableParentOptions,
@@ -208,5 +209,26 @@ describe("labels management view", () => {
     expect(formatCreateRelationshipPreview(["Biology", "Science"])).toBe(
       "New label will have 2 parents: Biology, Science.",
     );
+  });
+
+  it("derives duplicate label names with copy suffix and collision indexing", () => {
+    expect(
+      deriveDuplicateLabelName({
+        existingLabelNames: ["Science", "Biology"],
+        sourceLabelName: "Biology",
+      }),
+    ).toBe("Biology (copy)");
+
+    expect(
+      deriveDuplicateLabelName({
+        existingLabelNames: [
+          "Biology",
+          "Biology (copy)",
+          "biology (copy 2)",
+          "Biology (copy 3)",
+        ],
+        sourceLabelName: "Biology",
+      }),
+    ).toBe("Biology (copy 4)");
   });
 });

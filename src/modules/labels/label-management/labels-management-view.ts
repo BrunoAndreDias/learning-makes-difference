@@ -210,3 +210,34 @@ export function formatCreateRelationshipPreview(
 
   return `New label will have ${parentNames.length} parents: ${parentNames.join(", ")}.`;
 }
+
+function normalizeNameForComparison(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+export function deriveDuplicateLabelName(input: {
+  existingLabelNames: readonly string[];
+  sourceLabelName: string;
+}): string {
+  const sourceName = input.sourceLabelName.trim();
+  const existingNames = new Set(
+    input.existingLabelNames.map(normalizeNameForComparison),
+  );
+  const baseCopyName = `${sourceName} (copy)`;
+
+  if (!existingNames.has(normalizeNameForComparison(baseCopyName))) {
+    return baseCopyName;
+  }
+
+  let copyIndex = 2;
+
+  while (true) {
+    const candidateName = `${sourceName} (copy ${copyIndex})`;
+
+    if (!existingNames.has(normalizeNameForComparison(candidateName))) {
+      return candidateName;
+    }
+
+    copyIndex += 1;
+  }
+}

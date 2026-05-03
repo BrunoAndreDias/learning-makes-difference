@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createAppLabelsContext } from "../../modules/labels/label-management/labels";
 import {
+  type AppPersistentLabelsService,
   createPersistentLabelsContext,
   createReadonlyLabelsContext,
 } from "../../modules/labels/persistent-labels";
@@ -402,7 +403,12 @@ describe("authenticated app shell", () => {
     });
 
     fireEvent.click(
-      within(biologyRow).getByRole("button", { name: "Edit label" }),
+      within(biologyRow).getByRole("button", {
+        name: "Row actions for Biology",
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Edit label" }),
     );
 
     const drawer = await screen.findByRole("dialog", { name: "Edit label" });
@@ -464,6 +470,119 @@ describe("authenticated app shell", () => {
         }),
       ]),
     );
+  });
+
+  it("renders row overflow actions menu and duplicates label with parent-only copy", async () => {
+    const userId = "user-placeholder";
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `labels-row-menu-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (ownedUserId) =>
+        labelsContext.getLabelsForUser(ownedUserId).map((label) => label.id),
+      keyPrefix: `notes-row-menu-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    const science = labelsContext.createLabel({
+      name: "Science",
+      userId,
+    });
+    const biology = labelsContext.createLabel({
+      name: "Biology",
+      parentIds: [science.id],
+      userId,
+    });
+    labelsContext.createLabel({
+      name: "Molecular Biology",
+      parentIds: [biology.id],
+      userId,
+    });
+    notesContext.createNote(userId, {
+      acronyms: [],
+      body: "biology note",
+      labelIds: [biology.id],
+      metaphors: [],
+      title: "Biology note",
+    });
+
+    renderRoute("/labels", { labelsContext, notesContext });
+
+    const labelsTable = await screen.findByRole("table", {
+      name: "Labels list",
+    });
+    const biologyLabelButton = within(labelsTable).getByRole("button", {
+      name: "Biology",
+    });
+    const biologyRow = biologyLabelButton.closest("tr");
+
+    if (biologyRow === null) {
+      throw new Error("Biology row is missing.");
+    }
+
+    const biologyMenuButton = within(biologyRow).getByRole("button", {
+      name: "Row actions for Biology",
+    });
+
+    fireEvent.click(biologyMenuButton);
+    const rowMenu = await screen.findByRole("menu", {
+      name: "Row actions for Biology",
+    });
+    expect(
+      within(rowMenu).getByRole("menuitem", { name: "Edit label" }),
+    ).toBeInTheDocument();
+    expect(
+      within(rowMenu).getByRole("menuitem", { name: "Duplicate" }),
+    ).toBeInTheDocument();
+    expect(
+      within(rowMenu).getByRole("menuitem", { name: "Delete label" }),
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(rowMenu, { key: "Escape" });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("menu", { name: "Row actions for Biology" }),
+      ).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(biologyMenuButton);
+    await screen.findByRole("menu", { name: "Row actions for Biology" });
+    fireEvent.mouseDown(
+      screen.getByRole("heading", { level: 3, name: "Labels" }),
+    );
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("menu", { name: "Row actions for Biology" }),
+      ).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(biologyMenuButton);
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Edit label" }),
+    );
+    expect(
+      await screen.findByRole("dialog", { name: "Edit label" }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("menu", { name: "Row actions for Biology" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    fireEvent.click(biologyMenuButton);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Duplicate" }));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("menu", { name: "Row actions for Biology" }),
+      ).not.toBeInTheDocument();
+    });
+
+    const duplicateRow = await screen.findByRole("row", {
+      name: /Biology \(copy\)/i,
+    });
+    expect(within(duplicateRow).getByText("Science")).toBeInTheDocument();
+    expect(within(duplicateRow).getAllByText("0")).toHaveLength(2);
   });
 
   it("shows no-results quick-create and prefills drawer name from search", async () => {
@@ -545,6 +664,194 @@ describe("authenticated app shell", () => {
     expect(
       screen.queryByRole("table", { name: "Labels list" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("duplicates labels through persistent context with parent-only snapshot copy", async () => {
+    const userId = "user-placeholder";
+    const labelsById = new Map([
+      [
+        "label-science",
+        {
+          id: "label-science",
+          name: "Science",
+          parentIds: [] as string[],
+        },
+      ],
+      [
+        "label-biology",
+        {
+          id: "label-biology",
+          name: "Biology",
+          parentIds: ["label-science"],
+        },
+      ],
+      [
+        "label-molecular-biology",
+        {
+          id: "label-molecular-biology",
+          name: "Molecular Biology",
+          parentIds: ["label-biology"],
+        },
+      ],
+    ]);
+    let duplicateIndex = 0;
+    const persistentService: AppPersistentLabelsService = {
+      addParent: vi.fn(async ({ labelId, parentId }) => {
+        const label = labelsById.get(labelId);
+
+        if (label === undefined) {
+          throw new Error("Missing label.");
+        }
+
+        const nextLabel = {
+          ...label,
+          parentIds: [...new Set([...label.parentIds, parentId])].sort(),
+        };
+
+        labelsById.set(labelId, nextLabel);
+
+        return nextLabel;
+      }),
+      createLabel: vi.fn(
+        async ({ name, parentIds }: { name: string; parentIds?: string[] }) => {
+          const normalizedParentIds = [
+            ...new Set<string>(parentIds ?? []),
+          ].sort();
+          duplicateIndex += 1;
+          const createdLabel = {
+            id: `label-duplicate-${duplicateIndex}`,
+            name,
+            parentIds: normalizedParentIds,
+          };
+
+          labelsById.set(createdLabel.id, createdLabel);
+
+          return createdLabel;
+        },
+      ),
+      deleteLabel: vi.fn(async ({ labelId }) => {
+        labelsById.delete(labelId);
+      }),
+      listLabels: vi.fn(async () =>
+        [...labelsById.values()].sort((left, right) =>
+          left.name.localeCompare(right.name),
+        ),
+      ),
+      removeParent: vi.fn(async ({ labelId, parentId }) => {
+        const label = labelsById.get(labelId);
+
+        if (label === undefined) {
+          throw new Error("Missing label.");
+        }
+
+        const nextLabel = {
+          ...label,
+          parentIds: label.parentIds.filter(
+            (candidateId) => candidateId !== parentId,
+          ),
+        };
+
+        labelsById.set(labelId, nextLabel);
+
+        return nextLabel;
+      }),
+      renameLabel: vi.fn(async ({ labelId, name }) => {
+        const label = labelsById.get(labelId);
+
+        if (label === undefined) {
+          throw new Error("Missing label.");
+        }
+
+        const nextLabel = {
+          ...label,
+          name,
+        };
+
+        labelsById.set(labelId, nextLabel);
+
+        return nextLabel;
+      }),
+      updateLabel: vi.fn(
+        async ({
+          labelId,
+          name,
+          parentIds,
+        }: {
+          labelId: string;
+          name: string;
+          parentIds: string[];
+        }) => {
+          const label = labelsById.get(labelId);
+
+          if (label === undefined) {
+            throw new Error("Missing label.");
+          }
+
+          const nextLabel = {
+            ...label,
+            name,
+            parentIds: [...new Set<string>(parentIds)].sort(),
+          };
+
+          labelsById.set(labelId, nextLabel);
+
+          return nextLabel;
+        },
+      ),
+    };
+    const persistentLabelsContext = createPersistentLabelsContext({
+      service: persistentService,
+    });
+    const labelsContext = createReadonlyLabelsContext(persistentLabelsContext);
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (ownedUserId) =>
+        labelsContext.getLabelsForUser(ownedUserId).map((label) => label.id),
+      keyPrefix: `notes-persistent-duplicate-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    renderRoute("/labels", {
+      labelsContext,
+      notesContext,
+      persistentLabelsContext,
+    });
+
+    const labelsTable = await screen.findByRole("table", {
+      name: "Labels list",
+    });
+    const biologyLabelButton = within(labelsTable).getByRole("button", {
+      name: "Biology",
+    });
+    const biologyRow = biologyLabelButton.closest("tr");
+
+    if (biologyRow === null) {
+      throw new Error("Biology row is missing.");
+    }
+
+    fireEvent.click(
+      within(biologyRow).getByRole("button", {
+        name: "Row actions for Biology",
+      }),
+    );
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Duplicate" }));
+
+    await waitFor(() => {
+      expect(persistentService.createLabel).toHaveBeenCalledWith({
+        name: "Biology (copy)",
+        parentIds: ["label-science"],
+      });
+    });
+
+    const duplicateRow = await screen.findByRole("row", {
+      name: /Biology \(copy\)/i,
+    });
+    const molecularRow = screen.getByRole("row", {
+      name: /Molecular Biology/i,
+    });
+
+    expect(within(duplicateRow).getByText("Science")).toBeInTheDocument();
+    expect(within(duplicateRow).getAllByText("0")).toHaveLength(2);
+    expect(within(molecularRow).getByText("Biology")).toBeInTheDocument();
   });
 
   it("loads labels from the persistent labels service on route entry", async () => {
