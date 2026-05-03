@@ -76,6 +76,20 @@ async function openDeleteDialogFromRow(label: string) {
   });
 }
 
+async function expectDialogToBeClosed(name: string) {
+  await waitFor(() => {
+    expect(screen.queryByRole("dialog", { name })).not.toBeInTheDocument();
+  });
+}
+
+async function expectRowActionsMenuToBeClosed(label: string) {
+  await waitFor(() => {
+    expect(
+      screen.queryByRole("menu", { name: `Row actions for ${label}` }),
+    ).not.toBeInTheDocument();
+  });
+}
+
 function expectLabelRowToContain(label: string, text: string) {
   const labelsTable = screen.getByRole("table", { name: "Labels list" });
   const labelRow = getLabelRow(labelsTable, label);
@@ -365,11 +379,7 @@ describe("authenticated app shell", () => {
     expect(popover).toHaveFocus();
 
     fireEvent.keyDown(popover, { key: "Escape" });
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("dialog", { name: "Label rules" }),
-      ).not.toBeInTheDocument();
-    });
+    await expectDialogToBeClosed("Label rules");
     expect(rulesButton).toHaveFocus();
     expect(rulesButton).toHaveAttribute("aria-expanded", "false");
   });
@@ -533,11 +543,7 @@ describe("authenticated app shell", () => {
     expect(within(drawer).getByLabelText("Label name")).toHaveFocus();
 
     fireEvent.keyDown(drawer, { key: "Escape" });
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("dialog", { name: "New label" }),
-      ).not.toBeInTheDocument();
-    });
+    await expectDialogToBeClosed("New label");
     expect(newLabelButton).toHaveFocus();
   });
 
@@ -609,11 +615,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(
       within(openedFromRow).getByRole("button", { name: "Cancel" }),
     );
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("dialog", { name: "Edit label" }),
-      ).not.toBeInTheDocument();
-    });
+    await expectDialogToBeClosed("Edit label");
 
     fireEvent.click(biologyLabelButton);
     const openedFromLabel = await screen.findByRole("dialog", {
@@ -622,11 +624,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(
       within(openedFromLabel).getByRole("button", { name: "Cancel" }),
     );
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("dialog", { name: "Edit label" }),
-      ).not.toBeInTheDocument();
-    });
+    await expectDialogToBeClosed("Edit label");
 
     fireEvent.click(
       within(biologyRow).getByRole("button", {
@@ -679,11 +677,7 @@ describe("authenticated app shell", () => {
     expect(saveChangesButton).toBeEnabled();
     fireEvent.click(saveChangesButton);
 
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("dialog", { name: "Edit label" }),
-      ).not.toBeInTheDocument();
-    });
+    await expectDialogToBeClosed("Edit label");
     expect(
       await screen.findByRole("button", { name: "Life Science" }),
     ).toBeInTheDocument();
@@ -716,11 +710,7 @@ describe("authenticated app shell", () => {
     expect(within(drawer).getByLabelText("Label name")).toHaveFocus();
 
     fireEvent.keyDown(drawer, { key: "Escape" });
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("dialog", { name: "Edit label" }),
-      ).not.toBeInTheDocument();
-    });
+    await expectDialogToBeClosed("Edit label");
     expect(labelButton).toHaveFocus();
   });
 
@@ -792,22 +782,14 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
 
     fireEvent.keyDown(rowMenu, { key: "Escape" });
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("menu", { name: "Row actions for Biology" }),
-      ).not.toBeInTheDocument();
-    });
+    await expectRowActionsMenuToBeClosed("Biology");
 
     fireEvent.click(biologyMenuButton);
     await screen.findByRole("menu", { name: "Row actions for Biology" });
     fireEvent.mouseDown(
       screen.getByRole("heading", { level: 3, name: "Labels" }),
     );
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("menu", { name: "Row actions for Biology" }),
-      ).not.toBeInTheDocument();
-    });
+    await expectRowActionsMenuToBeClosed("Biology");
 
     fireEvent.click(biologyMenuButton);
     fireEvent.click(
@@ -824,11 +806,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(biologyMenuButton);
     fireEvent.click(await screen.findByRole("menuitem", { name: "Duplicate" }));
 
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("menu", { name: "Row actions for Biology" }),
-      ).not.toBeInTheDocument();
-    });
+    await expectRowActionsMenuToBeClosed("Biology");
 
     const duplicateRow = await screen.findByRole("row", {
       name: /Biology \(copy\)/i,
@@ -867,11 +845,7 @@ describe("authenticated app shell", () => {
     expect(editMenuItem).toHaveFocus();
 
     fireEvent.keyDown(editMenuItem, { key: "Escape" });
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("menu", { name: "Row actions for Biology" }),
-      ).not.toBeInTheDocument();
-    });
+    await expectRowActionsMenuToBeClosed("Biology");
     expect(menuTrigger).toHaveFocus();
   });
 
@@ -926,11 +900,7 @@ describe("authenticated app shell", () => {
       within(deleteModal).getByRole("button", { name: "Cancel" }),
     );
 
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("dialog", { name: "Delete 'Biology'?" }),
-      ).not.toBeInTheDocument();
-    });
+    await expectDialogToBeClosed("Delete 'Biology'?");
     expect(screen.getByRole("button", { name: "Biology" })).toBeInTheDocument();
   });
 
@@ -966,11 +936,7 @@ describe("authenticated app shell", () => {
     ).toHaveFocus();
 
     fireEvent.keyDown(dialog, { key: "Escape" });
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("dialog", { name: "Delete 'Biology'?" }),
-      ).not.toBeInTheDocument();
-    });
+    await expectDialogToBeClosed("Delete 'Biology'?");
     expect(menuTrigger).toHaveFocus();
   });
 

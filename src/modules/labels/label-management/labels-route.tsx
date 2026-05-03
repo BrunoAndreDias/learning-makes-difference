@@ -66,6 +66,10 @@ type DeleteLabelDialogProps = Readonly<{
   titleId: string;
 }>;
 
+type FocusRestoreRef = {
+  current: HTMLElement | null;
+};
+
 function formatParentNames(parentNames: readonly string[]) {
   if (parentNames.length === 0) {
     return "—";
@@ -155,31 +159,34 @@ function formatDeleteNotesImpact(noteCount: number) {
   return `${formatCount(noteCount, "note")} will lose this label.`;
 }
 
-function getActiveFocusableElement() {
-  if (!(document.activeElement instanceof HTMLElement)) {
+function getActiveFocusRestoreTarget() {
+  const activeElement = document.activeElement;
+
+  if (!(activeElement instanceof HTMLElement)) {
     return null;
   }
 
   if (
-    document.activeElement === document.body ||
-    document.activeElement === document.documentElement
+    activeElement === document.body ||
+    activeElement === document.documentElement
   ) {
     return null;
   }
 
-  return document.activeElement;
+  return activeElement;
 }
 
 function restoreFocusIfAvailable(element: HTMLElement | null) {
-  if (element === null) {
-    return;
-  }
-
-  if (!element.isConnected) {
+  if (element?.isConnected !== true) {
     return;
   }
 
   element.focus();
+}
+
+function restoreFocusAndClearRef(focusRef: FocusRestoreRef) {
+  restoreFocusIfAvailable(focusRef.current);
+  focusRef.current = null;
 }
 
 function LabelsPage() {
@@ -501,7 +508,7 @@ function LabelsPage() {
 
   function openDeleteDialog(row: DerivedLabelRow) {
     closeRowActionsMenu();
-    deleteDialogTriggerRef.current = getActiveFocusableElement();
+    deleteDialogTriggerRef.current = getActiveFocusRestoreTarget();
     setPendingDeleteDraft({
       childCount: row.childCount,
       id: row.id,
@@ -512,8 +519,7 @@ function LabelsPage() {
 
   function closeDeleteDialog() {
     setPendingDeleteDraft(null);
-    restoreFocusIfAvailable(deleteDialogTriggerRef.current);
-    deleteDialogTriggerRef.current = null;
+    restoreFocusAndClearRef(deleteDialogTriggerRef);
   }
 
   async function handleConfirmDelete() {
@@ -549,7 +555,7 @@ function LabelsPage() {
 
   function openCreateDrawerWithName(
     name: string,
-    triggerElement: HTMLElement | null = getActiveFocusableElement(),
+    triggerElement: HTMLElement | null = getActiveFocusRestoreTarget(),
   ) {
     closeRowActionsMenu();
     createDrawerTriggerRef.current = triggerElement;
@@ -558,7 +564,7 @@ function LabelsPage() {
   }
 
   function openEmptyCreateDrawer(
-    triggerElement: HTMLElement | null = getActiveFocusableElement(),
+    triggerElement: HTMLElement | null = getActiveFocusRestoreTarget(),
   ) {
     openCreateDrawerWithName("", triggerElement);
   }
@@ -566,8 +572,7 @@ function LabelsPage() {
   function closeCreateDrawer() {
     resetCreateDraft("");
     setCreateDrawerOpen(false);
-    restoreFocusIfAvailable(createDrawerTriggerRef.current);
-    createDrawerTriggerRef.current = null;
+    restoreFocusAndClearRef(createDrawerTriggerRef);
   }
 
   function resetEditDraft() {
@@ -579,13 +584,12 @@ function LabelsPage() {
 
   function closeEditDrawer() {
     resetEditDraft();
-    restoreFocusIfAvailable(editDrawerTriggerRef.current);
-    editDrawerTriggerRef.current = null;
+    restoreFocusAndClearRef(editDrawerTriggerRef);
   }
 
   function openEditDrawer(
     labelId: string,
-    triggerElement: HTMLElement | null = getActiveFocusableElement(),
+    triggerElement: HTMLElement | null = getActiveFocusRestoreTarget(),
   ) {
     const label = labelRecords.find((candidate) => candidate.id === labelId);
 
@@ -599,6 +603,30 @@ function LabelsPage() {
     setEditName(label.name);
     setEditParentIds(normalizeLabelParentIds(label.parentIds));
     setEditParentSearchQuery("");
+  }
+
+  function closeRulesPopover() {
+    setRulesOpen(false);
+    rulesButtonRef.current?.focus();
+  }
+
+  function handleRulesPopoverKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeRulesPopover();
+    }
+  }
+
+  function handleCreateDrawerKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
+      closeCreateDrawer();
+    }
+  }
+
+  function handleEditDrawerKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
+      closeEditDrawer();
+    }
   }
 
   function addCreateParent(parentId: string) {
@@ -804,13 +832,7 @@ function LabelsPage() {
                   aria-modal="false"
                   className="labels-rules-popover__content"
                   id={rulesPopoverId}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") {
-                      event.preventDefault();
-                      setRulesOpen(false);
-                      rulesButtonRef.current?.focus();
-                    }
-                  }}
+                  onKeyDown={handleRulesPopoverKeyDown}
                   ref={rulesPopoverRef}
                   role="dialog"
                   tabIndex={-1}
@@ -1019,11 +1041,7 @@ function LabelsPage() {
           aria-labelledby={createDrawerTitleId}
           aria-modal="true"
           className="labels-create-drawer shell-panel"
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              closeCreateDrawer();
-            }
-          }}
+          onKeyDown={handleCreateDrawerKeyDown}
           role="dialog"
         >
           <header className="labels-create-drawer__header">
@@ -1157,11 +1175,7 @@ function LabelsPage() {
           aria-labelledby={editDrawerTitleId}
           aria-modal="true"
           className="labels-create-drawer shell-panel"
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              closeEditDrawer();
-            }
-          }}
+          onKeyDown={handleEditDrawerKeyDown}
           role="dialog"
         >
           <header className="labels-create-drawer__header">
