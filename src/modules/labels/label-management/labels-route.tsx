@@ -58,6 +58,14 @@ type PendingDeleteDraft = Readonly<{
   noteCount: number;
 }>;
 
+type DeleteLabelDialogProps = Readonly<{
+  descriptionId: string;
+  draft: PendingDeleteDraft;
+  onClose: () => void;
+  onConfirm: () => void | Promise<void>;
+  titleId: string;
+}>;
+
 function formatParentNames(parentNames: readonly string[]) {
   if (parentNames.length === 0) {
     return "—";
@@ -143,6 +151,10 @@ function formatDeleteChildrenImpact(childCount: number) {
   return `${formatCount(childCount, "child label")} will remain available.`;
 }
 
+function formatDeleteNotesImpact(noteCount: number) {
+  return `${formatCount(noteCount, "note")} will lose this label.`;
+}
+
 function LabelsPage() {
   const labels = useRouteContext({
     from: "/_protected/labels",
@@ -214,7 +226,6 @@ function LabelsPage() {
   const sortSelectId = useId();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const createInputRef = useRef<HTMLInputElement>(null);
-  const deleteCancelButtonRef = useRef<HTMLButtonElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
 
   const noteRecords = useMemo(() => {
@@ -299,14 +310,6 @@ function LabelsPage() {
 
     editInputRef.current?.focus();
   }, [editingLabelId]);
-
-  useEffect(() => {
-    if (pendingDeleteDraft === null) {
-      return;
-    }
-
-    deleteCancelButtonRef.current?.focus();
-  }, [pendingDeleteDraft]);
 
   useEffect(() => {
     if (openRowActionsLabelId === null) {
@@ -1230,62 +1233,83 @@ function LabelsPage() {
         </aside>
       ) : null}
       {pendingDeleteDraft !== null ? (
-        <div className="labels-delete-dialog" role="presentation">
-          <button
-            aria-label="Close delete confirmation"
-            className="labels-delete-dialog__backdrop"
-            onClick={closeDeleteDialog}
-            type="button"
-          />
-          <div
-            aria-describedby={deleteDialogDescriptionId}
-            aria-labelledby={deleteDialogTitleId}
-            aria-modal="true"
-            className="labels-delete-dialog__panel shell-panel"
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                closeDeleteDialog();
-              }
-            }}
-            role="dialog"
-          >
-            <h4
-              id={deleteDialogTitleId}
-            >{`Delete '${pendingDeleteDraft.label}'?`}</h4>
-            <div
-              className="labels-delete-dialog__body"
-              id={deleteDialogDescriptionId}
-            >
-              <p>{`${formatCount(pendingDeleteDraft.noteCount, "note")} will lose this label.`}</p>
-              <p>{formatDeleteChildrenImpact(pendingDeleteDraft.childCount)}</p>
-              {pendingDeleteDraft.childCount > 0 ? (
-                <p>Child labels with no other parents will become top-level.</p>
-              ) : null}
-              <p>Notes will not be deleted.</p>
-            </div>
-            <div className="labels-delete-dialog__actions">
-              <button
-                className="labels-button"
-                onClick={closeDeleteDialog}
-                ref={deleteCancelButtonRef}
-                type="button"
-              >
-                Cancel
-              </button>
-              <button
-                className="labels-button labels-button--danger-fill"
-                onClick={() => {
-                  void handleConfirmDelete();
-                }}
-                type="button"
-              >
-                Delete label
-              </button>
-            </div>
-          </div>
-        </div>
+        <DeleteLabelDialog
+          descriptionId={deleteDialogDescriptionId}
+          draft={pendingDeleteDraft}
+          onClose={closeDeleteDialog}
+          onConfirm={handleConfirmDelete}
+          titleId={deleteDialogTitleId}
+        />
       ) : null}
     </section>
+  );
+}
+
+function DeleteLabelDialog({
+  descriptionId,
+  draft,
+  onClose,
+  onConfirm,
+  titleId,
+}: DeleteLabelDialogProps) {
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    cancelButtonRef.current?.focus();
+  }, []);
+
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
+      onClose();
+    }
+  }
+
+  return (
+    <div className="labels-delete-dialog" role="presentation">
+      <button
+        aria-label="Close delete confirmation"
+        className="labels-delete-dialog__backdrop"
+        onClick={onClose}
+        type="button"
+      />
+      <div
+        aria-describedby={descriptionId}
+        aria-labelledby={titleId}
+        aria-modal="true"
+        className="labels-delete-dialog__panel shell-panel"
+        onKeyDown={handleKeyDown}
+        role="dialog"
+      >
+        <h4 id={titleId}>{`Delete '${draft.label}'?`}</h4>
+        <div className="labels-delete-dialog__body" id={descriptionId}>
+          <p>{formatDeleteNotesImpact(draft.noteCount)}</p>
+          <p>{formatDeleteChildrenImpact(draft.childCount)}</p>
+          {draft.childCount > 0 ? (
+            <p>Child labels with no other parents will become top-level.</p>
+          ) : null}
+          <p>Notes will not be deleted.</p>
+        </div>
+        <div className="labels-delete-dialog__actions">
+          <button
+            className="labels-button"
+            onClick={onClose}
+            ref={cancelButtonRef}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            className="labels-button labels-button--danger-fill"
+            onClick={() => {
+              void onConfirm();
+            }}
+            type="button"
+          >
+            Delete label
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
