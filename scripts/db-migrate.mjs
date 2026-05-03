@@ -3,11 +3,9 @@ import path from "node:path";
 
 import postgres from "postgres";
 
-const DATABASE_URL = process.env.DATABASE_URL;
+import { resolveDatabaseUrl } from "./local-db-url.mjs";
 
-if (!DATABASE_URL) {
-  throw new Error("DATABASE_URL is required to run DB migrations.");
-}
+const DATABASE_URL = resolveDatabaseUrl();
 
 const sql = postgres(DATABASE_URL, {
   max: 1,

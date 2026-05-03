@@ -1,10 +1,23 @@
 import postgres from "postgres";
 
-const DATABASE_URL = process.env.DATABASE_URL;
+import { resolveDatabaseUrl } from "./local-db-url.mjs";
 
-if (!DATABASE_URL) {
-  throw new Error("DATABASE_URL is required to reset the DB.");
-}
+const DATABASE_URL = resolveDatabaseUrl();
+const APP_TABLES = [
+  "focus_records",
+  "focus_sessions",
+  "session_results",
+  "recall_sessions",
+  "note_labels",
+  "label_edges",
+  "labels",
+  "note_acronyms",
+  "note_metaphors",
+  "notes",
+  "auth_sessions",
+  "users",
+  "__drizzle_migrations",
+];
 
 const sql = postgres(DATABASE_URL, {
   max: 1,
@@ -12,12 +25,12 @@ const sql = postgres(DATABASE_URL, {
 });
 
 try {
-  await sql.unsafe(`
-    drop table if exists auth_sessions;
-    drop table if exists users;
-    drop table if exists __drizzle_migrations;
-  `);
-  console.log("Dropped auth/session tables and migration history.");
+  await sql.unsafe(
+    APP_TABLES.map((tableName) => `drop table if exists ${tableName};`).join(
+      "\n",
+    ),
+  );
+  console.log("Dropped app tables and migration history.");
 } finally {
   await sql.end();
 }

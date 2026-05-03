@@ -38,6 +38,9 @@ describe("migrateDatabase PostgreSQL integration", () => {
       {
         name: "0003_recall_sessions_and_results.sql",
       },
+      {
+        name: "0004_focus_sessions_and_records.sql",
+      },
     ]);
 
     const tables = await database.client.unsafe<Array<{ table_name: string }>>(`
@@ -47,6 +50,8 @@ describe("migrateDatabase PostgreSQL integration", () => {
         and table_name in (
           '__drizzle_migrations',
           'auth_sessions',
+          'focus_records',
+          'focus_sessions',
           'label_edges',
           'labels',
           'note_acronyms',
@@ -63,6 +68,8 @@ describe("migrateDatabase PostgreSQL integration", () => {
     expect(tables.map((table) => table.table_name)).toEqual([
       "__drizzle_migrations",
       "auth_sessions",
+      "focus_records",
+      "focus_sessions",
       "label_edges",
       "labels",
       "note_acronyms",
