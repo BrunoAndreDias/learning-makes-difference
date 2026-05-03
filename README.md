@@ -28,8 +28,13 @@ Defaults are development-safe placeholders so the skeleton boots locally. Overri
 ## Local development
 
 1. Install dependencies with `pnpm install`.
-2. Run `npm run dev`.
-3. Open `http://localhost:3000`.
+2. Start the repo-owned PostgreSQL database when you need authenticated persistence work: `docker compose up -d postgres` or `npm run db:setup`.
+3. Run `npm run dev`.
+4. Open `http://localhost:3000`.
+
+## Pilot deployment and verification
+
+Hosted pilot deployment, local maintainer setup, the same-Wi-Fi fallback, and the `#103` persistence checklist are documented in [`docs/pilot-deployment.md`](./docs/pilot-deployment.md).
 
 ## PostgreSQL integration tests
 
