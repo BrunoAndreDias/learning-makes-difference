@@ -1,6 +1,9 @@
 import { useRouteContext } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
-import type { AppSessionSnapshot } from "../../access/session/session";
+import {
+  type AppSessionSnapshot,
+  hasActiveSession,
+} from "../../access/session/session";
 import type { AppNotesContext, AppPersistentNotesContext } from "..";
 import {
   deriveLearningStates,
@@ -38,6 +41,10 @@ export function NotesWorkspaceSidebar({
     from: "/_protected",
     select: (context) => context.session,
   });
+  const routedSessionSnapshot = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.sessionSnapshot,
+  });
   const {
     activateNoteTarget,
     activeNoteId,
@@ -52,6 +59,10 @@ export function NotesWorkspaceSidebar({
     session.getSnapshot,
     session.getSnapshot,
   );
+  const effectiveSessionSnapshot =
+    hasActiveSession(sessionSnapshot) || routedSessionSnapshot === undefined
+      ? sessionSnapshot
+      : routedSessionSnapshot;
   const recallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.recall,
@@ -72,9 +83,9 @@ export function NotesWorkspaceSidebar({
   );
   const notes = listNotesForUser(
     notesSnapshot,
-    sessionSnapshot.user?.id ?? null,
+    effectiveSessionSnapshot.user?.id ?? null,
   );
-  const userId = sessionSnapshot.user?.id ?? null;
+  const userId = effectiveSessionSnapshot.user?.id ?? null;
   const noteLearningStates = deriveLearningStates({
     histories:
       userId === null || recallResultsSnapshot.length === 0

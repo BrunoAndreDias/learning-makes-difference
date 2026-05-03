@@ -22,7 +22,10 @@ import {
 } from "react";
 import { formatCount } from "../../../lib/format-count";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
-import type { AppSessionSnapshot } from "../../access/session/session";
+import {
+  type AppSessionSnapshot,
+  hasActiveSession,
+} from "../../access/session/session";
 import {
   AppFocusError,
   BreakIntervalOverlay,
@@ -40,6 +43,10 @@ import {
   toNoteRecallHistories,
 } from "../learning-state";
 import {
+  getNoteBodyFractionFromBodyWidth,
+  getNoteBodyFractionFromPointer,
+} from "./note-body-resize";
+import {
   getNoteEditorSaveInput,
   getSelectedNote,
   type NoteEditorDraft,
@@ -52,8 +59,6 @@ import {
 } from "./note-search";
 import { resolveNotesSearchTargetElement } from "./note-search-navigation";
 import {
-  type AppAcronym,
-  type AppMetaphor,
   type AppNote,
   type AppNotesContext,
   AppNotesError,
@@ -145,23 +150,14 @@ function getLearningStateSummary(status: LearningStateStatus) {
   }
 }
 
-type PendingHookRemoval =
-  | {
-      index: number;
-      kind: "acronym";
-      label: string;
-      title: string;
-    }
-  | {
-      index: number;
-      kind: "metaphor";
-      label: string;
-      title: string;
-    };
-
 type MemoryHookTab = "acronyms" | "metaphors";
 
 type MemoryHookEditorVisibility = Record<MemoryHookTab, boolean>;
+
+type PendingInitialMemoryHookDescription = {
+  description: string;
+  tab: MemoryHookTab;
+};
 
 type MemoryHookTabDetails = {
   label: string;
@@ -173,12 +169,12 @@ const memoryHookTabs: readonly MemoryHookTab[] = ["metaphors", "acronyms"];
 
 const memoryHookTabDetails: Record<MemoryHookTab, MemoryHookTabDetails> = {
   acronyms: {
-    label: "Acronyms",
+    label: "Acronym",
     panelId: "notes-memory-hooks-panel-acronyms",
     tabId: "notes-memory-hooks-tab-acronyms",
   },
   metaphors: {
-    label: "Metaphors",
+    label: "Metaphor",
     panelId: "notes-memory-hooks-panel-metaphors",
     tabId: "notes-memory-hooks-tab-metaphors",
   },
@@ -316,26 +312,38 @@ function MemoryHookPanel({ children, tab }: MemoryHookPanelProps) {
 }
 
 type MemoryHookEmptyStateProps = {
-  actionLabel: string;
-  message: string;
-  onCreate: () => void;
+  descriptionLabel: string;
+  helperText: string;
+  onDescriptionChange: (value: string) => void;
+  placeholder: string;
 };
 
 function MemoryHookEmptyState({
-  actionLabel,
-  message,
-  onCreate,
+  descriptionLabel,
+  helperText,
+  onDescriptionChange,
+  placeholder,
 }: MemoryHookEmptyStateProps) {
   return (
     <div className="notes-hook-empty-state">
-      <p className="muted">{message}</p>
-      <div className="notes-inspector-card__actions">
+      <label className="notes-form__field">
+        <span>{descriptionLabel}</span>
+        <textarea
+          aria-label={descriptionLabel}
+          onChange={(event) => onDescriptionChange(event.target.value)}
+          placeholder={placeholder}
+          rows={4}
+          value=""
+        />
+      </label>
+      <div className="notes-memory-hooks__footer">
+        <p className="muted notes-memory-hooks__helper">{helperText}</p>
         <button
-          className="notes-action notes-action-primary"
-          onClick={onCreate}
-          type="button"
+          className="notes-action notes-action-primary notes-memory-hooks__save"
+          form={noteEditorFormId}
+          type="submit"
         >
-          {actionLabel}
+          Save
         </button>
       </div>
     </div>
@@ -343,16 +351,13 @@ function MemoryHookEmptyState({
 }
 
 type MemoryHookDescriptionEditorProps = {
-  actionClassName: string;
   description: string;
   descriptionLabel: string;
   helperText: string;
   index: number;
-  isChanged: boolean;
   kindLabel: "Acronym" | "Metaphor";
   placeholder: string;
   onDescriptionChange: (index: number, value: string) => void;
-  onRemove: (index: number) => void;
   setDescriptionRef: (
     index: number,
     element: HTMLTextAreaElement | null,
@@ -360,19 +365,15 @@ type MemoryHookDescriptionEditorProps = {
 };
 
 function MemoryHookDescriptionEditor({
-  actionClassName,
   description,
   descriptionLabel,
   helperText,
   index,
-  isChanged,
   kindLabel,
   placeholder,
   onDescriptionChange,
-  onRemove,
   setDescriptionRef,
 }: MemoryHookDescriptionEditorProps) {
-  const itemNumber = index + 1;
   const lowerKindLabel = kindLabel.toLowerCase();
 
   return (
@@ -380,7 +381,7 @@ function MemoryHookDescriptionEditor({
       aria-label={`${kindLabel} editor`}
       className={`notes-${lowerKindLabel}`}
     >
-      <legend>{`${kindLabel} ${itemNumber}`}</legend>
+      <legend>{kindLabel}</legend>
       <label className="notes-form__field">
         <span>{descriptionLabel}</span>
         <textarea
@@ -394,26 +395,15 @@ function MemoryHookDescriptionEditor({
           value={description}
         />
       </label>
-      <p className="muted notes-memory-hooks__helper">{helperText}</p>
-
-      <div className={actionClassName}>
+      <div className="notes-memory-hooks__footer">
+        <p className="muted notes-memory-hooks__helper">{helperText}</p>
         <button
-          aria-label={`Remove ${lowerKindLabel} ${itemNumber}`}
-          className="notes-action"
-          onClick={() => onRemove(index)}
-          type="button"
+          className="notes-action notes-action-primary notes-memory-hooks__save"
+          form={noteEditorFormId}
+          type="submit"
         >
-          Remove
+          Save
         </button>
-        {isChanged ? (
-          <button
-            className="notes-action notes-action-primary"
-            form={noteEditorFormId}
-            type="submit"
-          >
-            Save changes
-          </button>
-        ) : null}
       </div>
     </fieldset>
   );
@@ -540,28 +530,6 @@ function LabelPickerPanel({
   );
 }
 
-function formatHookCardTitle(
-  description: string,
-  label: string,
-  index: number,
-): string {
-  const trimmedDescription = description.trim();
-
-  if (trimmedDescription.length === 0) {
-    return `Untitled ${label.toLowerCase()} ${index + 1}`;
-  }
-
-  return trimmedDescription.slice(0, 48);
-}
-
-function formatMetaphorCardTitle(metaphor: AppMetaphor, index: number): string {
-  return formatHookCardTitle(metaphor.description, "Metaphor", index);
-}
-
-function formatAcronymCardTitle(acronym: AppAcronym, index: number): string {
-  return formatHookCardTitle(acronym.description, "Acronym", index);
-}
-
 function isMetaphorDraftChanged(noteEditor: NoteEditorState, index: number) {
   const currentMetaphor = noteEditor.draft.metaphors[index];
   const baselineMetaphor = noteEditor.baselineDraft.metaphors[index];
@@ -631,6 +599,10 @@ function NotesWorkspace() {
     from: "/_protected/notes",
     select: (context) => context.session,
   });
+  const routedSessionSnapshot = useRouteContext({
+    from: "/_protected/notes",
+    select: (context) => context.sessionSnapshot,
+  });
   const labelsContext = useRouteContext({
     from: "/_protected/notes",
     select: (context) => context.labels,
@@ -660,7 +632,11 @@ function NotesWorkspace() {
     sessionContext.getSnapshot,
     sessionContext.getSnapshot,
   );
-  const userId = sessionSnapshot.user?.id ?? null;
+  const effectiveSessionSnapshot =
+    hasActiveSession(sessionSnapshot) || routedSessionSnapshot === undefined
+      ? sessionSnapshot
+      : routedSessionSnapshot;
+  const userId = effectiveSessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
   const {
     activateNoteTarget,
@@ -676,8 +652,6 @@ function NotesWorkspace() {
     markEditorSaved,
     noteEditor,
     pendingSearchJump,
-    removeEditorAcronym,
-    removeEditorMetaphor,
     requestEditorSave,
     syncEditorWithNotes,
     updateEditorAcronym,
@@ -696,6 +670,7 @@ function NotesWorkspace() {
   const labelPickerSearchInputId = useId();
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const bodySplitterRef = useRef<HTMLHRElement | null>(null);
   const metaphorDescriptionRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
   const acronymDescriptionRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
   const bodyResizeAnimationFrameRef = useRef<number | null>(null);
@@ -713,13 +688,15 @@ function NotesWorkspace() {
   const [labelPickerSearchQuery, setLabelPickerSearchQuery] = useState("");
   const [bodyFraction, setBodyFraction] = useState(0.62);
   const [isBodyResizing, setIsBodyResizing] = useState(false);
-  const [pendingHookRemoval, setPendingHookRemoval] =
-    useState<PendingHookRemoval | null>(null);
   const [activeMemoryHookTab, setActiveMemoryHookTab] =
     useState<MemoryHookTab>("metaphors");
   const [memoryHookEditorVisibility, setMemoryHookEditorVisibility] = useState(
     createMemoryHookEditorVisibility,
   );
+  const [
+    pendingInitialMemoryHookDescription,
+    setPendingInitialMemoryHookDescription,
+  ] = useState<PendingInitialMemoryHookDescription | null>(null);
   const [pendingHookEditorFocus, setPendingHookEditorFocus] =
     useState<MemoryHookTab | null>(null);
   const notesEditorLayoutRef = useRef<HTMLDivElement>(null);
@@ -727,7 +704,7 @@ function NotesWorkspace() {
   const labelPickerTriggerRef = useRef<HTMLButtonElement | null>(null);
   const labelPickerSearchInputRef = useRef<HTMLInputElement | null>(null);
   const labelPickerGoToLabelsRef = useRef<HTMLButtonElement | null>(null);
-  const isInspectorHidden = bodyFraction >= 0.88;
+  const isInspectorHidden = false;
   const selectedNote = getSelectedNote(noteEditor, notes);
   const activeFocusSession =
     userId === null ? null : focusContext.getActiveSession({ userId });
@@ -1039,6 +1016,43 @@ function NotesWorkspace() {
   }, [editorFocusRequestNonce, hasPendingGuardedWorkspaceTransition]);
 
   useEffect(() => {
+    if (pendingInitialMemoryHookDescription === null) {
+      return;
+    }
+
+    if (
+      pendingInitialMemoryHookDescription.tab === "metaphors" &&
+      editorState.metaphors[0] !== undefined
+    ) {
+      updateEditorMetaphor(
+        0,
+        "description",
+        pendingInitialMemoryHookDescription.description,
+      );
+      setPendingInitialMemoryHookDescription(null);
+      return;
+    }
+
+    if (
+      pendingInitialMemoryHookDescription.tab === "acronyms" &&
+      editorState.acronyms[0] !== undefined
+    ) {
+      updateEditorAcronym(
+        0,
+        "description",
+        pendingInitialMemoryHookDescription.description,
+      );
+      setPendingInitialMemoryHookDescription(null);
+    }
+  }, [
+    editorState.acronyms,
+    editorState.metaphors,
+    pendingInitialMemoryHookDescription,
+    updateEditorAcronym,
+    updateEditorMetaphor,
+  ]);
+
+  useEffect(() => {
     if (!isLabelPickerOpen) {
       return;
     }
@@ -1148,9 +1162,10 @@ function NotesWorkspace() {
 
   const syncBodyFractionFromTextarea = useCallback(() => {
     const textarea = bodyTextareaRef.current;
+    const splitter = bodySplitterRef.current;
     const editorLayout = notesEditorLayoutRef.current;
 
-    if (textarea === null || editorLayout === null) {
+    if (textarea === null || splitter === null || editorLayout === null) {
       return;
     }
 
@@ -1163,17 +1178,27 @@ function NotesWorkspace() {
 
       const editorLayoutRect = editorLayout.getBoundingClientRect();
       const textareaRect = textarea.getBoundingClientRect();
+      const splitterRect = splitter.getBoundingClientRect();
+      const columnGap = Number.parseFloat(
+        window.getComputedStyle(editorLayout).columnGap,
+      );
 
       if (editorLayoutRect.width <= 0 || textareaRect.width <= 0) {
         return;
       }
 
-      const nextFraction = Math.min(
-        maxNoteBodyFraction,
-        Math.max(
-          minNoteBodyFraction,
-          (textareaRect.right - editorLayoutRect.left) / editorLayoutRect.width,
-        ),
+      const nextFraction = getNoteBodyFractionFromBodyWidth(
+        textareaRect.width,
+        {
+          columnGap: Number.isFinite(columnGap) ? columnGap : 0,
+          layoutLeft: editorLayoutRect.left,
+          layoutWidth: editorLayoutRect.width,
+          splitterWidth: splitterRect.width,
+        },
+        {
+          maxFraction: maxNoteBodyFraction,
+          minFraction: minNoteBodyFraction,
+        },
       );
 
       setBodyFraction((currentFraction) => {
@@ -1337,29 +1362,6 @@ function NotesWorkspace() {
     setPendingHookEditorFocus(tab);
   }
 
-  function handleCreateMetaphor() {
-    if (editorState.metaphors.length === 0) {
-      addEditorMetaphor();
-    }
-
-    revealMemoryHookEditor("metaphors");
-  }
-
-  function handleCreateAcronym() {
-    if (editorState.acronyms.length === 0) {
-      addEditorAcronym();
-    }
-
-    revealMemoryHookEditor("acronyms");
-  }
-
-  function hideMemoryHookEditor(tab: MemoryHookTab) {
-    setMemoryHookEditorVisibility((currentVisibility) => ({
-      ...currentVisibility,
-      [tab]: false,
-    }));
-  }
-
   function handleMetaphorDescriptionChange(index: number, description: string) {
     updateEditorMetaphor(index, "description", description);
   }
@@ -1368,42 +1370,34 @@ function NotesWorkspace() {
     updateEditorAcronym(index, "description", description);
   }
 
-  function handleRemoveMetaphor(index: number) {
-    setPendingHookRemoval({
-      index,
-      kind: "metaphor",
-      label: "Metaphor",
-      title: formatMetaphorCardTitle(editorState.metaphors[index], index),
+  function handleEmptyMetaphorDescriptionChange(description: string) {
+    setPendingInitialMemoryHookDescription({
+      description,
+      tab: "metaphors",
     });
-  }
 
-  function handleRemoveAcronym(index: number) {
-    setPendingHookRemoval({
-      index,
-      kind: "acronym",
-      label: "Acronym",
-      title: formatAcronymCardTitle(editorState.acronyms[index], index),
-    });
-  }
-
-  function handleCancelHookRemoval() {
-    setPendingHookRemoval(null);
-  }
-
-  function handleConfirmHookRemoval() {
-    if (pendingHookRemoval === null) {
+    if (editorState.metaphors.length === 0) {
+      addEditorMetaphor();
+      revealMemoryHookEditor("metaphors");
       return;
     }
 
-    if (pendingHookRemoval.kind === "metaphor") {
-      removeEditorMetaphor(pendingHookRemoval.index);
-      hideMemoryHookEditor("metaphors");
-    } else {
-      removeEditorAcronym(pendingHookRemoval.index);
-      hideMemoryHookEditor("acronyms");
+    updateEditorMetaphor(0, "description", description);
+  }
+
+  function handleEmptyAcronymDescriptionChange(description: string) {
+    setPendingInitialMemoryHookDescription({
+      description,
+      tab: "acronyms",
+    });
+
+    if (editorState.acronyms.length === 0) {
+      addEditorAcronym();
+      revealMemoryHookEditor("acronyms");
+      return;
     }
 
-    setPendingHookRemoval(null);
+    updateEditorAcronym(0, "description", description);
   }
 
   function renderMetaphorPanel() {
@@ -1411,19 +1405,16 @@ function NotesWorkspace() {
       <MemoryHookPanel tab="metaphors">
         {isMetaphorEditorVisible ? (
           <div className="notes-metaphors__list">
-            {editorState.metaphors.map((metaphor, index) => (
+            {editorState.metaphors.slice(0, 1).map((metaphor, index) => (
               <MemoryHookDescriptionEditor
-                actionClassName="notes-metaphor__actions"
                 description={metaphor.description}
-                descriptionLabel="Metaphor description"
-                helperText="Capture one strong image or comparison that makes recall feel obvious."
+                descriptionLabel="Your metaphor"
+                helperText="The metaphor helps you connect the concept to a vivid mental image."
                 index={index}
-                isChanged={isMetaphorDraftChanged(noteEditor, index)}
                 key={metaphor.key}
                 kindLabel="Metaphor"
                 onDescriptionChange={handleMetaphorDescriptionChange}
-                onRemove={handleRemoveMetaphor}
-                placeholder="Describe the vivid comparison or image that helps you remember this note."
+                placeholder="Write your metaphor here..."
                 setDescriptionRef={(itemIndex, element) => {
                   metaphorDescriptionRefs.current[itemIndex] = element;
                 }}
@@ -1432,9 +1423,10 @@ function NotesWorkspace() {
           </div>
         ) : (
           <MemoryHookEmptyState
-            actionLabel="Create metaphor"
-            message="Turn this note into a vivid comparison or image you can recall later."
-            onCreate={handleCreateMetaphor}
+            descriptionLabel="Your metaphor"
+            helperText="The metaphor helps you connect the concept to a vivid mental image."
+            onDescriptionChange={handleEmptyMetaphorDescriptionChange}
+            placeholder="Write your metaphor here..."
           />
         )}
       </MemoryHookPanel>
@@ -1446,19 +1438,16 @@ function NotesWorkspace() {
       <MemoryHookPanel tab="acronyms">
         {isAcronymEditorVisible ? (
           <div className="notes-acronyms__list">
-            {editorState.acronyms.map((acronym, index) => (
+            {editorState.acronyms.slice(0, 1).map((acronym, index) => (
               <MemoryHookDescriptionEditor
-                actionClassName="notes-acronym__actions"
                 description={acronym.description}
-                descriptionLabel="Acronym description"
-                helperText="Keep one short cue that can unlock the rest of the idea fast."
+                descriptionLabel="Your acronym"
+                helperText="The acronym helps you remember the concept through a compact cue."
                 index={index}
-                isChanged={isAcronymDraftChanged(noteEditor, index)}
                 key={acronym.key}
                 kindLabel="Acronym"
                 onDescriptionChange={handleAcronymDescriptionChange}
-                onRemove={handleRemoveAcronym}
-                placeholder="Write the cue, shorthand, or expansion that unlocks this note."
+                placeholder="Write your acronym here..."
                 setDescriptionRef={(itemIndex, element) => {
                   acronymDescriptionRefs.current[itemIndex] = element;
                 }}
@@ -1467,9 +1456,10 @@ function NotesWorkspace() {
           </div>
         ) : (
           <MemoryHookEmptyState
-            actionLabel="Create acronym"
-            message="Capture a short cue or shorthand that unlocks the whole idea."
-            onCreate={handleCreateAcronym}
+            descriptionLabel="Your acronym"
+            helperText="The acronym helps you remember the concept through a compact cue."
+            onDescriptionChange={handleEmptyAcronymDescriptionChange}
+            placeholder="Write your acronym here..."
           />
         )}
       </MemoryHookPanel>
@@ -1656,12 +1646,24 @@ function NotesWorkspace() {
     event.preventDefault();
     bodyTextareaRef.current?.style.removeProperty("width");
     const editorLayoutRect = editorLayout.getBoundingClientRect();
+    const splitterRect = event.currentTarget.getBoundingClientRect();
+    const columnGap = Number.parseFloat(
+      window.getComputedStyle(editorLayout).columnGap,
+    );
 
     function handlePointerMove(moveEvent: PointerEvent) {
-      const offset = moveEvent.clientX - editorLayoutRect.left;
-      const nextFraction = Math.min(
-        maxNoteBodyFraction,
-        Math.max(minNoteBodyFraction, offset / editorLayoutRect.width),
+      const nextFraction = getNoteBodyFractionFromPointer(
+        {
+          columnGap: Number.isFinite(columnGap) ? columnGap : 0,
+          layoutLeft: editorLayoutRect.left,
+          layoutWidth: editorLayoutRect.width,
+          pointerClientX: moveEvent.clientX,
+          splitterWidth: splitterRect.width,
+        },
+        {
+          maxFraction: maxNoteBodyFraction,
+          minFraction: minNoteBodyFraction,
+        },
       );
 
       setBodyFraction(nextFraction);
@@ -2156,21 +2158,22 @@ function NotesWorkspace() {
                     </p>
                   )}
                 </div>
-
-                <hr
-                  aria-label="Resize note body"
-                  aria-orientation="vertical"
-                  aria-valuetext={`${bodyWidthPercent}% note body width`}
-                  aria-valuemax={95}
-                  aria-valuemin={35}
-                  aria-valuenow={bodyWidthPercent}
-                  className="notes-form__splitter"
-                  data-resizing={isBodyResizing ? "true" : undefined}
-                  onKeyDown={handleBodyResizeKeyDown}
-                  onPointerDown={handleBodyResizePointerDown}
-                  tabIndex={0}
-                />
               </form>
+
+              <hr
+                aria-label="Resize note body"
+                aria-orientation="vertical"
+                aria-valuetext={`${bodyWidthPercent}% note body width`}
+                aria-valuemax={95}
+                aria-valuemin={35}
+                aria-valuenow={bodyWidthPercent}
+                className="notes-form__splitter"
+                data-resizing={isBodyResizing ? "true" : undefined}
+                onKeyDown={handleBodyResizeKeyDown}
+                onPointerDown={handleBodyResizePointerDown}
+                ref={bodySplitterRef}
+                tabIndex={0}
+              />
 
               <aside
                 aria-hidden={isInspectorHidden}
@@ -2183,6 +2186,10 @@ function NotesWorkspace() {
                 >
                   <div className="notes-inspector-card__header">
                     <h4>Memory hooks</h4>
+                    <p>
+                      Use a metaphor or acronym to make this concept easier to
+                      remember.
+                    </p>
                   </div>
                   <MemoryHookTabs
                     activeTab={activeMemoryHookTab}
@@ -2318,38 +2325,6 @@ function NotesWorkspace() {
           </div>
         </div>
       ) : null}
-      {pendingHookRemoval === null ? null : (
-        <div
-          aria-labelledby="notes-remove-hook-title"
-          aria-describedby="notes-remove-hook-description"
-          aria-modal="true"
-          className="notes-unsaved-search-dialog"
-          role="dialog"
-        >
-          <div className="notes-unsaved-search-dialog__panel">
-            <h3 id="notes-remove-hook-title">Remove memory hook?</h3>
-            <p id="notes-remove-hook-description">
-              {`Remove ${pendingHookRemoval.label}: ${pendingHookRemoval.title}? This cannot be undone.`}
-            </p>
-            <div className="notes-unsaved-search-dialog__actions">
-              <button
-                className="notes-action"
-                onClick={handleCancelHookRemoval}
-                type="button"
-              >
-                Keep hook
-              </button>
-              <button
-                className="notes-action notes-action-primary"
-                onClick={handleConfirmHookRemoval}
-                type="button"
-              >
-                Remove hook
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 }

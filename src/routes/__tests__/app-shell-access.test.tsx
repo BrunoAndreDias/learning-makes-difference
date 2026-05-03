@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import {
   createAppNotesContext,
   createRouteTestSessionContext,
@@ -166,6 +172,77 @@ describe("authenticated app shell", () => {
     expect(loggedOutRoute.router.state.location.search.redirect).toBe(
       "/settings",
     );
+  });
+
+  it("uses the route-hydrated session while the client session store catches up", async () => {
+    const anonymousSession = { user: null };
+    const hydratedSession = {
+      user: {
+        displayName: "Hydrated Casey",
+        email: "casey@example.com",
+        id: "user-hydrated-casey",
+        interfaceLanguage: "en" as const,
+        studyLanguage: "en" as const,
+      },
+    };
+
+    renderRoute("/settings", {
+      sessionContext: {
+        getSnapshot: () => anonymousSession,
+        refresh: () => Promise.resolve(hydratedSession),
+        subscribe: () => () => undefined,
+        login: () => Promise.resolve(hydratedSession),
+        logout: () => Promise.resolve({ user: null }),
+        register: () => Promise.resolve(hydratedSession),
+        updatePreferences: () => Promise.resolve(hydratedSession),
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Settings" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Hydrated Casey")).toBeInTheDocument();
+    expect(screen.queryByText("Unknown user")).not.toBeInTheDocument();
+  });
+
+  it("loads notes with the route-hydrated user instead of clearing them as anonymous", async () => {
+    const anonymousSession = { user: null };
+    const hydratedSession = {
+      user: {
+        displayName: "Hydrated Casey",
+        email: "casey@example.com",
+        id: "user-hydrated-casey",
+        interfaceLanguage: "en" as const,
+        studyLanguage: "en" as const,
+      },
+    };
+    const emptyNotes = [] as const;
+    const refresh = vi.fn(async () => []);
+
+    renderRoute("/notes", {
+      persistentNotesContext: {
+        createNote: vi.fn(),
+        deleteNote: vi.fn(),
+        getSnapshot: () => emptyNotes,
+        refresh,
+        subscribe: () => () => undefined,
+        updateNote: vi.fn(),
+      },
+      sessionContext: {
+        getSnapshot: () => anonymousSession,
+        refresh: () => Promise.resolve(hydratedSession),
+        subscribe: () => () => undefined,
+        login: () => Promise.resolve(hydratedSession),
+        logout: () => Promise.resolve({ user: null }),
+        register: () => Promise.resolve(hydratedSession),
+        updatePreferences: () => Promise.resolve(hydratedSession),
+      },
+    });
+
+    await waitFor(() => {
+      expect(refresh).toHaveBeenCalledWith("user-hydrated-casey");
+    });
+    expect(refresh).not.toHaveBeenCalledWith(null);
   });
 
   it("supports keyboard navigation across memory hook tabs", async () => {

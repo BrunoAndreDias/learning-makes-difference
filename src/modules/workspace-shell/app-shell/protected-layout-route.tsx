@@ -17,7 +17,10 @@ import {
 } from "react";
 
 import appLogo from "../../../../docs/layout/logo.svg";
-import type { AppSessionSnapshot } from "../../access/session/session";
+import {
+  type AppSessionSnapshot,
+  hasActiveSession,
+} from "../../access/session/session";
 import { FocusSessionStartControl } from "../../focus";
 import { NotesWorkspaceProvider, NotesWorkspaceSidebar } from "../../notes";
 import {
@@ -94,6 +97,10 @@ export function AppLayout() {
     from: "/_protected",
     select: (context) => context.session,
   });
+  const routedSessionSnapshot = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.sessionSnapshot,
+  });
   const location = useLocation();
   const navigate = useNavigate();
   const router = useRouter();
@@ -111,6 +118,10 @@ export function AppLayout() {
     session.getSnapshot,
     session.getSnapshot,
   );
+  const effectiveSessionSnapshot =
+    hasActiveSession(sessionSnapshot) || routedSessionSnapshot === undefined
+      ? sessionSnapshot
+      : routedSessionSnapshot;
   useSyncExternalStore(focus.subscribe, focus.getSnapshot, focus.getSnapshot);
   const workspaceTitle = getWorkspaceTitle(location.pathname);
   const recallWorkspaceTitle = getRecallWorkspaceTitle(
@@ -127,7 +138,7 @@ export function AppLayout() {
   const sidebarToggleLabel = isSidebarCollapsed
     ? "Expand sidebar"
     : "Collapse sidebar";
-  const userId = sessionSnapshot.user?.id ?? null;
+  const userId = effectiveSessionSnapshot.user?.id ?? null;
   const activeFocusSession =
     userId === null ? null : focus.getActiveSession({ userId });
 
@@ -215,7 +226,7 @@ export function AppLayout() {
             <AccountMenu
               isLoggingOut={isLoggingOut}
               onLogout={() => void handleLogout()}
-              sessionSnapshot={sessionSnapshot}
+              sessionSnapshot={effectiveSessionSnapshot}
             />
 
             <button

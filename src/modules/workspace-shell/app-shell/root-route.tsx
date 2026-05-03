@@ -15,6 +15,7 @@ import appLogo from "../../../../docs/layout/logo.svg";
 import appCss from "../../../styles/app.css?url";
 import {
   type AppSessionContext,
+  type AppSessionSnapshot,
   hasActiveSession,
 } from "../../access/session/session";
 import type { AppFocusContext, AppPersistentFocusContext } from "../../focus";
@@ -52,6 +53,7 @@ export const Route = createRootRouteWithContext<{
   persistentRecall?: AppPersistentRecallContext;
   recall: AppRecallContext;
   session: AppSessionContext;
+  sessionSnapshot?: AppSessionSnapshot;
 }>()({
   head: () => ({
     meta: [
@@ -75,11 +77,11 @@ export const Route = createRootRouteWithContext<{
     const sessionSnapshot = await context.session.refresh();
 
     if (hasActiveSession(sessionSnapshot)) {
-      return;
+      return { sessionSnapshot };
     }
 
     if (authRoutePaths.has(location.pathname)) {
-      return;
+      return { sessionSnapshot };
     }
 
     throw redirect({
