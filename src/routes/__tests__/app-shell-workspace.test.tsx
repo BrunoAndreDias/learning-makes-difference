@@ -1,5 +1,8 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import {
@@ -9,6 +12,20 @@ import {
 } from "./app-shell-test-support";
 
 describe("authenticated app shell", () => {
+  it("keeps the collapsed workspace header as an overlaid menu toggle", () => {
+    const appCss = readFileSync(join(process.cwd(), "src/styles/app.css"), {
+      encoding: "utf8",
+    });
+
+    expect(appCss).toContain("--workspace-collapsed-header-offset");
+    expect(appCss).toContain(
+      '.authenticated-shell[data-sidebar-state="collapsed"]\n  .app-frame__workspace-header',
+    );
+    expect(appCss).not.toContain(
+      '.authenticated-shell[data-sidebar-state="collapsed"]\n  .app-frame[data-workspace="notes"]\n  .app-frame__workspace-header {\n  position: sticky',
+    );
+  });
+
   it("renders a Notes Workspace shell with an account menu instead of product navigation", async () => {
     renderRoute("/settings");
 

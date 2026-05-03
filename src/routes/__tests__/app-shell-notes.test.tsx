@@ -1,5 +1,8 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { act, fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { createPersistentNotesContext } from "../../modules/notes";
@@ -13,6 +16,25 @@ import {
 } from "./app-shell-test-support";
 
 describe("authenticated app shell", () => {
+  it("sizes the notes list from the workspace grid instead of viewport subtraction", () => {
+    const notesEditorCss = readFileSync(
+      join(
+        process.cwd(),
+        "src/modules/notes/notes-workspace/notes-editor-route.css",
+      ),
+      {
+        encoding: "utf8",
+      },
+    );
+
+    expect(notesEditorCss).not.toMatch(
+      /\.notes-list-panel\s*{[^}]*height:\s*calc\(100vh/s,
+    );
+    expect(notesEditorCss).toMatch(
+      /\.app-frame\[data-workspace="notes"\]\s+\.notes-list-panel\s*{[^}]*height:\s*100%/s,
+    );
+  });
+
   it("keeps the discard dialog focused when an in-page note change is guarded", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,

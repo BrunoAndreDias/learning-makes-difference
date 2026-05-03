@@ -756,7 +756,7 @@ describe("authenticated app shell", () => {
     fireEvent.change(bodyField, {
       target: { value: "Updated after break" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(listNotesForUser(notesContext.getSnapshot(), userId)).toMatchObject([
       {

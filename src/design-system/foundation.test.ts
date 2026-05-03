@@ -124,11 +124,12 @@ describe("foundationTokens", () => {
     );
 
     expect(notesEditorCss).toContain(".notes-editor__layout");
-    expect(notesEditorCss).toContain(
-      "grid-column: notes-inspector-start / notes-inspector-end;",
-    );
-    expect(notesEditorCss).toContain("grid-row: 1 / span 2;");
     expect(notesEditorCss).toContain("align-content: start;");
+    expect(notesEditorCss).toContain(
+      '.app-frame[data-workspace="notes"] .notes-list-panel',
+    );
+    expect(notesEditorCss).toContain("height: 100%;");
+    expect(notesEditorCss).toContain("max-height: 100%;");
     expect(notesResponsiveCss).toContain(".notes-editor__layout,");
     expect(notesResponsiveCss).toContain(".notes-editor__inspector");
     expect(notesResponsiveCss).toContain("grid-template-columns: 1fr;");

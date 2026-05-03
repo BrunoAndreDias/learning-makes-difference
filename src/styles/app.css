@@ -12,6 +12,7 @@
   --workspace-page-inline: clamp(1rem, 3vw, 1.9rem);
   --workspace-page-block-start: 1.15rem;
   --workspace-page-block-end: 2rem;
+  --workspace-collapsed-header-offset: clamp(5rem, 6vw, 6.5rem);
 }
 
 .app-shell:has(.authenticated-shell) .app-frame {
@@ -45,38 +46,76 @@
 .authenticated-shell[data-sidebar-state="collapsed"]
   .app-frame[data-workspace="notes"]
   .notes-workspace {
-  --notes-workspace-inline: var(--workspace-page-inline);
+  --notes-workspace-inline: var(--workspace-collapsed-header-offset);
 }
 
 .authenticated-shell[data-sidebar-state="collapsed"]
   .app-frame[data-workspace="notes"],
 .authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="recall"],
+.authenticated-shell[data-sidebar-state="collapsed"]
   .app-frame[data-workspace="recall-results"],
 .authenticated-shell[data-sidebar-state="collapsed"]
-  .app-frame[data-workspace="labels"] {
-  grid-template-rows: auto minmax(0, 1fr);
+  .app-frame[data-workspace="labels"],
+.authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="focus"],
+.authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="settings"] {
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .authenticated-shell[data-sidebar-state="collapsed"]
-  .app-frame[data-workspace="notes"]
   .app-frame__workspace-header {
-  position: sticky;
-  inset: 0 0 auto 0;
+  position: absolute;
+  inset: 0 auto auto 0;
   z-index: 22;
-  width: auto;
-  height: auto;
-  min-height: 4.25rem;
-  padding-block: 1rem;
-  border-bottom: 1px solid #e8edf5;
-  background: var(--color-shell-panel);
-  pointer-events: auto;
+  align-items: flex-start;
+  justify-content: flex-start;
+  width: var(--workspace-collapsed-header-offset);
+  height: 4.5625rem;
+  min-height: 0;
+  padding: 0.875rem 1rem;
+  border-bottom: 0;
+  background: transparent;
+  pointer-events: none;
 }
 
 .authenticated-shell[data-sidebar-state="collapsed"]
-  .app-frame[data-workspace="notes"]
+  .app-frame__workspace-header
+  .app-frame__titlebar {
+  height: 2.5rem;
+  min-height: 2.5rem;
+  gap: 0.5rem;
+  pointer-events: auto;
+  transform: translateY(0.1875rem);
+}
+
+.authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame__workspace-header
+  .app-frame__titlebar
+  .app-frame__workspace-title,
+.authenticated-shell[data-sidebar-state="collapsed"]
   .app-frame__workspace-header
   .app-frame__actions {
-  display: flex;
+  display: none;
+}
+
+.authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="recall"]
+  .recall-surface,
+.authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="recall-results"]
+  .recall-surface,
+.authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="labels"]
+  .labels-page,
+.authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="focus"]
+  .focus-workspace,
+.authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="settings"]
+  .settings-layout {
+  padding-inline-start: var(--workspace-collapsed-header-offset);
 }
 
 @media (max-width: 42rem) {
@@ -84,9 +123,7 @@
     --workspace-page-inline: 1rem;
   }
 
-  .app-frame[data-workspace="notes"] .app-frame__workspace-header,
   .authenticated-shell[data-sidebar-state="collapsed"]
-    .app-frame[data-workspace="notes"]
     .app-frame__workspace-header {
     position: static;
     width: auto;
@@ -96,6 +133,52 @@
     border-bottom: 1px solid #e8edf5;
     background: #ffffff;
     pointer-events: auto;
+  }
+
+  .authenticated-shell[data-sidebar-state="collapsed"]
+    .app-frame__workspace-header
+    .app-frame__titlebar {
+    height: auto;
+    min-height: 0;
+    gap: 1rem;
+    transform: none;
+  }
+
+  .authenticated-shell[data-sidebar-state="collapsed"]
+    .app-frame__workspace-header
+    .app-frame__titlebar
+    .app-frame__workspace-title {
+    display: block;
+  }
+
+  .authenticated-shell[data-sidebar-state="collapsed"]
+    .app-frame__workspace-header
+    .app-frame__actions {
+    display: flex;
+  }
+
+  .authenticated-shell[data-sidebar-state="collapsed"]
+    .app-frame[data-workspace="notes"]
+    .notes-workspace {
+    --notes-workspace-inline: var(--workspace-page-inline);
+  }
+
+  .authenticated-shell[data-sidebar-state="collapsed"]
+    .app-frame[data-workspace="recall"]
+    .recall-surface,
+  .authenticated-shell[data-sidebar-state="collapsed"]
+    .app-frame[data-workspace="recall-results"]
+    .recall-surface,
+  .authenticated-shell[data-sidebar-state="collapsed"]
+    .app-frame[data-workspace="labels"]
+    .labels-page,
+  .authenticated-shell[data-sidebar-state="collapsed"]
+    .app-frame[data-workspace="focus"]
+    .focus-workspace,
+  .authenticated-shell[data-sidebar-state="collapsed"]
+    .app-frame[data-workspace="settings"]
+    .settings-layout {
+    padding-inline-start: var(--workspace-page-inline);
   }
 }
 

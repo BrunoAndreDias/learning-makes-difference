@@ -113,6 +113,11 @@ export function AppLayout() {
   const isRecallResultsWorkspaceRoute = location.pathname === "/recall";
   const isLabelsWorkspaceRoute =
     location.pathname === "/labels" || location.pathname.startsWith("/labels/");
+  const isFocusWorkspaceRoute =
+    location.pathname === "/focus" || location.pathname.startsWith("/focus/");
+  const isSettingsWorkspaceRoute =
+    location.pathname === "/settings" ||
+    location.pathname.startsWith("/settings/");
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
   const sidebarToggleLabel = isSidebarCollapsed
     ? "Expand sidebar"
@@ -247,7 +252,11 @@ export function AppLayout() {
                   ? "recall"
                   : isLabelsWorkspaceRoute
                     ? "labels"
-                    : undefined
+                    : isFocusWorkspaceRoute
+                      ? "focus"
+                      : isSettingsWorkspaceRoute
+                        ? "settings"
+                        : undefined
           }
         >
           <WorkspaceHeader
@@ -347,8 +356,8 @@ function WorkspaceHeader({
           <h2
             className={
               isRecallWorkspaceRoute || isLabelsWorkspaceRoute
-                ? "sr-only"
-                : undefined
+                ? "app-frame__workspace-title sr-only"
+                : "app-frame__workspace-title"
             }
           >
             {isRecallWorkspaceRoute

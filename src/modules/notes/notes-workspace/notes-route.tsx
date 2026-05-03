@@ -318,6 +318,7 @@ function MemoryHookPanel({ children, tab }: MemoryHookPanelProps) {
 
 type MemoryHookEmptyStateProps = {
   descriptionLabel: string;
+  disabled: boolean;
   helperText: string;
   onDescriptionChange: (value: string) => void;
   placeholder: string;
@@ -325,6 +326,7 @@ type MemoryHookEmptyStateProps = {
 
 function MemoryHookEmptyState({
   descriptionLabel,
+  disabled,
   helperText,
   onDescriptionChange,
   placeholder,
@@ -335,6 +337,7 @@ function MemoryHookEmptyState({
         <span>{descriptionLabel}</span>
         <textarea
           aria-label={descriptionLabel}
+          disabled={disabled}
           onChange={(event) => onDescriptionChange(event.target.value)}
           placeholder={placeholder}
           rows={4}
@@ -349,6 +352,7 @@ function MemoryHookEmptyState({
 type MemoryHookDescriptionEditorProps = {
   description: string;
   descriptionLabel: string;
+  disabled: boolean;
   helperText: string;
   index: number;
   isChanged: boolean;
@@ -364,6 +368,7 @@ type MemoryHookDescriptionEditorProps = {
 function MemoryHookDescriptionEditor({
   description,
   descriptionLabel,
+  disabled,
   helperText,
   index,
   isChanged,
@@ -378,6 +383,7 @@ function MemoryHookDescriptionEditor({
     <fieldset
       aria-label={`${kindLabel} editor`}
       className={`notes-${lowerKindLabel}`}
+      disabled={disabled}
     >
       <legend>{kindLabel}</legend>
       <label className="notes-form__field">
@@ -1464,6 +1470,7 @@ function NotesWorkspace() {
               <MemoryHookDescriptionEditor
                 description={metaphor.description}
                 descriptionLabel="Your metaphor"
+                disabled={isBreakActive}
                 helperText="The metaphor helps you connect the concept to a vivid mental image."
                 index={index}
                 isChanged={isMetaphorDraftChanged(noteEditor, index)}
@@ -1480,6 +1487,7 @@ function NotesWorkspace() {
         ) : (
           <MemoryHookEmptyState
             descriptionLabel="Your metaphor"
+            disabled={isBreakActive}
             helperText="The metaphor helps you connect the concept to a vivid mental image."
             onDescriptionChange={handleEmptyMetaphorDescriptionChange}
             placeholder="Write your metaphor here..."
@@ -1498,6 +1506,7 @@ function NotesWorkspace() {
               <MemoryHookDescriptionEditor
                 description={acronym.description}
                 descriptionLabel="Your acronym"
+                disabled={isBreakActive}
                 helperText="The acronym helps you remember the concept through a compact cue."
                 index={index}
                 isChanged={isAcronymDraftChanged(noteEditor, index)}
@@ -1514,6 +1523,7 @@ function NotesWorkspace() {
         ) : (
           <MemoryHookEmptyState
             descriptionLabel="Your acronym"
+            disabled={isBreakActive}
             helperText="The acronym helps you remember the concept through a compact cue."
             onDescriptionChange={handleEmptyAcronymDescriptionChange}
             placeholder="Write your acronym here..."
