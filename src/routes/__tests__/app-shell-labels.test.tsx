@@ -72,7 +72,7 @@ async function openDeleteDialogFromRow(label: string) {
   );
 
   return screen.findByRole("dialog", {
-    name: `Delete '${label}'?`,
+    name: `Delete “${label}”?`,
   });
 }
 
@@ -479,9 +479,7 @@ describe("authenticated app shell", () => {
     expect(within(selectedParents).getByText("Science")).toBeInTheDocument();
     expect(within(selectedParents).getByText("Biology")).toBeInTheDocument();
     expect(
-      within(drawer).getByText(
-        "New label will have 2 parents: Biology, Science.",
-      ),
+      within(drawer).getByText("Biology / Science / New label"),
     ).toBeInTheDocument();
 
     fireEvent.change(parentSearchInput, {
@@ -497,13 +495,14 @@ describe("authenticated app shell", () => {
     expect(
       within(selectedParents).queryByText("Biology"),
     ).not.toBeInTheDocument();
-    expect(
-      within(drawer).getByText("New label will have 1 parent: Science."),
-    ).toBeInTheDocument();
+    expect(within(drawer).getByText("Science / New label")).toBeInTheDocument();
 
     fireEvent.change(within(drawer).getByLabelText("Label name"), {
       target: { value: "   Systems Biology   " },
     });
+    expect(
+      within(drawer).getByText("Science / Systems Biology"),
+    ).toBeInTheDocument();
     expect(createButton).toBeEnabled();
     fireEvent.click(createButton);
 
@@ -651,8 +650,11 @@ describe("authenticated app shell", () => {
       name: "Selected parent labels",
     });
     expect(within(selectedParents).getByText("Science")).toBeInTheDocument();
+    const childLabels = within(drawer).getByRole("list", {
+      name: "Child labels",
+    });
     expect(
-      within(drawer).getByText("Child labels: Molecular Biology."),
+      within(childLabels).getByText("Molecular Biology"),
     ).toBeInTheDocument();
 
     const parentSearchInput = within(drawer).getByLabelText(
@@ -887,10 +889,9 @@ describe("authenticated app shell", () => {
     const deleteModal = await openDeleteDialogFromRow("Biology");
 
     expect(
-      within(deleteModal).getByText("2 notes will lose this label."),
-    ).toBeInTheDocument();
-    expect(
-      within(deleteModal).getByText("1 child label will remain available."),
+      within(deleteModal).getByText(
+        "This will remove the label from 2 notes. 1 child label will stay available and become a top-level label if it has no other parent.",
+      ),
     ).toBeInTheDocument();
     expect(
       within(deleteModal).getByText("Notes will not be deleted."),
@@ -900,7 +901,7 @@ describe("authenticated app shell", () => {
       within(deleteModal).getByRole("button", { name: "Cancel" }),
     );
 
-    await expectDialogToBeClosed("Delete 'Biology'?");
+    await expectDialogToBeClosed("Delete “Biology”?");
     expect(screen.getByRole("button", { name: "Biology" })).toBeInTheDocument();
   });
 
@@ -929,14 +930,14 @@ describe("authenticated app shell", () => {
     );
 
     const dialog = await screen.findByRole("dialog", {
-      name: "Delete 'Biology'?",
+      name: "Delete “Biology”?",
     });
     expect(
       within(dialog).getByRole("button", { name: "Cancel" }),
     ).toHaveFocus();
 
     fireEvent.keyDown(dialog, { key: "Escape" });
-    await expectDialogToBeClosed("Delete 'Biology'?");
+    await expectDialogToBeClosed("Delete “Biology”?");
     expect(menuTrigger).toHaveFocus();
   });
 
@@ -992,7 +993,7 @@ describe("authenticated app shell", () => {
     );
 
     const deleteModal = await screen.findByRole("dialog", {
-      name: "Delete 'Biology'?",
+      name: "Delete “Biology”?",
     });
     fireEvent.click(
       within(deleteModal).getByRole("button", {
@@ -1002,7 +1003,7 @@ describe("authenticated app shell", () => {
 
     await waitFor(() => {
       expect(
-        screen.queryByRole("dialog", { name: "Delete 'Biology'?" }),
+        screen.queryByRole("dialog", { name: "Delete “Biology”?" }),
       ).not.toBeInTheDocument();
     });
     await waitFor(() => {
@@ -1131,7 +1132,7 @@ describe("authenticated app shell", () => {
     expect(
       screen.getByRole("heading", {
         level: 4,
-        name: "No label found for 'mobility'",
+        name: "No label found for “mobility”",
       }),
     ).toBeInTheDocument();
     expect(
@@ -1139,7 +1140,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
 
     const quickCreateButton = screen.getByRole("button", {
-      name: "Create 'mobility'",
+      name: "Create “mobility”",
     });
     fireEvent.click(quickCreateButton);
 
@@ -1147,6 +1148,11 @@ describe("authenticated app shell", () => {
       name: "New label",
     });
     expect(within(drawer).getByLabelText("Label name")).toHaveValue("mobility");
+    expect(
+      within(drawer).getByText(
+        "Mobility will be created as a top-level label.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("shows minimal empty labels state without summary toolbar or table", async () => {
@@ -1169,9 +1175,9 @@ describe("authenticated app shell", () => {
     expect(
       screen.getByText("Create your first label to group related notes."),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "New label" }),
-    ).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "New label" })).toHaveLength(
+      2,
+    );
 
     expect(
       screen.queryByRole("region", { name: "Labels summary" }),

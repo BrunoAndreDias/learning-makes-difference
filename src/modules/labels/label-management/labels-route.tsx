@@ -24,7 +24,6 @@ import {
   deriveLabelsSummary,
   deriveSelectableParentOptions,
   deriveVisibleLabelRows,
-  formatCreateRelationshipPreview,
   type LabelsFilterValue,
   type LabelsSortValue,
   parseLabelsFilterValue,
@@ -139,24 +138,46 @@ function formatEditUsageSummary(input: {
   return `${input.label} · used in ${formatCount(input.noteCount, "note")} · ${formatCount(input.childCount, "child label")}`;
 }
 
-function formatChildLabelsPreview(childLabels: readonly string[]) {
-  if (childLabels.length === 0) {
-    return "No child labels.";
+function formatPreviewLabelName(labelName: string) {
+  const trimmedName = labelName.trim();
+
+  if (trimmedName.length === 0) {
+    return "New label";
   }
 
-  return `Child labels: ${childLabels.join(", ")}.`;
+  return `${trimmedName.slice(0, 1).toUpperCase()}${trimmedName.slice(1)}`;
 }
 
-function formatDeleteChildrenImpact(childCount: number) {
-  if (childCount === 0) {
-    return "No child labels are attached to this label.";
+function formatCreatePreview(input: {
+  labelName: string;
+  parentNames: readonly string[];
+}) {
+  const labelName = formatPreviewLabelName(input.labelName);
+
+  if (input.parentNames.length === 0) {
+    return `${labelName} will be created as a top-level label.`;
   }
 
-  return `${formatCount(childCount, "child label")} will remain available.`;
+  return `${input.parentNames.join(" / ")} / ${labelName}`;
 }
 
-function formatDeleteNotesImpact(noteCount: number) {
-  return `${formatCount(noteCount, "note")} will lose this label.`;
+function formatDeleteImpactSummary(input: {
+  childCount: number;
+  noteCount: number;
+}) {
+  const notesImpact = formatCount(input.noteCount, "note");
+
+  if (input.childCount === 0) {
+    return `This will remove the label from ${notesImpact}.`;
+  }
+
+  const childImpact = formatCount(input.childCount, "child label");
+  const childRelationshipImpact =
+    input.childCount === 1
+      ? "will stay available and become a top-level label if it has no other parent"
+      : "will stay available and become top-level labels if they have no other parent";
+
+  return `This will remove the label from ${notesImpact}. ${childImpact} ${childRelationshipImpact}.`;
 }
 
 function getActiveFocusRestoreTarget() {
@@ -756,9 +777,10 @@ function LabelsPage() {
   const canSaveEdit =
     editingLabelRecord !== null && editNameIsValid && editIsDirty;
   const isEditDrawerOpen = editingLabelId !== null;
-  const createRelationshipPreview = formatCreateRelationshipPreview(
-    selectedCreateParentRows.map((row) => row.label),
-  );
+  const createRelationshipPreview = formatCreatePreview({
+    labelName: createName,
+    parentNames: selectedCreateParentRows.map((row) => row.label),
+  });
   const editUsageSummary =
     editingRow === null
       ? ""
@@ -767,9 +789,6 @@ function LabelsPage() {
           label: editingRow.label,
           noteCount: editingRow.directNoteCount,
         });
-  const childLabelsPreview = formatChildLabelsPreview(
-    editChildRows.map((row) => row.label),
-  );
   const summaryLabelsText = formatCount(summary.totalCount, "label");
   const summaryTopLevelText = `${summary.topLevelCount} top-level`;
   const summaryRelationshipsText = formatCount(
@@ -795,64 +814,67 @@ function LabelsPage() {
 
   return (
     <section className="labels-page" aria-labelledby="labels-route-heading">
-      <header className="labels-management-header shell-panel">
+      <header className="labels-management-header">
         <div className="labels-management-header__copy">
           <h3 id="labels-route-heading">Labels</h3>
           <p className="muted">Organize notes with reusable topics.</p>
           {hasLabels ? (
             <section
               aria-label="Labels summary"
-              className="labels-management-header__summary tag-row"
+              className="labels-management-header__summary"
             >
-              <span className="tag">{summaryLabelsText}</span>
-              <span className="tag">{summaryTopLevelText}</span>
-              <span className="tag">{summaryRelationshipsText}</span>
-              <span className="tag">{summaryUnusedText}</span>
+              <span>{summaryLabelsText}</span>
+              <span aria-hidden="true">·</span>
+              <span>{summaryTopLevelText}</span>
+              <span aria-hidden="true">·</span>
+              <span>{summaryRelationshipsText}</span>
+              <span aria-hidden="true">·</span>
+              <span>{summaryUnusedText}</span>
+              <div className="labels-rules-popover">
+                <button
+                  aria-controls={rulesPopoverId}
+                  aria-expanded={isRulesOpen}
+                  aria-haspopup="dialog"
+                  className="labels-rules-button"
+                  onClick={() => setRulesOpen((value) => !value)}
+                  ref={rulesButtonRef}
+                  type="button"
+                >
+                  <span>Label rules</span>
+                  <InfoIcon />
+                </button>
+                {isRulesOpen ? (
+                  <article
+                    aria-label="Label rules"
+                    aria-modal="false"
+                    className="labels-rules-popover__content"
+                    id={rulesPopoverId}
+                    onKeyDown={handleRulesPopoverKeyDown}
+                    ref={rulesPopoverRef}
+                    role="dialog"
+                    tabIndex={-1}
+                  >
+                    <h4>Label rules</h4>
+                    <ul>
+                      <li>Labels can have more than one parent.</li>
+                      <li>Circular relationships are blocked automatically.</li>
+                      <li>Deleting a label never deletes notes.</li>
+                    </ul>
+                  </article>
+                ) : null}
+              </div>
             </section>
           ) : null}
         </div>
 
         <div className="labels-management-header__actions">
-          {hasLabels ? (
-            <div className="labels-rules-popover">
-              <button
-                aria-controls={rulesPopoverId}
-                aria-expanded={isRulesOpen}
-                aria-haspopup="dialog"
-                className="labels-button"
-                onClick={() => setRulesOpen((value) => !value)}
-                ref={rulesButtonRef}
-                type="button"
-              >
-                Label rules
-              </button>
-              {isRulesOpen ? (
-                <article
-                  aria-label="Label rules"
-                  aria-modal="false"
-                  className="labels-rules-popover__content"
-                  id={rulesPopoverId}
-                  onKeyDown={handleRulesPopoverKeyDown}
-                  ref={rulesPopoverRef}
-                  role="dialog"
-                  tabIndex={-1}
-                >
-                  <ul>
-                    <li>Labels can have more than one parent.</li>
-                    <li>Circular relationships are blocked automatically.</li>
-                    <li>Deleting a label never deletes notes.</li>
-                  </ul>
-                </article>
-              ) : null}
-            </div>
-          ) : null}
-
           <button
             className="labels-button labels-button--primary"
             onClick={(event) => openEmptyCreateDrawer(event.currentTarget)}
             type="button"
           >
-            New label
+            <span aria-hidden="true">+</span>
+            <span>New label</span>
           </button>
         </div>
       </header>
@@ -868,22 +890,10 @@ function LabelsPage() {
         </p>
       ) : null}
 
-      {!hasLabels ? (
-        <article className="labels-empty-card shell-panel">
-          <p className="section-label">No labels yet</p>
-          <h4>No labels yet</h4>
-          <p className="muted">
-            Create your first label to group related notes.
-          </p>
-        </article>
-      ) : null}
-
       {hasLabels ? (
-        <section
-          className="labels-toolbar shell-panel"
-          aria-label="Labels toolbar"
-        >
-          <div className="labels-toolbar__search">
+        <section className="labels-toolbar" aria-label="Labels toolbar">
+          <div className="labels-toolbar__search labels-input-with-icon">
+            <SearchIcon />
             <label className="sr-only" htmlFor={searchInputId}>
               Search labels
             </label>
@@ -904,8 +914,11 @@ function LabelsPage() {
             />
           </div>
 
-          <label className="labels-field" htmlFor={filterSelectId}>
-            <span>Filter labels</span>
+          <label
+            className="labels-field labels-field--control"
+            htmlFor={filterSelectId}
+          >
+            <span className="sr-only">Filter labels</span>
             <select
               id={filterSelectId}
               onChange={handleFilterChange}
@@ -917,14 +930,17 @@ function LabelsPage() {
             </select>
           </label>
 
-          <label className="labels-field" htmlFor={sortSelectId}>
-            <span>Sort labels</span>
+          <label
+            className="labels-field labels-field--control"
+            htmlFor={sortSelectId}
+          >
+            <span className="sr-only">Sort labels</span>
             <select
               id={sortSelectId}
               onChange={handleSortChange}
               value={sortValue}
             >
-              <option value="name-asc">Name (A-Z)</option>
+              <option value="name-asc">Sort</option>
               <option value="notes-desc">Notes (high-low)</option>
               <option value="children-desc">Children (high-low)</option>
             </select>
@@ -932,13 +948,40 @@ function LabelsPage() {
         </section>
       ) : null}
 
-      {hasLabels ? (
-        <section className="labels-table-shell shell-panel">
-          {visibleRows.length === 0 ? (
-            <article className="labels-empty-card">
-              <p className="section-label">No labels found</p>
+      <section
+        className={`labels-table-shell shell-panel${
+          hasLabels ? "" : " labels-table-shell--empty"
+        }`}
+      >
+        {!hasLabels ? (
+          <article className="labels-empty-state">
+            <div className="labels-empty-state__icon" aria-hidden="true">
+              <LabelTagIcon />
+            </div>
+            <h4>No labels yet</h4>
+            <p className="muted">
+              Create your first label to group related notes.
+            </p>
+            <button
+              className="labels-button labels-button--primary"
+              onClick={(event) => openEmptyCreateDrawer(event.currentTarget)}
+              type="button"
+            >
+              <span aria-hidden="true">+</span>
+              <span>New label</span>
+            </button>
+          </article>
+        ) : visibleRows.length === 0 ? (
+          <article className="labels-empty-state labels-empty-state--search">
+            <div className="labels-table-shell__state-header">
+              Search results
+            </div>
+            <div className="labels-empty-state__content">
+              <div className="labels-empty-state__icon" aria-hidden="true">
+                <SearchIcon />
+              </div>
               {hasSearchQuery ? (
-                <h4>No label found for '{normalizedSearchQuery}'</h4>
+                <h4>{`No label found for “${normalizedSearchQuery}”`}</h4>
               ) : (
                 <h4>No labels match the current filters.</h4>
               )}
@@ -946,80 +989,94 @@ function LabelsPage() {
                 Create it now or clear the search to see all labels.
               </p>
               {hasSearchQuery ? (
-                <div className="labels-create-inline__actions">
-                  <button
-                    className="labels-button labels-button--primary"
-                    onClick={(event) =>
-                      openCreateDrawerWithName(
-                        normalizedSearchQuery,
-                        event.currentTarget,
-                      )
-                    }
-                    type="button"
-                  >
-                    {`Create '${normalizedSearchQuery}'`}
-                  </button>
-                </div>
+                <button
+                  className="labels-button labels-button--primary"
+                  onClick={(event) =>
+                    openCreateDrawerWithName(
+                      normalizedSearchQuery,
+                      event.currentTarget,
+                    )
+                  }
+                  type="button"
+                >
+                  <span aria-hidden="true">+</span>
+                  <span>{`Create “${normalizedSearchQuery}”`}</span>
+                </button>
               ) : null}
-            </article>
-          ) : (
-            <div className="labels-table-scroll">
-              <table aria-label="Labels list" className="labels-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Label</th>
-                    <th scope="col">Parents</th>
-                    <th scope="col">Children</th>
-                    <th scope="col">Notes</th>
-                    <th scope="col">Row actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleRows.map((row) => (
-                    <tr
-                      className="labels-table__row"
-                      key={row.id}
-                      onClick={(event) =>
-                        openEditDrawer(row.id, event.currentTarget)
-                      }
-                    >
-                      <td className="labels-table__label-cell">
-                        <button
-                          className="labels-table__label-trigger"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            openEditDrawer(row.id, event.currentTarget);
-                          }}
-                          type="button"
-                        >
-                          {row.label}
-                        </button>
-                      </td>
-                      <td>{formatParentNames(row.parentNames)}</td>
-                      <td>{row.childCount}</td>
-                      <td>{row.directNoteCount}</td>
-                      <td>
-                        <LabelRowActionsMenu
-                          isOpen={openRowActionsLabelId === row.id}
-                          label={row.label}
-                          menuId={`labels-row-actions-menu-${row.id}`}
-                          onClose={closeRowActionsMenu}
-                          onDelete={() => openDeleteDialog(row)}
-                          onDuplicate={() => {
-                            void duplicateLabel(row.id);
-                          }}
-                          onEdit={() => openEditDrawer(row.id)}
-                          onToggle={() => toggleRowActionsMenu(row.id)}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
-          )}
-        </section>
-      ) : null}
+          </article>
+        ) : (
+          <div className="labels-table-scroll">
+            <table aria-label="Labels list" className="labels-table">
+              <thead>
+                <tr>
+                  <th scope="col">Label</th>
+                  <th scope="col">Parents</th>
+                  <th scope="col">Children</th>
+                  <th scope="col">Notes</th>
+                  <th scope="col">
+                    <span className="sr-only">Row actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleRows.map((row) => (
+                  <tr
+                    className={`labels-table__row${
+                      openRowActionsLabelId === row.id
+                        ? " labels-table__row--active"
+                        : ""
+                    }`}
+                    key={row.id}
+                    onClick={(event) =>
+                      openEditDrawer(row.id, event.currentTarget)
+                    }
+                  >
+                    <td className="labels-table__label-cell">
+                      <button
+                        className="labels-table__label-trigger"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openEditDrawer(row.id, event.currentTarget);
+                        }}
+                        type="button"
+                      >
+                        <LabelTagIcon />
+                        <span>{row.label}</span>
+                      </button>
+                    </td>
+                    <td>{formatParentNames(row.parentNames)}</td>
+                    <td>
+                      <span className="labels-count-badge">
+                        {row.childCount}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="labels-count-badge">
+                        {row.directNoteCount}
+                      </span>
+                    </td>
+                    <td>
+                      <LabelRowActionsMenu
+                        isOpen={openRowActionsLabelId === row.id}
+                        label={row.label}
+                        menuId={`labels-row-actions-menu-${row.id}`}
+                        onClose={closeRowActionsMenu}
+                        onDelete={() => openDeleteDialog(row)}
+                        onDuplicate={() => {
+                          void duplicateLabel(row.id);
+                        }}
+                        onEdit={() => openEditDrawer(row.id)}
+                        onToggle={() => toggleRowActionsMenu(row.id)}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       {isCreateDrawerOpen || isEditDrawerOpen ? (
         <div
@@ -1040,15 +1097,25 @@ function LabelsPage() {
           aria-describedby={createDrawerDescriptionId}
           aria-labelledby={createDrawerTitleId}
           aria-modal="true"
-          className="labels-create-drawer shell-panel"
+          className="labels-create-drawer labels-drawer shell-panel"
           onKeyDown={handleCreateDrawerKeyDown}
           role="dialog"
         >
           <header className="labels-create-drawer__header">
-            <h4 id={createDrawerTitleId}>New label</h4>
-            <p className="muted" id={createDrawerDescriptionId}>
-              Create a reusable topic for notes.
-            </p>
+            <div>
+              <h4 id={createDrawerTitleId}>New label</h4>
+              <p className="muted" id={createDrawerDescriptionId}>
+                Create a reusable topic for notes.
+              </p>
+            </div>
+            <button
+              aria-label="Close new label drawer"
+              className="labels-icon-button"
+              onClick={closeCreateDrawer}
+              type="button"
+            >
+              <CloseIcon />
+            </button>
           </header>
 
           <form
@@ -1056,101 +1123,109 @@ function LabelsPage() {
             className="labels-create-drawer__form"
             onSubmit={handleCreateLabel}
           >
-            <label className="labels-field" htmlFor={createInputId}>
-              <span>Label name</span>
-              <input
-                id={createInputId}
-                name="newLabelName"
-                onChange={(event) => setCreateName(event.target.value)}
-                placeholder="e.g. Biology"
-                ref={createInputRef}
-                required
-                type="text"
-                value={createName}
-              />
-            </label>
+            <div className="labels-create-drawer__body">
+              <label className="labels-field" htmlFor={createInputId}>
+                <span>Label name</span>
+                <input
+                  id={createInputId}
+                  name="newLabelName"
+                  onChange={(event) => setCreateName(event.target.value)}
+                  placeholder="Example: Fitness"
+                  ref={createInputRef}
+                  required
+                  type="text"
+                  value={createName}
+                />
+              </label>
 
-            <label className="labels-field" htmlFor={createParentSearchInputId}>
-              <span>Search parent labels</span>
-              <input
-                id={createParentSearchInputId}
-                name="searchParentLabels"
-                onChange={(event) =>
-                  setCreateParentSearchQuery(event.target.value)
-                }
-                placeholder="Search parent labels..."
-                type="search"
-                value={createParentSearchQuery}
-              />
-            </label>
+              <label
+                className="labels-field"
+                htmlFor={createParentSearchInputId}
+              >
+                <span>Parent labels</span>
+                <input
+                  aria-label="Search parent labels"
+                  id={createParentSearchInputId}
+                  name="searchParentLabels"
+                  onChange={(event) =>
+                    setCreateParentSearchQuery(event.target.value)
+                  }
+                  placeholder="Search parent labels..."
+                  type="search"
+                  value={createParentSearchQuery}
+                />
+              </label>
 
-            <ul
-              aria-label="Parent label options"
-              className="labels-parent-options"
-            >
-              {createParentOptions.length === 0 ? (
-                <li className="labels-parent-options__empty muted">
-                  No matching parent labels.
-                </li>
-              ) : (
-                createParentOptions.map((option) => {
-                  const noteCountLabel = formatCount(
-                    option.directNoteCount,
-                    "note",
-                  );
-
-                  return (
-                    <li key={option.id}>
-                      <button
-                        aria-label={`${option.label} (${noteCountLabel})`}
-                        className="labels-button labels-button--inline"
-                        onClick={() => addCreateParent(option.id)}
-                        type="button"
-                      >
-                        <span>{option.label}</span>
-                        <span className="muted">{noteCountLabel}</span>
-                      </button>
+              {createParentSearchQuery.trim().length > 0 ? (
+                <ul
+                  aria-label="Parent label options"
+                  className="labels-parent-options"
+                >
+                  {createParentOptions.length === 0 ? (
+                    <li className="labels-parent-options__empty muted">
+                      No matching parent labels.
                     </li>
-                  );
-                })
-              )}
-            </ul>
+                  ) : (
+                    createParentOptions.map((option) => {
+                      const noteCountLabel = formatCount(
+                        option.directNoteCount,
+                        "note",
+                      );
 
-            <section
-              aria-label="Selected parent labels"
-              className="labels-selected-parents"
-            >
-              <p className="section-label">Selected parents</p>
-              {selectedCreateParentRows.length === 0 ? (
-                <p className="muted">No parent labels selected.</p>
-              ) : (
-                <ul aria-label="Selected parent labels" className="tag-row">
-                  {selectedCreateParentRows.map((parentRow) => (
-                    <li className="tag" key={parentRow.id}>
-                      <span>{parentRow.label}</span>
-                      <button
-                        aria-label={`Remove ${parentRow.label}`}
-                        className="labels-chip-remove"
-                        onClick={() => removeCreateParent(parentRow.id)}
-                        type="button"
-                      >
-                        Remove
-                      </button>
-                    </li>
-                  ))}
+                      return (
+                        <li key={option.id}>
+                          <button
+                            aria-label={`${option.label} (${noteCountLabel})`}
+                            className="labels-parent-option"
+                            onClick={() => addCreateParent(option.id)}
+                            type="button"
+                          >
+                            <span className="labels-parent-option__label">
+                              <LabelTagIcon />
+                              <span>{option.label}</span>
+                            </span>
+                            <span className="muted">{noteCountLabel}</span>
+                          </button>
+                        </li>
+                      );
+                    })
+                  )}
                 </ul>
-              )}
-            </section>
+              ) : null}
 
-            <section
-              aria-label="Relationship preview"
-              className="labels-preview-card"
-            >
-              <p className="section-label">Relationship preview</p>
-              <p>{createRelationshipPreview}</p>
-            </section>
+              <section className="labels-selected-parents">
+                <p className="labels-drawer-section-title">Selected parents</p>
+                {selectedCreateParentRows.length === 0 ? (
+                  <p className="muted">No parent selected</p>
+                ) : (
+                  <ul aria-label="Selected parent labels" className="tag-row">
+                    {selectedCreateParentRows.map((parentRow) => (
+                      <li className="tag" key={parentRow.id}>
+                        <span>{parentRow.label}</span>
+                        <button
+                          aria-label={`Remove ${parentRow.label}`}
+                          className="labels-chip-remove"
+                          onClick={() => removeCreateParent(parentRow.id)}
+                          type="button"
+                        >
+                          ×
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
 
-            <div className="labels-create-inline__actions">
+              <section
+                aria-label="Relationship preview"
+                className="labels-preview-card"
+              >
+                <p className="labels-drawer-section-title">Preview</p>
+                <p>{createRelationshipPreview}</p>
+              </section>
+            </div>
+
+            <footer className="labels-create-drawer__footer">
               <button
                 className="labels-button"
                 onClick={closeCreateDrawer}
@@ -1165,7 +1240,7 @@ function LabelsPage() {
               >
                 Create label
               </button>
-            </div>
+            </footer>
           </form>
         </aside>
       ) : null}
@@ -1174,15 +1249,25 @@ function LabelsPage() {
           aria-describedby={editDrawerDescriptionId}
           aria-labelledby={editDrawerTitleId}
           aria-modal="true"
-          className="labels-create-drawer shell-panel"
+          className="labels-create-drawer labels-drawer shell-panel"
           onKeyDown={handleEditDrawerKeyDown}
           role="dialog"
         >
           <header className="labels-create-drawer__header">
-            <h4 id={editDrawerTitleId}>Edit label</h4>
-            <p className="muted" id={editDrawerDescriptionId}>
-              {editUsageSummary}
-            </p>
+            <div>
+              <h4 id={editDrawerTitleId}>Edit label</h4>
+              <p className="muted" id={editDrawerDescriptionId}>
+                {editUsageSummary}
+              </p>
+            </div>
+            <button
+              aria-label="Close edit label drawer"
+              className="labels-icon-button"
+              onClick={closeEditDrawer}
+              type="button"
+            >
+              <CloseIcon />
+            </button>
           </header>
 
           <form
@@ -1190,119 +1275,146 @@ function LabelsPage() {
             className="labels-create-drawer__form"
             onSubmit={handleEditLabel}
           >
-            <label className="labels-field" htmlFor={editInputId}>
-              <span>Label name</span>
-              <input
-                id={editInputId}
-                name="editLabelName"
-                onChange={(event) => setEditName(event.target.value)}
-                placeholder="e.g. Biology"
-                ref={editInputRef}
-                required
-                type="text"
-                value={editName}
-              />
-            </label>
+            <div className="labels-create-drawer__body">
+              <label className="labels-field" htmlFor={editInputId}>
+                <span>Label name</span>
+                <input
+                  id={editInputId}
+                  name="editLabelName"
+                  onChange={(event) => setEditName(event.target.value)}
+                  placeholder="Example: Fitness"
+                  ref={editInputRef}
+                  required
+                  type="text"
+                  value={editName}
+                />
+              </label>
 
-            <label className="labels-field" htmlFor={editParentSearchInputId}>
-              <span>Search parent labels</span>
-              <input
-                id={editParentSearchInputId}
-                name="searchParentLabelsForEdit"
-                onChange={(event) =>
-                  setEditParentSearchQuery(event.target.value)
-                }
-                placeholder="Search parent labels..."
-                type="search"
-                value={editParentSearchQuery}
-              />
-            </label>
-
-            <ul
-              aria-label="Parent label options"
-              className="labels-parent-options"
-            >
-              {editParentOptions.length === 0 ? (
-                <li className="labels-parent-options__empty muted">
-                  No matching parent labels.
-                </li>
-              ) : (
-                editParentOptions.map((option) => {
-                  const noteCountLabel = formatCount(
-                    option.directNoteCount,
-                    "note",
-                  );
-
-                  return (
-                    <li key={option.id}>
-                      <button
-                        aria-label={`${option.label} (${noteCountLabel})`}
-                        className="labels-button labels-button--inline"
-                        onClick={() => addEditParent(option.id)}
-                        type="button"
-                      >
-                        <span>{option.label}</span>
-                        <span className="muted">{noteCountLabel}</span>
-                      </button>
-                    </li>
-                  );
-                })
-              )}
-            </ul>
-
-            <section
-              aria-label="Selected parent labels"
-              className="labels-selected-parents"
-            >
-              <p className="section-label">Selected parents</p>
-              {selectedEditParentRows.length === 0 ? (
-                <p className="muted">No parent labels selected.</p>
-              ) : (
-                <ul aria-label="Selected parent labels" className="tag-row">
-                  {selectedEditParentRows.map((parentRow) => (
-                    <li className="tag" key={parentRow.id}>
-                      <span>{parentRow.label}</span>
-                      <button
-                        aria-label={`Remove ${parentRow.label}`}
-                        className="labels-chip-remove"
-                        onClick={() => removeEditParent(parentRow.id)}
-                        type="button"
-                      >
-                        Remove
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            <section
-              aria-label="Child labels preview"
-              className="labels-preview-card"
-            >
-              <p className="section-label">Child labels</p>
-              <p>{childLabelsPreview}</p>
-            </section>
-
-            <section aria-label="Danger zone" className="labels-preview-card">
-              <p className="section-label">Danger zone</p>
-              <p className="muted">
-                Deleting this label will not delete notes.
-              </p>
-              <button
-                className="labels-button labels-button--danger"
-                onClick={() => {
-                  if (editingRow !== null) {
-                    openDeleteDialog(editingRow);
+              <label className="labels-field" htmlFor={editParentSearchInputId}>
+                <span>Parent labels</span>
+                <input
+                  aria-label="Search parent labels"
+                  id={editParentSearchInputId}
+                  name="searchParentLabelsForEdit"
+                  onChange={(event) =>
+                    setEditParentSearchQuery(event.target.value)
                   }
-                }}
-                type="button"
-              >
-                Delete label
-              </button>
-            </section>
+                  placeholder="Search parent labels..."
+                  type="search"
+                  value={editParentSearchQuery}
+                />
+              </label>
 
-            <div className="labels-create-inline__actions">
+              {editParentSearchQuery.trim().length > 0 ? (
+                <ul
+                  aria-label="Parent label options"
+                  className="labels-parent-options"
+                >
+                  {editParentOptions.length === 0 ? (
+                    <li className="labels-parent-options__empty muted">
+                      No matching parent labels.
+                    </li>
+                  ) : (
+                    editParentOptions.map((option) => {
+                      const noteCountLabel = formatCount(
+                        option.directNoteCount,
+                        "note",
+                      );
+
+                      return (
+                        <li key={option.id}>
+                          <button
+                            aria-label={`${option.label} (${noteCountLabel})`}
+                            className="labels-parent-option"
+                            onClick={() => addEditParent(option.id)}
+                            type="button"
+                          >
+                            <span className="labels-parent-option__label">
+                              <LabelTagIcon />
+                              <span>{option.label}</span>
+                            </span>
+                            <span className="muted">{noteCountLabel}</span>
+                          </button>
+                        </li>
+                      );
+                    })
+                  )}
+                </ul>
+              ) : null}
+
+              <section className="labels-selected-parents">
+                <p className="labels-drawer-section-title">Selected parents</p>
+                {selectedEditParentRows.length === 0 ? (
+                  <p className="muted">No parent selected</p>
+                ) : (
+                  <ul aria-label="Selected parent labels" className="tag-row">
+                    {selectedEditParentRows.map((parentRow) => (
+                      <li className="tag" key={parentRow.id}>
+                        <span>{parentRow.label}</span>
+                        <button
+                          aria-label={`Remove ${parentRow.label}`}
+                          className="labels-chip-remove"
+                          onClick={() => removeEditParent(parentRow.id)}
+                          type="button"
+                        >
+                          ×
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <section
+                aria-label="Child labels"
+                className="labels-preview-card labels-child-labels"
+              >
+                <p className="labels-drawer-section-title">Child labels</p>
+                {editChildRows.length === 0 ? (
+                  <p className="muted">No child labels</p>
+                ) : (
+                  <ul aria-label="Child labels">
+                    {editChildRows.map((childRow) => (
+                      <li key={childRow.id}>
+                        <span className="labels-parent-option__label">
+                          <LabelTagIcon />
+                          <span>{childRow.label}</span>
+                        </span>
+                        <span className="muted">
+                          {formatCount(childRow.directNoteCount, "note")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <section aria-label="Danger zone" className="labels-danger-zone">
+                <p className="labels-drawer-section-title">Danger zone</p>
+                <div className="labels-danger-zone__panel">
+                  <div>
+                    <p>Delete this label</p>
+                    <p className="muted">
+                      Notes will stay available. Relationships will be removed.
+                    </p>
+                  </div>
+                  <button
+                    aria-label="Delete label"
+                    className="labels-button labels-button--danger"
+                    onClick={() => {
+                      if (editingRow !== null) {
+                        openDeleteDialog(editingRow);
+                      }
+                    }}
+                    type="button"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </section>
+            </div>
+
+            <footer className="labels-create-drawer__footer">
               <button
                 className="labels-button"
                 onClick={closeEditDrawer}
@@ -1317,7 +1429,7 @@ function LabelsPage() {
               >
                 Save changes
               </button>
-            </div>
+            </footer>
           </form>
         </aside>
       ) : null}
@@ -1369,14 +1481,20 @@ function DeleteLabelDialog({
         onKeyDown={handleKeyDown}
         role="dialog"
       >
-        <h4 id={titleId}>{`Delete '${draft.label}'?`}</h4>
-        <div className="labels-delete-dialog__body" id={descriptionId}>
-          <p>{formatDeleteNotesImpact(draft.noteCount)}</p>
-          <p>{formatDeleteChildrenImpact(draft.childCount)}</p>
-          {draft.childCount > 0 ? (
-            <p>Child labels with no other parents will become top-level.</p>
-          ) : null}
-          <p>Notes will not be deleted.</p>
+        <div className="labels-delete-dialog__heading">
+          <span className="labels-delete-dialog__warning" aria-hidden="true">
+            <TrashIcon />
+          </span>
+          <div>
+            <h4 id={titleId}>{`Delete “${draft.label}”?`}</h4>
+            <p id={descriptionId}>{formatDeleteImpactSummary(draft)}</p>
+          </div>
+        </div>
+        <div className="labels-delete-dialog__body">
+          <div className="labels-delete-dialog__safety-note">
+            <p>Notes will not be deleted.</p>
+            <p>Only the label and its relationships are removed.</p>
+          </div>
         </div>
         <div className="labels-delete-dialog__actions">
           <button
@@ -1466,7 +1584,8 @@ function LabelRowActionsMenu({
             role="menuitem"
             type="button"
           >
-            Edit label
+            <EditIcon />
+            <span>Edit label</span>
           </button>
           <button
             className="labels-row-menu__item"
@@ -1474,7 +1593,8 @@ function LabelRowActionsMenu({
             role="menuitem"
             type="button"
           >
-            Duplicate
+            <PlusIcon />
+            <span>Duplicate</span>
           </button>
           <button
             className="labels-row-menu__item labels-row-menu__item--danger"
@@ -1482,7 +1602,8 @@ function LabelRowActionsMenu({
             role="menuitem"
             type="button"
           >
-            Delete label
+            <TrashIcon />
+            <span>Delete label</span>
           </button>
         </div>
       ) : null}
@@ -1501,6 +1622,108 @@ function RowActionsIcon() {
       <circle cx="12" cy="5" r="1.6" />
       <circle cx="12" cy="12" r="1.6" />
       <circle cx="12" cy="19" r="1.6" />
+    </svg>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="labels-inline-icon"
+      focusable="false"
+      viewBox="0 0 24 24"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5" />
+      <path d="M12 8h.01" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="labels-inline-icon"
+      focusable="false"
+      viewBox="0 0 24 24"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m16 16 4 4" />
+    </svg>
+  );
+}
+
+function LabelTagIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="labels-tag-icon"
+      focusable="false"
+      viewBox="0 0 24 24"
+    >
+      <path d="M20 12 12 20H5V13L13 5h5l2 2z" />
+      <circle cx="15" cy="9" r="1.5" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="labels-inline-icon"
+      focusable="false"
+      viewBox="0 0 24 24"
+    >
+      <path d="m6 6 12 12" />
+      <path d="m18 6-12 12" />
+    </svg>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="labels-inline-icon"
+      focusable="false"
+      viewBox="0 0 24 24"
+    >
+      <path d="m15 5 4 4" />
+      <path d="M5 19h4L19 9l-4-4L5 15z" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="labels-inline-icon"
+      focusable="false"
+      viewBox="0 0 24 24"
+    >
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="labels-inline-icon"
+      focusable="false"
+      viewBox="0 0 24 24"
+    >
+      <path d="M4 7h16" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+      <path d="M6 7l1 14h10l1-14" />
+      <path d="M9 7V4h6v3" />
     </svg>
   );
 }
