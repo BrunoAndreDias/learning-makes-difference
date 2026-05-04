@@ -137,4 +137,48 @@ describe("page style normalization", () => {
       expect(descriptionRule).toContain("line-height: 1.45;");
     }
   });
+
+  it("keeps Recall state accents aligned with the shared page palette", () => {
+    const recallSessionCss = readFileSync(
+      new URL("../modules/recall/recall-session-route.css", import.meta.url),
+      "utf8",
+    );
+    const recallWorkspacesCss = readFileSync(
+      new URL("../modules/recall/recall-workspaces.css", import.meta.url),
+      "utf8",
+    );
+
+    const flashCardPillStyle = getCssRules(
+      recallWorkspacesCss,
+      '.recall-mode-pill[data-mode-tone="flash-card"]',
+    ).join("\n");
+    const aiGradedPillStyle = getCssRules(
+      recallWorkspacesCss,
+      '.recall-mode-pill[data-mode-tone="ai-graded"]',
+    ).join("\n");
+    const selectedAiGradedTypeStyle = getCssRules(
+      recallWorkspacesCss,
+      '.recall-select-type-option[data-selected="true"][data-mode="AiGraded"]',
+    ).join("\n");
+    const forgotRatingStyle = getCssRules(
+      recallSessionCss,
+      ".recall-rating--forgot",
+    ).join("\n");
+
+    for (const pillStyle of [flashCardPillStyle, aiGradedPillStyle]) {
+      expect(pillStyle).toContain("border-color: var(--recall-chip-border);");
+      expect(pillStyle).toContain("background: var(--recall-chip-surface);");
+      expect(pillStyle).toContain("color: var(--recall-chip-text);");
+    }
+
+    expect(selectedAiGradedTypeStyle).toContain(
+      "border-color: var(--recall-accent-border);",
+    );
+    expect(selectedAiGradedTypeStyle).toContain(
+      "background: var(--recall-accent-surface);",
+    );
+    expect(forgotRatingStyle).toContain(
+      "background: var(--recall-soft-surface);",
+    );
+  });
 });

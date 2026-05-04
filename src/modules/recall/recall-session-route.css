@@ -5,6 +5,10 @@
   --recall-strong: var(--color-content-strong);
   --recall-default: var(--color-content-default);
   --recall-muted: var(--color-content-muted);
+  --recall-accent-border: rgba(37, 99, 235, 0.24);
+  --recall-accent-surface: rgba(37, 99, 235, 0.08);
+  --recall-soft-border: rgba(215, 222, 234, 0.9);
+  --recall-soft-surface: rgba(248, 251, 255, 0.78);
   box-sizing: border-box;
   width: 100%;
   min-height: 100%;
@@ -97,9 +101,9 @@
   margin: 0;
   padding: 0 0.7rem;
   border-radius: 999px;
-  border: 1px solid #cfe8d7;
-  background: #e9f7ef;
-  color: #2d8751;
+  border: 1px solid var(--recall-accent-border);
+  background: var(--recall-accent-surface);
+  color: var(--color-brand-primary-hover);
   font-size: 0.77rem;
   font-weight: 700;
 }
@@ -322,13 +326,17 @@
   justify-items: center;
   min-height: 4rem;
   padding: 0.55rem 0.6rem;
+  border: 1px solid var(--recall-soft-border);
   border-radius: 0.55rem;
+  background: var(--recall-soft-surface);
   text-align: center;
 }
 
 .recall-rating[data-selected="true"] {
   outline: 2px solid rgba(37, 99, 235, 0.35);
   outline-offset: 2px;
+  border-color: var(--recall-accent-border);
+  background: var(--recall-accent-surface);
 }
 
 .recall-rating__label {
@@ -345,23 +353,23 @@
 }
 
 .recall-rating--forgot {
-  border-color: rgba(159, 18, 57, 0.28);
-  background: rgba(159, 18, 57, 0.04);
+  border-color: var(--recall-soft-border);
+  background: var(--recall-soft-surface);
 }
 
 .recall-rating--hard {
-  border-color: rgba(183, 121, 31, 0.32);
-  background: rgba(183, 121, 31, 0.05);
+  border-color: var(--recall-soft-border);
+  background: var(--recall-soft-surface);
 }
 
 .recall-rating--good {
-  border-color: rgba(37, 99, 235, 0.3);
-  background: rgba(37, 99, 235, 0.05);
+  border-color: var(--recall-soft-border);
+  background: var(--recall-soft-surface);
 }
 
 .recall-rating--easy {
-  border-color: rgba(47, 133, 90, 0.32);
-  background: rgba(47, 133, 90, 0.05);
+  border-color: var(--recall-soft-border);
+  background: var(--recall-soft-surface);
 }
 
 .recall-session-main__actions {
@@ -428,21 +436,21 @@
 }
 
 .recall-overview-metric__icon[data-tone="selected"] {
-  color: #2d6feb;
-  border-color: #d6e5fe;
-  background: #edf4ff;
+  color: var(--color-brand-primary-hover);
+  border-color: var(--recall-accent-border);
+  background: var(--recall-accent-surface);
 }
 
 .recall-overview-metric__icon[data-tone="answered"] {
-  color: #2d8a53;
-  border-color: #d4ecd9;
-  background: #ecf8ef;
+  color: var(--recall-default);
+  border-color: var(--recall-soft-border);
+  background: var(--recall-soft-surface);
 }
 
 .recall-overview-metric__icon[data-tone="remaining"] {
-  color: #d2821a;
-  border-color: #f2e2ca;
-  background: #fdf5ea;
+  color: var(--recall-default);
+  border-color: var(--recall-soft-border);
+  background: var(--recall-soft-surface);
 }
 
 .recall-overview-metric__content {
