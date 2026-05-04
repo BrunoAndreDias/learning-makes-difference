@@ -5,7 +5,7 @@
   "description": "Learning Makes Difference application shell",
   "type": "module",
   "scripts": {
-    "dev": "varlock run -- vite dev",
+    "dev": "node scripts/dev.mjs",
     "build": "varlock run -- vite build",
     "start": "node .output/server/index.mjs",
     "db:setup": "docker compose up -d postgres && node scripts/db-migrate.mjs",

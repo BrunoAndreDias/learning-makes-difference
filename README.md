@@ -4,7 +4,7 @@ TanStack Start application skeleton for the Learning Makes Difference product.
 
 ## Scripts
 
-- `npm run dev` starts the SSR development server through Varlock.
+- `npm run dev` starts the repo-owned PostgreSQL database, runs migrations, and starts the SSR development server through Varlock.
 - `npm run build` creates the production build in `.output/`.
 - `npm run start` runs the built server.
 - `npm run typecheck` runs TypeScript without emitting files.
@@ -28,9 +28,8 @@ Defaults are development-safe placeholders so the skeleton boots locally. Overri
 ## Local development
 
 1. Install dependencies with `pnpm install`.
-2. Start the repo-owned PostgreSQL database when you need authenticated persistence work: `docker compose up -d postgres` or `npm run db:setup`.
-3. Run `npm run dev`.
-4. Open `http://localhost:3000`.
+2. Run `npm run dev`.
+3. Open `http://localhost:3000`.
 
 ## Pilot deployment and verification
 
