@@ -254,6 +254,50 @@
   min-width: 0;
 }
 
+.focus-records-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.75rem;
+  background: var(--color-shell-panel);
+  box-shadow: var(--shadow-card);
+}
+
+.focus-records-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.focus-records-table th,
+.focus-records-table td {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--color-content-border-soft);
+  text-align: left;
+  vertical-align: top;
+}
+
+.focus-records-table th {
+  background: var(--color-shell-inset);
+  color: var(--color-content-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.focus-records-table td {
+  color: var(--color-content-strong);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.focus-records-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.focus-records-table time {
+  color: var(--color-content-default);
+}
+
 .focus-record-card {
   display: grid;
   gap: 0.85rem;
@@ -286,6 +330,41 @@
   color: var(--color-content-default);
   font-size: 0.8125rem;
   overflow-wrap: anywhere;
+}
+
+.focus-target-panel-list {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.focus-target-panel-list li {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.65rem;
+  background: var(--color-shell-panel);
+}
+
+.focus-target-panel-list li strong {
+  color: var(--color-content-strong);
+  font-size: 0.95rem;
+}
+
+.focus-target-panel-list li span {
+  color: var(--color-content-muted);
+  font-size: 0.82rem;
+}
+
+.focus-target-panel-list__kind {
+  color: var(--color-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .focus-config-form {

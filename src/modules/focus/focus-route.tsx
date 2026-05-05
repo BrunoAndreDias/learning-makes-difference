@@ -7,7 +7,6 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { formatCount } from "../../lib/format-count";
 import {
   type AppFocusContext,
   AppFocusError,
@@ -44,6 +43,13 @@ type FocusSessionPanelDetails = {
   timerLabel: string;
 };
 
+type RecentFocusTargetSummary = {
+  context: string;
+  key: string;
+  kindLabel: string;
+  title: string;
+};
+
 const DEFAULT_BREAK_MINUTES = "5";
 const DEFAULT_FOCUS_MINUTES = "25";
 const DEFAULT_PLANNED_FOCUS_INTERVALS = "4";
@@ -52,7 +58,7 @@ const DEFAULT_FOCUS_SESSION_START_VALUES: FocusSessionStartValues = {
   focusMinutes: DEFAULT_FOCUS_MINUTES,
   plannedFocusIntervals: DEFAULT_PLANNED_FOCUS_INTERVALS,
 };
-const FOCUS_RECORD_DATE_FORMATTER = new Intl.DateTimeFormat("en", {
+const FOCUS_RECORD_TABLE_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   hour: "numeric",
   minute: "2-digit",
@@ -98,6 +104,7 @@ function FocusPage() {
           (left, right) => Date.parse(right.endedAt) - Date.parse(left.endedAt),
         );
   const recentRecords = records.slice(0, 7);
+  const recentFocusTargets = getRecentFocusTargetSummaries(recentRecords);
   const recentFocusMinutes = recentRecords.reduce(
     (total, record) =>
       total + record.completedFocusIntervalCount * record.focusIntervalMinutes,
@@ -164,14 +171,35 @@ function FocusPage() {
           </dl>
         </article>
 
-        <article className="focus-card focus-card--quiet">
-          <p className="section-label">How capture works</p>
-          <p>
-            Study sessions stay read-only in v1. Notes and Recall activity
-            attach to a running focus block automatically, so session history
-            stays useful without extra logging.
-          </p>
-        </article>
+        <section
+          aria-label="Recent focus targets"
+          className="focus-card focus-card--quiet"
+        >
+          <div className="focus-card__header">
+            <div>
+              <p className="section-label">Recent targets</p>
+              <strong className="focus-card-title">Recent focus targets</strong>
+            </div>
+          </div>
+          {recentFocusTargets.length === 0 ? (
+            <p>
+              Touch notes or recall during focus sessions to build recent target
+              context here.
+            </p>
+          ) : (
+            <ul className="focus-target-panel-list">
+              {recentFocusTargets.map((target) => (
+                <li key={target.key}>
+                  <span className="focus-target-panel-list__kind">
+                    {target.kindLabel}
+                  </span>
+                  <strong>{target.title}</strong>
+                  <span>{target.context}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
 
       <section aria-label="Completed study sessions" className="focus-records">
@@ -191,56 +219,42 @@ function FocusPage() {
               Finish your first session
             </strong>
             <p>
-              Completed sessions will appear here with captured study targets.
+              Completed sessions will appear here with proven focus duration,
+              touched targets, and completion status.
             </p>
           </article>
         ) : (
-          records.map((record) => {
-            const targetDescriptions = getTargetDescriptions(record);
-
-            return (
-              <article className="focus-record-card" key={record.id}>
-                <div className="focus-record-card__header">
-                  <div>
-                    <p className="section-label">Completed</p>
-                    <h4>{getPrimaryMetricLabel(record)}</h4>
-                  </div>
-                  <time dateTime={record.endedAt}>
-                    {formatFocusRecordDate(record.endedAt)}
-                  </time>
-                </div>
-                <dl
-                  className="focus-metrics"
-                  aria-label={`Study session ${record.id}`}
-                >
-                  <div>
-                    <dt>Breaks</dt>
-                    <dd>{getBreakMetricLabel(record)}</dd>
-                  </div>
-                  <div>
-                    <dt>Targets</dt>
-                    <dd>{targetDescriptions.length}</dd>
-                  </div>
-                  <div>
-                    <dt>Method</dt>
-                    <dd>{record.method}</dd>
-                  </div>
-                </dl>
-                {targetDescriptions.length === 0 ? (
-                  <p className="muted">No study targets captured.</p>
-                ) : (
-                  <ul
-                    className="focus-target-list"
-                    aria-label={`Touched targets for ${record.id}`}
-                  >
-                    {targetDescriptions.map((target) => (
-                      <li key={target}>{target}</li>
-                    ))}
-                  </ul>
-                )}
-              </article>
-            );
-          })
+          <div className="focus-records-table-wrapper">
+            <table
+              aria-label="Recent focus sessions"
+              className="focus-records-table"
+            >
+              <thead>
+                <tr>
+                  <th scope="col">Completed</th>
+                  <th scope="col">Focus duration</th>
+                  <th scope="col">Focus intervals</th>
+                  <th scope="col">Touched targets</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentRecords.map((record) => (
+                  <tr key={record.id}>
+                    <td>
+                      <time dateTime={record.endedAt}>
+                        {formatRecentFocusRecordDate(record.endedAt)}
+                      </time>
+                    </td>
+                    <td>{getPrimaryMetricLabel(record)}</td>
+                    <td>{getCompletedFocusIntervalsLabel(record)}</td>
+                    <td>{getTouchedTargetsLabel(record)}</td>
+                    <td>Completed</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </section>
@@ -503,18 +517,15 @@ function getPrimaryMetricLabel(record: FocusRecord) {
   const focusMinutes =
     record.completedFocusIntervalCount * record.focusIntervalMinutes;
 
-  return `${focusMinutes} minutes focused`;
+  return `${focusMinutes} minutes`;
 }
 
-function getBreakMetricLabel(record: FocusRecord) {
-  const breakMinutes =
-    record.completedBreakIntervalCount * record.breakIntervalMinutes;
-  const intervalLabel = formatCount(
-    record.completedBreakIntervalCount,
-    "break",
-  );
+function getCompletedFocusIntervalsLabel(record: FocusRecord) {
+  return `${record.completedFocusIntervalCount} completed`;
+}
 
-  return `${intervalLabel}, ${breakMinutes} minutes`;
+function getTouchedTargetsLabel(record: FocusRecord) {
+  return `${getTargetDescriptions(record).length} touched`;
 }
 
 function getFocusSessionPanelDetails(
@@ -656,8 +667,26 @@ function getTargetDescriptions(record: FocusRecord) {
   );
 }
 
-function formatFocusRecordDate(value: string) {
-  return FOCUS_RECORD_DATE_FORMATTER.format(new Date(value));
+function getRecentFocusTargetSummaries(
+  records: readonly FocusRecord[],
+): readonly RecentFocusTargetSummary[] {
+  const recentTargets = new Map<string, RecentFocusTargetSummary>();
+
+  for (const record of records) {
+    for (const target of [...record.targets, ...record.focusTargets]) {
+      const summary = summarizeFocusTarget(target);
+
+      if (!recentTargets.has(summary.key)) {
+        recentTargets.set(summary.key, summary);
+      }
+    }
+  }
+
+  return Array.from(recentTargets.values()).slice(0, 5);
+}
+
+function formatRecentFocusRecordDate(value: string) {
+  return FOCUS_RECORD_TABLE_DATE_FORMATTER.format(new Date(value));
 }
 
 function describeTarget(target: FocusTarget) {
@@ -683,6 +712,27 @@ function formatFocusTargetLabels(labels: FocusTarget["labels"]) {
   }
 
   return labels.map((label) => label.name).join(", ");
+}
+
+function summarizeFocusTarget(target: FocusTarget): RecentFocusTargetSummary {
+  if (target.kind === "RecallSession") {
+    return {
+      context: formatFocusTargetLabels(target.labels),
+      key: `RecallSession:${target.recallSession.id}`,
+      kindLabel: "Recall practice",
+      title: target.notes.map((note) => note.title).join(", "),
+    };
+  }
+
+  return {
+    context:
+      target.labels.length === 0
+        ? "No labels"
+        : target.labels.map((label) => label.name).join(", "),
+    key: `Note:${target.note.id}`,
+    kindLabel: "Note study",
+    title: target.note.title,
+  };
 }
 
 function parseOptionalNumber(value: string) {

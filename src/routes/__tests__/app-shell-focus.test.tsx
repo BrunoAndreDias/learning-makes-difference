@@ -132,7 +132,7 @@ describe("authenticated app shell", () => {
     ).toBeEnabled();
   });
 
-  it("renders completed focus records newest first with metrics, targets, aggregate, and read-only history", async () => {
+  it("renders completed focus records newest first in a read-only table with a data-backed target panel", async () => {
     vi.useFakeTimers();
 
     const userId = "user-focus-history";
@@ -216,23 +216,34 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { level: 3, name: "Study sessions" }),
     ).toBeInTheDocument();
 
+    expect(screen.queryByText(/How capture works/i)).toBeNull();
+    expect(screen.queryByText(/How focus works/i)).toBeNull();
     expect(
-      screen.getByText(/Study sessions stay read-only in v1\./),
-    ).toBeInTheDocument();
+      screen.queryByRole("link", { name: /view all sessions/i }),
+    ).toBeNull();
     expect(
       screen.queryByRole("button", { name: /edit focus record/i }),
     ).toBeNull();
 
-    const metricHeadings = screen
-      .getAllByRole("heading", { level: 4 })
-      .filter((heading) => heading.textContent?.includes("minutes focused"));
-    expect(metricHeadings.map((heading) => heading.textContent)).toEqual([
-      "50 minutes focused",
-      "25 minutes focused",
-    ]);
+    const recentSessionsTable = screen.getByRole("table", {
+      name: "Recent focus sessions",
+    });
+    const tableRows = within(recentSessionsTable).getAllByRole("row");
+    expect(tableRows).toHaveLength(3);
+    expect(
+      within(tableRows[1]).getByText("Apr 30, 2026, 10:55 AM"),
+    ).toBeInTheDocument();
+    expect(within(tableRows[1]).getByText("50 minutes")).toBeInTheDocument();
+    expect(within(tableRows[1]).getByText("2 completed")).toBeInTheDocument();
+    expect(within(tableRows[1]).getByText("2 touched")).toBeInTheDocument();
+    expect(within(tableRows[1]).getByText("Completed")).toBeInTheDocument();
+    expect(
+      within(tableRows[2]).getByText("Apr 30, 2026, 8:25 AM"),
+    ).toBeInTheDocument();
+    expect(within(tableRows[2]).getByText("25 minutes")).toBeInTheDocument();
+    expect(within(tableRows[2]).getByText("1 completed")).toBeInTheDocument();
+    expect(within(tableRows[2]).getByText("1 touched")).toBeInTheDocument();
 
-    expect(screen.getByText("1 break, 5 minutes")).toBeInTheDocument();
-    expect(screen.getByText("0 breaks, 0 minutes")).toBeInTheDocument();
     const recentCompletedFocus = screen.getByLabelText("Recent study time");
     expect(
       within(recentCompletedFocus).getByText("75 minutes"),
@@ -242,17 +253,58 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(within(recentCompletedFocus).getByText("2")).toBeInTheDocument();
 
+    const targetPanel = screen.getByRole("region", {
+      name: "Recent focus targets",
+    });
+    expect(within(targetPanel).getByText("Biology notes")).toBeInTheDocument();
+    expect(within(targetPanel).getByText("Loose draft")).toBeInTheDocument();
     expect(
-      screen.getByText("Note study: Loose draft | No labels yet"),
+      within(targetPanel).getByText("Recall target note"),
     ).toBeInTheDocument();
+    expect(within(targetPanel).getAllByText("Note study")).toHaveLength(2);
     expect(
-      screen.getByText("Note study: Biology notes | Labels: Biology"),
+      within(targetPanel).getByText("Recall practice"),
     ).toBeInTheDocument();
+    expect(within(targetPanel).getByText("No labels")).toBeInTheDocument();
+  });
+
+  it("shows useful empty states when there are no FocusRecords or FocusTargets", async () => {
+    const userId = "user-focus-empty-history";
+
+    renderRoute("/focus", {
+      session: {
+        user: {
+          displayName: "Casey Focus Empty",
+          email: "casey.focus.empty@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Study sessions" }),
+    ).toBeInTheDocument();
+
+    expect(screen.getByText("Finish your first session")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Recall practice: Recall target note | Labels: Recall label",
+        /proven focus duration, touched targets, and completion status/i,
       ),
     ).toBeInTheDocument();
+
+    const targetPanel = screen.getByRole("region", {
+      name: "Recent focus targets",
+    });
+    expect(
+      within(targetPanel).getByText(
+        /Touch notes or recall during focus sessions to build recent target context here\./i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("table", { name: "Recent focus sessions" }),
+    ).toBeNull();
   });
 
   it("starts a configured FocusSession from the focus route without leaving the current screen", async () => {
