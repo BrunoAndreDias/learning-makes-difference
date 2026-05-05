@@ -349,13 +349,10 @@ describe("authenticated app shell", () => {
     });
     const newLabelButton = screen.getByRole("button", { name: "New label" });
     expect(startFocusButton).toHaveClass(
-      "labels-button",
-      "labels-button--primary",
+      "notes-action",
+      "notes-action-primary",
     );
-    expect(newLabelButton).toHaveClass(
-      "labels-button",
-      "labels-button--primary",
-    );
+    expect(newLabelButton).toHaveClass("notes-action", "notes-action-primary");
 
     const searchInput = screen.getByPlaceholderText("Search labels...");
     expect(searchInput).toBeInTheDocument();
