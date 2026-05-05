@@ -30,8 +30,8 @@
 }
 
 .app-shell:has(.authenticated-shell) .notes-workspace__page-header {
-  padding-inline: var(--notes-workspace-inline-end)
-    var(--notes-workspace-inline-start);
+  padding-inline: var(--notes-workspace-inline-start)
+    var(--notes-workspace-inline-end);
   padding-block-start: var(--workspace-page-block-start);
 }
 

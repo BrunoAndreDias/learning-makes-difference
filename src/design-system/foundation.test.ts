@@ -342,17 +342,17 @@ describe("foundationTokens", () => {
     );
 
     expect(notesHeaderRule).toContain(
-      "padding-inline: var(--notes-workspace-inline-end)\n" +
-        "    var(--notes-workspace-inline-start);",
+      "padding-inline: var(--notes-workspace-inline-start)\n" +
+        "    var(--notes-workspace-inline-end);",
     );
     expect(notesHeaderRule).toContain(
       "padding-block-start: var(--workspace-page-block-start);",
     );
     expect(appCss).toContain(
-      "--notes-workspace-inline-start: var(--workspace-collapsed-header-offset);",
+      "--notes-workspace-inline-start: var(--notes-workspace-inline);",
     );
     expect(appCss).toContain(
-      "--notes-workspace-inline-end: var(--workspace-page-inline);",
+      "--notes-workspace-inline-end: var(--notes-workspace-inline);",
     );
   });
 

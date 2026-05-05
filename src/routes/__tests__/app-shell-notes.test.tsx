@@ -33,6 +33,12 @@ describe("authenticated app shell", () => {
     expect(notesEditorCss).toMatch(
       /\.app-frame\[data-workspace="notes"\]\s+\.notes-list-panel\s*{[^}]*height:\s*100%/s,
     );
+    expect(notesEditorCss).toMatch(
+      /\.app-frame\[data-workspace="notes"\]\s+\.notes-workspace\s*{[^}]*grid-template-rows:\s*auto minmax\(0,\s*1fr\)/s,
+    );
+    expect(notesEditorCss).not.toMatch(
+      /\.app-frame\[data-workspace="notes"\]\s+\.notes-workspace\s*{[^}]*grid-template-rows:\s*auto auto minmax\(0,\s*1fr\)/s,
+    );
   });
 
   it("keeps recall workspace styles from overriding the notes workspace layout", () => {

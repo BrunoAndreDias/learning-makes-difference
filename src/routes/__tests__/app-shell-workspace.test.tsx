@@ -21,6 +21,12 @@ describe("authenticated app shell", () => {
     expect(appCss).toContain(
       '.authenticated-shell[data-sidebar-state="collapsed"]\n  .app-frame__workspace-header',
     );
+    expect(appCss).toMatch(
+      /\.app-shell:has\(\.authenticated-shell\)\s+\.notes-workspace__page-header\s*{[^}]*padding-inline:\s*var\(--notes-workspace-inline-start\)\s+var\(--notes-workspace-inline-end\)/s,
+    );
+    expect(appCss).not.toMatch(
+      /\.app-shell:has\(\.authenticated-shell\)\s+\.notes-workspace__page-header\s*{[^}]*padding-inline:\s*var\(--notes-workspace-inline-end\)\s+var\(--notes-workspace-inline-start\)/s,
+    );
     expect(appCss).not.toContain(
       '.authenticated-shell[data-sidebar-state="collapsed"]\n  .app-frame[data-workspace="notes"]\n  .app-frame__workspace-header {\n  position: sticky',
     );

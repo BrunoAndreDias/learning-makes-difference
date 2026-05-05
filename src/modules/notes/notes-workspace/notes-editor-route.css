@@ -1453,10 +1453,12 @@
   }
 
   .app-frame[data-workspace="notes"] .notes-workspace {
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .app-frame[data-workspace="notes"] .notes-layout {
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
     height: 100%;
     max-height: 100%;
     min-height: 0;
@@ -1467,12 +1469,15 @@
     align-self: stretch;
     height: 100%;
     max-height: 100%;
+    min-height: 0;
   }
 
   .app-frame[data-workspace="notes"] .notes-editor,
   .app-frame[data-workspace="notes"] .notes-editor__inspector {
+    align-self: stretch;
     height: 100%;
     max-height: 100%;
+    min-height: 0;
   }
 }
 

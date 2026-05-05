@@ -12,6 +12,8 @@ build/
 .output/
 
 coverage/
+playwright-report/
+test-results/
 *.log
 /.vite/
 

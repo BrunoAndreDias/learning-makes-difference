@@ -6,6 +6,7 @@ export default defineConfig({
     exclude: [
       "**/node_modules/**",
       ".sandcastle/worktrees/**",
+      "e2e/**",
       "**/*.db.test.ts",
     ],
     maxWorkers: 2,
