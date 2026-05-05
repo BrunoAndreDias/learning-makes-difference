@@ -263,9 +263,9 @@ export function RecallSelectionPage({
       <article className="recall-surface">
         <header className="recall-surface__header recall-select__header">
           <div className="notes-editor__title-stack">
-            <p className="recall-breadcrumb">
-              <span>Recall</span> / Select notes
-            </p>
+            <nav aria-label="Breadcrumb" className="recall-breadcrumb">
+              <Link to="/recall">Recall</Link> / Select notes
+            </nav>
             <h3>Select notes</h3>
             <p className="muted notes-editor__meta">
               Choose the notes for this recall session.

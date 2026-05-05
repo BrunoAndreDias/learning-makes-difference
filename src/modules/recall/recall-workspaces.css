@@ -129,7 +129,8 @@
   line-height: 1.2;
 }
 
-.recall-breadcrumb span {
+.recall-breadcrumb span,
+.recall-breadcrumb a {
   color: inherit;
 }
 

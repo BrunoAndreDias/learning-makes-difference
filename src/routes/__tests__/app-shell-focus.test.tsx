@@ -1250,8 +1250,8 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByText(/Recall\s*\/\s*Session/),
-    ).toBeInTheDocument();
+      await screen.findByRole("navigation", { name: "Breadcrumb" }),
+    ).toHaveTextContent(/Recall\s*\/\s*Session/);
 
     const overlay = screen.getByRole("region", {
       name: "Break interval reminder",

@@ -2086,9 +2086,6 @@ function NotesWorkspace() {
     <section aria-label="Notes workspace surface" className="notes-workspace">
       <header className="notes-workspace__page-header">
         <div className="notes-workspace__header-copy">
-          <nav aria-label="Breadcrumb" className="workspace-breadcrumb">
-            Notes / Workspace
-          </nav>
           <div className="notes-workspace__identity">
             <h1>Notes</h1>
             <p className="muted">

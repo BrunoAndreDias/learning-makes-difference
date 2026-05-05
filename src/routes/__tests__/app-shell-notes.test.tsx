@@ -53,6 +53,17 @@ describe("authenticated app shell", () => {
     expect(recallWorkspacesCss).not.toMatch(/\.notes-layout\s*{/);
   });
 
+  it("does not show breadcrumbs on the default Notes page", async () => {
+    renderRoute("/notes");
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("navigation", { name: "Breadcrumb" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("keeps the discard dialog focused when an in-page note change is guarded", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
@@ -166,7 +177,9 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();
 
-    expect(screen.getByText("Notes / Workspace")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("navigation", { name: "Breadcrumb" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText(
         "Capture small concepts and reinforce them through recall.",

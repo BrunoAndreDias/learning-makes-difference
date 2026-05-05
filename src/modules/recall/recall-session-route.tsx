@@ -1,5 +1,6 @@
 import {
   createFileRoute,
+  Link,
   useNavigate,
   useRouteContext,
 } from "@tanstack/react-router";
@@ -344,7 +345,9 @@ function RecallSessionPage() {
     <section className="recall-shell" aria-label="Recall session">
       <header className="recall-shell__header">
         <div className="recall-shell__context">
-          <p className="recall-breadcrumb">Recall / Session</p>
+          <nav aria-label="Breadcrumb" className="recall-breadcrumb">
+            <Link to="/recall">Recall</Link> / Session
+          </nav>
           <h3>Recall session</h3>
         </div>
 

@@ -353,9 +353,6 @@ function RecallResultsWorkspacePage() {
         <div className="recall-results-top">
           <header className="recall-surface__header">
             <div className="notes-editor__title-stack">
-              <p className="recall-breadcrumb">
-                <span>Recall</span> / Results
-              </p>
               <h3>Recall</h3>
               <p className="muted notes-editor__meta">
                 Review past results or start a new recall session.
@@ -406,9 +403,6 @@ function NoNotesRecallState() {
   return (
     <section aria-label="Recall workspace" className="recall-workspace">
       <article className="recall-surface recall-empty-surface">
-        <p className="recall-breadcrumb">
-          <span>Recall</span> / Results
-        </p>
         <h3>Recall starts with notes</h3>
         <p className="muted">
           Create Notes first, then use Metaphors and Acronyms to make each

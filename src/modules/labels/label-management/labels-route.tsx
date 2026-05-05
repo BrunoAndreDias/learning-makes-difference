@@ -819,9 +819,6 @@ function LabelsPage() {
       <header className="labels-management-header">
         <div className="labels-management-header__copy recall-surface__header">
           <div className="notes-editor__title-stack">
-            <p className="recall-breadcrumb">
-              <span>Labels</span> / Management
-            </p>
             <h3 id="labels-route-heading">Labels</h3>
             <p className="muted notes-editor__meta">
               Organize notes with reusable topics.

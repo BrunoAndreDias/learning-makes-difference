@@ -199,6 +199,17 @@ function createTestPersistentLabelsService(initialLabels: readonly AppLabel[]) {
 }
 
 describe("authenticated app shell", () => {
+  it("does not show breadcrumbs on the default Labels page", async () => {
+    renderRoute("/labels");
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Labels" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("navigation", { name: "Breadcrumb" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("keeps the labels search icon from overlapping placeholder text", () => {
     const css = readFileSync(
       join(process.cwd(), "src/modules/labels/labels.css"),

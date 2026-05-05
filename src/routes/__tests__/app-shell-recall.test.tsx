@@ -113,9 +113,13 @@ describe("authenticated recall workspace", () => {
       session: createSession(),
     });
 
+    const breadcrumb = await screen.findByRole("navigation", {
+      name: "Breadcrumb",
+    });
     expect(
-      await screen.findByText(/Recall\s*\/\s*Session/),
-    ).toBeInTheDocument();
+      within(breadcrumb).getByRole("link", { name: "Recall" }),
+    ).toHaveAttribute("href", "/recall");
+    expect(breadcrumb).toHaveTextContent(/Recall\s*\/\s*Session/);
     expect(screen.getAllByText("Stored prompt title").length).toBeGreaterThan(
       0,
     );
@@ -129,8 +133,46 @@ describe("authenticated recall workspace", () => {
       await screen.findByRole("heading", { name: "Recall starts with notes" }),
     ).toBeInTheDocument();
     expect(
+      screen.queryByRole("navigation", { name: "Breadcrumb" }),
+    ).not.toBeInTheDocument();
+    expect(
       screen.getByRole("link", { name: "Open Notes Workspace" }),
     ).toHaveAttribute("href", "/notes");
+  });
+
+  it("links child Recall breadcrumbs back to the default Recall page", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    createRecallNote(contexts.notesContext, testUser.id, {
+      body: "Recall body",
+      title: "Recall note",
+    });
+
+    const { router } = renderRoute("/recall/select", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Select notes" }),
+    ).toBeInTheDocument();
+
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    const recallLink = within(breadcrumb).getByRole("link", {
+      name: "Recall",
+    });
+
+    expect(breadcrumb).toHaveTextContent(/Recall\s*\/\s*Select notes/);
+    expect(recallLink).toHaveAttribute("href", "/recall");
+
+    fireEvent.click(recallLink);
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Recall" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall");
+    expect(
+      screen.queryByRole("navigation", { name: "Breadcrumb" }),
+    ).not.toBeInTheDocument();
   });
 
   it("does not crash when switching from Recall results to Notes if a persisted result has an overflowing completed timestamp", async () => {
@@ -386,9 +428,10 @@ describe("authenticated recall workspace", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /Searchable Note/ }));
     fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
 
+    await screen.findByRole("heading", { level: 3, name: "Recall session" });
     expect(
-      await screen.findByText(/Recall\s*\/\s*Session/),
-    ).toBeInTheDocument();
+      screen.getByRole("navigation", { name: "Breadcrumb" }),
+    ).toHaveTextContent(/Recall\s*\/\s*Session/);
     expect(router.state.location.pathname).toBe("/recall/session");
   });
 
@@ -441,7 +484,9 @@ describe("authenticated recall workspace", () => {
       session: createSession(),
     });
 
-    await screen.findByText(/Recall\s*\/\s*Session/);
+    expect(
+      await screen.findByRole("navigation", { name: "Breadcrumb" }),
+    ).toHaveTextContent(/Recall\s*\/\s*Session/);
     fireEvent.click(screen.getAllByRole("button", { name: "End session" })[0]);
     expect(
       screen.getByRole("dialog", { name: "Discard recall session?" }),
