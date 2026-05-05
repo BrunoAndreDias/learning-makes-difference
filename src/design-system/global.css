@@ -1,23 +1,74 @@
 :root {
   color-scheme: light;
-  --color-brand-primary: #2563eb;
-  --color-brand-primary-hover: #1d4ed8;
-  --color-brand-primary-soft: #dbeafe;
-  --color-shell-canvas: #f7f4ea;
-  --color-shell-panel: #fffdfa;
-  --color-shell-inset: #eff2f8;
-  --color-content-strong: #142033;
-  --color-content-default: #314158;
-  --color-content-muted: #66758f;
-  --color-content-border: #d7deea;
-  --color-content-border-soft: #e6ebf3;
-  --color-accent-success: #2f855a;
-  --color-accent-warning: #b7791f;
+  --color-neutral-canvas: #f8fafc;
+  --color-neutral-surface: #ffffff;
+  --color-neutral-panel: #f1f5f9;
+  --color-neutral-border: #cbd5e1;
+  --color-neutral-border-soft: #e2e8f0;
+  --color-neutral-ink: #0f172a;
+  --color-neutral-muted: #475569;
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-foreground: #ffffff;
+  --color-primary-soft: #dbeafe;
+  --color-primary-soft-border: #93c5fd;
+  --color-primary-soft-foreground: var(--color-neutral-ink);
+  --color-secondary: #0f766e;
+  --color-secondary-hover: #115e59;
+  --color-secondary-foreground: #ffffff;
+  --color-secondary-soft: #ccfbf1;
+  --color-secondary-soft-border: #5eead4;
+  --color-secondary-soft-foreground: var(--color-neutral-ink);
+  --color-accent: #f59e0b;
+  --color-accent-strong: #b45309;
+  --color-accent-foreground: var(--color-neutral-ink);
+  --color-accent-soft: #fef3c7;
+  --color-accent-soft-border: #fcd34d;
+  --color-accent-soft-foreground: var(--color-neutral-ink);
+  --color-creative: #7c3aed;
+  --color-creative-hover: #6d28d9;
+  --color-creative-foreground: #ffffff;
+  --color-creative-soft: #ede9fe;
+  --color-creative-soft-border: #c4b5fd;
+  --color-creative-soft-foreground: var(--color-neutral-ink);
+  --color-success: #15803d;
+  --color-success-hover: #166534;
+  --color-success-foreground: #ffffff;
+  --color-success-soft: #dcfce7;
+  --color-success-soft-border: #86efac;
+  --color-success-soft-foreground: var(--color-neutral-ink);
+  --color-warning: #b45309;
+  --color-warning-hover: #92400e;
+  --color-warning-foreground: #ffffff;
+  --color-warning-soft: #fef3c7;
+  --color-warning-soft-border: #fcd34d;
+  --color-warning-soft-foreground: var(--color-neutral-ink);
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
+  --color-danger-foreground: #ffffff;
+  --color-danger-soft: #fee2e2;
+  --color-danger-soft-border: #fecaca;
+  --color-danger-soft-foreground: #991b1b;
+  --color-focus-outline: #0369a1;
+  --color-focus-glow: #38bdf8;
+  --color-brand-primary: var(--color-primary);
+  --color-brand-primary-hover: var(--color-primary-hover);
+  --color-brand-primary-soft: var(--color-primary-soft);
+  --color-shell-canvas: var(--color-neutral-canvas);
+  --color-shell-panel: var(--color-neutral-surface);
+  --color-shell-inset: var(--color-neutral-panel);
+  --color-content-strong: var(--color-neutral-ink);
+  --color-content-default: var(--color-neutral-muted);
+  --color-content-muted: var(--color-neutral-muted);
+  --color-content-border: var(--color-neutral-border);
+  --color-content-border-soft: var(--color-neutral-border-soft);
+  --color-accent-success: var(--color-success);
+  --color-accent-warning: var(--color-warning);
   --shadow-card:
-    0 1px 0 rgba(20, 32, 51, 0.04), 0 12px 32px -16px rgba(20, 32, 51, 0.18);
+    0 1px 0 rgb(15 23 42 / 4%), 0 12px 32px -16px rgb(15 23 42 / 18%);
   --shadow-chrome:
-    0 1px 0 rgba(20, 32, 51, 0.03), 0 8px 24px -18px rgba(20, 32, 51, 0.16);
-  --shadow-pop: 0 24px 60px -24px rgba(20, 32, 51, 0.32);
+    0 1px 0 rgb(15 23 42 / 3%), 0 8px 24px -18px rgb(15 23 42 / 16%);
+  --shadow-pop: 0 24px 60px -24px rgb(15 23 42 / 32%);
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
@@ -33,7 +84,8 @@
   --space-8: 4rem;
   --font-heading: "Sora", "Inter", "Avenir Next", system-ui, sans-serif;
   --font-body: "Inter", "Manrope", "Segoe UI", system-ui, sans-serif;
-  --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.35);
+  --focus-ring: 0 0 0 3px
+    color-mix(in srgb, var(--color-focus-glow) 60%, transparent);
   --motion-fast: 120ms cubic-bezier(0.2, 0, 0, 1);
   --motion-base: 180ms cubic-bezier(0.2, 0, 0, 1);
 }
@@ -52,18 +104,6 @@ html {
 body {
   margin: 0;
   background: var(--color-shell-canvas);
-  background-image:
-    radial-gradient(
-      1100px 520px at 12% -10%,
-      rgba(37, 99, 235, 0.06),
-      transparent 60%
-    ),
-    radial-gradient(
-      900px 480px at 110% 0%,
-      rgba(20, 32, 51, 0.04),
-      transparent 60%
-    );
-  background-attachment: fixed;
   color: var(--color-content-default);
   font-family: var(--font-body);
   font-feature-settings: "ss01", "cv11", "calt";
@@ -106,19 +146,25 @@ h4 {
 }
 
 ::selection {
-  background: rgba(37, 99, 235, 0.18);
+  background: var(--color-primary-soft);
   color: var(--color-content-strong);
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-brand-primary);
+  outline: 2px solid var(--color-focus-outline);
   outline-offset: 2px;
   border-radius: 4px;
+  box-shadow: var(--focus-ring);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(20, 32, 51, 0.18) transparent;
+  scrollbar-color: color-mix(
+      in srgb,
+      var(--color-content-strong) 18%,
+      transparent
+    )
+    transparent;
 }
 
 *::-webkit-scrollbar {
@@ -127,14 +173,14 @@ h4 {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: rgba(20, 32, 51, 0.16);
+  background: color-mix(in srgb, var(--color-content-strong) 16%, transparent);
   border: 2px solid transparent;
   background-clip: padding-box;
   border-radius: 999px;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: rgba(20, 32, 51, 0.28);
+  background: color-mix(in srgb, var(--color-content-strong) 28%, transparent);
   background-clip: padding-box;
 }
 
@@ -190,8 +236,8 @@ h4 {
   min-height: 1.75rem;
   padding-inline: 0.625rem;
   border-radius: var(--radius-pill);
-  background: var(--color-brand-primary-soft);
-  color: var(--color-brand-primary-hover);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-soft-foreground);
   font-size: 0.8125rem;
   font-weight: 600;
   letter-spacing: -0.005em;

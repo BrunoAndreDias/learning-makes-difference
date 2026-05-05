@@ -56,11 +56,11 @@
 }
 
 .notes-search__option[data-active="true"] {
-  box-shadow: inset 3px 0 0 var(--color-brand-primary);
+  box-shadow: inset 3px 0 0 var(--color-primary);
 }
 
 .recall-search-results .notes-search__option[aria-selected="true"] {
-  background: rgba(37, 99, 235, 0.08);
+  background: var(--color-primary-soft);
 }
 
 .notes-search__option > span:not(.notes-search__option-title),

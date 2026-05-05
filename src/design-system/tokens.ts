@@ -19,29 +19,95 @@ const brandTokens = {
   logoSource: "docs/layout/logo.svg",
   layoutReferences: layoutReferencePaths,
   shellTone:
-    "Warm canvas with bright blue utility accents and calm slate text.",
+    "Slate White canvas with blue navigation, teal progress, amber memory, and violet creative accents.",
+} as const;
+
+const neutralColorTokens = {
+  canvas: "#f8fafc",
+  surface: "#ffffff",
+  panel: "#f1f5f9",
+  border: "#cbd5e1",
+  borderSoft: "#e2e8f0",
+  ink: "#0f172a",
+  muted: "#475569",
 } as const;
 
 const colorTokens = {
+  neutral: neutralColorTokens,
+  primary: {
+    value: "#2563eb",
+    hover: "#1d4ed8",
+    foreground: "#ffffff",
+    soft: "#dbeafe",
+    softBorder: "#93c5fd",
+    softForeground: neutralColorTokens.ink,
+  },
+  secondary: {
+    value: "#0f766e",
+    hover: "#115e59",
+    foreground: "#ffffff",
+    soft: "#ccfbf1",
+    softBorder: "#5eead4",
+    softForeground: neutralColorTokens.ink,
+  },
+  accent: {
+    value: "#f59e0b",
+    strong: "#b45309",
+    foreground: neutralColorTokens.ink,
+    soft: "#fef3c7",
+    softBorder: "#fcd34d",
+    softForeground: neutralColorTokens.ink,
+  },
+  creative: {
+    value: "#7c3aed",
+    hover: "#6d28d9",
+    foreground: "#ffffff",
+    soft: "#ede9fe",
+    softBorder: "#c4b5fd",
+    softForeground: neutralColorTokens.ink,
+  },
+  semantic: {
+    success: {
+      value: "#15803d",
+      hover: "#166534",
+      foreground: "#ffffff",
+      soft: "#dcfce7",
+      softBorder: "#86efac",
+      softForeground: neutralColorTokens.ink,
+    },
+    warning: {
+      value: "#b45309",
+      hover: "#92400e",
+      foreground: "#ffffff",
+      soft: "#fef3c7",
+      softBorder: "#fcd34d",
+      softForeground: neutralColorTokens.ink,
+    },
+    danger: {
+      value: "#dc2626",
+      hover: "#b91c1c",
+      foreground: "#ffffff",
+      soft: "#fee2e2",
+      softBorder: "#fecaca",
+      softForeground: "#991b1b",
+    },
+  },
   brand: {
     primary: "#2563eb",
     primaryHover: "#1d4ed8",
     primarySoft: "#dbeafe",
   },
   shell: {
-    canvas: "#f7f4ea",
-    panel: "#fffdfa",
-    inset: "#eff2f8",
+    canvas: neutralColorTokens.canvas,
+    panel: neutralColorTokens.surface,
+    inset: neutralColorTokens.panel,
   },
   content: {
-    strong: "#142033",
-    default: "#314158",
-    muted: "#66758f",
-    border: "#d7deea",
-  },
-  accent: {
-    success: "#2f855a",
-    warning: "#b7791f",
+    strong: neutralColorTokens.ink,
+    default: neutralColorTokens.muted,
+    muted: neutralColorTokens.muted,
+    border: neutralColorTokens.border,
+    borderSoft: neutralColorTokens.borderSoft,
   },
 } as const;
 
@@ -81,14 +147,16 @@ const breakpointTokens = {
 } as const;
 
 const focusTokens = {
-  outlineWidthPx: 3,
-  outlineOffsetPx: 3,
-  ringColor: "rgba(37, 99, 235, 0.35)",
+  outlineWidthPx: 2,
+  outlineOffsetPx: 2,
+  outlineColor: "#0369a1",
+  ringColor: "#38bdf8",
+  ringWidthPx: 3,
 } as const;
 
 const shadowTokens = {
-  card: "0 18px 40px rgba(20, 32, 51, 0.08)",
-  chrome: "0 8px 30px rgba(20, 32, 51, 0.06)",
+  card: "0 18px 40px rgba(15, 23, 42, 0.08)",
+  chrome: "0 8px 30px rgba(15, 23, 42, 0.06)",
 } as const;
 
 const layoutTokens = {

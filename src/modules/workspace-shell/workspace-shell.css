@@ -99,17 +99,17 @@
 }
 
 .app-sidebar__link:hover {
-  background: rgba(37, 99, 235, 0.08);
+  background: var(--color-primary-soft);
 }
 
 .app-sidebar:focus {
-  outline: 2px solid rgba(37, 99, 235, 0.5);
+  outline: 2px solid var(--color-focus-outline);
   outline-offset: 2px;
 }
 
 .app-sidebar__link-active {
-  background: var(--color-shell-inset);
-  border-color: transparent;
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-soft-border);
   color: var(--color-content-strong);
   font-weight: 600;
 }
@@ -146,7 +146,7 @@
 
 .app-sidebar__footer {
   padding-top: var(--space-4);
-  border-top: 1px solid rgba(215, 222, 234, 0.9);
+  border-top: 1px solid var(--color-content-border-soft);
   flex-wrap: wrap;
   align-self: end;
 }
@@ -160,7 +160,7 @@
 
 .app-frame__header {
   padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(215, 222, 234, 0.9);
+  border-bottom: 1px solid var(--color-content-border-soft);
 }
 
 .app-frame__actions {
@@ -323,25 +323,25 @@
   min-width: 2rem;
   min-height: 2rem;
   padding: 0;
-  border: 1px solid #e2e7ef;
+  border: 1px solid var(--color-content-border-soft);
   border-radius: 999px;
-  color: #68758a;
-  background: #e8ebf0;
+  color: var(--color-content-muted);
+  background: var(--color-shell-inset);
   box-shadow: none;
   cursor: pointer;
   transform: translateY(-50%);
 }
 
 .sidebar-toggle:hover {
-  background: #ffffff;
-  border-color: #ccd6e4;
+  background: var(--color-shell-panel);
+  border-color: var(--color-content-border);
 }
 
 .sidebar-toggle:focus,
 .sidebar-toggle:focus-visible {
-  outline: 2px solid rgba(37, 99, 235, 0.38);
+  outline: 2px solid var(--color-focus-outline);
   outline-offset: 2px;
-  box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.14);
+  box-shadow: var(--focus-ring);
 }
 
 .sidebar-toggle svg {
@@ -379,9 +379,9 @@
 .sidebar-header-toggle:focus-visible,
 .mobile-sidebar-toggle:focus-visible,
 .mobile-sidebar-close:focus-visible {
-  outline: 2px solid rgba(37, 99, 235, 0.38);
+  outline: 2px solid var(--color-focus-outline);
   outline-offset: 2px;
-  box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.14);
+  box-shadow: var(--focus-ring);
 }
 
 .sidebar-header-toggle svg {
@@ -443,7 +443,7 @@
 .app-sidebar__nav--compact {
   margin-top: 0;
   padding-top: 0.9rem;
-  border-top: 1px solid #e7ebf2;
+  border-top: 1px solid var(--color-content-border-soft);
 }
 
 .app-sidebar__list {
@@ -470,8 +470,8 @@
 
 .app-sidebar__link-active {
   position: relative;
-  border-color: transparent;
-  background: var(--color-shell-inset);
+  border-color: var(--color-primary-soft-border);
+  background: var(--color-primary-soft);
   box-shadow: none;
   color: var(--color-content-strong);
   font-weight: 600;
@@ -482,7 +482,7 @@
   inset: 0.4rem auto 0.4rem -0.0625rem;
   width: 0.1875rem;
   border-radius: 999px;
-  background: var(--color-content-strong);
+  background: var(--color-primary);
   content: "";
 }
 
@@ -510,14 +510,14 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 0.75rem;
   padding: 1.25rem 0.45rem 0;
-  border-top-color: #e7ebf2;
+  border-top-color: var(--color-content-border-soft);
 }
 
 .app-sidebar__avatar {
   width: 2.25rem;
   height: 2.25rem;
   background: var(--color-content-strong);
-  color: #fffdfa;
+  color: var(--color-primary-foreground);
   font-weight: 600;
   letter-spacing: 0;
 }
@@ -538,7 +538,7 @@
 }
 
 .app-sidebar__logout::before {
-  color: #68758a;
+  color: var(--color-content-muted);
   content: "v";
 }
 
@@ -599,7 +599,7 @@
   flex: 0 0 auto;
   width: 0.95rem;
   height: 0.95rem;
-  color: #68758a;
+  color: var(--color-content-muted);
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -675,7 +675,7 @@
   gap: 1rem;
   min-height: 4.25rem;
   padding: 1rem;
-  border-bottom: 1px solid #e8edf5;
+  border-bottom: 1px solid var(--color-content-border-soft);
   border-radius: 0;
   background: var(--color-shell-panel);
 }
@@ -769,7 +769,7 @@
   align-items: center;
   gap: 1rem;
   padding: 1rem;
-  border-bottom: 1px solid #e8edf5;
+  border-bottom: 1px solid var(--color-content-border-soft);
 }
 
 .authenticated-shell[data-sidebar-state="collapsed"]
@@ -984,8 +984,8 @@
     height: auto;
     min-height: 0;
     padding-block: 1rem;
-    border-bottom: 1px solid #e8edf5;
-    background: #ffffff;
+    border-bottom: 1px solid var(--color-content-border-soft);
+    background: var(--color-shell-panel);
     pointer-events: auto;
   }
 

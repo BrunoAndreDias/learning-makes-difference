@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
@@ -19,6 +19,34 @@ function getCssRules(css: string, selector: string) {
   });
 }
 
+function collectCssFiles(root: URL): URL[] {
+  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    const child = new URL(
+      `${entry.name}${entry.isDirectory() ? "/" : ""}`,
+      root,
+    );
+
+    if (entry.isDirectory()) {
+      return collectCssFiles(child);
+    }
+
+    return entry.isFile() && entry.name.endsWith(".css") ? [child] : [];
+  });
+}
+
+function findRawColorLiterals(file: URL) {
+  const rawColorPattern = /#[\da-fA-F]{3,8}|rgba?\(|hsla?\(/;
+  const css = readFileSync(file, "utf8");
+
+  return css.split("\n").flatMap((line, index) => {
+    if (!rawColorPattern.test(line)) {
+      return [];
+    }
+
+    return [`${file.pathname}:${index + 1}: ${line.trim()}`];
+  });
+}
+
 function expectSelectorToUsePageTypeAndColor(css: string, selector: string) {
   const combinedRules = getCssRules(css, selector).join("\n");
 
@@ -27,6 +55,18 @@ function expectSelectorToUsePageTypeAndColor(css: string, selector: string) {
 }
 
 describe("page style normalization", () => {
+  it("keeps application styles on shared color tokens", () => {
+    const appCssFiles = [
+      new URL("../design-system/shared-actions.css", import.meta.url),
+      new URL("../styles/app.css", import.meta.url),
+      ...collectCssFiles(new URL("../modules/", import.meta.url)),
+    ];
+
+    const rawColorLiterals = appCssFiles.flatMap(findRawColorLiterals);
+
+    expect(rawColorLiterals).toEqual([]);
+  });
+
   it("keeps route page roots on the shared body font and content palette", () => {
     const accessCss = readFileSync(
       new URL("../modules/access/access.css", import.meta.url),
@@ -160,15 +200,50 @@ describe("page style normalization", () => {
       recallWorkspacesCss,
       '.recall-select-type-option[data-selected="true"][data-mode="AiGraded"]',
     ).join("\n");
+    const recallWorkspaceStyle = getCssRules(
+      recallWorkspacesCss,
+      ".recall-workspace",
+    ).join("\n");
+    const recallShellStyle = getCssRules(
+      recallSessionCss,
+      ".recall-shell",
+    ).join("\n");
     const forgotRatingStyle = getCssRules(
       recallSessionCss,
       ".recall-rating--forgot",
+    ).join("\n");
+    const hardRatingStyle = getCssRules(
+      recallSessionCss,
+      ".recall-rating--hard",
+    ).join("\n");
+    const goodRatingStyle = getCssRules(
+      recallSessionCss,
+      ".recall-rating--good",
+    ).join("\n");
+    const easyRatingStyle = getCssRules(
+      recallSessionCss,
+      ".recall-rating--easy",
     ).join("\n");
 
     for (const pillStyle of [flashCardPillStyle, aiGradedPillStyle]) {
       expect(pillStyle).toContain("border-color: var(--recall-chip-border);");
       expect(pillStyle).toContain("background: var(--recall-chip-surface);");
       expect(pillStyle).toContain("color: var(--recall-chip-text);");
+    }
+
+    for (const recallRootStyle of [recallWorkspaceStyle, recallShellStyle]) {
+      expect(recallRootStyle).toContain(
+        "--recall-accent-border: var(--color-primary-soft-border);",
+      );
+      expect(recallRootStyle).toContain(
+        "--recall-accent-surface: var(--color-primary-soft);",
+      );
+      expect(recallRootStyle).toContain(
+        "--recall-soft-border: var(--color-content-border-soft);",
+      );
+      expect(recallRootStyle).toContain(
+        "--recall-soft-surface: var(--color-shell-inset);",
+      );
     }
 
     expect(selectedAiGradedTypeStyle).toContain(
@@ -178,7 +253,12 @@ describe("page style normalization", () => {
       "background: var(--recall-accent-surface);",
     );
     expect(forgotRatingStyle).toContain(
-      "background: var(--recall-soft-surface);",
+      "background: var(--color-danger-soft);",
     );
+    expect(hardRatingStyle).toContain("background: var(--color-warning-soft);");
+    expect(goodRatingStyle).toContain(
+      "background: var(--color-secondary-soft);",
+    );
+    expect(easyRatingStyle).toContain("background: var(--color-success-soft);");
   });
 });

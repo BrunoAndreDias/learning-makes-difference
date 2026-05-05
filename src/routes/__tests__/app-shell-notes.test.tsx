@@ -35,6 +35,18 @@ describe("authenticated app shell", () => {
     );
   });
 
+  it("keeps recall workspace styles from overriding the notes workspace layout", () => {
+    const recallWorkspacesCss = readFileSync(
+      join(process.cwd(), "src/modules/recall/recall-workspaces.css"),
+      {
+        encoding: "utf8",
+      },
+    );
+
+    expect(recallWorkspacesCss).not.toMatch(/\.notes-workspace(?:__|\s*{)/);
+    expect(recallWorkspacesCss).not.toMatch(/\.notes-layout\s*{/);
+  });
+
   it("keeps the discard dialog focused when an in-page note change is guarded", async () => {
     const notesContext = createAppNotesContext({
       keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,

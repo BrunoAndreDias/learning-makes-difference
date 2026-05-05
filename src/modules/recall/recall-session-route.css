@@ -5,10 +5,10 @@
   --recall-strong: var(--color-content-strong);
   --recall-default: var(--color-content-default);
   --recall-muted: var(--color-content-muted);
-  --recall-accent-border: rgba(37, 99, 235, 0.24);
-  --recall-accent-surface: rgba(37, 99, 235, 0.08);
-  --recall-soft-border: rgba(215, 222, 234, 0.9);
-  --recall-soft-surface: rgba(248, 251, 255, 0.78);
+  --recall-accent-border: var(--color-primary-soft-border);
+  --recall-accent-surface: var(--color-primary-soft);
+  --recall-soft-border: var(--color-content-border-soft);
+  --recall-soft-surface: var(--color-shell-inset);
   box-sizing: border-box;
   width: 100%;
   min-height: 100%;
@@ -50,7 +50,7 @@
   border: 1px solid var(--recall-border);
   border-radius: 0.7rem;
   background: var(--recall-panel);
-  box-shadow: 0 14px 30px -28px rgba(15, 23, 42, 0.5);
+  box-shadow: var(--shadow-chrome);
 }
 
 .recall-progress-card__count {
@@ -87,8 +87,8 @@
   border-radius: inherit;
   background: linear-gradient(
     90deg,
-    var(--color-brand-primary) 0%,
-    var(--color-brand-primary-hover) 100%
+    var(--color-secondary) 0%,
+    var(--color-success) 100%
   );
   transition: width var(--motion-base);
 }
@@ -103,7 +103,7 @@
   border-radius: 999px;
   border: 1px solid var(--recall-accent-border);
   background: var(--recall-accent-surface);
-  color: var(--color-brand-primary-hover);
+  color: var(--color-content-strong);
   font-size: 0.77rem;
   font-weight: 700;
 }
@@ -137,10 +137,10 @@
 .recall-shell__error {
   margin: 0;
   padding: 0.72rem 0.95rem;
-  border: 1px solid rgba(159, 18, 57, 0.18);
+  border: 1px solid var(--color-danger-soft-border);
   border-radius: 0.55rem;
-  background: rgba(159, 18, 57, 0.06);
-  color: #9f1239;
+  background: var(--color-danger-soft);
+  color: var(--color-danger-soft-foreground);
   font-size: 0.9rem;
 }
 
@@ -166,7 +166,7 @@
   border: 1px solid var(--recall-border);
   border-radius: 0.7rem;
   background: var(--recall-panel);
-  box-shadow: 0 16px 34px -30px rgba(15, 23, 42, 0.55);
+  box-shadow: var(--shadow-chrome);
 }
 
 .recall-card__hidden-state {
@@ -186,8 +186,8 @@
   width: 2.85rem;
   height: 2.85rem;
   border-radius: 999px;
-  background: var(--color-brand-primary-soft);
-  color: var(--color-brand-primary-hover);
+  background: var(--color-primary-soft);
+  color: var(--color-content-strong);
 }
 
 .recall-card__question {
@@ -225,17 +225,17 @@
   min-width: min(100%, 19rem);
   min-height: 2.8rem;
   padding-inline: 1.3rem;
-  border-color: var(--recall-strong);
+  border-color: var(--color-primary);
   border-radius: 0.55rem;
-  background: var(--recall-strong);
-  color: var(--recall-panel);
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
   font-size: 1rem;
   font-weight: 600;
 }
 
 .recall-card__reveal:hover {
-  border-color: var(--recall-default);
-  background: var(--recall-default);
+  border-color: var(--color-primary-hover);
+  background: var(--color-primary-hover);
 }
 
 .recall-card__revealed-state {
@@ -333,10 +333,11 @@
 }
 
 .recall-rating[data-selected="true"] {
-  outline: 2px solid rgba(37, 99, 235, 0.35);
+  outline: 2px solid var(--color-focus-outline);
   outline-offset: 2px;
   border-color: var(--recall-accent-border);
   background: var(--recall-accent-surface);
+  box-shadow: var(--focus-ring);
 }
 
 .recall-rating__label {
@@ -353,23 +354,23 @@
 }
 
 .recall-rating--forgot {
-  border-color: var(--recall-soft-border);
-  background: var(--recall-soft-surface);
+  border-color: var(--color-danger-soft-border);
+  background: var(--color-danger-soft);
 }
 
 .recall-rating--hard {
-  border-color: var(--recall-soft-border);
-  background: var(--recall-soft-surface);
+  border-color: var(--color-warning-soft-border);
+  background: var(--color-warning-soft);
 }
 
 .recall-rating--good {
-  border-color: var(--recall-soft-border);
-  background: var(--recall-soft-surface);
+  border-color: var(--color-secondary-soft-border);
+  background: var(--color-secondary-soft);
 }
 
 .recall-rating--easy {
-  border-color: var(--recall-soft-border);
-  background: var(--recall-soft-surface);
+  border-color: var(--color-success-soft-border);
+  background: var(--color-success-soft);
 }
 
 .recall-session-main__actions {
@@ -403,7 +404,7 @@
   border: 1px solid var(--recall-border);
   border-radius: 0.7rem;
   background: var(--recall-panel);
-  box-shadow: 0 16px 34px -30px rgba(15, 23, 42, 0.55);
+  box-shadow: var(--shadow-chrome);
 }
 
 .recall-session-overview h4 {
@@ -436,7 +437,7 @@
 }
 
 .recall-overview-metric__icon[data-tone="selected"] {
-  color: var(--color-brand-primary-hover);
+  color: var(--color-content-strong);
   border-color: var(--recall-accent-border);
   background: var(--recall-accent-surface);
 }
@@ -476,9 +477,9 @@
   gap: 0.48rem;
   margin: 0;
   padding: 0.72rem 0.75rem;
-  border: 1px solid rgba(37, 99, 235, 0.2);
+  border: 1px solid var(--color-primary-soft-border);
   border-radius: 0.55rem;
-  background: var(--color-brand-primary-soft);
+  background: var(--color-primary-soft);
   color: var(--recall-default);
   font-size: 0.79rem;
   line-height: 1.35;
@@ -487,7 +488,7 @@
 .recall-session-overview__hint svg {
   margin-top: 0.05rem;
   flex-shrink: 0;
-  color: var(--color-brand-primary-hover);
+  color: var(--color-primary-hover);
 }
 
 .recall-dialog-backdrop {
@@ -497,7 +498,7 @@
   display: grid;
   place-items: center;
   padding: 1rem;
-  background: rgba(15, 23, 42, 0.34);
+  background: color-mix(in srgb, var(--color-content-strong) 34%, transparent);
 }
 
 .recall-dialog {
@@ -508,7 +509,7 @@
   border: 1px solid var(--recall-border);
   border-radius: 0.65rem;
   background: var(--recall-panel);
-  box-shadow: 0 20px 48px -30px rgba(15, 23, 42, 0.55);
+  box-shadow: var(--shadow-pop);
 }
 
 .recall-dialog h4 {

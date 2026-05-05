@@ -100,7 +100,7 @@
   }
 
   .recall-selected-result__stat:nth-child(-n + 2) {
-    border-bottom: 1px solid rgba(215, 222, 234, 0.95);
+    border-bottom: 1px solid var(--color-content-border-soft);
   }
 
   .recall-selected-result__summary {

@@ -5,7 +5,11 @@
   min-height: 100%;
   padding: 1.25rem;
   background:
-    linear-gradient(135deg, rgba(248, 251, 255, 0.86), transparent 36rem),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-shell-canvas) 86%, transparent),
+      transparent 36rem
+    ),
     var(--color-shell-panel);
   color: var(--color-content-default);
   font-family: var(--font-body);
@@ -30,7 +34,7 @@
   background:
     radial-gradient(
       32rem 18rem at 8% 0%,
-      rgba(37, 99, 235, 0.08),
+      color-mix(in srgb, var(--color-secondary-soft) 72%, transparent),
       transparent 72%
     ),
     var(--color-shell-panel);
@@ -75,15 +79,21 @@
   align-items: center;
 }
 
+.focus-workspace .tag {
+  border: 1px solid var(--color-secondary-soft-border);
+  background: var(--color-secondary-soft);
+  color: var(--color-secondary-soft-foreground);
+}
+
 .focus-now-card {
   display: grid;
   align-content: center;
   gap: 0.45rem;
   min-width: 0;
   padding: 1rem;
-  border: 1px solid rgba(37, 99, 235, 0.16);
+  border: 1px solid var(--color-secondary-soft-border);
   border-radius: 0.65rem;
-  background: rgba(248, 251, 255, 0.82);
+  background: var(--color-secondary-soft);
 }
 
 .focus-now-card strong {
@@ -99,7 +109,7 @@
 }
 
 .focus-now-card__label {
-  color: var(--color-brand-primary-hover);
+  color: var(--color-secondary);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -157,9 +167,9 @@
   gap: 0.15rem;
   min-width: 0;
   padding: 0.65rem;
-  border: 1px solid rgba(215, 222, 234, 0.72);
+  border: 1px solid var(--color-content-border-soft);
   border-radius: 0.5rem;
-  background: rgba(248, 251, 255, 0.72);
+  background: var(--color-shell-inset);
 }
 
 .focus-metrics dt {

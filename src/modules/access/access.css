@@ -44,8 +44,9 @@
   border-radius: 0.875rem;
   background: var(--color-shell-panel);
   box-shadow:
-    0 1px 0 rgba(15, 23, 42, 0.04),
-    0 16px 40px -24px rgba(15, 23, 42, 0.18);
+    0 1px 0 color-mix(in srgb, var(--color-content-strong) 4%, transparent),
+    0 16px 40px -24px
+    color-mix(in srgb, var(--color-content-strong) 18%, transparent);
   overflow: hidden;
 }
 
@@ -117,8 +118,8 @@
 
 .auth-field__input:focus-visible {
   outline: none;
-  border-color: var(--color-brand-primary);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
 }
 
 .auth-field__toggle {
@@ -141,8 +142,9 @@
 }
 
 .auth-field__toggle:focus-visible {
-  outline: 2px solid rgba(37, 99, 235, 0.3);
+  outline: 2px solid var(--color-focus-outline);
   outline-offset: 1px;
+  box-shadow: var(--focus-ring);
 }
 
 .auth-row {
@@ -166,11 +168,11 @@
   width: 1.1rem;
   height: 1.1rem;
   margin: 0;
-  accent-color: var(--color-brand-primary);
+  accent-color: var(--color-primary);
 }
 
 .auth-link {
-  color: var(--color-brand-primary);
+  color: var(--color-primary);
   text-decoration: none;
   font-weight: 500;
 }
@@ -181,7 +183,7 @@
 
 .auth-form__error {
   margin: 0;
-  color: #9f1239;
+  color: var(--color-danger-soft-foreground);
   font-weight: 600;
   font-size: 0.9rem;
 }
@@ -196,8 +198,8 @@
   padding-inline: 1rem;
   border: 0;
   border-radius: 0.625rem;
-  background: var(--color-content-strong);
-  color: #ffffff;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
   font-weight: 500;
   font-size: 0.9375rem;
   letter-spacing: -0.005em;
@@ -206,7 +208,7 @@
 }
 
 .auth-submit:hover:not(:disabled) {
-  background: var(--color-content-default);
+  background: var(--color-primary-hover);
 }
 
 .auth-submit:disabled {
@@ -215,8 +217,9 @@
 }
 
 .auth-submit:focus-visible {
-  outline: 2px solid rgba(37, 99, 235, 0.5);
+  outline: 2px solid var(--color-focus-outline);
   outline-offset: 2px;
+  box-shadow: var(--focus-ring);
 }
 
 .auth-divider {
@@ -269,6 +272,6 @@
 
 .settings-status {
   margin: 0;
-  color: #166534;
+  color: var(--color-success);
   font-weight: 600;
 }

@@ -11,19 +11,124 @@ function getCssRule(css: string, selector: string) {
   return match?.[1] ?? "";
 }
 
+function getRootVariables(css: string) {
+  const rootRule = getCssRule(css, ":root");
+
+  return new Map(
+    Array.from(rootRule.matchAll(/(--[\w-]+):\s*([^;]+);/g)).map((match) => [
+      match[1] ?? "",
+      (match[2] ?? "").replace(/\s+/g, " ").trim(),
+    ]),
+  );
+}
+
+function resolveVariable(
+  variables: ReadonlyMap<string, string>,
+  name: string,
+  seen = new Set<string>(),
+): string {
+  if (seen.has(name)) {
+    throw new Error(`Circular CSS variable alias for ${name}`);
+  }
+
+  const value = variables.get(name);
+
+  if (value === undefined) {
+    throw new Error(`Missing CSS variable ${name}`);
+  }
+
+  const alias = /^var\((--[\w-]+)\)$/.exec(value)?.[1];
+
+  if (alias === undefined) {
+    return value;
+  }
+
+  return resolveVariable(variables, alias, new Set([...seen, name]));
+}
+
+function hexToRgb(hex: string) {
+  const match = /^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex);
+
+  if (match === null) {
+    throw new Error(`Expected a 6-digit hex color, received ${hex}`);
+  }
+
+  return {
+    b: Number.parseInt(match[3] ?? "", 16),
+    g: Number.parseInt(match[2] ?? "", 16),
+    r: Number.parseInt(match[1] ?? "", 16),
+  };
+}
+
+function toLinearChannel(channel: number) {
+  const normalizedChannel = channel / 255;
+
+  if (normalizedChannel <= 0.03928) {
+    return normalizedChannel / 12.92;
+  }
+
+  return ((normalizedChannel + 0.055) / 1.055) ** 2.4;
+}
+
+function getRelativeLuminance(color: ReturnType<typeof hexToRgb>) {
+  return (
+    0.2126 * toLinearChannel(color.r) +
+    0.7152 * toLinearChannel(color.g) +
+    0.0722 * toLinearChannel(color.b)
+  );
+}
+
+function getContrastRatio(foreground: string, background: string) {
+  const foregroundLuminance = getRelativeLuminance(hexToRgb(foreground));
+  const backgroundLuminance = getRelativeLuminance(hexToRgb(background));
+  const lighter = Math.max(foregroundLuminance, backgroundLuminance);
+  const darker = Math.min(foregroundLuminance, backgroundLuminance);
+
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function expectContrastAtLeast(
+  variables: ReadonlyMap<string, string>,
+  foreground: string,
+  background: string,
+  minimumRatio: number,
+) {
+  const foregroundValue = resolveVariable(variables, foreground);
+  const backgroundValue = resolveVariable(variables, background);
+
+  expect(
+    getContrastRatio(foregroundValue, backgroundValue),
+    `${foreground} (${foregroundValue}) on ${background} (${backgroundValue})`,
+  ).toBeGreaterThanOrEqual(minimumRatio);
+}
+
 describe("foundationTokens", () => {
-  it("captures the issue 14 design-system contract from docs/layout", () => {
+  it("captures the Calm Codex light design-system contract", () => {
     expect(foundationTokens.brand.logoSource).toBe("docs/layout/logo.svg");
     expect(foundationTokens.brand.layoutReferences).toEqual([
       "docs/layout/no_collapse.png",
       "docs/layout/collapsed_menu_withou_focus_mode.png",
     ]);
-    expect(foundationTokens.color.shell.canvas).toBe("#f7f4ea");
+    expect(foundationTokens.color.shell.canvas).toBe("#f8fafc");
+    expect(foundationTokens.color.shell.panel).toBe("#ffffff");
+    expect(foundationTokens.color.shell.inset).toBe("#f1f5f9");
+    expect(foundationTokens.color.content.strong).toBe("#0f172a");
+    expect(foundationTokens.color.content.muted).toBe("#475569");
+    expect(foundationTokens.color.content.border).toBe("#cbd5e1");
+    expect(foundationTokens.color.content.borderSoft).toBe("#e2e8f0");
     expect(foundationTokens.color.brand.primary).toBe("#2563eb");
+    expect(foundationTokens.color.primary.value).toBe("#2563eb");
+    expect(foundationTokens.color.secondary.value).toBe("#0f766e");
+    expect(foundationTokens.color.accent.value).toBe("#f59e0b");
+    expect(foundationTokens.color.accent.strong).toBe("#b45309");
+    expect(foundationTokens.color.creative.value).toBe("#7c3aed");
+    expect(foundationTokens.color.semantic.danger.value).toBe("#dc2626");
     expect(foundationTokens.typography.body.sizeRem).toBe(1);
     expect(foundationTokens.typography.body.lineHeight).toBe(1.5);
-    expect(foundationTokens.focus.outlineWidthPx).toBe(3);
-    expect(foundationTokens.focus.outlineOffsetPx).toBe(3);
+    expect(foundationTokens.focus.outlineWidthPx).toBe(2);
+    expect(foundationTokens.focus.outlineOffsetPx).toBe(2);
+    expect(foundationTokens.focus.outlineColor).toBe("#0369a1");
+    expect(foundationTokens.focus.ringColor).toBe("#38bdf8");
     expect(foundationTokens.spacing[4]).toBe("1rem");
     expect(foundationTokens.radius.lg).toBe("1rem");
     expect(foundationTokens.breakpoints.lg).toBe("72rem");
@@ -32,14 +137,134 @@ describe("foundationTokens", () => {
   it("publishes CSS variables and accessible defaults for the app shell", () => {
     const css = readFileSync(new URL("./global.css", import.meta.url), "utf8");
 
-    expect(css).toContain("--color-shell-canvas: #f7f4ea;");
-    expect(css).toContain("--color-brand-primary: #2563eb;");
-    expect(css).toContain("--focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.35);");
+    expect(css).toContain("--color-neutral-canvas: #f8fafc;");
+    expect(css).toContain("--color-neutral-surface: #ffffff;");
+    expect(css).toContain("--color-neutral-panel: #f1f5f9;");
+    expect(css).toContain("--color-neutral-border: #cbd5e1;");
+    expect(css).toContain("--color-neutral-border-soft: #e2e8f0;");
+    expect(css).toContain("--color-neutral-ink: #0f172a;");
+    expect(css).toContain("--color-neutral-muted: #475569;");
+    expect(css).toContain("--color-primary: #2563eb;");
+    expect(css).toContain("--color-secondary: #0f766e;");
+    expect(css).toContain("--color-accent: #f59e0b;");
+    expect(css).toContain("--color-creative: #7c3aed;");
+    expect(css).toContain("--color-danger: #dc2626;");
+    expect(css).toContain("--color-focus-outline: #0369a1;");
+    expect(css).toContain("--color-focus-glow: #38bdf8;");
+    expect(css).toContain("--focus-ring: 0 0 0 3px");
+    expect(css).toContain("var(--color-focus-glow)");
     expect(css).toContain("font-size: 16px;");
     expect(css).toContain("line-height: 1.5;");
     expect(css).toContain(":focus-visible");
+    expect(css).toContain("outline: 2px solid var(--color-focus-outline);");
     expect(css).toContain(".app-shell");
     expect(css).toContain(".surface-card");
+  });
+
+  it("keeps compatibility color variables aliased to the Calm Codex palette", () => {
+    const css = readFileSync(new URL("./global.css", import.meta.url), "utf8");
+    const variables = getRootVariables(css);
+
+    expect(variables.get("--color-brand-primary")).toBe("var(--color-primary)");
+    expect(variables.get("--color-brand-primary-hover")).toBe(
+      "var(--color-primary-hover)",
+    );
+    expect(variables.get("--color-brand-primary-soft")).toBe(
+      "var(--color-primary-soft)",
+    );
+    expect(variables.get("--color-shell-canvas")).toBe(
+      "var(--color-neutral-canvas)",
+    );
+    expect(variables.get("--color-shell-panel")).toBe(
+      "var(--color-neutral-surface)",
+    );
+    expect(variables.get("--color-shell-inset")).toBe(
+      "var(--color-neutral-panel)",
+    );
+    expect(variables.get("--color-content-strong")).toBe(
+      "var(--color-neutral-ink)",
+    );
+    expect(variables.get("--color-content-default")).toBe(
+      "var(--color-neutral-muted)",
+    );
+    expect(variables.get("--color-content-muted")).toBe(
+      "var(--color-neutral-muted)",
+    );
+    expect(variables.get("--color-content-border")).toBe(
+      "var(--color-neutral-border)",
+    );
+    expect(variables.get("--color-content-border-soft")).toBe(
+      "var(--color-neutral-border-soft)",
+    );
+    expect(variables.get("--color-accent-success")).toBe(
+      "var(--color-success)",
+    );
+    expect(variables.get("--color-accent-warning")).toBe(
+      "var(--color-warning)",
+    );
+  });
+
+  it("keeps Calm Codex foreground and soft category pairs at WCAG AA contrast", () => {
+    const css = readFileSync(new URL("./global.css", import.meta.url), "utf8");
+    const variables = getRootVariables(css);
+
+    expectContrastAtLeast(
+      variables,
+      "--color-content-strong",
+      "--color-shell-canvas",
+      4.5,
+    );
+    expectContrastAtLeast(
+      variables,
+      "--color-content-muted",
+      "--color-shell-canvas",
+      4.5,
+    );
+    expectContrastAtLeast(
+      variables,
+      "--color-primary",
+      "--color-primary-foreground",
+      4.5,
+    );
+    expectContrastAtLeast(
+      variables,
+      "--color-secondary",
+      "--color-secondary-foreground",
+      4.5,
+    );
+    expectContrastAtLeast(
+      variables,
+      "--color-creative",
+      "--color-creative-foreground",
+      4.5,
+    );
+
+    for (const semanticPair of [
+      ["--color-success", "--color-success-foreground"],
+      ["--color-warning", "--color-warning-foreground"],
+      ["--color-danger", "--color-danger-foreground"],
+      ["--color-danger-soft-foreground", "--color-danger-soft"],
+    ] as const) {
+      expectContrastAtLeast(variables, semanticPair[0], semanticPair[1], 4.5);
+    }
+
+    expectContrastAtLeast(
+      variables,
+      "--color-accent-foreground",
+      "--color-accent",
+      4.5,
+    );
+
+    for (const softPair of [
+      ["--color-primary-soft-foreground", "--color-primary-soft"],
+      ["--color-secondary-soft-foreground", "--color-secondary-soft"],
+      ["--color-accent-soft-foreground", "--color-accent-soft"],
+      ["--color-creative-soft-foreground", "--color-creative-soft"],
+      ["--color-success-soft-foreground", "--color-success-soft"],
+      ["--color-warning-soft-foreground", "--color-warning-soft"],
+    ] as const) {
+      expectContrastAtLeast(variables, softPair[0], softPair[1], 4.5);
+    }
   });
 
   it("keeps the app sidebar account row pinned above the flexible notes body", () => {
@@ -117,13 +342,17 @@ describe("foundationTokens", () => {
     );
 
     expect(notesHeaderRule).toContain(
-      "padding-inline: var(--notes-workspace-inline);",
+      "padding-inline: var(--notes-workspace-inline-end)\n" +
+        "    var(--notes-workspace-inline-start);",
     );
     expect(notesHeaderRule).toContain(
       "padding-block-start: var(--workspace-page-block-start);",
     );
     expect(appCss).toContain(
-      "--notes-workspace-inline: var(--workspace-collapsed-header-offset);",
+      "--notes-workspace-inline-start: var(--workspace-collapsed-header-offset);",
+    );
+    expect(appCss).toContain(
+      "--notes-workspace-inline-end: var(--workspace-page-inline);",
     );
   });
 
@@ -142,12 +371,22 @@ describe("foundationTokens", () => {
       ),
       "utf8",
     );
+    const desktopNotesLayoutRule = getCssRule(
+      notesEditorCss,
+      '.app-frame[data-workspace="notes"] .notes-layout',
+    );
 
     expect(notesEditorCss).toContain(".notes-editor__layout");
     expect(notesEditorCss).toContain("align-content: start;");
     expect(notesEditorCss).toContain(
+      "padding: 0 var(--notes-workspace-inline-end) 1.5rem\n" +
+        "    var(--notes-workspace-inline-start);",
+    );
+    expect(notesEditorCss).toContain(
       '.app-frame[data-workspace="notes"] .notes-list-panel',
     );
+    expect(desktopNotesLayoutRule).toContain("height: 100%;");
+    expect(desktopNotesLayoutRule).toContain("max-height: 100%;");
     expect(notesEditorCss).toContain("height: 100%;");
     expect(notesEditorCss).toContain("max-height: 100%;");
     expect(notesResponsiveCss).toContain(".notes-editor__layout,");
