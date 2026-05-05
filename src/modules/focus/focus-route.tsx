@@ -27,10 +27,30 @@ type FocusSessionStartValues = {
 
 type FocusSessionStartField = keyof FocusSessionStartValues;
 
+type FocusSessionStartInput = {
+  breakIntervalMinutes: number;
+  focusIntervalMinutes: number;
+  plannedFocusIntervalCount: number | null;
+};
+
+type FocusSessionPanelStat = {
+  label: string;
+  value: string;
+};
+
+type FocusSessionPanelDetails = {
+  description: string;
+  stats: readonly FocusSessionPanelStat[];
+  timerLabel: string;
+};
+
+const DEFAULT_BREAK_MINUTES = "5";
+const DEFAULT_FOCUS_MINUTES = "25";
+const DEFAULT_PLANNED_FOCUS_INTERVALS = "4";
 const DEFAULT_FOCUS_SESSION_START_VALUES: FocusSessionStartValues = {
-  breakMinutes: "5",
-  focusMinutes: "25",
-  plannedFocusIntervals: "4",
+  breakMinutes: DEFAULT_BREAK_MINUTES,
+  focusMinutes: DEFAULT_FOCUS_MINUTES,
+  plannedFocusIntervals: DEFAULT_PLANNED_FOCUS_INTERVALS,
 };
 const FOCUS_RECORD_DATE_FORMATTER = new Intl.DateTimeFormat("en", {
   day: "numeric",
@@ -238,12 +258,11 @@ function ActiveFocusSessionPanel({
   persistentFocus?: AppPersistentFocusContext;
   userId: string | null;
 }>) {
-  const headingId = useId();
-  const currentActiveSession =
-    userId === null ? activeSession : focus.getActiveSession({ userId });
+  const sessionStatus = getFocusSessionStatus(activeSession);
+  const sessionDetails = getFocusSessionPanelDetails(activeSession);
 
-  async function endFocusSession() {
-    if (userId === null || currentActiveSession === null) {
+  async function handleEndFocusSession() {
+    if (userId === null || activeSession === null) {
       return;
     }
 
@@ -255,8 +274,8 @@ function ActiveFocusSessionPanel({
     await persistentFocus.endFocusSession(userId);
   }
 
-  async function advanceFocusSession() {
-    if (userId === null || currentActiveSession === null) {
+  async function handleAdvanceFocusSession() {
+    if (userId === null || activeSession === null) {
       return;
     }
 
@@ -268,100 +287,68 @@ function ActiveFocusSessionPanel({
     await persistentFocus.startNextFocusInterval(userId);
   }
 
-  const sessionStatus = getFocusSessionStatus(currentActiveSession);
-
   return (
     <section aria-label="Active focus session" className="focus-session-panel">
       <div className="focus-session-panel__header">
         <div>
           <p className="section-label">Active session</p>
-          <h4 id={headingId}>Focus session</h4>
+          <h4>Focus session</h4>
         </div>
         <span className="focus-session-panel__status">
           {sessionStatus.label}
         </span>
       </div>
 
-      {currentActiveSession === null ? (
-        <>
-          <div className="focus-session-panel__timer">
-            <strong>--:--</strong>
-            <span>Start a session from setup when you are ready.</span>
-          </div>
-          <dl
-            aria-label="Current session details"
-            className="focus-session-panel__stats"
+      <div className="focus-session-panel__timer">
+        <strong>{sessionDetails.timerLabel}</strong>
+        <span>{sessionDetails.description}</span>
+      </div>
+      {activeSession === null ? null : (
+        <div className="focus-session-panel__actions">
+          <button
+            className="notes-action notes-action-primary"
+            onClick={() => {
+              void handleEndFocusSession();
+            }}
+            type="button"
           >
-            <div>
-              <dt>Focus</dt>
-              <dd>25 min</dd>
-            </div>
-            <div>
-              <dt>Break</dt>
-              <dd>5 min</dd>
-            </div>
-            <div>
-              <dt>Intervals</dt>
-              <dd>4</dd>
-            </div>
-            <div>
-              <dt>Completed</dt>
-              <dd>0 / 4</dd>
-            </div>
-          </dl>
-        </>
-      ) : (
-        <>
-          <div className="focus-session-panel__timer">
-            <strong>{getRemainingTimerLabel(currentActiveSession)}</strong>
-            <span>{getActiveTimerDescription(currentActiveSession)}</span>
-          </div>
-          <div className="focus-session-panel__actions">
+            End focus session
+          </button>
+          {sessionStatus.actionLabel === null ? null : (
             <button
-              className="notes-action notes-action-primary"
+              className="notes-action"
               onClick={() => {
-                void endFocusSession();
+                void handleAdvanceFocusSession();
               }}
               type="button"
             >
-              End focus session
+              {sessionStatus.actionLabel}
             </button>
-            {sessionStatus.actionLabel === null ? null : (
-              <button
-                className="notes-action"
-                onClick={() => {
-                  void advanceFocusSession();
-                }}
-                type="button"
-              >
-                {sessionStatus.actionLabel}
-              </button>
-            )}
-          </div>
-          <dl
-            aria-label="Current session details"
-            className="focus-session-panel__stats"
-          >
-            <div>
-              <dt>Focus</dt>
-              <dd>{currentActiveSession.focusIntervalMinutes} min</dd>
-            </div>
-            <div>
-              <dt>Break</dt>
-              <dd>{currentActiveSession.breakIntervalMinutes} min</dd>
-            </div>
-            <div>
-              <dt>Intervals</dt>
-              <dd>{getPlannedIntervalsLabel(currentActiveSession)}</dd>
-            </div>
-            <div>
-              <dt>Completed</dt>
-              <dd>{getCompletedIntervalsLabel(currentActiveSession)}</dd>
-            </div>
-          </dl>
-        </>
+          )}
+        </div>
       )}
+      <FocusSessionStats stats={sessionDetails.stats} />
     </section>
+  );
+}
+
+function FocusSessionStats({
+  stats,
+}: Readonly<{
+  stats: readonly FocusSessionPanelStat[];
+}>) {
+  return (
+    <dl
+      aria-label="Current session details"
+      className="focus-session-panel__stats"
+    >
+      {stats.map((stat) => (
+        <div key={stat.label}>
+          <dt>{stat.label}</dt>
+          <dd>{stat.value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -381,8 +368,10 @@ function FocusSessionConfig({
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const errorId = useId();
-  const currentActiveSession =
-    userId === null ? activeSession : focus.getActiveSession({ userId });
+  const isFocusSessionActive = activeSession !== null;
+  const setupNote = isFocusSessionActive
+    ? "Changes apply to your next session. Setup is locked while focus is active."
+    : "Changes apply to your next session.";
 
   function updateStartValue(field: FocusSessionStartField, value: string) {
     setStartValues((currentValues) => ({
@@ -395,28 +384,20 @@ function FocusSessionConfig({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (userId === null || currentActiveSession !== null) {
+    if (userId === null || isFocusSessionActive) {
       return;
     }
 
     try {
+      const nextSessionInput = getFocusSessionStartInput(startValues);
+
       if (persistentFocus === undefined) {
         focus.startFocusSession({
-          breakIntervalMinutes: Number(startValues.breakMinutes),
-          focusIntervalMinutes: Number(startValues.focusMinutes),
-          plannedFocusIntervalCount: parseOptionalNumber(
-            startValues.plannedFocusIntervals,
-          ),
+          ...nextSessionInput,
           userId,
         });
       } else {
-        await persistentFocus.startFocusSession(userId, {
-          breakIntervalMinutes: Number(startValues.breakMinutes),
-          focusIntervalMinutes: Number(startValues.focusMinutes),
-          plannedFocusIntervalCount: parseOptionalNumber(
-            startValues.plannedFocusIntervals,
-          ),
-        });
+        await persistentFocus.startFocusSession(userId, nextSessionInput);
       }
       setErrorMessage(null);
       setStartValues(DEFAULT_FOCUS_SESSION_START_VALUES);
@@ -453,7 +434,7 @@ function FocusSessionConfig({
           <label>
             <span>Focus minutes</span>
             <input
-              disabled={currentActiveSession !== null}
+              disabled={isFocusSessionActive}
               inputMode="numeric"
               min="1"
               onChange={(event) =>
@@ -466,7 +447,7 @@ function FocusSessionConfig({
           <label>
             <span>Break minutes</span>
             <input
-              disabled={currentActiveSession !== null}
+              disabled={isFocusSessionActive}
               inputMode="numeric"
               min="0"
               onChange={(event) =>
@@ -479,7 +460,7 @@ function FocusSessionConfig({
           <label>
             <span>Planned intervals</span>
             <input
-              disabled={currentActiveSession !== null}
+              disabled={isFocusSessionActive}
               inputMode="numeric"
               min="1"
               onChange={(event) =>
@@ -490,22 +471,18 @@ function FocusSessionConfig({
             />
           </label>
         </div>
-        <p className="focus-setup-note">
-          {currentActiveSession === null
-            ? "Changes apply to your next session."
-            : "Changes apply to your next session. Setup is locked while focus is active."}
-        </p>
+        <p className="focus-setup-note">{setupNote}</p>
         <div className="focus-config-form__actions">
           <button
             className="notes-action notes-action-primary"
-            disabled={currentActiveSession !== null}
+            disabled={isFocusSessionActive}
             type="submit"
           >
             Start focus session
           </button>
           <button
             className="notes-action"
-            disabled={currentActiveSession !== null}
+            disabled={isFocusSessionActive}
             onClick={handleReset}
             type="button"
           >
@@ -538,6 +515,58 @@ function getBreakMetricLabel(record: FocusRecord) {
   );
 
   return `${intervalLabel}, ${breakMinutes} minutes`;
+}
+
+function getFocusSessionPanelDetails(
+  session: FocusSession | null,
+): FocusSessionPanelDetails {
+  if (session === null) {
+    return {
+      description: "Start a session from setup when you are ready.",
+      stats: [
+        {
+          label: "Focus",
+          value: `${DEFAULT_FOCUS_MINUTES} min`,
+        },
+        {
+          label: "Break",
+          value: `${DEFAULT_BREAK_MINUTES} min`,
+        },
+        {
+          label: "Intervals",
+          value: DEFAULT_PLANNED_FOCUS_INTERVALS,
+        },
+        {
+          label: "Completed",
+          value: `0 / ${DEFAULT_PLANNED_FOCUS_INTERVALS}`,
+        },
+      ],
+      timerLabel: "--:--",
+    };
+  }
+
+  return {
+    description: getActiveTimerDescription(session),
+    stats: [
+      {
+        label: "Focus",
+        value: `${session.focusIntervalMinutes} min`,
+      },
+      {
+        label: "Break",
+        value: `${session.breakIntervalMinutes} min`,
+      },
+      {
+        label: "Intervals",
+        value: getPlannedIntervalsLabel(session),
+      },
+      {
+        label: "Completed",
+        value: getCompletedIntervalsLabel(session),
+      },
+    ],
+    timerLabel: getRemainingTimerLabel(session),
+  };
 }
 
 function getFocusSessionStatus(session: FocusSession | null) {
@@ -588,9 +617,11 @@ function getActiveTimerDescription(session: FocusSession) {
     case "Break":
       return "Break time remaining";
     case "AwaitingNextFocus":
-      return session.isStale
-        ? "This session is stale and should be ended."
-        : "Break complete. Start the next focus interval when ready.";
+      if (session.isStale) {
+        return "This session is stale and should be ended.";
+      }
+
+      return "Break complete. Start the next focus interval when ready.";
   }
 }
 
@@ -662,4 +693,16 @@ function parseOptionalNumber(value: string) {
   }
 
   return Number(trimmedValue);
+}
+
+function getFocusSessionStartInput(
+  values: FocusSessionStartValues,
+): FocusSessionStartInput {
+  return {
+    breakIntervalMinutes: Number(values.breakMinutes),
+    focusIntervalMinutes: Number(values.focusMinutes),
+    plannedFocusIntervalCount: parseOptionalNumber(
+      values.plannedFocusIntervals,
+    ),
+  };
 }
