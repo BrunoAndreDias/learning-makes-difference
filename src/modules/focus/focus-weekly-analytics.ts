@@ -2,15 +2,17 @@ import type { AppNote } from "../notes";
 import type { SessionResult } from "../recall";
 import type { FocusRecord, FocusTarget } from "./focus";
 
+type FocusWeeklyAnalyticsMetricId =
+  | "notes-touched"
+  | "notes-created"
+  | "recall-answered"
+  | "focus-minutes"
+  | "completed-sessions"
+  | "average-session-length";
+
 export type FocusWeeklyAnalyticsMetric = {
   comparisonLabel: string;
-  id:
-    | "notes-touched"
-    | "notes-created"
-    | "recall-answered"
-    | "focus-minutes"
-    | "completed-sessions"
-    | "average-session-length";
+  id: FocusWeeklyAnalyticsMetricId;
   label: string;
   value: string;
 };
@@ -20,117 +22,103 @@ export type FocusWeeklyAnalytics = {
   metrics: readonly FocusWeeklyAnalyticsMetric[];
 };
 
-export function deriveFocusWeeklyAnalytics(input: {
+type FocusWeeklyAnalyticsInput = {
   focusRecords: readonly FocusRecord[];
   notes: readonly AppNote[];
   now: Date;
   sessionResults: readonly SessionResult[];
-}): FocusWeeklyAnalytics {
+};
+
+type DateRange = {
+  end: Date;
+  start: Date;
+};
+
+type WeeklyAnalyticsTotals = {
+  averageSessionLength: number;
+  completedSessions: number;
+  focusMinutes: number;
+  notesCreated: number;
+  notesTouched: number;
+  recallAnswered: number;
+};
+
+type ComparisonMetricInput = {
+  comparisonUnitSuffix: string;
+  current: number;
+  id: FocusWeeklyAnalyticsMetricId;
+  label: string;
+  previous: number;
+  valueSuffix: string;
+};
+
+const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
+const FOCUS_WEEKLY_ANALYTICS_HEADING = "This week at a glance";
+
+export function deriveFocusWeeklyAnalytics(
+  input: FocusWeeklyAnalyticsInput,
+): FocusWeeklyAnalytics {
   const currentWeekRange = getUtcCalendarWeekRange(input.now);
-  const previousWeekRange = {
-    end: new Date(currentWeekRange.start.getTime() - 1),
-    start: new Date(currentWeekRange.start.getTime() - 7 * DAY_IN_MILLISECONDS),
-  };
-
-  const currentWeekRecords = input.focusRecords.filter((record) =>
-    isTimestampWithinRange(record.endedAt, currentWeekRange),
-  );
-  const previousWeekRecords = input.focusRecords.filter((record) =>
-    isTimestampWithinRange(record.endedAt, previousWeekRange),
-  );
-  const currentWeekNotes = input.notes.filter((note) =>
-    isTimestampWithinRange(note.createdAt, currentWeekRange),
-  );
-  const previousWeekNotes = input.notes.filter((note) =>
-    isTimestampWithinRange(note.createdAt, previousWeekRange),
-  );
-  const currentWeekResults = input.sessionResults.filter((result) =>
-    isTimestampWithinRange(result.completedAt, currentWeekRange),
-  );
-  const previousWeekResults = input.sessionResults.filter((result) =>
-    isTimestampWithinRange(result.completedAt, previousWeekRange),
-  );
-
-  const currentNotesTouched = getUniqueTouchedNoteCount(currentWeekRecords);
-  const previousNotesTouched = getUniqueTouchedNoteCount(previousWeekRecords);
-  const currentNotesCreated = currentWeekNotes.length;
-  const previousNotesCreated = previousWeekNotes.length;
-  const currentRecallAnswered = getRecallAnsweredCount(currentWeekResults);
-  const previousRecallAnswered = getRecallAnsweredCount(previousWeekResults);
-  const currentFocusMinutes = getFocusMinutes(currentWeekRecords);
-  const previousFocusMinutes = getFocusMinutes(previousWeekRecords);
-  const currentCompletedSessions = currentWeekRecords.length;
-  const previousCompletedSessions = previousWeekRecords.length;
-  const currentAverageSessionLength =
-    getAverageSessionLength(currentWeekRecords);
-  const previousAverageSessionLength =
-    getAverageSessionLength(previousWeekRecords);
+  const previousWeekRange = getPreviousWeekRange(currentWeekRange);
+  const currentWeek = getWeeklyAnalyticsTotals(input, currentWeekRange);
+  const previousWeek = getWeeklyAnalyticsTotals(input, previousWeekRange);
 
   return {
-    heading: "This week at a glance",
+    heading: FOCUS_WEEKLY_ANALYTICS_HEADING,
     metrics: [
-      {
-        comparisonLabel: formatComparisonLabel({
-          current: currentNotesTouched,
-          previous: previousNotesTouched,
-        }),
+      createComparisonMetric({
+        comparisonUnitSuffix: "",
+        current: currentWeek.notesTouched,
         id: "notes-touched",
         label: "Notes touched",
-        value: String(currentNotesTouched),
-      },
-      {
-        comparisonLabel: formatComparisonLabel({
-          current: currentNotesCreated,
-          previous: previousNotesCreated,
-        }),
+        previous: previousWeek.notesTouched,
+        valueSuffix: "",
+      }),
+      createComparisonMetric({
+        comparisonUnitSuffix: "",
+        current: currentWeek.notesCreated,
         id: "notes-created",
         label: "Notes created",
-        value: String(currentNotesCreated),
-      },
-      {
-        comparisonLabel: formatComparisonLabel({
-          current: currentRecallAnswered,
-          previous: previousRecallAnswered,
-        }),
+        previous: previousWeek.notesCreated,
+        valueSuffix: "",
+      }),
+      createComparisonMetric({
+        comparisonUnitSuffix: "",
+        current: currentWeek.recallAnswered,
         id: "recall-answered",
         label: "Recall answered",
-        value: String(currentRecallAnswered),
-      },
-      {
-        comparisonLabel: formatComparisonLabel({
-          current: currentFocusMinutes,
-          previous: previousFocusMinutes,
-        }),
+        previous: previousWeek.recallAnswered,
+        valueSuffix: "",
+      }),
+      createComparisonMetric({
+        comparisonUnitSuffix: "",
+        current: currentWeek.focusMinutes,
         id: "focus-minutes",
         label: "Focus minutes",
-        value: String(currentFocusMinutes),
-      },
-      {
-        comparisonLabel: formatComparisonLabel({
-          current: currentCompletedSessions,
-          previous: previousCompletedSessions,
-        }),
+        previous: previousWeek.focusMinutes,
+        valueSuffix: "",
+      }),
+      createComparisonMetric({
+        comparisonUnitSuffix: "",
+        current: currentWeek.completedSessions,
         id: "completed-sessions",
         label: "Completed sessions",
-        value: String(currentCompletedSessions),
-      },
-      {
-        comparisonLabel: formatComparisonLabel({
-          current: currentAverageSessionLength,
-          previous: previousAverageSessionLength,
-          unitSuffix: " min",
-        }),
+        previous: previousWeek.completedSessions,
+        valueSuffix: "",
+      }),
+      createComparisonMetric({
+        comparisonUnitSuffix: " min",
+        current: currentWeek.averageSessionLength,
         id: "average-session-length",
         label: "Average session length",
-        value: `${currentAverageSessionLength} min`,
-      },
+        previous: previousWeek.averageSessionLength,
+        valueSuffix: " min",
+      }),
     ],
   };
 }
 
-const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
-
-function getUtcCalendarWeekRange(now: Date) {
+function getUtcCalendarWeekRange(now: Date): DateRange {
   const start = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
   );
@@ -142,10 +130,39 @@ function getUtcCalendarWeekRange(now: Date) {
   };
 }
 
-function isTimestampWithinRange(
-  timestamp: string,
-  range: { end: Date; start: Date },
-) {
+function getPreviousWeekRange(currentWeekRange: DateRange): DateRange {
+  return {
+    end: new Date(currentWeekRange.start.getTime() - 1),
+    start: new Date(currentWeekRange.start.getTime() - 7 * DAY_IN_MILLISECONDS),
+  };
+}
+
+function getWeeklyAnalyticsTotals(
+  input: FocusWeeklyAnalyticsInput,
+  range: DateRange,
+): WeeklyAnalyticsTotals {
+  const focusRecords = input.focusRecords.filter((record) =>
+    isTimestampWithinRange(record.endedAt, range),
+  );
+  const notes = input.notes.filter((note) =>
+    isTimestampWithinRange(note.createdAt, range),
+  );
+  const sessionResults = input.sessionResults.filter((result) =>
+    isTimestampWithinRange(result.completedAt, range),
+  );
+  const focusMinutes = getFocusMinutes(focusRecords);
+
+  return {
+    averageSessionLength: getAverageSessionLength(focusRecords, focusMinutes),
+    completedSessions: focusRecords.length,
+    focusMinutes,
+    notesCreated: notes.length,
+    notesTouched: getUniqueTouchedNoteCount(focusRecords),
+    recallAnswered: getRecallAnsweredCount(sessionResults),
+  };
+}
+
+function isTimestampWithinRange(timestamp: string, range: DateRange) {
   const value = Date.parse(timestamp);
   return value >= range.start.getTime() && value <= range.end.getTime();
 }
@@ -154,16 +171,24 @@ function getUniqueTouchedNoteCount(records: readonly FocusRecord[]) {
   const noteIds = new Set<string>();
 
   for (const record of records) {
-    for (const target of [...record.targets, ...record.focusTargets]) {
-      if (!isNoteFocusTarget(target)) {
-        continue;
-      }
-
-      noteIds.add(target.note.id);
-    }
+    addTouchedNoteIds(noteIds, record.targets);
+    addTouchedNoteIds(noteIds, record.focusTargets);
   }
 
   return noteIds.size;
+}
+
+function addTouchedNoteIds(
+  noteIds: Set<string>,
+  targets: readonly FocusTarget[],
+) {
+  for (const target of targets) {
+    if (!isNoteFocusTarget(target)) {
+      continue;
+    }
+
+    noteIds.add(target.note.id);
+  }
 }
 
 function isNoteFocusTarget(
@@ -184,18 +209,36 @@ function getFocusMinutes(records: readonly FocusRecord[]) {
   );
 }
 
-function getAverageSessionLength(records: readonly FocusRecord[]) {
+function getAverageSessionLength(
+  records: readonly FocusRecord[],
+  focusMinutes: number,
+) {
   if (records.length === 0) {
     return 0;
   }
 
-  return Math.round(getFocusMinutes(records) / records.length);
+  return Math.round(focusMinutes / records.length);
+}
+
+function createComparisonMetric(
+  input: ComparisonMetricInput,
+): FocusWeeklyAnalyticsMetric {
+  return {
+    comparisonLabel: formatComparisonLabel({
+      current: input.current,
+      previous: input.previous,
+      unitSuffix: input.comparisonUnitSuffix,
+    }),
+    id: input.id,
+    label: input.label,
+    value: `${input.current}${input.valueSuffix}`,
+  };
 }
 
 function formatComparisonLabel(input: {
   current: number;
   previous: number;
-  unitSuffix?: string;
+  unitSuffix: string;
 }) {
   const difference = input.current - input.previous;
 
@@ -204,5 +247,5 @@ function formatComparisonLabel(input: {
   }
 
   const sign = difference > 0 ? "+" : "";
-  return `${sign}${difference}${input.unitSuffix ?? ""} vs last week`;
+  return `${sign}${difference}${input.unitSuffix} vs last week`;
 }
