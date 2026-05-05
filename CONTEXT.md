@@ -82,6 +82,7 @@ _Avoid_: Pomodoro session, timer, recall timer
 **FocusMethod**:
 The timing pattern used by a FocusSession, with `Pomodoro` as the default method in v1.
 In v1, configurable `Pomodoro` timing settings are limited to FocusInterval duration, BreakInterval duration, and an optional planned number of FocusIntervals.
+In v1, the Focus Section setup defaults to 25 FocusInterval minutes, 5 BreakInterval minutes, and 4 planned FocusIntervals.
 _Avoid_: Timer type, mode
 
 **FocusInterval**:
@@ -143,11 +144,20 @@ The primary authenticated section that acts as the base entry point for recall c
 _Avoid_: Recall dashboard, Recall home, Practice (possible future user-facing label), Recall history, quiz area
 
 **Focus Section**:
-The authenticated workspace section for reviewing FocusRecords and focus analytics. Active FocusSession controls remain globally available across the authenticated workspace.
-In v1, the Focus Section shows completed FocusRecords newest first, completed FocusInterval time, BreakInterval count and duration as secondary detail, touched FocusTargets, and a basic recent completed-focus aggregate.
+The authenticated workspace section for running FocusSessions, reviewing FocusRecords, and seeing focus analytics. Compact active FocusSession controls remain globally available across the authenticated workspace.
+In v1, the Focus Section shows the active FocusSession when present, supported Pomodoro timing configuration, completed FocusRecords newest first, completed FocusInterval time, BreakInterval count and duration as secondary detail, touched FocusTargets, and basic cross-study analytics derived only from existing Notes, Recall SessionResults, and FocusRecords.
+In v1, FocusSession timing controls in the Focus Section are visible but disabled while a FocusSession is active; timing changes apply only when no FocusSession is running.
+In v1, the Focus Section setup can be reset to the standard 25/5 Pomodoro setup with 4 planned FocusIntervals.
 In v1, the primary navigation label for the Focus Section is "Focus".
 In v1, the Focus Section route is `/focus`.
 _Avoid_: Timer page, Pomodoro page, focus history
+
+**Focus Dock**:
+A compact global workspace utility for starting and controlling the active FocusSession without navigating away from the current workspace.
+In v1, the expanded sidebar footer card label is "Focus now" to distinguish the active utility from the Focus Section.
+In v1, Pomodoro timing settings are hidden behind a "Configure" disclosure by default.
+In v1, active-session actions appear only when relevant to the current FocusSession state, such as keeping focus during an IntervalTransitionWindow, skipping a BreakInterval, or starting the next FocusInterval.
+_Avoid_: Timer page, Focus page control, sidebar nav item
 
 **Account Dock**:
 A fixed bottom utility area for User/account actions such as logout and settings access.
@@ -238,14 +248,21 @@ _Avoid_: Product menu, sidebar navigation
 - All relationships are ownership-local to a single **User**. A **Note** can only be assigned to **Labels** owned by the same **User**, and a **RecallSession** can only target Notes owned by that User.
 - In v1, deleting active **Notes**, **Labels**, **Metaphors**, and **Acronyms** is a hard delete. Historical study records remain available only through the snapshots stored in **SessionResult**.
 - In v1, authenticated study work happens through the **Notes Workspace** and the **Recall Section** rather than a generic product-menu sidebar.
-- In v1, completed **FocusRecords** are reviewed in a lightweight **Focus Section**, separate from the **Notes Workspace** and **Recall Section**
-- Active **FocusSession** controls remain globally available across the authenticated workspace rather than belonging to the **Focus Section**
-- Starting a **FocusSession** from the global control does not navigate the **User** away from their current workspace screen
-- The **Focus Section** may show the same active **FocusSession** state, but it must not create a separate active-session control model
+- In v1, active **FocusSessions**, **FocusRecords**, and focus analytics are surfaced in the **Focus Section**, separate from the **Notes Workspace** and **Recall Section**
+- In v1, **Focus Section** analytics may include cross-study metrics, but only when derived from existing **Notes**, **SessionResults**, and **FocusRecords** rather than a separate analytics event log
+- In v1, per-record rows in the **Focus Section** show only facts directly supported by the **FocusRecord**
+- In v1, **FocusSession** timing configuration is not saved as next-session defaults while a **FocusSession** is active
+- In v1, the **Focus Section** starts from the standard 25/5 Pomodoro setup with 4 planned **FocusIntervals**
+- In v1, resetting **FocusSession** setup restores the standard 25/5 Pomodoro setup with 4 planned **FocusIntervals**
+- Compact active **FocusSession** controls remain globally available across the authenticated workspace through the **Focus Dock**
+- In v1, the **Focus Dock** is primarily a sidebar footer card when the app sidebar has enough space, with a compact text-pill workspace-header fallback when the sidebar is collapsed or unavailable
+- Starting a **FocusSession** from the **Focus Dock** does not navigate the **User** away from their current workspace screen
+- Route-local FocusSession start and control buttons are used in the **Focus Section**; the **Focus Dock** remains the compact active FocusSession control surface on other authenticated workspace routes
 - In v1, the **Focus Section** does not need chart-based analytics
 - In v1, the primary navigation label for the **Focus Section** is "Focus"
 - In v1, the **Focus Section** route is `/focus`
 - In v1, **FocusRecords** are not editable or deletable
+- The "Focus" sidebar navigation item opens the **Focus Section** for active FocusSessions, completed FocusRecords, and focus analytics, while the "Focus now" **Focus Dock** provides compact active FocusSession controls elsewhere
 - The **Notes Workspace** owns Note search/filter, Note selection, and Note editing.
 - The **Recall Section** owns starting **RecallSessions** and reviewing **SessionResults**.
 - The **Notes Workspace** may provide a lightweight "Start Recall" entry point for convenience, but it only opens the **Recall Section**; Note selection happens inside Recall.
@@ -351,6 +368,9 @@ _Avoid_: Product menu, sidebar navigation
 
 > **Dev:** "If one **FocusSession** touches `React`, `CSS`, and unlabeled Note work, how many minutes does each one get?"
 > **Domain expert:** "In v1 we only record that those **FocusTargets** appeared in the **FocusSession**; exact per-target minute splitting is deferred."
+
+> **Dev:** "If the **Focus Dock** lives in the sidebar, is focus just another navigation destination?"
+> **Domain expert:** "No — the **Focus Dock** is a persistent utility for the active **FocusSession**. The **Focus Section** remains the destination for reviewing **FocusRecords**."
 
 > **Dev:** "Does v1 need a product-menu sidebar with Notes, Recall, Labels, History, and Settings?"
 > **Domain expert:** "No — v1 has **Notes Workspace** and **Recall Section** as primary Learning Loop sections. Account utilities belong in the **Account Dock**, not in primary product navigation."
@@ -461,6 +481,11 @@ _Avoid_: Product menu, sidebar navigation
 - "Recall time" could have been added on top of focus time — resolved: recall is nested study activity inside a **FocusSession**, not double-counted extra time.
 - "Pause" could have meant freezing a **FocusInterval** — resolved: in v1, it means an intentional **BreakInterval** only, and pausing a running **FocusInterval** is not supported.
 - "Focus timer placement" could have been scoped to Notes or Recall only — resolved: **FocusSessions** are available across the authenticated workspace.
+- "Focus Section" could have meant only completed **FocusRecords** — resolved: the **Focus Section** also owns the full-page active **FocusSession** experience, while the **Focus Dock** stays as the compact cross-workspace control.
+- "Focus analytics" could have meant a dedicated analytics tracking system — resolved: v1 **Focus Section** analytics are derived from existing **Notes**, **SessionResults**, and **FocusRecords** only.
+- "Per-session analytics" could have implied exact Note creation or Recall answer counts inside a **FocusRecord** — resolved: v1 per-record rows show only facts the **FocusRecord** can prove.
+- "Changes apply to next session" could have meant editing future defaults during an active **FocusSession** — resolved: v1 keeps timing controls visible but disabled while a **FocusSession** is active.
+- "Default Pomodoro setup" could have meant open-ended timing everywhere — resolved: the **Focus Section** defaults to 4 planned **FocusIntervals**, while compact quick-start controls may remain default-first.
 - "Multiple timers" could have meant overlapping **FocusSessions** — resolved: a **User** can have at most one active **FocusSession** at a time.
 - "Minimal input" could have meant no configuration at all — resolved: starting should be default-first, while still allowing supported timing configuration before the **FocusSession** starts.
 - "Configuration" could have included targets or alternate methods — resolved: v1 configuration is limited to `Pomodoro` timing values: **FocusInterval** duration, **BreakInterval** duration, and an optional planned number of **FocusIntervals**.
@@ -489,3 +514,4 @@ _Avoid_: Product menu, sidebar navigation
 - "Starting focus" could have navigated to the **Focus Section** — resolved: starting a **FocusSession** from the global control keeps the **User** on the current workspace screen.
 - "Focus Section controls" could have diverged from the global controls — resolved: `/focus` may show the same active **FocusSession** state, but there is still one control model and one active **FocusSession**.
 - "Per-target analytics" could have implied exact time allocation — resolved: in v1, target presence is recorded without minute-level attribution.
+- "Side app menu" could have made the active **FocusSession** control disappear behind navigation or feel like a route — resolved: use a sidebar-first **Focus Dock** with a workspace-header fallback when the sidebar is collapsed or unavailable.
