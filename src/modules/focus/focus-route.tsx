@@ -7,6 +7,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { listNotesForUser } from "../notes";
 import {
   type AppFocusContext,
   AppFocusError,
@@ -15,6 +16,7 @@ import {
   type FocusTarget,
 } from "./focus";
 import { useFocusTimerTick } from "./focus-session-start-control";
+import { deriveFocusWeeklyAnalytics } from "./focus-weekly-analytics";
 import { formatFocusTargetKindLabel } from "./learner-copy";
 import type { AppPersistentFocusContext } from "./persistent-focus";
 
@@ -79,6 +81,12 @@ function FocusPage() {
   const persistentFocus = Route.useRouteContext({
     select: (context) => context.persistentFocus,
   });
+  const notes = Route.useRouteContext({
+    select: (context) => context.notes,
+  });
+  const recall = Route.useRouteContext({
+    select: (context) => context.recall,
+  });
   const session = Route.useRouteContext({
     select: (context) => context.session,
   });
@@ -88,6 +96,16 @@ function FocusPage() {
     focus.subscribe,
     focus.getRecordSnapshot,
     focus.getRecordSnapshot,
+  );
+  const notesSnapshot = useSyncExternalStore(
+    notes.subscribe,
+    notes.getSnapshot,
+    notes.getSnapshot,
+  );
+  useSyncExternalStore(
+    recall.subscribe,
+    recall.getSessionResultsSnapshot,
+    recall.getSessionResultsSnapshot,
   );
   const sessionSnapshot = useSyncExternalStore(
     session.subscribe,
@@ -105,16 +123,17 @@ function FocusPage() {
       : [...focus.getFocusRecords({ userId })].sort(
           (left, right) => Date.parse(right.endedAt) - Date.parse(left.endedAt),
         );
+  const userNotes = listNotesForUser(notesSnapshot, userId);
+  const sessionResults =
+    userId === null ? [] : recall.listSessionResults({ userId });
   const recentRecords = records.slice(0, RECENT_FOCUS_RECORD_LIMIT);
   const recentFocusTargets = getRecentFocusTargetSummaries(recentRecords);
-  const recentFocusMinutes = recentRecords.reduce(
-    (total, record) => total + getFocusRecordFocusMinutes(record),
-    0,
-  );
-  const recentBreakMinutes = recentRecords.reduce(
-    (total, record) => total + getFocusRecordBreakMinutes(record),
-    0,
-  );
+  const weeklyAnalytics = deriveFocusWeeklyAnalytics({
+    focusRecords: records,
+    notes: userNotes,
+    now: new Date(),
+    sessionResults,
+  });
   useEffect(() => {
     headingRef.current?.focus();
   }, []);
@@ -147,64 +166,60 @@ function FocusPage() {
         />
       </section>
 
-      <div className="focus-grid">
-        <article className="focus-card focus-summary-card">
-          <div className="focus-card__header">
-            <div>
-              <p className="section-label">Recent study time</p>
-              <strong className="focus-card-title">
-                Last {RECENT_FOCUS_RECORD_LIMIT} sessions
-              </strong>
-            </div>
+      <section
+        aria-label={weeklyAnalytics.heading}
+        className="focus-card focus-card--analytics"
+      >
+        <div className="focus-card__header">
+          <div>
+            <p className="section-label">Weekly analytics</p>
+            <strong className="focus-card-title">
+              {weeklyAnalytics.heading}
+            </strong>
           </div>
-          <dl className="focus-metrics" aria-label="Recent study time">
-            <div>
-              <dt>Focus time</dt>
-              <dd>{recentFocusMinutes} minutes</dd>
+        </div>
+        <dl className="focus-weekly-analytics">
+          {weeklyAnalytics.metrics.map((metric) => (
+            <div key={metric.id}>
+              <dt>{metric.label}</dt>
+              <dd>{metric.value}</dd>
+              <span>{metric.comparisonLabel}</span>
             </div>
-            <div>
-              <dt>Break time</dt>
-              <dd>{recentBreakMinutes} minutes</dd>
-            </div>
-            <div>
-              <dt>Completed sessions</dt>
-              <dd>{recentRecords.length}</dd>
-            </div>
-          </dl>
-        </article>
+          ))}
+        </dl>
+      </section>
 
-        <section
-          aria-label="Recent focus targets"
-          className="focus-card focus-card--quiet"
-        >
-          <div className="focus-card__header">
-            <div>
-              <p className="section-label">Recent targets</p>
-              <strong className="focus-card-title">Recent focus targets</strong>
-            </div>
+      <section
+        aria-label="Recent focus targets"
+        className="focus-card focus-card--quiet"
+      >
+        <div className="focus-card__header">
+          <div>
+            <p className="section-label">Recent targets</p>
+            <strong className="focus-card-title">Recent focus targets</strong>
           </div>
-          {recentFocusTargets.length === 0 ? (
-            <p>
-              Touch notes or recall during focus sessions to build recent target
-              context here.
-            </p>
-          ) : (
-            <ul className="focus-target-panel-list">
-              {recentFocusTargets.map((target) => (
-                <li key={target.key}>
-                  <span className="focus-target-panel-list__kind">
-                    {target.kindLabel}
-                  </span>
-                  <strong>{target.title}</strong>
-                  <span className="focus-target-panel-list__context">
-                    {target.context}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
+        </div>
+        {recentFocusTargets.length === 0 ? (
+          <p>
+            Touch notes or recall during focus sessions to build recent target
+            context here.
+          </p>
+        ) : (
+          <ul className="focus-target-panel-list">
+            {recentFocusTargets.map((target) => (
+              <li key={target.key}>
+                <span className="focus-target-panel-list__kind">
+                  {target.kindLabel}
+                </span>
+                <strong>{target.title}</strong>
+                <span className="focus-target-panel-list__context">
+                  {target.context}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section aria-label="Completed study sessions" className="focus-records">
         <div className="focus-section-heading">
@@ -517,16 +532,8 @@ function FocusSessionConfig({
   );
 }
 
-function getFocusRecordFocusMinutes(record: FocusRecord) {
-  return record.completedFocusIntervalCount * record.focusIntervalMinutes;
-}
-
-function getFocusRecordBreakMinutes(record: FocusRecord) {
-  return record.completedBreakIntervalCount * record.breakIntervalMinutes;
-}
-
 function getFocusDurationLabel(record: FocusRecord) {
-  return `${getFocusRecordFocusMinutes(record)} minutes`;
+  return `${record.completedFocusIntervalCount * record.focusIntervalMinutes} minutes`;
 }
 
 function getCompletedFocusIntervalsLabel(record: FocusRecord) {

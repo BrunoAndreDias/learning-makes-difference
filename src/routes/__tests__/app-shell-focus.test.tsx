@@ -244,14 +244,9 @@ describe("authenticated app shell", () => {
     expect(within(tableRows[2]).getByText("1 completed")).toBeInTheDocument();
     expect(within(tableRows[2]).getByText("1 touched")).toBeInTheDocument();
 
-    const recentCompletedFocus = screen.getByLabelText("Recent study time");
     expect(
-      within(recentCompletedFocus).getByText("75 minutes"),
+      screen.getByRole("region", { name: "This week at a glance" }),
     ).toBeInTheDocument();
-    expect(
-      within(recentCompletedFocus).getByText("5 minutes"),
-    ).toBeInTheDocument();
-    expect(within(recentCompletedFocus).getByText("2")).toBeInTheDocument();
 
     const targetPanel = screen.getByRole("region", {
       name: "Recent focus targets",
@@ -302,6 +297,13 @@ describe("authenticated app shell", () => {
         /Touch notes or recall during focus sessions to build recent target context here\./i,
       ),
     ).toBeInTheDocument();
+    const analyticsStrip = screen.getByRole("region", {
+      name: "This week at a glance",
+    });
+    expect(within(analyticsStrip).getAllByText("0")).not.toHaveLength(0);
+    expect(
+      within(analyticsStrip).getAllByText("No change vs last week"),
+    ).toHaveLength(6);
     expect(
       screen.queryByRole("table", { name: "Recent focus sessions" }),
     ).toBeNull();
