@@ -30,7 +30,7 @@ type FocusSessionStartField = keyof FocusSessionStartValues;
 const DEFAULT_FOCUS_SESSION_START_VALUES: FocusSessionStartValues = {
   breakMinutes: "5",
   focusMinutes: "25",
-  plannedFocusIntervals: "",
+  plannedFocusIntervals: "4",
 };
 const FOCUS_RECORD_DATE_FORMATTER = new Intl.DateTimeFormat("en", {
   day: "numeric",
@@ -70,6 +70,7 @@ function FocusPage() {
   const activeSession =
     userId === null ? null : focus.getActiveSession({ userId });
   const headingRef = useRef<HTMLHeadingElement | null>(null);
+  useFocusTimerTick(activeSession);
   const records =
     userId === null
       ? []
@@ -87,8 +88,6 @@ function FocusPage() {
       total + record.completedBreakIntervalCount * record.breakIntervalMinutes,
     0,
   );
-  const activeSessionDisplay = getActiveSessionDisplay(activeSession);
-
   useEffect(() => {
     headingRef.current?.focus();
   }, []);
@@ -98,39 +97,30 @@ function FocusPage() {
       aria-labelledby="focus-records-heading"
       className="focus-workspace"
     >
-      <header className="focus-hero">
-        <div className="focus-hero__content">
-          <p className="section-label">Focus review</p>
-          <h3 id="focus-records-heading" ref={headingRef} tabIndex={-1}>
-            Study sessions
-          </h3>
-          <p>
-            Plan a Pomodoro block, keep the timer visible, and review what you
-            studied without leaving the workspace.
-          </p>
-          <div className="tag-row focus-hero__tags">
-            <span className="tag">{records.length} study sessions</span>
-            <span className="tag">{recentFocusMinutes} recent focus min</span>
-            <span className="tag">{recentBreakMinutes} recent break min</span>
-          </div>
-        </div>
-        <aside aria-label="Current focus session" className="focus-now-card">
-          <span className="focus-now-card__label">
-            {activeSessionDisplay.label}
-          </span>
-          <strong>{activeSessionDisplay.summary}</strong>
-          <span>{activeSessionDisplay.detail}</span>
-        </aside>
+      <header className="focus-page-header">
+        <p className="section-label">Focus</p>
+        <h3 id="focus-records-heading" ref={headingRef} tabIndex={-1}>
+          Study sessions
+        </h3>
+        <p>Run a Pomodoro session to stay focused and make steady progress.</p>
       </header>
 
-      <div className="focus-grid">
+      <section className="focus-session-workspace">
+        <ActiveFocusSessionPanel
+          activeSession={activeSession}
+          focus={focus}
+          persistentFocus={persistentFocus}
+          userId={userId}
+        />
         <FocusSessionConfig
           activeSession={activeSession}
           focus={focus}
           persistentFocus={persistentFocus}
           userId={userId}
         />
+      </section>
 
+      <div className="focus-grid">
         <article className="focus-card focus-summary-card">
           <div className="focus-card__header">
             <div>
@@ -237,6 +227,144 @@ function FocusPage() {
   );
 }
 
+function ActiveFocusSessionPanel({
+  activeSession,
+  focus,
+  persistentFocus,
+  userId,
+}: Readonly<{
+  activeSession: FocusSession | null;
+  focus: AppFocusContext;
+  persistentFocus?: AppPersistentFocusContext;
+  userId: string | null;
+}>) {
+  const headingId = useId();
+  const currentActiveSession =
+    userId === null ? activeSession : focus.getActiveSession({ userId });
+
+  async function endFocusSession() {
+    if (userId === null || currentActiveSession === null) {
+      return;
+    }
+
+    if (persistentFocus === undefined) {
+      focus.endFocusSession({ userId });
+      return;
+    }
+
+    await persistentFocus.endFocusSession(userId);
+  }
+
+  async function advanceFocusSession() {
+    if (userId === null || currentActiveSession === null) {
+      return;
+    }
+
+    if (persistentFocus === undefined) {
+      focus.startNextFocusInterval({ userId });
+      return;
+    }
+
+    await persistentFocus.startNextFocusInterval(userId);
+  }
+
+  const sessionStatus = getFocusSessionStatus(currentActiveSession);
+
+  return (
+    <section aria-label="Active focus session" className="focus-session-panel">
+      <div className="focus-session-panel__header">
+        <div>
+          <p className="section-label">Active session</p>
+          <h4 id={headingId}>Focus session</h4>
+        </div>
+        <span className="focus-session-panel__status">
+          {sessionStatus.label}
+        </span>
+      </div>
+
+      {currentActiveSession === null ? (
+        <>
+          <div className="focus-session-panel__timer">
+            <strong>--:--</strong>
+            <span>Start a session from setup when you are ready.</span>
+          </div>
+          <dl
+            aria-label="Current session details"
+            className="focus-session-panel__stats"
+          >
+            <div>
+              <dt>Focus</dt>
+              <dd>25 min</dd>
+            </div>
+            <div>
+              <dt>Break</dt>
+              <dd>5 min</dd>
+            </div>
+            <div>
+              <dt>Intervals</dt>
+              <dd>4</dd>
+            </div>
+            <div>
+              <dt>Completed</dt>
+              <dd>0 / 4</dd>
+            </div>
+          </dl>
+        </>
+      ) : (
+        <>
+          <div className="focus-session-panel__timer">
+            <strong>{getRemainingTimerLabel(currentActiveSession)}</strong>
+            <span>{getActiveTimerDescription(currentActiveSession)}</span>
+          </div>
+          <div className="focus-session-panel__actions">
+            <button
+              className="notes-action notes-action-primary"
+              onClick={() => {
+                void endFocusSession();
+              }}
+              type="button"
+            >
+              End focus session
+            </button>
+            {sessionStatus.actionLabel === null ? null : (
+              <button
+                className="notes-action"
+                onClick={() => {
+                  void advanceFocusSession();
+                }}
+                type="button"
+              >
+                {sessionStatus.actionLabel}
+              </button>
+            )}
+          </div>
+          <dl
+            aria-label="Current session details"
+            className="focus-session-panel__stats"
+          >
+            <div>
+              <dt>Focus</dt>
+              <dd>{currentActiveSession.focusIntervalMinutes} min</dd>
+            </div>
+            <div>
+              <dt>Break</dt>
+              <dd>{currentActiveSession.breakIntervalMinutes} min</dd>
+            </div>
+            <div>
+              <dt>Intervals</dt>
+              <dd>{getPlannedIntervalsLabel(currentActiveSession)}</dd>
+            </div>
+            <div>
+              <dt>Completed</dt>
+              <dd>{getCompletedIntervalsLabel(currentActiveSession)}</dd>
+            </div>
+          </dl>
+        </>
+      )}
+    </section>
+  );
+}
+
 function FocusSessionConfig({
   activeSession,
   focus,
@@ -253,7 +381,6 @@ function FocusSessionConfig({
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const errorId = useId();
-  useFocusTimerTick(activeSession);
   const currentActiveSession =
     userId === null ? activeSession : focus.getActiveSession({ userId });
 
@@ -292,10 +419,7 @@ function FocusSessionConfig({
         });
       }
       setErrorMessage(null);
-      setStartValues((currentValues) => ({
-        ...currentValues,
-        plannedFocusIntervals: "",
-      }));
+      setStartValues(DEFAULT_FOCUS_SESSION_START_VALUES);
     } catch (error) {
       if (error instanceof AppFocusError) {
         setErrorMessage(error.message);
@@ -306,17 +430,22 @@ function FocusSessionConfig({
     }
   }
 
+  function handleReset() {
+    setStartValues(DEFAULT_FOCUS_SESSION_START_VALUES);
+    setErrorMessage(null);
+  }
+
   return (
     <article className="focus-card focus-card--setup">
       <div className="focus-card__header">
         <div>
-          <p className="section-label">Focus config</p>
-          <strong className="focus-card-title">Pomodoro timer</strong>
+          <p className="section-label">Session setup</p>
+          <strong className="focus-card-title">Session setup</strong>
         </div>
       </div>
       <form
         aria-describedby={errorMessage === null ? undefined : errorId}
-        aria-label="Focus session start"
+        aria-label="Session setup"
         className="focus-config-form"
         onSubmit={handleSubmit}
       >
@@ -348,7 +477,7 @@ function FocusSessionConfig({
             />
           </label>
           <label>
-            <span>Planned focus intervals</span>
+            <span>Planned intervals</span>
             <input
               disabled={currentActiveSession !== null}
               inputMode="numeric"
@@ -356,28 +485,33 @@ function FocusSessionConfig({
               onChange={(event) =>
                 updateStartValue("plannedFocusIntervals", event.target.value)
               }
-              placeholder="Optional"
               type="number"
               value={startValues.plannedFocusIntervals}
             />
           </label>
         </div>
-        {currentActiveSession === null ? (
-          <button className="notes-action notes-action-primary" type="submit">
-            Start Focus
-          </button>
-        ) : (
+        <p className="focus-setup-note">
+          {currentActiveSession === null
+            ? "Changes apply to your next session."
+            : "Changes apply to your next session. Setup is locked while focus is active."}
+        </p>
+        <div className="focus-config-form__actions">
           <button
             className="notes-action notes-action-primary"
-            disabled
+            disabled={currentActiveSession !== null}
+            type="submit"
+          >
+            Start focus session
+          </button>
+          <button
+            className="notes-action"
+            disabled={currentActiveSession !== null}
+            onClick={handleReset}
             type="button"
           >
-            Focus{" "}
-            <span aria-hidden="true">
-              {getRemainingTimerLabel(currentActiveSession)}
-            </span>
+            Reset to defaults
           </button>
-        )}
+        </div>
         {errorMessage === null ? null : (
           <span id={errorId} role="alert">
             {errorMessage}
@@ -406,54 +540,74 @@ function getBreakMetricLabel(record: FocusRecord) {
   return `${intervalLabel}, ${breakMinutes} minutes`;
 }
 
-function getActiveSessionDisplay(session: FocusSession | null) {
+function getFocusSessionStatus(session: FocusSession | null) {
   if (session === null) {
     return {
-      detail: "Start a session below when you are ready.",
+      actionLabel: null,
       label: "Ready",
-      summary: "No timer running",
     };
   }
 
-  return {
-    detail: getActiveSessionDetail(session),
-    label: session.intervalState,
-    summary: getActiveSessionSummary(session),
-  };
-}
-
-function getActiveSessionSummary(session: FocusSession) {
-  const remainingLabel = getRemainingMinuteLabel(session);
+  if (session.isStale) {
+    return {
+      actionLabel: null,
+      label: "Session stale",
+    };
+  }
 
   switch (session.intervalState) {
     case "Focus":
-      return `${remainingLabel} left in focus`;
-    case "Break":
-      return `${remainingLabel} left in break`;
+      return {
+        actionLabel: null,
+        label: "In progress",
+      };
     case "Transition":
-      return `${remainingLabel} transition`;
+      return {
+        actionLabel: "Keep focusing",
+        label: "Transition window",
+      };
+    case "Break":
+      return {
+        actionLabel: "Skip break",
+        label: "Break",
+      };
     case "AwaitingNextFocus":
-      return session.isStale ? "Stale session" : "Ready for next focus";
+      return {
+        actionLabel: "Start next focus",
+        label: "Ready for next focus",
+      };
   }
 }
 
-function getActiveSessionDetail(session: FocusSession) {
-  const completedLabel = `${session.completedFocusIntervalCount} completed`;
-  let plannedLabel = "open-ended";
-
-  if (session.plannedFocusIntervalCount !== null) {
-    plannedLabel = `${session.plannedFocusIntervalCount} planned`;
+function getActiveTimerDescription(session: FocusSession) {
+  switch (session.intervalState) {
+    case "Focus":
+      return "Focus time remaining";
+    case "Transition":
+      return "Time left to keep focusing before break starts";
+    case "Break":
+      return "Break time remaining";
+    case "AwaitingNextFocus":
+      return session.isStale
+        ? "This session is stale and should be ended."
+        : "Break complete. Start the next focus interval when ready.";
   }
-
-  return `${completedLabel} · ${plannedLabel}`;
 }
 
-function getRemainingMinuteLabel(session: FocusSession) {
-  const remainingSeconds = session.remainingSeconds ?? 0;
-  const remainingMinutes =
-    remainingSeconds <= 0 ? 0 : Math.ceil(remainingSeconds / 60);
+function getPlannedIntervalsLabel(session: FocusSession) {
+  if (session.plannedFocusIntervalCount === null) {
+    return "Open";
+  }
 
-  return formatCount(remainingMinutes, "min", "mins");
+  return String(session.plannedFocusIntervalCount);
+}
+
+function getCompletedIntervalsLabel(session: FocusSession) {
+  if (session.plannedFocusIntervalCount === null) {
+    return String(session.completedFocusIntervalCount);
+  }
+
+  return `${session.completedFocusIntervalCount} / ${session.plannedFocusIntervalCount}`;
 }
 
 function getRemainingTimerLabel(session: FocusSession) {

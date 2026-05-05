@@ -20,6 +20,118 @@ import {
 } from "./app-shell-test-support";
 
 describe("authenticated app shell", () => {
+  it("renders an active FocusSession workspace with supported actions and disabled setup controls", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-05-01T10:00:00.000Z"));
+
+    const keyPrefix = `test-focus-workspace-active-${Math.random().toString(36).slice(2)}`;
+    const userId = "user-focus-workspace-active";
+    const focusContext = createAppFocusContext({
+      keyPrefix,
+      storage: window.localStorage,
+    });
+
+    focusContext.startFocusSession({
+      breakIntervalMinutes: 5,
+      focusIntervalMinutes: 25,
+      plannedFocusIntervalCount: 4,
+      userId,
+    });
+
+    renderRoute("/focus", {
+      focusContext,
+      session: {
+        user: {
+          displayName: "Casey Focus Workspace",
+          email: "casey.focus.workspace@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Focus" }),
+    ).toBeInTheDocument();
+
+    const activePanel = screen.getByRole("region", {
+      name: "Active focus session",
+    });
+    expect(within(activePanel).getByText("Focus session")).toBeInTheDocument();
+    expect(within(activePanel).getByText("In progress")).toBeInTheDocument();
+    expect(within(activePanel).getByText("25:00")).toBeInTheDocument();
+    expect(within(activePanel).getByText("25 min")).toBeInTheDocument();
+    expect(within(activePanel).getByText("5 min")).toBeInTheDocument();
+    expect(within(activePanel).getByText("4")).toBeInTheDocument();
+    expect(within(activePanel).getByText("0 / 4")).toBeInTheDocument();
+    expect(
+      within(activePanel).getByRole("button", { name: "End focus session" }),
+    ).toBeInTheDocument();
+    expect(
+      within(activePanel).queryByRole("button", { name: /pause/i }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Keep focusing" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Skip break" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Start next focus" }),
+    ).toBeNull();
+
+    const setupPanel = screen.getByRole("form", { name: "Session setup" });
+    expect(within(setupPanel).getByLabelText("Focus minutes")).toHaveValue(25);
+    expect(within(setupPanel).getByLabelText("Break minutes")).toHaveValue(5);
+    expect(within(setupPanel).getByLabelText("Planned intervals")).toHaveValue(
+      4,
+    );
+    expect(within(setupPanel).getByLabelText("Focus minutes")).toBeDisabled();
+    expect(within(setupPanel).getByLabelText("Break minutes")).toBeDisabled();
+    expect(
+      within(setupPanel).getByLabelText("Planned intervals"),
+    ).toBeDisabled();
+    expect(
+      within(setupPanel).getByRole("button", { name: "Reset to defaults" }),
+    ).toBeDisabled();
+  });
+
+  it("resets Focus session setup to the route defaults when inactive", async () => {
+    const userId = "user-focus-setup-reset";
+    renderRoute("/focus", {
+      session: {
+        user: {
+          displayName: "Casey Focus Reset",
+          email: "casey.focus.reset@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Focus" }),
+    ).toBeInTheDocument();
+
+    const setupPanel = screen.getByRole("form", { name: "Session setup" });
+    const focusMinutes = within(setupPanel).getByLabelText("Focus minutes");
+    const breakMinutes = within(setupPanel).getByLabelText("Break minutes");
+    const plannedIntervals =
+      within(setupPanel).getByLabelText("Planned intervals");
+
+    fireEvent.change(focusMinutes, { target: { value: "40" } });
+    fireEvent.change(breakMinutes, { target: { value: "8" } });
+    fireEvent.change(plannedIntervals, { target: { value: "6" } });
+    fireEvent.click(
+      within(setupPanel).getByRole("button", { name: "Reset to defaults" }),
+    );
+
+    expect(focusMinutes).toHaveValue(25);
+    expect(breakMinutes).toHaveValue(5);
+    expect(plannedIntervals).toHaveValue(4);
+    expect(
+      within(setupPanel).getByRole("button", { name: "Start focus session" }),
+    ).toBeEnabled();
+  });
+
   it("renders completed focus records newest first with metrics, targets, aggregate, and read-only history", async () => {
     vi.useFakeTimers();
 
@@ -111,7 +223,9 @@ describe("authenticated app shell", () => {
       screen.queryByRole("button", { name: /edit focus record/i }),
     ).toBeNull();
 
-    const metricHeadings = screen.getAllByRole("heading", { level: 4 });
+    const metricHeadings = screen
+      .getAllByRole("heading", { level: 4 })
+      .filter((heading) => heading.textContent?.includes("minutes focused"));
     expect(metricHeadings.map((heading) => heading.textContent)).toEqual([
       "50 minutes focused",
       "25 minutes focused",
@@ -165,7 +279,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
 
     const focusControls = screen.getByRole("form", {
-      name: "Focus session start",
+      name: "Session setup",
     });
     fireEvent.change(within(focusControls).getByLabelText("Focus minutes"), {
       target: { value: "30" },
@@ -174,7 +288,7 @@ describe("authenticated app shell", () => {
       target: { value: "10" },
     });
     fireEvent.change(
-      within(focusControls).getByLabelText("Planned focus intervals"),
+      within(focusControls).getByLabelText("Planned intervals"),
       {
         target: { value: "4" },
       },
@@ -317,7 +431,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
 
     const focusControls = screen.getByRole("form", {
-      name: "Focus session start",
+      name: "Session setup",
     });
     fireEvent.change(within(focusControls).getByLabelText("Focus minutes"), {
       target: { value: "35" },
@@ -326,7 +440,7 @@ describe("authenticated app shell", () => {
       target: { value: "7" },
     });
     fireEvent.change(
-      within(focusControls).getByLabelText("Planned focus intervals"),
+      within(focusControls).getByLabelText("Planned intervals"),
       {
         target: { value: "5" },
       },
@@ -500,7 +614,7 @@ describe("authenticated app shell", () => {
       ).toBeInTheDocument();
 
       const focusControls = screen.getByRole("form", {
-        name: "Focus session start",
+        name: "Session setup",
       });
       fireEvent.change(within(focusControls).getByLabelText("Focus minutes"), {
         target: { value: "25" },
