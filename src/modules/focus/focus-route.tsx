@@ -53,6 +53,8 @@ type RecentFocusTargetSummary = {
 const DEFAULT_BREAK_MINUTES = "5";
 const DEFAULT_FOCUS_MINUTES = "25";
 const DEFAULT_PLANNED_FOCUS_INTERVALS = "4";
+const RECENT_FOCUS_RECORD_LIMIT = 7;
+const RECENT_FOCUS_TARGET_LIMIT = 5;
 const DEFAULT_FOCUS_SESSION_START_VALUES: FocusSessionStartValues = {
   breakMinutes: DEFAULT_BREAK_MINUTES,
   focusMinutes: DEFAULT_FOCUS_MINUTES,
@@ -103,16 +105,14 @@ function FocusPage() {
       : [...focus.getFocusRecords({ userId })].sort(
           (left, right) => Date.parse(right.endedAt) - Date.parse(left.endedAt),
         );
-  const recentRecords = records.slice(0, 7);
+  const recentRecords = records.slice(0, RECENT_FOCUS_RECORD_LIMIT);
   const recentFocusTargets = getRecentFocusTargetSummaries(recentRecords);
   const recentFocusMinutes = recentRecords.reduce(
-    (total, record) =>
-      total + record.completedFocusIntervalCount * record.focusIntervalMinutes,
+    (total, record) => total + getFocusRecordFocusMinutes(record),
     0,
   );
   const recentBreakMinutes = recentRecords.reduce(
-    (total, record) =>
-      total + record.completedBreakIntervalCount * record.breakIntervalMinutes,
+    (total, record) => total + getFocusRecordBreakMinutes(record),
     0,
   );
   useEffect(() => {
@@ -152,7 +152,9 @@ function FocusPage() {
           <div className="focus-card__header">
             <div>
               <p className="section-label">Recent study time</p>
-              <strong className="focus-card-title">Last 7 sessions</strong>
+              <strong className="focus-card-title">
+                Last {RECENT_FOCUS_RECORD_LIMIT} sessions
+              </strong>
             </div>
           </div>
           <dl className="focus-metrics" aria-label="Recent study time">
@@ -194,7 +196,9 @@ function FocusPage() {
                     {target.kindLabel}
                   </span>
                   <strong>{target.title}</strong>
-                  <span>{target.context}</span>
+                  <span className="focus-target-panel-list__context">
+                    {target.context}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -246,7 +250,7 @@ function FocusPage() {
                         {formatRecentFocusRecordDate(record.endedAt)}
                       </time>
                     </td>
-                    <td>{getPrimaryMetricLabel(record)}</td>
+                    <td>{getFocusDurationLabel(record)}</td>
                     <td>{getCompletedFocusIntervalsLabel(record)}</td>
                     <td>{getTouchedTargetsLabel(record)}</td>
                     <td>Completed</td>
@@ -513,11 +517,16 @@ function FocusSessionConfig({
   );
 }
 
-function getPrimaryMetricLabel(record: FocusRecord) {
-  const focusMinutes =
-    record.completedFocusIntervalCount * record.focusIntervalMinutes;
+function getFocusRecordFocusMinutes(record: FocusRecord) {
+  return record.completedFocusIntervalCount * record.focusIntervalMinutes;
+}
 
-  return `${focusMinutes} minutes`;
+function getFocusRecordBreakMinutes(record: FocusRecord) {
+  return record.completedBreakIntervalCount * record.breakIntervalMinutes;
+}
+
+function getFocusDurationLabel(record: FocusRecord) {
+  return `${getFocusRecordFocusMinutes(record)} minutes`;
 }
 
 function getCompletedFocusIntervalsLabel(record: FocusRecord) {
@@ -525,7 +534,7 @@ function getCompletedFocusIntervalsLabel(record: FocusRecord) {
 }
 
 function getTouchedTargetsLabel(record: FocusRecord) {
-  return `${getTargetDescriptions(record).length} touched`;
+  return `${getTouchedTargetDescriptions(record).length} touched`;
 }
 
 function getFocusSessionPanelDetails(
@@ -661,9 +670,13 @@ function getRemainingTimerLabel(session: FocusSession) {
   return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 }
 
-function getTargetDescriptions(record: FocusRecord) {
+function getFocusRecordTargets(record: FocusRecord) {
+  return [...record.targets, ...record.focusTargets];
+}
+
+function getTouchedTargetDescriptions(record: FocusRecord) {
   return Array.from(
-    new Set([...record.targets, ...record.focusTargets].map(describeTarget)),
+    new Set(getFocusRecordTargets(record).map(describeTouchedTarget)),
   );
 }
 
@@ -673,66 +686,85 @@ function getRecentFocusTargetSummaries(
   const recentTargets = new Map<string, RecentFocusTargetSummary>();
 
   for (const record of records) {
-    for (const target of [...record.targets, ...record.focusTargets]) {
-      const summary = summarizeFocusTarget(target);
+    for (const target of getFocusRecordTargets(record)) {
+      const targetKey = getFocusTargetKey(target);
 
-      if (!recentTargets.has(summary.key)) {
-        recentTargets.set(summary.key, summary);
+      if (!recentTargets.has(targetKey)) {
+        recentTargets.set(targetKey, summarizeFocusTarget(target, targetKey));
       }
     }
   }
 
-  return Array.from(recentTargets.values()).slice(0, 5);
+  return Array.from(recentTargets.values()).slice(0, RECENT_FOCUS_TARGET_LIMIT);
 }
 
 function formatRecentFocusRecordDate(value: string) {
   return FOCUS_RECORD_TABLE_DATE_FORMATTER.format(new Date(value));
 }
 
-function describeTarget(target: FocusTarget) {
+function describeTouchedTarget(target: FocusTarget) {
   if (target.kind === "RecallSession") {
     const noteTitles = target.notes.map((note) => note.title).join(", ");
-    const labelNames = formatFocusTargetLabels(target.labels);
+    const labelNames = formatRecallFocusTargetLabels(target.labels);
 
     return `${formatFocusTargetKindLabel(target.kind)}: ${noteTitles} | Labels: ${labelNames}`;
   }
 
   if (target.labels.length === 0) {
-    return `Note study: ${target.note.title} | No labels yet`;
+    return `${formatFocusTargetKindLabel(target.kind)}: ${target.note.title} | No labels yet`;
   }
 
-  return `Note study: ${target.note.title} | Labels: ${target.labels
-    .map((label) => label.name)
-    .join(", ")}`;
+  return `${formatFocusTargetKindLabel(target.kind)}: ${target.note.title} | Labels: ${formatLabelNames(target.labels)}`;
 }
 
-function formatFocusTargetLabels(labels: FocusTarget["labels"]) {
+function getFocusTargetKey(target: FocusTarget) {
+  if (target.kind === "RecallSession") {
+    return `RecallSession:${target.recallSession.id}`;
+  }
+
+  return `Note:${target.note.id}`;
+}
+
+function formatLabelNames(labels: FocusTarget["labels"]) {
+  return labels.map((label) => label.name).join(", ");
+}
+
+function formatRecallFocusTargetLabels(labels: FocusTarget["labels"]) {
   if (labels.length === 0) {
     return "no labels";
   }
 
-  return labels.map((label) => label.name).join(", ");
+  return formatLabelNames(labels);
 }
 
-function summarizeFocusTarget(target: FocusTarget): RecentFocusTargetSummary {
-  if (target.kind === "RecallSession") {
-    return {
-      context: formatFocusTargetLabels(target.labels),
-      key: `RecallSession:${target.recallSession.id}`,
-      kindLabel: "Recall practice",
-      title: target.notes.map((note) => note.title).join(", "),
-    };
+function formatNoteFocusTargetPanelContext(labels: FocusTarget["labels"]) {
+  if (labels.length === 0) {
+    return "No labels";
   }
 
-  return {
-    context:
-      target.labels.length === 0
-        ? "No labels"
-        : target.labels.map((label) => label.name).join(", "),
-    key: `Note:${target.note.id}`,
-    kindLabel: "Note study",
-    title: target.note.title,
-  };
+  return formatLabelNames(labels);
+}
+
+function summarizeFocusTarget(
+  target: FocusTarget,
+  key: string,
+): RecentFocusTargetSummary {
+  switch (target.kind) {
+    case "RecallSession":
+      return {
+        context: formatRecallFocusTargetLabels(target.labels),
+        key,
+        kindLabel: formatFocusTargetKindLabel(target.kind),
+        title: target.notes.map((note) => note.title).join(", "),
+      };
+    case "Note":
+      return {
+        context: formatNoteFocusTargetPanelContext(target.labels),
+        key,
+        kindLabel: formatFocusTargetKindLabel(target.kind),
+        title: target.note.title,
+      };
+  }
 }
 
 function parseOptionalNumber(value: string) {
