@@ -103,9 +103,3 @@
   min-height: 14rem;
   resize: vertical;
 }
-
-.notes-action-primary {
-  background: var(--color-primary);
-  border-color: transparent;
-  color: var(--color-primary-foreground);
-}

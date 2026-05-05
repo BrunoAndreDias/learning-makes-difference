@@ -251,13 +251,16 @@ describe("authenticated app shell", () => {
       ".labels-table__row td:last-child::after {\n  right: 0.85rem;",
     );
     expect(css).toContain(
-      ".labels-table__row--active td::before {\n  position: absolute;\n  top: 0.5rem;",
+      ".labels-table__row--active td {\n  background: var(--color-primary-soft);",
     );
     expect(css).toContain(
-      ".labels-table__row--active td:first-child::before {\n  left: 0.85rem;",
+      ".labels-table__row--active td::before {\n  content: none;",
     );
     expect(css).toContain(
-      ".labels-table__row--active td:last-child::before {\n  right: 0.85rem;",
+      ".labels-table__row--active td:first-child {\n  border-top-left-radius: 0.7rem;",
+    );
+    expect(css).toContain(
+      ".labels-table__row--active td:last-child {\n  border-top-right-radius: 0.7rem;",
     );
     expect(css).not.toContain(
       ".labels-table tbody tr:last-child td {\n  border-bottom: 0;",
@@ -359,11 +362,12 @@ describe("authenticated app shell", () => {
       name: "Start Focus",
     });
     const newLabelButton = screen.getByRole("button", { name: "New label" });
-    expect(startFocusButton).toHaveClass(
-      "notes-action",
-      "notes-action-primary",
-    );
+    expect(startFocusButton).toHaveClass("notes-action-secondary");
     expect(newLabelButton).toHaveClass("notes-action", "notes-action-primary");
+    expect(
+      startFocusButton.compareDocumentPosition(newLabelButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
     const searchInput = screen.getByPlaceholderText("Search labels...");
     expect(searchInput).toBeInTheDocument();
@@ -548,6 +552,15 @@ describe("authenticated app shell", () => {
     const createButton = within(drawer).getByRole("button", {
       name: "Create label",
     });
+    const cancelButton = within(drawer).getByRole("button", {
+      name: "Cancel",
+    });
+    expect(cancelButton).toHaveClass("notes-action-secondary");
+    expect(createButton).toHaveClass("notes-action-primary");
+    expect(
+      cancelButton.compareDocumentPosition(createButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(createButton).toBeDisabled();
 
     const parentSearchInput = within(drawer).getByLabelText(
@@ -735,6 +748,18 @@ describe("authenticated app shell", () => {
     expect(
       within(drawer).getByRole("button", { name: "Save changes" }),
     ).toBeDisabled();
+    const cancelButton = within(drawer).getByRole("button", {
+      name: "Cancel",
+    });
+    const saveButton = within(drawer).getByRole("button", {
+      name: "Save changes",
+    });
+    expect(cancelButton).toHaveClass("notes-action-secondary");
+    expect(saveButton).toHaveClass("notes-action-primary");
+    expect(
+      cancelButton.compareDocumentPosition(saveButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(within(drawer).getByText("Danger zone")).toBeInTheDocument();
     expect(
       within(drawer).getByRole("button", { name: "Delete label" }),
@@ -990,10 +1015,20 @@ describe("authenticated app shell", () => {
     expect(
       within(deleteModal).getByText("Notes will not be deleted."),
     ).toBeInTheDocument();
+    const cancelButton = within(deleteModal).getByRole("button", {
+      name: "Cancel",
+    });
+    const deleteButton = within(deleteModal).getByRole("button", {
+      name: "Delete label",
+    });
+    expect(cancelButton).toHaveClass("notes-action-secondary");
+    expect(deleteButton).toHaveClass("notes-action-danger");
+    expect(
+      cancelButton.compareDocumentPosition(deleteButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
-    fireEvent.click(
-      within(deleteModal).getByRole("button", { name: "Cancel" }),
-    );
+    fireEvent.click(cancelButton);
 
     await expectDialogToBeClosed("Delete “Biology”?");
     expect(screen.getByRole("button", { name: "Biology" })).toBeInTheDocument();

@@ -1,61 +1,58 @@
 .focus-workspace {
+  --focus-accent: var(--color-primary);
+  --focus-accent-hover: var(--color-primary-hover);
+  --focus-accent-soft: var(--color-primary-soft);
+  --focus-accent-border: var(--color-primary-soft-border);
+  --focus-break-accent: var(--color-secondary);
+  --focus-break-soft: var(--color-secondary-soft);
+  --focus-break-border: var(--color-secondary-soft-border);
+  --focus-creative-accent: var(--color-creative);
+  --focus-creative-soft: var(--color-creative-soft);
+  --focus-creative-border: var(--color-creative-soft-border);
+  --focus-warm-accent: var(--color-accent-strong);
+  --focus-warm-soft: var(--color-accent-soft);
+  --focus-warm-border: var(--color-accent-soft-border);
+  --focus-success-accent: var(--color-success);
+  --focus-success-soft: var(--color-success-soft);
+  --focus-success-border: var(--color-success-soft-border);
   display: grid;
   align-content: start;
   gap: 1rem;
   min-height: 100%;
   padding: 1.25rem;
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--color-shell-canvas) 86%, transparent),
-      transparent 36rem
-    ),
-    var(--color-shell-panel);
+  background: var(--color-shell-panel);
   color: var(--color-content-default);
   font-family: var(--font-body);
 }
 
-.focus-page-header,
 .focus-session-panel,
-.focus-card,
-.focus-empty-state {
+.focus-card {
   border: 1px solid var(--color-content-border-soft);
   border-radius: 0.75rem;
   background: var(--color-shell-panel);
   box-shadow: var(--shadow-card);
 }
 
-.focus-page-header,
 .focus-session-panel {
   padding: clamp(1rem, 2.4vw, 1.5rem);
 }
 
-.focus-page-header {
-  display: grid;
-  gap: 0.75rem;
-  background:
-    radial-gradient(
-      32rem 18rem at 8% 0%,
-      color-mix(in srgb, var(--color-secondary-soft) 72%, transparent),
-      transparent 72%
-    ),
-    var(--color-shell-panel);
+.app-frame[data-workspace="focus"] .app-frame__workspace-header {
+  border-bottom: 0;
 }
 
-.focus-page-header h3,
+.focus-workspace .section-label {
+  color: var(--focus-accent-hover);
+  font-weight: 700;
+}
+
 .focus-session-panel h4,
 .focus-card-title,
-.focus-card h4,
-.focus-section-heading h4,
-.focus-empty-state h4 {
+.focus-card h4 {
   margin: 0;
   color: var(--color-content-strong);
   font-family: var(--font-heading);
   line-height: 1.15;
-}
-
-.focus-page-header h3 {
-  font-size: clamp(1.55rem, 2.4vw, 2.15rem);
 }
 
 .focus-card-title {
@@ -64,10 +61,8 @@
   font-weight: 700;
 }
 
-.focus-page-header p,
 .focus-session-panel p,
-.focus-card p,
-.focus-empty-state p {
+.focus-card p {
   margin: 0;
 }
 
@@ -78,22 +73,26 @@
   align-items: stretch;
 }
 
-.focus-workspace .tag {
-  border: 1px solid var(--color-secondary-soft-border);
-  background: var(--color-secondary-soft);
-  color: var(--color-secondary-soft-foreground);
-}
-
 .focus-session-panel {
   display: grid;
   align-content: start;
   gap: 1rem;
   min-width: 0;
+  border-color: var(--focus-accent-border);
   background:
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--color-secondary-soft) 82%, transparent),
-      color-mix(in srgb, var(--color-shell-panel) 92%, transparent) 72%
+      color-mix(
+        in srgb,
+        var(--focus-accent-soft) 88%,
+        var(--color-shell-panel)
+      ),
+      color-mix(
+          in srgb,
+          var(--color-shell-panel) 94%,
+          var(--focus-creative-soft)
+        )
+        72%
     ),
     var(--color-shell-panel);
 }
@@ -109,13 +108,23 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.4rem;
   padding: 0.35rem 0.7rem;
-  border: 1px solid var(--color-secondary-soft-border);
+  border: 1px solid var(--focus-accent-border);
   border-radius: 999px;
-  background: var(--color-shell-panel);
-  color: var(--color-secondary);
+  background: var(--focus-accent-soft);
+  color: var(--focus-accent-hover);
   font-size: 0.875rem;
   font-weight: 700;
+}
+
+.focus-session-panel__status::before {
+  display: block;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
 }
 
 .focus-session-panel__timer {
@@ -153,13 +162,38 @@
 }
 
 .focus-session-panel__stats div {
+  --focus-stat-accent: var(--focus-accent);
+  --focus-stat-border: var(--focus-accent-border);
+  --focus-stat-surface: var(--focus-accent-soft);
   display: grid;
   gap: 0.2rem;
   min-width: 0;
   padding: 0.85rem;
-  border: 1px solid var(--color-content-border-soft);
+  border: 1px solid var(--focus-stat-border);
   border-radius: 0.65rem;
-  background: var(--color-shell-panel);
+  background: color-mix(
+    in srgb,
+    var(--focus-stat-surface) 68%,
+    var(--color-shell-panel)
+  );
+}
+
+.focus-session-panel__stats div:nth-child(2) {
+  --focus-stat-accent: var(--focus-break-accent);
+  --focus-stat-border: var(--focus-break-border);
+  --focus-stat-surface: var(--focus-break-soft);
+}
+
+.focus-session-panel__stats div:nth-child(3) {
+  --focus-stat-accent: var(--focus-creative-accent);
+  --focus-stat-border: var(--focus-creative-border);
+  --focus-stat-surface: var(--focus-creative-soft);
+}
+
+.focus-session-panel__stats div:nth-child(4) {
+  --focus-stat-accent: var(--focus-success-accent);
+  --focus-stat-border: var(--focus-success-border);
+  --focus-stat-surface: var(--focus-success-soft);
 }
 
 .focus-session-panel__stats dt {
@@ -172,13 +206,12 @@
 
 .focus-session-panel__stats dd {
   margin: 0;
-  color: var(--color-content-strong);
+  color: var(--focus-stat-accent);
   font-size: 1.15rem;
   font-weight: 700;
 }
 
-.focus-card,
-.focus-empty-state {
+.focus-card {
   display: grid;
   align-content: start;
   gap: 0.85rem;
@@ -186,32 +219,25 @@
   padding: 1rem;
 }
 
-.focus-card--quiet {
-  background: var(--color-shell-inset);
-  box-shadow: none;
-}
-
 .focus-card--analytics {
   gap: 1rem;
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--color-secondary-soft) 72%, transparent),
-      var(--color-shell-panel)
-    ),
-    var(--color-shell-panel);
+  border-color: var(--color-content-border-soft);
+  background: var(--color-shell-panel);
 }
 
-.focus-card__header,
-.focus-section-heading {
+.focus-card--setup {
+  border-color: var(--color-content-border-soft);
+  background: var(--color-shell-panel);
+}
+
+.focus-card__header {
   display: flex;
   align-items: start;
   justify-content: space-between;
   gap: 0.75rem;
 }
 
-.focus-card__header > div,
-.focus-section-heading > div {
+.focus-card__header > div {
   min-width: 0;
 }
 
@@ -223,16 +249,71 @@
 }
 
 .focus-weekly-analytics div {
+  --focus-metric-accent: var(--focus-accent);
+  --focus-metric-border: var(--focus-accent-border);
+  --focus-metric-surface: var(--focus-accent-soft);
   display: grid;
-  gap: 0.25rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.25rem 0.7rem;
   min-width: 0;
   padding: 0.85rem;
-  border: 1px solid var(--color-content-border-soft);
+  border: 1px solid var(--focus-metric-border);
   border-radius: 0.65rem;
-  background: color-mix(in srgb, var(--color-shell-panel) 86%, white);
+  background: color-mix(
+    in srgb,
+    var(--focus-metric-surface) 58%,
+    var(--color-shell-panel)
+  );
+}
+
+.focus-weekly-analytics div::before {
+  grid-row: 1 / span 3;
+  display: block;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--focus-metric-border);
+  border-radius: 0.55rem;
+  background: color-mix(
+    in srgb,
+    var(--focus-metric-accent) 16%,
+    var(--color-shell-panel)
+  );
+  content: "";
+}
+
+.focus-weekly-analytics div:nth-child(2) {
+  --focus-metric-accent: var(--focus-success-accent);
+  --focus-metric-border: var(--focus-success-border);
+  --focus-metric-surface: var(--focus-success-soft);
+}
+
+.focus-weekly-analytics div:nth-child(3) {
+  --focus-metric-accent: var(--focus-creative-accent);
+  --focus-metric-border: var(--focus-creative-border);
+  --focus-metric-surface: var(--focus-creative-soft);
+}
+
+.focus-weekly-analytics div:nth-child(4) {
+  --focus-metric-accent: var(--focus-break-accent);
+  --focus-metric-border: var(--focus-break-border);
+  --focus-metric-surface: var(--focus-break-soft);
+}
+
+.focus-weekly-analytics div:nth-child(5) {
+  --focus-metric-accent: var(--focus-success-accent);
+  --focus-metric-border: var(--focus-success-border);
+  --focus-metric-surface: var(--focus-success-soft);
+}
+
+.focus-weekly-analytics div:nth-child(6) {
+  --focus-metric-accent: var(--focus-warm-accent);
+  --focus-metric-border: var(--focus-warm-border);
+  --focus-metric-surface: var(--focus-warm-soft);
 }
 
 .focus-weekly-analytics dt {
+  grid-column: 2;
   color: var(--color-content-muted);
   font-size: 0.72rem;
   font-weight: 700;
@@ -241,8 +322,9 @@
 }
 
 .focus-weekly-analytics dd {
+  grid-column: 2;
   margin: 0;
-  color: var(--color-content-strong);
+  color: var(--focus-metric-accent);
   font-family: var(--font-heading);
   font-size: clamp(1.5rem, 2.8vw, 2rem);
   font-weight: 700;
@@ -250,94 +332,10 @@
 }
 
 .focus-weekly-analytics span {
+  grid-column: 2;
   color: var(--color-content-muted);
   font-size: 0.82rem;
   font-weight: 600;
-}
-
-.focus-records {
-  display: grid;
-  gap: 0.75rem;
-  min-width: 0;
-}
-
-.focus-records-table-wrapper {
-  overflow-x: auto;
-  border: 1px solid var(--color-content-border-soft);
-  border-radius: 0.75rem;
-  background: var(--color-shell-panel);
-  box-shadow: var(--shadow-card);
-}
-
-.focus-records-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.focus-records-table th,
-.focus-records-table td {
-  padding: 0.9rem 1rem;
-  border-bottom: 1px solid var(--color-content-border-soft);
-  text-align: left;
-  vertical-align: top;
-}
-
-.focus-records-table th {
-  background: var(--color-shell-inset);
-  color: var(--color-content-muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.focus-records-table td {
-  color: var(--color-content-strong);
-  font-size: 0.92rem;
-  font-weight: 600;
-}
-
-.focus-records-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.focus-records-table time {
-  color: var(--color-content-default);
-}
-
-.focus-target-panel-list {
-  display: grid;
-  gap: 0.65rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.focus-target-panel-list li {
-  display: grid;
-  gap: 0.2rem;
-  padding: 0.75rem;
-  border: 1px solid var(--color-content-border-soft);
-  border-radius: 0.65rem;
-  background: var(--color-shell-panel);
-}
-
-.focus-target-panel-list li strong {
-  color: var(--color-content-strong);
-  font-size: 0.95rem;
-}
-
-.focus-target-panel-list__context {
-  color: var(--color-content-muted);
-  font-size: 0.82rem;
-}
-
-.focus-target-panel-list__kind {
-  color: var(--color-secondary);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .focus-config-form {
@@ -377,7 +375,7 @@
 }
 
 .focus-config-form input:focus-visible {
-  border-color: var(--color-content-border);
+  border-color: var(--focus-accent);
   background: var(--color-shell-panel);
   outline: none;
   box-shadow: var(--focus-ring);
@@ -412,8 +410,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .focus-card__header,
-  .focus-section-heading {
+  .focus-card__header {
     align-items: stretch;
     flex-direction: column;
   }

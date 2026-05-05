@@ -11,13 +11,10 @@ import { listNotesForUser } from "../notes";
 import {
   type AppFocusContext,
   AppFocusError,
-  type FocusRecord,
   type FocusSession,
-  type FocusTarget,
 } from "./focus";
 import { useFocusTimerTick } from "./focus-session-start-control";
 import { deriveFocusWeeklyAnalytics } from "./focus-weekly-analytics";
-import { formatFocusTargetKindLabel } from "./learner-copy";
 import type { AppPersistentFocusContext } from "./persistent-focus";
 
 type FocusSessionStartValues = {
@@ -45,30 +42,14 @@ type FocusSessionPanelDetails = {
   timerLabel: string;
 };
 
-type RecentFocusTargetSummary = {
-  context: string;
-  key: string;
-  kindLabel: string;
-  title: string;
-};
-
 const DEFAULT_BREAK_MINUTES = "5";
 const DEFAULT_FOCUS_MINUTES = "25";
 const DEFAULT_PLANNED_FOCUS_INTERVALS = "4";
-const RECENT_FOCUS_RECORD_LIMIT = 7;
-const RECENT_FOCUS_TARGET_LIMIT = 5;
 const DEFAULT_FOCUS_SESSION_START_VALUES: FocusSessionStartValues = {
   breakMinutes: DEFAULT_BREAK_MINUTES,
   focusMinutes: DEFAULT_FOCUS_MINUTES,
   plannedFocusIntervals: DEFAULT_PLANNED_FOCUS_INTERVALS,
 };
-const FOCUS_RECORD_TABLE_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-  month: "short",
-  year: "numeric",
-});
 
 export const Route = createFileRoute("/_protected/focus")({
   component: FocusPage,
@@ -126,8 +107,6 @@ function FocusPage() {
   const userNotes = listNotesForUser(notesSnapshot, userId);
   const sessionResults =
     userId === null ? [] : recall.listSessionResults({ userId });
-  const recentRecords = records.slice(0, RECENT_FOCUS_RECORD_LIMIT);
-  const recentFocusTargets = getRecentFocusTargetSummaries(recentRecords);
   const weeklyAnalytics = deriveFocusWeeklyAnalytics({
     focusRecords: records,
     notes: userNotes,
@@ -140,15 +119,18 @@ function FocusPage() {
 
   return (
     <section
-      aria-labelledby="focus-records-heading"
+      aria-labelledby="focus-workspace-heading"
       className="focus-workspace"
     >
-      <header className="focus-page-header">
-        <p className="section-label">Focus</p>
-        <h3 id="focus-records-heading" ref={headingRef} tabIndex={-1}>
-          Study sessions
-        </h3>
-        <p>Run a Pomodoro session to stay focused and make steady progress.</p>
+      <header className="focus-workspace__page-header recall-surface__header">
+        <div className="notes-editor__title-stack">
+          <h3 id="focus-workspace-heading" ref={headingRef} tabIndex={-1}>
+            Focus
+          </h3>
+          <p className="muted notes-editor__meta">
+            Run a Pomodoro session to stay focused and make steady progress.
+          </p>
+        </div>
       </header>
 
       <section className="focus-session-workspace">
@@ -187,94 +169,6 @@ function FocusPage() {
             </div>
           ))}
         </dl>
-      </section>
-
-      <section
-        aria-label="Recent focus targets"
-        className="focus-card focus-card--quiet"
-      >
-        <div className="focus-card__header">
-          <div>
-            <p className="section-label">Recent targets</p>
-            <strong className="focus-card-title">Recent focus targets</strong>
-          </div>
-        </div>
-        {recentFocusTargets.length === 0 ? (
-          <p>
-            Touch notes or recall during focus sessions to build recent target
-            context here.
-          </p>
-        ) : (
-          <ul className="focus-target-panel-list">
-            {recentFocusTargets.map((target) => (
-              <li key={target.key}>
-                <span className="focus-target-panel-list__kind">
-                  {target.kindLabel}
-                </span>
-                <strong>{target.title}</strong>
-                <span className="focus-target-panel-list__context">
-                  {target.context}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section aria-label="Completed study sessions" className="focus-records">
-        <div className="focus-section-heading">
-          <div>
-            <p className="section-label">History</p>
-            <strong className="focus-card-title">
-              Completed study sessions
-            </strong>
-          </div>
-          <span className="tag">{records.length} total</span>
-        </div>
-        {records.length === 0 ? (
-          <article className="focus-empty-state">
-            <p className="section-label">No completed sessions yet</p>
-            <strong className="focus-card-title">
-              Finish your first session
-            </strong>
-            <p>
-              Completed sessions will appear here with proven focus duration,
-              touched targets, and completion status.
-            </p>
-          </article>
-        ) : (
-          <div className="focus-records-table-wrapper">
-            <table
-              aria-label="Recent focus sessions"
-              className="focus-records-table"
-            >
-              <thead>
-                <tr>
-                  <th scope="col">Completed</th>
-                  <th scope="col">Focus duration</th>
-                  <th scope="col">Focus intervals</th>
-                  <th scope="col">Touched targets</th>
-                  <th scope="col">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentRecords.map((record) => (
-                  <tr key={record.id}>
-                    <td>
-                      <time dateTime={record.endedAt}>
-                        {formatRecentFocusRecordDate(record.endedAt)}
-                      </time>
-                    </td>
-                    <td>{getFocusDurationLabel(record)}</td>
-                    <td>{getCompletedFocusIntervalsLabel(record)}</td>
-                    <td>{getTouchedTargetsLabel(record)}</td>
-                    <td>Completed</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </section>
     </section>
   );
@@ -532,18 +426,6 @@ function FocusSessionConfig({
   );
 }
 
-function getFocusDurationLabel(record: FocusRecord) {
-  return `${record.completedFocusIntervalCount * record.focusIntervalMinutes} minutes`;
-}
-
-function getCompletedFocusIntervalsLabel(record: FocusRecord) {
-  return `${record.completedFocusIntervalCount} completed`;
-}
-
-function getTouchedTargetsLabel(record: FocusRecord) {
-  return `${getTouchedTargetDescriptions(record).length} touched`;
-}
-
 function getFocusSessionPanelDetails(
   session: FocusSession | null,
 ): FocusSessionPanelDetails {
@@ -675,103 +557,6 @@ function getRemainingTimerLabel(session: FocusSession) {
   const seconds = normalizedSeconds % 60;
 
   return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-}
-
-function getFocusRecordTargets(record: FocusRecord) {
-  return [...record.targets, ...record.focusTargets];
-}
-
-function getTouchedTargetDescriptions(record: FocusRecord) {
-  return Array.from(
-    new Set(getFocusRecordTargets(record).map(describeTouchedTarget)),
-  );
-}
-
-function getRecentFocusTargetSummaries(
-  records: readonly FocusRecord[],
-): readonly RecentFocusTargetSummary[] {
-  const recentTargets = new Map<string, RecentFocusTargetSummary>();
-
-  for (const record of records) {
-    for (const target of getFocusRecordTargets(record)) {
-      const targetKey = getFocusTargetKey(target);
-
-      if (!recentTargets.has(targetKey)) {
-        recentTargets.set(targetKey, summarizeFocusTarget(target, targetKey));
-      }
-    }
-  }
-
-  return Array.from(recentTargets.values()).slice(0, RECENT_FOCUS_TARGET_LIMIT);
-}
-
-function formatRecentFocusRecordDate(value: string) {
-  return FOCUS_RECORD_TABLE_DATE_FORMATTER.format(new Date(value));
-}
-
-function describeTouchedTarget(target: FocusTarget) {
-  if (target.kind === "RecallSession") {
-    const noteTitles = target.notes.map((note) => note.title).join(", ");
-    const labelNames = formatRecallFocusTargetLabels(target.labels);
-
-    return `${formatFocusTargetKindLabel(target.kind)}: ${noteTitles} | Labels: ${labelNames}`;
-  }
-
-  if (target.labels.length === 0) {
-    return `${formatFocusTargetKindLabel(target.kind)}: ${target.note.title} | No labels yet`;
-  }
-
-  return `${formatFocusTargetKindLabel(target.kind)}: ${target.note.title} | Labels: ${formatLabelNames(target.labels)}`;
-}
-
-function getFocusTargetKey(target: FocusTarget) {
-  if (target.kind === "RecallSession") {
-    return `RecallSession:${target.recallSession.id}`;
-  }
-
-  return `Note:${target.note.id}`;
-}
-
-function formatLabelNames(labels: FocusTarget["labels"]) {
-  return labels.map((label) => label.name).join(", ");
-}
-
-function formatRecallFocusTargetLabels(labels: FocusTarget["labels"]) {
-  if (labels.length === 0) {
-    return "no labels";
-  }
-
-  return formatLabelNames(labels);
-}
-
-function formatNoteFocusTargetPanelContext(labels: FocusTarget["labels"]) {
-  if (labels.length === 0) {
-    return "No labels";
-  }
-
-  return formatLabelNames(labels);
-}
-
-function summarizeFocusTarget(
-  target: FocusTarget,
-  key: string,
-): RecentFocusTargetSummary {
-  switch (target.kind) {
-    case "RecallSession":
-      return {
-        context: formatRecallFocusTargetLabels(target.labels),
-        key,
-        kindLabel: formatFocusTargetKindLabel(target.kind),
-        title: target.notes.map((note) => note.title).join(", "),
-      };
-    case "Note":
-      return {
-        context: formatNoteFocusTargetPanelContext(target.labels),
-        key,
-        kindLabel: formatFocusTargetKindLabel(target.kind),
-        title: target.note.title,
-      };
-  }
 }
 
 function parseOptionalNumber(value: string) {

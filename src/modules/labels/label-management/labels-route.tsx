@@ -11,6 +11,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { Button } from "../../../design-system/button";
 import { formatCount } from "../../../lib/format-count";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import type { AppSessionSnapshot } from "../../access/session/session";
@@ -849,18 +850,18 @@ function LabelsPage() {
         <div className="labels-management-header__actions">
           <FocusSessionStartControl
             activeFocusSession={activeFocusSession}
-            actionButtonClassName="notes-action notes-action-primary"
+            actionButtonVariant="secondary"
             focus={focus}
             persistentFocus={persistentFocus}
             userId={currentUserId}
           />
-          <button
-            className="notes-action notes-action-primary"
+          <Button
             onClick={(event) => openEmptyCreateDrawer(event.currentTarget)}
             type="button"
+            variant="primary"
           >
             New label
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -1245,7 +1246,7 @@ function LabelsPage() {
 
             <footer className="labels-create-drawer__footer">
               <button
-                className="notes-action"
+                className="notes-action notes-action-secondary"
                 onClick={closeCreateDrawer}
                 type="button"
               >
@@ -1434,7 +1435,7 @@ function LabelsPage() {
 
             <footer className="labels-create-drawer__footer">
               <button
-                className="notes-action"
+                className="notes-action notes-action-secondary"
                 onClick={closeEditDrawer}
                 type="button"
               >
@@ -1516,7 +1517,7 @@ function DeleteLabelDialog({
         </div>
         <div className="labels-delete-dialog__actions">
           <button
-            className="notes-action"
+            className="notes-action notes-action-secondary"
             onClick={onClose}
             ref={cancelButtonRef}
             type="button"

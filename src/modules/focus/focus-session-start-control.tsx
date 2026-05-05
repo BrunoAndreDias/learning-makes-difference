@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { Button, type ButtonVariant } from "../../design-system/button";
 import {
   type AppFocusContext,
   AppFocusError,
@@ -23,13 +24,15 @@ const DEFAULT_FOCUS_SESSION_START_VALUES: FocusSessionStartValues = {
 
 export function FocusSessionStartControl({
   activeFocusSession,
-  actionButtonClassName = "notes-action notes-action-primary",
+  actionButtonClassName,
+  actionButtonVariant = "primary",
   focus,
   persistentFocus,
   userId,
 }: Readonly<{
   activeFocusSession: FocusSession | null;
   actionButtonClassName?: string;
+  actionButtonVariant?: ButtonVariant;
   focus: AppFocusContext;
   persistentFocus?: AppPersistentFocusContext;
   userId: string | null;
@@ -117,18 +120,19 @@ export function FocusSessionStartControl({
         {userId === null ? null : (
           <>
             {currentActiveFocusSession.isStale ? (
-              <button
+              <Button
                 className={actionButtonClassName}
                 onClick={() => {
                   void startNewFocusSession();
                 }}
                 ref={focusSessionButtonRef}
                 type="button"
+                variant={actionButtonVariant}
               >
                 Start new focus
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
                 className={actionButtonClassName}
                 onClick={() => {
                   if (persistentFocus === undefined) {
@@ -142,12 +146,13 @@ export function FocusSessionStartControl({
                 }}
                 ref={focusSessionButtonRef}
                 type="button"
+                variant={actionButtonVariant}
               >
                 End focus
                 {focusStatus.isPersistentState ? null : (
                   <span aria-hidden="true">{focusStatus.label}</span>
                 )}
-              </button>
+              </Button>
             )}
             {focusStatus.isPersistentState &&
             !currentActiveFocusSession.isStale ? (
@@ -207,13 +212,14 @@ export function FocusSessionStartControl({
 
   return (
     <div className="app-focus-session-start tag-row">
-      <button
+      <Button
         className={actionButtonClassName}
         onClick={startDefaultFocusSession}
         type="button"
+        variant={actionButtonVariant}
       >
         Start Focus
-      </button>
+      </Button>
       {errorMessage === null ? null : (
         <span id={errorId} role="status">
           {errorMessage}

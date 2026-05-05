@@ -120,6 +120,95 @@ describe("page style normalization", () => {
     );
   });
 
+  it("keeps Focus route surfaces neutral with colorful metric tones", () => {
+    const focusCss = readFileSync(
+      new URL("../modules/focus/focus-route.css", import.meta.url),
+      "utf8",
+    );
+    const workspaceShellCss = readFileSync(
+      new URL(
+        "../modules/workspace-shell/workspace-shell.css",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+
+    const focusRootStyle = getCssRules(focusCss, ".focus-workspace").join("\n");
+    const focusWorkspaceHeaderStyle = getCssRules(
+      focusCss,
+      '.app-frame[data-workspace="focus"] .app-frame__workspace-header',
+    ).join("\n");
+    const focusShellWorkspaceHeaderStyle = getCssRules(
+      workspaceShellCss,
+      '.app-frame[data-workspace="focus"] .app-frame__workspace-header',
+    ).join("\n");
+    const focusShellActionsStyle = getCssRules(
+      workspaceShellCss,
+      '.app-frame[data-workspace="focus"] .app-frame__actions',
+    ).join("\n");
+    const sharedShellActionsStyle = getCssRules(
+      workspaceShellCss,
+      ".app-frame__actions",
+    ).join("\n");
+    const focusStatusStyle = getCssRules(
+      focusCss,
+      ".focus-session-panel__status",
+    ).join("\n");
+    const analyticsStyle = getCssRules(focusCss, ".focus-card--analytics").join(
+      "\n",
+    );
+    const secondMetricStyle = getCssRules(
+      focusCss,
+      ".focus-weekly-analytics div:nth-child(2)",
+    ).join("\n");
+    const thirdMetricStyle = getCssRules(
+      focusCss,
+      ".focus-weekly-analytics div:nth-child(3)",
+    ).join("\n");
+    const sixthMetricStyle = getCssRules(
+      focusCss,
+      ".focus-weekly-analytics div:nth-child(6)",
+    ).join("\n");
+
+    expect(focusRootStyle).toContain("--focus-accent: var(--color-primary);");
+    expect(focusRootStyle).toContain(
+      "--focus-accent-hover: var(--color-primary-hover);",
+    );
+    expect(focusRootStyle).toContain(
+      "--focus-accent-soft: var(--color-primary-soft);",
+    );
+    expect(focusRootStyle).toContain(
+      "--focus-accent-border: var(--color-primary-soft-border);",
+    );
+    expect(focusRootStyle).toContain("background: var(--color-shell-panel);");
+    expect(focusWorkspaceHeaderStyle).toContain("border-bottom: 0;");
+    expect(focusShellWorkspaceHeaderStyle).toContain("position: absolute;");
+    expect(focusShellWorkspaceHeaderStyle).toContain("inset: 0 0 auto 0;");
+    expect(focusShellWorkspaceHeaderStyle).toContain(
+      "padding: 1rem clamp(1rem, 3vw, 1.9rem);",
+    );
+    expect(focusShellActionsStyle).toContain("pointer-events: auto;");
+    expect(sharedShellActionsStyle).toContain("margin-left: auto;");
+    expect(focusStatusStyle).toContain(
+      "border: 1px solid var(--focus-accent-border);",
+    );
+    expect(focusStatusStyle).toContain("background: var(--focus-accent-soft);");
+    expect(focusStatusStyle).toContain("color: var(--focus-accent-hover);");
+    expect(analyticsStyle).toContain(
+      "border-color: var(--color-content-border-soft);",
+    );
+    expect(analyticsStyle).toContain("background: var(--color-shell-panel);");
+    expect(secondMetricStyle).toContain(
+      "--focus-metric-accent: var(--focus-success-accent);",
+    );
+    expect(thirdMetricStyle).toContain(
+      "--focus-metric-accent: var(--focus-creative-accent);",
+    );
+    expect(sixthMetricStyle).toContain(
+      "--focus-metric-accent: var(--focus-warm-accent);",
+    );
+  });
+
   it("keeps workspace page header copy consistent by role", () => {
     const appCss = readFileSync(new URL("../styles/app.css", import.meta.url), {
       encoding: "utf8",
@@ -143,6 +232,10 @@ describe("page style normalization", () => {
       appCss,
       ".recall-surface__header h3",
     ).join("\n");
+    const focusTitleStyle = getCssRules(
+      appCss,
+      ".focus-workspace__page-header h3",
+    ).join("\n");
     const notesDescriptionStyle = getCssRules(
       appCss,
       ".notes-workspace__identity p",
@@ -150,6 +243,10 @@ describe("page style normalization", () => {
     const recallDescriptionStyle = getCssRules(
       appCss,
       ".recall-surface__header .notes-editor__meta",
+    ).join("\n");
+    const focusDescriptionStyle = getCssRules(
+      appCss,
+      ".focus-workspace__page-header .notes-editor__meta",
     ).join("\n");
 
     for (const breadcrumbRule of [breadcrumbStyle, recallBreadcrumbStyle]) {
@@ -160,7 +257,11 @@ describe("page style normalization", () => {
     }
     expect(recallBreadcrumbSpanStyle).toContain("color: inherit;");
 
-    for (const titleRule of [notesTitleStyle, recallTitleStyle]) {
+    for (const titleRule of [
+      notesTitleStyle,
+      recallTitleStyle,
+      focusTitleStyle,
+    ]) {
       expect(titleRule).toContain("color: var(--color-content-strong);");
       expect(titleRule).toContain("font-family: var(--font-body);");
       expect(titleRule).toContain("font-weight: 700;");
@@ -170,6 +271,7 @@ describe("page style normalization", () => {
     for (const descriptionRule of [
       notesDescriptionStyle,
       recallDescriptionStyle,
+      focusDescriptionStyle,
     ]) {
       expect(descriptionRule).toContain("color: var(--color-content-muted);");
       expect(descriptionRule).toContain("font-family: var(--font-body);");
@@ -260,5 +362,70 @@ describe("page style normalization", () => {
       "background: var(--color-secondary-soft);",
     );
     expect(easyRatingStyle).toContain("background: var(--color-success-soft);");
+  });
+
+  it("keeps workspace header actions on the shared button contract", () => {
+    const sharedActionsCss = readFileSync(
+      new URL("../design-system/shared-actions.css", import.meta.url),
+      "utf8",
+    );
+    const workspaceShellCss = readFileSync(
+      new URL(
+        "../modules/workspace-shell/workspace-shell.css",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const appFrameActionsStyle = getCssRules(
+      workspaceShellCss,
+      ".app-frame__actions",
+    ).join("\n");
+    const headerActionStyle = getCssRules(
+      workspaceShellCss,
+      ".app-frame__actions .notes-action",
+    ).join("\n");
+    const sidebarHeaderToggleStyle = getCssRules(
+      workspaceShellCss,
+      ".sidebar-header-toggle",
+    ).join("\n");
+    const mobileSidebarToggleStyle = getCssRules(
+      workspaceShellCss,
+      ".mobile-sidebar-toggle",
+    ).join("\n");
+    const notesActionStyle = getCssRules(
+      sharedActionsCss,
+      ".notes-action",
+    ).join("\n");
+
+    expect(sharedActionsCss).toContain("--action-control-height: 2.5rem;");
+    expect(sharedActionsCss).toContain(
+      "--workspace-header-action-width: 10.75rem;",
+    );
+    expect(notesActionStyle).toContain(
+      "min-height: var(--action-control-height);",
+    );
+    expect(notesActionStyle).toContain(
+      "font-size: var(--action-control-font-size);",
+    );
+    expect(notesActionStyle).toContain("letter-spacing: 0;");
+    expect(appFrameActionsStyle).toContain(
+      "flex: 0 0 var(--workspace-header-action-width);",
+    );
+    expect(appFrameActionsStyle).toContain(
+      "min-height: var(--action-control-height);",
+    );
+    expect(headerActionStyle).toContain("width: 100%;");
+    expect(sidebarHeaderToggleStyle).toContain(
+      "width: var(--action-icon-size);",
+    );
+    expect(sidebarHeaderToggleStyle).toContain(
+      "border-radius: var(--action-control-radius);",
+    );
+    expect(mobileSidebarToggleStyle).toContain(
+      "min-width: var(--action-icon-size);",
+    );
+    expect(mobileSidebarToggleStyle).toContain(
+      "border-radius: var(--action-control-radius);",
+    );
   });
 });

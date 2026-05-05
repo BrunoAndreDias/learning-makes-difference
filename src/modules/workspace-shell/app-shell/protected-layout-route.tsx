@@ -17,6 +17,7 @@ import {
 } from "react";
 
 import appLogo from "../../../../docs/layout/logo.svg";
+import { Button } from "../../../design-system/button";
 import {
   type AppSessionSnapshot,
   hasActiveSession,
@@ -213,19 +214,21 @@ export function AppLayout() {
               sessionSnapshot={effectiveSessionSnapshot}
             />
 
-            <button
+            <Button
               aria-controls={navigationId}
               aria-label={sidebarToggleLabel}
               className="sidebar-toggle"
+              iconOnly
               onClick={() => setSidebarCollapsed((value) => !value)}
               type="button"
             >
               <SidebarCollapseIcon />
-            </button>
-            <button
+            </Button>
+            <Button
               aria-controls={navigationId}
               aria-label="Close navigation menu"
               className="mobile-sidebar-close"
+              iconOnly
               onClick={() =>
                 closeMobileSidebar({
                   returnFocusToToggle: true,
@@ -235,7 +238,7 @@ export function AppLayout() {
               type="button"
             >
               <SidebarCloseIcon />
-            </button>
+            </Button>
           </div>
 
           <GlobalNavigation onNavigate={closeMobileSidebar} />
@@ -267,6 +270,7 @@ export function AppLayout() {
             isNotesWorkspaceRoute={isNotesWorkspaceRoute}
             isRecallWorkspaceRoute={isRecallWorkspaceRoute}
             isLabelsWorkspaceRoute={isLabelsWorkspaceRoute}
+            isFocusWorkspaceRoute={isFocusWorkspaceRoute}
             isSidebarCollapsed={isSidebarCollapsed}
             isMobileSidebarOpen={isMobileSidebarOpen}
             mobileSidebarToggleRef={mobileSidebarToggleRef}
@@ -295,6 +299,7 @@ function WorkspaceHeader({
   isNotesWorkspaceRoute,
   isRecallWorkspaceRoute,
   isLabelsWorkspaceRoute,
+  isFocusWorkspaceRoute,
   isSidebarCollapsed,
   isMobileSidebarOpen,
   mobileSidebarToggleRef,
@@ -316,6 +321,7 @@ function WorkspaceHeader({
   isNotesWorkspaceRoute: boolean;
   isRecallWorkspaceRoute: boolean;
   isLabelsWorkspaceRoute: boolean;
+  isFocusWorkspaceRoute: boolean;
   isSidebarCollapsed: boolean;
   isMobileSidebarOpen: boolean;
   mobileSidebarToggleRef: RefObject<HTMLButtonElement | null>;
@@ -329,33 +335,37 @@ function WorkspaceHeader({
   return (
     <header className="app-frame__workspace-header">
       <div className="app-frame__titlebar">
-        <button
+        <Button
           aria-controls={navigationId}
           aria-expanded={isMobileSidebarOpen}
           aria-label="Open navigation menu"
           className="mobile-sidebar-toggle"
+          iconOnly
           onClick={onOpenMobileSidebar}
           ref={mobileSidebarToggleRef}
           type="button"
         >
           <SidebarMenuIcon />
-        </button>
+        </Button>
         {isSidebarCollapsed ? (
-          <button
+          <Button
             aria-controls={navigationId}
             aria-label="Expand sidebar"
             className="sidebar-header-toggle"
+            iconOnly
             onClick={onExpandSidebar}
             ref={collapsedSidebarToggleRef}
             type="button"
           >
             <SidebarReopenIcon />
-          </button>
+          </Button>
         ) : null}
         {isNotesWorkspaceRoute ? null : (
           <h2
             className={
-              isRecallWorkspaceRoute || isLabelsWorkspaceRoute
+              isRecallWorkspaceRoute ||
+              isLabelsWorkspaceRoute ||
+              isFocusWorkspaceRoute
                 ? "app-frame__workspace-title sr-only"
                 : "app-frame__workspace-title"
             }

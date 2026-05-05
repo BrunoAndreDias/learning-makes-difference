@@ -316,7 +316,8 @@ h3 {
 }
 
 .notes-workspace__identity h1,
-.recall-surface__header h3 {
+.recall-surface__header h3,
+.focus-workspace__page-header h3 {
   color: var(--color-content-strong);
   font-family: var(--font-body);
   font-size: clamp(1.65rem, 2.2vw, 1.9rem);
@@ -326,7 +327,8 @@ h3 {
 }
 
 .notes-workspace__identity p,
-.recall-surface__header .notes-editor__meta {
+.recall-surface__header .notes-editor__meta,
+.focus-workspace__page-header .notes-editor__meta {
   color: var(--color-content-muted);
   font-family: var(--font-body);
   font-size: 0.95rem;

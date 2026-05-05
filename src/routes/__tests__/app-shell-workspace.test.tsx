@@ -200,7 +200,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(focusLink);
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Study sessions" }),
+      await screen.findByRole("heading", { level: 2, name: "Focus" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/focus");
     expect(focusLink).toHaveAttribute("aria-current", "page");
