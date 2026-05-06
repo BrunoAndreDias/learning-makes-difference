@@ -99,9 +99,10 @@
 
 .labels-table-shell {
   display: grid;
-  grid-template-rows: minmax(0, 1fr);
-  flex: 1 1 auto;
-  min-height: 38.2rem;
+  grid-template-rows: minmax(0, auto);
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: calc(100dvh - 18rem);
   padding: 0;
   overflow: visible;
   border-color: var(--color-content-border-soft);
@@ -119,7 +120,8 @@
 
 .labels-table-scroll {
   min-height: 0;
-  height: 100%;
+  height: auto;
+  max-height: inherit;
   overflow: auto;
   border-radius: inherit;
 }
@@ -240,6 +242,10 @@
     inset -1px 0 0 var(--color-primary-soft-border),
     inset 0 1px 0 var(--color-primary-soft-border),
     inset 0 -1px 0 var(--color-primary-soft-border);
+}
+
+.labels-table tbody tr:last-child td::after {
+  content: none;
 }
 
 .labels-table__label-cell {
@@ -930,6 +936,12 @@
 .labels-empty-state__icon .labels-tag-icon,
 .labels-parent-option:first-of-type .labels-tag-icon {
   color: var(--color-primary);
+}
+
+@media (max-height: 820px) and (min-width: 641px) {
+  .labels-table-shell:not(.labels-table-shell--empty) {
+    max-height: calc(100dvh - 18rem);
+  }
 }
 
 @media (max-width: 920px) {

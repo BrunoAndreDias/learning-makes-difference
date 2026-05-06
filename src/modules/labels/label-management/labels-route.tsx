@@ -14,7 +14,10 @@ import {
 import { Button } from "../../../design-system/button";
 import { formatCount } from "../../../lib/format-count";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
-import type { AppSessionSnapshot } from "../../access/session/session";
+import {
+  type AppSessionSnapshot,
+  hasActiveSession,
+} from "../../access/session/session";
 import { FocusSessionStartControl } from "../../focus";
 import { listNotesForUser } from "../../notes";
 import { normalizeLabelParentIds } from "../label-graph";
@@ -256,19 +259,27 @@ function LabelsPage() {
     from: "/_protected/labels",
     select: (context) => context.session,
   });
+  const routedSessionSnapshot = useRouteContext({
+    from: "/_protected/labels",
+    select: (context) => context.sessionSnapshot,
+  });
 
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
     session.subscribe,
     session.getSnapshot,
     session.getSnapshot,
   );
+  const effectiveSessionSnapshot =
+    hasActiveSession(sessionSnapshot) || routedSessionSnapshot === undefined
+      ? sessionSnapshot
+      : routedSessionSnapshot;
   const notesSnapshot = useSyncExternalStore(
     notes.subscribe,
     notes.getSnapshot,
     notes.getSnapshot,
   );
   useSyncExternalStore(focus.subscribe, focus.getSnapshot, focus.getSnapshot);
-  const currentUserId = sessionSnapshot.user?.id ?? null;
+  const currentUserId = effectiveSessionSnapshot.user?.id ?? null;
   const activeFocusSession =
     currentUserId === null
       ? null

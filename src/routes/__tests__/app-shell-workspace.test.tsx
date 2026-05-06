@@ -32,6 +32,20 @@ describe("authenticated app shell", () => {
     );
   });
 
+  it("keeps the empty Labels shell action area from blocking page buttons", () => {
+    const workspaceCss = readFileSync(
+      join(process.cwd(), "src/modules/workspace-shell/workspace-shell.css"),
+      "utf8",
+    );
+
+    expect(workspaceCss).toContain(
+      '.app-frame[data-workspace="labels"] .app-frame__actions {\n  display: none;\n}',
+    );
+    expect(workspaceCss).not.toContain(
+      '.app-frame[data-workspace="labels"] .app-frame__actions,\n.app-frame[data-workspace="focus"]',
+    );
+  });
+
   it("renders a Notes Workspace shell with an account menu instead of product navigation", async () => {
     renderRoute("/settings");
 

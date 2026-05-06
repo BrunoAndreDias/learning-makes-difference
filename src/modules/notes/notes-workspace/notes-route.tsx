@@ -688,6 +688,7 @@ function NotesWorkspace() {
   } = useNotesWorkspace();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedListLabelId, setSelectedListLabelId] = useState("");
+  const [isCatalogHidden, setIsCatalogHidden] = useState(false);
   const [openNoteMenuId, setOpenNoteMenuId] = useState<string | null>(null);
   const [deleteCandidateNoteId, setDeleteCandidateNoteId] = useState<
     string | null
@@ -1992,6 +1993,9 @@ function NotesWorkspace() {
           visibleNoteRows.length,
           "note",
         )}`;
+  const notesCatalogToggleLabel = isCatalogHidden
+    ? "Show notes catalog"
+    : "Hide notes catalog";
   const deleteCandidateNote =
     deleteCandidateNoteId === null
       ? null
@@ -2118,8 +2122,15 @@ function NotesWorkspace() {
         </div>
       </section>
 
-      <div className="notes-layout">
-        <aside aria-label="Notes catalog" className="notes-list-panel">
+      <div
+        className="notes-layout"
+        data-catalog-hidden={isCatalogHidden ? "true" : undefined}
+      >
+        <aside
+          aria-hidden={isCatalogHidden}
+          aria-label="Notes catalog"
+          className="notes-list-panel"
+        >
           <div className="notes-list__toolbar">
             <div className="notes-list__heading">
               <h2>All notes</h2>
@@ -2402,6 +2413,19 @@ function NotesWorkspace() {
                   </div>
                   <p className="muted notes-editor__meta">
                     <span>{selectedNoteUpdatedLabel}</span>
+                    <button
+                      aria-label={notesCatalogToggleLabel}
+                      aria-pressed={isCatalogHidden}
+                      className="notes-inline-action notes-editor__catalog-toggle"
+                      onClick={() =>
+                        setIsCatalogHidden((currentValue) => !currentValue)
+                      }
+                      type="button"
+                    >
+                      {isCatalogHidden
+                        ? `Show list (${notes.length})`
+                        : "Focus writing"}
+                    </button>
                     {shouldShowEditorActions ? (
                       <span className="notes-editor__inline-actions">
                         {shouldShowInlineSave ? (

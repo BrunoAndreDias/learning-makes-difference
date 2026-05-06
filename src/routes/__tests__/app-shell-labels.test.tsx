@@ -5,6 +5,10 @@ import { join } from "node:path";
 
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type {
+  AppSessionContext,
+  AppSessionSnapshot,
+} from "../../modules/access/session/session";
 import {
   type AppLabel,
   createAppLabelsContext,
@@ -198,6 +202,27 @@ function createTestPersistentLabelsService(initialLabels: readonly AppLabel[]) {
   return persistentService;
 }
 
+function createAnonymousStoreWithRoutedSession(
+  snapshot: AppSessionSnapshot,
+): AppSessionContext {
+  const anonymousSnapshot: AppSessionSnapshot = { user: null };
+
+  return {
+    getSnapshot: () => anonymousSnapshot,
+    refresh: () => Promise.resolve(snapshot),
+    subscribe: () => () => undefined,
+    login: () =>
+      Promise.reject(new Error("Test session context cannot log in.")),
+    logout: () => Promise.resolve(anonymousSnapshot),
+    register: () =>
+      Promise.reject(new Error("Test session context cannot register.")),
+    updatePreferences: () =>
+      Promise.reject(
+        new Error("Test session context cannot update preferences."),
+      ),
+  };
+}
+
 describe("authenticated app shell", () => {
   it("does not show breadcrumbs on the default Labels page", async () => {
     renderRoute("/labels");
@@ -261,6 +286,19 @@ describe("authenticated app shell", () => {
     );
     expect(css).toContain(
       ".labels-table__row--active td:last-child {\n  border-top-right-radius: 0.7rem;",
+    );
+    expect(css).toContain(
+      ".labels-table tbody tr:last-child td::after {\n  content: none;",
+    );
+    expect(css).toContain(
+      ".labels-table-shell {\n  display: grid;\n  grid-template-rows: minmax(0, auto);\n  flex: 0 1 auto;\n  min-height: 0;\n  max-height: calc(100dvh - 18rem);",
+    );
+    expect(css).toContain(
+      ".labels-table-scroll {\n  min-height: 0;\n  height: auto;\n  max-height: inherit;\n  overflow: auto;",
+    );
+    expect(css).toContain("@media (max-height: 820px) and (min-width: 641px)");
+    expect(css).toContain(
+      ".labels-table-shell:not(.labels-table-shell--empty) {\n    max-height: calc(100dvh - 18rem);",
     );
     expect(css).not.toContain(
       ".labels-table tbody tr:last-child td {\n  border-bottom: 0;",
@@ -626,6 +664,64 @@ describe("authenticated app shell", () => {
     });
     expect(within(createdRow).getByText("Science")).toBeInTheDocument();
     expect(within(createdRow).queryByText("Biology")).not.toBeInTheDocument();
+  });
+
+  it("creates labels when the authenticated user is supplied by route context", async () => {
+    const routedSessionSnapshot: AppSessionSnapshot = {
+      user: {
+        displayName: "Placeholder user",
+        email: "placeholder@example.com",
+        id: TEST_USER_ID,
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+      },
+    };
+    const persistentService = createTestPersistentLabelsService([]);
+    const persistentLabelsContext = createPersistentLabelsContext({
+      service: persistentService,
+    });
+    const labelsContext = createReadonlyLabelsContext(persistentLabelsContext);
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (ownedUserId) =>
+        labelsContext.getLabelsForUser(ownedUserId).map((label) => label.id),
+      keyPrefix: createStorageKey("notes-routed-session-create-label"),
+      storage: window.localStorage,
+    });
+
+    renderRoute("/labels", {
+      labelsContext,
+      notesContext,
+      persistentLabelsContext,
+      sessionContext: createAnonymousStoreWithRoutedSession(
+        routedSessionSnapshot,
+      ),
+    });
+
+    const emptyState = await screen.findByRole("heading", {
+      level: 4,
+      name: "No labels yet",
+    });
+    expect(emptyState).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "New label" })[0]);
+    const drawer = await screen.findByRole("dialog", { name: "New label" });
+
+    fireEvent.change(within(drawer).getByLabelText("Label name"), {
+      target: { value: "Systems" },
+    });
+    fireEvent.click(
+      within(drawer).getByRole("button", { name: "Create label" }),
+    );
+
+    await waitFor(() => {
+      expect(persistentService.createLabel).toHaveBeenCalledWith({
+        name: "Systems",
+        parentIds: [],
+      });
+    });
+    expect(
+      await screen.findByRole("row", { name: /Systems/i }),
+    ).toBeInTheDocument();
   });
 
   it("returns focus to new label trigger when create drawer closes with escape", async () => {

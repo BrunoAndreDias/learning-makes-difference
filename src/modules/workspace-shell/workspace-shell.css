@@ -858,10 +858,13 @@
 .app-frame[data-workspace="recall-results"] .app-frame__titlebar,
 .app-frame[data-workspace="recall-results"] .app-frame__actions,
 .app-frame[data-workspace="labels"] .app-frame__titlebar,
-.app-frame[data-workspace="labels"] .app-frame__actions,
 .app-frame[data-workspace="focus"] .app-frame__titlebar,
 .app-frame[data-workspace="focus"] .app-frame__actions {
   pointer-events: auto;
+}
+
+.app-frame[data-workspace="labels"] .app-frame__actions {
+  display: none;
 }
 
 .app-frame__actions .app-focus-session-start,

@@ -30,6 +30,11 @@ describe("authenticated app shell", () => {
     expect(notesEditorCss).not.toMatch(
       /\.notes-list-panel\s*{[^}]*height:\s*calc\(100vh/s,
     );
+    expect(notesEditorCss).not.toContain("height: 34rem;");
+    expect(notesEditorCss).not.toContain("max-height: 68vh;");
+    expect(notesEditorCss).toMatch(
+      /\.notes-form__body-field textarea\s*{[^}]*height:\s*100%/s,
+    );
     expect(notesEditorCss).toMatch(
       /\.app-frame\[data-workspace="notes"\]\s+\.notes-list-panel\s*{[^}]*height:\s*100%/s,
     );
@@ -532,6 +537,86 @@ describe("authenticated app shell", () => {
     expect(notesList).toBeVisible();
     expect(
       within(notesList).getByRole("button", { name: "Retrieval practice" }),
+    ).toHaveAttribute("aria-current", "page");
+  });
+
+  it("lets the user hide the notes catalog from the editor without affecting the app sidebar", async () => {
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Repeated review strengthens long-term retention.",
+      labelIds: [],
+      metaphors: [],
+      title: "Spaced repetition",
+    });
+    notesContext.createNote("user-jordan", {
+      acronyms: [],
+      body: "Retrieval cues make later recall easier.",
+      labelIds: [],
+      metaphors: [],
+      title: "Retrieval practice",
+    });
+
+    renderRoute("/notes", {
+      notesContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-jordan",
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
+    ).toBeInTheDocument();
+
+    const sidebar = screen.getByRole("complementary", {
+      name: "Notes workspace",
+    });
+    const notesCatalog = screen.getByRole("complementary", {
+      name: "Notes catalog",
+    });
+    const notesList = within(notesCatalog).getByRole("navigation", {
+      name: "Notes list",
+    });
+
+    fireEvent.click(
+      within(notesList).getByRole("button", { name: "Spaced repetition" }),
+    );
+
+    expect(notesCatalog).toBeVisible();
+    expect(sidebar).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide notes catalog" }));
+
+    expect(notesCatalog).toHaveAttribute("aria-hidden", "true");
+    expect(
+      screen.queryByRole("complementary", { name: "Notes catalog" }),
+    ).not.toBeInTheDocument();
+    expect(sidebar).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Show notes catalog" }),
+    ).toHaveTextContent("Show list (2)");
+    expect(screen.getByDisplayValue("Spaced repetition")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue(
+        "Repeated review strengthens long-term retention.",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show notes catalog" }));
+
+    expect(notesCatalog).toBeVisible();
+    expect(
+      within(notesList).getByRole("button", { name: "Spaced repetition" }),
     ).toHaveAttribute("aria-current", "page");
   });
 
