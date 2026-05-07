@@ -167,6 +167,16 @@ describe("authenticated recall workspace", () => {
 
   it("uses the routed authenticated session to hydrate the Recall session view immediately", async () => {
     const userId = "user-route-hydrated-recall";
+    const hydratedNote = {
+      acronyms: [],
+      body: "Hydrated answer body.",
+      createdAt: "2026-05-07T08:55:00.000Z",
+      id: "route-hydrated-note",
+      labelIds: [],
+      metaphors: [],
+      title: "Hydrated prompt title",
+      updatedAt: "2026-05-07T08:55:00.000Z",
+    };
     const refreshSpy = vi.fn(async () => ({
       attempts: [],
       createdAt: "2026-05-07T09:00:00.000Z",
@@ -176,32 +186,12 @@ describe("authenticated recall workspace", () => {
       id: "route-hydrated-recall-session",
       isAnswerRevealed: false,
       mode: "FlashCard" as const,
-      notes: [
-        {
-          acronyms: [],
-          body: "Hydrated answer body.",
-          createdAt: "2026-05-07T08:55:00.000Z",
-          id: "route-hydrated-note",
-          labelIds: [],
-          metaphors: [],
-          title: "Hydrated prompt title",
-          updatedAt: "2026-05-07T08:55:00.000Z",
-        },
-      ],
+      notes: [hydratedNote],
       questions: [
         {
           isAnswerRevealed: false,
           noteId: "route-hydrated-note",
-          noteSnapshot: {
-            acronyms: [],
-            body: "Hydrated answer body.",
-            createdAt: "2026-05-07T08:55:00.000Z",
-            id: "route-hydrated-note",
-            labelIds: [],
-            metaphors: [],
-            title: "Hydrated prompt title",
-            updatedAt: "2026-05-07T08:55:00.000Z",
-          },
+          noteSnapshot: hydratedNote,
           score: null,
           selfRating: null,
           typedAnswer: "",
