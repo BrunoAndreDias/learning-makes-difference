@@ -11,7 +11,7 @@ export type NoteBodyResizeLimits = {
   minFraction: number;
 };
 
-export function clampNoteBodyFraction(
+function clampNoteBodyFraction(
   fraction: number,
   limits: NoteBodyResizeLimits,
 ): number {

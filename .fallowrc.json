@@ -1,0 +1,52 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [".sandcastle/main.ts", "vitest.db.config.ts"],
+  "ignoreDependencies": ["@ai-hero/sandcastle"],
+  "ignoreExports": [
+    {
+      "file": "src/modules/focus/index.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/modules/access/session/auth-db.server.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/modules/focus/focus-db.server.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/modules/labels/labels-db.server.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/modules/notes/index.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/modules/notes/notes-workspace/notes.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/modules/notes/notes-db.server.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/modules/notes/notes-workspace/notes-workspace-sidebar.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/modules/recall/index.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/modules/recall/recall-db.server.ts",
+      "exports": ["*"]
+    }
+  ],
+  "rules": {
+    "circular-dependencies": "warn",
+    "duplicate-exports": "off",
+    "unused-types": "off"
+  }
+}

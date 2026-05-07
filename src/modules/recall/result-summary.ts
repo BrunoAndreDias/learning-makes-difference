@@ -122,13 +122,11 @@ export function summarizeSessionResult(
   };
 }
 
-export function getResultSummaryNoteCountLabel(
-  notes: readonly FlashCardRecallNote[],
-) {
+function getResultSummaryNoteCountLabel(notes: readonly FlashCardRecallNote[]) {
   return `${formatCount(notes.length, "note")} practiced`;
 }
 
-export function formatResultSummaryScoreLabel(
+function formatResultSummaryScoreLabel(
   ratingTotals: FlashCardRecallAttemptSummary,
 ) {
   return `Easy ${ratingTotals.easy} · Good ${ratingTotals.good} · Hard ${ratingTotals.hard} · Forgot ${ratingTotals.forgot}`;

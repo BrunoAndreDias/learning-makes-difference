@@ -271,7 +271,7 @@ export function createCompletedRecallSession(
   });
 }
 
-export function completeRecallSessionAt({
+function completeRecallSessionAt({
   noteId,
   rating,
   recallContext,
@@ -292,7 +292,7 @@ export function completeRecallSessionAt({
   });
 }
 
-export function rateFlashCardAnswers({
+function rateFlashCardAnswers({
   ratings,
   recallContext,
   sessionId,
@@ -316,7 +316,7 @@ export function rateFlashCardAnswers({
   }
 }
 
-export async function renderRecallSelection(contexts: RenderRouteOptions) {
+async function renderRecallSelection(contexts: RenderRouteOptions) {
   const routeRender = renderRoute("/recall/select", contexts);
 
   expect(
@@ -326,7 +326,7 @@ export async function renderRecallSelection(contexts: RenderRouteOptions) {
   return routeRender;
 }
 
-export function selectRecallableNote(title: string, _body: string) {
+function selectRecallableNote(title: string, _body: string) {
   fireEvent.click(
     within(screen.getByLabelText("Recallable notes")).getByRole("button", {
       name: `Select ${title}`,
@@ -334,7 +334,7 @@ export function selectRecallableNote(title: string, _body: string) {
   );
 }
 
-export async function startSelectedRecallSession() {
+async function startSelectedRecallSession() {
   fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
 
   expect(
@@ -342,14 +342,14 @@ export async function startSelectedRecallSession() {
   ).toBeInTheDocument();
 }
 
-export async function expectReturnedToRecall(router: AppShellRouter) {
+async function expectReturnedToRecall(router: AppShellRouter) {
   expect(
     await screen.findByRole("heading", { level: 3, name: "Practice" }),
   ).toBeInTheDocument();
   expect(router.state.location.pathname).toBe("/recall");
 }
 
-export async function openRecallResultsSection() {
+async function openRecallResultsSection() {
   fireEvent.click(screen.getByRole("link", { name: "Results" }));
 
   expect(
@@ -361,7 +361,7 @@ export function openAccountMenu() {
   fireEvent.click(screen.getByRole("button", { name: /account menu/i }));
 }
 
-export function getSelectedSessionResultRegion() {
+function getSelectedSessionResultRegion() {
   return screen.getByRole("region", {
     name: "Selected review",
   });
@@ -390,6 +390,5 @@ export {
   createAppLabelsContext,
   createAppNotesContext,
   createAppRecallContext,
-  createAppSessionContext,
   listNotesForUser,
 };

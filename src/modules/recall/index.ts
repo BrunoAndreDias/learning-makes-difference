@@ -28,10 +28,5 @@ export type {
 export {
   AppRecallError,
   createAppRecallContext,
-  getRecallSelfRatingScore,
-  normalizeRecallSelfRating,
   summarizeAttempts,
 } from "./recall";
-export { RecallResultsSearch } from "./recall-results-search";
-export { RecallResultsSidebar } from "./recall-results-sidebar";
-export { getRecallWorkspaceSection } from "./recall-workspace";

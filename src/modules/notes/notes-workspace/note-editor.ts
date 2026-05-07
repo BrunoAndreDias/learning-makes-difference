@@ -53,7 +53,7 @@ type EditorKeyFactory = () => string;
 const defaultEditorKeyFactory: EditorKeyFactory = () =>
   globalThis.crypto.randomUUID();
 
-export const emptyNoteEditorDraft: NoteEditorDraft = {
+const emptyNoteEditorDraft: NoteEditorDraft = {
   acronyms: [],
   body: "",
   labelIds: [],
@@ -132,7 +132,7 @@ function haveSameItems<T>(
   });
 }
 
-export function haveSameNoteEditorDraft(
+function haveSameNoteEditorDraft(
   left: NoteEditorDraft,
   right: NoteEditorDraft,
 ): boolean {

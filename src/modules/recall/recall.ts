@@ -179,7 +179,7 @@ export function summarizeAttempts(
   return summary;
 }
 
-export function normalizeRecallSelfRating(
+function normalizeRecallSelfRating(
   rating: RecallSelfRating | LegacyRecallSelfRating,
 ): RecallSelfRating {
   switch (rating) {
@@ -197,7 +197,7 @@ export function normalizeRecallSelfRating(
   }
 }
 
-export function getRecallSelfRatingScore(rating: RecallSelfRating): number {
+function getRecallSelfRatingScore(rating: RecallSelfRating): number {
   switch (rating) {
     case "forgot":
       return 0;
@@ -751,7 +751,7 @@ function listFilteredSessionResults(input: {
   });
 }
 
-export function resolveRecallableNotesFromSelection(input: {
+function resolveRecallableNotesFromSelection(input: {
   noteIds: readonly string[];
   notes: AppNotesContext;
   userId: string;
