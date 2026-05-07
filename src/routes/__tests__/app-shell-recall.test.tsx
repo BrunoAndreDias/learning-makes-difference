@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   type AppPersistentRecallService,
   createPersistentRecallContext,
@@ -31,7 +31,7 @@ function createSession() {
 
 function completeRecallAt(input: {
   noteId: string;
-  rating: "easy" | "forgot" | "good" | "hard";
+  rating: RecallSelfRating;
   recallContext: ReturnType<
     typeof createDeterministicRecallTestContexts
   >["recallContext"];
@@ -148,7 +148,7 @@ function createStoredSessionResult(
 function completeMultiQuestionRecall(input: {
   questions: ReadonlyArray<{
     noteId: string;
-    rating: "easy" | "forgot" | "good" | "hard";
+    rating: RecallSelfRating;
     typedAnswer?: string;
   }>;
   recallContext: ReturnType<
@@ -224,6 +224,8 @@ function getDetailBlockCopy(block: HTMLElement) {
   return copy;
 }
 
+const defaultViewportWidth = window.innerWidth;
+
 function setViewportWidth(width: number) {
   Object.defineProperty(window, "innerWidth", {
     configurable: true,
@@ -232,6 +234,10 @@ function setViewportWidth(width: number) {
   });
   fireEvent(window, new Event("resize"));
 }
+
+afterEach(() => {
+  setViewportWidth(defaultViewportWidth);
+});
 
 describe("authenticated recall workspace", () => {
   it("restores an active recall session from the persistent recall service on route entry", async () => {

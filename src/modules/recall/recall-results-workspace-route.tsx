@@ -716,14 +716,10 @@ function SelectedResultDetail({
   const questionsAttempted = review.attemptedQuestions.length;
   const resultScore = result.score ?? null;
   const hasCalmReviewStatsLayout = useHasCalmReviewStatsLayout();
-  const selfRatingDistribution = review.selfRatingDistribution;
-  const showSelfRatingDistribution =
-    result.mode === "FlashCard" &&
-    hasCalmReviewStatsLayout &&
-    selfRatingDistribution !== null;
-  const selfRatingDistributionLabel = showSelfRatingDistribution
-    ? selfRatingDistribution.label
-    : null;
+  const visibleSelfRatingDistribution =
+    result.mode === "FlashCard" && hasCalmReviewStatsLayout
+      ? review.selfRatingDistribution
+      : null;
 
   return (
     <div className="recall-results-detail recall-selected-result">
@@ -733,7 +729,7 @@ function SelectedResultDetail({
 
       <div
         className="recall-selected-result__stats"
-        data-has-distribution={showSelfRatingDistribution}
+        data-has-distribution={visibleSelfRatingDistribution !== null}
       >
         <div className="recall-selected-result__stat">
           <span
@@ -775,11 +771,11 @@ function SelectedResultDetail({
             <span>Questions</span>
           </div>
         </div>
-        {showSelfRatingDistribution ? (
+        {visibleSelfRatingDistribution !== null ? (
           <div className="recall-selected-result__stat">
             <div className="recall-selected-result__stat-copy recall-selected-result__stat-copy--distribution">
               <strong>Distribution</strong>
-              <span>{selfRatingDistributionLabel}</span>
+              <span>{visibleSelfRatingDistribution.label}</span>
             </div>
           </div>
         ) : null}
