@@ -1,8 +1,10 @@
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
-import type { AppSessionSnapshot } from "../../access/session/session";
-import { hasActiveSession } from "../../access/session/session";
+import {
+  type AppSessionSnapshot,
+  resolveProtectedSessionSnapshot,
+} from "../../access/session/session";
 import { AppLayout } from "./protected-layout-route";
 
 export const Route = createFileRoute("/_protected")({
@@ -31,10 +33,10 @@ function ProtectedRouteShell() {
     session.getSnapshot,
     session.getSnapshot,
   );
-  const effectiveSessionSnapshot =
-    hasActiveSession(sessionSnapshot) || routedSessionSnapshot === undefined
-      ? sessionSnapshot
-      : routedSessionSnapshot;
+  const effectiveSessionSnapshot = resolveProtectedSessionSnapshot({
+    routedSessionSnapshot,
+    sessionSnapshot,
+  });
   const userId = effectiveSessionSnapshot.user?.id ?? null;
   const [isReady, setIsReady] = useState(
     persistentFocus === undefined && persistentRecall === undefined,

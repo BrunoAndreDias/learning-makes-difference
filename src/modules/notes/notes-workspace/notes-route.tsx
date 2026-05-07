@@ -24,7 +24,7 @@ import { formatCount } from "../../../lib/format-count";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import {
   type AppSessionSnapshot,
-  hasActiveSession,
+  resolveProtectedSessionSnapshot,
 } from "../../access/session/session";
 import {
   BreakIntervalOverlay,
@@ -631,10 +631,10 @@ function NotesWorkspace() {
     sessionContext.getSnapshot,
     sessionContext.getSnapshot,
   );
-  const effectiveSessionSnapshot =
-    hasActiveSession(sessionSnapshot) || routedSessionSnapshot === undefined
-      ? sessionSnapshot
-      : routedSessionSnapshot;
+  const effectiveSessionSnapshot = resolveProtectedSessionSnapshot({
+    routedSessionSnapshot,
+    sessionSnapshot,
+  });
   const userId = effectiveSessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
   const {

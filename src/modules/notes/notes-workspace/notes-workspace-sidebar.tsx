@@ -2,7 +2,7 @@ import { useRouteContext } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import {
   type AppSessionSnapshot,
-  hasActiveSession,
+  resolveProtectedSessionSnapshot,
 } from "../../access/session/session";
 import type { AppNotesContext, AppPersistentNotesContext } from "..";
 import {
@@ -65,10 +65,10 @@ export function NotesWorkspaceSidebar({
     session.getSnapshot,
     session.getSnapshot,
   );
-  const effectiveSessionSnapshot =
-    hasActiveSession(sessionSnapshot) || routedSessionSnapshot === undefined
-      ? sessionSnapshot
-      : routedSessionSnapshot;
+  const effectiveSessionSnapshot = resolveProtectedSessionSnapshot({
+    routedSessionSnapshot,
+    sessionSnapshot,
+  });
   const recallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.recall,

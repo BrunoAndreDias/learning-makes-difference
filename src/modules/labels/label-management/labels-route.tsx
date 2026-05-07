@@ -16,7 +16,7 @@ import { formatCount } from "../../../lib/format-count";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import {
   type AppSessionSnapshot,
-  hasActiveSession,
+  resolveProtectedSessionSnapshot,
 } from "../../access/session/session";
 import { FocusSessionStartControl } from "../../focus";
 import { listNotesForUser } from "../../notes";
@@ -269,10 +269,10 @@ function LabelsPage() {
     session.getSnapshot,
     session.getSnapshot,
   );
-  const effectiveSessionSnapshot =
-    hasActiveSession(sessionSnapshot) || routedSessionSnapshot === undefined
-      ? sessionSnapshot
-      : routedSessionSnapshot;
+  const effectiveSessionSnapshot = resolveProtectedSessionSnapshot({
+    routedSessionSnapshot,
+    sessionSnapshot,
+  });
   const notesSnapshot = useSyncExternalStore(
     notes.subscribe,
     notes.getSnapshot,

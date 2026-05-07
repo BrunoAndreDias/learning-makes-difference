@@ -2,13 +2,16 @@
 
 import { act, fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type {
+  AppSessionContext,
+  AppSessionSnapshot,
+} from "../../modules/access/session/session";
 import {
   type AppPersistentFocusService,
   createPersistentFocusContext,
   type FocusSession,
 } from "../../modules/focus";
 import {
-  type AppSessionSnapshot,
   createAppFocusContext,
   createAppNotesContext,
   createAppRecallContext,
@@ -18,6 +21,27 @@ import {
   listNotesForUser,
   renderRoute,
 } from "./app-shell-test-support";
+
+function createAnonymousStoreWithRoutedSession(
+  snapshot: AppSessionSnapshot,
+): AppSessionContext {
+  const anonymousSnapshot: AppSessionSnapshot = { user: null };
+
+  return {
+    getSnapshot: () => anonymousSnapshot,
+    refresh: () => Promise.resolve(snapshot),
+    subscribe: () => () => undefined,
+    login: () =>
+      Promise.reject(new Error("Test session context cannot log in.")),
+    logout: () => Promise.resolve(anonymousSnapshot),
+    register: () =>
+      Promise.reject(new Error("Test session context cannot register.")),
+    updatePreferences: () =>
+      Promise.reject(
+        new Error("Test session context cannot update preferences."),
+      ),
+  };
+}
 
 describe("authenticated app shell", () => {
   it("renders an active FocusSession workspace with supported actions and disabled setup controls", async () => {
@@ -593,6 +617,77 @@ describe("authenticated app shell", () => {
       breakIntervalMinutes: 7,
       focusIntervalMinutes: 35,
       id: "persistent-focus-session-1",
+    });
+  });
+
+  it("uses the routed authenticated session to hydrate the Focus workspace immediately", async () => {
+    const userId = "user-route-hydrated-focus";
+    const refreshSpy = vi.fn<AppPersistentFocusService["getActiveSession"]>(
+      async () => ({
+        breakIntervalMinutes: 5,
+        completedBreakIntervalCount: 0,
+        completedFocusIntervalCount: 0,
+        createdAt: "2026-05-07T09:00:00.000Z",
+        currentInterval: "Focus",
+        focusIntervalMinutes: 25,
+        focusTargets: [],
+        id: "route-hydrated-focus-session",
+        intervalState: "Focus",
+        isStale: false,
+        method: "Pomodoro",
+        plannedFocusIntervalCount: 4,
+        remainingSeconds: 1500,
+        stateEndsAt: "2026-05-07T09:25:00.000Z",
+        stateStartedAt: "2026-05-07T09:00:00.000Z",
+        targets: [],
+      }),
+    );
+    const service: AppPersistentFocusService = {
+      captureNoteStudyActivity: vi.fn(async () => undefined),
+      captureRecallSessionStudyActivity: vi.fn(async () => undefined),
+      endFocusSession: vi.fn(async () => null),
+      getActiveSession: refreshSpy,
+      listFocusRecords: vi.fn(async () => []),
+      startFocusSession: vi.fn(async () => {
+        throw new Error("Not used in this test.");
+      }),
+      startNextFocusInterval: vi.fn(async () => {
+        throw new Error("Not used in this test.");
+      }),
+    };
+    const persistentFocusContext = createPersistentFocusContext({
+      service,
+    });
+    const routedSessionSnapshot: AppSessionSnapshot = {
+      user: {
+        displayName: "Casey Routed Focus",
+        email: "casey.routed.focus@example.com",
+        id: userId,
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+      },
+    };
+
+    renderRoute("/focus", {
+      persistentFocusContext,
+      sessionContext: createAnonymousStoreWithRoutedSession(
+        routedSessionSnapshot,
+      ),
+    });
+
+    const activePanel = await screen.findByRole("region", {
+      name: "Active focus session",
+    });
+    expect(
+      within(activePanel).getByRole("button", { name: "End focus session" }),
+    ).toBeInTheDocument();
+    expect(within(activePanel).getByText("In progress")).toBeInTheDocument();
+    expect(service.getActiveSession).toHaveBeenCalledTimes(1);
+    expect(
+      persistentFocusContext.readonlyContext.getActiveSession({ userId }),
+    ).toMatchObject({
+      id: "route-hydrated-focus-session",
+      plannedFocusIntervalCount: 4,
     });
   });
 

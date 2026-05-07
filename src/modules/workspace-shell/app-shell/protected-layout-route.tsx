@@ -20,7 +20,7 @@ import appLogo from "../../../../docs/layout/logo.svg";
 import { Button } from "../../../design-system/button";
 import {
   type AppSessionSnapshot,
-  hasActiveSession,
+  resolveProtectedSessionSnapshot,
 } from "../../access/session/session";
 import { FocusSessionStartControl } from "../../focus";
 import { NotesWorkspaceProvider } from "../../notes";
@@ -101,10 +101,10 @@ export function AppLayout() {
     session.getSnapshot,
     session.getSnapshot,
   );
-  const effectiveSessionSnapshot =
-    hasActiveSession(sessionSnapshot) || routedSessionSnapshot === undefined
-      ? sessionSnapshot
-      : routedSessionSnapshot;
+  const effectiveSessionSnapshot = resolveProtectedSessionSnapshot({
+    routedSessionSnapshot,
+    sessionSnapshot,
+  });
   useSyncExternalStore(focus.subscribe, focus.getSnapshot, focus.getSnapshot);
   const workspaceTitle = getWorkspaceTitle(location.pathname);
   const recallWorkspaceTitle = getRecallWorkspaceTitle(location.pathname);

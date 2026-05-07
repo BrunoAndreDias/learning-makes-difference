@@ -267,6 +267,16 @@ export function hasActiveSession(session: AppSessionSnapshot): boolean {
   return session.user !== null;
 }
 
+export function resolveProtectedSessionSnapshot(input: {
+  routedSessionSnapshot?: AppSessionSnapshot;
+  sessionSnapshot: AppSessionSnapshot;
+}): AppSessionSnapshot {
+  return hasActiveSession(input.sessionSnapshot) ||
+    input.routedSessionSnapshot === undefined
+    ? input.sessionSnapshot
+    : input.routedSessionSnapshot;
+}
+
 export function createGuestSessionContext(): AppSessionContext {
   const snapshot = buildAnonymousSnapshot();
 

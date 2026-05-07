@@ -12,7 +12,7 @@ import {
   type AppSessionSnapshot,
   appLanguagePreferences,
   getAppAuthError,
-  hasActiveSession,
+  resolveProtectedSessionSnapshot,
 } from "./session";
 
 export const Route = createFileRoute("/_protected/settings")({
@@ -37,10 +37,10 @@ function SettingsPage() {
     session.getSnapshot,
     session.getSnapshot,
   );
-  const effectiveSessionSnapshot =
-    hasActiveSession(sessionSnapshot) || routedSessionSnapshot === undefined
-      ? sessionSnapshot
-      : routedSessionSnapshot;
+  const effectiveSessionSnapshot = resolveProtectedSessionSnapshot({
+    routedSessionSnapshot,
+    sessionSnapshot,
+  });
   const user = effectiveSessionSnapshot.user;
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
   const [interfaceLanguage, setInterfaceLanguage] =
