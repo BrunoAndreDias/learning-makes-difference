@@ -695,7 +695,8 @@
 .app-frame[data-workspace="recall"] .app-frame__workspace-header,
 .app-frame[data-workspace="recall-results"] .app-frame__workspace-header,
 .app-frame[data-workspace="labels"] .app-frame__workspace-header,
-.app-frame[data-workspace="focus"] .app-frame__workspace-header {
+.app-frame[data-workspace="focus"] .app-frame__workspace-header,
+.app-frame[data-workspace="settings"] .app-frame__workspace-header {
   position: absolute;
   inset: 0 0 auto 0;
   z-index: 24;
@@ -859,7 +860,9 @@
 .app-frame[data-workspace="recall-results"] .app-frame__actions,
 .app-frame[data-workspace="labels"] .app-frame__titlebar,
 .app-frame[data-workspace="focus"] .app-frame__titlebar,
-.app-frame[data-workspace="focus"] .app-frame__actions {
+.app-frame[data-workspace="focus"] .app-frame__actions,
+.app-frame[data-workspace="settings"] .app-frame__titlebar,
+.app-frame[data-workspace="settings"] .app-frame__actions {
   pointer-events: auto;
 }
 

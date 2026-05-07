@@ -12,6 +12,7 @@ import {
   type AppSessionSnapshot,
   appLanguagePreferences,
   getAppAuthError,
+  hasActiveSession,
 } from "./session";
 
 export const Route = createFileRoute("/_protected/settings")({
@@ -28,12 +29,19 @@ function SettingsPage() {
   const session = Route.useRouteContext({
     select: (context) => context.session,
   });
+  const routedSessionSnapshot = Route.useRouteContext({
+    select: (context) => context.sessionSnapshot,
+  });
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
     session.subscribe,
     session.getSnapshot,
     session.getSnapshot,
   );
-  const user = sessionSnapshot.user;
+  const effectiveSessionSnapshot =
+    hasActiveSession(sessionSnapshot) || routedSessionSnapshot === undefined
+      ? sessionSnapshot
+      : routedSessionSnapshot;
+  const user = effectiveSessionSnapshot.user;
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
   const [interfaceLanguage, setInterfaceLanguage] =
     useState<AppLanguagePreference>(user?.interfaceLanguage ?? "en");
@@ -63,6 +71,11 @@ function SettingsPage() {
     return null;
   }
 
+  const hasPreferenceChanges =
+    displayName !== user.displayName ||
+    interfaceLanguage !== user.interfaceLanguage ||
+    studyLanguage !== user.studyLanguage;
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage(null);
@@ -90,29 +103,31 @@ function SettingsPage() {
   }
 
   return (
-    <section className="settings-layout">
-      <article className="card stack panel-protected">
-        <p className="section-label">Account settings</p>
-        <h3>Profile preferences</h3>
-        <p>
-          Update the account details that appear in the workspace shell and set
-          the language preferences the product will expand on in later slices.
-        </p>
-        <div className="tag-row">
-          <span className="tag">Protected account scope</span>
-          <span className="tag">Future internationalization</span>
+    <section className="settings-layout" aria-labelledby="settings-heading">
+      <header className="settings-page-header recall-surface__header">
+        <div className="notes-editor__title-stack">
+          <h3 aria-label="Account settings" id="settings-heading">
+            Settings
+          </h3>
+          <p className="muted notes-editor__meta">
+            Keep your workspace identity and language defaults aligned across
+            Notes, Recall, and Labels.
+          </p>
         </div>
-      </article>
+      </header>
 
-      <div className="placeholder-grid settings-grid">
-        <article className="card stack">
-          <p className="section-label">Profile</p>
+      <div className="settings-main-grid">
+        <article className="settings-panel settings-panel--form">
+          <div className="settings-panel__header">
+            <p className="section-label">Profile</p>
+            <h3>Workspace identity</h3>
+          </div>
           <form
             aria-label="Account preferences form"
-            className="auth-form"
+            className="settings-form"
             onSubmit={handleSubmit}
           >
-            <label className="auth-form__field">
+            <label className="settings-form__field">
               <span>Display name</span>
               <input
                 autoComplete="name"
@@ -127,10 +142,10 @@ function SettingsPage() {
               />
             </label>
 
-            <label className="auth-form__field">
+            <label className="settings-form__field">
               <span>Interface language</span>
               <select
-                className="auth-form__control"
+                className="settings-form__control"
                 name="interfaceLanguage"
                 onChange={updateLanguagePreference(setInterfaceLanguage)}
                 value={interfaceLanguage}
@@ -143,10 +158,10 @@ function SettingsPage() {
               </select>
             </label>
 
-            <label className="auth-form__field">
+            <label className="settings-form__field">
               <span>Study language</span>
               <select
-                className="auth-form__control"
+                className="settings-form__control"
                 name="studyLanguage"
                 onChange={updateLanguagePreference(setStudyLanguage)}
                 value={studyLanguage}
@@ -160,19 +175,25 @@ function SettingsPage() {
             </label>
 
             {errorMessage !== null ? (
-              <p className="auth-form__error" role="alert">
+              <p
+                className="auth-form__error settings-form__message"
+                role="alert"
+              >
                 {errorMessage}
               </p>
             ) : null}
 
             {statusMessage !== null ? (
-              <p className="settings-status" role="status">
+              <p
+                className="settings-status settings-form__message"
+                role="status"
+              >
                 {statusMessage}
               </p>
             ) : null}
 
             <button
-              className="auth-form__submit"
+              className="auth-submit settings-submit"
               disabled={isSubmitting}
               type="submit"
             >
@@ -181,8 +202,11 @@ function SettingsPage() {
           </form>
         </article>
 
-        <article className="card stack">
-          <p className="section-label">Account scope</p>
+        <article className="settings-panel settings-panel--summary">
+          <div className="settings-panel__header">
+            <p className="section-label">Account scope</p>
+            <h3>Current defaults</h3>
+          </div>
           <dl
             className="settings-summary"
             aria-label="Current account settings"
@@ -190,6 +214,10 @@ function SettingsPage() {
             <div>
               <dt>Email</dt>
               <dd>{user.email}</dd>
+            </div>
+            <div>
+              <dt>Status</dt>
+              <dd>{hasPreferenceChanges ? "Unsaved changes" : "Saved"}</dd>
             </div>
             <div>
               <dt>Interface language</dt>
@@ -200,11 +228,6 @@ function SettingsPage() {
               <dd>{languageLabels[studyLanguage]}</dd>
             </div>
           </dl>
-          <p className="muted">
-            The interface still renders the base language in v1. These
-            preferences are stored now so later internationalization work stays
-            account-aware instead of retrofitted.
-          </p>
         </article>
       </div>
     </section>

@@ -271,6 +271,7 @@ export function AppLayout() {
             isRecallWorkspaceRoute={isRecallWorkspaceRoute}
             isLabelsWorkspaceRoute={isLabelsWorkspaceRoute}
             isFocusWorkspaceRoute={isFocusWorkspaceRoute}
+            isSettingsWorkspaceRoute={isSettingsWorkspaceRoute}
             isSidebarCollapsed={isSidebarCollapsed}
             isMobileSidebarOpen={isMobileSidebarOpen}
             mobileSidebarToggleRef={mobileSidebarToggleRef}
@@ -300,6 +301,7 @@ function WorkspaceHeader({
   isRecallWorkspaceRoute,
   isLabelsWorkspaceRoute,
   isFocusWorkspaceRoute,
+  isSettingsWorkspaceRoute,
   isSidebarCollapsed,
   isMobileSidebarOpen,
   mobileSidebarToggleRef,
@@ -322,6 +324,7 @@ function WorkspaceHeader({
   isRecallWorkspaceRoute: boolean;
   isLabelsWorkspaceRoute: boolean;
   isFocusWorkspaceRoute: boolean;
+  isSettingsWorkspaceRoute: boolean;
   isSidebarCollapsed: boolean;
   isMobileSidebarOpen: boolean;
   mobileSidebarToggleRef: RefObject<HTMLButtonElement | null>;
@@ -332,6 +335,12 @@ function WorkspaceHeader({
   userId: string | null;
   workspaceTitle: string;
 }) {
+  const hasVisuallyHiddenWorkspaceTitle =
+    isRecallWorkspaceRoute ||
+    isLabelsWorkspaceRoute ||
+    isFocusWorkspaceRoute ||
+    isSettingsWorkspaceRoute;
+
   return (
     <header className="app-frame__workspace-header">
       <div className="app-frame__titlebar">
@@ -363,9 +372,7 @@ function WorkspaceHeader({
         {isNotesWorkspaceRoute ? null : (
           <h2
             className={
-              isRecallWorkspaceRoute ||
-              isLabelsWorkspaceRoute ||
-              isFocusWorkspaceRoute
+              hasVisuallyHiddenWorkspaceTitle
                 ? "app-frame__workspace-title sr-only"
                 : "app-frame__workspace-title"
             }
@@ -638,15 +645,12 @@ function NavigationIcon({
     case "focus":
       return (
         <svg aria-hidden="true" viewBox="0 0 24 24">
-          <path d="M12 3v4" />
-          <path d="M18.4 5.6 16 8" />
-          <path d="M21 12h-4" />
-          <path d="M18.4 18.4 16 16" />
-          <path d="M12 21v-4" />
-          <path d="M5.6 18.4 8 16" />
-          <path d="M3 12h4" />
-          <path d="M5.6 5.6 8 8" />
-          <circle cx="12" cy="12" r="3" />
+          <circle cx="12" cy="12" r="7" />
+          <circle cx="12" cy="12" r="2.5" />
+          <path d="M12 2v3" />
+          <path d="M12 19v3" />
+          <path d="M2 12h3" />
+          <path d="M19 12h3" />
         </svg>
       );
     case "recall":

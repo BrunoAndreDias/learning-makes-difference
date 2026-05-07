@@ -859,13 +859,6 @@ function LabelsPage() {
         </div>
 
         <div className="labels-management-header__actions">
-          <FocusSessionStartControl
-            activeFocusSession={activeFocusSession}
-            actionButtonVariant="secondary"
-            focus={focus}
-            persistentFocus={persistentFocus}
-            userId={currentUserId}
-          />
           <Button
             onClick={(event) => openEmptyCreateDrawer(event.currentTarget)}
             type="button"
@@ -873,6 +866,12 @@ function LabelsPage() {
           >
             New label
           </Button>
+          <FocusSessionStartControl
+            activeFocusSession={activeFocusSession}
+            focus={focus}
+            persistentFocus={persistentFocus}
+            userId={currentUserId}
+          />
         </div>
       </header>
 

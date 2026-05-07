@@ -136,6 +136,18 @@ describe("authenticated app shell", () => {
     ).toHaveAttribute("aria-expanded", "false");
   });
 
+  it("keeps the shared top-right Focus action primary in shell headers", async () => {
+    renderRoute("/settings");
+
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Settings" }),
+    ).toBeInTheDocument();
+
+    expect(screen.getByRole("button", { name: "Start Focus" })).toHaveClass(
+      "notes-action-primary",
+    );
+  });
+
   it("renders global workspace navigation and updates the active link when navigating", async () => {
     const { router } = renderRoute("/notes");
 

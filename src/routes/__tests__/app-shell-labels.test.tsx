@@ -400,10 +400,10 @@ describe("authenticated app shell", () => {
       name: "Start Focus",
     });
     const newLabelButton = screen.getByRole("button", { name: "New label" });
-    expect(startFocusButton).toHaveClass("notes-action-secondary");
+    expect(startFocusButton).toHaveClass("notes-action-primary");
     expect(newLabelButton).toHaveClass("notes-action", "notes-action-primary");
     expect(
-      startFocusButton.compareDocumentPosition(newLabelButton) &
+      newLabelButton.compareDocumentPosition(startFocusButton) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
 

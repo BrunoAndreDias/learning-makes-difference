@@ -14,6 +14,10 @@ function ProtectedRouteShell() {
     from: "/_protected",
     select: (context) => context.persistentFocus,
   });
+  const persistentRecall = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.persistentRecall,
+  });
   const session = useRouteContext({
     from: "/_protected",
     select: (context) => context.session,
@@ -32,12 +36,14 @@ function ProtectedRouteShell() {
       ? sessionSnapshot
       : routedSessionSnapshot;
   const userId = effectiveSessionSnapshot.user?.id ?? null;
-  const [isReady, setIsReady] = useState(persistentFocus === undefined);
+  const [isReady, setIsReady] = useState(
+    persistentFocus === undefined && persistentRecall === undefined,
+  );
 
   useEffect(() => {
     let cancelled = false;
 
-    if (persistentFocus === undefined) {
+    if (persistentFocus === undefined && persistentRecall === undefined) {
       setIsReady(true);
       return () => {
         cancelled = true;
@@ -45,8 +51,10 @@ function ProtectedRouteShell() {
     }
 
     setIsReady(false);
-    void persistentFocus
-      .refresh(userId)
+    void Promise.all([
+      persistentFocus?.refresh(userId),
+      persistentRecall?.refresh(userId),
+    ])
       .catch(() => undefined)
       .finally(() => {
         if (!cancelled) {
@@ -57,7 +65,7 @@ function ProtectedRouteShell() {
     return () => {
       cancelled = true;
     };
-  }, [persistentFocus, userId]);
+  }, [persistentFocus, persistentRecall, userId]);
 
   if (!isReady) {
     return null;
