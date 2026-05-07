@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { createPersistentRecallContext } from "../../modules/recall";
 import {
   createDeterministicRecallTestContexts,
   createRecallNote,
+  createRouteHydratedSessionContext,
   renderRoute,
 } from "./app-shell-test-support";
 
@@ -178,6 +179,42 @@ describe("authenticated recall workspace", () => {
     ).toHaveAttribute("href", "/notes");
   });
 
+  it("uses the route-hydrated session to show Recall results immediately", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const note = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "Stored answer body",
+      title: "Stored prompt title",
+    });
+
+    completeRecallAt({
+      noteId: note.id,
+      rating: "good",
+      recallContext: contexts.recallContext,
+      timestamp: "2026-05-07T09:00:00.000Z",
+    });
+
+    renderRoute("/recall", {
+      ...contexts,
+      sessionContext: createRouteHydratedSessionContext(createSession()),
+    });
+
+    const results = await screen.findByRole("region", {
+      name: "Recall results",
+    });
+    const selectedResult = screen.getByRole("region", {
+      name: "Selected result",
+    });
+    expect(
+      within(results).getByText("Showing 1-1 of 1 result"),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getAllByText("Stored prompt title").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("heading", { name: "Recall starts with notes" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("links child Recall breadcrumbs back to the default Recall page", async () => {
     const contexts = createDeterministicRecallTestContexts();
     createRecallNote(contexts.notesContext, testUser.id, {
@@ -211,6 +248,116 @@ describe("authenticated recall workspace", () => {
     expect(
       screen.queryByRole("navigation", { name: "Breadcrumb" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("uses the route-hydrated session to load Recall setup notes immediately", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    createRecallNote(contexts.notesContext, testUser.id, {
+      body: "Recall body",
+      title: "Recall note",
+    });
+
+    renderRoute("/recall/select", {
+      ...contexts,
+      sessionContext: createRouteHydratedSessionContext(createSession()),
+    });
+
+    const availableNotes = await screen.findByRole("region", {
+      name: "Available Notes",
+    });
+    expect(within(availableNotes).getByText("Recall note")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Recall starts with notes" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("uses the route-hydrated session when refreshing persistent Recall results", async () => {
+    const persistentRecallContext = createPersistentRecallContext({
+      service: {
+        endRecallSession: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        getActiveSession: vi.fn(async () => null),
+        listSessionResults: vi.fn(async () => [
+          {
+            attempts: [
+              {
+                noteId: "note-restored",
+                rating: "good" as const,
+              },
+            ],
+            completedAt: "2026-05-07T09:10:00.000Z",
+            createdAt: "2026-05-07T09:00:00.000Z",
+            id: "session-restored-result",
+            mode: "FlashCard" as const,
+            notes: [
+              {
+                acronyms: [],
+                body: "Stored answer body.",
+                createdAt: "2026-05-07T08:50:00.000Z",
+                id: "note-restored",
+                labelIds: [],
+                metaphors: [],
+                title: "Stored prompt title",
+                updatedAt: "2026-05-07T08:50:00.000Z",
+              },
+            ],
+            questions: [
+              {
+                isAnswerRevealed: true,
+                noteId: "note-restored",
+                noteSnapshot: {
+                  acronyms: [],
+                  body: "Stored answer body.",
+                  createdAt: "2026-05-07T08:50:00.000Z",
+                  id: "note-restored",
+                  labelIds: [],
+                  metaphors: [],
+                  title: "Stored prompt title",
+                  updatedAt: "2026-05-07T08:50:00.000Z",
+                },
+                score: 75,
+                selfRating: "good" as const,
+                typedAnswer: "",
+              },
+            ],
+            score: 75,
+          },
+        ]),
+        rateFlashCardAnswer: vi.fn(async () => null),
+        revealFlashCardAnswer: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        startFlashCardSession: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        updateFlashCardAttemptText: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+      },
+    });
+
+    renderRoute("/recall", {
+      persistentRecallContext,
+      sessionContext: createRouteHydratedSessionContext(createSession()),
+    });
+
+    await waitFor(() => {
+      expect(
+        persistentRecallContext.readonlyContext.listSessionResults({
+          userId: testUser.id,
+        }),
+      ).toHaveLength(1);
+    });
+
+    const selectedResult = await screen.findByRole("region", {
+      name: "Selected result",
+    });
+    await waitFor(() => {
+      expect(
+        within(selectedResult).getAllByText("Stored prompt title").length,
+      ).toBeGreaterThan(0);
+    });
   });
 
   it("does not crash when switching from Recall results to Notes if a persisted result has an overflowing completed timestamp", async () => {
