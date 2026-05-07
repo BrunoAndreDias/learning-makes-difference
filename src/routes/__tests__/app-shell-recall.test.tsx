@@ -58,27 +58,27 @@ function completeMultiQuestionRecall(input: {
   timestamp: string;
 }) {
   vi.setSystemTime(new Date(input.timestamp));
-  const session = input.recallContext.startFlashCardSession({
+  const sessionId = input.recallContext.startFlashCardSession({
     noteIds: input.questions.map((question) => question.noteId),
     userId: testUser.id,
-  });
+  }).id;
 
   input.questions.forEach((question) => {
     if (question.typedAnswer !== undefined) {
       input.recallContext.updateFlashCardAttemptText({
-        sessionId: session.id,
+        sessionId,
         text: question.typedAnswer,
         userId: testUser.id,
       });
     }
 
     input.recallContext.revealFlashCardAnswer({
-      sessionId: session.id,
+      sessionId,
       userId: testUser.id,
     });
     input.recallContext.rateFlashCardAnswer({
       rating: question.rating,
-      sessionId: session.id,
+      sessionId,
       userId: testUser.id,
     });
   });
@@ -677,30 +677,21 @@ describe("authenticated recall workspace", () => {
       detailScope.getByText("1 of 3 questions attempted"),
     ).toBeInTheDocument();
     expect(detailScope.queryByText("Notes used")).toBeNull();
-    expect(notReachedSection).not.toBeNull();
+    if (!(notReachedSection instanceof HTMLElement)) {
+      throw new Error("Expected Not reached notes section to exist.");
+    }
+
+    const notReachedScope = within(notReachedSection);
+
     expect(
-      within(notReachedSection as HTMLElement).getByText(
-        "Second targeted note",
-      ),
+      notReachedScope.getByText("Second targeted note"),
     ).toBeInTheDocument();
     expect(
-      within(notReachedSection as HTMLElement).getByText("Third targeted note"),
+      notReachedScope.getByText("Third targeted note"),
     ).toBeInTheDocument();
-    expect(
-      within(notReachedSection as HTMLElement).queryByText(
-        "First targeted note",
-      ),
-    ).toBeNull();
-    expect(
-      within(notReachedSection as HTMLElement).queryByText(
-        "Second unreached answer.",
-      ),
-    ).toBeNull();
-    expect(
-      within(notReachedSection as HTMLElement).queryByText(
-        "Third unreached answer.",
-      ),
-    ).toBeNull();
+    expect(notReachedScope.queryByText("First targeted note")).toBeNull();
+    expect(notReachedScope.queryByText("Second unreached answer.")).toBeNull();
+    expect(notReachedScope.queryByText("Third unreached answer.")).toBeNull();
   });
 
   it("shows FlashCard Questions as a collapsed single-open-row accordion with self-rating pills", async () => {

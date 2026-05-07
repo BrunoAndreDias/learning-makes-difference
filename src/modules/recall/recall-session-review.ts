@@ -24,7 +24,7 @@ function getAttemptedQuestions(
 function getNotReachedNotes(input: {
   attemptedQuestions: readonly RecallQuestion[];
   notes: readonly FlashCardRecallNote[];
-}) {
+}): FlashCardRecallNote[] {
   const attemptedNoteIds = new Set(
     input.attemptedQuestions.map((question) => question.noteId),
   );
@@ -53,6 +53,26 @@ function getDurationLabel(
   return `completed in ${elapsedMinutes} min`;
 }
 
+function getNoteCountLabel(input: { endedEarly: boolean; noteCount: number }) {
+  if (input.endedEarly) {
+    return formatCount(input.noteCount, "targeted note");
+  }
+
+  return formatCount(input.noteCount, "note");
+}
+
+function getQuestionCoverageLabel(input: {
+  attemptedQuestionCount: number;
+  endedEarly: boolean;
+  noteCount: number;
+}) {
+  if (input.endedEarly) {
+    return `${input.attemptedQuestionCount} of ${input.noteCount} questions attempted`;
+  }
+
+  return formatCount(input.attemptedQuestionCount, "question");
+}
+
 export function projectSessionReview(
   result: Pick<
     FlashCardSessionResult,
@@ -73,12 +93,12 @@ export function projectSessionReview(
     notReachedNotes,
     summary: {
       durationLabel: getDurationLabel(result),
-      noteCountLabel: endedEarly
-        ? `${formatCount(noteCount, "targeted note")}`
-        : formatCount(noteCount, "note"),
-      questionCoverageLabel: endedEarly
-        ? `${attemptedQuestionCount} of ${noteCount} questions attempted`
-        : formatCount(attemptedQuestionCount, "question"),
+      noteCountLabel: getNoteCountLabel({ endedEarly, noteCount }),
+      questionCoverageLabel: getQuestionCoverageLabel({
+        attemptedQuestionCount,
+        endedEarly,
+        noteCount,
+      }),
     },
   };
 }
