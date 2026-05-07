@@ -249,6 +249,89 @@ describe("authenticated recall workspace", () => {
     expect(screen.getByRole("button", { name: "Reveal note" })).toBeEnabled();
   });
 
+  it("uses the routed authenticated session to hydrate the Recall session view immediately", async () => {
+    const userId = "user-route-hydrated-recall";
+    const hydratedNote = {
+      acronyms: [],
+      body: "Hydrated answer body.",
+      createdAt: "2026-05-07T08:55:00.000Z",
+      id: "route-hydrated-note",
+      labelIds: [],
+      metaphors: [],
+      title: "Hydrated prompt title",
+      updatedAt: "2026-05-07T08:55:00.000Z",
+    };
+    const refreshSpy = vi.fn(async () => ({
+      attempts: [],
+      createdAt: "2026-05-07T09:00:00.000Z",
+      currentIndex: 0,
+      currentQuestionIndex: 0,
+      draftAnswer: "",
+      id: "route-hydrated-recall-session",
+      isAnswerRevealed: false,
+      mode: "FlashCard" as const,
+      notes: [hydratedNote],
+      questions: [
+        {
+          isAnswerRevealed: false,
+          noteId: "route-hydrated-note",
+          noteSnapshot: hydratedNote,
+          score: null,
+          selfRating: null,
+          typedAnswer: "",
+        },
+      ],
+    }));
+    const persistentRecallContext = createPersistentRecallContext({
+      service: {
+        endRecallSession: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        getActiveSession: refreshSpy,
+        listSessionResults: vi.fn(async () => []),
+        rateFlashCardAnswer: vi.fn(async () => null),
+        revealFlashCardAnswer: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        startFlashCardSession: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        updateFlashCardAttemptText: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+      },
+    });
+
+    const { router } = renderRoute("/recall/session", {
+      persistentRecallContext,
+      sessionContext: createRouteHydratedSessionContext({
+        user: {
+          displayName: "Casey Routed Recall",
+          email: "casey.routed.recall@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      }),
+    });
+
+    expect(
+      await screen.findByText("Try to recall this note before revealing it."),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Hydrated prompt title").length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getByRole("button", { name: "Reveal note" })).toBeEnabled();
+    expect(router.state.location.pathname).toBe("/recall/session");
+    expect(refreshSpy).toHaveBeenCalled();
+    expect(persistentRecallContext.readonlyContext.getSnapshot()).toMatchObject(
+      {
+        id: "route-hydrated-recall-session",
+        userId,
+      },
+    );
+  });
+
   it("shows no-note guidance on /recall", async () => {
     renderRoute("/recall", { session: createSession() });
 
