@@ -72,6 +72,16 @@ function formatResultScore(score: number | null) {
   return score === null ? "No score" : `${Math.round(score)}%`;
 }
 
+function formatResultMetricLabel(mode: RecallMode) {
+  switch (mode) {
+    case "FlashCard":
+      return "Session self rating";
+    case "AiAssisted":
+    case "AiGraded":
+      return "Score";
+  }
+}
+
 function getRatingTone(rating: RecallSelfRating | null) {
   switch (rating) {
     case "forgot":
@@ -648,6 +658,7 @@ function ResultsDetailPanel({
 
 function SelectedResultDetail({ result }: { result: FlashCardSessionResult }) {
   const questionsAttempted = result.questions.length;
+  const resultScore = result.score ?? null;
 
   return (
     <div className="recall-results-detail recall-selected-result">
@@ -678,10 +689,10 @@ function SelectedResultDetail({ result }: { result: FlashCardSessionResult }) {
           </span>
         </div>
         <div className="recall-selected-result__stat">
-          <ScoreRing score={result.score ?? null} />
+          <ScoreRing score={resultScore} />
           <div className="recall-selected-result__stat-copy recall-selected-result__stat-copy--stacked">
-            <strong>{formatResultScore(result.score ?? null)}</strong>
-            <span>Score</span>
+            <strong>{formatResultScore(resultScore)}</strong>
+            <span>{formatResultMetricLabel(result.mode)}</span>
           </div>
         </div>
         <div className="recall-selected-result__stat">
@@ -785,12 +796,6 @@ function SelectedResultDetail({ result }: { result: FlashCardSessionResult }) {
                         </span>{" "}
                         <span>{getQuestionAnswerPreview(question)}</span>
                       </p>
-                    </div>
-                    <div className="recall-selected-result__question-score">
-                      <span>Score</span>
-                      <strong data-tone={getScoreTone(question.score ?? null)}>
-                        {formatResultScore(question.score ?? null)}
-                      </strong>
                     </div>
                     <div className="recall-selected-result__question-rating">
                       <span>Self rating</span>
