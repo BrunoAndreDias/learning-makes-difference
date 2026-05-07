@@ -157,27 +157,27 @@ function completeMultiQuestionRecall(input: {
   timestamp: string;
 }) {
   vi.setSystemTime(new Date(input.timestamp));
-  const session = input.recallContext.startFlashCardSession({
+  const sessionId = input.recallContext.startFlashCardSession({
     noteIds: input.questions.map((question) => question.noteId),
     userId: testUser.id,
-  });
+  }).id;
 
   input.questions.forEach((question) => {
     if (question.typedAnswer !== undefined) {
       input.recallContext.updateFlashCardAttemptText({
-        sessionId: session.id,
+        sessionId,
         text: question.typedAnswer,
         userId: testUser.id,
       });
     }
 
     input.recallContext.revealFlashCardAnswer({
-      sessionId: session.id,
+      sessionId,
       userId: testUser.id,
     });
     input.recallContext.rateFlashCardAnswer({
       rating: question.rating,
-      sessionId: session.id,
+      sessionId,
       userId: testUser.id,
     });
   });
@@ -851,6 +851,11 @@ describe("authenticated recall workspace", () => {
     expect(
       detailScope.getByText("Questions", { selector: "span" }),
     ).toBeInTheDocument();
+    expect(detailScope.queryByText("Notes used")).toBeNull();
+    expect(detailScope.queryByText("Not reached notes")).toBeNull();
+    expect(detailScope.getByText("1 note")).toBeInTheDocument();
+    expect(detailScope.getByText("1 question")).toBeInTheDocument();
+    expect(detailScope.queryByText(/targeted notes/i)).toBeNull();
     expect(
       detailScope.queryByRole("link", { name: "Back to selection" }),
     ).not.toBeInTheDocument();
@@ -860,6 +865,78 @@ describe("authenticated recall workspace", () => {
 
     const restartLinks = screen.getAllByRole("link", { name: "Start Recall" });
     expect(restartLinks).toHaveLength(1);
+  });
+
+  it("shows early-ended coverage and only unreached note titles in Not reached notes", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const firstNote = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "First historical answer.",
+      title: "First targeted note",
+    });
+    const secondNote = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "Second unreached answer.",
+      title: "Second targeted note",
+    });
+    const thirdNote = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "Third unreached answer.",
+      title: "Third targeted note",
+    });
+
+    vi.setSystemTime(new Date("2026-04-06T09:00:00.000Z"));
+    const session = contexts.recallContext.startFlashCardSession({
+      noteIds: [firstNote.id, secondNote.id, thirdNote.id],
+      userId: testUser.id,
+    });
+    contexts.recallContext.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId: testUser.id,
+    });
+    contexts.recallContext.rateFlashCardAnswer({
+      rating: "good",
+      sessionId: session.id,
+      userId: testUser.id,
+    });
+    contexts.recallContext.endFlashCardSession({
+      sessionId: session.id,
+      userId: testUser.id,
+    });
+
+    renderRoute("/recall", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    const detail = await screen.findByRole("region", {
+      name: "Selected result",
+    });
+    const detailScope = within(detail);
+    const notReachedSection = detailScope
+      .getByRole("heading", {
+        level: 4,
+        name: "Not reached notes",
+      })
+      .closest("section");
+
+    expect(detailScope.getByText("3 targeted notes")).toBeInTheDocument();
+    expect(
+      detailScope.getByText("1 of 3 questions attempted"),
+    ).toBeInTheDocument();
+    expect(detailScope.queryByText("Notes used")).toBeNull();
+    if (!(notReachedSection instanceof HTMLElement)) {
+      throw new Error("Expected Not reached notes section to exist.");
+    }
+
+    const notReachedScope = within(notReachedSection);
+
+    expect(
+      notReachedScope.getByText("Second targeted note"),
+    ).toBeInTheDocument();
+    expect(
+      notReachedScope.getByText("Third targeted note"),
+    ).toBeInTheDocument();
+    expect(notReachedScope.queryByText("First targeted note")).toBeNull();
+    expect(notReachedScope.queryByText("Second unreached answer.")).toBeNull();
+    expect(notReachedScope.queryByText("Third unreached answer.")).toBeNull();
   });
 
   it("shows FlashCard Questions as a collapsed single-open-row accordion with self-rating pills", async () => {

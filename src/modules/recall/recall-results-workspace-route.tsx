@@ -7,13 +7,13 @@ import type { AppLabel } from "../labels/label-management/labels";
 import { listNotesForUser } from "../notes";
 import { formatRecallModeLabel } from "./learner-copy";
 import type {
-  FlashCardRecallNote,
   FlashCardSessionResult,
   RecallMode,
   RecallQuestion,
   RecallSelfRating,
 } from "./recall";
 import { listRecallResultLabels } from "./recall-result-labels";
+import { projectSessionReview } from "./recall-session-review";
 import { searchRecallSessionResults } from "./recall-session-search";
 
 const recallResultsSearchSchema = z.object({});
@@ -130,44 +130,6 @@ function getScoreTone(score: number | null) {
   return "forgot";
 }
 
-function getResultDurationLabel(
-  result: Pick<FlashCardSessionResult, "completedAt" | "createdAt">,
-) {
-  const completedAt = new Date(result.completedAt);
-  const createdAt = new Date(result.createdAt);
-
-  if (
-    Number.isNaN(completedAt.getTime()) ||
-    Number.isNaN(createdAt.getTime()) ||
-    completedAt.getTime() < createdAt.getTime()
-  ) {
-    return "completed time unavailable";
-  }
-
-  const elapsedMinutes = Math.max(
-    1,
-    Math.round((completedAt.getTime() - createdAt.getTime()) / 60_000),
-  );
-  return `completed in ${elapsedMinutes} min`;
-}
-
-function getNoteCardCount(note: FlashCardRecallNote) {
-  return Math.max(1, note.metaphors.length + note.acronyms.length + 1);
-}
-
-function getPrimaryLabel(note: FlashCardRecallNote) {
-  return note.labels?.[0]?.name ?? null;
-}
-
-function getLabelTone(labelName: string) {
-  const tones = ["green", "blue", "purple", "amber"] as const;
-  const hash = [...labelName].reduce(
-    (total, character) => total + character.charCodeAt(0),
-    0,
-  );
-  return tones[hash % tones.length];
-}
-
 function getQuestionPrompt(question: RecallQuestion) {
   const prompt = question.noteSnapshot.title.trim();
 
@@ -236,27 +198,28 @@ function filterSessionResults(input: {
   recallType: RecallTypeFilter;
   sessionResults: readonly FlashCardSessionResult[];
 }) {
-  const labelFilteredResults =
-    input.labelId.length === 0
-      ? input.sessionResults
-      : input.sessionResults.filter((result) =>
-          matchesLabel(result, input.labelId),
-        );
-  const typeFilteredResults =
-    input.recallType === "all"
-      ? labelFilteredResults
-      : labelFilteredResults.filter(
-          (result) => result.mode === input.recallType,
-        );
+  let filteredResults = input.sessionResults;
+
+  if (input.labelId.length > 0) {
+    filteredResults = filteredResults.filter((result) =>
+      matchesLabel(result, input.labelId),
+    );
+  }
+
+  if (input.recallType !== "all") {
+    filteredResults = filteredResults.filter(
+      (result) => result.mode === input.recallType,
+    );
+  }
 
   if (input.query.trim().length === 0) {
-    return [...typeFilteredResults];
+    return [...filteredResults];
   }
 
   return searchRecallSessionResults({
     labels: input.labels,
     query: input.query,
-    sessionResults: typeFilteredResults,
+    sessionResults: filteredResults,
   }).map((result) => result.sessionResult);
 }
 
@@ -535,61 +498,86 @@ function ResultsMasterPanel({
         </label>
       </div>
 
-      {totalResults === 0 ? (
-        <div className="recall-results-empty" role="status">
-          <h4>No results yet</h4>
-          <p className="muted">Results will appear here.</p>
-        </div>
-      ) : results.length === 0 ? (
-        <div className="recall-results-empty" role="status">
-          <h4>No matching results</h4>
-          <p className="muted">Adjust search, label, or recall type filters.</p>
-        </div>
-      ) : (
-        <div className="recall-results-list-frame">
-          <ol className="recall-results-list">
-            {results.map((result) => (
-              <li key={result.id}>
-                <button
-                  aria-pressed={result.id === selectedResultId}
-                  className="recall-result-row"
-                  data-selected={result.id === selectedResultId}
-                  onClick={() => onSelectResult(result.id)}
-                  type="button"
-                >
-                  <span className="recall-result-row__icon" aria-hidden="true">
-                    <CalendarIcon />
-                  </span>
-                  <span className="recall-result-row__main">
-                    <strong>{formatResultDate(result.completedAt)}</strong>
-                    <span>{formatResultTime(result.completedAt)}</span>
-                    <span>
-                      {formatCount(result.questions.length, "question")}{" "}
-                      <span aria-hidden="true">·</span>{" "}
-                      <span
-                        className="recall-result-row__score"
-                        data-score-tone={getScoreTone(result.score ?? null)}
-                      >
-                        {formatResultScore(result.score ?? null)}
-                      </span>
-                    </span>
-                  </span>
-                  <span
-                    className="recall-mode-pill"
-                    data-mode-tone={getModeTone(result.mode)}
-                  >
-                    {formatRecallModeLabel(result.mode)}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ol>
-          <p className="recall-results-count">
-            {getResultsCountLabel(results)}
-          </p>
-        </div>
-      )}
+      <ResultsMasterPanelContent
+        onSelectResult={onSelectResult}
+        results={results}
+        selectedResultId={selectedResultId}
+        totalResults={totalResults}
+      />
     </section>
+  );
+}
+
+function ResultsMasterPanelContent({
+  onSelectResult,
+  results,
+  selectedResultId,
+  totalResults,
+}: {
+  onSelectResult: (resultId: string) => void;
+  results: readonly FlashCardSessionResult[];
+  selectedResultId: string | null;
+  totalResults: number;
+}) {
+  if (totalResults === 0) {
+    return (
+      <div className="recall-results-empty" role="status">
+        <h4>No results yet</h4>
+        <p className="muted">Results will appear here.</p>
+      </div>
+    );
+  }
+
+  if (results.length === 0) {
+    return (
+      <div className="recall-results-empty" role="status">
+        <h4>No matching results</h4>
+        <p className="muted">Adjust search, label, or recall type filters.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="recall-results-list-frame">
+      <ol className="recall-results-list">
+        {results.map((result) => (
+          <li key={result.id}>
+            <button
+              aria-pressed={result.id === selectedResultId}
+              className="recall-result-row"
+              data-selected={result.id === selectedResultId}
+              onClick={() => onSelectResult(result.id)}
+              type="button"
+            >
+              <span className="recall-result-row__icon" aria-hidden="true">
+                <CalendarIcon />
+              </span>
+              <span className="recall-result-row__main">
+                <strong>{formatResultDate(result.completedAt)}</strong>
+                <span>{formatResultTime(result.completedAt)}</span>
+                <span>
+                  {formatCount(result.questions.length, "question")}{" "}
+                  <span aria-hidden="true">·</span>{" "}
+                  <span
+                    className="recall-result-row__score"
+                    data-score-tone={getScoreTone(result.score ?? null)}
+                  >
+                    {formatResultScore(result.score ?? null)}
+                  </span>
+                </span>
+              </span>
+              <span
+                className="recall-mode-pill"
+                data-mode-tone={getModeTone(result.mode)}
+              >
+                {formatRecallModeLabel(result.mode)}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ol>
+      <p className="recall-results-count">{getResultsCountLabel(results)}</p>
+    </div>
   );
 }
 
@@ -695,7 +683,8 @@ function SelectedResultDetail({
   onExpandedQuestionKeyChange: ExpandedQuestionKeyChange;
   result: FlashCardSessionResult;
 }) {
-  const questionsAttempted = result.questions.length;
+  const review = projectSessionReview(result);
+  const questionsAttempted = review.attemptedQuestions.length;
   const resultScore = result.score ?? null;
 
   return (
@@ -748,39 +737,41 @@ function SelectedResultDetail({
       </div>
 
       <p className="recall-selected-result__summary">
-        <span>{formatCount(result.notes.length, "note")}</span>
+        <span>{review.summary.noteCountLabel}</span>
         <span aria-hidden="true">•</span>
-        <span>{formatCount(questionsAttempted, "question")}</span>
+        <span>{review.summary.questionCoverageLabel}</span>
         <span aria-hidden="true">•</span>
-        <span>{getResultDurationLabel(result)}</span>
+        <span>{review.summary.durationLabel}</span>
       </p>
 
-      <section
-        aria-labelledby="recall-result-notes-used"
-        className="recall-selected-result__section"
-      >
-        <h4 id="recall-result-notes-used">Notes used</h4>
-        {result.notes.length === 0 ? (
-          <p className="muted">No notes were captured for this result.</p>
-        ) : (
+      {review.notReachedNotes.length > 0 ? (
+        <section
+          aria-labelledby="recall-result-not-reached-notes"
+          className="recall-selected-result__section"
+        >
+          <h4 id="recall-result-not-reached-notes">Not reached notes</h4>
           <ol className="recall-selected-result__list">
-            {result.notes.map((note) => (
-              <SelectedResultNoteRow key={note.id} note={note} />
+            {review.notReachedNotes.map((note) => (
+              <li key={note.id}>
+                <p className="recall-selected-result__row-title">
+                  {note.title}
+                </p>
+              </li>
             ))}
           </ol>
-        )}
-      </section>
+        </section>
+      ) : null}
 
       <section
         aria-labelledby="recall-result-questions-answers"
         className="recall-selected-result__section"
       >
         <h4 id="recall-result-questions-answers">Questions</h4>
-        {result.questions.length === 0 ? (
+        {review.attemptedQuestions.length === 0 ? (
           <p className="muted">No attempted questions were saved.</p>
         ) : (
           <ol className="recall-selected-result__list">
-            {result.questions.map((question, index) => {
+            {review.attemptedQuestions.map((question, index) => {
               const questionKey = getQuestionKey(question, index);
 
               return (
@@ -798,39 +789,6 @@ function SelectedResultDetail({
         )}
       </section>
     </div>
-  );
-}
-
-function SelectedResultNoteRow({ note }: { note: FlashCardRecallNote }) {
-  const primaryLabel = getPrimaryLabel(note);
-
-  return (
-    <li>
-      <article className="recall-selected-result__row">
-        <span aria-hidden="true" className="recall-selected-result__row-icon">
-          <FileTextIcon />
-        </span>
-        <div className="recall-selected-result__row-main">
-          <p className="recall-selected-result__row-title">{note.title}</p>
-          {primaryLabel === null ? (
-            <span className="recall-selected-result__row-pill recall-selected-result__row-pill--neutral">
-              No label
-            </span>
-          ) : (
-            <span
-              className="recall-selected-result__row-pill"
-              data-tone={getLabelTone(primaryLabel)}
-            >
-              {primaryLabel}
-            </span>
-          )}
-        </div>
-        <span className="recall-selected-result__row-meta">
-          <span>{formatCount(getNoteCardCount(note), "card")}</span>
-          <ChevronRightIcon />
-        </span>
-      </article>
-    </li>
   );
 }
 
@@ -852,6 +810,10 @@ function QuestionReviewRow({
   const ratingLabel = getQuestionSelfRatingLabel(question.selfRating);
   const ratingTone = getRatingTone(question.selfRating);
 
+  function handleToggleQuestion() {
+    onExpandedQuestionKeyChange(isExpanded ? null : questionKey);
+  }
+
   return (
     <li>
       <article className="recall-selected-result__question-card">
@@ -859,9 +821,7 @@ function QuestionReviewRow({
           aria-controls={detailId}
           aria-expanded={isExpanded}
           className="recall-selected-result__row recall-selected-result__row--question recall-selected-result__question-toggle"
-          onClick={() =>
-            onExpandedQuestionKeyChange(isExpanded ? null : questionKey)
-          }
+          onClick={handleToggleQuestion}
           type="button"
         >
           <span className="recall-selected-result__question-index">
@@ -1021,46 +981,6 @@ function QuestionsIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="1.7"
-      />
-    </svg>
-  );
-}
-
-function FileTextIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="16"
-      viewBox="0 0 24 24"
-      width="16"
-    >
-      <path
-        d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5ZM14 3v5h5M9 13h6M9 17h4"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.7"
-      />
-    </svg>
-  );
-}
-
-function ChevronRightIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="14"
-      viewBox="0 0 24 24"
-      width="14"
-    >
-      <path
-        d="m9 6 6 6-6 6"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
       />
     </svg>
   );
