@@ -224,6 +224,15 @@ function getDetailBlockCopy(block: HTMLElement) {
   return copy;
 }
 
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: width,
+    writable: true,
+  });
+  fireEvent(window, new Event("resize"));
+}
+
 describe("authenticated recall workspace", () => {
   it("restores an active recall session from the persistent recall service on route entry", async () => {
     const persistentRecallContext = createPersistentRecallContext({
@@ -785,6 +794,64 @@ describe("authenticated recall workspace", () => {
     ).toBeInTheDocument();
     expect(within(selectedResult).getByText("75%")).toBeInTheDocument();
     expect(within(selectedResult).queryByText("Score")).toBeNull();
+  });
+
+  it("keeps Session self rating visible on tight layouts while only showing rating distribution when space stays calm", async () => {
+    setViewportWidth(960);
+
+    const contexts = createDeterministicRecallTestContexts();
+    const notes = [
+      createRecallNote(contexts.notesContext, testUser.id, {
+        body: "Reference body for forgot.",
+        title: "Forgot prompt",
+      }),
+      createRecallNote(contexts.notesContext, testUser.id, {
+        body: "Reference body for hard.",
+        title: "Hard prompt",
+      }),
+      createRecallNote(contexts.notesContext, testUser.id, {
+        body: "Reference body for good.",
+        title: "Good prompt",
+      }),
+      createRecallNote(contexts.notesContext, testUser.id, {
+        body: "Reference body for easy.",
+        title: "Easy prompt",
+      }),
+    ];
+
+    completeMultiQuestionRecall({
+      questions: [
+        { noteId: notes[0].id, rating: "forgot" },
+        { noteId: notes[1].id, rating: "hard" },
+        { noteId: notes[2].id, rating: "good" },
+        { noteId: notes[3].id, rating: "easy" },
+      ],
+      recallContext: contexts.recallContext,
+      timestamp: "2026-04-05T09:00:00.000Z",
+    });
+
+    renderRoute("/recall", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    const detail = await screen.findByRole("region", {
+      name: "Selected result",
+    });
+    const detailScope = within(detail);
+    const distributionLabel = "Easy 1 · Good 1 · Hard 1 · Forgot 1";
+
+    expect(detailScope.getByText("Session self rating")).toBeInTheDocument();
+    expect(detailScope.getByText("56%")).toBeInTheDocument();
+    expect(detailScope.getByText(distributionLabel)).toBeInTheDocument();
+
+    setViewportWidth(640);
+
+    await waitFor(() => {
+      expect(detailScope.getByText("Session self rating")).toBeInTheDocument();
+      expect(detailScope.getByText("56%")).toBeInTheDocument();
+      expect(detailScope.queryByText(distributionLabel)).toBeNull();
+    });
   });
 
   it("discards a zero-attempt session after confirmation", async () => {

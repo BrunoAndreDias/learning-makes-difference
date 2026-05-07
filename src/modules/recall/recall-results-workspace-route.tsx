@@ -27,6 +27,7 @@ const resultTimeFormatter = new Intl.DateTimeFormat("en", {
   timeStyle: "short",
   timeZone: "UTC",
 });
+const calmReviewStatsMinWidth = 960;
 
 type RecallTypeFilter = "all" | RecallMode;
 type ExpandedQuestionKey = string | null;
@@ -244,6 +245,26 @@ function getQuestionDetailId(index: number) {
   return `recall-result-question-detail-${index}`;
 }
 
+function getHasCalmReviewStatsLayout() {
+  if (typeof window === "undefined") {
+    return true;
+  }
+
+  return window.innerWidth >= calmReviewStatsMinWidth;
+}
+
+function subscribeToReviewStatsLayout(callback: () => void) {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+
+  window.addEventListener("resize", callback);
+
+  return () => {
+    window.removeEventListener("resize", callback);
+  };
+}
+
 function RecallResultsWorkspacePage() {
   const recallContext = useRouteContext({
     from: "/_protected",
@@ -391,6 +412,14 @@ function RecallResultsWorkspacePage() {
         </div>
       </article>
     </section>
+  );
+}
+
+function useHasCalmReviewStatsLayout() {
+  return useSyncExternalStore(
+    subscribeToReviewStatsLayout,
+    getHasCalmReviewStatsLayout,
+    getHasCalmReviewStatsLayout,
   );
 }
 
@@ -686,6 +715,15 @@ function SelectedResultDetail({
   const review = projectSessionReview(result);
   const questionsAttempted = review.attemptedQuestions.length;
   const resultScore = result.score ?? null;
+  const hasCalmReviewStatsLayout = useHasCalmReviewStatsLayout();
+  const selfRatingDistribution = review.selfRatingDistribution;
+  const showSelfRatingDistribution =
+    result.mode === "FlashCard" &&
+    hasCalmReviewStatsLayout &&
+    selfRatingDistribution !== null;
+  const selfRatingDistributionLabel = showSelfRatingDistribution
+    ? selfRatingDistribution.label
+    : null;
 
   return (
     <div className="recall-results-detail recall-selected-result">
@@ -693,7 +731,10 @@ function SelectedResultDetail({
         <h4>Session review</h4>
       </header>
 
-      <div className="recall-selected-result__stats">
+      <div
+        className="recall-selected-result__stats"
+        data-has-distribution={showSelfRatingDistribution}
+      >
         <div className="recall-selected-result__stat">
           <span
             aria-hidden="true"
@@ -734,6 +775,14 @@ function SelectedResultDetail({
             <span>Questions</span>
           </div>
         </div>
+        {showSelfRatingDistribution ? (
+          <div className="recall-selected-result__stat">
+            <div className="recall-selected-result__stat-copy recall-selected-result__stat-copy--distribution">
+              <strong>Distribution</strong>
+              <span>{selfRatingDistributionLabel}</span>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <p className="recall-selected-result__summary">

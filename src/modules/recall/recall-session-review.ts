@@ -1,13 +1,19 @@
 import { formatCount } from "../../lib/format-count";
 import type {
+  FlashCardRecallAttemptSummary,
   FlashCardRecallNote,
   FlashCardSessionResult,
   RecallQuestion,
 } from "./recall";
+import { summarizeAttempts } from "./recall";
 
 export type SessionReviewProjection = {
   attemptedQuestions: RecallQuestion[];
   notReachedNotes: FlashCardRecallNote[];
+  selfRatingDistribution: {
+    label: string;
+    totals: FlashCardRecallAttemptSummary;
+  } | null;
   summary: {
     durationLabel: string;
     noteCountLabel: string;
@@ -73,10 +79,25 @@ function getQuestionCoverageLabel(input: {
   return formatCount(input.attemptedQuestionCount, "question");
 }
 
+function getSelfRatingDistribution(
+  result: Pick<FlashCardSessionResult, "attempts">,
+) {
+  if (result.attempts.length === 0) {
+    return null;
+  }
+
+  const totals = summarizeAttempts(result.attempts);
+
+  return {
+    label: `Easy ${totals.easy} · Good ${totals.good} · Hard ${totals.hard} · Forgot ${totals.forgot}`,
+    totals,
+  };
+}
+
 export function projectSessionReview(
   result: Pick<
     FlashCardSessionResult,
-    "completedAt" | "createdAt" | "notes" | "questions"
+    "attempts" | "completedAt" | "createdAt" | "notes" | "questions"
   >,
 ): SessionReviewProjection {
   const attemptedQuestions = getAttemptedQuestions(result.questions);
@@ -91,6 +112,7 @@ export function projectSessionReview(
   return {
     attemptedQuestions,
     notReachedNotes,
+    selfRatingDistribution: getSelfRatingDistribution(result),
     summary: {
       durationLabel: getDurationLabel(result),
       noteCountLabel: getNoteCountLabel({ endedEarly, noteCount }),

@@ -1260,6 +1260,10 @@
   gap: 0;
 }
 
+.recall-selected-result__stats[data-has-distribution="true"] {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .recall-selected-result__stat {
   display: flex;
   align-items: center;
@@ -1308,6 +1312,15 @@
 
 .recall-selected-result__stat-copy--stacked span {
   font-size: 0.78rem;
+}
+
+.recall-selected-result__stat-copy--distribution strong {
+  font-size: 0.84rem;
+}
+
+.recall-selected-result__stat-copy--distribution span {
+  font-size: 0.76rem;
+  line-height: 1.25;
 }
 
 .recall-selected-result__mode-pill {

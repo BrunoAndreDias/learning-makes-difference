@@ -42,6 +42,12 @@ describe("recall session review", () => {
     const thirdNote = createNote("note-3", "Third note", "Third body");
 
     const review = projectSessionReview({
+      attempts: [
+        {
+          noteId: firstNote.id,
+          rating: "good",
+        },
+      ],
       completedAt: "2026-04-01T09:02:00.000Z",
       createdAt: "2026-04-01T09:00:00.000Z",
       notes: [firstNote, secondNote, thirdNote],
@@ -58,5 +64,14 @@ describe("recall session review", () => {
       "1 of 3 questions attempted",
     );
     expect(review.summary.durationLabel).toBe("completed in 2 min");
+    expect(review.selfRatingDistribution).toEqual({
+      label: "Easy 0 · Good 1 · Hard 0 · Forgot 0",
+      totals: {
+        easy: 0,
+        forgot: 0,
+        good: 1,
+        hard: 0,
+      },
+    });
   });
 });
