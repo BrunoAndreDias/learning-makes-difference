@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { createPersistentRecallContext } from "../../modules/recall";
 import {
@@ -687,11 +687,9 @@ describe("authenticated recall workspace", () => {
     expect(
       detailScope.getByRole("button", { name: /Second historical prompt/i }),
     ).toHaveAttribute("aria-expanded", "true");
-    await waitFor(() => {
-      expect(
-        detailScope.queryByText("Reference answer for the first question."),
-      ).toBeNull();
-    });
+    expect(
+      detailScope.queryByText("Reference answer for the first question."),
+    ).toBeNull();
     expect(
       detailScope.getByText("Reference answer for the second question."),
     ).toBeInTheDocument();

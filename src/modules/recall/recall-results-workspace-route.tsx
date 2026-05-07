@@ -29,6 +29,8 @@ const resultTimeFormatter = new Intl.DateTimeFormat("en", {
 });
 
 type RecallTypeFilter = "all" | RecallMode;
+type ExpandedQuestionKey = string | null;
+type ExpandedQuestionKeyChange = (questionKey: ExpandedQuestionKey) => void;
 
 export const Route = createFileRoute("/_protected/recall/")({
   validateSearch: recallResultsSearchSchema,
@@ -205,6 +207,24 @@ function getResultsCountLabel(results: readonly FlashCardSessionResult[]) {
   )}`;
 }
 
+function getSelectedResultIdForResults(
+  results: readonly FlashCardSessionResult[],
+  selectedResultId: string | null,
+) {
+  if (results.length === 0) {
+    return null;
+  }
+
+  if (
+    selectedResultId !== null &&
+    results.some((result) => result.id === selectedResultId)
+  ) {
+    return selectedResultId;
+  }
+
+  return results[0]?.id ?? null;
+}
+
 function matchesLabel(result: FlashCardSessionResult, labelId: string) {
   return result.notes.some((note) => note.labelIds.includes(labelId));
 }
@@ -251,6 +271,14 @@ function getInitialSavedMessage() {
 
   window.sessionStorage.removeItem(recallSessionSavedMessageKey);
   return "Recall session saved to results";
+}
+
+function getQuestionKey(question: RecallQuestion, index: number) {
+  return `${question.noteId}-${index}`;
+}
+
+function getQuestionDetailId(index: number) {
+  return `recall-result-question-detail-${index}`;
 }
 
 function RecallResultsWorkspacePage() {
@@ -300,9 +328,8 @@ function RecallResultsWorkspacePage() {
   const [selectedLabelId, setSelectedLabelId] = useState("");
   const [selectedRecallType, setSelectedRecallType] =
     useState<RecallTypeFilter>("all");
-  const [expandedQuestionKey, setExpandedQuestionKey] = useState<string | null>(
-    null,
-  );
+  const [expandedQuestionKey, setExpandedQuestionKey] =
+    useState<ExpandedQuestionKey>(null);
   const [savedMessage, setSavedMessage] = useState(getInitialSavedMessage);
   const filteredResults = useMemo(
     () =>
@@ -323,21 +350,21 @@ function RecallResultsWorkspacePage() {
   );
 
   useEffect(() => {
-    if (filteredResults.length === 0) {
+    const nextSelectedResultId = getSelectedResultIdForResults(
+      filteredResults,
+      selectedResultId,
+    );
+    const shouldClearExpandedQuestion =
+      filteredResults.length === 0 || nextSelectedResultId !== selectedResultId;
+
+    if (shouldClearExpandedQuestion) {
       setExpandedQuestionKey(null);
-      setSelectedResultId(null);
-      return;
     }
 
-    setSelectedResultId((currentResultId) => {
-      if (filteredResults.some((result) => result.id === currentResultId)) {
-        return currentResultId;
-      }
-
-      setExpandedQuestionKey(null);
-      return filteredResults[0]?.id ?? null;
-    });
-  }, [filteredResults]);
+    if (nextSelectedResultId !== selectedResultId) {
+      setSelectedResultId(nextSelectedResultId);
+    }
+  }, [filteredResults, selectedResultId]);
 
   useEffect(() => {
     if (
@@ -641,9 +668,9 @@ function ResultsDetailPanel({
   onExpandedQuestionKeyChange,
   result,
 }: {
-  expandedQuestionKey: string | null;
+  expandedQuestionKey: ExpandedQuestionKey;
   hasAnyResults: boolean;
-  onExpandedQuestionKeyChange: (questionKey: string | null) => void;
+  onExpandedQuestionKeyChange: ExpandedQuestionKeyChange;
   result: FlashCardSessionResult | null;
 }) {
   return (
@@ -672,8 +699,8 @@ function SelectedResultDetail({
   onExpandedQuestionKeyChange,
   result,
 }: {
-  expandedQuestionKey: string | null;
-  onExpandedQuestionKeyChange: (questionKey: string | null) => void;
+  expandedQuestionKey: ExpandedQuestionKey;
+  onExpandedQuestionKeyChange: ExpandedQuestionKeyChange;
   result: FlashCardSessionResult;
 }) {
   const questionsAttempted = result.questions.length;
@@ -745,43 +772,9 @@ function SelectedResultDetail({
           <p className="muted">No notes were captured for this result.</p>
         ) : (
           <ol className="recall-selected-result__list">
-            {result.notes.map((note) => {
-              const primaryLabel = getPrimaryLabel(note);
-
-              return (
-                <li key={note.id}>
-                  <article className="recall-selected-result__row">
-                    <span
-                      aria-hidden="true"
-                      className="recall-selected-result__row-icon"
-                    >
-                      <FileTextIcon />
-                    </span>
-                    <div className="recall-selected-result__row-main">
-                      <p className="recall-selected-result__row-title">
-                        {note.title}
-                      </p>
-                      {primaryLabel === null ? (
-                        <span className="recall-selected-result__row-pill recall-selected-result__row-pill--neutral">
-                          No label
-                        </span>
-                      ) : (
-                        <span
-                          className="recall-selected-result__row-pill"
-                          data-tone={getLabelTone(primaryLabel)}
-                        >
-                          {primaryLabel}
-                        </span>
-                      )}
-                    </div>
-                    <span className="recall-selected-result__row-meta">
-                      <span>{formatCount(getNoteCardCount(note), "card")}</span>
-                      <ChevronRightIcon />
-                    </span>
-                  </article>
-                </li>
-              );
-            })}
+            {result.notes.map((note) => (
+              <SelectedResultNoteRow key={note.id} note={note} />
+            ))}
           </ol>
         )}
       </section>
@@ -796,92 +789,168 @@ function SelectedResultDetail({
         ) : (
           <ol className="recall-selected-result__list">
             {result.questions.map((question, index) => {
-              const ratingTone = getRatingTone(question.selfRating);
-              const questionKey = `${question.noteId}-${index}`;
-              const isExpanded = expandedQuestionKey === questionKey;
-              const detailId = `recall-result-question-detail-${index}`;
+              const questionKey = getQuestionKey(question, index);
 
               return (
-                <li key={questionKey}>
-                  <article className="recall-selected-result__question-card">
-                    <button
-                      aria-controls={detailId}
-                      aria-expanded={isExpanded}
-                      className="recall-selected-result__row recall-selected-result__row--question recall-selected-result__question-toggle"
-                      onClick={() =>
-                        onExpandedQuestionKeyChange(
-                          isExpanded ? null : questionKey,
-                        )
-                      }
-                      type="button"
-                    >
-                      <span className="recall-selected-result__question-index">
-                        {index + 1}
-                      </span>
-                      <div className="recall-selected-result__row-main">
-                        <p className="recall-selected-result__row-title">
-                          {getQuestionPrompt(question)}
-                        </p>
-                      </div>
-                      <span
-                        className="recall-selected-result__row-pill"
-                        data-rating-tone={ratingTone}
-                      >
-                        {getQuestionSelfRatingLabel(question.selfRating)}
-                      </span>
-                      <span
-                        aria-hidden="true"
-                        className="recall-selected-result__row-expander"
-                        data-expanded={isExpanded}
-                      >
-                        <ChevronDownIcon />
-                      </span>
-                    </button>
-
-                    {isExpanded ? (
-                      <div
-                        className="recall-selected-result__question-detail"
-                        id={detailId}
-                      >
-                        <div className="recall-selected-result__question-detail-block">
-                          <p className="recall-selected-result__question-detail-label">
-                            Your answer
-                          </p>
-                          <p className="recall-selected-result__question-detail-copy">
-                            {getQuestionAnswerText(question)}
-                          </p>
-                        </div>
-                        <div className="recall-selected-result__question-detail-block">
-                          <p className="recall-selected-result__question-detail-label">
-                            Self rating
-                          </p>
-                          <span
-                            className="recall-selected-result__row-pill"
-                            data-rating-tone={ratingTone}
-                          >
-                            {getQuestionSelfRatingLabel(question.selfRating)}
-                          </span>
-                        </div>
-                        <div className="recall-selected-result__question-detail-block">
-                          <p className="recall-selected-result__question-detail-label">
-                            Reference note
-                          </p>
-                          <p className="recall-selected-result__question-detail-title">
-                            {question.noteSnapshot.title}
-                          </p>
-                          <p className="recall-selected-result__question-detail-copy">
-                            {question.noteSnapshot.body}
-                          </p>
-                        </div>
-                      </div>
-                    ) : null}
-                  </article>
-                </li>
+                <QuestionReviewRow
+                  expandedQuestionKey={expandedQuestionKey}
+                  index={index}
+                  key={questionKey}
+                  onExpandedQuestionKeyChange={onExpandedQuestionKeyChange}
+                  question={question}
+                  questionKey={questionKey}
+                />
               );
             })}
           </ol>
         )}
       </section>
+    </div>
+  );
+}
+
+function SelectedResultNoteRow({ note }: { note: FlashCardRecallNote }) {
+  const primaryLabel = getPrimaryLabel(note);
+
+  return (
+    <li>
+      <article className="recall-selected-result__row">
+        <span aria-hidden="true" className="recall-selected-result__row-icon">
+          <FileTextIcon />
+        </span>
+        <div className="recall-selected-result__row-main">
+          <p className="recall-selected-result__row-title">{note.title}</p>
+          {primaryLabel === null ? (
+            <span className="recall-selected-result__row-pill recall-selected-result__row-pill--neutral">
+              No label
+            </span>
+          ) : (
+            <span
+              className="recall-selected-result__row-pill"
+              data-tone={getLabelTone(primaryLabel)}
+            >
+              {primaryLabel}
+            </span>
+          )}
+        </div>
+        <span className="recall-selected-result__row-meta">
+          <span>{formatCount(getNoteCardCount(note), "card")}</span>
+          <ChevronRightIcon />
+        </span>
+      </article>
+    </li>
+  );
+}
+
+function QuestionReviewRow({
+  expandedQuestionKey,
+  index,
+  onExpandedQuestionKeyChange,
+  question,
+  questionKey,
+}: {
+  expandedQuestionKey: ExpandedQuestionKey;
+  index: number;
+  onExpandedQuestionKeyChange: ExpandedQuestionKeyChange;
+  question: RecallQuestion;
+  questionKey: string;
+}) {
+  const detailId = getQuestionDetailId(index);
+  const isExpanded = expandedQuestionKey === questionKey;
+  const ratingLabel = getQuestionSelfRatingLabel(question.selfRating);
+  const ratingTone = getRatingTone(question.selfRating);
+
+  return (
+    <li>
+      <article className="recall-selected-result__question-card">
+        <button
+          aria-controls={detailId}
+          aria-expanded={isExpanded}
+          className="recall-selected-result__row recall-selected-result__row--question recall-selected-result__question-toggle"
+          onClick={() =>
+            onExpandedQuestionKeyChange(isExpanded ? null : questionKey)
+          }
+          type="button"
+        >
+          <span className="recall-selected-result__question-index">
+            {index + 1}
+          </span>
+          <span className="recall-selected-result__row-main">
+            <span className="recall-selected-result__row-title">
+              {getQuestionPrompt(question)}
+            </span>
+          </span>
+          <span
+            className="recall-selected-result__row-pill"
+            data-rating-tone={ratingTone}
+          >
+            {ratingLabel}
+          </span>
+          <span
+            aria-hidden="true"
+            className="recall-selected-result__row-expander"
+            data-expanded={isExpanded}
+          >
+            <ChevronDownIcon />
+          </span>
+        </button>
+
+        {isExpanded ? (
+          <QuestionReviewDetail
+            detailId={detailId}
+            question={question}
+            ratingLabel={ratingLabel}
+            ratingTone={ratingTone}
+          />
+        ) : null}
+      </article>
+    </li>
+  );
+}
+
+function QuestionReviewDetail({
+  detailId,
+  question,
+  ratingLabel,
+  ratingTone,
+}: {
+  detailId: string;
+  question: RecallQuestion;
+  ratingLabel: string;
+  ratingTone: ReturnType<typeof getRatingTone>;
+}) {
+  return (
+    <div className="recall-selected-result__question-detail" id={detailId}>
+      <div className="recall-selected-result__question-detail-block">
+        <p className="recall-selected-result__question-detail-label">
+          Your answer
+        </p>
+        <p className="recall-selected-result__question-detail-copy">
+          {getQuestionAnswerText(question)}
+        </p>
+      </div>
+      <div className="recall-selected-result__question-detail-block">
+        <p className="recall-selected-result__question-detail-label">
+          Self rating
+        </p>
+        <span
+          className="recall-selected-result__row-pill"
+          data-rating-tone={ratingTone}
+        >
+          {ratingLabel}
+        </span>
+      </div>
+      <div className="recall-selected-result__question-detail-block">
+        <p className="recall-selected-result__question-detail-label">
+          Reference note
+        </p>
+        <p className="recall-selected-result__question-detail-title">
+          {question.noteSnapshot.title}
+        </p>
+        <p className="recall-selected-result__question-detail-copy">
+          {question.noteSnapshot.body}
+        </p>
+      </div>
     </div>
   );
 }

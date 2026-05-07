@@ -1424,26 +1424,12 @@
 }
 
 .recall-selected-result__row-title {
+  display: block;
   margin: 0;
   color: var(--color-content-strong);
   font-size: 0.9rem;
   font-weight: 600;
   line-height: 1.2;
-}
-
-.recall-selected-result__row-copy {
-  margin: 0;
-  color: var(--color-content-muted);
-  font-size: 0.82rem;
-  line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.recall-selected-result__row-copy-label {
-  color: var(--color-content-default);
-  font-weight: 600;
 }
 
 .recall-selected-result__row-pill {
