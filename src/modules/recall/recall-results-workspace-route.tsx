@@ -652,7 +652,7 @@ function SelectedResultDetail({ result }: { result: FlashCardSessionResult }) {
   return (
     <div className="recall-results-detail recall-selected-result">
       <header className="recall-selected-result__heading">
-        <h4>Result details</h4>
+        <h4>Session review</h4>
       </header>
 
       <div className="recall-selected-result__stats">
@@ -693,7 +693,7 @@ function SelectedResultDetail({ result }: { result: FlashCardSessionResult }) {
           </span>
           <div className="recall-selected-result__stat-copy recall-selected-result__stat-copy--stacked">
             <strong>{questionsAttempted}</strong>
-            <span>Questions attempted</span>
+            <span>Questions</span>
           </div>
         </div>
       </div>
@@ -756,7 +756,7 @@ function SelectedResultDetail({ result }: { result: FlashCardSessionResult }) {
         aria-labelledby="recall-result-questions-answers"
         className="recall-selected-result__section"
       >
-        <h4 id="recall-result-questions-answers">Questions and answers</h4>
+        <h4 id="recall-result-questions-answers">Questions</h4>
         {result.questions.length === 0 ? (
           <p className="muted">No attempted questions were saved.</p>
         ) : (
@@ -818,20 +818,6 @@ function SelectedResultDetail({ result }: { result: FlashCardSessionResult }) {
           </ol>
         )}
       </section>
-
-      <footer className="recall-selected-result__actions">
-        <Link className="notes-action" to="/recall/select">
-          <ArrowLeftIcon />
-          Back to selection
-        </Link>
-        <Link
-          className="notes-action notes-action-primary recall-selected-result__start"
-          to="/recall/select"
-        >
-          Start another recall
-          <RotateCwIcon />
-        </Link>
-      </footer>
     </div>
   );
 }
@@ -966,46 +952,6 @@ function ChevronDownIcon() {
     >
       <path
         d="m6 9 6 6 6-6"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-      />
-    </svg>
-  );
-}
-
-function ArrowLeftIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="16"
-      viewBox="0 0 24 24"
-      width="16"
-    >
-      <path
-        d="M19 12H5m7-7-7 7 7 7"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-      />
-    </svg>
-  );
-}
-
-function RotateCwIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="16"
-      viewBox="0 0 24 24"
-      width="16"
-    >
-      <path
-        d="M21 12a9 9 0 1 1-2.64-6.36M21 4v6h-6"
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"

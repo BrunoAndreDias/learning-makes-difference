@@ -499,6 +499,50 @@ describe("authenticated recall workspace", () => {
     ).toEqual([]);
   });
 
+  it("shows session review headings and keeps recall restart actions in the master panel only", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const note = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "Historical answer body.",
+      title: "Historical prompt",
+    });
+
+    completeRecallAt({
+      noteId: note.id,
+      rating: "good",
+      recallContext: contexts.recallContext,
+      timestamp: "2026-04-04T09:00:00.000Z",
+    });
+
+    renderRoute("/recall", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    const detail = await screen.findByRole("region", {
+      name: "Selected result",
+    });
+
+    expect(
+      within(detail).getByRole("heading", { level: 4, name: "Session review" }),
+    ).toBeInTheDocument();
+    expect(
+      within(detail).getByRole("heading", { level: 4, name: "Questions" }),
+    ).toBeInTheDocument();
+    expect(
+      within(detail).getByText("Questions", { selector: "span" }),
+    ).toBeInTheDocument();
+    expect(
+      within(detail).queryByRole("link", { name: "Back to selection" }),
+    ).toBeNull();
+    expect(
+      within(detail).queryByRole("link", { name: "Start another recall" }),
+    ).toBeNull();
+
+    expect(screen.getAllByRole("link", { name: "Start Recall" })).toHaveLength(
+      1,
+    );
+  });
+
   it("redirects direct /recall/session visits without an active session", async () => {
     const { router } = renderRoute("/recall/session", {
       session: createSession(),
