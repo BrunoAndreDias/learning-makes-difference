@@ -72,10 +72,14 @@ function formatResultScore(score: number | null) {
   return score === null ? "No score" : `${Math.round(score)}%`;
 }
 
-function getSelectedResultMetricLabel(
-  result: Pick<FlashCardSessionResult, "mode">,
-) {
-  return result.mode === "FlashCard" ? "Session self rating" : "Score";
+function formatResultMetricLabel(mode: RecallMode) {
+  switch (mode) {
+    case "FlashCard":
+      return "Session self rating";
+    case "AiAssisted":
+    case "AiGraded":
+      return "Score";
+  }
 }
 
 function getRatingTone(rating: RecallSelfRating | null) {
@@ -654,6 +658,7 @@ function ResultsDetailPanel({
 
 function SelectedResultDetail({ result }: { result: FlashCardSessionResult }) {
   const questionsAttempted = result.questions.length;
+  const resultScore = result.score ?? null;
 
   return (
     <div className="recall-results-detail recall-selected-result">
@@ -684,10 +689,10 @@ function SelectedResultDetail({ result }: { result: FlashCardSessionResult }) {
           </span>
         </div>
         <div className="recall-selected-result__stat">
-          <ScoreRing score={result.score ?? null} />
+          <ScoreRing score={resultScore} />
           <div className="recall-selected-result__stat-copy recall-selected-result__stat-copy--stacked">
-            <strong>{formatResultScore(result.score ?? null)}</strong>
-            <span>{getSelectedResultMetricLabel(result)}</span>
+            <strong>{formatResultScore(resultScore)}</strong>
+            <span>{formatResultMetricLabel(result.mode)}</span>
           </div>
         </div>
         <div className="recall-selected-result__stat">

@@ -500,9 +500,7 @@ describe("authenticated recall workspace", () => {
     expect(
       within(selectedResult).getByText("Session self rating"),
     ).toBeInTheDocument();
-    expect(within(selectedResult).getAllByText("75%").length).toBeGreaterThan(
-      0,
-    );
+    expect(within(selectedResult).getByText("75%")).toBeInTheDocument();
     expect(within(selectedResult).queryByText("Score")).toBeNull();
   });
 
