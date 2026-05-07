@@ -695,6 +695,88 @@ describe("authenticated recall workspace", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows expanded historical detail with repeated self-rating, exact typed text, and empty-answer fallback", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const firstNote = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "Historical reference body line one.\nHistorical reference body line two.",
+      title: "Exact answer prompt",
+    });
+    const secondNote = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "Reference note for empty typed answer.",
+      title: "Empty answer prompt",
+    });
+
+    completeMultiQuestionRecall({
+      questions: [
+        {
+          noteId: firstNote.id,
+          rating: "good",
+          typedAnswer:
+            "  Learner line one.\nLearner line two with spaces preserved.  ",
+        },
+        {
+          noteId: secondNote.id,
+          rating: "forgot",
+          typedAnswer: "   ",
+        },
+      ],
+      recallContext: contexts.recallContext,
+      timestamp: "2026-04-05T09:00:00.000Z",
+    });
+
+    renderRoute("/recall", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    const detail = await screen.findByRole("region", {
+      name: "Selected result",
+    });
+    const detailScope = within(detail);
+    const exactAnswerQuestion = detailScope.getByRole("button", {
+      name: /Exact answer prompt/i,
+    });
+    const emptyAnswerQuestion = detailScope.getByRole("button", {
+      name: /Empty answer prompt/i,
+    });
+
+    fireEvent.click(exactAnswerQuestion);
+
+    const detailPanel = document.getElementById(
+      exactAnswerQuestion.getAttribute("aria-controls") ?? "",
+    );
+    expect(detailPanel).not.toBeNull();
+    expect(detailPanel?.children).toHaveLength(3);
+    expect(detailPanel?.children[0]).toHaveTextContent("Self rating");
+    expect(detailPanel?.children[0]).toHaveTextContent("Good");
+    expect(detailPanel?.children[1]).toHaveTextContent("Your answer");
+    expect(
+      detailPanel?.children[1]?.querySelector(
+        ".recall-selected-result__question-detail-copy",
+      )?.textContent,
+    ).toBe("  Learner line one.\nLearner line two with spaces preserved.  ");
+    expect(detailPanel?.children[2]).toHaveTextContent("Reference note");
+    expect(
+      detailPanel?.children[2]?.querySelector(
+        ".recall-selected-result__question-detail-copy",
+      )?.textContent,
+    ).toBe(
+      "Historical reference body line one.\nHistorical reference body line two.",
+    );
+
+    fireEvent.click(emptyAnswerQuestion);
+
+    const emptyDetailPanel = document.getElementById(
+      emptyAnswerQuestion.getAttribute("aria-controls") ?? "",
+    );
+    expect(emptyAnswerQuestion).toHaveAttribute("aria-expanded", "true");
+    expect(emptyDetailPanel).not.toBeNull();
+    expect(emptyDetailPanel).toHaveTextContent("No typed answer recorded");
+    expect(emptyDetailPanel).toHaveTextContent(
+      "Reference note for empty typed answer.",
+    );
+  });
+
   it("redirects direct /recall/session visits without an active session", async () => {
     const { router } = renderRoute("/recall/session", {
       session: createSession(),

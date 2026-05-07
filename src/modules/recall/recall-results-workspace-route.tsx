@@ -179,9 +179,9 @@ function getQuestionPrompt(question: RecallQuestion) {
 }
 
 function getQuestionAnswerText(question: RecallQuestion) {
-  const typedAnswer = (question.typedAnswer ?? "").trim();
+  const typedAnswer = question.typedAnswer ?? "";
 
-  if (typedAnswer.length > 0) {
+  if (typedAnswer.trim().length > 0) {
     return typedAnswer;
   }
 
@@ -923,14 +923,6 @@ function QuestionReviewDetail({
     <div className="recall-selected-result__question-detail" id={detailId}>
       <div className="recall-selected-result__question-detail-block">
         <p className="recall-selected-result__question-detail-label">
-          Your answer
-        </p>
-        <p className="recall-selected-result__question-detail-copy">
-          {getQuestionAnswerText(question)}
-        </p>
-      </div>
-      <div className="recall-selected-result__question-detail-block">
-        <p className="recall-selected-result__question-detail-label">
           Self rating
         </p>
         <span
@@ -939,6 +931,14 @@ function QuestionReviewDetail({
         >
           {ratingLabel}
         </span>
+      </div>
+      <div className="recall-selected-result__question-detail-block">
+        <p className="recall-selected-result__question-detail-label">
+          Your answer
+        </p>
+        <p className="recall-selected-result__question-detail-copy">
+          {getQuestionAnswerText(question)}
+        </p>
       </div>
       <div className="recall-selected-result__question-detail-block">
         <p className="recall-selected-result__question-detail-label">
