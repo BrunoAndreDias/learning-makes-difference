@@ -606,6 +606,11 @@ describe("authenticated recall workspace", () => {
     expect(
       detailScope.getByText("Questions", { selector: "span" }),
     ).toBeInTheDocument();
+    expect(detailScope.queryByText("Notes used")).toBeNull();
+    expect(detailScope.queryByText("Not reached notes")).toBeNull();
+    expect(detailScope.getByText("1 note")).toBeInTheDocument();
+    expect(detailScope.getByText("1 question")).toBeInTheDocument();
+    expect(detailScope.queryByText(/targeted notes/i)).toBeNull();
     expect(
       detailScope.queryByRole("link", { name: "Back to selection" }),
     ).not.toBeInTheDocument();
@@ -615,6 +620,87 @@ describe("authenticated recall workspace", () => {
 
     const restartLinks = screen.getAllByRole("link", { name: "Start Recall" });
     expect(restartLinks).toHaveLength(1);
+  });
+
+  it("shows early-ended coverage and only unreached note titles in Not reached notes", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const firstNote = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "First historical answer.",
+      title: "First targeted note",
+    });
+    const secondNote = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "Second unreached answer.",
+      title: "Second targeted note",
+    });
+    const thirdNote = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "Third unreached answer.",
+      title: "Third targeted note",
+    });
+
+    vi.setSystemTime(new Date("2026-04-06T09:00:00.000Z"));
+    const session = contexts.recallContext.startFlashCardSession({
+      noteIds: [firstNote.id, secondNote.id, thirdNote.id],
+      userId: testUser.id,
+    });
+    contexts.recallContext.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId: testUser.id,
+    });
+    contexts.recallContext.rateFlashCardAnswer({
+      rating: "good",
+      sessionId: session.id,
+      userId: testUser.id,
+    });
+    contexts.recallContext.endFlashCardSession({
+      sessionId: session.id,
+      userId: testUser.id,
+    });
+
+    renderRoute("/recall", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    const detail = await screen.findByRole("region", {
+      name: "Selected result",
+    });
+    const detailScope = within(detail);
+    const notReachedSection = detailScope
+      .getByRole("heading", {
+        level: 4,
+        name: "Not reached notes",
+      })
+      .closest("section");
+
+    expect(detailScope.getByText("3 targeted notes")).toBeInTheDocument();
+    expect(
+      detailScope.getByText("1 of 3 questions attempted"),
+    ).toBeInTheDocument();
+    expect(detailScope.queryByText("Notes used")).toBeNull();
+    expect(notReachedSection).not.toBeNull();
+    expect(
+      within(notReachedSection as HTMLElement).getByText(
+        "Second targeted note",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(notReachedSection as HTMLElement).getByText("Third targeted note"),
+    ).toBeInTheDocument();
+    expect(
+      within(notReachedSection as HTMLElement).queryByText(
+        "First targeted note",
+      ),
+    ).toBeNull();
+    expect(
+      within(notReachedSection as HTMLElement).queryByText(
+        "Second unreached answer.",
+      ),
+    ).toBeNull();
+    expect(
+      within(notReachedSection as HTMLElement).queryByText(
+        "Third unreached answer.",
+      ),
+    ).toBeNull();
   });
 
   it("shows FlashCard Questions as a collapsed single-open-row accordion with self-rating pills", async () => {

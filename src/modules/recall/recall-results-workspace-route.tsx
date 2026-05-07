@@ -7,13 +7,13 @@ import type { AppLabel } from "../labels/label-management/labels";
 import { listNotesForUser } from "../notes";
 import { formatRecallModeLabel } from "./learner-copy";
 import type {
-  FlashCardRecallNote,
   FlashCardSessionResult,
   RecallMode,
   RecallQuestion,
   RecallSelfRating,
 } from "./recall";
 import { listRecallResultLabels } from "./recall-result-labels";
+import { projectSessionReview } from "./recall-session-review";
 import { searchRecallSessionResults } from "./recall-session-search";
 
 const recallResultsSearchSchema = z.object({});
@@ -128,44 +128,6 @@ function getScoreTone(score: number | null) {
   }
 
   return "forgot";
-}
-
-function getResultDurationLabel(
-  result: Pick<FlashCardSessionResult, "completedAt" | "createdAt">,
-) {
-  const completedAt = new Date(result.completedAt);
-  const createdAt = new Date(result.createdAt);
-
-  if (
-    Number.isNaN(completedAt.getTime()) ||
-    Number.isNaN(createdAt.getTime()) ||
-    completedAt.getTime() < createdAt.getTime()
-  ) {
-    return "completed time unavailable";
-  }
-
-  const elapsedMinutes = Math.max(
-    1,
-    Math.round((completedAt.getTime() - createdAt.getTime()) / 60_000),
-  );
-  return `completed in ${elapsedMinutes} min`;
-}
-
-function getNoteCardCount(note: FlashCardRecallNote) {
-  return Math.max(1, note.metaphors.length + note.acronyms.length + 1);
-}
-
-function getPrimaryLabel(note: FlashCardRecallNote) {
-  return note.labels?.[0]?.name ?? null;
-}
-
-function getLabelTone(labelName: string) {
-  const tones = ["green", "blue", "purple", "amber"] as const;
-  const hash = [...labelName].reduce(
-    (total, character) => total + character.charCodeAt(0),
-    0,
-  );
-  return tones[hash % tones.length];
 }
 
 function getQuestionPrompt(question: RecallQuestion) {
@@ -703,7 +665,8 @@ function SelectedResultDetail({
   onExpandedQuestionKeyChange: ExpandedQuestionKeyChange;
   result: FlashCardSessionResult;
 }) {
-  const questionsAttempted = result.questions.length;
+  const review = projectSessionReview(result);
+  const questionsAttempted = review.attemptedQuestions.length;
   const resultScore = result.score ?? null;
 
   return (
@@ -756,39 +719,41 @@ function SelectedResultDetail({
       </div>
 
       <p className="recall-selected-result__summary">
-        <span>{formatCount(result.notes.length, "note")}</span>
+        <span>{review.summary.noteCountLabel}</span>
         <span aria-hidden="true">•</span>
-        <span>{formatCount(questionsAttempted, "question")}</span>
+        <span>{review.summary.questionCoverageLabel}</span>
         <span aria-hidden="true">•</span>
-        <span>{getResultDurationLabel(result)}</span>
+        <span>{review.summary.durationLabel}</span>
       </p>
 
-      <section
-        aria-labelledby="recall-result-notes-used"
-        className="recall-selected-result__section"
-      >
-        <h4 id="recall-result-notes-used">Notes used</h4>
-        {result.notes.length === 0 ? (
-          <p className="muted">No notes were captured for this result.</p>
-        ) : (
+      {review.notReachedNotes.length > 0 ? (
+        <section
+          aria-labelledby="recall-result-not-reached-notes"
+          className="recall-selected-result__section"
+        >
+          <h4 id="recall-result-not-reached-notes">Not reached notes</h4>
           <ol className="recall-selected-result__list">
-            {result.notes.map((note) => (
-              <SelectedResultNoteRow key={note.id} note={note} />
+            {review.notReachedNotes.map((note) => (
+              <li key={note.id}>
+                <p className="recall-selected-result__row-title">
+                  {note.title}
+                </p>
+              </li>
             ))}
           </ol>
-        )}
-      </section>
+        </section>
+      ) : null}
 
       <section
         aria-labelledby="recall-result-questions-answers"
         className="recall-selected-result__section"
       >
         <h4 id="recall-result-questions-answers">Questions</h4>
-        {result.questions.length === 0 ? (
+        {review.attemptedQuestions.length === 0 ? (
           <p className="muted">No attempted questions were saved.</p>
         ) : (
           <ol className="recall-selected-result__list">
-            {result.questions.map((question, index) => {
+            {review.attemptedQuestions.map((question, index) => {
               const questionKey = getQuestionKey(question, index);
 
               return (
@@ -806,39 +771,6 @@ function SelectedResultDetail({
         )}
       </section>
     </div>
-  );
-}
-
-function SelectedResultNoteRow({ note }: { note: FlashCardRecallNote }) {
-  const primaryLabel = getPrimaryLabel(note);
-
-  return (
-    <li>
-      <article className="recall-selected-result__row">
-        <span aria-hidden="true" className="recall-selected-result__row-icon">
-          <FileTextIcon />
-        </span>
-        <div className="recall-selected-result__row-main">
-          <p className="recall-selected-result__row-title">{note.title}</p>
-          {primaryLabel === null ? (
-            <span className="recall-selected-result__row-pill recall-selected-result__row-pill--neutral">
-              No label
-            </span>
-          ) : (
-            <span
-              className="recall-selected-result__row-pill"
-              data-tone={getLabelTone(primaryLabel)}
-            >
-              {primaryLabel}
-            </span>
-          )}
-        </div>
-        <span className="recall-selected-result__row-meta">
-          <span>{formatCount(getNoteCardCount(note), "card")}</span>
-          <ChevronRightIcon />
-        </span>
-      </article>
-    </li>
   );
 }
 
@@ -1029,46 +961,6 @@ function QuestionsIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="1.7"
-      />
-    </svg>
-  );
-}
-
-function FileTextIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="16"
-      viewBox="0 0 24 24"
-      width="16"
-    >
-      <path
-        d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5ZM14 3v5h5M9 13h6M9 17h4"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.7"
-      />
-    </svg>
-  );
-}
-
-function ChevronRightIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="14"
-      viewBox="0 0 24 24"
-      width="14"
-    >
-      <path
-        d="m9 6 6 6-6 6"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
       />
     </svg>
   );
