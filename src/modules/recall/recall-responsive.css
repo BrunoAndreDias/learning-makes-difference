@@ -115,7 +115,6 @@
     grid-template-columns: 1.8rem minmax(0, 1fr) auto;
     grid-template-areas:
       "index main expander"
-      ". score expander"
       ". rating expander";
     align-items: start;
     row-gap: 0.35rem;
@@ -128,11 +127,6 @@
 
   .recall-selected-result__row--question .recall-selected-result__row-main {
     grid-area: main;
-  }
-
-  .recall-selected-result__row--question
-    .recall-selected-result__question-score {
-    grid-area: score;
   }
 
   .recall-selected-result__row--question

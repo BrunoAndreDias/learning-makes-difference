@@ -267,14 +267,21 @@ export function hasActiveSession(session: AppSessionSnapshot): boolean {
   return session.user !== null;
 }
 
-export function resolveProtectedSessionSnapshot(input: {
+export function resolveProtectedSessionSnapshot({
+  routedSessionSnapshot,
+  sessionSnapshot,
+}: Readonly<{
   routedSessionSnapshot?: AppSessionSnapshot;
   sessionSnapshot: AppSessionSnapshot;
-}): AppSessionSnapshot {
-  return hasActiveSession(input.sessionSnapshot) ||
-    input.routedSessionSnapshot === undefined
-    ? input.sessionSnapshot
-    : input.routedSessionSnapshot;
+}>): AppSessionSnapshot {
+  if (
+    hasActiveSession(sessionSnapshot) ||
+    routedSessionSnapshot === undefined
+  ) {
+    return sessionSnapshot;
+  }
+
+  return routedSessionSnapshot;
 }
 
 export function createGuestSessionContext(): AppSessionContext {

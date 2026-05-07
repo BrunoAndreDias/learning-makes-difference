@@ -2,10 +2,7 @@
 
 import { act, fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type {
-  AppSessionContext,
-  AppSessionSnapshot,
-} from "../../modules/access/session/session";
+import type { AppSessionSnapshot } from "../../modules/access/session/session";
 import {
   type AppPersistentFocusService,
   createPersistentFocusContext,
@@ -18,30 +15,10 @@ import {
   createCompletedRecallSession,
   createLearningLoopTestContexts,
   createRecallNote,
+  createRouteHydratedSessionContext,
   listNotesForUser,
   renderRoute,
 } from "./app-shell-test-support";
-
-function createAnonymousStoreWithRoutedSession(
-  snapshot: AppSessionSnapshot,
-): AppSessionContext {
-  const anonymousSnapshot: AppSessionSnapshot = { user: null };
-
-  return {
-    getSnapshot: () => anonymousSnapshot,
-    refresh: () => Promise.resolve(snapshot),
-    subscribe: () => () => undefined,
-    login: () =>
-      Promise.reject(new Error("Test session context cannot log in.")),
-    logout: () => Promise.resolve(anonymousSnapshot),
-    register: () =>
-      Promise.reject(new Error("Test session context cannot register.")),
-    updatePreferences: () =>
-      Promise.reject(
-        new Error("Test session context cannot update preferences."),
-      ),
-  };
-}
 
 describe("authenticated app shell", () => {
   it("renders an active FocusSession workspace with supported actions and disabled setup controls", async () => {
@@ -670,9 +647,7 @@ describe("authenticated app shell", () => {
 
     renderRoute("/focus", {
       persistentFocusContext,
-      sessionContext: createAnonymousStoreWithRoutedSession(
-        routedSessionSnapshot,
-      ),
+      sessionContext: createRouteHydratedSessionContext(routedSessionSnapshot),
     });
 
     const activePanel = await screen.findByRole("region", {

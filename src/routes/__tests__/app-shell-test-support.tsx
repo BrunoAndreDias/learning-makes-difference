@@ -146,6 +146,27 @@ export function renderRoute(
   };
 }
 
+export function createRouteHydratedSessionContext(
+  routedSessionSnapshot: AppSessionSnapshot,
+): AppSessionContext {
+  const anonymousSnapshot: AppSessionSnapshot = { user: null };
+
+  return {
+    getSnapshot: () => anonymousSnapshot,
+    refresh: () => Promise.resolve(routedSessionSnapshot),
+    subscribe: () => () => undefined,
+    login: () =>
+      Promise.reject(new Error("Test session context cannot log in.")),
+    logout: () => Promise.resolve(anonymousSnapshot),
+    register: () =>
+      Promise.reject(new Error("Test session context cannot register.")),
+    updatePreferences: () =>
+      Promise.reject(
+        new Error("Test session context cannot update preferences."),
+      ),
+  };
+}
+
 export function createSessionCookieJar(): MemorySessionCookie {
   let value: string | null = null;
 

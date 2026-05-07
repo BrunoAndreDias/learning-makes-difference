@@ -5,10 +5,7 @@ import { join } from "node:path";
 
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type {
-  AppSessionContext,
-  AppSessionSnapshot,
-} from "../../modules/access/session/session";
+import type { AppSessionSnapshot } from "../../modules/access/session/session";
 import {
   type AppLabel,
   createAppLabelsContext,
@@ -20,6 +17,7 @@ import {
 } from "../../modules/labels/persistent-labels";
 import { createAppNotesContext, listNotesForUser } from "../../modules/notes";
 import {
+  createRouteHydratedSessionContext,
   createRouteTestSessionContext,
   renderRoute,
   TEST_PILOT_REGISTRATION_CODE,
@@ -200,27 +198,6 @@ function createTestPersistentLabelsService(initialLabels: readonly AppLabel[]) {
   };
 
   return persistentService;
-}
-
-function createAnonymousStoreWithRoutedSession(
-  snapshot: AppSessionSnapshot,
-): AppSessionContext {
-  const anonymousSnapshot: AppSessionSnapshot = { user: null };
-
-  return {
-    getSnapshot: () => anonymousSnapshot,
-    refresh: () => Promise.resolve(snapshot),
-    subscribe: () => () => undefined,
-    login: () =>
-      Promise.reject(new Error("Test session context cannot log in.")),
-    logout: () => Promise.resolve(anonymousSnapshot),
-    register: () =>
-      Promise.reject(new Error("Test session context cannot register.")),
-    updatePreferences: () =>
-      Promise.reject(
-        new Error("Test session context cannot update preferences."),
-      ),
-  };
 }
 
 describe("authenticated app shell", () => {
@@ -692,9 +669,7 @@ describe("authenticated app shell", () => {
       labelsContext,
       notesContext,
       persistentLabelsContext,
-      sessionContext: createAnonymousStoreWithRoutedSession(
-        routedSessionSnapshot,
-      ),
+      sessionContext: createRouteHydratedSessionContext(routedSessionSnapshot),
     });
 
     const emptyState = await screen.findByRole("heading", {

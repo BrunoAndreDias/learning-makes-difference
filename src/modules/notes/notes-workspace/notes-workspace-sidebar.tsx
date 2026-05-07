@@ -87,11 +87,8 @@ export function NotesWorkspaceSidebar({
     recallContext.getSessionResultsSnapshot,
     recallContext.getSessionResultsSnapshot,
   );
-  const notes = listNotesForUser(
-    notesSnapshot,
-    effectiveSessionSnapshot.user?.id ?? null,
-  );
   const userId = effectiveSessionSnapshot.user?.id ?? null;
+  const notes = listNotesForUser(notesSnapshot, userId);
   const noteLearningStates = deriveLearningStates({
     histories:
       userId === null || recallResultsSnapshot.length === 0
