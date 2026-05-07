@@ -7,10 +7,7 @@ import {
   useRouteContext,
 } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import {
-  type AppSessionSnapshot,
-  resolveProtectedSessionSnapshot,
-} from "../access/session/session";
+import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import type { AppLabel } from "../labels/label-management/labels";
 import { type AppNote, listNotesForUser } from "../notes";
 import { searchNoteResults } from "../notes/notes-workspace/note-search";
@@ -31,24 +28,8 @@ function RecallRouteShell() {
     from: "/_protected/recall",
     select: (context) => context.persistentRecall,
   });
-  const sessionContext = useRouteContext({
-    from: "/_protected/recall",
-    select: (context) => context.session,
-  });
-  const routedSessionSnapshot = useRouteContext({
-    from: "/_protected/recall",
-    select: (context) => context.sessionSnapshot,
-  });
-  const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
-    sessionContext.subscribe,
-    sessionContext.getSnapshot,
-    sessionContext.getSnapshot,
-  );
-  const effectiveSessionSnapshot = resolveProtectedSessionSnapshot({
-    routedSessionSnapshot,
-    sessionSnapshot,
-  });
-  const userId = effectiveSessionSnapshot.user?.id ?? null;
+  const { sessionSnapshot } = useResolvedProtectedSession("/_protected/recall");
+  const userId = sessionSnapshot.user?.id ?? null;
   const [isReady, setIsReady] = useState(persistentRecallContext === undefined);
 
   useEffect(() => {
@@ -188,29 +169,13 @@ export function RecallSelectionPage({
     from: "/_protected",
     select: (context) => context.recall,
   });
-  const sessionContext = useRouteContext({
-    from: "/_protected",
-    select: (context) => context.session,
-  });
-  const routedSessionSnapshot = useRouteContext({
-    from: "/_protected",
-    select: (context) => context.sessionSnapshot,
-  });
-  const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
-    sessionContext.subscribe,
-    sessionContext.getSnapshot,
-    sessionContext.getSnapshot,
-  );
-  const effectiveSessionSnapshot = resolveProtectedSessionSnapshot({
-    routedSessionSnapshot,
-    sessionSnapshot,
-  });
+  const { sessionSnapshot } = useResolvedProtectedSession("/_protected");
   const notesSnapshot = useSyncExternalStore(
     notesContext.subscribe,
     notesContext.getSnapshot,
     notesContext.getSnapshot,
   );
-  const userId = effectiveSessionSnapshot.user?.id ?? null;
+  const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
   const labels = userId === null ? [] : labelsContext.getLabelsForUser(userId);
   const labelsById = new Map(labels.map((label) => [label.id, label]));

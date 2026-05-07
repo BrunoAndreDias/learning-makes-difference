@@ -1,19 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  type ChangeEvent,
-  type FormEvent,
-  useEffect,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { type ChangeEvent, type FormEvent, useEffect, useState } from "react";
 
 import {
   type AppLanguagePreference,
-  type AppSessionSnapshot,
   appLanguagePreferences,
   getAppAuthError,
-  resolveProtectedSessionSnapshot,
 } from "./session";
+import { useResolvedProtectedSession } from "./use-resolved-protected-session";
 
 export const Route = createFileRoute("/_protected/settings")({
   component: SettingsPage,
@@ -26,22 +19,10 @@ const languageLabels: Record<AppLanguagePreference, string> = {
 };
 
 function SettingsPage() {
-  const session = Route.useRouteContext({
-    select: (context) => context.session,
-  });
-  const routedSessionSnapshot = Route.useRouteContext({
-    select: (context) => context.sessionSnapshot,
-  });
-  const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
-    session.subscribe,
-    session.getSnapshot,
-    session.getSnapshot,
+  const { session, sessionSnapshot } = useResolvedProtectedSession(
+    "/_protected/settings",
   );
-  const effectiveSessionSnapshot = resolveProtectedSessionSnapshot({
-    routedSessionSnapshot,
-    sessionSnapshot,
-  });
-  const user = effectiveSessionSnapshot.user;
+  const user = sessionSnapshot.user;
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
   const [interfaceLanguage, setInterfaceLanguage] =
     useState<AppLanguagePreference>(user?.interfaceLanguage ?? "en");

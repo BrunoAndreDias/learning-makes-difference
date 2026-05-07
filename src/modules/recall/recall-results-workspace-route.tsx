@@ -2,10 +2,7 @@ import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { z } from "zod";
 import { formatCount } from "../../lib/format-count";
-import {
-  type AppSessionSnapshot,
-  resolveProtectedSessionSnapshot,
-} from "../access/session/session";
+import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import type { AppLabel } from "../labels/label-management/labels";
 import { listNotesForUser } from "../notes";
 import { formatRecallModeLabel } from "./learner-copy";
@@ -289,14 +286,7 @@ function RecallResultsWorkspacePage() {
     from: "/_protected",
     select: (context) => context.recall,
   });
-  const sessionContext = useRouteContext({
-    from: "/_protected",
-    select: (context) => context.session,
-  });
-  const routedSessionSnapshot = useRouteContext({
-    from: "/_protected",
-    select: (context) => context.sessionSnapshot,
-  });
+  const { sessionSnapshot } = useResolvedProtectedSession("/_protected");
   const labelsContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.labels,
@@ -304,15 +294,6 @@ function RecallResultsWorkspacePage() {
   const notesContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.notes,
-  });
-  const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
-    sessionContext.subscribe,
-    sessionContext.getSnapshot,
-    sessionContext.getSnapshot,
-  );
-  const effectiveSessionSnapshot = resolveProtectedSessionSnapshot({
-    routedSessionSnapshot,
-    sessionSnapshot,
   });
   useSyncExternalStore(
     recallContext.subscribe,
@@ -324,7 +305,7 @@ function RecallResultsWorkspacePage() {
     notesContext.getSnapshot,
     notesContext.getSnapshot,
   );
-  const userId = effectiveSessionSnapshot.user?.id ?? null;
+  const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
   const currentLabels =
     userId === null ? [] : labelsContext.getLabelsForUser(userId);

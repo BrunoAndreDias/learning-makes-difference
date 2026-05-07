@@ -14,10 +14,7 @@ import {
 import { Button } from "../../../design-system/button";
 import { formatCount } from "../../../lib/format-count";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
-import {
-  type AppSessionSnapshot,
-  resolveProtectedSessionSnapshot,
-} from "../../access/session/session";
+import { useResolvedProtectedSession } from "../../access/session/use-resolved-protected-session";
 import { FocusSessionStartControl } from "../../focus";
 import { listNotesForUser } from "../../notes";
 import { normalizeLabelParentIds } from "../label-graph";
@@ -255,31 +252,15 @@ function LabelsPage() {
     from: "/_protected/labels",
     select: (context) => context.persistentFocus,
   });
-  const session = useRouteContext({
-    from: "/_protected/labels",
-    select: (context) => context.session,
-  });
-  const routedSessionSnapshot = useRouteContext({
-    from: "/_protected/labels",
-    select: (context) => context.sessionSnapshot,
-  });
+  const { sessionSnapshot } = useResolvedProtectedSession("/_protected/labels");
 
-  const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
-    session.subscribe,
-    session.getSnapshot,
-    session.getSnapshot,
-  );
-  const effectiveSessionSnapshot = resolveProtectedSessionSnapshot({
-    routedSessionSnapshot,
-    sessionSnapshot,
-  });
   const notesSnapshot = useSyncExternalStore(
     notes.subscribe,
     notes.getSnapshot,
     notes.getSnapshot,
   );
   useSyncExternalStore(focus.subscribe, focus.getSnapshot, focus.getSnapshot);
-  const currentUserId = effectiveSessionSnapshot.user?.id ?? null;
+  const currentUserId = sessionSnapshot.user?.id ?? null;
   const activeFocusSession =
     currentUserId === null
       ? null

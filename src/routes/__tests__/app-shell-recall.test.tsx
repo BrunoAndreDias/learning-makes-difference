@@ -2,7 +2,14 @@
 
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { createPersistentRecallContext } from "../../modules/recall";
+import {
+  type AppPersistentRecallService,
+  createPersistentRecallContext,
+  type RecallNoteSnapshot,
+  type RecallQuestion,
+  type RecallSelfRating,
+  type SessionResult,
+} from "../../modules/recall";
 import {
   createDeterministicRecallTestContexts,
   createRecallNote,
@@ -47,6 +54,97 @@ function completeRecallAt(input: {
   });
 }
 
+function createPersistentRecallService(
+  overrides: Partial<AppPersistentRecallService>,
+): AppPersistentRecallService {
+  return {
+    endRecallSession: vi.fn(async () => {
+      throw new Error("not used");
+    }),
+    getActiveSession: vi.fn(async () => null),
+    listSessionResults: vi.fn(async () => []),
+    rateFlashCardAnswer: vi.fn(async () => null),
+    revealFlashCardAnswer: vi.fn(async () => {
+      throw new Error("not used");
+    }),
+    startFlashCardSession: vi.fn(async () => {
+      throw new Error("not used");
+    }),
+    updateFlashCardAttemptText: vi.fn(async () => {
+      throw new Error("not used");
+    }),
+    ...overrides,
+  };
+}
+
+function createStoredRecallNote(
+  overrides: Partial<RecallNoteSnapshot> = {},
+): RecallNoteSnapshot {
+  return {
+    acronyms: [],
+    body: "Stored answer body.",
+    createdAt: "2026-05-07T08:50:00.000Z",
+    id: "note-restored",
+    labelIds: [],
+    metaphors: [],
+    title: "Stored prompt title",
+    updatedAt: "2026-05-07T08:50:00.000Z",
+    ...overrides,
+  };
+}
+
+function createStoredRecallQuestion(input: {
+  note: RecallNoteSnapshot;
+  score: number | null;
+  selfRating: RecallSelfRating | null;
+}): RecallQuestion {
+  return {
+    isAnswerRevealed: true,
+    noteId: input.note.id,
+    noteSnapshot: input.note,
+    score: input.score,
+    selfRating: input.selfRating,
+    typedAnswer: "",
+  };
+}
+
+function createStoredSessionResult(
+  overrides: {
+    completedAt?: string;
+    createdAt?: string;
+    id?: string;
+    note?: RecallNoteSnapshot;
+    rating?: RecallSelfRating;
+    score?: number | null;
+  } = {},
+): SessionResult {
+  const note = overrides.note ?? createStoredRecallNote();
+  const rating = overrides.rating ?? "good";
+  const score = overrides.score === undefined ? 75 : overrides.score;
+
+  return {
+    attempts: [
+      {
+        noteId: note.id,
+        rating,
+      },
+    ],
+    completedAt: overrides.completedAt ?? "2026-05-07T09:10:00.000Z",
+    createdAt: overrides.createdAt ?? "2026-05-07T09:00:00.000Z",
+    id: overrides.id ?? "session-restored-result",
+    mode: "FlashCard",
+    notes: [note],
+    questions: [
+      createStoredRecallQuestion({
+        note,
+        score,
+        selfRating: rating,
+      }),
+    ],
+    score,
+  };
+}
+
 function completeMultiQuestionRecall(input: {
   questions: ReadonlyArray<{
     noteId: string;
@@ -88,10 +186,7 @@ function completeMultiQuestionRecall(input: {
 describe("authenticated recall workspace", () => {
   it("restores an active recall session from the persistent recall service on route entry", async () => {
     const persistentRecallContext = createPersistentRecallContext({
-      service: {
-        endRecallSession: vi.fn(async () => {
-          throw new Error("not used");
-        }),
+      service: createPersistentRecallService({
         getActiveSession: vi.fn(async () => ({
           attempts: [],
           createdAt: "2026-05-02T12:00:00.000Z",
@@ -133,18 +228,7 @@ describe("authenticated recall workspace", () => {
             },
           ],
         })),
-        listSessionResults: vi.fn(async () => []),
-        rateFlashCardAnswer: vi.fn(async () => null),
-        revealFlashCardAnswer: vi.fn(async () => {
-          throw new Error("not used");
-        }),
-        startFlashCardSession: vi.fn(async () => {
-          throw new Error("not used");
-        }),
-        updateFlashCardAttemptText: vi.fn(async () => {
-          throw new Error("not used");
-        }),
-      },
+      }),
     });
 
     renderRoute("/recall/session", {
@@ -273,68 +357,9 @@ describe("authenticated recall workspace", () => {
 
   it("uses the route-hydrated session when refreshing persistent Recall results", async () => {
     const persistentRecallContext = createPersistentRecallContext({
-      service: {
-        endRecallSession: vi.fn(async () => {
-          throw new Error("not used");
-        }),
-        getActiveSession: vi.fn(async () => null),
-        listSessionResults: vi.fn(async () => [
-          {
-            attempts: [
-              {
-                noteId: "note-restored",
-                rating: "good" as const,
-              },
-            ],
-            completedAt: "2026-05-07T09:10:00.000Z",
-            createdAt: "2026-05-07T09:00:00.000Z",
-            id: "session-restored-result",
-            mode: "FlashCard" as const,
-            notes: [
-              {
-                acronyms: [],
-                body: "Stored answer body.",
-                createdAt: "2026-05-07T08:50:00.000Z",
-                id: "note-restored",
-                labelIds: [],
-                metaphors: [],
-                title: "Stored prompt title",
-                updatedAt: "2026-05-07T08:50:00.000Z",
-              },
-            ],
-            questions: [
-              {
-                isAnswerRevealed: true,
-                noteId: "note-restored",
-                noteSnapshot: {
-                  acronyms: [],
-                  body: "Stored answer body.",
-                  createdAt: "2026-05-07T08:50:00.000Z",
-                  id: "note-restored",
-                  labelIds: [],
-                  metaphors: [],
-                  title: "Stored prompt title",
-                  updatedAt: "2026-05-07T08:50:00.000Z",
-                },
-                score: 75,
-                selfRating: "good" as const,
-                typedAnswer: "",
-              },
-            ],
-            score: 75,
-          },
-        ]),
-        rateFlashCardAnswer: vi.fn(async () => null),
-        revealFlashCardAnswer: vi.fn(async () => {
-          throw new Error("not used");
-        }),
-        startFlashCardSession: vi.fn(async () => {
-          throw new Error("not used");
-        }),
-        updateFlashCardAttemptText: vi.fn(async () => {
-          throw new Error("not used");
-        }),
-      },
+      service: createPersistentRecallService({
+        listSessionResults: vi.fn(async () => [createStoredSessionResult()]),
+      }),
     });
 
     renderRoute("/recall", {
@@ -367,68 +392,17 @@ describe("authenticated recall workspace", () => {
       title: "Recall note",
     });
     const persistentRecallContext = createPersistentRecallContext({
-      service: {
-        endRecallSession: vi.fn(async () => {
-          throw new Error("not used");
-        }),
-        getActiveSession: vi.fn(async () => null),
+      service: createPersistentRecallService({
         listSessionResults: vi.fn(async () => [
-          {
-            attempts: [
-              {
-                noteId: note.id,
-                rating: "good" as const,
-              },
-            ],
+          createStoredSessionResult({
             completedAt: "+275760-09-13T00:00:00.000Z",
             createdAt: "2026-05-02T12:00:00.000Z",
             id: "session-invalid-date",
-            mode: "FlashCard" as const,
-            notes: [
-              {
-                acronyms: [],
-                body: note.body,
-                createdAt: note.createdAt,
-                id: note.id,
-                labelIds: [],
-                metaphors: [],
-                title: note.title,
-                updatedAt: note.updatedAt,
-              },
-            ],
-            questions: [
-              {
-                isAnswerRevealed: true,
-                noteId: note.id,
-                noteSnapshot: {
-                  acronyms: [],
-                  body: note.body,
-                  createdAt: note.createdAt,
-                  id: note.id,
-                  labelIds: [],
-                  metaphors: [],
-                  title: note.title,
-                  updatedAt: note.updatedAt,
-                },
-                score: null,
-                selfRating: "good" as const,
-                typedAnswer: "",
-              },
-            ],
+            note,
             score: null,
-          },
+          }),
         ]),
-        rateFlashCardAnswer: vi.fn(async () => null),
-        revealFlashCardAnswer: vi.fn(async () => {
-          throw new Error("not used");
-        }),
-        startFlashCardSession: vi.fn(async () => {
-          throw new Error("not used");
-        }),
-        updateFlashCardAttemptText: vi.fn(async () => {
-          throw new Error("not used");
-        }),
-      },
+      }),
     });
 
     renderRoute("/recall", {

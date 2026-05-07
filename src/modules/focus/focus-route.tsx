@@ -7,10 +7,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import {
-  type AppSessionSnapshot,
-  resolveProtectedSessionSnapshot,
-} from "../access/session/session";
+import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { listNotesForUser } from "../notes";
 import {
   type AppFocusContext,
@@ -72,12 +69,7 @@ function FocusPage() {
   const recall = Route.useRouteContext({
     select: (context) => context.recall,
   });
-  const session = Route.useRouteContext({
-    select: (context) => context.session,
-  });
-  const routedSessionSnapshot = Route.useRouteContext({
-    select: (context) => context.sessionSnapshot,
-  });
+  const { sessionSnapshot } = useResolvedProtectedSession("/_protected/focus");
 
   useSyncExternalStore(focus.subscribe, focus.getSnapshot, focus.getSnapshot);
   useSyncExternalStore(
@@ -95,16 +87,7 @@ function FocusPage() {
     recall.getSessionResultsSnapshot,
     recall.getSessionResultsSnapshot,
   );
-  const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
-    session.subscribe,
-    session.getSnapshot,
-    session.getSnapshot,
-  );
-  const effectiveSessionSnapshot = resolveProtectedSessionSnapshot({
-    routedSessionSnapshot,
-    sessionSnapshot,
-  });
-  const userId = effectiveSessionSnapshot.user?.id ?? null;
+  const userId = sessionSnapshot.user?.id ?? null;
   const activeSession =
     userId === null ? null : focus.getActiveSession({ userId });
   const headingRef = useRef<HTMLHeadingElement | null>(null);

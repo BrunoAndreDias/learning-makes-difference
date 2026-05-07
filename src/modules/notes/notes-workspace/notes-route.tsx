@@ -22,10 +22,7 @@ import {
 } from "react";
 import { formatCount } from "../../../lib/format-count";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
-import {
-  type AppSessionSnapshot,
-  resolveProtectedSessionSnapshot,
-} from "../../access/session/session";
+import { useResolvedProtectedSession } from "../../access/session/use-resolved-protected-session";
 import {
   BreakIntervalOverlay,
   FocusSessionStartControl,
@@ -594,14 +591,7 @@ function NotesWorkspace() {
     from: "/_protected/notes",
     select: (context) => context.persistentNotes,
   });
-  const sessionContext = useRouteContext({
-    from: "/_protected/notes",
-    select: (context) => context.session,
-  });
-  const routedSessionSnapshot = useRouteContext({
-    from: "/_protected/notes",
-    select: (context) => context.sessionSnapshot,
-  });
+  const { sessionSnapshot } = useResolvedProtectedSession("/_protected/notes");
   const labelsContext = useRouteContext({
     from: "/_protected/notes",
     select: (context) => context.labels,
@@ -626,16 +616,7 @@ function NotesWorkspace() {
     focusContext.getSnapshot,
     focusContext.getSnapshot,
   );
-  const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
-    sessionContext.subscribe,
-    sessionContext.getSnapshot,
-    sessionContext.getSnapshot,
-  );
-  const effectiveSessionSnapshot = resolveProtectedSessionSnapshot({
-    routedSessionSnapshot,
-    sessionSnapshot,
-  });
-  const userId = effectiveSessionSnapshot.user?.id ?? null;
+  const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
   const {
     activeNoteId,

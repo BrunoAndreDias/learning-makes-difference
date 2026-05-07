@@ -18,10 +18,8 @@ import {
 
 import appLogo from "../../../../docs/layout/logo.svg";
 import { Button } from "../../../design-system/button";
-import {
-  type AppSessionSnapshot,
-  resolveProtectedSessionSnapshot,
-} from "../../access/session/session";
+import type { AppSessionSnapshot } from "../../access/session/session";
+import { useResolvedProtectedSession } from "../../access/session/use-resolved-protected-session";
 import { FocusSessionStartControl } from "../../focus";
 import { NotesWorkspaceProvider } from "../../notes";
 
@@ -76,14 +74,8 @@ export function AppLayout() {
     from: "/_protected",
     select: (context) => context.persistentFocus,
   });
-  const session = useRouteContext({
-    from: "/_protected",
-    select: (context) => context.session,
-  });
-  const routedSessionSnapshot = useRouteContext({
-    from: "/_protected",
-    select: (context) => context.sessionSnapshot,
-  });
+  const { session, sessionSnapshot } =
+    useResolvedProtectedSession("/_protected");
   const location = useLocation();
   const navigate = useNavigate();
   const router = useRouter();
@@ -96,15 +88,6 @@ export function AppLayout() {
   const mobileSidebarToggleRef = useRef<HTMLButtonElement | null>(null);
   const mobileSidebarCloseRef = useRef<HTMLButtonElement | null>(null);
   const previousLocationRef = useRef(currentLocationKey);
-  const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
-    session.subscribe,
-    session.getSnapshot,
-    session.getSnapshot,
-  );
-  const effectiveSessionSnapshot = resolveProtectedSessionSnapshot({
-    routedSessionSnapshot,
-    sessionSnapshot,
-  });
   useSyncExternalStore(focus.subscribe, focus.getSnapshot, focus.getSnapshot);
   const workspaceTitle = getWorkspaceTitle(location.pathname);
   const recallWorkspaceTitle = getRecallWorkspaceTitle(location.pathname);
@@ -123,7 +106,7 @@ export function AppLayout() {
   const sidebarToggleLabel = isSidebarCollapsed
     ? "Expand sidebar"
     : "Collapse sidebar";
-  const userId = effectiveSessionSnapshot.user?.id ?? null;
+  const userId = sessionSnapshot.user?.id ?? null;
   const activeFocusSession =
     userId === null ? null : focus.getActiveSession({ userId });
 
@@ -211,7 +194,7 @@ export function AppLayout() {
             <AccountMenu
               isLoggingOut={isLoggingOut}
               onLogout={() => void handleLogout()}
-              sessionSnapshot={effectiveSessionSnapshot}
+              sessionSnapshot={sessionSnapshot}
             />
 
             <Button
