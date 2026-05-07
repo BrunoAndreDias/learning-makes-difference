@@ -468,6 +468,44 @@ describe("authenticated recall workspace", () => {
     expect(screen.getAllByText("75%").length).toBeGreaterThan(0);
   });
 
+  it("uses FlashCard session self-rating semantics in selected Results review", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const note = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "Reference answer body.",
+      title: "Self rating result note",
+    });
+    contexts.recallContext.startFlashCardSession({
+      noteIds: [note.id],
+      userId: testUser.id,
+    });
+
+    const { router } = renderRoute("/recall/session", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    expect(
+      await screen.findByText("Try to recall this note before revealing it."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reveal note" }));
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next note" }));
+
+    expect(router.state.location.pathname).toBe("/recall");
+    const selectedResult = await screen.findByRole("region", {
+      name: "Selected result",
+    });
+
+    expect(
+      within(selectedResult).getByText("Session self rating"),
+    ).toBeInTheDocument();
+    expect(within(selectedResult).getAllByText("75%").length).toBeGreaterThan(
+      0,
+    );
+    expect(within(selectedResult).queryByText("Score")).toBeNull();
+  });
+
   it("discards a zero-attempt session after confirmation", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const note = createRecallNote(contexts.notesContext, testUser.id, {
