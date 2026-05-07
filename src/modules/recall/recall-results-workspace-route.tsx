@@ -29,6 +29,8 @@ const resultTimeFormatter = new Intl.DateTimeFormat("en", {
 });
 
 type RecallTypeFilter = "all" | RecallMode;
+type ExpandedQuestionKey = string | null;
+type ExpandedQuestionKeyChange = (questionKey: ExpandedQuestionKey) => void;
 
 export const Route = createFileRoute("/_protected/recall/")({
   validateSearch: recallResultsSearchSchema,
@@ -176,29 +178,22 @@ function getQuestionPrompt(question: RecallQuestion) {
   return question.noteSnapshot.body;
 }
 
-function getQuestionAnswerPreview(question: RecallQuestion) {
+function getQuestionAnswerText(question: RecallQuestion) {
   const typedAnswer = (question.typedAnswer ?? "").trim();
 
   if (typedAnswer.length > 0) {
     return typedAnswer;
   }
 
-  return question.noteSnapshot.body;
+  return "No typed answer recorded";
 }
 
-function getSelfRatingStars(rating: RecallSelfRating | null) {
-  switch (rating) {
-    case "forgot":
-      return 1;
-    case "hard":
-      return 3;
-    case "good":
-      return 4;
-    case "easy":
-      return 5;
-    case null:
-      return 0;
+function getQuestionSelfRatingLabel(rating: RecallSelfRating | null) {
+  if (rating === null) {
+    return "Not answered";
   }
+
+  return formatRatingLabel(rating);
 }
 
 function getResultsCountLabel(results: readonly FlashCardSessionResult[]) {
@@ -210,6 +205,24 @@ function getResultsCountLabel(results: readonly FlashCardSessionResult[]) {
     results.length,
     "result",
   )}`;
+}
+
+function getSelectedResultIdForResults(
+  results: readonly FlashCardSessionResult[],
+  selectedResultId: string | null,
+) {
+  if (results.length === 0) {
+    return null;
+  }
+
+  if (
+    selectedResultId !== null &&
+    results.some((result) => result.id === selectedResultId)
+  ) {
+    return selectedResultId;
+  }
+
+  return results[0]?.id ?? null;
 }
 
 function matchesLabel(result: FlashCardSessionResult, labelId: string) {
@@ -260,6 +273,14 @@ function getInitialSavedMessage() {
   return "Recall session saved to results";
 }
 
+function getQuestionKey(question: RecallQuestion, index: number) {
+  return `${question.noteId}-${index}`;
+}
+
+function getQuestionDetailId(index: number) {
+  return `recall-result-question-detail-${index}`;
+}
+
 function RecallResultsWorkspacePage() {
   const recallContext = useRouteContext({
     from: "/_protected",
@@ -307,6 +328,8 @@ function RecallResultsWorkspacePage() {
   const [selectedLabelId, setSelectedLabelId] = useState("");
   const [selectedRecallType, setSelectedRecallType] =
     useState<RecallTypeFilter>("all");
+  const [expandedQuestionKey, setExpandedQuestionKey] =
+    useState<ExpandedQuestionKey>(null);
   const [savedMessage, setSavedMessage] = useState(getInitialSavedMessage);
   const filteredResults = useMemo(
     () =>
@@ -327,19 +350,21 @@ function RecallResultsWorkspacePage() {
   );
 
   useEffect(() => {
-    if (filteredResults.length === 0) {
-      setSelectedResultId(null);
-      return;
+    const nextSelectedResultId = getSelectedResultIdForResults(
+      filteredResults,
+      selectedResultId,
+    );
+    const shouldClearExpandedQuestion =
+      filteredResults.length === 0 || nextSelectedResultId !== selectedResultId;
+
+    if (shouldClearExpandedQuestion) {
+      setExpandedQuestionKey(null);
     }
 
-    setSelectedResultId((currentResultId) => {
-      if (filteredResults.some((result) => result.id === currentResultId)) {
-        return currentResultId;
-      }
-
-      return filteredResults[0]?.id ?? null;
-    });
-  }, [filteredResults]);
+    if (nextSelectedResultId !== selectedResultId) {
+      setSelectedResultId(nextSelectedResultId);
+    }
+  }, [filteredResults, selectedResultId]);
 
   useEffect(() => {
     if (
@@ -391,7 +416,10 @@ function RecallResultsWorkspacePage() {
             onLabelChange={setSelectedLabelId}
             onQueryChange={setQuery}
             onRecallTypeChange={setSelectedRecallType}
-            onSelectResult={setSelectedResultId}
+            onSelectResult={(resultId) => {
+              setExpandedQuestionKey(null);
+              setSelectedResultId(resultId);
+            }}
             query={query}
             results={filteredResults}
             selectedLabelId={selectedLabelId}
@@ -400,7 +428,9 @@ function RecallResultsWorkspacePage() {
             totalResults={sessionResults.length}
           />
           <ResultsDetailPanel
+            expandedQuestionKey={expandedQuestionKey}
             hasAnyResults={sessionResults.length > 0}
+            onExpandedQuestionKeyChange={setExpandedQuestionKey}
             result={selectedResult}
           />
         </div>
@@ -633,10 +663,14 @@ function SearchIcon() {
 }
 
 function ResultsDetailPanel({
+  expandedQuestionKey,
   hasAnyResults,
+  onExpandedQuestionKeyChange,
   result,
 }: {
+  expandedQuestionKey: ExpandedQuestionKey;
   hasAnyResults: boolean;
+  onExpandedQuestionKeyChange: ExpandedQuestionKeyChange;
   result: FlashCardSessionResult | null;
 }) {
   return (
@@ -650,13 +684,25 @@ function ResultsDetailPanel({
           <p className="muted">Results will appear here.</p>
         </div>
       ) : (
-        <SelectedResultDetail result={result} />
+        <SelectedResultDetail
+          expandedQuestionKey={expandedQuestionKey}
+          onExpandedQuestionKeyChange={onExpandedQuestionKeyChange}
+          result={result}
+        />
       )}
     </section>
   );
 }
 
-function SelectedResultDetail({ result }: { result: FlashCardSessionResult }) {
+function SelectedResultDetail({
+  expandedQuestionKey,
+  onExpandedQuestionKeyChange,
+  result,
+}: {
+  expandedQuestionKey: ExpandedQuestionKey;
+  onExpandedQuestionKeyChange: ExpandedQuestionKeyChange;
+  result: FlashCardSessionResult;
+}) {
   const questionsAttempted = result.questions.length;
   const resultScore = result.score ?? null;
 
@@ -726,43 +772,9 @@ function SelectedResultDetail({ result }: { result: FlashCardSessionResult }) {
           <p className="muted">No notes were captured for this result.</p>
         ) : (
           <ol className="recall-selected-result__list">
-            {result.notes.map((note) => {
-              const primaryLabel = getPrimaryLabel(note);
-
-              return (
-                <li key={note.id}>
-                  <article className="recall-selected-result__row">
-                    <span
-                      aria-hidden="true"
-                      className="recall-selected-result__row-icon"
-                    >
-                      <FileTextIcon />
-                    </span>
-                    <div className="recall-selected-result__row-main">
-                      <p className="recall-selected-result__row-title">
-                        {note.title}
-                      </p>
-                      {primaryLabel === null ? (
-                        <span className="recall-selected-result__row-pill recall-selected-result__row-pill--neutral">
-                          No label
-                        </span>
-                      ) : (
-                        <span
-                          className="recall-selected-result__row-pill"
-                          data-tone={getLabelTone(primaryLabel)}
-                        >
-                          {primaryLabel}
-                        </span>
-                      )}
-                    </div>
-                    <span className="recall-selected-result__row-meta">
-                      <span>{formatCount(getNoteCardCount(note), "card")}</span>
-                      <ChevronRightIcon />
-                    </span>
-                  </article>
-                </li>
-              );
-            })}
+            {result.notes.map((note) => (
+              <SelectedResultNoteRow key={note.id} note={note} />
+            ))}
           </ol>
         )}
       </section>
@@ -777,56 +789,168 @@ function SelectedResultDetail({ result }: { result: FlashCardSessionResult }) {
         ) : (
           <ol className="recall-selected-result__list">
             {result.questions.map((question, index) => {
-              const ratingTone = getRatingTone(question.selfRating);
-              const selfRatingStars = getSelfRatingStars(question.selfRating);
+              const questionKey = getQuestionKey(question, index);
 
               return (
-                <li key={`${question.noteId}-${getQuestionPrompt(question)}`}>
-                  <article className="recall-selected-result__row recall-selected-result__row--question">
-                    <span className="recall-selected-result__question-index">
-                      {index + 1}
-                    </span>
-                    <div className="recall-selected-result__row-main">
-                      <p className="recall-selected-result__row-title">
-                        {getQuestionPrompt(question)}
-                      </p>
-                      <p className="recall-selected-result__row-copy">
-                        <span className="recall-selected-result__row-copy-label">
-                          Your answer:
-                        </span>{" "}
-                        <span>{getQuestionAnswerPreview(question)}</span>
-                      </p>
-                    </div>
-                    <div className="recall-selected-result__question-rating">
-                      <span>Self rating</span>
-                      <div className="recall-selected-result__stars">
-                        {[1, 2, 3, 4, 5].map((starValue) => (
-                          <StarIcon
-                            filled={starValue <= selfRatingStars}
-                            key={starValue}
-                          />
-                        ))}
-                        <span className="sr-only">
-                          {question.selfRating === null
-                            ? "Not answered"
-                            : formatRatingLabel(question.selfRating)}
-                        </span>
-                      </div>
-                    </div>
-                    <span
-                      aria-hidden="true"
-                      className="recall-selected-result__row-expander"
-                      data-tone={ratingTone}
-                    >
-                      <ChevronDownIcon />
-                    </span>
-                  </article>
-                </li>
+                <QuestionReviewRow
+                  expandedQuestionKey={expandedQuestionKey}
+                  index={index}
+                  key={questionKey}
+                  onExpandedQuestionKeyChange={onExpandedQuestionKeyChange}
+                  question={question}
+                  questionKey={questionKey}
+                />
               );
             })}
           </ol>
         )}
       </section>
+    </div>
+  );
+}
+
+function SelectedResultNoteRow({ note }: { note: FlashCardRecallNote }) {
+  const primaryLabel = getPrimaryLabel(note);
+
+  return (
+    <li>
+      <article className="recall-selected-result__row">
+        <span aria-hidden="true" className="recall-selected-result__row-icon">
+          <FileTextIcon />
+        </span>
+        <div className="recall-selected-result__row-main">
+          <p className="recall-selected-result__row-title">{note.title}</p>
+          {primaryLabel === null ? (
+            <span className="recall-selected-result__row-pill recall-selected-result__row-pill--neutral">
+              No label
+            </span>
+          ) : (
+            <span
+              className="recall-selected-result__row-pill"
+              data-tone={getLabelTone(primaryLabel)}
+            >
+              {primaryLabel}
+            </span>
+          )}
+        </div>
+        <span className="recall-selected-result__row-meta">
+          <span>{formatCount(getNoteCardCount(note), "card")}</span>
+          <ChevronRightIcon />
+        </span>
+      </article>
+    </li>
+  );
+}
+
+function QuestionReviewRow({
+  expandedQuestionKey,
+  index,
+  onExpandedQuestionKeyChange,
+  question,
+  questionKey,
+}: {
+  expandedQuestionKey: ExpandedQuestionKey;
+  index: number;
+  onExpandedQuestionKeyChange: ExpandedQuestionKeyChange;
+  question: RecallQuestion;
+  questionKey: string;
+}) {
+  const detailId = getQuestionDetailId(index);
+  const isExpanded = expandedQuestionKey === questionKey;
+  const ratingLabel = getQuestionSelfRatingLabel(question.selfRating);
+  const ratingTone = getRatingTone(question.selfRating);
+
+  return (
+    <li>
+      <article className="recall-selected-result__question-card">
+        <button
+          aria-controls={detailId}
+          aria-expanded={isExpanded}
+          className="recall-selected-result__row recall-selected-result__row--question recall-selected-result__question-toggle"
+          onClick={() =>
+            onExpandedQuestionKeyChange(isExpanded ? null : questionKey)
+          }
+          type="button"
+        >
+          <span className="recall-selected-result__question-index">
+            {index + 1}
+          </span>
+          <span className="recall-selected-result__row-main">
+            <span className="recall-selected-result__row-title">
+              {getQuestionPrompt(question)}
+            </span>
+          </span>
+          <span
+            className="recall-selected-result__row-pill"
+            data-rating-tone={ratingTone}
+          >
+            {ratingLabel}
+          </span>
+          <span
+            aria-hidden="true"
+            className="recall-selected-result__row-expander"
+            data-expanded={isExpanded}
+          >
+            <ChevronDownIcon />
+          </span>
+        </button>
+
+        {isExpanded ? (
+          <QuestionReviewDetail
+            detailId={detailId}
+            question={question}
+            ratingLabel={ratingLabel}
+            ratingTone={ratingTone}
+          />
+        ) : null}
+      </article>
+    </li>
+  );
+}
+
+function QuestionReviewDetail({
+  detailId,
+  question,
+  ratingLabel,
+  ratingTone,
+}: {
+  detailId: string;
+  question: RecallQuestion;
+  ratingLabel: string;
+  ratingTone: ReturnType<typeof getRatingTone>;
+}) {
+  return (
+    <div className="recall-selected-result__question-detail" id={detailId}>
+      <div className="recall-selected-result__question-detail-block">
+        <p className="recall-selected-result__question-detail-label">
+          Your answer
+        </p>
+        <p className="recall-selected-result__question-detail-copy">
+          {getQuestionAnswerText(question)}
+        </p>
+      </div>
+      <div className="recall-selected-result__question-detail-block">
+        <p className="recall-selected-result__question-detail-label">
+          Self rating
+        </p>
+        <span
+          className="recall-selected-result__row-pill"
+          data-rating-tone={ratingTone}
+        >
+          {ratingLabel}
+        </span>
+      </div>
+      <div className="recall-selected-result__question-detail-block">
+        <p className="recall-selected-result__question-detail-label">
+          Reference note
+        </p>
+        <p className="recall-selected-result__question-detail-title">
+          {question.noteSnapshot.title}
+        </p>
+        <p className="recall-selected-result__question-detail-copy">
+          {question.noteSnapshot.body}
+        </p>
+      </div>
     </div>
   );
 }
@@ -965,27 +1089,6 @@ function ChevronDownIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="2"
-      />
-    </svg>
-  );
-}
-
-function StarIcon({ filled }: { filled: boolean }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className={filled ? "is-filled" : "is-empty"}
-      fill={filled ? "currentColor" : "none"}
-      height="14"
-      viewBox="0 0 24 24"
-      width="14"
-    >
-      <path
-        d="m12 3.5 2.7 5.4 6 .9-4.4 4.2 1 6-5.3-2.8-5.3 2.8 1-6-4.4-4.2 6-.9L12 3.5Z"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
       />
     </svg>
   );

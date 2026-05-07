@@ -129,13 +129,16 @@
     grid-area: main;
   }
 
-  .recall-selected-result__row--question
-    .recall-selected-result__question-rating {
+  .recall-selected-result__row--question .recall-selected-result__row-pill {
     grid-area: rating;
   }
 
   .recall-selected-result__row--question .recall-selected-result__row-expander {
     grid-area: expander;
     align-self: center;
+  }
+
+  .recall-selected-result__question-detail {
+    padding-left: 0.85rem;
   }
 }

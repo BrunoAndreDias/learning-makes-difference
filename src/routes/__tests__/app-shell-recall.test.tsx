@@ -46,6 +46,44 @@ function completeRecallAt(input: {
   });
 }
 
+function completeMultiQuestionRecall(input: {
+  questions: ReadonlyArray<{
+    noteId: string;
+    rating: "easy" | "forgot" | "good" | "hard";
+    typedAnswer?: string;
+  }>;
+  recallContext: ReturnType<
+    typeof createDeterministicRecallTestContexts
+  >["recallContext"];
+  timestamp: string;
+}) {
+  vi.setSystemTime(new Date(input.timestamp));
+  const session = input.recallContext.startFlashCardSession({
+    noteIds: input.questions.map((question) => question.noteId),
+    userId: testUser.id,
+  });
+
+  input.questions.forEach((question) => {
+    if (question.typedAnswer !== undefined) {
+      input.recallContext.updateFlashCardAttemptText({
+        sessionId: session.id,
+        text: question.typedAnswer,
+        userId: testUser.id,
+      });
+    }
+
+    input.recallContext.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId: testUser.id,
+    });
+    input.recallContext.rateFlashCardAnswer({
+      rating: question.rating,
+      sessionId: session.id,
+      userId: testUser.id,
+    });
+  });
+}
+
 describe("authenticated recall workspace", () => {
   it("restores an active recall session from the persistent recall service on route entry", async () => {
     const persistentRecallContext = createPersistentRecallContext({
@@ -327,7 +365,7 @@ describe("authenticated recall workspace", () => {
       name: "Selected result",
     });
     expect(
-      within(detail).getAllByText("Newest result body.").length,
+      within(detail).getAllByText("Newest result note").length,
     ).toBeGreaterThan(0);
     expect(screen.getByText("Showing 1-2 of 2 results")).toBeInTheDocument();
 
@@ -337,7 +375,7 @@ describe("authenticated recall workspace", () => {
 
     expect(router.state.location.pathname).toBe("/recall");
     expect(
-      within(detail).getAllByText("Older result body.").length,
+      within(detail).getAllByText("Older result note").length,
     ).toBeGreaterThan(0);
   });
 
@@ -376,8 +414,8 @@ describe("authenticated recall workspace", () => {
     fireEvent.change(screen.getByLabelText("Filter results by label"), {
       target: { value: label.id },
     });
-    expect(screen.getAllByText("Synapse snapshot.").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Plain snapshot.")).toBeNull();
+    expect(screen.getAllByText("Labeled result").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Plain result")).toBeNull();
 
     fireEvent.change(screen.getByLabelText("Search results"), {
       target: { value: "plain" },
@@ -577,6 +615,84 @@ describe("authenticated recall workspace", () => {
 
     const restartLinks = screen.getAllByRole("link", { name: "Start Recall" });
     expect(restartLinks).toHaveLength(1);
+  });
+
+  it("shows FlashCard Questions as a collapsed single-open-row accordion with self-rating pills", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const firstNote = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "Reference answer for the first question.",
+      title: "First historical prompt",
+    });
+    const secondNote = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "Reference answer for the second question.",
+      title: "Second historical prompt",
+    });
+
+    completeMultiQuestionRecall({
+      questions: [
+        {
+          noteId: firstNote.id,
+          rating: "hard",
+          typedAnswer: "Learner answer for the first question.",
+        },
+        {
+          noteId: secondNote.id,
+          rating: "easy",
+          typedAnswer: "Learner answer for the second question.",
+        },
+      ],
+      recallContext: contexts.recallContext,
+      timestamp: "2026-04-05T09:00:00.000Z",
+    });
+
+    renderRoute("/recall", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    const detail = await screen.findByRole("region", {
+      name: "Selected result",
+    });
+    const detailScope = within(detail);
+    const firstQuestion = detailScope.getByRole("button", {
+      name: /First historical prompt/i,
+    });
+    const secondQuestion = detailScope.getByRole("button", {
+      name: /Second historical prompt/i,
+    });
+
+    expect(firstQuestion).toHaveAttribute("aria-expanded", "false");
+    expect(secondQuestion).toHaveAttribute("aria-expanded", "false");
+    expect(
+      detailScope.queryByText("Reference answer for the first question."),
+    ).toBeNull();
+    expect(detailScope.getByText("Hard")).toBeInTheDocument();
+    expect(detailScope.getByText("Easy")).toBeInTheDocument();
+
+    fireEvent.click(firstQuestion);
+
+    expect(
+      await screen.findByText("Reference answer for the first question."),
+    ).toBeInTheDocument();
+    expect(
+      detailScope.getByRole("button", { name: /First historical prompt/i }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(detailScope.getByText("Your answer")).toBeInTheDocument();
+
+    fireEvent.click(secondQuestion);
+
+    expect(
+      detailScope.getByRole("button", { name: /First historical prompt/i }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(
+      detailScope.getByRole("button", { name: /Second historical prompt/i }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(
+      detailScope.queryByText("Reference answer for the first question."),
+    ).toBeNull();
+    expect(
+      detailScope.getByText("Reference answer for the second question."),
+    ).toBeInTheDocument();
   });
 
   it("redirects direct /recall/session visits without an active session", async () => {
