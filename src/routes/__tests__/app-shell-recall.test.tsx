@@ -84,6 +84,47 @@ function completeMultiQuestionRecall(input: {
   });
 }
 
+function getControlledPanel(control: HTMLElement) {
+  const panelId = control.getAttribute("aria-controls");
+
+  if (panelId === null) {
+    throw new Error("Expected control to reference a detail panel.");
+  }
+
+  const panel = document.getElementById(panelId);
+
+  if (panel === null) {
+    throw new Error(`Expected detail panel "${panelId}" to exist.`);
+  }
+
+  return panel;
+}
+
+function getDetailBlockByLabel(panel: HTMLElement, label: string) {
+  const labelElement = within(panel).getByText(label);
+  const block = labelElement.closest(
+    ".recall-selected-result__question-detail-block",
+  );
+
+  if (!(block instanceof HTMLElement)) {
+    throw new Error(`Expected "${label}" to be inside a detail block.`);
+  }
+
+  return block;
+}
+
+function getDetailBlockCopy(block: HTMLElement) {
+  const copy = block.querySelector(
+    ".recall-selected-result__question-detail-copy",
+  );
+
+  if (!(copy instanceof HTMLElement)) {
+    throw new Error("Expected detail block to include copy text.");
+  }
+
+  return copy;
+}
+
 describe("authenticated recall workspace", () => {
   it("restores an active recall session from the persistent recall service on route entry", async () => {
     const persistentRecallContext = createPersistentRecallContext({
@@ -742,35 +783,31 @@ describe("authenticated recall workspace", () => {
 
     fireEvent.click(exactAnswerQuestion);
 
-    const detailPanel = document.getElementById(
-      exactAnswerQuestion.getAttribute("aria-controls") ?? "",
+    const detailPanel = getControlledPanel(exactAnswerQuestion);
+    const selfRatingBlock = getDetailBlockByLabel(detailPanel, "Self rating");
+    const answerBlock = getDetailBlockByLabel(detailPanel, "Your answer");
+    const referenceBlock = getDetailBlockByLabel(detailPanel, "Reference note");
+
+    expect(selfRatingBlock).toHaveTextContent("Good");
+    expect(
+      selfRatingBlock.compareDocumentPosition(answerBlock) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      answerBlock.compareDocumentPosition(referenceBlock) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(getDetailBlockCopy(answerBlock).textContent).toBe(
+      "  Learner line one.\nLearner line two with spaces preserved.  ",
     );
-    expect(detailPanel).not.toBeNull();
-    expect(detailPanel?.children).toHaveLength(3);
-    expect(detailPanel?.children[0]).toHaveTextContent("Self rating");
-    expect(detailPanel?.children[0]).toHaveTextContent("Good");
-    expect(detailPanel?.children[1]).toHaveTextContent("Your answer");
-    expect(
-      detailPanel?.children[1]?.querySelector(
-        ".recall-selected-result__question-detail-copy",
-      )?.textContent,
-    ).toBe("  Learner line one.\nLearner line two with spaces preserved.  ");
-    expect(detailPanel?.children[2]).toHaveTextContent("Reference note");
-    expect(
-      detailPanel?.children[2]?.querySelector(
-        ".recall-selected-result__question-detail-copy",
-      )?.textContent,
-    ).toBe(
+    expect(getDetailBlockCopy(referenceBlock).textContent).toBe(
       "Historical reference body line one.\nHistorical reference body line two.",
     );
 
     fireEvent.click(emptyAnswerQuestion);
 
-    const emptyDetailPanel = document.getElementById(
-      emptyAnswerQuestion.getAttribute("aria-controls") ?? "",
-    );
+    const emptyDetailPanel = getControlledPanel(emptyAnswerQuestion);
     expect(emptyAnswerQuestion).toHaveAttribute("aria-expanded", "true");
-    expect(emptyDetailPanel).not.toBeNull();
     expect(emptyDetailPanel).toHaveTextContent("No typed answer recorded");
     expect(emptyDetailPanel).toHaveTextContent(
       "Reference note for empty typed answer.",

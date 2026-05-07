@@ -351,9 +351,11 @@ function isRecallQuestion(question: unknown): question is StoredRecallQuestion {
 }
 
 function normalizeRecallAttemptText(text: string): string | null {
-  const normalizedText = text.trim();
+  if (text.trim().length === 0) {
+    return null;
+  }
 
-  return normalizedText.length === 0 ? null : text;
+  return text;
 }
 
 function normalizeStoredRecallAttempt(

@@ -181,11 +181,11 @@ function getQuestionPrompt(question: RecallQuestion) {
 function getQuestionAnswerText(question: RecallQuestion) {
   const typedAnswer = question.typedAnswer ?? "";
 
-  if (typedAnswer.trim().length > 0) {
-    return typedAnswer;
+  if (typedAnswer.trim().length === 0) {
+    return "No typed answer recorded";
   }
 
-  return "No typed answer recorded";
+  return typedAnswer;
 }
 
 function getQuestionSelfRatingLabel(rating: RecallSelfRating | null) {
