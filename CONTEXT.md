@@ -25,6 +25,22 @@ _Avoid_: Abbreviation, term definition
 The core study cycle where the User captures knowledge as Notes and reinforces it through RecallSessions.
 _Avoid_: Content workflow, study menu
 
+**Learning State**:
+A per-Note study signal based on recall score and recency.
+In v1, Learning State is based on the latest recall for the Note, not recall trends over time.
+In v1, the Learning State score is the latest FlashCard self-rating for the Note, shown as plain user-facing copy such as "Last score: Good".
+If a Note has not been recalled yet, its Learning State is "Not recalled yet".
+In v1, Learning State avoids named state labels such as "Weak", "Ready for review", or "Recently easy"; it shows recall facts instead.
+In v1, Learning State does not calculate a next review date; review scheduling is deferred until the product has a researched spacing rule instead of a guessed interval ladder.
+In v1, Learning State uses recall language in user-facing copy, such as "Last recalled"; it avoids "review" language.
+In v1, Learning State does not include Metaphor or Acronym counts; memory hooks remain Note support material, not recall evidence.
+Unsaved draft Notes do not have visible Learning State list metadata because they do not appear in the Notes list yet.
+Every saved Note has a Learning State; a saved Note with no recall evidence has the Learning State "Not recalled yet".
+Learning State uses simple compact language in Notes list rows, such as "Not recalled yet" or "Last score: Good".
+In v1, Learning State appears as compact Notes list metadata only, not as a selected-Note inspector panel.
+In v1, Learning State does not include an action; recall actions belong to the Recall Section flow.
+_Avoid_: Report card, spaced-repetition engine, analytics widget, card state
+
 **Study Layer**:
 The app-based transformation of source study material into Notes, memory aids, RecallSessions, and FocusSessions.
 In the exam-support pilot, the Study Layer is used alongside external exam material rather than replacing it.
@@ -61,7 +77,7 @@ _Avoid_: Mode, difficulty, tier
 
 **Question**:
 A prompt generated for a Note during a RecallSession. Can be open-ended or multiple choice. Stores the user's answer and a score. Belongs to exactly one RecallSession and one Note.
-In `FlashCard`, the score is a user self-rating rather than an AI grade.
+In `FlashCard`, the meaningful learner-facing judgment is the user self-rating; any numeric score is only a derived internal projection of that self-rating, not a separate grade.
 In `AiGraded`, the score is the AI-generated system score for v1. User overrides are out of scope for now, but can be added later as a separate final score without changing the meaning of the Question itself.
 For multiple-choice Questions, distractors should be context-bound and plausible within the selected study area rather than arbitrary invented wrong answers.
 
@@ -72,6 +88,9 @@ Use "Results" for user-facing UI copy that refers to completed recall work.
 A selectable Results list item represents one SessionResult, not a Note, Label, or saved recall set.
 A RecallSession is considered completed and gets a SessionResult when the user has attempted at least one Question, even if they end the session early before covering every Note. A session with zero attempted Questions is discarded.
 Each stored Question in a SessionResult preserves the Note title and Note body snapshot used at the time of the session, so later Note edits do not change historical results.
+In v1, SessionResult review is question-first: stored Questions are the primary review evidence, while targeted Notes are supporting context about what was practiced.
+In `FlashCard`, a SessionResult shows a session-level aggregate self-rating percentage derived from the stored self-ratings, using the familiar progress iconography in the place where score would otherwise appear, labeled as **Session self rating** rather than score.
+In `FlashCard`, a SessionResult may also show the self-rating distribution as supporting detail when space allows, but on tighter layouts the aggregate self-rating percentage remains the only summary shown.
 
 ### Focus
 
@@ -183,6 +202,7 @@ _Avoid_: Product menu, sidebar navigation
 - A **Note** has zero or more **Metaphors** (cannot exist without their Note)
 - A **Note** has zero or more **Acronyms** (cannot exist without their Note)
 - The **Learning Loop** is centered on **Notes** and **RecallSessions**; **Metaphors** and **Acronyms** support Notes but are not standalone workspace destinations.
+- A **Learning State** belongs to exactly one **Note**
 - The **Study Layer** turns external source material into **Notes**, **Metaphors**, **Acronyms**, **RecallSessions**, and **FocusSessions**.
 - During the exam-support pilot, the **Study Layer** must not be the only place where irreplaceable exam material exists.
 - The exam-support pilot starts with no pre-seeded **Notes**, **Labels**, **RecallSessions**, **SessionResults**, **FocusSessions**, or **FocusRecords** for Test Participants.
@@ -276,12 +296,37 @@ _Avoid_: Product menu, sidebar navigation
 - When **SessionResults** exist, the newest **SessionResult** is selected by default.
 - After a **RecallSession** creates a **SessionResult**, returning to the base **Recall Section** shows that newest **SessionResult** selected.
 - In the first version of the base **Recall Section** master-detail layout, the selectable list is by **SessionResult** only; note-level performance review is deferred.
-- A **SessionResult** list item shows the completion date/time, attempted Question count, and score summary.
+- A **SessionResult** list item shows the completion date/time, attempted Question count, and the session's primary summary metric for that RecallMode.
+- In `FlashCard`, a **SessionResult** list item shows the session's average self-rating percentage, rendered compactly as the percentage value alone in the row.
 - The selected **SessionResult** detail shows the stored Note snapshots used in that RecallSession.
+- The selected **SessionResult** detail centers stored **Questions** and their answers/scores as the primary review content.
+- The selected **SessionResult** detail surface is presented as **Session review** in user-facing heading copy.
 - In this version, stored Notes inside a selected **SessionResult** are shown as a summary section only; nested Note selection inside Results is deferred.
+- In v1, when a selected **SessionResult** has exactly one targeted **Note** and one stored **Question** for that same Note, the stored Note is reduced to compact summary metadata instead of a separate Notes section.
+- In v1, a selected **SessionResult** only shows a supporting **Not reached notes** section when some targeted **Notes** were not reached and therefore have no stored answer in the Questions review.
+- In v1, when that supporting **Not reached notes** section appears, it lists only the not-reached targeted **Notes** rather than repeating attempted Notes already covered by the Questions review, and each row shows only the Note title.
+- In v1, if no targeted **Notes** were left unreached, the **Not reached notes** section does not appear at all.
+- In v1, the selected **SessionResult** question-review list starts with all rows collapsed; each stored **Question** begins as a compact summary row and expands for deeper historical detail.
+- In v1, the selected **SessionResult** question-review list behaves as a single-open-row accordion rather than allowing many expanded rows at once.
+- In v1, each collapsed stored **Question** row leads with the Question prompt as its primary text.
+- In v1, each collapsed stored **Question** row omits answer preview text entirely.
+- In v1, each collapsed stored **Question** row keeps its expand affordance visible at all times.
+- In v1, the question-review section is labeled **Questions** in user-facing copy because answers and note-reference detail are revealed per row on expansion rather than shown by default.
+- In v1, `FlashCard` Question review shows the learner-facing self-rating rather than a separate per-Question numeric score.
+- In v1, the canonical `FlashCard` self-rating display in Question review is the explicit rating word, paired with a subtle existing-tone visual treatment and placed as a trailing pill on the right side of the collapsed row.
+- In v1, the `FlashCard` self-rating words in Question review stay **Forgot**, **Hard**, **Good**, and **Easy**.
+- In v1, expanded `FlashCard` Question detail repeats the self-rating so the full review context stays visible alongside **Your answer** and **Reference note**.
+- In v1, expanding a stored **Question** in a selected **SessionResult** shows **Your answer** first and the full stored **Note** snapshot second, labeled **Reference note**, with the full Note body visible immediately so the historical reference reads as the answer key for that attempt. If a typed answer exists, it is shown in full as written; if none was stored, the answer area says **No typed answer recorded**.
+- In v1, an attempted `FlashCard` **Question** remains expandable even when no typed answer was recorded, so the stored **Note** snapshot reference stays available through the same interaction pattern.
+- In v1, a `FlashCard` selected **SessionResult** always shows a header-level aggregate self-rating percentage across attempted Questions in the current score slot, labeled **Session self rating** rather than **Score**.
+- In v1, a `FlashCard` selected **SessionResult** may show the self-rating distribution near the aggregate only when layout space stays calm; otherwise it keeps just the aggregate self-rating percentage.
+- In v1, the selected **SessionResult** summary line keeps the simpler compact style for fully attempted sessions, but explicitly calls out attempted Question count against the broader session-note set when the session ended early.
+- In v1, the selected **SessionResult** stat label uses **Questions** rather than **Questions attempted**.
+- In v1, the selected **SessionResult** mode pill keeps the `FlashCard` label in user-facing copy.
 - The selected **SessionResult** detail is read-only historical review; editing or deleting past Results is out of scope for this change.
 - Starting a new **RecallSession** remains a prominent action in the base **Recall Section**.
 - The base **Recall Section** places **Start Recall** above the **SessionResult** list, mirroring the **Notes Workspace** list action placement while keeping recall-specific wording.
+- In v1, starting a new **RecallSession** from the base **Recall Section** happens from the master-panel **Start Recall** action, not from selected-result footer actions.
 - **Start Recall** opens **Recall Selection Mode**.
 - The base **Recall Section** supports filtering **SessionResults** by **Label**, but **Labels** remain grouping/filtering aids rather than the foundation of **RecallSession** targeting.
 - The base **Recall Section** remains available when there are no **SessionResults** and shows an empty Results workspace with **Start Recall** prominent.
@@ -449,6 +494,7 @@ _Avoid_: Product menu, sidebar navigation
 
 ## Flagged ambiguities
 
+- "trained" was used while discussing **Learning State** — resolved: use "recalled" when referring to a **Note** being attempted in a **RecallSession**.
 - "Study field" was used in early discussion to mean the top-level organizer — resolved: this is just a **Label** with no parent.
 - "Menu options" could have treated **Metaphors** and **Acronyms** as standalone destinations — resolved: they are Note-owned memory aids inside the **Learning Loop**, not primary workspace screens.
 - "Recall target" previously meant a chosen **Label** and its descendants — resolved for v1: a **RecallSession** targets explicitly selected **Notes**.
@@ -464,6 +510,41 @@ _Avoid_: Product menu, sidebar navigation
 - "Exam notes" could have meant the app is already the primary source of truth for exam material — resolved: for the exam-support pilot, the app is a **Study Layer** over material that remains available elsewhere, while the long-term direction is to become the **User**'s primary study workspace.
 - "Breadcrumb" could have acted like primary navigation — resolved: the **Workspace Breadcrumb** indicates position inside the current workspace section, not product sections.
 - "History" could have stayed a separate product destination, compatibility route, or UI label — resolved for v1: remove `/history`; completed recall work is reviewed as **SessionResults** inside the **Recall Section**, with UI copy using "Results".
+- "Result details" could have treated stored **Notes** and stored **Questions** as equal primary review objects — resolved for v1: **Questions** are primary in SessionResult review; **Notes** are supporting context.
+- "Start Recall" could have appeared both in the Results master panel and again inside selected-result detail actions — resolved for v1: new recall starts from the master-panel action only; selected-result detail stays read-only.
+- "Notes used" could have remained a full section even when a selected **SessionResult** contains only one targeted **Note** and one stored **Question** for that same Note — resolved for v1: collapse that Note into compact summary metadata and remove the separate Notes section.
+- "Notes used" could have implied that every stored **Note** in a selected **SessionResult** was actually attempted — resolved for v1: when a separate supporting Notes section is needed, avoid "Notes used" and use wording that reflects unattempted coverage instead.
+- "Session notes" could have repeated attempted Notes already represented in the Questions review — resolved for v1: use **Not reached notes** and show the section only for not-reached targeted Notes with no stored answer.
+- The **Not reached notes** section could have carried rich Note metadata and competed with the Questions review — resolved for v1: show only the Note title in each row.
+- The **Not reached notes** section could have remained visible as an empty placeholder even when every targeted **Note** was reached — resolved for v1: omit the section entirely unless unreached Notes exist.
+- "Questions and answers" could have shown every stored answer inline at once — resolved for v1: the selected **SessionResult** starts with collapsed Question summary rows and reveals deeper detail on expansion.
+- A collapsed **Question** row could have hidden the historical answer key entirely — resolved for v1: expansion reveals the full stored **Note** snapshot alongside the User's stored answer.
+- A collapsed **Question** row could have emphasized the answer preview or score first — resolved for v1: the Question prompt is the primary line.
+- A collapsed **Question** row could have included answer preview text and repeated expanded-detail content — resolved for v1: omit answer preview text entirely until expansion.
+- A collapsed **Question** row could have hidden its expand affordance until hover or focus — resolved for v1: keep the affordance visible at all times.
+- The selected **SessionResult** could have allowed many expanded Question rows to accumulate at once — resolved for v1: use a single-open-row accordion.
+- The selected **SessionResult** could have auto-expanded the first Question row by default — resolved for v1: start with all Question rows collapsed.
+- `FlashCard` Question review could have shown both numeric score and self-rating as if they were independent signals — resolved for v1: show the self-rating and remove the per-Question numeric score.
+- `FlashCard` self-rating in Question review could have been rendered as stars alone — resolved for v1: use the explicit rating word as the canonical label, paired with subtle existing-tone visual treatment.
+- The collapsed `FlashCard` self-rating could have sat inline under the prompt and diluted the question-first scan pattern — resolved for v1: place it as a trailing pill on the right.
+- The collapsed `FlashCard` self-rating could have introduced alternate learner-facing wording — resolved for v1: keep **Forgot**, **Hard**, **Good**, and **Easy**.
+- Expanded `FlashCard` Question detail could have omitted the self-rating and forced the user to look back at the collapsed row header — resolved for v1: repeat the self-rating in expanded detail.
+- Expanded **Question** detail could have led with the stored **Note** snapshot instead of the User's attempt — resolved for v1: show the User's stored answer first, then the stored **Note** snapshot reference.
+- Expanded **Question** detail could have added another reveal step before showing the stored **Note** body — resolved for v1: once expanded, show the full stored **Note** body immediately.
+- Expanded **Question** detail could have left an empty answer area when no typed answer was stored — resolved for v1: state explicitly **No typed answer recorded**.
+- Expanded **Question** detail could have normalized or truncated the stored typed answer for cleaner layout — resolved for v1: show the full answer text as written.
+- Expanded **Question** detail could have used technical or unlabeled copy for the stored **Note** snapshot — resolved for v1: label it **Reference note**.
+- Expanded **Question** detail could have used heavier system wording like "Your recorded answer" — resolved for v1: use **Your answer**.
+- A `FlashCard` **Question** with no typed answer could have lost expansion entirely — resolved for v1: keep the row expandable so the stored **Note** snapshot reference stays accessible.
+- A `FlashCard` selected **SessionResult** could still have shown "Score" in the header because the aggregate percentage reuses the same derived mapping — resolved for v1: keep the aggregate percentage and icon progression in the current score slot, but label it as **Session self rating** rather than **Score**.
+- A `FlashCard` selected **SessionResult** header could have shown both aggregate and rating distribution even when space became cramped — resolved for v1: always keep the aggregate self-rating percentage in the score slot, and show the distribution only when it does not bloat the layout.
+- A `FlashCard` **SessionResult** list row could have kept showing a bare percentage that looked like an objective score — resolved for v1: the metric still means average self-rating percentage, but the row keeps the compact bare percentage and relies on detail view for fuller explanation.
+- The selected **SessionResult** summary line could have flattened targeted Notes and attempted Questions into parallel counts even when the session ended early — resolved for v1: make early-ended coverage explicit.
+- The selected **SessionResult** summary line could have used heavier session-scope wording even for fully attempted sessions — resolved for v1: keep the simpler compact wording for fully attempted sessions.
+- The selected **SessionResult** detail heading could have stayed as generic "Result details" — resolved for v1: use **Session review**.
+- The selected **SessionResult** stat strip could have kept the longer label "Questions attempted" even after early-ended nuance moved into the summary line — resolved for v1: shorten it to **Questions**.
+- The selected **SessionResult** mode pill could have shifted from `FlashCard` to alternate learner-facing wording — resolved for v1: keep `FlashCard`.
+- The question-review section could have stayed titled "Questions and answers" even though answers are hidden until expansion — resolved for v1: use **Questions** and reveal answers within expanded rows.
 - "App Sidebar" previously meant the primary authenticated product navigation — resolved for v1: use **Notes Workspace**, **Recall Section**, and an **Account Dock**.
 - "Premium" was initially vague — resolved: premium features require **BYOK** now; per-use credits in the future.
 - "Pomodoro" was used as if it were part of **RecallSession** — resolved: the canonical term is **FocusSession**, which is a separate concept.
