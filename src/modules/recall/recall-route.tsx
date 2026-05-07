@@ -7,7 +7,10 @@ import {
   useRouteContext,
 } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import type { AppSessionSnapshot } from "../access/session/session";
+import {
+  type AppSessionSnapshot,
+  resolveProtectedSessionSnapshot,
+} from "../access/session/session";
 import type { AppLabel } from "../labels/label-management/labels";
 import { type AppNote, listNotesForUser } from "../notes";
 import { searchNoteResults } from "../notes/notes-workspace/note-search";
@@ -32,12 +35,20 @@ function RecallRouteShell() {
     from: "/_protected/recall",
     select: (context) => context.session,
   });
+  const routedSessionSnapshot = useRouteContext({
+    from: "/_protected/recall",
+    select: (context) => context.sessionSnapshot,
+  });
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
     sessionContext.subscribe,
     sessionContext.getSnapshot,
     sessionContext.getSnapshot,
   );
-  const userId = sessionSnapshot.user?.id ?? null;
+  const effectiveSessionSnapshot = resolveProtectedSessionSnapshot({
+    routedSessionSnapshot,
+    sessionSnapshot,
+  });
+  const userId = effectiveSessionSnapshot.user?.id ?? null;
   const [isReady, setIsReady] = useState(persistentRecallContext === undefined);
 
   useEffect(() => {

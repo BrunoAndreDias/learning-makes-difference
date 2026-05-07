@@ -11,7 +11,10 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { AppSessionSnapshot } from "../access/session/session";
+import {
+  type AppSessionSnapshot,
+  resolveProtectedSessionSnapshot,
+} from "../access/session/session";
 import { BreakIntervalOverlay, isBreakIntervalActive } from "../focus";
 import { formatRecallModeLabel } from "./learner-copy";
 import {
@@ -105,11 +108,19 @@ function RecallSessionPage() {
     from: "/_protected",
     select: (context) => context.session,
   });
+  const routedSessionSnapshot = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.sessionSnapshot,
+  });
   const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
     sessionContext.subscribe,
     sessionContext.getSnapshot,
     sessionContext.getSnapshot,
   );
+  const effectiveSessionSnapshot = resolveProtectedSessionSnapshot({
+    routedSessionSnapshot,
+    sessionSnapshot,
+  });
   const recallSnapshot = useSyncExternalStore<AppRecallSnapshot>(
     recallContext.subscribe,
     recallContext.getSnapshot,
@@ -120,7 +131,7 @@ function RecallSessionPage() {
     focusContext.getSnapshot,
     focusContext.getSnapshot,
   );
-  const userId = sessionSnapshot.user?.id ?? null;
+  const userId = effectiveSessionSnapshot.user?.id ?? null;
   const activeSession =
     userId !== null && recallSnapshot?.userId === userId
       ? recallSnapshot
