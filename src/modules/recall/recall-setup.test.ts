@@ -141,8 +141,6 @@ describe("recall setup", () => {
       expect.arrayContaining([
         expect.objectContaining({ count: 3, kind: "all" }),
         expect.objectContaining({ count: 2, kind: "recent" }),
-        expect.objectContaining({ count: 1, kind: "weak" }),
-        expect.objectContaining({ count: 2, kind: "due" }),
         expect.objectContaining({
           count: 2,
           kind: "label",
@@ -152,59 +150,7 @@ describe("recall setup", () => {
     );
   });
 
-  it("keeps recently easy notes out of Due now until the learning-state review window passes", () => {
-    const notes = [
-      buildNote({
-        id: "note-ready-later",
-        title: "Recently easy note",
-      }),
-      buildNote({
-        id: "note-ready-now",
-        title: "Ready for review note",
-      }),
-      buildNote({
-        id: "note-unpracticed",
-        title: "Unpracticed note",
-      }),
-    ];
-    const sessionResults = [
-      buildSessionResult({
-        attempts: [{ noteId: "note-ready-later", rating: "easy" }],
-        completedAt: "2026-04-28T09:00:00.000Z",
-        createdAt: "2026-04-28T08:50:00.000Z",
-        id: "session-1",
-        notes: [notes[0]],
-      }),
-      buildSessionResult({
-        attempts: [{ noteId: "note-ready-now", rating: "easy" }],
-        completedAt: "2026-04-24T09:00:00.000Z",
-        createdAt: "2026-04-24T08:50:00.000Z",
-        id: "session-2",
-        notes: [notes[1]],
-      }),
-    ];
-
-    const state = deriveRecallSetupState({
-      labels: [],
-      notes,
-      now: "2026-05-02T12:00:00.000Z",
-      searchQuery: "",
-      selectedFilter: { kind: "due" },
-      selectedNoteIds: [],
-      sessionResults,
-    });
-
-    expect(
-      state.visibleCandidates.map((candidate) => candidate.note.id),
-    ).toEqual(["note-ready-now", "note-unpracticed"]);
-    expect(state.filterSummaries).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ count: 2, kind: "due" }),
-      ]),
-    );
-  });
-
-  it("deduplicates preserved selected notes even when the active filter hides them", () => {
+  it("deduplicates preserved selected notes even when search hides them", () => {
     const notes = [
       buildNote({
         id: "note-selected",
@@ -229,8 +175,8 @@ describe("recall setup", () => {
       labels: [],
       notes,
       now: "2026-05-02T12:00:00.000Z",
-      searchQuery: "",
-      selectedFilter: { kind: "weak" },
+      searchQuery: "strong",
+      selectedFilter: { kind: "all" },
       selectedNoteIds: ["note-selected", "note-selected"],
       sessionResults,
     });
@@ -245,44 +191,27 @@ describe("recall setup", () => {
     expect(state.selectedEmptyState).toBe("none");
   });
 
-  it("classifies empty Due now and Weak notes filters ahead of search misses", () => {
+  it("classifies empty filter matches ahead of search misses", () => {
     const notes = [
       buildNote({
-        id: "note-strong",
-        title: "Strong note",
+        id: "note-history",
+        labelIds: ["label-history"],
+        title: "History note",
       }),
     ];
-    const sessionResults = [
-      buildSessionResult({
-        attempts: [{ noteId: "note-strong", rating: "easy" }],
-        completedAt: "2026-05-01T09:00:00.000Z",
-        createdAt: "2026-05-01T08:50:00.000Z",
-        id: "session-1",
-        notes,
-      }),
-    ];
+    const science = buildLabel({ id: "label-science", name: "Science" });
 
-    const weakState = deriveRecallSetupState({
-      labels: [],
+    const state = deriveRecallSetupState({
+      labels: [science],
       notes,
       now: "2026-05-02T12:00:00.000Z",
-      searchQuery: "strong",
-      selectedFilter: { kind: "weak" },
+      searchQuery: "history",
+      selectedFilter: { kind: "label", labelId: science.id },
       selectedNoteIds: [],
-      sessionResults,
-    });
-    const dueState = deriveRecallSetupState({
-      labels: [],
-      notes,
-      now: "2026-05-02T12:00:00.000Z",
-      searchQuery: "strong",
-      selectedFilter: { kind: "due" },
-      selectedNoteIds: [],
-      sessionResults,
+      sessionResults: [],
     });
 
-    expect(weakState.availableEmptyState).toBe("no-weak-notes");
-    expect(dueState.availableEmptyState).toBe("no-due-notes");
+    expect(state.availableEmptyState).toBe("no-filter-matches");
   });
 
   it("filters visible candidates for Recent notes and label drill views", () => {

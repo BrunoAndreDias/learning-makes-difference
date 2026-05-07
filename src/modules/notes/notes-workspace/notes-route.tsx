@@ -27,7 +27,6 @@ import {
   hasActiveSession,
 } from "../../access/session/session";
 import {
-  AppFocusError,
   BreakIntervalOverlay,
   FocusSessionStartControl,
   isBreakIntervalActive,
@@ -36,9 +35,7 @@ import type { AppLabel } from "../../labels/label-management/labels";
 import type { AppPersistentNotesContext } from "..";
 import {
   deriveLearningStates,
-  formatLearningStateRatingLabel,
-  formatLearningStateStatusLabel,
-  type LearningStateStatus,
+  formatLearningStateCompactLabel,
   toNoteRecallHistories,
 } from "../learning-state";
 import {
@@ -140,19 +137,6 @@ function getManagedLabelIds(
 
 function removeLabelId(labelIds: readonly string[], labelId: string) {
   return labelIds.filter((candidateId) => candidateId !== labelId);
-}
-
-function getLearningStateSummary(status: LearningStateStatus) {
-  switch (status) {
-    case "unpracticed":
-      return "This note has not been tested in recall yet.";
-    case "weak":
-      return "This note needs another recall pass soon.";
-    case "ready_for_review":
-      return "This note is due for another recall pass.";
-    case "recently_easy":
-      return "This note was recalled well recently.";
-  }
 }
 
 type MemoryHookTab = "acronyms" | "metaphors";
@@ -420,17 +404,6 @@ function MemoryHookDraftNotice() {
     <div className="notes-inspector-empty" aria-disabled="true">
       <strong>Save the note first</strong>
       <p className="muted">Memory hooks are attached to saved notes.</p>
-    </div>
-  );
-}
-
-function LearningStateDraftNotice() {
-  return (
-    <div className="notes-inspector-empty" aria-disabled="true">
-      <strong>Save the note first</strong>
-      <p className="muted">
-        Learning state is available after this note has been saved.
-      </p>
     </div>
   );
 }
@@ -761,10 +734,6 @@ function NotesWorkspace() {
   const noteLearningStatesById = new Map(
     noteLearningStates.map((state) => [state.noteId, state]),
   );
-  const selectedLearningState =
-    selectedNote === null
-      ? null
-      : (noteLearningStatesById.get(selectedNote.id) ?? null);
   const editorIdentity =
     noteEditor.mode === "draft" ? "draft" : noteEditor.selectedNoteId;
   const previousEditorIdentityRef = useRef(editorIdentity);
@@ -1921,46 +1890,6 @@ function NotesWorkspace() {
     await navigate({ to: "/recall/select" });
   }
 
-  async function handleStartFocusForSelectedNote() {
-    if (userId === null || selectedNote === null) {
-      return;
-    }
-
-    try {
-      if (activeFocusSession?.isStale) {
-        if (persistentFocusContext === undefined) {
-          focusContext.endFocusSession({
-            userId,
-          });
-          focusContext.startFocusSession({
-            userId,
-          });
-        } else {
-          await persistentFocusContext.endFocusSession(userId);
-          await persistentFocusContext.startFocusSession(userId, {});
-        }
-      } else if (activeFocusSession === null) {
-        if (persistentFocusContext === undefined) {
-          focusContext.startFocusSession({
-            userId,
-          });
-        } else {
-          await persistentFocusContext.startFocusSession(userId, {});
-        }
-      }
-
-      await captureNoteStudyActivity(selectedNote);
-      setErrorMessage(null);
-    } catch (error) {
-      if (error instanceof AppFocusError) {
-        setErrorMessage(error.message);
-        return;
-      }
-
-      throw error;
-    }
-  }
-
   const selectedLabels = availableLabels.filter((label) =>
     editorState.labelIds.includes(label.id),
   );
@@ -2017,14 +1946,6 @@ function NotesWorkspace() {
     isSearchListboxOpen && activeSearchResult !== undefined
       ? getSearchResultOptionId(activeSearchResult.note.id)
       : undefined;
-  const selectedLearningStateLabel =
-    selectedLearningState === null
-      ? null
-      : formatLearningStateStatusLabel(selectedLearningState.status);
-  const selectedLearningStateRating =
-    selectedLearningState === null
-      ? null
-      : formatLearningStateRatingLabel(selectedLearningState.latestRating);
   const labelPickerContent = isLabelPickerOpen ? (
     <LabelPickerPanel
       availableLabels={availableLabels}
@@ -2132,20 +2053,18 @@ function NotesWorkspace() {
           className="notes-list-panel"
         >
           <div className="notes-list__toolbar">
-            <div className="notes-list__heading">
-              <h2>All notes</h2>
-              <span className="notes-list__count-badge" aria-hidden="true">
-                {notes.length}
-              </span>
-              <span className="sr-only">{noteCountLabel}</span>
-            </div>
             <button
+              aria-describedby="notes-list-count"
               className="notes-action notes-action-primary notes-list__new"
               onClick={handleStartNewNote}
               type="button"
             >
+              <PlusCircleIcon />
               New note
             </button>
+            <span className="sr-only" id="notes-list-count">
+              {noteCountLabel}
+            </span>
           </div>
 
           <form
@@ -2155,10 +2074,7 @@ function NotesWorkspace() {
             ref={searchRootRef}
           >
             <span className="notes-search__icon" aria-hidden="true">
-              <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
-                <circle cx="10.5" cy="10.5" r="6" />
-                <path d="m15 15 4.5 4.5" />
-              </svg>
+              <SearchIcon />
             </span>
             <label className="sr-only" htmlFor="notes-search">
               Search notes
@@ -2268,8 +2184,13 @@ function NotesWorkspace() {
                   const primaryLabel = rowLabels[0]?.name ?? null;
                   const learningStateLabel =
                     learningState === undefined
-                      ? "Unpracticed"
-                      : formatLearningStateStatusLabel(learningState.status);
+                      ? "Not recalled yet"
+                      : formatLearningStateCompactLabel(learningState);
+                  const learningStateRecalledLabel =
+                    learningState?.lastRecalledAt === null ||
+                    learningState === undefined
+                      ? null
+                      : `Last recalled ${formatNoteDate(learningState.lastRecalledAt)}`;
                   const hookCount =
                     note.metaphors.length + note.acronyms.length;
                   const preview =
@@ -2317,7 +2238,12 @@ function NotesWorkspace() {
                                 <span aria-hidden="true"> · </span>
                               </>
                             )}
-                            <span>{learningStateLabel}</span>
+                            <span className="notes-list__learning-state">
+                              <span>{learningStateLabel}</span>
+                              {learningStateRecalledLabel === null ? null : (
+                                <span>{learningStateRecalledLabel}</span>
+                              )}
+                            </span>
                           </span>
                         </span>
                         <span className="notes-list__item-meta">
@@ -2587,89 +2513,6 @@ function NotesWorkspace() {
               </>
             )}
           </section>
-          <section
-            aria-label="Learning state"
-            className="notes-inspector-card notes-learning-state"
-          >
-            <div className="notes-inspector-card__header">
-              <h4>Learning state</h4>
-              {selectedLearningState === null ? null : (
-                <span className="tag">{selectedLearningStateLabel}</span>
-              )}
-            </div>
-
-            {isCreating ? (
-              <LearningStateDraftNotice />
-            ) : selectedLearningState === null ? (
-              <p className="muted">Learning state is unavailable.</p>
-            ) : (
-              <>
-                <div className="notes-learning-state__summary">
-                  <p className="muted">
-                    {getLearningStateSummary(selectedLearningState.status)}
-                  </p>
-                  <div className="notes-learning-state__tags tag-row">
-                    <span className="tag">
-                      {formatHookCountLabel(selectedLearningState.hookCount)}
-                    </span>
-                    {selectedLearningState.practiced ? (
-                      <span className="tag">Practiced</span>
-                    ) : null}
-                  </div>
-                </div>
-                <dl className="notes-learning-state__details">
-                  <div>
-                    <dt>Status</dt>
-                    <dd>{selectedLearningStateLabel}</dd>
-                  </div>
-                  <div>
-                    <dt>Next review</dt>
-                    <dd>
-                      {selectedLearningState.nextReviewAt === null
-                        ? "Practice when ready"
-                        : formatNoteDate(selectedLearningState.nextReviewAt)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Latest rating</dt>
-                    <dd>
-                      {selectedLearningStateRating ?? "Not practiced yet"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Last practiced</dt>
-                    <dd>
-                      {selectedLearningState.lastPracticedAt === null
-                        ? "Not practiced yet"
-                        : formatNoteDate(selectedLearningState.lastPracticedAt)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Hook count</dt>
-                    <dd>
-                      {formatHookCountLabel(selectedLearningState.hookCount)}
-                    </dd>
-                  </div>
-                </dl>
-                <div className="notes-inspector-card__actions">
-                  <button
-                    className="notes-action notes-action-primary"
-                    onClick={() => void handleOpenRecallSelection()}
-                    type="button"
-                  >
-                    Open Recall
-                  </button>
-                  <button
-                    className="notes-action"
-                    onClick={() => void handleStartFocusForSelectedNote()}
-                    type="button"
-                  >
-                    Focus here
-                  </button>
-                </div>
-              </>
-            )}
-          </section>
         </aside>
       </div>
       {deleteCandidateNote === null ? null : (
@@ -2742,5 +2585,46 @@ function NotesWorkspace() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function PlusCircleIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="18"
+      viewBox="0 0 24 24"
+      width="18"
+    >
+      <path
+        d="M12 8v8M8 12h8"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="17"
+      viewBox="0 0 24 24"
+      width="17"
+    >
+      <path
+        d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+    </svg>
   );
 }

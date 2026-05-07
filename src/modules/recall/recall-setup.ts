@@ -14,9 +14,7 @@ const ESTIMATED_MINUTES_PER_NOTE = 2;
 
 export type RecallSetupFilter =
   | { kind: "all" }
-  | { kind: "due" }
   | { kind: "recent" }
-  | { kind: "weak" }
   | { kind: "label"; labelId: string };
 
 export type RecallSetupCandidate = {
@@ -38,7 +36,7 @@ export type RecallSetupSelectedSummary = {
 export type RecallSetupFilterSummary =
   | {
       count: number;
-      kind: "all" | "due" | "recent" | "weak";
+      kind: "all" | "recent";
     }
   | {
       count: number;
@@ -49,12 +47,10 @@ export type RecallSetupFilterSummary =
 
 export type RecallSetupEmptyState =
   | "none"
-  | "no-due-notes"
   | "no-filter-matches"
   | "no-notes"
   | "no-search-matches"
-  | "no-selected-notes"
-  | "no-weak-notes";
+  | "no-selected-notes";
 
 export type RecallSetupAvailableEmptyState = Exclude<
   RecallSetupEmptyState,
@@ -111,7 +107,6 @@ function getRecallHistoryByNoteId(
 
 function getLearningStateByNoteId(input: {
   notes: readonly AppNote[];
-  now: string;
   recallHistoryByNoteId: ReadonlyMap<string, NoteRecallHistory>;
 }): Map<string, NoteLearningState> {
   return new Map(
@@ -120,7 +115,6 @@ function getLearningStateByNoteId(input: {
       deriveLearningState({
         history: input.recallHistoryByNoteId.get(note.id) ?? null,
         note,
-        now: input.now,
       }),
     ]),
   );
@@ -130,29 +124,16 @@ function isRecentNote(note: AppNote, nowValue: number) {
   return nowValue - new Date(note.updatedAt).getTime() <= RECENT_NOTE_WINDOW_MS;
 }
 
-function isWeakNote(learningState: NoteLearningState | undefined) {
-  return learningState?.isWeak === true;
-}
-
-function isDueNow(learningState: NoteLearningState | undefined): boolean {
-  return learningState?.recommendedAction !== "review_later";
-}
-
 function matchesFilter(
   note: AppNote,
   filter: RecallSetupFilter,
-  learningState: NoteLearningState | undefined,
   nowValue: number,
 ) {
   switch (filter.kind) {
     case "all":
       return true;
-    case "due":
-      return isDueNow(learningState);
     case "recent":
       return isRecentNote(note, nowValue);
-    case "weak":
-      return isWeakNote(learningState);
     case "label":
       return note.labelIds.includes(filter.labelId);
   }
@@ -175,12 +156,8 @@ function getPracticeTypeLabel(filter: RecallSetupFilter) {
   switch (filter.kind) {
     case "all":
       return "General recall";
-    case "due":
-      return "Due review";
     case "recent":
       return "Recent-note warmup";
-    case "weak":
-      return "Weak-note review";
     case "label":
       return "Label drill";
   }
@@ -235,10 +212,6 @@ function getNoFilterMatchesEmptyState(
   selectedFilter: RecallSetupFilter,
 ): RecallSetupAvailableEmptyState {
   switch (selectedFilter.kind) {
-    case "due":
-      return "no-due-notes";
-    case "weak":
-      return "no-weak-notes";
     case "all":
     case "label":
     case "recent":
@@ -247,7 +220,6 @@ function getNoFilterMatchesEmptyState(
 }
 
 function buildFilterSummaries(input: {
-  learningStateByNoteId: ReadonlyMap<string, NoteLearningState>;
   labels: readonly AppLabel[];
   notes: readonly AppNote[];
   nowValue: number;
@@ -256,18 +228,6 @@ function buildFilterSummaries(input: {
     input.notes.filter(predicate).length;
   const baseFilters: RecallSetupFilterSummary[] = [
     { count: input.notes.length, kind: "all" },
-    {
-      count: countNotes((note) =>
-        isDueNow(input.learningStateByNoteId.get(note.id)),
-      ),
-      kind: "due",
-    },
-    {
-      count: countNotes((note) =>
-        isWeakNote(input.learningStateByNoteId.get(note.id)),
-      ),
-      kind: "weak",
-    },
     {
       count: countNotes((note) => isRecentNote(note, input.nowValue)),
       kind: "recent",
@@ -293,8 +253,8 @@ function buildCandidate(input: {
   return {
     isSelected: input.selectedNoteIdSet.has(input.note.id),
     labelNames: getLabelNames(input.note, input.labelNameById),
-    latestCompletedAt: input.learningState?.lastPracticedAt ?? null,
-    latestRating: input.learningState?.latestRating ?? null,
+    latestCompletedAt: input.learningState?.lastRecalledAt ?? null,
+    latestRating: input.learningState?.latestScore ?? null,
     note: input.note,
   };
 }
@@ -307,8 +267,8 @@ function buildSelectedSummary(input: {
   return {
     id: input.note.id,
     labelNames: getLabelNames(input.note, input.labelNameById),
-    latestCompletedAt: input.learningState?.lastPracticedAt ?? null,
-    latestRating: input.learningState?.latestRating ?? null,
+    latestCompletedAt: input.learningState?.lastRecalledAt ?? null,
+    latestRating: input.learningState?.latestScore ?? null,
     title: input.note.title,
   };
 }
@@ -332,16 +292,10 @@ export function deriveRecallSetupState(input: {
   const selectedNoteIdSet = new Set(selectedNoteIds);
   const learningStateByNoteId = getLearningStateByNoteId({
     notes: input.notes,
-    now: input.now,
     recallHistoryByNoteId,
   });
   const filterMatchedNotes = input.notes.filter((note) =>
-    matchesFilter(
-      note,
-      input.selectedFilter,
-      learningStateByNoteId.get(note.id),
-      nowValue,
-    ),
+    matchesFilter(note, input.selectedFilter, nowValue),
   );
   const visibleNotes = filterNotesByQuery(
     filterMatchedNotes,
@@ -381,7 +335,6 @@ export function deriveRecallSetupState(input: {
       visibleCandidateCount: visibleCandidates.length,
     }),
     filterSummaries: buildFilterSummaries({
-      learningStateByNoteId,
       labels: input.labels,
       notes: input.notes,
       nowValue,

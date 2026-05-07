@@ -1,6 +1,4 @@
 export type {
-  LearningStateRecommendedAction,
-  LearningStateStatus,
   NoteLearningState,
   NoteRecallHistory,
   NoteRecallHistoryAttempt,
@@ -8,8 +6,8 @@ export type {
 export {
   deriveLearningState,
   deriveLearningStates,
-  formatLearningStateRatingLabel,
-  formatLearningStateStatusLabel,
+  formatLearningStateCompactLabel,
+  formatLearningStateScoreLabel,
   toNoteRecallHistories,
 } from "./learning-state";
 export type {

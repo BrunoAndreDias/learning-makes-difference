@@ -148,7 +148,7 @@
 
 .recall-results-workspace {
   display: grid;
-  grid-template-columns: minmax(17.5rem, 17.5rem) minmax(0, 1fr);
+  grid-template-columns: minmax(15rem, 21rem) minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
   min-height: 0;
@@ -327,12 +327,15 @@
 }
 
 .recall-results-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: stretch;
   gap: 0.5rem;
+  min-inline-size: 0;
 }
 
 .recall-results-filters > .recall-field {
-  flex: 1 1 0;
+  min-width: 0;
 }
 
 .recall-results-list,
@@ -377,12 +380,20 @@
 
 .recall-results-master .recall-field input,
 .recall-results-master .recall-field select {
+  height: 2.35rem;
   min-height: 2.35rem;
+  padding: 0.5rem 0.65rem;
   border-color: var(--color-content-border-soft);
   border-radius: 0.4rem;
   background: var(--color-shell-panel);
   color: var(--color-content-strong);
+  font: inherit;
   font-size: 0.82rem;
+  line-height: 1.2;
+}
+
+.recall-results-master .recall-search-field input {
+  padding-left: 2.15rem;
 }
 
 .recall-results-master .recall-field input::placeholder {

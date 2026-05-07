@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   deriveLearningState,
   deriveLearningStates,
+  formatLearningStateCompactLabel,
+  formatLearningStateScoreLabel,
   type NoteRecallHistory,
 } from "./learning-state";
 import type { AppNote } from "./notes-workspace/notes";
@@ -33,123 +35,78 @@ function buildHistory(
 }
 
 describe("learning state", () => {
-  it("marks unpracticed notes and counts hooks", () => {
+  it("marks saved notes without recall evidence as not recalled yet", () => {
     const note = buildNote({
       acronyms: [{ description: "FIFO means first in, first out." }],
-      id: "note-unpracticed",
+      id: "note-not-recalled",
       metaphors: [{ description: "Queue: packets line up." }],
     });
 
-    expect(deriveLearningState({ history: null, note })).toMatchObject({
-      hookCount: 2,
-      isWeak: false,
-      lastPracticedAt: null,
-      latestRating: null,
-      nextReviewAt: null,
-      practiced: false,
-      recommendedAction: "practice_now",
-      status: "unpracticed",
+    const learningState = deriveLearningState({ history: null, note });
+
+    expect(learningState).toEqual({
+      lastRecalledAt: null,
+      latestScore: null,
+      noteId: note.id,
     });
+    expect(formatLearningStateCompactLabel(learningState)).toBe(
+      "Not recalled yet",
+    );
   });
 
-  it("marks hard and forgot notes as weak review targets", () => {
-    const note = buildNote({ id: "note-weak" });
+  it("uses only the latest recall score and timestamp", () => {
+    const note = buildNote({ id: "note-recalled" });
+
+    const learningState = deriveLearningState({
+      history: buildHistory(note.id, [
+        {
+          completedAt: "2026-04-10T09:00:00.000Z",
+          rating: "forgot",
+        },
+        {
+          completedAt: "2026-04-11T09:00:00.000Z",
+          rating: "good",
+        },
+      ]),
+      note,
+    });
+
+    expect(learningState).toEqual({
+      lastRecalledAt: "2026-04-11T09:00:00.000Z",
+      latestScore: "good",
+      noteId: note.id,
+    });
+    expect(formatLearningStateCompactLabel(learningState)).toBe(
+      "Last score: Good",
+    );
+  });
+
+  it("keeps the score even when the latest recall timestamp is invalid", () => {
+    const note = buildNote({ id: "note-invalid-date" });
 
     expect(
       deriveLearningState({
         history: buildHistory(note.id, [
           {
-            completedAt: "2026-04-10T09:00:00.000Z",
-            rating: "forgot",
-          },
-          {
-            completedAt: "2026-04-11T09:00:00.000Z",
-            rating: "hard",
-          },
-        ]),
-        note,
-      }),
-    ).toMatchObject({
-      isWeak: true,
-      lastPracticedAt: "2026-04-11T09:00:00.000Z",
-      latestRating: "hard",
-      nextReviewAt: "2026-04-14T09:00:00.000Z",
-      practiced: true,
-      recommendedAction: "review_now",
-      status: "weak",
-    });
-  });
-
-  it("marks easy notes as ready for review once the next review date passes", () => {
-    const note = buildNote({ id: "note-ready" });
-
-    expect(
-      deriveLearningState({
-        history: buildHistory(note.id, [
-          {
-            completedAt: "2026-04-10T09:00:00.000Z",
+            completedAt: "",
             rating: "easy",
           },
         ]),
         note,
-        now: "2026-04-18T09:00:00.000Z",
       }),
-    ).toMatchObject({
-      isWeak: false,
-      latestRating: "easy",
-      nextReviewAt: "2026-04-17T09:00:00.000Z",
-      recommendedAction: "review_now",
-      status: "ready_for_review",
+    ).toEqual({
+      lastRecalledAt: null,
+      latestScore: "easy",
+      noteId: note.id,
     });
   });
 
-  it("marks recently easy notes as review later", () => {
-    const note = buildNote({ id: "note-easy" });
-
-    expect(
-      deriveLearningState({
-        history: buildHistory(note.id, [
-          {
-            completedAt: "2026-04-10T09:00:00.000Z",
-            rating: "easy",
-          },
-        ]),
-        note,
-        now: "2026-04-12T09:00:00.000Z",
-      }),
-    ).toMatchObject({
-      latestRating: "easy",
-      recommendedAction: "review_later",
-      status: "recently_easy",
-    });
-  });
-
-  it.each([
-    ["empty", ""],
-    ["overflowing", "+275760-09-13T00:00:00.000Z"],
-  ])("marks notes with %s recall dates as ready for review", (_name, completedAt) => {
-    const note = buildNote({ id: "note-overflow-date" });
-
-    expect(
-      deriveLearningState({
-        history: buildHistory(note.id, [
-          {
-            completedAt,
-            rating: "easy",
-          },
-        ]),
-        note,
-        now: "2026-04-12T09:00:00.000Z",
-      }),
-    ).toMatchObject({
-      isWeak: false,
-      lastPracticedAt: null,
-      latestRating: "easy",
-      nextReviewAt: null,
-      practiced: true,
-      recommendedAction: "review_now",
-      status: "ready_for_review",
-    });
+  it("formats FlashCard self-ratings as scores", () => {
+    expect(formatLearningStateScoreLabel(null)).toBeNull();
+    expect(formatLearningStateScoreLabel("forgot")).toBe("Forgot");
+    expect(formatLearningStateScoreLabel("hard")).toBe("Hard");
+    expect(formatLearningStateScoreLabel("good")).toBe("Good");
+    expect(formatLearningStateScoreLabel("easy")).toBe("Easy");
   });
 
   it("derives states for each note from recall history lookup", () => {
@@ -166,13 +123,14 @@ describe("learning state", () => {
           ]),
         ],
         notes,
-      }).map((state) => ({
-        noteId: state.noteId,
-        status: state.status,
-      })),
+      }),
     ).toEqual([
-      { noteId: "note-1", status: "unpracticed" },
-      { noteId: "note-2", status: "weak" },
+      { lastRecalledAt: null, latestScore: null, noteId: "note-1" },
+      {
+        lastRecalledAt: "2026-04-15T10:00:00.000Z",
+        latestScore: "hard",
+        noteId: "note-2",
+      },
     ]);
   });
 });

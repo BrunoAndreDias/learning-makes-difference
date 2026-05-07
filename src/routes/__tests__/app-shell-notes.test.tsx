@@ -6,10 +6,13 @@ import { join } from "node:path";
 import { act, fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { createPersistentNotesContext } from "../../modules/notes";
+import { createPersistentRecallContext } from "../../modules/recall";
 import {
   createAppFocusContext,
   createAppLabelsContext,
   createAppNotesContext,
+  createLearningLoopTestContexts,
+  createRecallNote,
   listNotesForUser,
   openAccountMenu,
   renderRoute,
@@ -67,6 +70,65 @@ describe("authenticated app shell", () => {
     expect(
       screen.queryByRole("navigation", { name: "Breadcrumb" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps the notes header Focus action primary and second beside recall entry", async () => {
+    renderRoute("/notes");
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
+    ).toBeInTheDocument();
+
+    const startRecallButton = screen.getByRole("button", {
+      name: "Start Recall",
+    });
+    const startFocusButton = screen.getByRole("button", {
+      name: "Start Focus",
+    });
+
+    expect(startFocusButton).toHaveClass("notes-action-primary");
+    expect(
+      startRecallButton.compareDocumentPosition(startFocusButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(startRecallButton).not.toHaveClass("notes-action-primary");
+  });
+
+  it("starts focus from the notes header without leaving notes", async () => {
+    const focusContext = createAppFocusContext({
+      keyPrefix: `test-focus-notes-header-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-notes-header-focus";
+    const { router } = renderRoute("/notes", {
+      focusContext,
+      session: {
+        user: {
+          displayName: "Jordan Notes Focus",
+          email: "jordan.notes.focus@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
+
+    expect(router.state.location.pathname).toBe("/notes");
+    expect(
+      screen.getByRole("button", { name: "End focus" }),
+    ).toBeInTheDocument();
+    expect(focusContext.getActiveSession({ userId })).toMatchObject({
+      breakIntervalMinutes: 5,
+      currentInterval: "Focus",
+      focusIntervalMinutes: 25,
+      plannedFocusIntervalCount: null,
+    });
   });
 
   it("keeps the discard dialog focused when an in-page note change is guarded", async () => {
@@ -243,6 +305,169 @@ describe("authenticated app shell", () => {
     ).not.toBeInTheDocument();
     expect(screen.getAllByText("Biology").length).toBeGreaterThan(0);
     expect(firstNote.title).toBe("Neural pathways");
+  });
+
+  it("shows compact Learning State metadata in the notes list", async () => {
+    const userId = "user-learning-state-list";
+    const contexts = createLearningLoopTestContexts({
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+    });
+    const recalledNote = createRecallNote(contexts.notesContext, userId, {
+      body: "Active recall should leave simple row evidence.",
+      title: "Recalled concept",
+    });
+    createRecallNote(contexts.notesContext, userId, {
+      body: "This concept has no recall evidence yet.",
+      title: "Fresh concept",
+    });
+    const session = contexts.recallContext.startFlashCardSession({
+      noteIds: [recalledNote.id],
+      userId,
+    });
+
+    contexts.recallContext.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId,
+    });
+    contexts.recallContext.rateFlashCardAnswer({
+      rating: "good",
+      sessionId: session.id,
+      userId,
+    });
+
+    renderRoute("/notes", {
+      ...contexts,
+      session: {
+        user: {
+          displayName: "Jordan State",
+          email: "jordan.state@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
+    ).toBeInTheDocument();
+
+    const notesCatalog = screen.getByRole("complementary", {
+      name: "Notes catalog",
+    });
+    const recalledRow = within(notesCatalog).getByRole("button", {
+      name: "Recalled concept",
+    });
+    const freshRow = within(notesCatalog).getByRole("button", {
+      name: "Fresh concept",
+    });
+
+    expect(recalledRow).toHaveTextContent("Last score: Good");
+    expect(recalledRow).toHaveTextContent("Last recalled");
+    const learningState = recalledRow.querySelector(
+      ".notes-list__learning-state",
+    );
+    expect(
+      learningState === null ? [] : Array.from(learningState.children),
+    ).toHaveLength(2);
+    expect(learningState?.children[0]).toHaveTextContent("Last score: Good");
+    expect(learningState?.children[1]).toHaveTextContent("Last recalled");
+    expect(
+      recalledRow.querySelector(".notes-list__item-status"),
+    ).not.toHaveTextContent("Last score: Good · Last recalled");
+    expect(freshRow).toHaveTextContent("Not recalled yet");
+    expect(screen.queryByLabelText("Learning state")).not.toBeInTheDocument();
+  });
+
+  it("hydrates Learning State metadata from persisted recall results on notes reload", async () => {
+    const userId = "user-learning-state-persisted";
+    const contexts = createLearningLoopTestContexts({
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+    });
+    const recalledNote = createRecallNote(contexts.notesContext, userId, {
+      body: "Persisted recall results should survive a refresh.",
+      title: "Persisted concept",
+    });
+
+    createRecallNote(contexts.notesContext, userId, {
+      body: "No recall result exists yet.",
+      title: "Unrecalled concept",
+    });
+
+    const session = contexts.recallContext.startFlashCardSession({
+      noteIds: [recalledNote.id],
+      userId,
+    });
+
+    contexts.recallContext.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId,
+    });
+    contexts.recallContext.rateFlashCardAnswer({
+      rating: "good",
+      sessionId: session.id,
+      userId,
+    });
+
+    const listSessionResults = vi.fn(async () => [
+      ...contexts.recallContext.getSessionResultsSnapshot(),
+    ]);
+    const persistentRecallContext = createPersistentRecallContext({
+      service: {
+        endRecallSession: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        getActiveSession: vi.fn(async () => null),
+        listSessionResults,
+        rateFlashCardAnswer: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        revealFlashCardAnswer: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        startFlashCardSession: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        updateFlashCardAttemptText: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+      },
+    });
+
+    renderRoute("/notes", {
+      focusContext: contexts.focusContext,
+      labelsContext: contexts.labelsContext,
+      notesContext: contexts.notesContext,
+      persistentRecallContext,
+      session: {
+        user: {
+          displayName: "Jordan Persisted",
+          email: "jordan.persisted@example.com",
+          id: userId,
+          interfaceLanguage: "en",
+          studyLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Notes" }),
+    ).toBeInTheDocument();
+
+    const notesCatalog = screen.getByRole("complementary", {
+      name: "Notes catalog",
+    });
+    const recalledRow = within(notesCatalog).getByRole("button", {
+      name: "Persisted concept",
+    });
+    const freshRow = within(notesCatalog).getByRole("button", {
+      name: "Unrecalled concept",
+    });
+
+    expect(listSessionResults).toHaveBeenCalled();
+    expect(recalledRow).toHaveTextContent("Last score: Good");
+    expect(recalledRow).toHaveTextContent("Last recalled");
+    expect(freshRow).toHaveTextContent("Not recalled yet");
   });
 
   it("lets an authenticated user delete notes from the in-page notes list", async () => {
@@ -969,7 +1194,6 @@ describe("authenticated app shell", () => {
     const noteForm = screen.getByLabelText("Note editor");
     const memoryHooksPanel = screen.getByLabelText("Memory hooks panel");
     const memoryHooks = screen.getByLabelText("Memory hooks");
-    const learningState = screen.getByLabelText("Learning state");
     const layoutColumns =
       notesLayout === null ? [] : Array.from(notesLayout.children);
 
@@ -980,11 +1204,7 @@ describe("authenticated app shell", () => {
     ]);
     expect(noteEditorSurface).not.toContainElement(memoryHooksPanel);
     expect(noteForm).not.toContainElement(memoryHooks);
-    expect(noteForm).not.toContainElement(learningState);
-    expect(
-      memoryHooks.compareDocumentPosition(learningState) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(screen.queryByLabelText("Learning state")).not.toBeInTheDocument();
   });
 
   it("resizes the note body against the full editor layout", async () => {
@@ -2072,9 +2292,7 @@ describe("authenticated app shell", () => {
     expect(
       within(memoryHooks).queryByRole("tab", { name: "Metaphor" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Learning state").textContent).toContain(
-      "Save the note first",
-    );
+    expect(screen.queryByLabelText("Learning state")).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "Action potentials" },
@@ -2381,7 +2599,7 @@ describe("authenticated app shell", () => {
     ]);
   });
 
-  it("starts focus from the selected note without interrupting note editing", async () => {
+  it("starts focus from the header without interrupting note editing", async () => {
     const focusContext = createAppFocusContext({
       keyPrefix: `test-focus-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -2420,7 +2638,7 @@ describe("authenticated app shell", () => {
       target: { value: "Original note body with unsaved focus edits." },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Focus here" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
 
     expect(router.state.location.pathname).toBe("/notes");
     expect(
@@ -2430,7 +2648,7 @@ describe("authenticated app shell", () => {
       screen.queryByRole("dialog", { name: "Discard unsaved changes?" }),
     ).toBeNull();
     expect(
-      screen.getByRole("button", { name: "Focus here" }),
+      screen.getByRole("button", { name: /End focus/ }),
     ).toBeInTheDocument();
     expect(focusContext.getActiveSession({ userId })).toMatchObject({
       currentInterval: "Focus",

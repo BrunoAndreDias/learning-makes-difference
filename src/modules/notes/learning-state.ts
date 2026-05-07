@@ -16,45 +16,13 @@ type NoteRecallHistorySource = {
   noteId: string;
 };
 
-export type LearningStateStatus =
-  | "recently_easy"
-  | "ready_for_review"
-  | "unpracticed"
-  | "weak";
-
-export type LearningStateRecommendedAction =
-  | "practice_now"
-  | "review_later"
-  | "review_now";
-
 export type NoteLearningState = {
-  hookCount: number;
-  isWeak: boolean;
-  lastPracticedAt: string | null;
-  latestRating: RecallSelfRating | null;
-  nextReviewAt: string | null;
+  lastRecalledAt: string | null;
+  latestScore: RecallSelfRating | null;
   noteId: string;
-  practiced: boolean;
-  recommendedAction: LearningStateRecommendedAction;
-  status: LearningStateStatus;
 };
 
-export function formatLearningStateStatusLabel(
-  status: LearningStateStatus,
-): string {
-  switch (status) {
-    case "unpracticed":
-      return "Unpracticed";
-    case "weak":
-      return "Weak";
-    case "ready_for_review":
-      return "Ready for review";
-    case "recently_easy":
-      return "Recently easy";
-  }
-}
-
-export function formatLearningStateRatingLabel(
+export function formatLearningStateScoreLabel(
   rating: RecallSelfRating | null,
 ): string | null {
   if (rating === null) {
@@ -73,41 +41,18 @@ export function formatLearningStateRatingLabel(
   }
 }
 
-function addDays(timestamp: string, days: number): string {
-  const date = new Date(timestamp);
+export function formatLearningStateCompactLabel(
+  learningState: NoteLearningState,
+): string {
+  const scoreLabel = formatLearningStateScoreLabel(learningState.latestScore);
 
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  date.setUTCDate(date.getUTCDate() + days);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return date.toISOString();
-}
-
-function getReviewOffsetDays(rating: RecallSelfRating): number {
-  switch (rating) {
-    case "forgot":
-      return 1;
-    case "hard":
-      return 3;
-    case "good":
-      return 5;
-    case "easy":
-      return 7;
-  }
+  return scoreLabel === null ? "Not recalled yet" : `Last score: ${scoreLabel}`;
 }
 
 export function deriveLearningState(input: {
   history: NoteRecallHistory | null;
   note: AppNote;
-  now?: string;
 }): NoteLearningState {
-  const hookCount = input.note.metaphors.length + input.note.acronyms.length;
   const latestAttempt =
     input.history === null
       ? null
@@ -115,68 +60,20 @@ export function deriveLearningState(input: {
 
   if (latestAttempt === null) {
     return {
-      hookCount,
-      isWeak: false,
-      lastPracticedAt: null,
-      latestRating: null,
-      nextReviewAt: null,
+      lastRecalledAt: null,
+      latestScore: null,
       noteId: input.note.id,
-      practiced: false,
-      recommendedAction: "practice_now",
-      status: "unpracticed",
     };
   }
 
-  const nextReviewAt = addDays(
-    latestAttempt.completedAt,
-    getReviewOffsetDays(latestAttempt.rating),
-  );
-  const hasValidPracticeTimestamp = nextReviewAt.length > 0;
-  const isWeak =
-    latestAttempt.rating === "forgot" || latestAttempt.rating === "hard";
-
-  if (isWeak) {
-    return {
-      hookCount,
-      isWeak: true,
-      lastPracticedAt: hasValidPracticeTimestamp
-        ? latestAttempt.completedAt
-        : null,
-      latestRating: latestAttempt.rating,
-      nextReviewAt: hasValidPracticeTimestamp ? nextReviewAt : null,
-      noteId: input.note.id,
-      practiced: true,
-      recommendedAction: "review_now",
-      status: "weak",
-    };
-  }
-
-  const now = input.now ?? new Date().toISOString();
-  if (!hasValidPracticeTimestamp) {
-    return {
-      hookCount,
-      isWeak: false,
-      lastPracticedAt: null,
-      latestRating: latestAttempt.rating,
-      nextReviewAt: null,
-      noteId: input.note.id,
-      practiced: true,
-      recommendedAction: "review_now",
-      status: "ready_for_review",
-    };
-  }
-  const isReadyForReview = nextReviewAt <= now;
+  const recalledAt = new Date(latestAttempt.completedAt);
 
   return {
-    hookCount,
-    isWeak: false,
-    lastPracticedAt: latestAttempt.completedAt,
-    latestRating: latestAttempt.rating,
-    nextReviewAt,
+    lastRecalledAt: Number.isNaN(recalledAt.getTime())
+      ? null
+      : latestAttempt.completedAt,
+    latestScore: latestAttempt.rating,
     noteId: input.note.id,
-    practiced: true,
-    recommendedAction: isReadyForReview ? "review_now" : "review_later",
-    status: isReadyForReview ? "ready_for_review" : "recently_easy",
   };
 }
 
@@ -195,7 +92,6 @@ export function toNoteRecallHistories(
 export function deriveLearningStates(input: {
   histories: readonly NoteRecallHistory[];
   notes: readonly AppNote[];
-  now?: string;
 }): NoteLearningState[] {
   const historyByNoteId = new Map(
     input.histories.map((history) => [history.noteId, history]),
@@ -205,7 +101,6 @@ export function deriveLearningStates(input: {
     deriveLearningState({
       history: historyByNoteId.get(note.id) ?? null,
       note,
-      now: input.now,
     }),
   );
 }

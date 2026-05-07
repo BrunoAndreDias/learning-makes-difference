@@ -7,7 +7,7 @@ import {
 import type { AppNotesContext, AppPersistentNotesContext } from "..";
 import {
   deriveLearningStates,
-  formatLearningStateStatusLabel,
+  formatLearningStateCompactLabel,
   toNoteRecallHistories,
 } from "../learning-state";
 import { type AppStoredNote, listNotesForUser } from "./notes";
@@ -161,7 +161,6 @@ export function NotesWorkspaceSidebar({
   return (
     <section className="app-sidebar__workspace" aria-label="Notes sidebar">
       <div className="app-sidebar__workspace-header">
-        <h3>All notes</h3>
         <button
           className="notes-action notes-action-primary app-sidebar__primary-action"
           disabled={isDraftingNewNote || activeNoteId === null}
@@ -194,7 +193,7 @@ export function NotesWorkspaceSidebar({
                       <span>{note.title}</span>
                       {learningState === undefined ? null : (
                         <span className="app-sidebar__workspace-state">
-                          {formatLearningStateStatusLabel(learningState.status)}
+                          {formatLearningStateCompactLabel(learningState)}
                         </span>
                       )}
                     </span>
