@@ -715,39 +715,43 @@ function SelectedResultDetail({ result }: { result: FlashCardSessionResult }) {
           <p className="muted">No notes were captured for this result.</p>
         ) : (
           <ol className="recall-selected-result__list">
-            {result.notes.map((note) => (
-              <li key={note.id}>
-                <article className="recall-selected-result__row">
-                  <span
-                    aria-hidden="true"
-                    className="recall-selected-result__row-icon"
-                  >
-                    <FileTextIcon />
-                  </span>
-                  <div className="recall-selected-result__row-main">
-                    <p className="recall-selected-result__row-title">
-                      {note.title}
-                    </p>
-                    {getPrimaryLabel(note) === null ? (
-                      <span className="recall-selected-result__row-pill recall-selected-result__row-pill--neutral">
-                        No label
-                      </span>
-                    ) : (
-                      <span
-                        className="recall-selected-result__row-pill"
-                        data-tone={getLabelTone(getPrimaryLabel(note) ?? "")}
-                      >
-                        {getPrimaryLabel(note)}
-                      </span>
-                    )}
-                  </div>
-                  <span className="recall-selected-result__row-meta">
-                    <span>{formatCount(getNoteCardCount(note), "card")}</span>
-                    <ChevronRightIcon />
-                  </span>
-                </article>
-              </li>
-            ))}
+            {result.notes.map((note) => {
+              const primaryLabel = getPrimaryLabel(note);
+
+              return (
+                <li key={note.id}>
+                  <article className="recall-selected-result__row">
+                    <span
+                      aria-hidden="true"
+                      className="recall-selected-result__row-icon"
+                    >
+                      <FileTextIcon />
+                    </span>
+                    <div className="recall-selected-result__row-main">
+                      <p className="recall-selected-result__row-title">
+                        {note.title}
+                      </p>
+                      {primaryLabel === null ? (
+                        <span className="recall-selected-result__row-pill recall-selected-result__row-pill--neutral">
+                          No label
+                        </span>
+                      ) : (
+                        <span
+                          className="recall-selected-result__row-pill"
+                          data-tone={getLabelTone(primaryLabel)}
+                        >
+                          {primaryLabel}
+                        </span>
+                      )}
+                    </div>
+                    <span className="recall-selected-result__row-meta">
+                      <span>{formatCount(getNoteCardCount(note), "card")}</span>
+                      <ChevronRightIcon />
+                    </span>
+                  </article>
+                </li>
+              );
+            })}
           </ol>
         )}
       </section>

@@ -144,18 +144,4 @@
     grid-area: expander;
     align-self: center;
   }
-
-  .recall-selected-result__actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .recall-selected-result__actions .notes-action {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .recall-selected-result__start {
-    min-width: 0;
-  }
 }

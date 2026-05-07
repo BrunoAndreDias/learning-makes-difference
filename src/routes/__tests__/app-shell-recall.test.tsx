@@ -521,26 +521,26 @@ describe("authenticated recall workspace", () => {
     const detail = await screen.findByRole("region", {
       name: "Selected result",
     });
+    const detailScope = within(detail);
 
     expect(
-      within(detail).getByRole("heading", { level: 4, name: "Session review" }),
+      detailScope.getByRole("heading", { level: 4, name: "Session review" }),
     ).toBeInTheDocument();
     expect(
-      within(detail).getByRole("heading", { level: 4, name: "Questions" }),
+      detailScope.getByRole("heading", { level: 4, name: "Questions" }),
     ).toBeInTheDocument();
     expect(
-      within(detail).getByText("Questions", { selector: "span" }),
+      detailScope.getByText("Questions", { selector: "span" }),
     ).toBeInTheDocument();
     expect(
-      within(detail).queryByRole("link", { name: "Back to selection" }),
-    ).toBeNull();
+      detailScope.queryByRole("link", { name: "Back to selection" }),
+    ).not.toBeInTheDocument();
     expect(
-      within(detail).queryByRole("link", { name: "Start another recall" }),
-    ).toBeNull();
+      detailScope.queryByRole("link", { name: "Start another recall" }),
+    ).not.toBeInTheDocument();
 
-    expect(screen.getAllByRole("link", { name: "Start Recall" })).toHaveLength(
-      1,
-    );
+    const restartLinks = screen.getAllByRole("link", { name: "Start Recall" });
+    expect(restartLinks).toHaveLength(1);
   });
 
   it("redirects direct /recall/session visits without an active session", async () => {
