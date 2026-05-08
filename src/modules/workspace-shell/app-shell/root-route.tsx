@@ -115,7 +115,16 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   const sessionSnapshot = Route.useRouteContext({
     select: (context) => context.sessionSnapshot,
   });
-  const userLanguage = sessionSnapshot?.user?.userLanguage;
+  const session = Route.useRouteContext({
+    select: (context) => context.session,
+  });
+  const clientUserLanguage = useSyncExternalStore(
+    session.subscribe,
+    () => session.getSnapshot().user?.userLanguage,
+    () => session.getSnapshot().user?.userLanguage,
+  );
+  const userLanguage =
+    clientUserLanguage ?? sessionSnapshot?.user?.userLanguage;
 
   return (
     <html lang="en">
@@ -169,7 +178,7 @@ function RootDocumentBody({ children }: Readonly<{ children: ReactNode }>) {
                     activeOptions={{ exact: true }}
                     className="nav-link"
                   >
-                    Home
+                    {t("shell.topbar.home")}
                   </Link>
                 </li>
                 <li>
@@ -178,7 +187,7 @@ function RootDocumentBody({ children }: Readonly<{ children: ReactNode }>) {
                     activeProps={{ className: "nav-link nav-link-active" }}
                     className="nav-link"
                   >
-                    Workspace
+                    {t("shell.topbar.workspace")}
                   </Link>
                 </li>
                 <li>
@@ -187,7 +196,7 @@ function RootDocumentBody({ children }: Readonly<{ children: ReactNode }>) {
                     activeProps={{ className: "nav-link nav-link-active" }}
                     className="nav-link nav-link--ghost"
                   >
-                    Sign in
+                    {t("shell.topbar.signIn")}
                   </Link>
                 </li>
               </ul>

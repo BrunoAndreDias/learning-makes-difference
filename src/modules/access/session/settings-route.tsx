@@ -6,7 +6,7 @@ import {
   useMemo,
   useState,
 } from "react";
-
+import { useAppTranslation } from "../../language";
 import {
   defaultUserTimeZone,
   fallbackUserLanguage,
@@ -30,13 +30,20 @@ const languageLabels: Record<UserLanguage, string> = {
   "pt-PT": "Portuguese (Portugal)",
 };
 
-const studyObjectiveLabels: Record<StudyObjectivePreferenceOption, string> = {
-  university_study: "University study",
-  self_study: "Self study",
-  specific_exam: "Specific exam",
-  professional_learning: "Professional learning",
-  other: "Other",
-};
+const settingsAuthErrorKeys = {
+  "Display name must be at least 2 characters long.":
+    "settings.error.displayNameTooShort",
+  "Sign in to update account preferences.": "settings.error.notAuthenticated",
+} as const;
+
+const studyObjectiveLabelKeys: Record<StudyObjectivePreferenceOption, string> =
+  {
+    university_study: "settings.studyObjective.universityStudy",
+    self_study: "settings.studyObjective.selfStudy",
+    specific_exam: "settings.studyObjective.specificExam",
+    professional_learning: "settings.studyObjective.professionalLearning",
+    other: "settings.studyObjective.other",
+  };
 
 const fallbackUserTimeZones = [
   "America/New_York",
@@ -67,13 +74,15 @@ function readStudyObjectivePreference(value: string): StudyObjectivePreference {
 
 function getStudyObjectiveLabel(
   studyObjective: StudyObjectivePreference,
+  t: ReturnType<typeof useAppTranslation>["t"],
 ): string {
   return studyObjective === null
-    ? "Not set"
-    : studyObjectiveLabels[studyObjective];
+    ? t("settings.studyObjective.notSet")
+    : t(studyObjectiveLabelKeys[studyObjective]);
 }
 
 function SettingsPage() {
+  const { t } = useAppTranslation();
   const { session, sessionSnapshot } = useResolvedProtectedSession(
     "/_protected/settings",
   );
@@ -87,8 +96,8 @@ function SettingsPage() {
   const [userTimeZone, setUserTimeZone] = useState<UserTimeZonePreference>(
     user?.userTimeZone ?? defaultUserTimeZone,
   );
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [errorMessageKey, setErrorMessageKey] = useState<string | null>(null);
+  const [statusMessageKey, setStatusMessageKey] = useState<string | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
   const userTimeZoneOptions = useMemo(
     () => getUserTimeZoneOptions(userTimeZone),
@@ -116,8 +125,8 @@ function SettingsPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setErrorMessage(null);
-    setStatusMessage(null);
+    setErrorMessageKey(null);
+    setStatusMessageKey(null);
     setSubmitting(true);
 
     try {
@@ -127,14 +136,18 @@ function SettingsPage() {
         studyObjective,
         userTimeZone,
       });
-      setStatusMessage("Preferences saved.");
+      setStatusMessageKey("settings.status.saved");
     } catch (error) {
       const appAuthError = getAppAuthError(error);
 
       if (appAuthError !== null) {
-        setErrorMessage(appAuthError.message);
+        setErrorMessageKey(
+          settingsAuthErrorKeys[
+            appAuthError.message as keyof typeof settingsAuthErrorKeys
+          ] ?? "settings.error.fallback",
+        );
       } else {
-        setErrorMessage("Settings could not be saved. Try again.");
+        setErrorMessageKey("settings.error.fallback");
       }
     } finally {
       setSubmitting(false);
@@ -145,35 +158,32 @@ function SettingsPage() {
     <section className="settings-layout" aria-labelledby="settings-heading">
       <header className="settings-page-header recall-surface__header">
         <div className="notes-editor__title-stack">
-          <h3 aria-label="Account settings" id="settings-heading">
-            Settings
+          <h3 aria-label={t("settings.heading.aria")} id="settings-heading">
+            {t("settings.heading")}
           </h3>
-          <p className="muted notes-editor__meta">
-            Keep your workspace identity and language defaults aligned across
-            Notes, Recall, and Labels.
-          </p>
+          <p className="muted notes-editor__meta">{t("settings.subtitle")}</p>
         </div>
       </header>
 
       <div className="settings-main-grid">
         <article className="settings-panel settings-panel--form">
           <div className="settings-panel__header">
-            <p className="section-label">Profile</p>
-            <h3>Workspace identity</h3>
+            <p className="section-label">{t("settings.profile.section")}</p>
+            <h3>{t("settings.profile.heading")}</h3>
           </div>
           <form
-            aria-label="Account preferences form"
+            aria-label={t("settings.form.label")}
             className="settings-form"
             onSubmit={handleSubmit}
           >
             <label className="settings-form__field">
-              <span>Display name</span>
+              <span>{t("settings.displayName.label")}</span>
               <input
                 autoComplete="name"
                 name="displayName"
                 onChange={(event) => {
                   setDisplayName(event.target.value);
-                  setStatusMessage(null);
+                  setStatusMessageKey(null);
                 }}
                 required
                 type="text"
@@ -182,13 +192,13 @@ function SettingsPage() {
             </label>
 
             <label className="settings-form__field">
-              <span>User Language</span>
+              <span>{t("settings.language.label")}</span>
               <select
                 className="settings-form__control"
                 name="userLanguage"
                 onChange={(event: ChangeEvent<HTMLSelectElement>) => {
                   setUserLanguage(event.target.value as UserLanguage);
-                  setStatusMessage(null);
+                  setStatusMessageKey(null);
                 }}
                 value={userLanguage}
               >
@@ -201,7 +211,7 @@ function SettingsPage() {
             </label>
 
             <label className="settings-form__field">
-              <span>Study Objective</span>
+              <span>{t("settings.studyObjective.label")}</span>
               <select
                 className="settings-form__control"
                 name="studyObjective"
@@ -209,27 +219,27 @@ function SettingsPage() {
                   setStudyObjective(
                     readStudyObjectivePreference(event.target.value),
                   );
-                  setStatusMessage(null);
+                  setStatusMessageKey(null);
                 }}
                 value={studyObjective ?? ""}
               >
-                <option value="">No objective selected</option>
+                <option value="">{t("settings.studyObjective.empty")}</option>
                 {studyObjectivePreferences.map((objective) => (
                   <option key={objective} value={objective}>
-                    {studyObjectiveLabels[objective]}
+                    {t(studyObjectiveLabelKeys[objective])}
                   </option>
                 ))}
               </select>
             </label>
 
             <label className="settings-form__field">
-              <span>User Time Zone</span>
+              <span>{t("settings.userTimeZone.label")}</span>
               <select
                 className="settings-form__control"
                 name="userTimeZone"
                 onChange={(event) => {
                   setUserTimeZone(event.target.value);
-                  setStatusMessage(null);
+                  setStatusMessageKey(null);
                 }}
                 required
                 value={userTimeZone}
@@ -242,21 +252,21 @@ function SettingsPage() {
               </select>
             </label>
 
-            {errorMessage !== null ? (
+            {errorMessageKey !== null ? (
               <p
                 className="auth-form__error settings-form__message"
                 role="alert"
               >
-                {errorMessage}
+                {t(errorMessageKey)}
               </p>
             ) : null}
 
-            {statusMessage !== null ? (
+            {statusMessageKey !== null ? (
               <p
                 className="settings-status settings-form__message"
                 role="status"
               >
-                {statusMessage}
+                {t(statusMessageKey)}
               </p>
             ) : null}
 
@@ -265,38 +275,44 @@ function SettingsPage() {
               disabled={isSubmitting}
               type="submit"
             >
-              {isSubmitting ? "Saving..." : "Save preferences"}
+              {isSubmitting
+                ? t("settings.submit.saving")
+                : t("settings.submit.save")}
             </button>
           </form>
         </article>
 
         <article className="settings-panel settings-panel--summary">
           <div className="settings-panel__header">
-            <p className="section-label">Account scope</p>
-            <h3>Current defaults</h3>
+            <p className="section-label">{t("settings.summary.section")}</p>
+            <h3>{t("settings.summary.heading")}</h3>
           </div>
           <dl
             className="settings-summary"
-            aria-label="Current account settings"
+            aria-label={t("settings.summary.label")}
           >
             <div>
-              <dt>Email</dt>
+              <dt>{t("settings.summary.email")}</dt>
               <dd>{user.email}</dd>
             </div>
             <div>
-              <dt>Status</dt>
-              <dd>{hasPreferenceChanges ? "Unsaved changes" : "Saved"}</dd>
+              <dt>{t("settings.summary.status")}</dt>
+              <dd>
+                {hasPreferenceChanges
+                  ? t("settings.summary.unsaved")
+                  : t("settings.summary.saved")}
+              </dd>
             </div>
             <div>
-              <dt>User Language</dt>
+              <dt>{t("settings.language.label")}</dt>
               <dd>{languageLabels[userLanguage]}</dd>
             </div>
             <div>
-              <dt>Study Objective</dt>
-              <dd>{getStudyObjectiveLabel(studyObjective)}</dd>
+              <dt>{t("settings.studyObjective.label")}</dt>
+              <dd>{getStudyObjectiveLabel(studyObjective, t)}</dd>
             </div>
             <div>
-              <dt>User Time Zone</dt>
+              <dt>{t("settings.userTimeZone.label")}</dt>
               <dd>{userTimeZone}</dd>
             </div>
           </dl>
