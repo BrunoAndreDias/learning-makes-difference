@@ -11,7 +11,114 @@ import {
   renderRoute,
 } from "./app-shell-test-support";
 
+function setBrowserLanguages(languages: readonly string[]) {
+  Object.defineProperty(window.navigator, "languages", {
+    configurable: true,
+    value: languages,
+  });
+}
+
 describe("authenticated app shell", () => {
+  it("uses the stored User Language for authenticated shell chrome instead of browser detection", async () => {
+    setBrowserLanguages(["pt-PT", "en"]);
+
+    renderRoute("/settings", {
+      session: {
+        user: {
+          displayName: "Casey Learner",
+          email: "casey@example.com",
+          id: "user-casey",
+          userLanguage: "es",
+        },
+      },
+    });
+
+    const sidebar = await screen.findByRole("complementary", {
+      name: "Espacio de trabajo de notas",
+    });
+    const appSections = within(sidebar).getByRole("navigation", {
+      name: "Secciones de la aplicacion",
+    });
+
+    expect(
+      within(appSections).getByRole("link", { name: "Notas" }),
+    ).toBeInTheDocument();
+    expect(
+      within(appSections).getByRole("link", { name: "Repaso" }),
+    ).toBeInTheDocument();
+    expect(
+      within(appSections).getByRole("link", { name: "Etiquetas" }),
+    ).toBeInTheDocument();
+    expect(
+      within(appSections).getByRole("link", { name: "Concentracion" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Configuracion" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Abrir menu de navegacion" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Iniciar concentracion" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Casey Learner casey@example.com menu de cuenta",
+      }),
+    );
+
+    const accountMenu = screen.getByRole("menu", {
+      name: "Opciones de cuenta",
+    });
+
+    expect(
+      within(accountMenu).getByRole("menuitem", { name: "Configuracion" }),
+    ).toHaveAttribute("href", "/settings");
+    expect(
+      within(accountMenu).getByRole("menuitem", { name: "Cerrar sesion" }),
+    ).toBeInTheDocument();
+  });
+
+  it("translates representative authenticated shell chrome in Portuguese", async () => {
+    renderRoute("/focus", {
+      session: {
+        user: {
+          displayName: "Casey Learner",
+          email: "casey@example.com",
+          id: "user-casey",
+          userLanguage: "pt-PT",
+        },
+      },
+    });
+
+    const sidebar = await screen.findByRole("complementary", {
+      name: "Area de trabalho de notas",
+    });
+    const appSections = within(sidebar).getByRole("navigation", {
+      name: "Seccoes da aplicacao",
+    });
+
+    expect(
+      within(appSections).getByRole("link", { name: "Notas" }),
+    ).toBeInTheDocument();
+    expect(
+      within(appSections).getByRole("link", { name: "Recordar" }),
+    ).toBeInTheDocument();
+    expect(
+      within(appSections).getByRole("link", { name: "Etiquetas" }),
+    ).toBeInTheDocument();
+    expect(
+      within(appSections).getByRole("link", { name: "Foco" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Foco" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Abrir menu de navegacao" }),
+    ).toBeInTheDocument();
+  });
+
   it("keeps the collapsed workspace header as an overlaid menu toggle", () => {
     const appCss = readFileSync(join(process.cwd(), "src/styles/app.css"), {
       encoding: "utf8",

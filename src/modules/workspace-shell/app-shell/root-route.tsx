@@ -160,7 +160,7 @@ function RootDocumentBody({ children }: Readonly<{ children: ReactNode }>) {
               </span>
             </Link>
 
-            <nav aria-label="Primary">
+            <nav aria-label={t("shell.topbar.primary")}>
               <ul className="nav-list">
                 <li>
                   <Link
@@ -169,7 +169,7 @@ function RootDocumentBody({ children }: Readonly<{ children: ReactNode }>) {
                     activeOptions={{ exact: true }}
                     className="nav-link"
                   >
-                    Home
+                    {t("shell.topbar.home")}
                   </Link>
                 </li>
                 <li>
@@ -178,7 +178,7 @@ function RootDocumentBody({ children }: Readonly<{ children: ReactNode }>) {
                     activeProps={{ className: "nav-link nav-link-active" }}
                     className="nav-link"
                   >
-                    Workspace
+                    {t("shell.topbar.workspace")}
                   </Link>
                 </li>
                 <li>
@@ -187,7 +187,7 @@ function RootDocumentBody({ children }: Readonly<{ children: ReactNode }>) {
                     activeProps={{ className: "nav-link nav-link-active" }}
                     className="nav-link nav-link--ghost"
                   >
-                    Sign in
+                    {t("shell.topbar.signIn")}
                   </Link>
                 </li>
               </ul>
