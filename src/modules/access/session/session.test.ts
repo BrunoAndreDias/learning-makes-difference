@@ -63,6 +63,7 @@ describe("app session context", () => {
     expect(hasActiveSession(session.getSnapshot())).toBe(true);
     expect(session.getSnapshot().user?.displayName).toBe("Casey Learner");
     expect(session.getSnapshot().user?.studyObjective).toBeNull();
+    expect(session.getSnapshot().user?.studyIntensity).toBeNull();
     expect(session.getSnapshot().user?.userTimeZone).toBe("UTC");
     expect(cookie.get()).not.toBe("casey@example.com");
     expect(JSON.stringify(store.users)).not.toContain(

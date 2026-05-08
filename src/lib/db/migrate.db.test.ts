@@ -1,3 +1,6 @@
+import { readdir } from "node:fs/promises";
+import path from "node:path";
+
 import { afterEach, describe, expect, it } from "vitest";
 
 import { migrateDatabase } from "./migrate";
@@ -6,6 +9,15 @@ import {
   createPostgresIntegrationDatabase,
   type PostgresIntegrationDatabase,
 } from "./postgres-integration-test-db";
+
+const migrationsDir = path.resolve(process.cwd(), "drizzle", "migrations");
+
+async function readExpectedMigrationHistory() {
+  return (await readdir(migrationsDir))
+    .filter((fileName) => fileName.endsWith(".sql"))
+    .sort()
+    .map((name) => ({ name }));
+}
 
 describe("migrateDatabase PostgreSQL integration", () => {
   const databases = new Set<PostgresIntegrationDatabase>();
@@ -25,29 +37,7 @@ describe("migrateDatabase PostgreSQL integration", () => {
       "select name from __drizzle_migrations order by name;",
     );
 
-    expect(migrations).toEqual([
-      {
-        name: "0000_pilot_users_and_sessions.sql",
-      },
-      {
-        name: "0001_notes_with_metaphors_and_acronyms.sql",
-      },
-      {
-        name: "0002_labels_and_note_label_assignments.sql",
-      },
-      {
-        name: "0003_recall_sessions_and_results.sql",
-      },
-      {
-        name: "0004_focus_sessions_and_records.sql",
-      },
-      {
-        name: "0005_user_time_zone_preference.sql",
-      },
-      {
-        name: "0006_user_language_preference.sql",
-      },
-    ]);
+    expect(migrations).toEqual(await readExpectedMigrationHistory());
 
     const tables = await database.client.unsafe<Array<{ table_name: string }>>(`
       select table_name

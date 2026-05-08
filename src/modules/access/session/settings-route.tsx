@@ -70,28 +70,17 @@ function getUserTimeZoneOptions(
   ).sort();
 }
 
-function readStudyObjectivePreference(value: string): StudyObjectivePreference {
-  return value === "" ? null : (value as StudyObjectivePreferenceOption);
+function readOptionalPreference<TOption extends string>(
+  value: string,
+): TOption | null {
+  return value === "" ? null : (value as TOption);
 }
 
-function readStudyIntensityPreference(value: string): StudyIntensityPreference {
-  return value === "" ? null : (value as StudyIntensityPreferenceOption);
-}
-
-function getStudyObjectiveLabel(
-  studyObjective: StudyObjectivePreference,
+function getOptionalPreferenceLabel<TOption extends string>(
+  value: TOption | null,
+  labels: Record<TOption, string>,
 ): string {
-  return studyObjective === null
-    ? "Not set"
-    : studyObjectiveLabels[studyObjective];
-}
-
-function getStudyIntensityLabel(
-  studyIntensity: StudyIntensityPreference,
-): string {
-  return studyIntensity === null
-    ? "Not set"
-    : studyIntensityLabels[studyIntensity];
+  return value === null ? "Not set" : labels[value];
 }
 
 function SettingsPage() {
@@ -234,7 +223,9 @@ function SettingsPage() {
                 name="studyObjective"
                 onChange={(event) => {
                   setStudyObjective(
-                    readStudyObjectivePreference(event.target.value),
+                    readOptionalPreference<StudyObjectivePreferenceOption>(
+                      event.target.value,
+                    ),
                   );
                   setStatusMessage(null);
                 }}
@@ -256,7 +247,9 @@ function SettingsPage() {
                 name="studyIntensity"
                 onChange={(event) => {
                   setStudyIntensity(
-                    readStudyIntensityPreference(event.target.value),
+                    readOptionalPreference<StudyIntensityPreferenceOption>(
+                      event.target.value,
+                    ),
                   );
                   setStatusMessage(null);
                 }}
@@ -342,11 +335,21 @@ function SettingsPage() {
             </div>
             <div>
               <dt>Study Objective</dt>
-              <dd>{getStudyObjectiveLabel(studyObjective)}</dd>
+              <dd>
+                {getOptionalPreferenceLabel(
+                  studyObjective,
+                  studyObjectiveLabels,
+                )}
+              </dd>
             </div>
             <div>
               <dt>Study Intensity</dt>
-              <dd>{getStudyIntensityLabel(studyIntensity)}</dd>
+              <dd>
+                {getOptionalPreferenceLabel(
+                  studyIntensity,
+                  studyIntensityLabels,
+                )}
+              </dd>
             </div>
             <div>
               <dt>User Time Zone</dt>

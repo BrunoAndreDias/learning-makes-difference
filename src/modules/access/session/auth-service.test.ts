@@ -65,6 +65,7 @@ describe("createAuthService", () => {
       email: "casey@example.com",
       userLanguage: "en",
       studyObjective: null,
+      studyIntensity: null,
       userTimeZone: "UTC",
     });
     expect(cookieJar.get()).toBeTruthy();

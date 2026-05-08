@@ -137,11 +137,36 @@ export function getAppAuthError(error: unknown): AppAuthError | null {
   return null;
 }
 
-function isUserLanguage(value: unknown): value is UserLanguage {
+function isSupportedPreferenceOption<TOption extends string>(
+  value: unknown,
+  supportedOptions: readonly TOption[],
+): value is TOption {
   return (
-    typeof value === "string" &&
-    userLanguagePreferences.includes(value as UserLanguage)
+    typeof value === "string" && supportedOptions.includes(value as TOption)
   );
+}
+
+function isNullablePreferenceOption<TOption extends string>(
+  value: unknown,
+  supportedOptions: readonly TOption[],
+): value is TOption | null {
+  return value === null || isSupportedPreferenceOption(value, supportedOptions);
+}
+
+function validateNullablePreferenceOption<TOption extends string>(
+  value: unknown,
+  supportedOptions: readonly TOption[],
+  message: string,
+): TOption | null {
+  if (!isNullablePreferenceOption(value, supportedOptions)) {
+    throw new AppAuthError("invalid_input", message);
+  }
+
+  return value;
+}
+
+function isUserLanguage(value: unknown): value is UserLanguage {
+  return isSupportedPreferenceOption(value, userLanguagePreferences);
 }
 
 export function validateUserLanguagePreference(value: unknown): UserLanguage {
@@ -155,54 +180,24 @@ export function validateUserLanguagePreference(value: unknown): UserLanguage {
   return value;
 }
 
-function isStudyObjectivePreference(
-  value: unknown,
-): value is StudyObjectivePreference {
-  return (
-    value === null ||
-    (typeof value === "string" &&
-      studyObjectivePreferences.includes(
-        value as StudyObjectivePreferenceOption,
-      ))
-  );
-}
-
 export function validateStudyObjectivePreference(
   value: unknown,
 ): StudyObjectivePreference {
-  if (!isStudyObjectivePreference(value)) {
-    throw new AppAuthError(
-      "invalid_input",
-      "Study Objective must be one of the supported options.",
-    );
-  }
-
-  return value;
-}
-
-function isStudyIntensityPreference(
-  value: unknown,
-): value is StudyIntensityPreference {
-  return (
-    value === null ||
-    (typeof value === "string" &&
-      studyIntensityPreferences.includes(
-        value as StudyIntensityPreferenceOption,
-      ))
+  return validateNullablePreferenceOption(
+    value,
+    studyObjectivePreferences,
+    "Study Objective must be one of the supported options.",
   );
 }
 
 export function validateStudyIntensityPreference(
   value: unknown,
 ): StudyIntensityPreference {
-  if (!isStudyIntensityPreference(value)) {
-    throw new AppAuthError(
-      "invalid_input",
-      "Study Intensity must be one of the supported options.",
-    );
-  }
-
-  return value;
+  return validateNullablePreferenceOption(
+    value,
+    studyIntensityPreferences,
+    "Study Intensity must be one of the supported options.",
+  );
 }
 
 export function normalizeUserLanguage(value: unknown): UserLanguage {
