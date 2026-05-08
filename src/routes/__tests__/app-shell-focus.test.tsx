@@ -598,6 +598,9 @@ describe("authenticated app shell", () => {
   });
 
   it("uses the routed authenticated session to hydrate the Focus workspace immediately", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-05-07T09:10:00.000Z"));
+
     const userId = "user-route-hydrated-focus";
     const refreshSpy = vi.fn<AppPersistentFocusService["getActiveSession"]>(
       async () => ({
