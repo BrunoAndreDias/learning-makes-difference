@@ -63,8 +63,7 @@ describe("createAuthService", () => {
     expect(registration.user).toMatchObject({
       displayName: "Casey Learner",
       email: "casey@example.com",
-      interfaceLanguage: "en",
-      studyLanguage: "en",
+      userLanguage: "en",
       userTimeZone: "UTC",
     });
     expect(cookieJar.get()).toBeTruthy();
@@ -168,8 +167,7 @@ describe("createAuthService", () => {
 
     await auth.updatePreferences({
       displayName: "Casey Rivers",
-      interfaceLanguage: "pt-BR",
-      studyLanguage: "es",
+      userLanguage: "pt-PT",
       userTimeZone: "America/New_York",
     });
     await auth.logout();
@@ -193,11 +191,78 @@ describe("createAuthService", () => {
     await expect(restoredAuth.getSessionSnapshot()).resolves.toMatchObject({
       user: {
         displayName: "Casey Rivers",
-        interfaceLanguage: "pt-BR",
-        studyLanguage: "es",
+        userLanguage: "pt-PT",
         userTimeZone: "America/New_York",
       },
     });
+  });
+
+  it("migrates old language columns into one User Language using interface language precedence", async () => {
+    const client = new PGlite();
+    databases.add(client);
+    const db = drizzle(client, { schema: authSchema });
+
+    await client.exec(`
+      create table if not exists __drizzle_migrations (
+        name text primary key,
+        applied_at timestamptz not null default now()
+      );
+      create table users (
+        id text primary key,
+        display_name text not null,
+        email text not null unique,
+        password_hash text not null,
+        interface_language text not null,
+        study_language text not null,
+        created_at timestamptz not null,
+        updated_at timestamptz not null
+      );
+      create table auth_sessions (
+        id text primary key,
+        user_id text not null references users(id) on delete cascade,
+        created_at timestamptz not null,
+        expires_at timestamptz not null
+      );
+      insert into __drizzle_migrations (name) values
+        ('0000_pilot_users_and_sessions.sql');
+      insert into users (
+        id,
+        display_name,
+        email,
+        password_hash,
+        interface_language,
+        study_language,
+        created_at,
+        updated_at
+      ) values (
+        'user-casey',
+        'Casey Learner',
+        'casey@example.com',
+        '$argon2id$v=19$m=65536,t=3,p=4$stub$stub',
+        'pt-BR',
+        'es',
+        '2026-05-02T12:00:00.000Z',
+        '2026-05-02T12:00:00.000Z'
+      );
+    `);
+
+    await migrateDatabase(db, client);
+
+    await expect(db.select().from(usersTable)).resolves.toMatchObject([
+      {
+        email: "casey@example.com",
+        userLanguage: "pt-PT",
+      },
+    ]);
+
+    const legacyColumns = await client.query<{ column_name: string }>(`
+      select column_name
+      from information_schema.columns
+      where table_name = 'users'
+        and column_name in ('interface_language', 'study_language')
+      order by column_name;
+    `);
+    expect(legacyColumns.rows).toEqual([]);
   });
 
   it("rejects invalid User Time Zone preference updates", async () => {
@@ -225,8 +290,7 @@ describe("createAuthService", () => {
     await expect(
       auth.updatePreferences({
         displayName: "Casey Learner",
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
         userTimeZone: "Mars/Base",
       }),
     ).rejects.toMatchObject({

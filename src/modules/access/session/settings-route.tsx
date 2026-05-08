@@ -8,11 +8,11 @@ import {
 } from "react";
 
 import {
-  type AppLanguagePreference,
-  appLanguagePreferences,
   defaultUserTimeZone,
   getAppAuthError,
+  type UserLanguage,
   type UserTimeZonePreference,
+  userLanguagePreferences,
 } from "./session";
 import { useResolvedProtectedSession } from "./use-resolved-protected-session";
 
@@ -20,10 +20,10 @@ export const Route = createFileRoute("/_protected/settings")({
   component: SettingsPage,
 });
 
-const languageLabels: Record<AppLanguagePreference, string> = {
+const languageLabels: Record<UserLanguage, string> = {
   en: "English",
   es: "Spanish",
-  "pt-BR": "Portuguese (Brazil)",
+  "pt-PT": "Portuguese (Portugal)",
 };
 
 const fallbackUserTimeZones = [
@@ -55,10 +55,8 @@ function SettingsPage() {
   );
   const user = sessionSnapshot.user;
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
-  const [interfaceLanguage, setInterfaceLanguage] =
-    useState<AppLanguagePreference>(user?.interfaceLanguage ?? "en");
-  const [studyLanguage, setStudyLanguage] = useState<AppLanguagePreference>(
-    user?.studyLanguage ?? "en",
+  const [userLanguage, setUserLanguage] = useState<UserLanguage>(
+    user?.userLanguage ?? "en",
   );
   const [userTimeZone, setUserTimeZone] = useState<UserTimeZonePreference>(
     user?.userTimeZone ?? defaultUserTimeZone,
@@ -71,19 +69,9 @@ function SettingsPage() {
     [userTimeZone],
   );
 
-  function updateLanguagePreference(
-    setter: (value: AppLanguagePreference) => void,
-  ) {
-    return (event: ChangeEvent<HTMLSelectElement>) => {
-      setter(event.target.value as AppLanguagePreference);
-      setStatusMessage(null);
-    };
-  }
-
   useEffect(() => {
     setDisplayName(user?.displayName ?? "");
-    setInterfaceLanguage(user?.interfaceLanguage ?? "en");
-    setStudyLanguage(user?.studyLanguage ?? "en");
+    setUserLanguage(user?.userLanguage ?? "en");
     setUserTimeZone(user?.userTimeZone ?? defaultUserTimeZone);
   }, [user]);
 
@@ -94,8 +82,7 @@ function SettingsPage() {
   const savedUserTimeZone = user.userTimeZone ?? defaultUserTimeZone;
   const hasPreferenceChanges =
     displayName !== user.displayName ||
-    interfaceLanguage !== user.interfaceLanguage ||
-    studyLanguage !== user.studyLanguage ||
+    userLanguage !== user.userLanguage ||
     userTimeZone !== savedUserTimeZone;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -107,8 +94,7 @@ function SettingsPage() {
     try {
       await session.updatePreferences({
         displayName,
-        interfaceLanguage,
-        studyLanguage,
+        userLanguage,
         userTimeZone,
       });
       setStatusMessage("Preferences saved.");
@@ -166,30 +152,17 @@ function SettingsPage() {
             </label>
 
             <label className="settings-form__field">
-              <span>Interface language</span>
+              <span>User Language</span>
               <select
                 className="settings-form__control"
-                name="interfaceLanguage"
-                onChange={updateLanguagePreference(setInterfaceLanguage)}
-                value={interfaceLanguage}
+                name="userLanguage"
+                onChange={(event: ChangeEvent<HTMLSelectElement>) => {
+                  setUserLanguage(event.target.value as UserLanguage);
+                  setStatusMessage(null);
+                }}
+                value={userLanguage}
               >
-                {appLanguagePreferences.map((language) => (
-                  <option key={language} value={language}>
-                    {languageLabels[language]}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="settings-form__field">
-              <span>Study language</span>
-              <select
-                className="settings-form__control"
-                name="studyLanguage"
-                onChange={updateLanguagePreference(setStudyLanguage)}
-                value={studyLanguage}
-              >
-                {appLanguagePreferences.map((language) => (
+                {userLanguagePreferences.map((language) => (
                   <option key={language} value={language}>
                     {languageLabels[language]}
                   </option>
@@ -263,12 +236,8 @@ function SettingsPage() {
               <dd>{hasPreferenceChanges ? "Unsaved changes" : "Saved"}</dd>
             </div>
             <div>
-              <dt>Interface language</dt>
-              <dd>{languageLabels[interfaceLanguage]}</dd>
-            </div>
-            <div>
-              <dt>Study language</dt>
-              <dd>{languageLabels[studyLanguage]}</dd>
+              <dt>User Language</dt>
+              <dd>{languageLabels[userLanguage]}</dd>
             </div>
             <div>
               <dt>User Time Zone</dt>

@@ -7,7 +7,7 @@ import {
 } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
 import { z } from "zod";
-import { useAppTranslation } from "../../language";
+import { detectAnonymousUserLanguage, useAppTranslation } from "../../language";
 import {
   defaultUserTimeZone,
   getAppAuthError,
@@ -65,6 +65,7 @@ function RegisterPage() {
         email,
         password,
         pilotRegistrationCode,
+        userLanguage: detectAnonymousUserLanguage(getBrowserLanguages()),
         userTimeZone: detectBrowserUserTimeZone(),
       });
       await router.invalidate();
@@ -292,4 +293,12 @@ function detectBrowserUserTimeZone(): UserTimeZonePreference {
   return (
     Intl.DateTimeFormat().resolvedOptions().timeZone ?? defaultUserTimeZone
   );
+}
+
+function getBrowserLanguages(): readonly string[] {
+  if (navigator.languages.length > 0) {
+    return navigator.languages;
+  }
+
+  return navigator.language ? [navigator.language] : [];
 }

@@ -21,8 +21,7 @@ const testUser = {
   displayName: "Jordan Recall",
   email: "jordan.recall@example.com",
   id: "user-recall",
-  interfaceLanguage: "en",
-  studyLanguage: "en",
+  userLanguage: "en",
 } as const;
 
 function createSession() {
@@ -365,8 +364,7 @@ describe("authenticated recall workspace", () => {
           displayName: "Casey Routed Recall",
           email: "casey.routed.recall@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       }),
     });

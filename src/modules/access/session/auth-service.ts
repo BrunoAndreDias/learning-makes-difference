@@ -8,15 +8,16 @@ import type { PgQueryResultHKT } from "drizzle-orm/pg-core/session";
 import { type authSchema, authSessionsTable, usersTable } from "./auth-schema";
 import {
   AppAuthError,
-  type AppLanguagePreference,
   type AppSessionSnapshot,
   type AppSessionUser,
   buildAnonymousSnapshot,
   defaultUserTimeZone,
-  isLanguagePreference,
+  isUserLanguage,
   type LoginInput,
+  normalizeUserLanguage,
   type RegisterInput,
   type UpdatePreferencesInput,
+  type UserLanguage,
   validateUserTimeZonePreference,
 } from "./session-contract";
 
@@ -66,8 +67,7 @@ function buildSessionUser(user: StoredUser): AppSessionUser {
     id: user.id,
     displayName: user.displayName,
     email: user.email,
-    interfaceLanguage: user.interfaceLanguage,
-    studyLanguage: user.studyLanguage,
+    userLanguage: normalizeUserLanguage(user.userLanguage),
     userTimeZone: user.userTimeZone ?? defaultUserTimeZone,
   };
 }
@@ -121,8 +121,8 @@ function validateEmail(email: string): string {
 function validateLanguagePreference(
   value: string,
   fieldLabel: string,
-): AppLanguagePreference {
-  if (!isLanguagePreference(value)) {
+): UserLanguage {
+  if (!isUserLanguage(value)) {
     throw new AppAuthError(
       "invalid_input",
       `${fieldLabel} must be one of the supported language options.`,
@@ -281,8 +281,7 @@ async function getStoredUserForActiveSession({
       displayName: usersTable.displayName,
       email: usersTable.email,
       passwordHash: usersTable.passwordHash,
-      interfaceLanguage: usersTable.interfaceLanguage,
-      studyLanguage: usersTable.studyLanguage,
+      userLanguage: usersTable.userLanguage,
       userTimeZone: usersTable.userTimeZone,
       createdAt: usersTable.createdAt,
       updatedAt: usersTable.updatedAt,
@@ -389,6 +388,7 @@ export function createAuthService({
       email,
       password,
       pilotRegistrationCode: providedRegistrationCode,
+      userLanguage,
       userTimeZone,
     }: RegisterInput): Promise<AppSessionSnapshot> {
       const safeDisplayName = validateDisplayName(displayName);
@@ -399,6 +399,7 @@ export function createAuthService({
         pilotRegistrationCode,
       );
       const safeUserTimeZone = validateUserTimeZonePreference(userTimeZone);
+      const safeUserLanguage = normalizeUserLanguage(userLanguage);
 
       const existingUsers = await db
         .select({ id: usersTable.id })
@@ -422,8 +423,7 @@ export function createAuthService({
         displayName: safeDisplayName,
         email: safeEmail,
         passwordHash,
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: safeUserLanguage,
         userTimeZone: safeUserTimeZone,
         createdAt: timestamp,
         updatedAt: timestamp,
@@ -433,8 +433,7 @@ export function createAuthService({
         id: userId,
         displayName: safeDisplayName,
         email: safeEmail,
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: safeUserLanguage,
         userTimeZone: safeUserTimeZone,
       };
 
@@ -452,8 +451,7 @@ export function createAuthService({
     },
     async updatePreferences({
       displayName,
-      interfaceLanguage,
-      studyLanguage,
+      userLanguage,
       userTimeZone,
     }: UpdatePreferencesInput): Promise<AppSessionSnapshot> {
       const storedUser = await getStoredUserForActiveSession({
@@ -469,13 +467,9 @@ export function createAuthService({
       }
 
       const safeDisplayName = validateDisplayName(displayName);
-      const safeInterfaceLanguage = validateLanguagePreference(
-        interfaceLanguage,
-        "Interface language",
-      );
-      const safeStudyLanguage = validateLanguagePreference(
-        studyLanguage,
-        "Study language",
+      const safeUserLanguage = validateLanguagePreference(
+        userLanguage,
+        "User Language",
       );
       const safeUserTimeZone = validateUserTimeZonePreference(userTimeZone);
       const updatedAt = now();
@@ -484,8 +478,7 @@ export function createAuthService({
         .update(usersTable)
         .set({
           displayName: safeDisplayName,
-          interfaceLanguage: safeInterfaceLanguage,
-          studyLanguage: safeStudyLanguage,
+          userLanguage: safeUserLanguage,
           userTimeZone: safeUserTimeZone,
           updatedAt,
         })
@@ -496,8 +489,7 @@ export function createAuthService({
           id: storedUser.id,
           displayName: safeDisplayName,
           email: storedUser.email,
-          interfaceLanguage: safeInterfaceLanguage,
-          studyLanguage: safeStudyLanguage,
+          userLanguage: safeUserLanguage,
           userTimeZone: safeUserTimeZone,
         },
       };

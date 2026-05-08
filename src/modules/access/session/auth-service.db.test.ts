@@ -62,8 +62,7 @@ describe("createAuthService PostgreSQL integration", () => {
 
     await caseyAuth.updatePreferences({
       displayName: "Casey Rivers",
-      interfaceLanguage: "pt-BR",
-      studyLanguage: "es",
+      userLanguage: "pt-PT",
       userTimeZone: "America/New_York",
     });
 
@@ -83,8 +82,7 @@ describe("createAuthService PostgreSQL integration", () => {
 
     await jordanAuth.updatePreferences({
       displayName: "Jordan Rivera",
-      interfaceLanguage: "en",
-      studyLanguage: "pt-BR",
+      userLanguage: "en",
       userTimeZone: "Europe/Lisbon",
     });
 
@@ -106,8 +104,7 @@ describe("createAuthService PostgreSQL integration", () => {
       user: {
         displayName: "Casey Rivers",
         email: "casey@example.com",
-        interfaceLanguage: "pt-BR",
-        studyLanguage: "es",
+        userLanguage: "pt-PT",
         userTimeZone: "America/New_York",
       },
     });
@@ -115,8 +112,7 @@ describe("createAuthService PostgreSQL integration", () => {
       user: {
         displayName: "Jordan Rivera",
         email: "jordan@example.com",
-        interfaceLanguage: "en",
-        studyLanguage: "pt-BR",
+        userLanguage: "en",
         userTimeZone: "Europe/Lisbon",
       },
     });

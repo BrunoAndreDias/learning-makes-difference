@@ -13,6 +13,8 @@ import {
   type UserLanguage,
 } from "./user-language";
 
+export { detectAnonymousUserLanguage } from "./user-language";
+
 function getBrowserLanguages(): readonly string[] {
   if (typeof navigator === "undefined") {
     return [];

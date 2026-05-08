@@ -107,8 +107,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Notes Focus",
           email: "jordan.notes.focus@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -159,8 +158,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: "user-jordan",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -234,8 +232,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -342,8 +339,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan State",
           email: "jordan.state@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -444,8 +440,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Persisted",
           email: "jordan.persisted@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -499,8 +494,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -579,8 +573,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -637,8 +630,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: "user-jordan",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -688,8 +680,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: "user-jordan",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -793,8 +784,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: "user-jordan",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -868,8 +858,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Alexandria Review Coordinator",
           email: "jordan.alexandria.review.coordinator@example-learning.test",
           id: "user-jordan",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -929,8 +918,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: "user-jordan",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -1010,8 +998,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: "user-jordan",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -1098,8 +1085,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: "user-jordan",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -1177,8 +1163,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: "user-jordan",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -1246,8 +1231,7 @@ describe("authenticated app shell", () => {
             displayName: "Jordan Review",
             email: "jordan@example.com",
             id: "user-jordan",
-            interfaceLanguage: "en",
-            studyLanguage: "en",
+            userLanguage: "en",
           },
         },
       });
@@ -1329,8 +1313,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: "user-jordan",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -1395,8 +1378,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: "user-jordan",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -1520,8 +1502,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: "user-jordan",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -1599,8 +1580,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: "user-jordan",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -1685,8 +1665,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: "user-jordan",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -1806,8 +1785,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -1913,8 +1891,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -2021,8 +1998,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -2103,8 +2079,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -2181,8 +2156,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -2270,8 +2244,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: "user-jordan",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -2444,8 +2417,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -2524,8 +2496,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -2626,8 +2597,7 @@ describe("authenticated app shell", () => {
           displayName: "Casey Context",
           email: "casey.context@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });

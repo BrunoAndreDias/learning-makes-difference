@@ -70,8 +70,7 @@ export function renderRoute(
       displayName: "Placeholder user",
       email: "placeholder@example.com",
       id: "user-placeholder",
-      interfaceLanguage: "en",
-      studyLanguage: "en",
+      userLanguage: "en",
     },
   };
   const sessionContext = options.sessionContext ?? {

@@ -112,13 +112,18 @@ function NotFoundRedirect() {
 }
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
+  const sessionSnapshot = Route.useRouteContext({
+    select: (context) => context.sessionSnapshot,
+  });
+  const userLanguage = sessionSnapshot?.user?.userLanguage;
+
   return (
     <html lang="en">
       <head>
         <HeadContent />
       </head>
       <body>
-        <AppLanguageProvider>
+        <AppLanguageProvider language={userLanguage}>
           <RootDocumentBody>{children}</RootDocumentBody>
         </AppLanguageProvider>
         <Scripts />

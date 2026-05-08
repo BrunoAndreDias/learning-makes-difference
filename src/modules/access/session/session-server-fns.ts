@@ -11,13 +11,13 @@ import {
   AppAuthError,
   type AppAuthErrorCode,
   type AppSessionSnapshot,
-  appLanguagePreferences,
   defaultUserTimeZone,
   getAppAuthError,
   isUserTimeZonePreference,
   type LoginInput,
   type RegisterInput,
   type UpdatePreferencesInput,
+  userLanguagePreferences,
 } from "./session-contract";
 
 const SESSION_COOKIE_NAME = "learning-makes-difference-session";
@@ -28,6 +28,7 @@ const registerInputSchema = z.object({
   email: z.string(),
   password: z.string(),
   pilotRegistrationCode: z.string(),
+  userLanguage: z.enum(userLanguagePreferences).optional().default("en"),
   userTimeZone: userTimeZoneSchema.optional().default(defaultUserTimeZone),
 });
 
@@ -38,8 +39,7 @@ const loginInputSchema = z.object({
 
 const updatePreferencesInputSchema = z.object({
   displayName: z.string(),
-  interfaceLanguage: z.enum(appLanguagePreferences),
-  studyLanguage: z.enum(appLanguagePreferences),
+  userLanguage: z.enum(userLanguagePreferences),
   userTimeZone: userTimeZoneSchema,
 });
 

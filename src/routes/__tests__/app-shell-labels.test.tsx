@@ -649,8 +649,7 @@ describe("authenticated app shell", () => {
         displayName: "Placeholder user",
         email: "placeholder@example.com",
         id: TEST_USER_ID,
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
       },
     };
     const persistentService = createTestPersistentLabelsService([]);

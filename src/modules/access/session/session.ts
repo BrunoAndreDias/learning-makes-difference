@@ -1,12 +1,13 @@
+import type { UserLanguage } from "../../language/user-language";
 import {
   AppAuthError,
-  type AppLanguagePreference,
   type AppSessionSnapshot,
   buildAnonymousSnapshot,
   defaultUserTimeZone,
   getAppAuthError,
-  isLanguagePreference,
+  isUserLanguage,
   type LoginInput,
+  normalizeUserLanguage,
   type RegisterInput,
   type UpdatePreferencesInput,
   type UserTimeZonePreference,
@@ -16,13 +17,13 @@ import { createServerSessionService } from "./session-server-fns";
 
 export {
   AppAuthError,
-  type AppLanguagePreference,
   type AppSessionSnapshot,
   type AppSessionUser,
-  appLanguagePreferences,
   defaultUserTimeZone,
   getAppAuthError,
+  type UserLanguage,
   type UserTimeZonePreference,
+  userLanguagePreferences,
 } from "./session-contract";
 
 type SessionListener = () => void;
@@ -33,8 +34,9 @@ type MemoryStoredUserRecord = {
   email: string;
   passwordHash: string;
   passwordSalt: string;
-  interfaceLanguage: AppLanguagePreference;
-  studyLanguage: AppLanguagePreference;
+  userLanguage?: UserLanguage;
+  interfaceLanguage?: string;
+  studyLanguage?: string;
   userTimeZone?: UserTimeZonePreference;
 };
 
@@ -144,8 +146,9 @@ function buildSnapshot(
       id: user.id,
       displayName: user.displayName,
       email: user.email,
-      interfaceLanguage: user.interfaceLanguage,
-      studyLanguage: user.studyLanguage,
+      userLanguage: normalizeUserLanguage(
+        user.userLanguage ?? user.interfaceLanguage,
+      ),
       userTimeZone: user.userTimeZone ?? defaultUserTimeZone,
     },
   };
@@ -207,8 +210,8 @@ function validateEmail(email: string): string {
 function validateLanguagePreference(
   value: string,
   fieldLabel: string,
-): AppLanguagePreference {
-  if (!isLanguagePreference(value)) {
+): UserLanguage {
+  if (!isUserLanguage(value)) {
     throw new AppAuthError(
       "invalid_input",
       `${fieldLabel} must be one of the supported language options.`,
@@ -373,6 +376,7 @@ export function createMemorySessionService(
       email,
       password,
       pilotRegistrationCode: providedRegistrationCode,
+      userLanguage,
       userTimeZone,
     }) => {
       const safeDisplayName = validateDisplayName(displayName);
@@ -383,6 +387,7 @@ export function createMemorySessionService(
         pilotRegistrationCode,
       );
       const safeUserTimeZone = validateUserTimeZonePreference(userTimeZone);
+      const safeUserLanguage = normalizeUserLanguage(userLanguage);
 
       if (
         store.users.some((user) => normalizeEmail(user.email) === safeEmail)
@@ -404,8 +409,7 @@ export function createMemorySessionService(
           safePassword,
           passwordSalt,
         ),
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: safeUserLanguage,
         userTimeZone: safeUserTimeZone,
       };
 
@@ -414,12 +418,7 @@ export function createMemorySessionService(
 
       return buildSnapshot(nextUser);
     },
-    updatePreferences: async ({
-      displayName,
-      interfaceLanguage,
-      studyLanguage,
-      userTimeZone,
-    }) => {
+    updatePreferences: async ({ displayName, userLanguage, userTimeZone }) => {
       const activeUser = readSessionUser(cookie, store);
 
       if (activeUser === null) {
@@ -427,13 +426,9 @@ export function createMemorySessionService(
       }
 
       const safeDisplayName = validateDisplayName(displayName);
-      const safeInterfaceLanguage = validateLanguagePreference(
-        interfaceLanguage,
-        "Interface language",
-      );
-      const safeStudyLanguage = validateLanguagePreference(
-        studyLanguage,
-        "Study language",
+      const safeUserLanguage = validateLanguagePreference(
+        userLanguage,
+        "User Language",
       );
       const safeUserTimeZone = validateUserTimeZonePreference(userTimeZone);
       const userIndex = store.users.findIndex(
@@ -447,8 +442,7 @@ export function createMemorySessionService(
       const nextUser: MemoryStoredUserRecord = {
         ...store.users[userIndex],
         displayName: safeDisplayName,
-        interfaceLanguage: safeInterfaceLanguage,
-        studyLanguage: safeStudyLanguage,
+        userLanguage: safeUserLanguage,
         userTimeZone: safeUserTimeZone,
       };
 

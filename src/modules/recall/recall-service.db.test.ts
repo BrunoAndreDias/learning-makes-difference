@@ -48,8 +48,7 @@ describe("createRecallService PostgreSQL integration", () => {
       displayName: "Casey Learner",
       email: "casey@example.com",
       passwordHash: "hash",
-      interfaceLanguage: "en",
-      studyLanguage: "en",
+      userLanguage: "en",
       createdAt: new Date("2026-05-02T12:00:00.000Z"),
       updatedAt: new Date("2026-05-02T12:00:00.000Z"),
     });

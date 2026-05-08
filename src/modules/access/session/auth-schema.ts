@@ -1,8 +1,8 @@
 import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import {
-  appLanguagePreferences,
   defaultUserTimeZone,
+  userLanguagePreferences,
 } from "./session-contract";
 
 export const usersTable = pgTable("users", {
@@ -10,11 +10,8 @@ export const usersTable = pgTable("users", {
   displayName: text("display_name").notNull(),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
-  interfaceLanguage: text("interface_language", {
-    enum: appLanguagePreferences,
-  }).notNull(),
-  studyLanguage: text("study_language", {
-    enum: appLanguagePreferences,
+  userLanguage: text("user_language", {
+    enum: userLanguagePreferences,
   }).notNull(),
   userTimeZone: text("user_time_zone").notNull().default(defaultUserTimeZone),
   createdAt: timestamp("created_at", {

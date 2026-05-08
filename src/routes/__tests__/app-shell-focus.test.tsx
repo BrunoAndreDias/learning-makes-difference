@@ -46,8 +46,7 @@ describe("authenticated app shell", () => {
           displayName: "Casey Focus Workspace",
           email: "casey.focus.workspace@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -102,8 +101,7 @@ describe("authenticated app shell", () => {
           displayName: "Casey Focus Reset",
           email: "casey.focus.reset@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -207,8 +205,7 @@ describe("authenticated app shell", () => {
           displayName: "Casey Focus Analytics",
           email: "casey.focus.analytics@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -260,8 +257,7 @@ describe("authenticated app shell", () => {
           displayName: "Casey Focus Empty",
           email: "casey.focus.empty@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -299,8 +295,7 @@ describe("authenticated app shell", () => {
           displayName: "Casey Focus",
           email: "casey@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -352,8 +347,7 @@ describe("authenticated app shell", () => {
           displayName: "Casey Default",
           email: "casey.default@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -390,8 +384,7 @@ describe("authenticated app shell", () => {
           displayName: "Casey Global",
           email: "casey.global@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -447,8 +440,7 @@ describe("authenticated app shell", () => {
         displayName: "Casey Reload",
         email: "casey.reload@example.com",
         id: userId,
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
       },
     } satisfies AppSessionSnapshot;
 
@@ -546,8 +538,7 @@ describe("authenticated app shell", () => {
         displayName: "Casey Persistent Focus",
         email: "casey.persistent.focus@example.com",
         id: "user-persistent-focus",
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
       },
     } satisfies AppSessionSnapshot;
     const firstPersistentFocus = createPersistentFocusContext({
@@ -643,8 +634,7 @@ describe("authenticated app shell", () => {
         displayName: "Casey Routed Focus",
         email: "casey.routed.focus@example.com",
         id: userId,
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
       },
     };
 
@@ -693,8 +683,7 @@ describe("authenticated app shell", () => {
           displayName: "Casey Focus A11y",
           email: "casey.focus.a11y@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       } satisfies AppSessionSnapshot;
 
@@ -818,8 +807,7 @@ describe("authenticated app shell", () => {
         displayName: "Casey Actions",
         email: "casey.actions@example.com",
         id: userId,
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
       },
     } satisfies AppSessionSnapshot;
 
@@ -939,8 +927,7 @@ describe("authenticated app shell", () => {
           displayName: "Casey Break",
           email: "casey.break@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -998,8 +985,7 @@ describe("authenticated app shell", () => {
         displayName: "Casey Stale",
         email: "casey.stale@example.com",
         id: userId,
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
       },
     } satisfies AppSessionSnapshot;
 
@@ -1091,8 +1077,7 @@ describe("authenticated app shell", () => {
         displayName: "Casey End",
         email: "casey.end@example.com",
         id: userId,
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
       },
     } satisfies AppSessionSnapshot;
 
@@ -1133,8 +1118,7 @@ describe("authenticated app shell", () => {
         displayName: "Casey Note Save",
         email: "casey.note.save@example.com",
         id: userId,
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
       },
     } satisfies AppSessionSnapshot;
 
@@ -1205,8 +1189,7 @@ describe("authenticated app shell", () => {
         displayName: "Casey Note Review",
         email: "casey.note.review@example.com",
         id: userId,
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
       },
     } satisfies AppSessionSnapshot;
 
@@ -1297,8 +1280,7 @@ describe("authenticated app shell", () => {
           displayName: "Casey Recall Break",
           email: "casey.recall.break@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });

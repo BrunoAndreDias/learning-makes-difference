@@ -155,8 +155,7 @@ describe("authenticated app shell", () => {
           displayName: "Stale Casey",
           email: "casey@example.com",
           id: "user-stale-casey",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
       service: {
@@ -220,14 +219,14 @@ describe("authenticated app shell", () => {
   });
 
   it("captures the browser-detected User Time Zone during registration", async () => {
+    setBrowserLanguages(["es-MX", "en"]);
     const actualDateTimeFormat = Intl.DateTimeFormat;
     const register = vi.fn(async () => ({
       user: {
         displayName: "Casey Learner",
         email: "casey@example.com",
         id: "user-casey",
-        interfaceLanguage: "en" as const,
-        studyLanguage: "en" as const,
+        userLanguage: "es" as const,
         userTimeZone: "Europe/Lisbon",
       },
     }));
@@ -261,26 +260,29 @@ describe("authenticated app shell", () => {
       });
 
       expect(
-        await screen.findByRole("heading", { name: "Create your account" }),
+        await screen.findByRole("heading", { name: "Crea tu cuenta" }),
       ).toBeInTheDocument();
 
-      fireEvent.change(screen.getByLabelText("Display name"), {
+      fireEvent.change(screen.getByLabelText("Nombre visible"), {
         target: { value: "Casey Learner" },
       });
       fireEvent.change(screen.getByLabelText("Email"), {
         target: { value: "casey@example.com" },
       });
-      fireEvent.change(screen.getByLabelText("Pilot registration code"), {
+      fireEvent.change(screen.getByLabelText("Codigo de registro piloto"), {
         target: { value: TEST_PILOT_REGISTRATION_CODE },
       });
-      fireEvent.change(screen.getByLabelText("Password"), {
+      fireEvent.change(screen.getByLabelText("Contrasena"), {
         target: { value: "correct horse battery staple" },
       });
-      fireEvent.submit(screen.getByRole("form", { name: "Sign up form" }));
+      fireEvent.submit(
+        screen.getByRole("form", { name: "Formulario de registro" }),
+      );
 
       await waitFor(() => {
         expect(register).toHaveBeenCalledWith(
           expect.objectContaining({
+            userLanguage: "es",
             userTimeZone: "Europe/Lisbon",
           }),
         );
@@ -353,8 +355,7 @@ describe("authenticated app shell", () => {
         displayName: "Hydrated Casey",
         email: "casey@example.com",
         id: "user-hydrated-casey",
-        interfaceLanguage: "en" as const,
-        studyLanguage: "en" as const,
+        userLanguage: "en" as const,
       },
     };
 
@@ -384,8 +385,7 @@ describe("authenticated app shell", () => {
         displayName: "Hydrated Casey",
         email: "casey@example.com",
         id: "user-hydrated-casey",
-        interfaceLanguage: "en" as const,
-        studyLanguage: "en" as const,
+        userLanguage: "en" as const,
       },
     };
     const emptyNotes = [] as const;
@@ -439,8 +439,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: userId,
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });
@@ -476,6 +475,7 @@ describe("authenticated app shell", () => {
   });
 
   it("logs a returning user into the requested protected route", async () => {
+    setBrowserLanguages(["es-MX", "en"]);
     const sessionContext = createRouteTestSessionContext();
 
     await sessionContext.register({
@@ -491,16 +491,18 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Welcome back" }),
+      await screen.findByRole("heading", { name: "Te damos la bienvenida" }),
     ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Email"), {
       target: { value: "jordan@example.com" },
     });
-    fireEvent.change(screen.getByLabelText("Password"), {
+    fireEvent.change(screen.getByLabelText("Contrasena"), {
       target: { value: "correct horse battery staple" },
     });
-    fireEvent.submit(screen.getByRole("form", { name: "Sign in form" }));
+    fireEvent.submit(
+      screen.getByRole("form", { name: "Formulario de inicio de sesion" }),
+    );
 
     expect(
       await screen.findByRole("heading", {
@@ -508,6 +510,7 @@ describe("authenticated app shell", () => {
         name: "Recall starts with notes",
       }),
     ).toBeInTheDocument();
+    expect(screen.getByText("Skip to main content")).toBeInTheDocument();
     expect(screen.getByText("Jordan Review")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
   });
@@ -568,11 +571,8 @@ describe("authenticated app shell", () => {
     fireEvent.change(screen.getByLabelText("Display name"), {
       target: { value: "Casey Rivers" },
     });
-    fireEvent.change(screen.getByLabelText("Interface language"), {
-      target: { value: "pt-BR" },
-    });
-    fireEvent.change(screen.getByLabelText("Study language"), {
-      target: { value: "es" },
+    fireEvent.change(screen.getByLabelText("User Language"), {
+      target: { value: "pt-PT" },
     });
     fireEvent.change(screen.getByLabelText("User Time Zone"), {
       target: { value: "America/New_York" },
@@ -585,8 +585,7 @@ describe("authenticated app shell", () => {
       "Preferences saved.",
     );
     expect(screen.getAllByText("Casey Rivers")).not.toHaveLength(0);
-    expect(screen.getByLabelText("Interface language")).toHaveValue("pt-BR");
-    expect(screen.getByLabelText("Study language")).toHaveValue("es");
+    expect(screen.getByLabelText("User Language")).toHaveValue("pt-PT");
     expect(screen.getByLabelText("User Time Zone")).toHaveValue(
       "America/New_York",
     );
@@ -626,8 +625,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/settings");
     expect(screen.getByLabelText("Display name")).toHaveValue("Casey Rivers");
-    expect(screen.getByLabelText("Interface language")).toHaveValue("pt-BR");
-    expect(screen.getByLabelText("Study language")).toHaveValue("es");
+    expect(screen.getByLabelText("User Language")).toHaveValue("pt-PT");
     expect(screen.getByLabelText("User Time Zone")).toHaveValue(
       "America/New_York",
     );

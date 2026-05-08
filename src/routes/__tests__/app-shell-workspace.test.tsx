@@ -279,8 +279,7 @@ describe("authenticated app shell", () => {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: "user-jordan",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
     });

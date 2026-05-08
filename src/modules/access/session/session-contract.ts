@@ -1,9 +1,16 @@
+import {
+  fallbackUserLanguage,
+  supportedUserLanguages,
+  type UserLanguage,
+} from "../../language/user-language";
+
+export type { UserLanguage } from "../../language/user-language";
+
 export type AppSessionUser = {
   email: string;
   id: string;
   displayName: string;
-  interfaceLanguage: AppLanguagePreference;
-  studyLanguage: AppLanguagePreference;
+  userLanguage: UserLanguage;
   userTimeZone?: UserTimeZonePreference;
 };
 
@@ -11,7 +18,7 @@ export type AppSessionSnapshot = {
   user: AppSessionUser | null;
 };
 
-export const appLanguagePreferences = ["en", "es", "pt-BR"] as const;
+export const userLanguagePreferences = supportedUserLanguages;
 export const defaultUserTimeZone = "UTC";
 const appAuthErrorCodes = [
   "email_taken",
@@ -21,7 +28,6 @@ const appAuthErrorCodes = [
   "not_authenticated",
 ] as const;
 
-export type AppLanguagePreference = (typeof appLanguagePreferences)[number];
 export type UserTimeZonePreference = string;
 export type AppAuthErrorCode = (typeof appAuthErrorCodes)[number];
 
@@ -30,6 +36,7 @@ export type RegisterInput = {
   email: string;
   password: string;
   pilotRegistrationCode: string;
+  userLanguage?: UserLanguage;
   userTimeZone?: UserTimeZonePreference;
 };
 
@@ -40,8 +47,7 @@ export type LoginInput = {
 
 export type UpdatePreferencesInput = {
   displayName: string;
-  interfaceLanguage: AppLanguagePreference;
-  studyLanguage: AppLanguagePreference;
+  userLanguage: UserLanguage;
   userTimeZone: UserTimeZonePreference;
 };
 
@@ -107,13 +113,19 @@ export function getAppAuthError(error: unknown): AppAuthError | null {
   return null;
 }
 
-export function isLanguagePreference(
-  value: unknown,
-): value is AppLanguagePreference {
+export function isUserLanguage(value: unknown): value is UserLanguage {
   return (
     typeof value === "string" &&
-    appLanguagePreferences.includes(value as AppLanguagePreference)
+    userLanguagePreferences.includes(value as UserLanguage)
   );
+}
+
+export function normalizeUserLanguage(value: unknown): UserLanguage {
+  if (value === "pt-BR") {
+    return "pt-PT";
+  }
+
+  return isUserLanguage(value) ? value : fallbackUserLanguage;
 }
 
 export function isUserTimeZonePreference(
