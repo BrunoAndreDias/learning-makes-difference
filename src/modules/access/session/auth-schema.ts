@@ -3,6 +3,7 @@ import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import {
   appLanguagePreferences,
   defaultUserTimeZone,
+  studyObjectivePreferences,
 } from "./session-contract";
 
 export const usersTable = pgTable("users", {
@@ -13,6 +14,9 @@ export const usersTable = pgTable("users", {
   interfaceLanguage: text("interface_language", {
     enum: appLanguagePreferences,
   }).notNull(),
+  studyObjective: text("study_objective", {
+    enum: studyObjectivePreferences,
+  }),
   studyLanguage: text("study_language", {
     enum: appLanguagePreferences,
   }).notNull(),

@@ -12,6 +12,8 @@ import {
   appLanguagePreferences,
   defaultUserTimeZone,
   getAppAuthError,
+  type StudyObjectivePreference,
+  studyObjectivePreferences,
   type UserTimeZonePreference,
 } from "./session";
 import { useResolvedProtectedSession } from "./use-resolved-protected-session";
@@ -24,6 +26,17 @@ const languageLabels: Record<AppLanguagePreference, string> = {
   en: "English",
   es: "Spanish",
   "pt-BR": "Portuguese (Brazil)",
+};
+
+const studyObjectiveLabels: Record<
+  Exclude<StudyObjectivePreference, null>,
+  string
+> = {
+  university_study: "University study",
+  self_study: "Self study",
+  specific_exam: "Specific exam",
+  professional_learning: "Professional learning",
+  other: "Other",
 };
 
 const fallbackUserTimeZones = [
@@ -60,6 +73,8 @@ function SettingsPage() {
   const [studyLanguage, setStudyLanguage] = useState<AppLanguagePreference>(
     user?.studyLanguage ?? "en",
   );
+  const [studyObjective, setStudyObjective] =
+    useState<StudyObjectivePreference>(user?.studyObjective ?? null);
   const [userTimeZone, setUserTimeZone] = useState<UserTimeZonePreference>(
     user?.userTimeZone ?? defaultUserTimeZone,
   );
@@ -84,6 +99,7 @@ function SettingsPage() {
     setDisplayName(user?.displayName ?? "");
     setInterfaceLanguage(user?.interfaceLanguage ?? "en");
     setStudyLanguage(user?.studyLanguage ?? "en");
+    setStudyObjective(user?.studyObjective ?? null);
     setUserTimeZone(user?.userTimeZone ?? defaultUserTimeZone);
   }, [user]);
 
@@ -92,10 +108,12 @@ function SettingsPage() {
   }
 
   const savedUserTimeZone = user.userTimeZone ?? defaultUserTimeZone;
+  const savedStudyObjective = user.studyObjective ?? null;
   const hasPreferenceChanges =
     displayName !== user.displayName ||
     interfaceLanguage !== user.interfaceLanguage ||
     studyLanguage !== user.studyLanguage ||
+    studyObjective !== savedStudyObjective ||
     userTimeZone !== savedUserTimeZone;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -108,6 +126,7 @@ function SettingsPage() {
       await session.updatePreferences({
         displayName,
         interfaceLanguage,
+        studyObjective,
         studyLanguage,
         userTimeZone,
       });
@@ -198,6 +217,33 @@ function SettingsPage() {
             </label>
 
             <label className="settings-form__field">
+              <span>Study Objective</span>
+              <select
+                className="settings-form__control"
+                name="studyObjective"
+                onChange={(event) => {
+                  setStudyObjective(
+                    event.target.value === ""
+                      ? null
+                      : (event.target.value as Exclude<
+                          StudyObjectivePreference,
+                          null
+                        >),
+                  );
+                  setStatusMessage(null);
+                }}
+                value={studyObjective ?? ""}
+              >
+                <option value="">No objective selected</option>
+                {studyObjectivePreferences.map((objective) => (
+                  <option key={objective} value={objective}>
+                    {studyObjectiveLabels[objective]}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="settings-form__field">
               <span>User Time Zone</span>
               <select
                 className="settings-form__control"
@@ -269,6 +315,14 @@ function SettingsPage() {
             <div>
               <dt>Study language</dt>
               <dd>{languageLabels[studyLanguage]}</dd>
+            </div>
+            <div>
+              <dt>Study Objective</dt>
+              <dd>
+                {studyObjective === null
+                  ? "Not set"
+                  : studyObjectiveLabels[studyObjective]}
+              </dd>
             </div>
             <div>
               <dt>User Time Zone</dt>

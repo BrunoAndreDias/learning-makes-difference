@@ -17,6 +17,7 @@ import {
   type LoginInput,
   type RegisterInput,
   type UpdatePreferencesInput,
+  validateStudyObjectivePreference,
   validateUserTimeZonePreference,
 } from "./session-contract";
 
@@ -67,6 +68,7 @@ function buildSessionUser(user: StoredUser): AppSessionUser {
     displayName: user.displayName,
     email: user.email,
     interfaceLanguage: user.interfaceLanguage,
+    studyObjective: user.studyObjective,
     studyLanguage: user.studyLanguage,
     userTimeZone: user.userTimeZone ?? defaultUserTimeZone,
   };
@@ -282,6 +284,7 @@ async function getStoredUserForActiveSession({
       email: usersTable.email,
       passwordHash: usersTable.passwordHash,
       interfaceLanguage: usersTable.interfaceLanguage,
+      studyObjective: usersTable.studyObjective,
       studyLanguage: usersTable.studyLanguage,
       userTimeZone: usersTable.userTimeZone,
       createdAt: usersTable.createdAt,
@@ -423,6 +426,7 @@ export function createAuthService({
         email: safeEmail,
         passwordHash,
         interfaceLanguage: "en",
+        studyObjective: null,
         studyLanguage: "en",
         userTimeZone: safeUserTimeZone,
         createdAt: timestamp,
@@ -434,6 +438,7 @@ export function createAuthService({
         displayName: safeDisplayName,
         email: safeEmail,
         interfaceLanguage: "en",
+        studyObjective: null,
         studyLanguage: "en",
         userTimeZone: safeUserTimeZone,
       };
@@ -453,6 +458,7 @@ export function createAuthService({
     async updatePreferences({
       displayName,
       interfaceLanguage,
+      studyObjective,
       studyLanguage,
       userTimeZone,
     }: UpdatePreferencesInput): Promise<AppSessionSnapshot> {
@@ -477,6 +483,8 @@ export function createAuthService({
         studyLanguage,
         "Study language",
       );
+      const safeStudyObjective =
+        validateStudyObjectivePreference(studyObjective);
       const safeUserTimeZone = validateUserTimeZonePreference(userTimeZone);
       const updatedAt = now();
 
@@ -485,6 +493,7 @@ export function createAuthService({
         .set({
           displayName: safeDisplayName,
           interfaceLanguage: safeInterfaceLanguage,
+          studyObjective: safeStudyObjective,
           studyLanguage: safeStudyLanguage,
           userTimeZone: safeUserTimeZone,
           updatedAt,
@@ -497,6 +506,7 @@ export function createAuthService({
           displayName: safeDisplayName,
           email: storedUser.email,
           interfaceLanguage: safeInterfaceLanguage,
+          studyObjective: safeStudyObjective,
           studyLanguage: safeStudyLanguage,
           userTimeZone: safeUserTimeZone,
         },

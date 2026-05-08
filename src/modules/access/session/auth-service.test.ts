@@ -64,6 +64,7 @@ describe("createAuthService", () => {
       displayName: "Casey Learner",
       email: "casey@example.com",
       interfaceLanguage: "en",
+      studyObjective: null,
       studyLanguage: "en",
       userTimeZone: "UTC",
     });
@@ -169,6 +170,7 @@ describe("createAuthService", () => {
     await auth.updatePreferences({
       displayName: "Casey Rivers",
       interfaceLanguage: "pt-BR",
+      studyObjective: "specific_exam",
       studyLanguage: "es",
       userTimeZone: "America/New_York",
     });
@@ -194,6 +196,7 @@ describe("createAuthService", () => {
       user: {
         displayName: "Casey Rivers",
         interfaceLanguage: "pt-BR",
+        studyObjective: "specific_exam",
         studyLanguage: "es",
         userTimeZone: "America/New_York",
       },
@@ -226,6 +229,20 @@ describe("createAuthService", () => {
       auth.updatePreferences({
         displayName: "Casey Learner",
         interfaceLanguage: "en",
+        studyObjective: "career_change" as never,
+        studyLanguage: "en",
+        userTimeZone: "Europe/Lisbon",
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_input",
+      message: "Study Objective must be one of the supported options.",
+    });
+
+    await expect(
+      auth.updatePreferences({
+        displayName: "Casey Learner",
+        interfaceLanguage: "en",
+        studyObjective: null,
         studyLanguage: "en",
         userTimeZone: "Mars/Base",
       }),

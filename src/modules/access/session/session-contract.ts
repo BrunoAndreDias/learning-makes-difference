@@ -3,6 +3,7 @@ export type AppSessionUser = {
   id: string;
   displayName: string;
   interfaceLanguage: AppLanguagePreference;
+  studyObjective?: StudyObjectivePreference;
   studyLanguage: AppLanguagePreference;
   userTimeZone?: UserTimeZonePreference;
 };
@@ -12,6 +13,13 @@ export type AppSessionSnapshot = {
 };
 
 export const appLanguagePreferences = ["en", "es", "pt-BR"] as const;
+export const studyObjectivePreferences = [
+  "university_study",
+  "self_study",
+  "specific_exam",
+  "professional_learning",
+  "other",
+] as const;
 export const defaultUserTimeZone = "UTC";
 const appAuthErrorCodes = [
   "email_taken",
@@ -22,6 +30,9 @@ const appAuthErrorCodes = [
 ] as const;
 
 export type AppLanguagePreference = (typeof appLanguagePreferences)[number];
+export type StudyObjectivePreference =
+  | (typeof studyObjectivePreferences)[number]
+  | null;
 export type UserTimeZonePreference = string;
 export type AppAuthErrorCode = (typeof appAuthErrorCodes)[number];
 
@@ -41,6 +52,7 @@ export type LoginInput = {
 export type UpdatePreferencesInput = {
   displayName: string;
   interfaceLanguage: AppLanguagePreference;
+  studyObjective: StudyObjectivePreference;
   studyLanguage: AppLanguagePreference;
   userTimeZone: UserTimeZonePreference;
 };
@@ -114,6 +126,31 @@ export function isLanguagePreference(
     typeof value === "string" &&
     appLanguagePreferences.includes(value as AppLanguagePreference)
   );
+}
+
+function isStudyObjectivePreference(
+  value: unknown,
+): value is StudyObjectivePreference {
+  return (
+    value === null ||
+    (typeof value === "string" &&
+      studyObjectivePreferences.includes(
+        value as Exclude<StudyObjectivePreference, null>,
+      ))
+  );
+}
+
+export function validateStudyObjectivePreference(
+  value: StudyObjectivePreference,
+): StudyObjectivePreference {
+  if (!isStudyObjectivePreference(value)) {
+    throw new AppAuthError(
+      "invalid_input",
+      "Study Objective must be one of the supported options.",
+    );
+  }
+
+  return value;
 }
 
 export function isUserTimeZonePreference(

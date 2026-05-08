@@ -574,6 +574,9 @@ describe("authenticated app shell", () => {
     fireEvent.change(screen.getByLabelText("Study language"), {
       target: { value: "es" },
     });
+    fireEvent.change(screen.getByLabelText("Study Objective"), {
+      target: { value: "specific_exam" },
+    });
     fireEvent.change(screen.getByLabelText("User Time Zone"), {
       target: { value: "America/New_York" },
     });
@@ -587,14 +590,53 @@ describe("authenticated app shell", () => {
     expect(screen.getAllByText("Casey Rivers")).not.toHaveLength(0);
     expect(screen.getByLabelText("Interface language")).toHaveValue("pt-BR");
     expect(screen.getByLabelText("Study language")).toHaveValue("es");
+    expect(screen.getByLabelText("Study Objective")).toHaveValue(
+      "specific_exam",
+    );
     expect(screen.getByLabelText("User Time Zone")).toHaveValue(
       "America/New_York",
     );
     expect(
       within(screen.getByLabelText("Current account settings")).getByText(
+        "Specific exam",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText("Current account settings")).getByText(
         "America/New_York",
       ),
     ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Study Objective"), {
+      target: { value: "" },
+    });
+    fireEvent.submit(
+      screen.getByRole("form", { name: "Account preferences form" }),
+    );
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Preferences saved.",
+    );
+    expect(screen.getByLabelText("Study Objective")).toHaveValue("");
+    expect(
+      within(screen.getByLabelText("Current account settings")).getByText(
+        "Not set",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Study Objective"), {
+      target: { value: "professional_learning" },
+    });
+    fireEvent.submit(
+      screen.getByRole("form", { name: "Account preferences form" }),
+    );
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Preferences saved.",
+    );
+    expect(screen.getByLabelText("Study Objective")).toHaveValue(
+      "professional_learning",
+    );
 
     openAccountMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Log out" }));
@@ -628,6 +670,9 @@ describe("authenticated app shell", () => {
     expect(screen.getByLabelText("Display name")).toHaveValue("Casey Rivers");
     expect(screen.getByLabelText("Interface language")).toHaveValue("pt-BR");
     expect(screen.getByLabelText("Study language")).toHaveValue("es");
+    expect(screen.getByLabelText("Study Objective")).toHaveValue(
+      "professional_learning",
+    );
     expect(screen.getByLabelText("User Time Zone")).toHaveValue(
       "America/New_York",
     );

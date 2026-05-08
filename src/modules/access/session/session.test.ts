@@ -62,6 +62,7 @@ describe("app session context", () => {
 
     expect(hasActiveSession(session.getSnapshot())).toBe(true);
     expect(session.getSnapshot().user?.displayName).toBe("Casey Learner");
+    expect(session.getSnapshot().user?.studyObjective).toBeNull();
     expect(session.getSnapshot().user?.userTimeZone).toBe("UTC");
     expect(cookie.get()).not.toBe("casey@example.com");
     expect(JSON.stringify(store.users)).not.toContain(
@@ -291,6 +292,7 @@ describe("app session context", () => {
     await session.updatePreferences({
       displayName: "Jordan Rivera",
       interfaceLanguage: "pt-BR",
+      studyObjective: "self_study",
       studyLanguage: "es",
       userTimeZone: "Europe/Lisbon",
     });
@@ -298,14 +300,39 @@ describe("app session context", () => {
     expect(session.getSnapshot().user).toMatchObject({
       displayName: "Jordan Rivera",
       interfaceLanguage: "pt-BR",
+      studyObjective: "self_study",
       studyLanguage: "es",
       userTimeZone: "Europe/Lisbon",
     });
+
+    await session.updatePreferences({
+      displayName: "Jordan Rivera",
+      interfaceLanguage: "pt-BR",
+      studyObjective: null,
+      studyLanguage: "es",
+      userTimeZone: "Europe/Lisbon",
+    });
+
+    expect(session.getSnapshot().user?.studyObjective).toBeNull();
 
     await expect(
       session.updatePreferences({
         displayName: "Jordan Rivera",
         interfaceLanguage: "pt-BR",
+        studyObjective: "unsupported_objective" as never,
+        studyLanguage: "es",
+        userTimeZone: "Europe/Lisbon",
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_input",
+      message: "Study Objective must be one of the supported options.",
+    } satisfies Pick<AppAuthError, "code" | "message">);
+
+    await expect(
+      session.updatePreferences({
+        displayName: "Jordan Rivera",
+        interfaceLanguage: "pt-BR",
+        studyObjective: null,
         studyLanguage: "es",
         userTimeZone: "Not/A_Zone",
       }),
@@ -324,6 +351,7 @@ describe("app session context", () => {
     expect(session.getSnapshot().user).toMatchObject({
       displayName: "Casey Learner",
       interfaceLanguage: "en",
+      studyObjective: null,
       studyLanguage: "en",
       userTimeZone: "UTC",
     });

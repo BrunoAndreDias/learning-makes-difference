@@ -8,8 +8,10 @@ import {
   isLanguagePreference,
   type LoginInput,
   type RegisterInput,
+  type StudyObjectivePreference,
   type UpdatePreferencesInput,
   type UserTimeZonePreference,
+  validateStudyObjectivePreference,
   validateUserTimeZonePreference,
 } from "./session-contract";
 import { createServerSessionService } from "./session-server-fns";
@@ -22,6 +24,8 @@ export {
   appLanguagePreferences,
   defaultUserTimeZone,
   getAppAuthError,
+  type StudyObjectivePreference,
+  studyObjectivePreferences,
   type UserTimeZonePreference,
 } from "./session-contract";
 
@@ -34,6 +38,7 @@ type MemoryStoredUserRecord = {
   passwordHash: string;
   passwordSalt: string;
   interfaceLanguage: AppLanguagePreference;
+  studyObjective: StudyObjectivePreference;
   studyLanguage: AppLanguagePreference;
   userTimeZone?: UserTimeZonePreference;
 };
@@ -145,6 +150,7 @@ function buildSnapshot(
       displayName: user.displayName,
       email: user.email,
       interfaceLanguage: user.interfaceLanguage,
+      studyObjective: user.studyObjective,
       studyLanguage: user.studyLanguage,
       userTimeZone: user.userTimeZone ?? defaultUserTimeZone,
     },
@@ -405,6 +411,7 @@ export function createMemorySessionService(
           passwordSalt,
         ),
         interfaceLanguage: "en",
+        studyObjective: null,
         studyLanguage: "en",
         userTimeZone: safeUserTimeZone,
       };
@@ -417,6 +424,7 @@ export function createMemorySessionService(
     updatePreferences: async ({
       displayName,
       interfaceLanguage,
+      studyObjective,
       studyLanguage,
       userTimeZone,
     }) => {
@@ -435,6 +443,8 @@ export function createMemorySessionService(
         studyLanguage,
         "Study language",
       );
+      const safeStudyObjective =
+        validateStudyObjectivePreference(studyObjective);
       const safeUserTimeZone = validateUserTimeZonePreference(userTimeZone);
       const userIndex = store.users.findIndex(
         (user) => user.id === activeUser.id,
@@ -448,6 +458,7 @@ export function createMemorySessionService(
         ...store.users[userIndex],
         displayName: safeDisplayName,
         interfaceLanguage: safeInterfaceLanguage,
+        studyObjective: safeStudyObjective,
         studyLanguage: safeStudyLanguage,
         userTimeZone: safeUserTimeZone,
       };
