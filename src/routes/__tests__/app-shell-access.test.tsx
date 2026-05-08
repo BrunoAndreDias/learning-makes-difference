@@ -7,7 +7,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAppSessionContext } from "../../modules/access/session/session";
 import {
   createAppNotesContext,
@@ -19,12 +19,20 @@ import {
   TEST_PILOT_REGISTRATION_CODE,
 } from "./app-shell-test-support";
 
+function setBrowserLanguages(languages: readonly string[]) {
+  Object.defineProperty(window.navigator, "languages", {
+    configurable: true,
+    value: languages,
+  });
+}
+
+afterEach(() => {
+  setBrowserLanguages(["en"]);
+});
+
 describe("authenticated app shell", () => {
   it("translates the anonymous login page from Portuguese browser language", async () => {
-    Object.defineProperty(window.navigator, "languages", {
-      configurable: true,
-      value: ["pt-PT", "en"],
-    });
+    setBrowserLanguages(["pt-PT", "en"]);
 
     renderRoute("/login", { session: { user: null } });
 
@@ -41,10 +49,7 @@ describe("authenticated app shell", () => {
   });
 
   it("translates the anonymous registration page from Spanish browser language", async () => {
-    Object.defineProperty(window.navigator, "languages", {
-      configurable: true,
-      value: ["es-MX", "en"],
-    });
+    setBrowserLanguages(["es-MX", "en"]);
 
     renderRoute("/register", { session: { user: null } });
 
@@ -64,10 +69,7 @@ describe("authenticated app shell", () => {
   });
 
   it("falls back to English for unsupported browser languages on forgot-password", async () => {
-    Object.defineProperty(window.navigator, "languages", {
-      configurable: true,
-      value: ["fr-FR"],
-    });
+    setBrowserLanguages(["fr-FR"]);
 
     renderRoute("/forgot-password", { session: { user: null } });
 

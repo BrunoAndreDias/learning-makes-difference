@@ -43,6 +43,12 @@ function RegisterPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
   const redirectTarget = search.redirect ?? "/notes";
+  const passwordVisibilityLabel = showPassword
+    ? t("access.login.password.hide")
+    : t("access.login.password.show");
+  const submitLabel = isSubmitting
+    ? t("access.register.submitting")
+    : t("access.register.submit");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -220,11 +226,7 @@ function RegisterPage() {
             value={password}
           />
           <button
-            aria-label={
-              showPassword
-                ? t("access.login.password.hide")
-                : t("access.login.password.show")
-            }
+            aria-label={passwordVisibilityLabel}
             className="auth-field__toggle"
             onClick={() => setShowPassword((value) => !value)}
             type="button"
@@ -239,11 +241,7 @@ function RegisterPage() {
               viewBox="0 0 24 24"
               width="18"
             >
-              <title>
-                {showPassword
-                  ? t("access.login.password.hide")
-                  : t("access.login.password.show")}
-              </title>
+              <title>{passwordVisibilityLabel}</title>
               {showPassword ? (
                 <>
                   <path d="M3 3l18 18" />
@@ -267,9 +265,7 @@ function RegisterPage() {
         ) : null}
 
         <button className="auth-submit" disabled={isSubmitting} type="submit">
-          {isSubmitting
-            ? t("access.register.submitting")
-            : t("access.register.submit")}
+          {submitLabel}
         </button>
       </form>
 
