@@ -25,28 +25,59 @@ import { useAppTranslation } from "../../language";
 import { NotesWorkspaceProvider } from "../../notes";
 
 type NavigationIconName = "focus" | "label" | "note" | "recall" | "settings";
+type WorkspaceFrameName =
+  | "focus"
+  | "labels"
+  | "notes"
+  | "recall"
+  | "recall-results"
+  | "settings";
+
+const globalNavigationItems = [
+  {
+    iconName: "note",
+    labelKey: "shell.navigation.notes",
+    to: "/notes",
+  },
+  {
+    iconName: "recall",
+    labelKey: "shell.navigation.recall",
+    to: "/recall",
+  },
+  {
+    iconName: "label",
+    labelKey: "shell.navigation.labels",
+    to: "/labels",
+  },
+  {
+    iconName: "focus",
+    labelKey: "shell.navigation.focus",
+    to: "/focus",
+  },
+] as const;
+
+function isWorkspacePath(pathname: string, workspacePath: string) {
+  return pathname === workspacePath || pathname.startsWith(`${workspacePath}/`);
+}
 
 function getWorkspaceTitleKey(pathname: string) {
-  if (
-    pathname === "/study-notes-prototype" ||
-    pathname.startsWith("/study-notes-prototype/")
-  ) {
+  if (isWorkspacePath(pathname, "/study-notes-prototype")) {
     return "shell.workspace.studyNotesPrototype";
   }
 
-  if (pathname === "/labels" || pathname.startsWith("/labels/")) {
+  if (isLabelsWorkspacePath(pathname)) {
     return "shell.workspace.labels";
   }
 
-  if (pathname === "/recall" || pathname.startsWith("/recall/")) {
+  if (isRecallWorkspacePath(pathname)) {
     return "shell.workspace.recall";
   }
 
-  if (pathname === "/focus" || pathname.startsWith("/focus/")) {
+  if (isFocusWorkspacePath(pathname)) {
     return "shell.workspace.focus";
   }
 
-  if (pathname === "/settings" || pathname.startsWith("/settings/")) {
+  if (isSettingsWorkspacePath(pathname)) {
     return "shell.workspace.settings";
   }
 
@@ -62,7 +93,7 @@ function getRecallWorkspaceTitleKey(pathname: string) {
     return "shell.workspace.recallSession";
   }
 
-  if (pathname === "/recall" || pathname.startsWith("/recall/")) {
+  if (isRecallWorkspacePath(pathname)) {
     return "shell.workspace.recall";
   }
 
@@ -71,11 +102,55 @@ function getRecallWorkspaceTitleKey(pathname: string) {
 
 function isNotesWorkspacePath(pathname: string) {
   return (
-    pathname === "/notes" ||
-    pathname.startsWith("/notes/") ||
-    pathname === "/study-notes-prototype" ||
-    pathname.startsWith("/study-notes-prototype/")
+    isWorkspacePath(pathname, "/notes") ||
+    isWorkspacePath(pathname, "/study-notes-prototype")
   );
+}
+
+function isRecallWorkspacePath(pathname: string) {
+  return isWorkspacePath(pathname, "/recall");
+}
+
+function isLabelsWorkspacePath(pathname: string) {
+  return isWorkspacePath(pathname, "/labels");
+}
+
+function isFocusWorkspacePath(pathname: string) {
+  return isWorkspacePath(pathname, "/focus");
+}
+
+function isSettingsWorkspacePath(pathname: string) {
+  return isWorkspacePath(pathname, "/settings");
+}
+
+function getWorkspaceFrameName(
+  pathname: string,
+): WorkspaceFrameName | undefined {
+  if (isNotesWorkspacePath(pathname)) {
+    return "notes";
+  }
+
+  if (pathname === "/recall") {
+    return "recall-results";
+  }
+
+  if (isRecallWorkspacePath(pathname)) {
+    return "recall";
+  }
+
+  if (isLabelsWorkspacePath(pathname)) {
+    return "labels";
+  }
+
+  if (isFocusWorkspacePath(pathname)) {
+    return "focus";
+  }
+
+  if (isSettingsWorkspacePath(pathname)) {
+    return "settings";
+  }
+
+  return undefined;
 }
 
 export function AppLayout() {
@@ -107,17 +182,12 @@ export function AppLayout() {
   const recallWorkspaceTitleKey = getRecallWorkspaceTitleKey(location.pathname);
   const recallWorkspaceTitle =
     recallWorkspaceTitleKey === null ? null : t(recallWorkspaceTitleKey);
+  const workspaceFrameName = getWorkspaceFrameName(location.pathname);
   const isNotesWorkspaceRoute = isNotesWorkspacePath(location.pathname);
-  const isRecallWorkspaceRoute =
-    location.pathname === "/recall" || location.pathname.startsWith("/recall/");
-  const isRecallResultsWorkspaceRoute = location.pathname === "/recall";
-  const isLabelsWorkspaceRoute =
-    location.pathname === "/labels" || location.pathname.startsWith("/labels/");
-  const isFocusWorkspaceRoute =
-    location.pathname === "/focus" || location.pathname.startsWith("/focus/");
-  const isSettingsWorkspaceRoute =
-    location.pathname === "/settings" ||
-    location.pathname.startsWith("/settings/");
+  const isRecallWorkspaceRoute = isRecallWorkspacePath(location.pathname);
+  const isLabelsWorkspaceRoute = isLabelsWorkspacePath(location.pathname);
+  const isFocusWorkspaceRoute = isFocusWorkspacePath(location.pathname);
+  const isSettingsWorkspaceRoute = isSettingsWorkspacePath(location.pathname);
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
   const sidebarToggleLabel = isSidebarCollapsed
     ? t("shell.navigation.expandSidebar")
@@ -243,24 +313,7 @@ export function AppLayout() {
           <GlobalNavigation onNavigate={closeMobileSidebar} />
         </aside>
 
-        <div
-          className="app-frame"
-          data-workspace={
-            isNotesWorkspaceRoute
-              ? "notes"
-              : isRecallResultsWorkspaceRoute
-                ? "recall-results"
-                : isRecallWorkspaceRoute
-                  ? "recall"
-                  : isLabelsWorkspaceRoute
-                    ? "labels"
-                    : isFocusWorkspaceRoute
-                      ? "focus"
-                      : isSettingsWorkspaceRoute
-                        ? "settings"
-                        : undefined
-          }
-        >
+        <div className="app-frame" data-workspace={workspaceFrameName}>
           <WorkspaceHeader
             activeFocusSession={activeFocusSession}
             collapsedSidebarToggleRef={collapsedSidebarToggleRef}
@@ -410,74 +463,25 @@ function GlobalNavigation({
       className="app-sidebar__nav"
     >
       <ul className="app-sidebar__list">
-        <li>
-          <Link
-            activeProps={{
-              className: "app-sidebar__link app-sidebar__link-active",
-            }}
-            className="app-sidebar__link"
-            onClick={onNavigate}
-            to="/notes"
-          >
-            <span aria-hidden="true" className="app-sidebar__icon">
-              <NavigationIcon name="note" />
-            </span>
-            <span className="app-sidebar__label">
-              {t("shell.navigation.notes")}
-            </span>
-          </Link>
-        </li>
-        <li>
-          <Link
-            activeProps={{
-              className: "app-sidebar__link app-sidebar__link-active",
-            }}
-            className="app-sidebar__link"
-            onClick={onNavigate}
-            to="/recall"
-          >
-            <span aria-hidden="true" className="app-sidebar__icon">
-              <NavigationIcon name="recall" />
-            </span>
-            <span className="app-sidebar__label">
-              {t("shell.navigation.recall")}
-            </span>
-          </Link>
-        </li>
-        <li>
-          <Link
-            activeProps={{
-              className: "app-sidebar__link app-sidebar__link-active",
-            }}
-            className="app-sidebar__link"
-            onClick={onNavigate}
-            to="/labels"
-          >
-            <span aria-hidden="true" className="app-sidebar__icon">
-              <NavigationIcon name="label" />
-            </span>
-            <span className="app-sidebar__label">
-              {t("shell.navigation.labels")}
-            </span>
-          </Link>
-        </li>
-        <li>
-          <Link
-            activeProps={{
-              className: "app-sidebar__link app-sidebar__link-active",
-            }}
-            className="app-sidebar__link"
-            onClick={onNavigate}
-            to="/focus"
-          >
-            <span aria-hidden="true" className="app-sidebar__icon">
-              <NavigationIcon name="focus" />
-            </span>
-            <span className="app-sidebar__label">
-              {t("shell.navigation.focus")}
-            </span>
-          </Link>
-        </li>
+        {globalNavigationItems.map((navigationItem) => (
+          <li key={navigationItem.to}>
+            <Link
+              activeProps={{
+                className: "app-sidebar__link app-sidebar__link-active",
+              }}
+              className="app-sidebar__link"
+              onClick={onNavigate}
+              to={navigationItem.to}
+            >
+              <span aria-hidden="true" className="app-sidebar__icon">
+                <NavigationIcon name={navigationItem.iconName} />
+              </span>
+              <span className="app-sidebar__label">
+                {t(navigationItem.labelKey)}
+              </span>
+            </Link>
+          </li>
+        ))}
       </ul>
     </nav>
   );

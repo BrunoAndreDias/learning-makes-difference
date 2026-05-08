@@ -259,7 +259,6 @@ function getFocusStatus(
       label: session.isStale
         ? t("focus.status.stale")
         : t("focus.status.awaitingNext"),
-      prefix: "",
     };
   }
 
@@ -268,19 +267,16 @@ function getFocusStatus(
       return {
         isPersistentState: false,
         label: getRemainingTimerLabel(session),
-        prefix: t("focus.status.transition.prefix"),
       };
     case "Break":
       return {
         isPersistentState: false,
         label: getRemainingTimerLabel(session),
-        prefix: t("focus.status.break.prefix"),
       };
     case "Focus":
       return {
         isPersistentState: false,
         label: getRemainingTimerLabel(session),
-        prefix: t("focus.status.focus.prefix"),
       };
   }
 }
