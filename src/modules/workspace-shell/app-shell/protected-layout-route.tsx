@@ -21,52 +21,59 @@ import { Button } from "../../../design-system/button";
 import type { AppSessionSnapshot } from "../../access/session/session";
 import { useResolvedProtectedSession } from "../../access/session/use-resolved-protected-session";
 import { FocusSessionStartControl } from "../../focus";
+import { type AppTranslationKey, useAppTranslation } from "../../language";
 import { NotesWorkspaceProvider } from "../../notes";
 
 type NavigationIconName = "focus" | "label" | "note" | "recall" | "settings";
+type WorkspaceKind =
+  | "focus"
+  | "labels"
+  | "notes"
+  | "recall"
+  | "recall-results"
+  | "settings";
 
-function getWorkspaceTitle(pathname: string) {
-  if (pathname === "/study-notes" || pathname.startsWith("/study-notes/")) {
-    return "Study Notes";
-  }
-
-  if (
-    pathname === "/study-notes-prototype" ||
-    pathname.startsWith("/study-notes-prototype/")
-  ) {
-    return "Study Notes Prototype";
-  }
-
-  if (pathname === "/labels" || pathname.startsWith("/labels/")) {
-    return "Labels";
-  }
-
-  if (pathname === "/recall" || pathname.startsWith("/recall/")) {
-    return "Recall";
-  }
-
-  if (pathname === "/focus" || pathname.startsWith("/focus/")) {
-    return "Focus";
-  }
-
-  if (pathname === "/settings" || pathname.startsWith("/settings/")) {
-    return "Settings";
-  }
-
-  return "Notes";
+function isRouteSectionPath(pathname: string, sectionPath: string) {
+  return pathname === sectionPath || pathname.startsWith(`${sectionPath}/`);
 }
 
-function getRecallWorkspaceTitle(pathname: string) {
+function getWorkspaceTitleKey(pathname: string): AppTranslationKey {
+  if (isRouteSectionPath(pathname, "/study-notes-prototype")) {
+    return "shell.workspace.studyNotesPrototype";
+  }
+
+  if (isRouteSectionPath(pathname, "/labels")) {
+    return "shell.nav.labels";
+  }
+
+  if (isRouteSectionPath(pathname, "/recall")) {
+    return "shell.nav.recall";
+  }
+
+  if (isRouteSectionPath(pathname, "/focus")) {
+    return "shell.nav.focus";
+  }
+
+  if (isRouteSectionPath(pathname, "/settings")) {
+    return "settings.heading";
+  }
+
+  return "shell.nav.notes";
+}
+
+function getRecallWorkspaceTitleKey(
+  pathname: string,
+): AppTranslationKey | null {
   if (pathname === "/recall/select") {
-    return "Recall setup";
+    return "shell.workspace.recallSetup";
   }
 
   if (pathname === "/recall/session") {
-    return "Recall session";
+    return "shell.workspace.recallSession";
   }
 
-  if (pathname === "/recall" || pathname.startsWith("/recall/")) {
-    return "Recall";
+  if (isRouteSectionPath(pathname, "/recall")) {
+    return "shell.nav.recall";
   }
 
   return null;
@@ -74,16 +81,13 @@ function getRecallWorkspaceTitle(pathname: string) {
 
 function isNotesWorkspacePath(pathname: string) {
   return (
-    pathname === "/study-notes" ||
-    pathname.startsWith("/study-notes/") ||
-    pathname === "/notes" ||
-    pathname.startsWith("/notes/") ||
-    pathname === "/study-notes-prototype" ||
-    pathname.startsWith("/study-notes-prototype/")
+    isRouteSectionPath(pathname, "/study-notes") ||
+    isRouteSectionPath(pathname, "/notes") ||
+    isRouteSectionPath(pathname, "/study-notes-prototype")
   );
 }
 
-function getWorkspaceDataAttribute(pathname: string) {
+function getWorkspaceKind(pathname: string): WorkspaceKind | undefined {
   if (isNotesWorkspacePath(pathname)) {
     return "notes";
   }
@@ -92,26 +96,47 @@ function getWorkspaceDataAttribute(pathname: string) {
     return "recall-results";
   }
 
-  if (pathname.startsWith("/recall/")) {
+  if (isRouteSectionPath(pathname, "/recall")) {
     return "recall";
   }
 
-  if (pathname === "/labels" || pathname.startsWith("/labels/")) {
+  if (isRouteSectionPath(pathname, "/labels")) {
     return "labels";
   }
 
-  if (pathname === "/focus" || pathname.startsWith("/focus/")) {
+  if (isRouteSectionPath(pathname, "/focus")) {
     return "focus";
   }
 
-  if (pathname === "/settings" || pathname.startsWith("/settings/")) {
+  if (isRouteSectionPath(pathname, "/settings")) {
     return "settings";
   }
 
   return undefined;
 }
 
+function isRecallWorkspaceKind(workspaceKind: WorkspaceKind | undefined) {
+  return workspaceKind === "recall-results" || workspaceKind === "recall";
+}
+
+function hasVisuallyHiddenWorkspaceTitle(
+  workspaceKind: WorkspaceKind | undefined,
+) {
+  return (
+    isRecallWorkspaceKind(workspaceKind) ||
+    workspaceKind === "labels" ||
+    workspaceKind === "focus" ||
+    workspaceKind === "settings"
+  );
+}
+
+function shouldShowFocusSessionStartControl(
+  workspaceKind: WorkspaceKind | undefined,
+) {
+  return workspaceKind !== "notes" && workspaceKind !== "labels";
+}
 export function AppLayout() {
+  const { t } = useAppTranslation();
   const focus = useRouteContext({
     from: "/_protected",
     select: (context) => context.focus,
@@ -135,23 +160,15 @@ export function AppLayout() {
   const mobileSidebarCloseRef = useRef<HTMLButtonElement | null>(null);
   const previousLocationRef = useRef(currentLocationKey);
   useSyncExternalStore(focus.subscribe, focus.getSnapshot, focus.getSnapshot);
-  const workspaceTitle = getWorkspaceTitle(location.pathname);
-  const recallWorkspaceTitle = getRecallWorkspaceTitle(location.pathname);
-  const isNotesWorkspaceRoute = isNotesWorkspacePath(location.pathname);
-  const isRecallWorkspaceRoute =
-    location.pathname === "/recall" || location.pathname.startsWith("/recall/");
-  const isLabelsWorkspaceRoute =
-    location.pathname === "/labels" || location.pathname.startsWith("/labels/");
-  const isFocusWorkspaceRoute =
-    location.pathname === "/focus" || location.pathname.startsWith("/focus/");
-  const isSettingsWorkspaceRoute =
-    location.pathname === "/settings" ||
-    location.pathname.startsWith("/settings/");
-  const workspaceDataAttribute = getWorkspaceDataAttribute(location.pathname);
+  const workspaceTitle = t(getWorkspaceTitleKey(location.pathname));
+  const recallWorkspaceTitleKey = getRecallWorkspaceTitleKey(location.pathname);
+  const recallWorkspaceTitle =
+    recallWorkspaceTitleKey === null ? null : t(recallWorkspaceTitleKey);
+  const workspaceKind = getWorkspaceKind(location.pathname);
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
   const sidebarToggleLabel = isSidebarCollapsed
-    ? "Expand sidebar"
-    : "Collapse sidebar";
+    ? t("shell.sidebar.expand")
+    : t("shell.sidebar.collapse");
   const userId = sessionSnapshot.user?.id ?? null;
   const activeFocusSession =
     userId === null ? null : focus.getActiveSession({ userId });
@@ -228,7 +245,7 @@ export function AppLayout() {
         data-sidebar-state={sidebarState}
       >
         <aside
-          aria-label="Notes workspace"
+          aria-label={t("shell.sidebar.aria")}
           className="app-sidebar shell-panel"
           data-mobile-open={isMobileSidebarOpen ? "true" : "false"}
           data-sidebar-state={sidebarState}
@@ -255,7 +272,7 @@ export function AppLayout() {
             </Button>
             <Button
               aria-controls={navigationId}
-              aria-label="Close navigation menu"
+              aria-label={t("shell.sidebar.close")}
               className="mobile-sidebar-close"
               iconOnly
               onClick={() =>
@@ -273,25 +290,21 @@ export function AppLayout() {
           <GlobalNavigation onNavigate={closeMobileSidebar} />
         </aside>
 
-        <div className="app-frame" data-workspace={workspaceDataAttribute}>
+        <div className="app-frame" data-workspace={workspaceKind}>
           <WorkspaceHeader
             activeFocusSession={activeFocusSession}
             collapsedSidebarToggleRef={collapsedSidebarToggleRef}
             focus={focus}
-            persistentFocus={persistentFocus}
-            isNotesWorkspaceRoute={isNotesWorkspaceRoute}
-            isRecallWorkspaceRoute={isRecallWorkspaceRoute}
-            isLabelsWorkspaceRoute={isLabelsWorkspaceRoute}
-            isFocusWorkspaceRoute={isFocusWorkspaceRoute}
-            isSettingsWorkspaceRoute={isSettingsWorkspaceRoute}
-            isSidebarCollapsed={isSidebarCollapsed}
             isMobileSidebarOpen={isMobileSidebarOpen}
+            isSidebarCollapsed={isSidebarCollapsed}
             mobileSidebarToggleRef={mobileSidebarToggleRef}
             navigationId={navigationId}
-            onOpenMobileSidebar={openMobileSidebar}
             onExpandSidebar={() => setSidebarCollapsed(false)}
+            onOpenMobileSidebar={openMobileSidebar}
+            persistentFocus={persistentFocus}
             recallWorkspaceTitle={recallWorkspaceTitle}
             userId={userId}
+            workspaceKind={workspaceKind}
             workspaceTitle={workspaceTitle}
           />
 
@@ -308,20 +321,16 @@ function WorkspaceHeader({
   activeFocusSession,
   collapsedSidebarToggleRef,
   focus,
-  persistentFocus,
-  isNotesWorkspaceRoute,
-  isRecallWorkspaceRoute,
-  isLabelsWorkspaceRoute,
-  isFocusWorkspaceRoute,
-  isSettingsWorkspaceRoute,
-  isSidebarCollapsed,
   isMobileSidebarOpen,
+  isSidebarCollapsed,
   mobileSidebarToggleRef,
   navigationId,
-  onOpenMobileSidebar,
   onExpandSidebar,
+  onOpenMobileSidebar,
+  persistentFocus,
   recallWorkspaceTitle,
   userId,
+  workspaceKind,
   workspaceTitle,
 }: {
   activeFocusSession: Parameters<
@@ -329,29 +338,27 @@ function WorkspaceHeader({
   >[0]["activeFocusSession"];
   collapsedSidebarToggleRef: RefObject<HTMLButtonElement | null>;
   focus: Parameters<typeof FocusSessionStartControl>[0]["focus"];
+  isMobileSidebarOpen: boolean;
+  isSidebarCollapsed: boolean;
+  mobileSidebarToggleRef: RefObject<HTMLButtonElement | null>;
+  navigationId: string;
+  onExpandSidebar: () => void;
+  onOpenMobileSidebar: () => void;
   persistentFocus: Parameters<
     typeof FocusSessionStartControl
   >[0]["persistentFocus"];
-  isNotesWorkspaceRoute: boolean;
-  isRecallWorkspaceRoute: boolean;
-  isLabelsWorkspaceRoute: boolean;
-  isFocusWorkspaceRoute: boolean;
-  isSettingsWorkspaceRoute: boolean;
-  isSidebarCollapsed: boolean;
-  isMobileSidebarOpen: boolean;
-  mobileSidebarToggleRef: RefObject<HTMLButtonElement | null>;
-  navigationId: string;
-  onOpenMobileSidebar: () => void;
-  onExpandSidebar: () => void;
   recallWorkspaceTitle: string | null;
   userId: string | null;
+  workspaceKind: WorkspaceKind | undefined;
   workspaceTitle: string;
 }) {
-  const hasVisuallyHiddenWorkspaceTitle =
-    isRecallWorkspaceRoute ||
-    isLabelsWorkspaceRoute ||
-    isFocusWorkspaceRoute ||
-    isSettingsWorkspaceRoute;
+  const { t } = useAppTranslation();
+  const isNotesWorkspaceRoute = workspaceKind === "notes";
+  const isRecallWorkspaceRoute = isRecallWorkspaceKind(workspaceKind);
+  const isWorkspaceTitleVisuallyHidden =
+    hasVisuallyHiddenWorkspaceTitle(workspaceKind);
+  const showFocusSessionStartControl =
+    shouldShowFocusSessionStartControl(workspaceKind);
 
   return (
     <header className="app-frame__workspace-header">
@@ -359,7 +366,7 @@ function WorkspaceHeader({
         <Button
           aria-controls={navigationId}
           aria-expanded={isMobileSidebarOpen}
-          aria-label="Open navigation menu"
+          aria-label={t("shell.sidebar.open")}
           className="mobile-sidebar-toggle"
           iconOnly
           onClick={onOpenMobileSidebar}
@@ -371,7 +378,7 @@ function WorkspaceHeader({
         {isSidebarCollapsed ? (
           <Button
             aria-controls={navigationId}
-            aria-label="Expand sidebar"
+            aria-label={t("shell.sidebar.expand")}
             className="sidebar-header-toggle"
             iconOnly
             onClick={onExpandSidebar}
@@ -384,7 +391,7 @@ function WorkspaceHeader({
         {isNotesWorkspaceRoute ? null : (
           <h2
             className={
-              hasVisuallyHiddenWorkspaceTitle
+              isWorkspaceTitleVisuallyHidden
                 ? "app-frame__workspace-title sr-only"
                 : "app-frame__workspace-title"
             }
@@ -396,14 +403,14 @@ function WorkspaceHeader({
         )}
       </div>
       <div className="app-frame__actions">
-        {isNotesWorkspaceRoute || isLabelsWorkspaceRoute ? null : (
+        {showFocusSessionStartControl ? (
           <FocusSessionStartControl
             activeFocusSession={activeFocusSession}
             focus={focus}
             persistentFocus={persistentFocus}
             userId={userId}
           />
-        )}
+        ) : null}
       </div>
     </header>
   );
@@ -414,8 +421,10 @@ function GlobalNavigation({
 }: Readonly<{
   onNavigate: () => void;
 }>) {
+  const { t } = useAppTranslation();
+
   return (
-    <nav aria-label="App sections" className="app-sidebar__nav">
+    <nav aria-label={t("shell.nav.aria")} className="app-sidebar__nav">
       <ul className="app-sidebar__list">
         <li>
           <Link
@@ -444,7 +453,7 @@ function GlobalNavigation({
             <span aria-hidden="true" className="app-sidebar__icon">
               <NavigationIcon name="recall" />
             </span>
-            <span className="app-sidebar__label">Recall</span>
+            <span className="app-sidebar__label">{t("shell.nav.recall")}</span>
           </Link>
         </li>
         <li>
@@ -459,7 +468,7 @@ function GlobalNavigation({
             <span aria-hidden="true" className="app-sidebar__icon">
               <NavigationIcon name="label" />
             </span>
-            <span className="app-sidebar__label">Labels</span>
+            <span className="app-sidebar__label">{t("shell.nav.labels")}</span>
           </Link>
         </li>
         <li>
@@ -474,7 +483,7 @@ function GlobalNavigation({
             <span aria-hidden="true" className="app-sidebar__icon">
               <NavigationIcon name="focus" />
             </span>
-            <span className="app-sidebar__label">Focus</span>
+            <span className="app-sidebar__label">{t("shell.nav.focus")}</span>
           </Link>
         </li>
       </ul>
@@ -491,11 +500,13 @@ function AccountMenu({
   onLogout: () => void;
   sessionSnapshot: AppSessionSnapshot;
 }>) {
+  const { t } = useAppTranslation();
   const accountMenuId = useId();
   const [isAccountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
-  const displayName = sessionSnapshot.user?.displayName ?? "Unknown user";
-  const email = sessionSnapshot.user?.email ?? "No email available";
+  const displayName =
+    sessionSnapshot.user?.displayName ?? t("shell.account.unknownUser");
+  const email = sessionSnapshot.user?.email ?? t("shell.account.noEmail");
 
   useEffect(() => {
     if (!isAccountMenuOpen) {
@@ -537,7 +548,7 @@ function AccountMenu({
   return (
     <div className="account-menu" ref={accountMenuRef}>
       <button
-        aria-label={`${displayName} ${email} account menu`}
+        aria-label={t("shell.account.menu", { displayName, email })}
         aria-controls={accountMenuId}
         aria-expanded={isAccountMenuOpen}
         aria-haspopup="menu"
@@ -562,7 +573,7 @@ function AccountMenu({
       </button>
       {isAccountMenuOpen ? (
         <div
-          aria-label="Account options"
+          aria-label={t("shell.account.options")}
           className="account-menu__popover"
           id={accountMenuId}
           onKeyDown={handleAccountMenuKeyDown}
@@ -580,7 +591,7 @@ function AccountMenu({
             <span aria-hidden="true" className="app-sidebar__icon">
               <NavigationIcon name="settings" />
             </span>
-            <span>Settings</span>
+            <span>{t("settings.heading")}</span>
           </Link>
           <button
             className="account-menu__item"
@@ -589,7 +600,9 @@ function AccountMenu({
             role="menuitem"
             type="button"
           >
-            {isLoggingOut ? "Logging out..." : "Log out"}
+            {isLoggingOut
+              ? t("shell.account.loggingOut")
+              : t("shell.account.logout")}
           </button>
         </div>
       ) : null}

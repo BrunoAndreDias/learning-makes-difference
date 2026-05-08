@@ -571,7 +571,7 @@ describe("authenticated app shell", () => {
     fireEvent.change(screen.getByLabelText("Display name"), {
       target: { value: "Casey Rivers" },
     });
-    fireEvent.change(screen.getByLabelText("User Language"), {
+    fireEvent.change(screen.getByLabelText("Language"), {
       target: { value: "pt-PT" },
     });
     fireEvent.change(screen.getByLabelText("Study Objective"), {
@@ -588,10 +588,22 @@ describe("authenticated app shell", () => {
     );
 
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "Preferences saved.",
+      "Preferencias guardadas.",
     );
     expect(screen.getAllByText("Casey Rivers")).not.toHaveLength(0);
-    expect(screen.getByLabelText("User Language")).toHaveValue("pt-PT");
+    expect(screen.getByLabelText("Idioma")).toHaveValue("pt-PT");
+    fireEvent.change(screen.getByLabelText("Idioma"), {
+      target: { value: "en" },
+    });
+    fireEvent.submit(
+      screen.getByRole("form", {
+        name: "Formulario de preferencias da conta",
+      }),
+    );
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Preferences saved.",
+    );
+    expect(screen.getByLabelText("Language")).toHaveValue("en");
     expect(screen.getByLabelText("Study Objective")).toHaveValue(
       "specific_exam",
     );
@@ -684,7 +696,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/settings");
     expect(screen.getByLabelText("Display name")).toHaveValue("Casey Rivers");
-    expect(screen.getByLabelText("User Language")).toHaveValue("pt-PT");
+    expect(screen.getByLabelText("Language")).toHaveValue("en");
     expect(screen.getByLabelText("Study Objective")).toHaveValue(
       "professional_learning",
     );
@@ -692,6 +704,60 @@ describe("authenticated app shell", () => {
     expect(screen.getByLabelText("User Time Zone")).toHaveValue(
       "America/New_York",
     );
+  });
+
+  it("renders one translated Language selector and updates app chrome after save", async () => {
+    const sessionContext = createRouteTestSessionContext();
+
+    await sessionContext.register({
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      password: "correct horse battery staple",
+      pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
+      userLanguage: "en",
+    });
+
+    renderRoute("/settings", { sessionContext });
+
+    expect(
+      await screen.findByRole("heading", { name: "Settings" }),
+    ).toBeInTheDocument();
+
+    const languageSelector = screen.getByLabelText("Language");
+    expect(languageSelector).toHaveValue("en");
+    expect(
+      within(languageSelector).getByRole("option", { name: "English" }),
+    ).toBeInTheDocument();
+    expect(
+      within(languageSelector).getByRole("option", {
+        name: "Portuguese (Portugal)",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(languageSelector).getByRole("option", { name: "Spanish" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Interface language"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Study language")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("User Language")).not.toBeInTheDocument();
+
+    fireEvent.change(languageSelector, {
+      target: { value: "es" },
+    });
+    fireEvent.submit(
+      screen.getByRole("form", { name: "Account preferences form" }),
+    );
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Preferencias guardadas.",
+    );
+    expect(
+      await screen.findByRole("heading", { name: "Configuracion" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Notas" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Etiquetas" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Idioma")).toHaveValue("es");
   });
 
   it("restores persisted note metaphors and acronyms after refresh and account sign-in", async () => {
