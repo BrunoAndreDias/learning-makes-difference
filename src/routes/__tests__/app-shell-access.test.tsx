@@ -692,7 +692,7 @@ describe("authenticated app shell", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Sign in form" }));
 
     expect(
-      await screen.findByRole("heading", { name: "Definicoes" }),
+      await screen.findByRole("heading", { name: "Settings" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/settings");
     expect(screen.getByLabelText("Display name")).toHaveValue("Casey Rivers");
