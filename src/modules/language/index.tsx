@@ -13,6 +13,8 @@ import {
   type UserLanguage,
 } from "./user-language";
 
+export type { AppTranslationKey } from "./catalogs";
+
 function getBrowserLanguages(): readonly string[] {
   if (typeof navigator === "undefined") {
     return [];

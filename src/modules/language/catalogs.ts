@@ -94,7 +94,8 @@ const englishTranslations = {
   "shell.workspace.studyNotesPrototype": "Study Notes Prototype",
 } as const;
 
-type TranslationCatalog = Record<keyof typeof englishTranslations, string>;
+export type AppTranslationKey = keyof typeof englishTranslations;
+type TranslationCatalog = Record<AppTranslationKey, string>;
 
 const portugueseTranslations = {
   "access.login.email.label": "Email",

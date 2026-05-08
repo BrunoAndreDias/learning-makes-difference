@@ -6,7 +6,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { useAppTranslation } from "../../language";
+import { type AppTranslationKey, useAppTranslation } from "../../language";
 import {
   defaultUserTimeZone,
   fallbackUserLanguage,
@@ -30,7 +30,8 @@ const languageLabels: Record<UserLanguage, string> = {
   "pt-PT": "Portuguese (Portugal)",
 };
 
-const settingsFallbackErrorKey = "settings.error.fallback";
+const settingsFallbackErrorKey =
+  "settings.error.fallback" satisfies AppTranslationKey;
 
 const studyObjectiveLabelKeys = {
   university_study: "settings.studyObjective.universityStudy",
@@ -38,7 +39,7 @@ const studyObjectiveLabelKeys = {
   specific_exam: "settings.studyObjective.specificExam",
   professional_learning: "settings.studyObjective.professionalLearning",
   other: "settings.studyObjective.other",
-} as const satisfies Record<StudyObjectivePreferenceOption, string>;
+} as const satisfies Record<StudyObjectivePreferenceOption, AppTranslationKey>;
 
 const fallbackUserTimeZones = [
   "America/New_York",
@@ -67,7 +68,7 @@ function readStudyObjectivePreference(value: string): StudyObjectivePreference {
   return value === "" ? null : (value as StudyObjectivePreferenceOption);
 }
 
-function getSettingsAuthErrorKey(errorMessage: string): string {
+function getSettingsAuthErrorKey(errorMessage: string): AppTranslationKey {
   switch (errorMessage) {
     case "Display name must be at least 2 characters long.":
       return "settings.error.displayNameTooShort";
@@ -80,7 +81,7 @@ function getSettingsAuthErrorKey(errorMessage: string): string {
 
 function getStudyObjectiveLabelKey(
   studyObjective: StudyObjectivePreference,
-): string {
+): AppTranslationKey {
   return studyObjective === null
     ? "settings.studyObjective.notSet"
     : studyObjectiveLabelKeys[studyObjective];
@@ -101,8 +102,10 @@ function SettingsPage() {
   const [userTimeZone, setUserTimeZone] = useState<UserTimeZonePreference>(
     user?.userTimeZone ?? defaultUserTimeZone,
   );
-  const [errorMessageKey, setErrorMessageKey] = useState<string | null>(null);
-  const [statusMessageKey, setStatusMessageKey] = useState<string | null>(null);
+  const [errorMessageKey, setErrorMessageKey] =
+    useState<AppTranslationKey | null>(null);
+  const [statusMessageKey, setStatusMessageKey] =
+    useState<AppTranslationKey | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
   const userTimeZoneOptions = useMemo(
     () => getUserTimeZoneOptions(userTimeZone),

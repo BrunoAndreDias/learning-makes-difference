@@ -21,7 +21,7 @@ import { Button } from "../../../design-system/button";
 import type { AppSessionSnapshot } from "../../access/session/session";
 import { useResolvedProtectedSession } from "../../access/session/use-resolved-protected-session";
 import { FocusSessionStartControl } from "../../focus";
-import { useAppTranslation } from "../../language";
+import { type AppTranslationKey, useAppTranslation } from "../../language";
 import { NotesWorkspaceProvider } from "../../notes";
 
 type NavigationIconName = "focus" | "label" | "note" | "recall" | "settings";
@@ -37,7 +37,7 @@ function isRouteSectionPath(pathname: string, sectionPath: string) {
   return pathname === sectionPath || pathname.startsWith(`${sectionPath}/`);
 }
 
-function getWorkspaceTitleKey(pathname: string) {
+function getWorkspaceTitleKey(pathname: string): AppTranslationKey {
   if (isRouteSectionPath(pathname, "/study-notes-prototype")) {
     return "shell.workspace.studyNotesPrototype";
   }
@@ -61,7 +61,9 @@ function getWorkspaceTitleKey(pathname: string) {
   return "shell.nav.notes";
 }
 
-function getRecallWorkspaceTitleKey(pathname: string) {
+function getRecallWorkspaceTitleKey(
+  pathname: string,
+): AppTranslationKey | null {
   if (pathname === "/recall/select") {
     return "shell.workspace.recallSetup";
   }
@@ -112,6 +114,27 @@ function getWorkspaceKind(pathname: string): WorkspaceKind | undefined {
   return undefined;
 }
 
+function isRecallWorkspaceKind(workspaceKind: WorkspaceKind | undefined) {
+  return workspaceKind === "recall-results" || workspaceKind === "recall";
+}
+
+function hasVisuallyHiddenWorkspaceTitle(
+  workspaceKind: WorkspaceKind | undefined,
+) {
+  return (
+    isRecallWorkspaceKind(workspaceKind) ||
+    workspaceKind === "labels" ||
+    workspaceKind === "focus" ||
+    workspaceKind === "settings"
+  );
+}
+
+function shouldShowFocusSessionStartControl(
+  workspaceKind: WorkspaceKind | undefined,
+) {
+  return workspaceKind !== "notes" && workspaceKind !== "labels";
+}
+
 export function AppLayout() {
   const { t } = useAppTranslation();
   const focus = useRouteContext({
@@ -142,12 +165,6 @@ export function AppLayout() {
   const recallWorkspaceTitle =
     recallWorkspaceTitleKey === null ? null : t(recallWorkspaceTitleKey);
   const workspaceKind = getWorkspaceKind(location.pathname);
-  const isNotesWorkspaceRoute = workspaceKind === "notes";
-  const isRecallWorkspaceRoute =
-    workspaceKind === "recall-results" || workspaceKind === "recall";
-  const isLabelsWorkspaceRoute = workspaceKind === "labels";
-  const isFocusWorkspaceRoute = workspaceKind === "focus";
-  const isSettingsWorkspaceRoute = workspaceKind === "settings";
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
   const sidebarToggleLabel = isSidebarCollapsed
     ? t("shell.sidebar.expand")
@@ -278,20 +295,16 @@ export function AppLayout() {
             activeFocusSession={activeFocusSession}
             collapsedSidebarToggleRef={collapsedSidebarToggleRef}
             focus={focus}
-            persistentFocus={persistentFocus}
-            isNotesWorkspaceRoute={isNotesWorkspaceRoute}
-            isRecallWorkspaceRoute={isRecallWorkspaceRoute}
-            isLabelsWorkspaceRoute={isLabelsWorkspaceRoute}
-            isFocusWorkspaceRoute={isFocusWorkspaceRoute}
-            isSettingsWorkspaceRoute={isSettingsWorkspaceRoute}
-            isSidebarCollapsed={isSidebarCollapsed}
             isMobileSidebarOpen={isMobileSidebarOpen}
+            isSidebarCollapsed={isSidebarCollapsed}
             mobileSidebarToggleRef={mobileSidebarToggleRef}
             navigationId={navigationId}
-            onOpenMobileSidebar={openMobileSidebar}
             onExpandSidebar={() => setSidebarCollapsed(false)}
+            onOpenMobileSidebar={openMobileSidebar}
+            persistentFocus={persistentFocus}
             recallWorkspaceTitle={recallWorkspaceTitle}
             userId={userId}
+            workspaceKind={workspaceKind}
             workspaceTitle={workspaceTitle}
           />
 
@@ -308,20 +321,16 @@ function WorkspaceHeader({
   activeFocusSession,
   collapsedSidebarToggleRef,
   focus,
-  persistentFocus,
-  isNotesWorkspaceRoute,
-  isRecallWorkspaceRoute,
-  isLabelsWorkspaceRoute,
-  isFocusWorkspaceRoute,
-  isSettingsWorkspaceRoute,
-  isSidebarCollapsed,
   isMobileSidebarOpen,
+  isSidebarCollapsed,
   mobileSidebarToggleRef,
   navigationId,
-  onOpenMobileSidebar,
   onExpandSidebar,
+  onOpenMobileSidebar,
+  persistentFocus,
   recallWorkspaceTitle,
   userId,
+  workspaceKind,
   workspaceTitle,
 }: {
   activeFocusSession: Parameters<
@@ -329,30 +338,27 @@ function WorkspaceHeader({
   >[0]["activeFocusSession"];
   collapsedSidebarToggleRef: RefObject<HTMLButtonElement | null>;
   focus: Parameters<typeof FocusSessionStartControl>[0]["focus"];
+  isMobileSidebarOpen: boolean;
+  isSidebarCollapsed: boolean;
+  mobileSidebarToggleRef: RefObject<HTMLButtonElement | null>;
+  navigationId: string;
+  onExpandSidebar: () => void;
+  onOpenMobileSidebar: () => void;
   persistentFocus: Parameters<
     typeof FocusSessionStartControl
   >[0]["persistentFocus"];
-  isNotesWorkspaceRoute: boolean;
-  isRecallWorkspaceRoute: boolean;
-  isLabelsWorkspaceRoute: boolean;
-  isFocusWorkspaceRoute: boolean;
-  isSettingsWorkspaceRoute: boolean;
-  isSidebarCollapsed: boolean;
-  isMobileSidebarOpen: boolean;
-  mobileSidebarToggleRef: RefObject<HTMLButtonElement | null>;
-  navigationId: string;
-  onOpenMobileSidebar: () => void;
-  onExpandSidebar: () => void;
   recallWorkspaceTitle: string | null;
   userId: string | null;
+  workspaceKind: WorkspaceKind | undefined;
   workspaceTitle: string;
 }) {
   const { t } = useAppTranslation();
-  const hasVisuallyHiddenWorkspaceTitle =
-    isRecallWorkspaceRoute ||
-    isLabelsWorkspaceRoute ||
-    isFocusWorkspaceRoute ||
-    isSettingsWorkspaceRoute;
+  const isNotesWorkspaceRoute = workspaceKind === "notes";
+  const isRecallWorkspaceRoute = isRecallWorkspaceKind(workspaceKind);
+  const isWorkspaceTitleVisuallyHidden =
+    hasVisuallyHiddenWorkspaceTitle(workspaceKind);
+  const showFocusSessionStartControl =
+    shouldShowFocusSessionStartControl(workspaceKind);
 
   return (
     <header className="app-frame__workspace-header">
@@ -385,7 +391,7 @@ function WorkspaceHeader({
         {isNotesWorkspaceRoute ? null : (
           <h2
             className={
-              hasVisuallyHiddenWorkspaceTitle
+              isWorkspaceTitleVisuallyHidden
                 ? "app-frame__workspace-title sr-only"
                 : "app-frame__workspace-title"
             }
@@ -397,14 +403,14 @@ function WorkspaceHeader({
         )}
       </div>
       <div className="app-frame__actions">
-        {isNotesWorkspaceRoute || isLabelsWorkspaceRoute ? null : (
+        {showFocusSessionStartControl ? (
           <FocusSessionStartControl
             activeFocusSession={activeFocusSession}
             focus={focus}
             persistentFocus={persistentFocus}
             userId={userId}
           />
-        )}
+        ) : null}
       </div>
     </header>
   );
