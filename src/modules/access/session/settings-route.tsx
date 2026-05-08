@@ -30,20 +30,15 @@ const languageLabels: Record<UserLanguage, string> = {
   "pt-PT": "Portuguese (Portugal)",
 };
 
-const settingsAuthErrorKeys = {
-  "Display name must be at least 2 characters long.":
-    "settings.error.displayNameTooShort",
-  "Sign in to update account preferences.": "settings.error.notAuthenticated",
-} as const;
+const settingsFallbackErrorKey = "settings.error.fallback";
 
-const studyObjectiveLabelKeys: Record<StudyObjectivePreferenceOption, string> =
-  {
-    university_study: "settings.studyObjective.universityStudy",
-    self_study: "settings.studyObjective.selfStudy",
-    specific_exam: "settings.studyObjective.specificExam",
-    professional_learning: "settings.studyObjective.professionalLearning",
-    other: "settings.studyObjective.other",
-  };
+const studyObjectiveLabelKeys = {
+  university_study: "settings.studyObjective.universityStudy",
+  self_study: "settings.studyObjective.selfStudy",
+  specific_exam: "settings.studyObjective.specificExam",
+  professional_learning: "settings.studyObjective.professionalLearning",
+  other: "settings.studyObjective.other",
+} as const satisfies Record<StudyObjectivePreferenceOption, string>;
 
 const fallbackUserTimeZones = [
   "America/New_York",
@@ -72,13 +67,23 @@ function readStudyObjectivePreference(value: string): StudyObjectivePreference {
   return value === "" ? null : (value as StudyObjectivePreferenceOption);
 }
 
-function getStudyObjectiveLabel(
+function getSettingsAuthErrorKey(errorMessage: string): string {
+  switch (errorMessage) {
+    case "Display name must be at least 2 characters long.":
+      return "settings.error.displayNameTooShort";
+    case "Sign in to update account preferences.":
+      return "settings.error.notAuthenticated";
+    default:
+      return settingsFallbackErrorKey;
+  }
+}
+
+function getStudyObjectiveLabelKey(
   studyObjective: StudyObjectivePreference,
-  t: ReturnType<typeof useAppTranslation>["t"],
 ): string {
   return studyObjective === null
-    ? t("settings.studyObjective.notSet")
-    : t(studyObjectiveLabelKeys[studyObjective]);
+    ? "settings.studyObjective.notSet"
+    : studyObjectiveLabelKeys[studyObjective];
 }
 
 function SettingsPage() {
@@ -141,13 +146,9 @@ function SettingsPage() {
       const appAuthError = getAppAuthError(error);
 
       if (appAuthError !== null) {
-        setErrorMessageKey(
-          settingsAuthErrorKeys[
-            appAuthError.message as keyof typeof settingsAuthErrorKeys
-          ] ?? "settings.error.fallback",
-        );
+        setErrorMessageKey(getSettingsAuthErrorKey(appAuthError.message));
       } else {
-        setErrorMessageKey("settings.error.fallback");
+        setErrorMessageKey(settingsFallbackErrorKey);
       }
     } finally {
       setSubmitting(false);
@@ -309,7 +310,7 @@ function SettingsPage() {
             </div>
             <div>
               <dt>{t("settings.studyObjective.label")}</dt>
-              <dd>{getStudyObjectiveLabel(studyObjective, t)}</dd>
+              <dd>{t(getStudyObjectiveLabelKey(studyObjective))}</dd>
             </div>
             <div>
               <dt>{t("settings.userTimeZone.label")}</dt>

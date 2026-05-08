@@ -25,28 +25,36 @@ import { useAppTranslation } from "../../language";
 import { NotesWorkspaceProvider } from "../../notes";
 
 type NavigationIconName = "focus" | "label" | "note" | "recall" | "settings";
+type WorkspaceKind =
+  | "focus"
+  | "labels"
+  | "notes"
+  | "recall"
+  | "recall-results"
+  | "settings";
+
+function isRouteSectionPath(pathname: string, sectionPath: string) {
+  return pathname === sectionPath || pathname.startsWith(`${sectionPath}/`);
+}
 
 function getWorkspaceTitleKey(pathname: string) {
-  if (
-    pathname === "/study-notes-prototype" ||
-    pathname.startsWith("/study-notes-prototype/")
-  ) {
+  if (isRouteSectionPath(pathname, "/study-notes-prototype")) {
     return "shell.workspace.studyNotesPrototype";
   }
 
-  if (pathname === "/labels" || pathname.startsWith("/labels/")) {
+  if (isRouteSectionPath(pathname, "/labels")) {
     return "shell.nav.labels";
   }
 
-  if (pathname === "/recall" || pathname.startsWith("/recall/")) {
+  if (isRouteSectionPath(pathname, "/recall")) {
     return "shell.nav.recall";
   }
 
-  if (pathname === "/focus" || pathname.startsWith("/focus/")) {
+  if (isRouteSectionPath(pathname, "/focus")) {
     return "shell.nav.focus";
   }
 
-  if (pathname === "/settings" || pathname.startsWith("/settings/")) {
+  if (isRouteSectionPath(pathname, "/settings")) {
     return "settings.heading";
   }
 
@@ -62,7 +70,7 @@ function getRecallWorkspaceTitleKey(pathname: string) {
     return "shell.workspace.recallSession";
   }
 
-  if (pathname === "/recall" || pathname.startsWith("/recall/")) {
+  if (isRouteSectionPath(pathname, "/recall")) {
     return "shell.nav.recall";
   }
 
@@ -71,11 +79,37 @@ function getRecallWorkspaceTitleKey(pathname: string) {
 
 function isNotesWorkspacePath(pathname: string) {
   return (
-    pathname === "/notes" ||
-    pathname.startsWith("/notes/") ||
-    pathname === "/study-notes-prototype" ||
-    pathname.startsWith("/study-notes-prototype/")
+    isRouteSectionPath(pathname, "/notes") ||
+    isRouteSectionPath(pathname, "/study-notes-prototype")
   );
+}
+
+function getWorkspaceKind(pathname: string): WorkspaceKind | undefined {
+  if (isNotesWorkspacePath(pathname)) {
+    return "notes";
+  }
+
+  if (pathname === "/recall") {
+    return "recall-results";
+  }
+
+  if (isRouteSectionPath(pathname, "/recall")) {
+    return "recall";
+  }
+
+  if (isRouteSectionPath(pathname, "/labels")) {
+    return "labels";
+  }
+
+  if (isRouteSectionPath(pathname, "/focus")) {
+    return "focus";
+  }
+
+  if (isRouteSectionPath(pathname, "/settings")) {
+    return "settings";
+  }
+
+  return undefined;
 }
 
 export function AppLayout() {
@@ -107,17 +141,13 @@ export function AppLayout() {
   const recallWorkspaceTitleKey = getRecallWorkspaceTitleKey(location.pathname);
   const recallWorkspaceTitle =
     recallWorkspaceTitleKey === null ? null : t(recallWorkspaceTitleKey);
-  const isNotesWorkspaceRoute = isNotesWorkspacePath(location.pathname);
+  const workspaceKind = getWorkspaceKind(location.pathname);
+  const isNotesWorkspaceRoute = workspaceKind === "notes";
   const isRecallWorkspaceRoute =
-    location.pathname === "/recall" || location.pathname.startsWith("/recall/");
-  const isRecallResultsWorkspaceRoute = location.pathname === "/recall";
-  const isLabelsWorkspaceRoute =
-    location.pathname === "/labels" || location.pathname.startsWith("/labels/");
-  const isFocusWorkspaceRoute =
-    location.pathname === "/focus" || location.pathname.startsWith("/focus/");
-  const isSettingsWorkspaceRoute =
-    location.pathname === "/settings" ||
-    location.pathname.startsWith("/settings/");
+    workspaceKind === "recall-results" || workspaceKind === "recall";
+  const isLabelsWorkspaceRoute = workspaceKind === "labels";
+  const isFocusWorkspaceRoute = workspaceKind === "focus";
+  const isSettingsWorkspaceRoute = workspaceKind === "settings";
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
   const sidebarToggleLabel = isSidebarCollapsed
     ? t("shell.sidebar.expand")
@@ -243,24 +273,7 @@ export function AppLayout() {
           <GlobalNavigation onNavigate={closeMobileSidebar} />
         </aside>
 
-        <div
-          className="app-frame"
-          data-workspace={
-            isNotesWorkspaceRoute
-              ? "notes"
-              : isRecallResultsWorkspaceRoute
-                ? "recall-results"
-                : isRecallWorkspaceRoute
-                  ? "recall"
-                  : isLabelsWorkspaceRoute
-                    ? "labels"
-                    : isFocusWorkspaceRoute
-                      ? "focus"
-                      : isSettingsWorkspaceRoute
-                        ? "settings"
-                        : undefined
-          }
-        >
+        <div className="app-frame" data-workspace={workspaceKind}>
           <WorkspaceHeader
             activeFocusSession={activeFocusSession}
             collapsedSidebarToggleRef={collapsedSidebarToggleRef}
