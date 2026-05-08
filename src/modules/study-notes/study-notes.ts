@@ -126,37 +126,55 @@ function toPublicStudyNote(note: AppStoredStudyNote): AppStudyNote {
   };
 }
 
+function sortStoredStudyNotes(
+  studyNotes: readonly AppStoredStudyNote[],
+): AppStoredStudyNote[] {
+  return [...studyNotes].sort((left, right) =>
+    right.updatedAt.localeCompare(left.updatedAt),
+  );
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isStoredStudyNoteSource(value: unknown): value is AppStudyNoteSource {
+  return (
+    isObjectRecord(value) &&
+    typeof value.body === "string" &&
+    typeof value.id === "string" &&
+    typeof value.title === "string" &&
+    typeof value.updatedAt === "string"
+  );
+}
+
+function isStoredStudyNote(value: unknown): value is AppStoredStudyNote {
+  return (
+    isObjectRecord(value) &&
+    typeof value.createdAt === "string" &&
+    typeof value.expectedAnswer === "string" &&
+    typeof value.id === "string" &&
+    typeof value.prompt === "string" &&
+    typeof value.sourceNoteId === "string" &&
+    typeof value.updatedAt === "string" &&
+    typeof value.userId === "string" &&
+    isStoredStudyNoteSource(value.source)
+  );
+}
+
 function parseStoredStudyNotes(value: string | null): AppStoredStudyNote[] {
   if (value === null) {
     return [];
   }
 
   try {
-    const parsedValue = JSON.parse(value);
+    const parsedValue: unknown = JSON.parse(value);
 
     if (!Array.isArray(parsedValue)) {
       return [];
     }
 
-    return parsedValue.filter((studyNote): studyNote is AppStoredStudyNote => {
-      return (
-        typeof studyNote === "object" &&
-        studyNote !== null &&
-        typeof studyNote.createdAt === "string" &&
-        typeof studyNote.expectedAnswer === "string" &&
-        typeof studyNote.id === "string" &&
-        typeof studyNote.prompt === "string" &&
-        typeof studyNote.sourceNoteId === "string" &&
-        typeof studyNote.updatedAt === "string" &&
-        typeof studyNote.userId === "string" &&
-        typeof studyNote.source === "object" &&
-        studyNote.source !== null &&
-        typeof studyNote.source.body === "string" &&
-        typeof studyNote.source.id === "string" &&
-        typeof studyNote.source.title === "string" &&
-        typeof studyNote.source.updatedAt === "string"
-      );
-    });
+    return parsedValue.filter(isStoredStudyNote);
   } catch {
     return [];
   }
@@ -170,10 +188,9 @@ export function listStudyNotesForUser(
     return [];
   }
 
-  return studyNotes
-    .filter((studyNote) => studyNote.userId === userId)
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
-    .map(toPublicStudyNote);
+  return sortStoredStudyNotes(
+    studyNotes.filter((studyNote) => studyNote.userId === userId),
+  ).map(toPublicStudyNote);
 }
 
 export function createAppStudyNotesContext(
@@ -194,9 +211,7 @@ export function createAppStudyNotesContext(
   }
 
   function writeSnapshot(nextSnapshot: readonly AppStoredStudyNote[]) {
-    snapshot = [...nextSnapshot].sort((left, right) =>
-      right.updatedAt.localeCompare(left.updatedAt),
-    );
+    snapshot = sortStoredStudyNotes(nextSnapshot);
     storage?.setItem(
       getStudyNotesStorageKey(keyPrefix),
       JSON.stringify(snapshot),

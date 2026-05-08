@@ -83,6 +83,34 @@ function isNotesWorkspacePath(pathname: string) {
   );
 }
 
+function getWorkspaceDataAttribute(pathname: string) {
+  if (isNotesWorkspacePath(pathname)) {
+    return "notes";
+  }
+
+  if (pathname === "/recall") {
+    return "recall-results";
+  }
+
+  if (pathname.startsWith("/recall/")) {
+    return "recall";
+  }
+
+  if (pathname === "/labels" || pathname.startsWith("/labels/")) {
+    return "labels";
+  }
+
+  if (pathname === "/focus" || pathname.startsWith("/focus/")) {
+    return "focus";
+  }
+
+  if (pathname === "/settings" || pathname.startsWith("/settings/")) {
+    return "settings";
+  }
+
+  return undefined;
+}
+
 export function AppLayout() {
   const focus = useRouteContext({
     from: "/_protected",
@@ -112,7 +140,6 @@ export function AppLayout() {
   const isNotesWorkspaceRoute = isNotesWorkspacePath(location.pathname);
   const isRecallWorkspaceRoute =
     location.pathname === "/recall" || location.pathname.startsWith("/recall/");
-  const isRecallResultsWorkspaceRoute = location.pathname === "/recall";
   const isLabelsWorkspaceRoute =
     location.pathname === "/labels" || location.pathname.startsWith("/labels/");
   const isFocusWorkspaceRoute =
@@ -120,6 +147,7 @@ export function AppLayout() {
   const isSettingsWorkspaceRoute =
     location.pathname === "/settings" ||
     location.pathname.startsWith("/settings/");
+  const workspaceDataAttribute = getWorkspaceDataAttribute(location.pathname);
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
   const sidebarToggleLabel = isSidebarCollapsed
     ? "Expand sidebar"
@@ -245,24 +273,7 @@ export function AppLayout() {
           <GlobalNavigation onNavigate={closeMobileSidebar} />
         </aside>
 
-        <div
-          className="app-frame"
-          data-workspace={
-            isNotesWorkspaceRoute
-              ? "notes"
-              : isRecallResultsWorkspaceRoute
-                ? "recall-results"
-                : isRecallWorkspaceRoute
-                  ? "recall"
-                  : isLabelsWorkspaceRoute
-                    ? "labels"
-                    : isFocusWorkspaceRoute
-                      ? "focus"
-                      : isSettingsWorkspaceRoute
-                        ? "settings"
-                        : undefined
-          }
-        >
+        <div className="app-frame" data-workspace={workspaceDataAttribute}>
           <WorkspaceHeader
             activeFocusSession={activeFocusSession}
             collapsedSidebarToggleRef={collapsedSidebarToggleRef}

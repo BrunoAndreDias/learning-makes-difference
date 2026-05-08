@@ -16,6 +16,7 @@ import "../notes/notes-workspace/notes-toolbar.css";
 import "./study-notes.css";
 import {
   type AppPersistentStudyNotesContext,
+  type AppStudyNote,
   type AppStudyNotesContext,
   AppStudyNotesError,
   listStudyNotesForUser,
@@ -32,6 +33,21 @@ function createBlankDraft(): UpdateStudyNoteInput {
     prompt: "",
     sourceBody: "",
     sourceTitle: "",
+  };
+}
+
+function createDraftFromStudyNote(
+  studyNote: AppStudyNote | null,
+): UpdateStudyNoteInput {
+  if (studyNote === null) {
+    return createBlankDraft();
+  }
+
+  return {
+    expectedAnswer: studyNote.expectedAnswer,
+    prompt: studyNote.prompt,
+    sourceBody: studyNote.source.body,
+    sourceTitle: studyNote.source.title,
   };
 }
 
@@ -69,21 +85,11 @@ function StudyNotesWorkspace() {
     studyNotes[0] ??
     null;
   const [draft, setDraft] = useState<UpdateStudyNoteInput>(() =>
-    selectedStudyNote === null
-      ? createBlankDraft()
-      : {
-          expectedAnswer: selectedStudyNote.expectedAnswer,
-          prompt: selectedStudyNote.prompt,
-          sourceBody: selectedStudyNote.source.body,
-          sourceTitle: selectedStudyNote.source.title,
-        },
+    createDraftFromStudyNote(selectedStudyNote),
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
-  const storeMutation =
-    persistentStudyNotesContext === undefined
-      ? studyNotesContext
-      : persistentStudyNotesContext;
+  const storeMutation = persistentStudyNotesContext ?? studyNotesContext;
 
   useEffect(() => {
     if (persistentStudyNotesContext === undefined) {
@@ -112,17 +118,7 @@ function StudyNotesWorkspace() {
   }, [selectedStudyNoteId, studyNotes]);
 
   useEffect(() => {
-    if (selectedStudyNote === null) {
-      setDraft(createBlankDraft());
-      return;
-    }
-
-    setDraft({
-      expectedAnswer: selectedStudyNote.expectedAnswer,
-      prompt: selectedStudyNote.prompt,
-      sourceBody: selectedStudyNote.source.body,
-      sourceTitle: selectedStudyNote.source.title,
-    });
+    setDraft(createDraftFromStudyNote(selectedStudyNote));
   }, [selectedStudyNote]);
 
   async function handleNewStudyNote() {

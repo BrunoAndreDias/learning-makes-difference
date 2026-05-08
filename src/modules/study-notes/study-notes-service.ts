@@ -25,6 +25,24 @@ type CreateStudyNotesServiceOptions = {
   now?: () => Date;
 };
 
+type UpdateSourceNoteInput = {
+  body: string;
+  sourceNoteId: string;
+  title: string;
+};
+
+const studyNoteSelectFields = {
+  createdAt: studyNotesTable.createdAt,
+  expectedAnswer: studyNotesTable.expectedAnswer,
+  id: studyNotesTable.id,
+  prompt: studyNotesTable.prompt,
+  sourceBody: notesTable.body,
+  sourceNoteId: studyNotesTable.sourceNoteId,
+  sourceTitle: notesTable.title,
+  sourceUpdatedAt: notesTable.updatedAt,
+  updatedAt: studyNotesTable.updatedAt,
+};
+
 function getDefaultCrypto(): StudyNotesCrypto {
   return globalThis.crypto;
 }
@@ -78,17 +96,7 @@ async function readOwnedStudyNote(input: {
   const row =
     (
       await input.db
-        .select({
-          createdAt: studyNotesTable.createdAt,
-          expectedAnswer: studyNotesTable.expectedAnswer,
-          id: studyNotesTable.id,
-          prompt: studyNotesTable.prompt,
-          sourceBody: notesTable.body,
-          sourceNoteId: studyNotesTable.sourceNoteId,
-          sourceTitle: notesTable.title,
-          sourceUpdatedAt: notesTable.updatedAt,
-          updatedAt: studyNotesTable.updatedAt,
-        })
+        .select(studyNoteSelectFields)
         .from(studyNotesTable)
         .innerJoin(notesTable, eq(studyNotesTable.sourceNoteId, notesTable.id))
         .where(
@@ -116,7 +124,10 @@ export function createStudyNotesService({
   now = () => new Date(),
 }: CreateStudyNotesServiceOptions) {
   return {
-    async createStudyNote(input: {
+    async createStudyNote({
+      input,
+      userId,
+    }: {
       input: CreateStudyNoteInput;
       userId: string;
     }) {
@@ -124,10 +135,10 @@ export function createStudyNotesService({
       const sourceNoteId = crypto.randomUUID();
       const studyNoteId = crypto.randomUUID();
       const sourceTitle = validateRequiredText(
-        input.input.sourceTitle,
+        input.sourceTitle,
         "Source title",
       );
-      const sourceBody = validateOptionalText(input.input.sourceBody);
+      const sourceBody = validateOptionalText(input.sourceBody);
 
       await db.transaction(async (tx) => {
         await tx.insert(notesTable).values({
@@ -137,7 +148,7 @@ export function createStudyNotesService({
           labelIds: [],
           title: sourceTitle,
           updatedAt: timestamp,
-          userId: input.userId,
+          userId,
         });
         await tx.insert(studyNotesTable).values({
           createdAt: timestamp,
@@ -161,22 +172,12 @@ export function createStudyNotesService({
         updatedAt: timestamp,
       });
     },
-    async listStudyNotes(input: { userId: string }) {
+    async listStudyNotes({ userId }: { userId: string }) {
       const rows = await db
-        .select({
-          createdAt: studyNotesTable.createdAt,
-          expectedAnswer: studyNotesTable.expectedAnswer,
-          id: studyNotesTable.id,
-          prompt: studyNotesTable.prompt,
-          sourceBody: notesTable.body,
-          sourceNoteId: studyNotesTable.sourceNoteId,
-          sourceTitle: notesTable.title,
-          sourceUpdatedAt: notesTable.updatedAt,
-          updatedAt: studyNotesTable.updatedAt,
-        })
+        .select(studyNoteSelectFields)
         .from(studyNotesTable)
         .innerJoin(notesTable, eq(studyNotesTable.sourceNoteId, notesTable.id))
-        .where(eq(notesTable.userId, input.userId));
+        .where(eq(notesTable.userId, userId));
 
       return rows
         .sort((left, right) =>
@@ -186,23 +187,26 @@ export function createStudyNotesService({
         )
         .map(toAppStudyNote);
     },
-    async updateStudyNote(input: {
+    async updateStudyNote({
+      input,
+      userId,
+    }: {
       input: UpdateStudyNoteInput & { studyNoteId: string };
       userId: string;
     }) {
       const existingStudyNote = await readOwnedStudyNote({
         db,
-        studyNoteId: input.input.studyNoteId,
-        userId: input.userId,
+        studyNoteId: input.studyNoteId,
+        userId,
       });
       const timestamp = now();
-      const prompt = validateRequiredText(input.input.prompt, "Prompt");
-      const expectedAnswer = validateOptionalText(input.input.expectedAnswer);
+      const prompt = validateRequiredText(input.prompt, "Prompt");
+      const expectedAnswer = validateOptionalText(input.expectedAnswer);
       const sourceTitle = validateRequiredText(
-        input.input.sourceTitle,
+        input.sourceTitle,
         "Source title",
       );
-      const sourceBody = validateOptionalText(input.input.sourceBody);
+      const sourceBody = validateOptionalText(input.sourceBody);
 
       await db.transaction(async (tx) => {
         await tx
@@ -223,7 +227,7 @@ export function createStudyNotesService({
           .where(
             and(
               eq(notesTable.id, existingStudyNote.sourceNoteId),
-              eq(notesTable.userId, input.userId),
+              eq(notesTable.userId, userId),
             ),
           );
       });
@@ -240,13 +244,16 @@ export function createStudyNotesService({
         updatedAt: timestamp,
       });
     },
-    async updateSourceNote(input: {
-      input: { body: string; sourceNoteId: string; title: string };
+    async updateSourceNote({
+      input,
+      userId,
+    }: {
+      input: UpdateSourceNoteInput;
       userId: string;
     }) {
       const timestamp = now();
-      const title = validateRequiredText(input.input.title, "Source title");
-      const body = validateOptionalText(input.input.body);
+      const title = validateRequiredText(input.title, "Source title");
+      const body = validateOptionalText(input.body);
       const existingSource =
         (
           await db
@@ -254,8 +261,8 @@ export function createStudyNotesService({
             .from(notesTable)
             .where(
               and(
-                eq(notesTable.id, input.input.sourceNoteId),
-                eq(notesTable.userId, input.userId),
+                eq(notesTable.id, input.sourceNoteId),
+                eq(notesTable.userId, userId),
               ),
             )
             .limit(1)
@@ -275,12 +282,12 @@ export function createStudyNotesService({
           title,
           updatedAt: timestamp,
         })
-        .where(eq(notesTable.id, input.input.sourceNoteId));
+        .where(eq(notesTable.id, input.sourceNoteId));
 
       const affectedStudyNotes = await db
         .select({ id: studyNotesTable.id })
         .from(studyNotesTable)
-        .where(eq(studyNotesTable.sourceNoteId, input.input.sourceNoteId));
+        .where(eq(studyNotesTable.sourceNoteId, input.sourceNoteId));
 
       if (affectedStudyNotes.length === 0) {
         return [];
@@ -292,38 +299,31 @@ export function createStudyNotesService({
             readOwnedStudyNote({
               db,
               studyNoteId: studyNote.id,
-              userId: input.userId,
+              userId,
             }),
           ),
         )
       ).map(toAppStudyNote);
     },
-    async listStudyNotesForSources(input: {
+    async listStudyNotesForSources({
+      sourceNoteIds,
+      userId,
+    }: {
       sourceNoteIds: string[];
       userId: string;
     }) {
-      if (input.sourceNoteIds.length === 0) {
+      if (sourceNoteIds.length === 0) {
         return [];
       }
 
       const rows = await db
-        .select({
-          createdAt: studyNotesTable.createdAt,
-          expectedAnswer: studyNotesTable.expectedAnswer,
-          id: studyNotesTable.id,
-          prompt: studyNotesTable.prompt,
-          sourceBody: notesTable.body,
-          sourceNoteId: studyNotesTable.sourceNoteId,
-          sourceTitle: notesTable.title,
-          sourceUpdatedAt: notesTable.updatedAt,
-          updatedAt: studyNotesTable.updatedAt,
-        })
+        .select(studyNoteSelectFields)
         .from(studyNotesTable)
         .innerJoin(notesTable, eq(studyNotesTable.sourceNoteId, notesTable.id))
         .where(
           and(
-            eq(notesTable.userId, input.userId),
-            inArray(studyNotesTable.sourceNoteId, input.sourceNoteIds),
+            eq(notesTable.userId, userId),
+            inArray(studyNotesTable.sourceNoteId, sourceNoteIds),
           ),
         );
 
