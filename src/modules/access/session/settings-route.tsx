@@ -13,6 +13,7 @@ import {
   defaultUserTimeZone,
   getAppAuthError,
   type StudyObjectivePreference,
+  type StudyObjectivePreferenceOption,
   studyObjectivePreferences,
   type UserTimeZonePreference,
 } from "./session";
@@ -28,10 +29,7 @@ const languageLabels: Record<AppLanguagePreference, string> = {
   "pt-BR": "Portuguese (Brazil)",
 };
 
-const studyObjectiveLabels: Record<
-  Exclude<StudyObjectivePreference, null>,
-  string
-> = {
+const studyObjectiveLabels: Record<StudyObjectivePreferenceOption, string> = {
   university_study: "University study",
   self_study: "Self study",
   specific_exam: "Specific exam",
@@ -60,6 +58,18 @@ function getUserTimeZoneOptions(
   return Array.from(
     new Set([defaultUserTimeZone, currentTimeZone, ...supportedTimeZones]),
   ).sort();
+}
+
+function readStudyObjectivePreference(value: string): StudyObjectivePreference {
+  return value === "" ? null : (value as StudyObjectivePreferenceOption);
+}
+
+function getStudyObjectiveLabel(
+  studyObjective: StudyObjectivePreference,
+): string {
+  return studyObjective === null
+    ? "Not set"
+    : studyObjectiveLabels[studyObjective];
 }
 
 function SettingsPage() {
@@ -223,12 +233,7 @@ function SettingsPage() {
                 name="studyObjective"
                 onChange={(event) => {
                   setStudyObjective(
-                    event.target.value === ""
-                      ? null
-                      : (event.target.value as Exclude<
-                          StudyObjectivePreference,
-                          null
-                        >),
+                    readStudyObjectivePreference(event.target.value),
                   );
                   setStatusMessage(null);
                 }}
@@ -318,11 +323,7 @@ function SettingsPage() {
             </div>
             <div>
               <dt>Study Objective</dt>
-              <dd>
-                {studyObjective === null
-                  ? "Not set"
-                  : studyObjectiveLabels[studyObjective]}
-              </dd>
+              <dd>{getStudyObjectiveLabel(studyObjective)}</dd>
             </div>
             <div>
               <dt>User Time Zone</dt>

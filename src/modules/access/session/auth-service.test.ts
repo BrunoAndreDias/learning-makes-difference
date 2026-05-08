@@ -203,7 +203,7 @@ describe("createAuthService", () => {
     });
   });
 
-  it("rejects invalid User Time Zone preference updates", async () => {
+  it("rejects invalid account preference updates", async () => {
     const client = new PGlite();
     databases.add(client);
     const db = drizzle(client, { schema: authSchema });

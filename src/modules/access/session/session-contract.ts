@@ -30,9 +30,9 @@ const appAuthErrorCodes = [
 ] as const;
 
 export type AppLanguagePreference = (typeof appLanguagePreferences)[number];
-export type StudyObjectivePreference =
-  | (typeof studyObjectivePreferences)[number]
-  | null;
+export type StudyObjectivePreferenceOption =
+  (typeof studyObjectivePreferences)[number];
+export type StudyObjectivePreference = StudyObjectivePreferenceOption | null;
 export type UserTimeZonePreference = string;
 export type AppAuthErrorCode = (typeof appAuthErrorCodes)[number];
 
@@ -135,13 +135,13 @@ function isStudyObjectivePreference(
     value === null ||
     (typeof value === "string" &&
       studyObjectivePreferences.includes(
-        value as Exclude<StudyObjectivePreference, null>,
+        value as StudyObjectivePreferenceOption,
       ))
   );
 }
 
 export function validateStudyObjectivePreference(
-  value: StudyObjectivePreference,
+  value: unknown,
 ): StudyObjectivePreference {
   if (!isStudyObjectivePreference(value)) {
     throw new AppAuthError(

@@ -25,6 +25,7 @@ export {
   defaultUserTimeZone,
   getAppAuthError,
   type StudyObjectivePreference,
+  type StudyObjectivePreferenceOption,
   studyObjectivePreferences,
   type UserTimeZonePreference,
 } from "./session-contract";
