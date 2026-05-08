@@ -46,6 +46,11 @@ import {
   createAppRecallContext,
   type FlashCardRecallRating,
 } from "../../modules/recall";
+import {
+  type AppPersistentStudyNotesContext,
+  type AppStudyNotesContext,
+  createAppStudyNotesContext,
+} from "../../modules/study-notes";
 import { routeTree } from "../../routeTree.gen";
 
 export const TEST_PILOT_REGISTRATION_CODE = "test-pilot-code";
@@ -60,9 +65,11 @@ export function renderRoute(
     persistentLabelsContext?: AppPersistentLabelsContext;
     persistentNotesContext?: AppPersistentNotesContext;
     persistentRecallContext?: AppPersistentRecallContext;
+    persistentStudyNotesContext?: AppPersistentStudyNotesContext;
     recallContext?: AppRecallContext;
     session?: AppSessionSnapshot;
     sessionContext?: AppSessionContext;
+    studyNotesContext?: AppStudyNotesContext;
   } = {},
 ) {
   const staticSnapshot = options.session ?? {
@@ -119,6 +126,12 @@ export function renderRoute(
       onStudyActivity: focusContext.captureRecallSessionStudyActivity,
       storage: window.localStorage,
     });
+  const studyNotesContext =
+    options.studyNotesContext ??
+    createAppStudyNotesContext({
+      keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({
@@ -132,8 +145,10 @@ export function renderRoute(
       persistentLabels: options.persistentLabelsContext,
       persistentNotes: options.persistentNotesContext,
       persistentRecall: options.persistentRecallContext,
+      persistentStudyNotes: options.persistentStudyNotesContext,
       recall: recallContext,
       session: sessionContext,
+      studyNotes: studyNotesContext,
     },
     defaultPreload: "intent",
     scrollRestoration: true,

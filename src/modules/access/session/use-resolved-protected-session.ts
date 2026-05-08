@@ -12,7 +12,8 @@ type ProtectedSessionRouteId =
   | "/_protected/labels"
   | "/_protected/notes"
   | "/_protected/recall"
-  | "/_protected/settings";
+  | "/_protected/settings"
+  | "/_protected/study-notes";
 
 export function useResolvedProtectedSession(routeId: ProtectedSessionRouteId): {
   session: AppSessionContext;

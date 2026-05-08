@@ -13,7 +13,7 @@ describe("route tree", () => {
     );
     expect(generatedRouteTree).toContain("modules/access/session/login-route");
     expect(generatedRouteTree).toContain(
-      "modules/notes/notes-workspace/notes-route",
+      "modules/study-notes/study-notes-route",
     );
     expect(generatedRouteTree).toContain(
       "modules/labels/label-management/labels-route",
@@ -31,7 +31,7 @@ describe("route tree", () => {
       "'/login': typeof modulesAccessSessionLoginRouteRoute",
     );
     expect(generatedRouteTree).toContain(
-      "'/notes': typeof modulesNotesNotesWorkspaceNotesRouteRoute",
+      "'/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute",
     );
     expect(generatedRouteTree).toContain(
       "'/labels': typeof modulesLabelsLabelManagementLabelsRouteRoute",

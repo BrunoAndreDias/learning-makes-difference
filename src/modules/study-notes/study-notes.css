@@ -1,0 +1,36 @@
+.study-notes-layout {
+  grid-template-columns: minmax(15rem, 22rem) minmax(24rem, 1fr);
+}
+
+.study-notes-editor {
+  align-content: start;
+}
+
+.study-notes-editor__fields {
+  display: grid;
+  gap: 1.25rem;
+  padding-top: 1.25rem;
+}
+
+.study-notes-editor__source {
+  display: grid;
+  gap: 0.9rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-content-border-soft);
+}
+
+.study-notes-editor__source h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.study-notes-editor .notes-form__field input,
+.study-notes-editor .notes-form__field textarea {
+  width: 100%;
+}
+
+@media (max-width: 860px) {
+  .study-notes-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

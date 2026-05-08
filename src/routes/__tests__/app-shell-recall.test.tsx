@@ -542,7 +542,7 @@ describe("authenticated recall workspace", () => {
       }),
     });
 
-    renderRoute("/recall", {
+    const routeRender = renderRoute("/recall", {
       ...contexts,
       persistentRecallContext,
       session: createSession(),
@@ -552,7 +552,7 @@ describe("authenticated recall workspace", () => {
       await screen.findByRole("heading", { level: 3, name: "Recall" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("link", { name: "Notes" }));
+    await routeRender.router.navigate({ to: "/notes" });
 
     expect(
       await screen.findByRole("heading", { level: 1, name: "Notes" }),

@@ -15,6 +15,11 @@ import {
 import { createServerNotesService } from "./modules/notes/notes-server-fns";
 import { createPersistentRecallContext } from "./modules/recall";
 import { createServerRecallService } from "./modules/recall/recall-server-fns";
+import {
+  createPersistentStudyNotesContext,
+  createReadonlyStudyNotesContext,
+} from "./modules/study-notes";
+import { createServerStudyNotesService } from "./modules/study-notes/study-notes-server-fns";
 import { routeTree } from "./routeTree.gen";
 
 export function getRouter() {
@@ -26,6 +31,10 @@ export function getRouter() {
     service: createServerNotesService(),
   });
   const notes = createReadonlyNotesContext(persistentNotes);
+  const persistentStudyNotes = createPersistentStudyNotesContext({
+    service: createServerStudyNotesService(),
+  });
+  const studyNotes = createReadonlyStudyNotesContext(persistentStudyNotes);
   const persistentFocus = createPersistentFocusContext({
     service: createServerFocusService(),
   });
@@ -47,8 +56,10 @@ export function getRouter() {
       persistentLabels,
       persistentNotes,
       persistentRecall,
+      persistentStudyNotes,
       recall,
       session: createAppSessionContext(),
+      studyNotes,
     },
     routeTree,
     defaultPreload: "intent",

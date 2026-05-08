@@ -623,7 +623,7 @@ describe("authenticated app shell", () => {
       },
     });
 
-    renderRoute("/recall", {
+    const routeRender = renderRoute("/recall", {
       persistentNotesContext,
       session: {
         user: {
@@ -642,7 +642,7 @@ describe("authenticated app shell", () => {
       }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("link", { name: "Notes" }));
+    await routeRender.router.navigate({ to: "/notes" });
 
     expect(
       await screen.findByRole("heading", { level: 1, name: "Notes" }),

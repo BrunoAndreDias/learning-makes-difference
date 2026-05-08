@@ -7,7 +7,7 @@ export const Route = createFileRoute("/_public/")({
     const sessionSnapshot = await context.session.refresh();
 
     throw redirect({
-      to: hasActiveSession(sessionSnapshot) ? "/notes" : "/login",
+      to: hasActiveSession(sessionSnapshot) ? "/study-notes" : "/login",
     });
   },
 });

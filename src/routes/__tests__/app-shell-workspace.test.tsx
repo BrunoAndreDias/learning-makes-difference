@@ -64,7 +64,7 @@ describe("authenticated app shell", () => {
       name: "App sections",
     });
     expect(
-      within(appSections).getByRole("link", { name: "Notes" }),
+      within(appSections).getByRole("link", { name: "Study Notes" }),
     ).toBeInTheDocument();
     expect(
       within(appSections).getByRole("link", { name: "Labels" }),
@@ -149,10 +149,10 @@ describe("authenticated app shell", () => {
   });
 
   it("renders global workspace navigation and updates the active link when navigating", async () => {
-    const { router } = renderRoute("/notes");
+    const { router } = renderRoute("/study-notes");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Notes" }),
+      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
     ).toBeInTheDocument();
 
     const sidebar = screen.getByRole("complementary", {
@@ -161,7 +161,9 @@ describe("authenticated app shell", () => {
     const appSections = within(sidebar).getByRole("navigation", {
       name: "App sections",
     });
-    const notesLink = within(appSections).getByRole("link", { name: "Notes" });
+    const notesLink = within(appSections).getByRole("link", {
+      name: "Study Notes",
+    });
     const labelsLink = within(appSections).getByRole("link", {
       name: "Labels",
     });
@@ -179,7 +181,7 @@ describe("authenticated app shell", () => {
     expect(
       within(appSections).queryByRole("link", { name: "Recall history" }),
     ).not.toBeInTheDocument();
-    expect(notesLink).toHaveAttribute("href", "/notes");
+    expect(notesLink).toHaveAttribute("href", "/study-notes");
     expect(labelsLink).toHaveAttribute("href", "/labels");
     expect(recallLink).toHaveAttribute("href", "/recall");
     expect(notesLink).toHaveAttribute("aria-current", "page");

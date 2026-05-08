@@ -408,7 +408,7 @@ describe("authenticated app shell", () => {
       screen.getByRole("button", { name: "End focus" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("link", { name: "Notes" }));
+    await router.navigate({ to: "/notes" });
     expect(
       await screen.findByRole("heading", { level: 1, name: "Notes" }),
     ).toBeInTheDocument();

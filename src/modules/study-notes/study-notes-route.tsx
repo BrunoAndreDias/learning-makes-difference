@@ -1,0 +1,346 @@
+import { createFileRoute, useRouteContext } from "@tanstack/react-router";
+import {
+  type FormEvent,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
+
+import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
+import "../notes/notes-workspace/notes-editor-route.css";
+import "../notes/notes-workspace/notes-form-foundation.css";
+import "../notes/notes-workspace/notes-foundation.css";
+import "../notes/notes-workspace/notes-responsive.css";
+import "../notes/notes-workspace/notes-toolbar.css";
+import "./study-notes.css";
+import {
+  type AppPersistentStudyNotesContext,
+  type AppStudyNotesContext,
+  AppStudyNotesError,
+  listStudyNotesForUser,
+  type UpdateStudyNoteInput,
+} from ".";
+
+export const Route = createFileRoute("/_protected/study-notes")({
+  component: StudyNotesWorkspace,
+});
+
+function createBlankDraft(): UpdateStudyNoteInput {
+  return {
+    expectedAnswer: "",
+    prompt: "",
+    sourceBody: "",
+    sourceTitle: "",
+  };
+}
+
+function StudyNotesWorkspace() {
+  const studyNotesContext = useRouteContext({
+    from: "/_protected/study-notes",
+    select: (context) => context.studyNotes,
+  });
+  const persistentStudyNotesContext = useRouteContext({
+    from: "/_protected/study-notes",
+    select: (context) => context.persistentStudyNotes,
+  });
+  const { sessionSnapshot } = useResolvedProtectedSession(
+    "/_protected/study-notes",
+  );
+  const userId = sessionSnapshot.user?.id ?? null;
+  const studyNotesStore:
+    | Pick<AppStudyNotesContext, "getSnapshot" | "subscribe">
+    | Pick<AppPersistentStudyNotesContext, "getSnapshot" | "subscribe"> =
+    persistentStudyNotesContext ?? studyNotesContext;
+  const studyNotesSnapshot = useSyncExternalStore(
+    studyNotesStore.subscribe,
+    studyNotesStore.getSnapshot,
+    studyNotesStore.getSnapshot,
+  );
+  const studyNotes = useMemo(
+    () => listStudyNotesForUser(studyNotesSnapshot, userId),
+    [studyNotesSnapshot, userId],
+  );
+  const [selectedStudyNoteId, setSelectedStudyNoteId] = useState<string | null>(
+    studyNotes[0]?.id ?? null,
+  );
+  const selectedStudyNote =
+    studyNotes.find((studyNote) => studyNote.id === selectedStudyNoteId) ??
+    studyNotes[0] ??
+    null;
+  const [draft, setDraft] = useState<UpdateStudyNoteInput>(() =>
+    selectedStudyNote === null
+      ? createBlankDraft()
+      : {
+          expectedAnswer: selectedStudyNote.expectedAnswer,
+          prompt: selectedStudyNote.prompt,
+          sourceBody: selectedStudyNote.source.body,
+          sourceTitle: selectedStudyNote.source.title,
+        },
+  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const storeMutation =
+    persistentStudyNotesContext === undefined
+      ? studyNotesContext
+      : persistentStudyNotesContext;
+
+  useEffect(() => {
+    if (persistentStudyNotesContext === undefined) {
+      return;
+    }
+
+    void persistentStudyNotesContext.refresh(userId).catch((error: unknown) => {
+      if (error instanceof AppStudyNotesError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    });
+  }, [persistentStudyNotesContext, userId]);
+
+  useEffect(() => {
+    if (
+      selectedStudyNoteId !== null &&
+      studyNotes.some((studyNote) => studyNote.id === selectedStudyNoteId)
+    ) {
+      return;
+    }
+
+    setSelectedStudyNoteId(studyNotes[0]?.id ?? null);
+  }, [selectedStudyNoteId, studyNotes]);
+
+  useEffect(() => {
+    if (selectedStudyNote === null) {
+      setDraft(createBlankDraft());
+      return;
+    }
+
+    setDraft({
+      expectedAnswer: selectedStudyNote.expectedAnswer,
+      prompt: selectedStudyNote.prompt,
+      sourceBody: selectedStudyNote.source.body,
+      sourceTitle: selectedStudyNote.source.title,
+    });
+  }, [selectedStudyNote]);
+
+  async function handleNewStudyNote() {
+    setErrorMessage(null);
+    setSaveStatus(null);
+
+    try {
+      const createdStudyNote = await storeMutation.createStudyNote(userId, {
+        sourceBody: "Expected answer",
+        sourceTitle: "New Study Note",
+      });
+      setSelectedStudyNoteId(createdStudyNote.id);
+    } catch (error) {
+      handleError(error);
+    }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErrorMessage(null);
+    setSaveStatus(null);
+
+    try {
+      if (selectedStudyNote === null) {
+        const createdStudyNote = await storeMutation.createStudyNote(userId, {
+          sourceBody: draft.sourceBody,
+          sourceTitle: draft.sourceTitle || draft.prompt,
+        });
+        const updatedStudyNote = await storeMutation.updateStudyNote(
+          userId,
+          createdStudyNote.id,
+          draft,
+        );
+        setSelectedStudyNoteId(updatedStudyNote.id);
+      } else {
+        await storeMutation.updateStudyNote(
+          userId,
+          selectedStudyNote.id,
+          draft,
+        );
+      }
+
+      setSaveStatus("Saved");
+    } catch (error) {
+      handleError(error);
+    }
+  }
+
+  function handleError(error: unknown) {
+    if (error instanceof AppStudyNotesError) {
+      setErrorMessage(error.message);
+      return;
+    }
+
+    throw error;
+  }
+
+  return (
+    <section className="notes-workspace study-notes-workspace">
+      <header className="notes-toolbar">
+        <div>
+          <p className="section-label">Workspace</p>
+          <h1>Study Notes</h1>
+          <p className="notes-toolbar__copy">
+            Practice targets with source context underneath.
+          </p>
+        </div>
+        <button
+          className="notes-action notes-action-primary"
+          onClick={() => void handleNewStudyNote()}
+          type="button"
+        >
+          New Study Note
+        </button>
+      </header>
+
+      <div className="notes-layout study-notes-layout">
+        <aside aria-label="Study Notes catalog" className="notes-list-panel">
+          <div className="notes-list-panel__header">
+            <div>
+              <p className="section-label">Study Notes</p>
+              <h2>Study Notes</h2>
+            </div>
+            <span className="tag">{`${studyNotes.length} Study Notes`}</span>
+          </div>
+          <nav aria-label="Study Notes list" className="notes-list">
+            {studyNotes.length === 0 ? (
+              <p className="muted notes-list__empty">
+                Create a Study Note to start practicing.
+              </p>
+            ) : (
+              <ul>
+                {studyNotes.map((studyNote) => (
+                  <li key={studyNote.id}>
+                    <button
+                      aria-label={studyNote.prompt}
+                      aria-current={
+                        studyNote.id === selectedStudyNote?.id
+                          ? "page"
+                          : undefined
+                      }
+                      className="notes-list__item"
+                      onClick={() => {
+                        setSelectedStudyNoteId(studyNote.id);
+                        setSaveStatus(null);
+                      }}
+                      type="button"
+                    >
+                      <strong>{studyNote.prompt}</strong>
+                      <span>{studyNote.source.title}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </nav>
+        </aside>
+
+        <form
+          aria-label="Study Note editor surface"
+          className="notes-editor study-notes-editor"
+          onSubmit={(event) => void handleSubmit(event)}
+        >
+          <fieldset className="notes-editor__study-surface">
+            <legend className="sr-only">Study Note</legend>
+            <div className="notes-editor__header">
+              <div className="notes-editor__title-stack">
+                <p className="section-label">Study Note</p>
+                <label className="notes-title-editor">
+                  <span className="sr-only">Prompt</span>
+                  <input
+                    aria-label="Prompt"
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        prompt: event.target.value,
+                      }))
+                    }
+                    placeholder="Prompt"
+                    value={draft.prompt}
+                  />
+                </label>
+              </div>
+              <button
+                className="notes-action notes-action-primary"
+                type="submit"
+              >
+                Save
+              </button>
+            </div>
+
+            <div className="study-notes-editor__fields">
+              <label className="notes-form__field">
+                <span>Expected answer</span>
+                <textarea
+                  aria-label="Expected answer"
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      expectedAnswer: event.target.value,
+                    }))
+                  }
+                  rows={9}
+                  value={draft.expectedAnswer}
+                />
+              </label>
+
+              <section
+                aria-label="Source Note"
+                className="study-notes-editor__source"
+              >
+                <div>
+                  <p className="section-label">Source Note</p>
+                  <h2>Source Note</h2>
+                </div>
+                <label className="notes-form__field">
+                  <span>Source title</span>
+                  <input
+                    aria-label="Source title"
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        sourceTitle: event.target.value,
+                      }))
+                    }
+                    value={draft.sourceTitle}
+                  />
+                </label>
+                <label className="notes-form__field">
+                  <span>Source body</span>
+                  <textarea
+                    aria-label="Source body"
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        sourceBody: event.target.value,
+                      }))
+                    }
+                    rows={8}
+                    value={draft.sourceBody}
+                  />
+                </label>
+              </section>
+            </div>
+          </fieldset>
+
+          {errorMessage === null ? null : (
+            <p className="form-error" role="alert">
+              {errorMessage}
+            </p>
+          )}
+          {saveStatus === null ? null : (
+            <p className="muted" role="status">
+              {saveStatus}
+            </p>
+          )}
+        </form>
+      </div>
+    </section>
+  );
+}

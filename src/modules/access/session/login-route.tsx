@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_auth/login")({
 
     if (hasActiveSession(sessionSnapshot)) {
       throw redirect({
-        to: search.redirect ?? "/notes",
+        to: search.redirect ?? "/study-notes",
       });
     }
   },
@@ -40,7 +40,7 @@ function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
-  const redirectTarget = search.redirect ?? "/notes";
+  const redirectTarget = search.redirect ?? "/study-notes";
   const passwordVisibilityLabel = showPassword
     ? t("access.login.password.hide")
     : t("access.login.password.show");

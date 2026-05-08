@@ -1,0 +1,333 @@
+import { and, eq, inArray } from "drizzle-orm";
+import type { PgDatabase } from "drizzle-orm/pg-core/db";
+import type { PgQueryResultHKT } from "drizzle-orm/pg-core/session";
+import { notesTable } from "../notes/notes-schema";
+import {
+  type AppStudyNote,
+  AppStudyNotesError,
+  type CreateStudyNoteInput,
+  type UpdateStudyNoteInput,
+} from "./study-notes";
+import { studyNotesTable } from "./study-notes-schema";
+
+type StudyNotesDatabase<TSchema extends Record<string, unknown>> = PgDatabase<
+  PgQueryResultHKT,
+  TSchema
+>;
+
+type StudyNotesCrypto = {
+  randomUUID: () => string;
+};
+
+type CreateStudyNotesServiceOptions = {
+  crypto?: StudyNotesCrypto;
+  db: StudyNotesDatabase<Record<string, unknown>>;
+  now?: () => Date;
+};
+
+function getDefaultCrypto(): StudyNotesCrypto {
+  return globalThis.crypto;
+}
+
+function validateRequiredText(value: string, label: string): string {
+  const trimmedValue = value.trim();
+
+  if (trimmedValue.length === 0) {
+    throw new AppStudyNotesError("invalid_input", `${label} is required.`);
+  }
+
+  return trimmedValue;
+}
+
+function validateOptionalText(value: string): string {
+  return value.trim();
+}
+
+function toAppStudyNote(input: {
+  createdAt: Date;
+  expectedAnswer: string;
+  id: string;
+  prompt: string;
+  sourceBody: string;
+  sourceNoteId: string;
+  sourceTitle: string;
+  sourceUpdatedAt: Date;
+  updatedAt: Date;
+}): AppStudyNote {
+  return {
+    createdAt: input.createdAt.toISOString(),
+    expectedAnswer: input.expectedAnswer,
+    id: input.id,
+    prompt: input.prompt,
+    source: {
+      body: input.sourceBody,
+      id: input.sourceNoteId,
+      title: input.sourceTitle,
+      updatedAt: input.sourceUpdatedAt.toISOString(),
+    },
+    sourceNoteId: input.sourceNoteId,
+    updatedAt: input.updatedAt.toISOString(),
+  };
+}
+
+async function readOwnedStudyNote(input: {
+  db: StudyNotesDatabase<Record<string, unknown>>;
+  studyNoteId: string;
+  userId: string;
+}) {
+  const row =
+    (
+      await input.db
+        .select({
+          createdAt: studyNotesTable.createdAt,
+          expectedAnswer: studyNotesTable.expectedAnswer,
+          id: studyNotesTable.id,
+          prompt: studyNotesTable.prompt,
+          sourceBody: notesTable.body,
+          sourceNoteId: studyNotesTable.sourceNoteId,
+          sourceTitle: notesTable.title,
+          sourceUpdatedAt: notesTable.updatedAt,
+          updatedAt: studyNotesTable.updatedAt,
+        })
+        .from(studyNotesTable)
+        .innerJoin(notesTable, eq(studyNotesTable.sourceNoteId, notesTable.id))
+        .where(
+          and(
+            eq(studyNotesTable.id, input.studyNoteId),
+            eq(notesTable.userId, input.userId),
+          ),
+        )
+        .limit(1)
+    )[0] ?? null;
+
+  if (row === null) {
+    throw new AppStudyNotesError(
+      "not_found",
+      "The requested Study Note could not be found for this account.",
+    );
+  }
+
+  return row;
+}
+
+export function createStudyNotesService({
+  crypto = getDefaultCrypto(),
+  db,
+  now = () => new Date(),
+}: CreateStudyNotesServiceOptions) {
+  return {
+    async createStudyNote(input: {
+      input: CreateStudyNoteInput;
+      userId: string;
+    }) {
+      const timestamp = now();
+      const sourceNoteId = crypto.randomUUID();
+      const studyNoteId = crypto.randomUUID();
+      const sourceTitle = validateRequiredText(
+        input.input.sourceTitle,
+        "Source title",
+      );
+      const sourceBody = validateOptionalText(input.input.sourceBody);
+
+      await db.transaction(async (tx) => {
+        await tx.insert(notesTable).values({
+          body: sourceBody,
+          createdAt: timestamp,
+          id: sourceNoteId,
+          labelIds: [],
+          title: sourceTitle,
+          updatedAt: timestamp,
+          userId: input.userId,
+        });
+        await tx.insert(studyNotesTable).values({
+          createdAt: timestamp,
+          expectedAnswer: sourceBody,
+          id: studyNoteId,
+          prompt: sourceTitle,
+          sourceNoteId,
+          updatedAt: timestamp,
+        });
+      });
+
+      return toAppStudyNote({
+        createdAt: timestamp,
+        expectedAnswer: sourceBody,
+        id: studyNoteId,
+        prompt: sourceTitle,
+        sourceBody,
+        sourceNoteId,
+        sourceTitle,
+        sourceUpdatedAt: timestamp,
+        updatedAt: timestamp,
+      });
+    },
+    async listStudyNotes(input: { userId: string }) {
+      const rows = await db
+        .select({
+          createdAt: studyNotesTable.createdAt,
+          expectedAnswer: studyNotesTable.expectedAnswer,
+          id: studyNotesTable.id,
+          prompt: studyNotesTable.prompt,
+          sourceBody: notesTable.body,
+          sourceNoteId: studyNotesTable.sourceNoteId,
+          sourceTitle: notesTable.title,
+          sourceUpdatedAt: notesTable.updatedAt,
+          updatedAt: studyNotesTable.updatedAt,
+        })
+        .from(studyNotesTable)
+        .innerJoin(notesTable, eq(studyNotesTable.sourceNoteId, notesTable.id))
+        .where(eq(notesTable.userId, input.userId));
+
+      return rows
+        .sort((left, right) =>
+          right.updatedAt
+            .toISOString()
+            .localeCompare(left.updatedAt.toISOString()),
+        )
+        .map(toAppStudyNote);
+    },
+    async updateStudyNote(input: {
+      input: UpdateStudyNoteInput & { studyNoteId: string };
+      userId: string;
+    }) {
+      const existingStudyNote = await readOwnedStudyNote({
+        db,
+        studyNoteId: input.input.studyNoteId,
+        userId: input.userId,
+      });
+      const timestamp = now();
+      const prompt = validateRequiredText(input.input.prompt, "Prompt");
+      const expectedAnswer = validateOptionalText(input.input.expectedAnswer);
+      const sourceTitle = validateRequiredText(
+        input.input.sourceTitle,
+        "Source title",
+      );
+      const sourceBody = validateOptionalText(input.input.sourceBody);
+
+      await db.transaction(async (tx) => {
+        await tx
+          .update(studyNotesTable)
+          .set({
+            expectedAnswer,
+            prompt,
+            updatedAt: timestamp,
+          })
+          .where(eq(studyNotesTable.id, existingStudyNote.id));
+        await tx
+          .update(notesTable)
+          .set({
+            body: sourceBody,
+            title: sourceTitle,
+            updatedAt: timestamp,
+          })
+          .where(
+            and(
+              eq(notesTable.id, existingStudyNote.sourceNoteId),
+              eq(notesTable.userId, input.userId),
+            ),
+          );
+      });
+
+      return toAppStudyNote({
+        createdAt: existingStudyNote.createdAt,
+        expectedAnswer,
+        id: existingStudyNote.id,
+        prompt,
+        sourceBody,
+        sourceNoteId: existingStudyNote.sourceNoteId,
+        sourceTitle,
+        sourceUpdatedAt: timestamp,
+        updatedAt: timestamp,
+      });
+    },
+    async updateSourceNote(input: {
+      input: { body: string; sourceNoteId: string; title: string };
+      userId: string;
+    }) {
+      const timestamp = now();
+      const title = validateRequiredText(input.input.title, "Source title");
+      const body = validateOptionalText(input.input.body);
+      const existingSource =
+        (
+          await db
+            .select()
+            .from(notesTable)
+            .where(
+              and(
+                eq(notesTable.id, input.input.sourceNoteId),
+                eq(notesTable.userId, input.userId),
+              ),
+            )
+            .limit(1)
+        )[0] ?? null;
+
+      if (existingSource === null) {
+        throw new AppStudyNotesError(
+          "not_found",
+          "The requested source Note could not be found for this account.",
+        );
+      }
+
+      await db
+        .update(notesTable)
+        .set({
+          body,
+          title,
+          updatedAt: timestamp,
+        })
+        .where(eq(notesTable.id, input.input.sourceNoteId));
+
+      const affectedStudyNotes = await db
+        .select({ id: studyNotesTable.id })
+        .from(studyNotesTable)
+        .where(eq(studyNotesTable.sourceNoteId, input.input.sourceNoteId));
+
+      if (affectedStudyNotes.length === 0) {
+        return [];
+      }
+
+      return (
+        await Promise.all(
+          affectedStudyNotes.map((studyNote) =>
+            readOwnedStudyNote({
+              db,
+              studyNoteId: studyNote.id,
+              userId: input.userId,
+            }),
+          ),
+        )
+      ).map(toAppStudyNote);
+    },
+    async listStudyNotesForSources(input: {
+      sourceNoteIds: string[];
+      userId: string;
+    }) {
+      if (input.sourceNoteIds.length === 0) {
+        return [];
+      }
+
+      const rows = await db
+        .select({
+          createdAt: studyNotesTable.createdAt,
+          expectedAnswer: studyNotesTable.expectedAnswer,
+          id: studyNotesTable.id,
+          prompt: studyNotesTable.prompt,
+          sourceBody: notesTable.body,
+          sourceNoteId: studyNotesTable.sourceNoteId,
+          sourceTitle: notesTable.title,
+          sourceUpdatedAt: notesTable.updatedAt,
+          updatedAt: studyNotesTable.updatedAt,
+        })
+        .from(studyNotesTable)
+        .innerJoin(notesTable, eq(studyNotesTable.sourceNoteId, notesTable.id))
+        .where(
+          and(
+            eq(notesTable.userId, input.userId),
+            inArray(studyNotesTable.sourceNoteId, input.sourceNoteIds),
+          ),
+        );
+
+      return rows.map(toAppStudyNote);
+    },
+  };
+}

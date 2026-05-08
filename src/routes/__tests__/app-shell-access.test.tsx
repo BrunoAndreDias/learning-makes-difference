@@ -95,13 +95,13 @@ describe("authenticated app shell", () => {
     expect(router.state.location.pathname).toBe("/login");
   });
 
-  it("redirects authenticated visits to the root path into the notes workspace", async () => {
+  it("redirects authenticated visits to the root path into the Study Notes workspace", async () => {
     const { router } = renderRoute("/");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Notes" }),
+      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/notes");
+    expect(router.state.location.pathname).toBe("/study-notes");
   });
 
   it("redirects anonymous visits to unknown paths into login", async () => {
@@ -114,13 +114,13 @@ describe("authenticated app shell", () => {
     expect(router.state.location.search.redirect).toBeUndefined();
   });
 
-  it("redirects authenticated visits to unknown paths into the notes workspace", async () => {
+  it("redirects authenticated visits to unknown paths into the Study Notes workspace", async () => {
     const { router } = renderRoute("/qweqwe");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Notes" }),
+      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/notes");
+    expect(router.state.location.pathname).toBe("/study-notes");
   });
 
   it("redirects the removed /recall/results route to the canonical Recall workspace", async () => {
@@ -782,7 +782,7 @@ describe("authenticated app shell", () => {
 
     initialRoute.unmount();
 
-    const refreshedRoute = renderRoute("/login", {
+    const refreshedRoute = renderRoute("/login?redirect=/notes", {
       notesContext: createAppNotesContext({
         keyPrefix: notesKeyPrefix,
         storage: window.localStorage,

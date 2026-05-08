@@ -27,6 +27,10 @@ import type {
   AppPersistentRecallContext,
   AppRecallContext,
 } from "../../recall";
+import type {
+  AppPersistentStudyNotesContext,
+  AppStudyNotesContext,
+} from "../../study-notes";
 import { shouldShowRouterDevtools } from "./router-devtools-gate";
 
 const authRoutePaths = new Set(["/forgot-password", "/login", "/register"]);
@@ -35,6 +39,7 @@ const redirectableProtectedPaths = [
   "/notes",
   "/recall",
   "/settings",
+  "/study-notes",
   "/study-notes-prototype",
 ];
 
@@ -53,9 +58,11 @@ export const Route = createRootRouteWithContext<{
   persistentLabels?: AppPersistentLabelsContext;
   persistentNotes?: AppPersistentNotesContext;
   persistentRecall?: AppPersistentRecallContext;
+  persistentStudyNotes?: AppPersistentStudyNotesContext;
   recall: AppRecallContext;
   session: AppSessionContext;
   sessionSnapshot?: AppSessionSnapshot;
+  studyNotes: AppStudyNotesContext;
 }>()({
   head: () => ({
     meta: [
@@ -106,7 +113,9 @@ function NotFoundRedirect() {
     session.getSnapshot,
     session.getSnapshot,
   );
-  const redirectTo = hasActiveSession(sessionSnapshot) ? "/notes" : "/login";
+  const redirectTo = hasActiveSession(sessionSnapshot)
+    ? "/study-notes"
+    : "/login";
 
   return <Navigate to={redirectTo} />;
 }
@@ -174,7 +183,7 @@ function RootDocumentBody({ children }: Readonly<{ children: ReactNode }>) {
                 </li>
                 <li>
                   <Link
-                    to="/notes"
+                    to="/study-notes"
                     activeProps={{ className: "nav-link nav-link-active" }}
                     className="nav-link"
                   >

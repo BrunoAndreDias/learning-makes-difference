@@ -26,6 +26,10 @@ import { NotesWorkspaceProvider } from "../../notes";
 type NavigationIconName = "focus" | "label" | "note" | "recall" | "settings";
 
 function getWorkspaceTitle(pathname: string) {
+  if (pathname === "/study-notes" || pathname.startsWith("/study-notes/")) {
+    return "Study Notes";
+  }
+
   if (
     pathname === "/study-notes-prototype" ||
     pathname.startsWith("/study-notes-prototype/")
@@ -70,6 +74,8 @@ function getRecallWorkspaceTitle(pathname: string) {
 
 function isNotesWorkspacePath(pathname: string) {
   return (
+    pathname === "/study-notes" ||
+    pathname.startsWith("/study-notes/") ||
     pathname === "/notes" ||
     pathname.startsWith("/notes/") ||
     pathname === "/study-notes-prototype" ||
@@ -407,12 +413,12 @@ function GlobalNavigation({
             }}
             className="app-sidebar__link"
             onClick={onNavigate}
-            to="/notes"
+            to="/study-notes"
           >
             <span aria-hidden="true" className="app-sidebar__icon">
               <NavigationIcon name="note" />
             </span>
-            <span className="app-sidebar__label">Notes</span>
+            <span className="app-sidebar__label">Study Notes</span>
           </Link>
         </li>
         <li>
