@@ -16,6 +16,7 @@ import {
   normalizeUserLanguage,
   type RegisterInput,
   type UpdatePreferencesInput,
+  validateStudyIntensityPreference,
   validateStudyObjectivePreference,
   validateUserLanguagePreference,
   validateUserTimeZonePreference,
@@ -69,6 +70,7 @@ function buildSessionUser(user: StoredUser): AppSessionUser {
     email: user.email,
     userLanguage: normalizeUserLanguage(user.userLanguage),
     studyObjective: user.studyObjective,
+    studyIntensity: user.studyIntensity,
     userTimeZone: user.userTimeZone ?? defaultUserTimeZone,
   };
 }
@@ -270,6 +272,7 @@ async function getStoredUserForActiveSession({
       passwordHash: usersTable.passwordHash,
       userLanguage: usersTable.userLanguage,
       studyObjective: usersTable.studyObjective,
+      studyIntensity: usersTable.studyIntensity,
       userTimeZone: usersTable.userTimeZone,
       createdAt: usersTable.createdAt,
       updatedAt: usersTable.updatedAt,
@@ -413,6 +416,7 @@ export function createAuthService({
         passwordHash,
         userLanguage: safeUserLanguage,
         studyObjective: null,
+        studyIntensity: null,
         userTimeZone: safeUserTimeZone,
         createdAt: timestamp,
         updatedAt: timestamp,
@@ -424,6 +428,7 @@ export function createAuthService({
         email: safeEmail,
         userLanguage: safeUserLanguage,
         studyObjective: null,
+        studyIntensity: null,
         userTimeZone: safeUserTimeZone,
       };
 
@@ -443,6 +448,7 @@ export function createAuthService({
       displayName,
       userLanguage,
       studyObjective,
+      studyIntensity,
       userTimeZone,
     }: UpdatePreferencesInput): Promise<AppSessionSnapshot> {
       const storedUser = await getStoredUserForActiveSession({
@@ -461,6 +467,8 @@ export function createAuthService({
       const safeUserLanguage = validateUserLanguagePreference(userLanguage);
       const safeStudyObjective =
         validateStudyObjectivePreference(studyObjective);
+      const safeStudyIntensity =
+        validateStudyIntensityPreference(studyIntensity);
       const safeUserTimeZone = validateUserTimeZonePreference(userTimeZone);
       const updatedAt = now();
 
@@ -470,6 +478,7 @@ export function createAuthService({
           displayName: safeDisplayName,
           userLanguage: safeUserLanguage,
           studyObjective: safeStudyObjective,
+          studyIntensity: safeStudyIntensity,
           userTimeZone: safeUserTimeZone,
           updatedAt,
         })
@@ -482,6 +491,7 @@ export function createAuthService({
           email: storedUser.email,
           userLanguage: safeUserLanguage,
           studyObjective: safeStudyObjective,
+          studyIntensity: safeStudyIntensity,
           userTimeZone: safeUserTimeZone,
         },
       };

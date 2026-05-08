@@ -10,6 +10,9 @@ export { fallbackUserLanguage } from "../../language/user-language";
 export type StudyObjectivePreferenceOption =
   (typeof studyObjectivePreferences)[number];
 export type StudyObjectivePreference = StudyObjectivePreferenceOption | null;
+export type StudyIntensityPreferenceOption =
+  (typeof studyIntensityPreferences)[number];
+export type StudyIntensityPreference = StudyIntensityPreferenceOption | null;
 
 export type AppSessionUser = {
   email: string;
@@ -17,6 +20,7 @@ export type AppSessionUser = {
   displayName: string;
   userLanguage: UserLanguage;
   studyObjective?: StudyObjectivePreference;
+  studyIntensity?: StudyIntensityPreference;
   userTimeZone?: UserTimeZonePreference;
 };
 
@@ -31,6 +35,11 @@ export const studyObjectivePreferences = [
   "specific_exam",
   "professional_learning",
   "other",
+] as const;
+export const studyIntensityPreferences = [
+  "light",
+  "regular",
+  "intensive",
 ] as const;
 export const defaultUserTimeZone = "UTC";
 const appAuthErrorCodes = [
@@ -62,6 +71,7 @@ export type UpdatePreferencesInput = {
   displayName: string;
   userLanguage: UserLanguage;
   studyObjective: StudyObjectivePreference;
+  studyIntensity: StudyIntensityPreference;
   userTimeZone: UserTimeZonePreference;
 };
 
@@ -127,11 +137,33 @@ export function getAppAuthError(error: unknown): AppAuthError | null {
   return null;
 }
 
-function isUserLanguage(value: unknown): value is UserLanguage {
+function isSupportedPreferenceOption<TOption extends string>(
+  value: unknown,
+  supportedOptions: readonly TOption[],
+): value is TOption {
   return (
-    typeof value === "string" &&
-    userLanguagePreferences.includes(value as UserLanguage)
+    typeof value === "string" && supportedOptions.includes(value as TOption)
   );
+}
+
+function validateOptionalPreferenceOption<TOption extends string>(
+  value: unknown,
+  supportedOptions: readonly TOption[],
+  message: string,
+): TOption | null {
+  if (value === null) {
+    return null;
+  }
+
+  if (isSupportedPreferenceOption(value, supportedOptions)) {
+    return value;
+  }
+
+  throw new AppAuthError("invalid_input", message);
+}
+
+function isUserLanguage(value: unknown): value is UserLanguage {
+  return isSupportedPreferenceOption(value, userLanguagePreferences);
 }
 
 export function validateUserLanguagePreference(value: unknown): UserLanguage {
@@ -145,29 +177,24 @@ export function validateUserLanguagePreference(value: unknown): UserLanguage {
   return value;
 }
 
-function isStudyObjectivePreference(
-  value: unknown,
-): value is StudyObjectivePreference {
-  return (
-    value === null ||
-    (typeof value === "string" &&
-      studyObjectivePreferences.includes(
-        value as StudyObjectivePreferenceOption,
-      ))
-  );
-}
-
 export function validateStudyObjectivePreference(
   value: unknown,
 ): StudyObjectivePreference {
-  if (!isStudyObjectivePreference(value)) {
-    throw new AppAuthError(
-      "invalid_input",
-      "Study Objective must be one of the supported options.",
-    );
-  }
+  return validateOptionalPreferenceOption(
+    value,
+    studyObjectivePreferences,
+    "Study Objective must be one of the supported options.",
+  );
+}
 
-  return value;
+export function validateStudyIntensityPreference(
+  value: unknown,
+): StudyIntensityPreference {
+  return validateOptionalPreferenceOption(
+    value,
+    studyIntensityPreferences,
+    "Study Intensity must be one of the supported options.",
+  );
 }
 
 export function normalizeUserLanguage(value: unknown): UserLanguage {

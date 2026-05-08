@@ -577,6 +577,9 @@ describe("authenticated app shell", () => {
     fireEvent.change(screen.getByLabelText("Study Objective"), {
       target: { value: "specific_exam" },
     });
+    fireEvent.change(screen.getByLabelText("Study Intensity"), {
+      target: { value: "regular" },
+    });
     fireEvent.change(screen.getByLabelText("User Time Zone"), {
       target: { value: "America/New_York" },
     });
@@ -592,12 +595,18 @@ describe("authenticated app shell", () => {
     expect(screen.getByLabelText("Study Objective")).toHaveValue(
       "specific_exam",
     );
+    expect(screen.getByLabelText("Study Intensity")).toHaveValue("regular");
     expect(screen.getByLabelText("User Time Zone")).toHaveValue(
       "America/New_York",
     );
     expect(
       within(screen.getByLabelText("Current account settings")).getByText(
         "Specific exam",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText("Current account settings")).getByText(
+        "Regular",
       ),
     ).toBeInTheDocument();
     expect(
@@ -609,6 +618,9 @@ describe("authenticated app shell", () => {
     fireEvent.change(screen.getByLabelText("Study Objective"), {
       target: { value: "" },
     });
+    fireEvent.change(screen.getByLabelText("Study Intensity"), {
+      target: { value: "" },
+    });
     fireEvent.submit(
       screen.getByRole("form", { name: "Account preferences form" }),
     );
@@ -617,14 +629,18 @@ describe("authenticated app shell", () => {
       "Preferences saved.",
     );
     expect(screen.getByLabelText("Study Objective")).toHaveValue("");
+    expect(screen.getByLabelText("Study Intensity")).toHaveValue("");
     expect(
-      within(screen.getByLabelText("Current account settings")).getByText(
+      within(screen.getByLabelText("Current account settings")).getAllByText(
         "Not set",
       ),
-    ).toBeInTheDocument();
+    ).toHaveLength(2);
 
     fireEvent.change(screen.getByLabelText("Study Objective"), {
       target: { value: "professional_learning" },
+    });
+    fireEvent.change(screen.getByLabelText("Study Intensity"), {
+      target: { value: "intensive" },
     });
     fireEvent.submit(
       screen.getByRole("form", { name: "Account preferences form" }),
@@ -636,6 +652,7 @@ describe("authenticated app shell", () => {
     expect(screen.getByLabelText("Study Objective")).toHaveValue(
       "professional_learning",
     );
+    expect(screen.getByLabelText("Study Intensity")).toHaveValue("intensive");
 
     openAccountMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Log out" }));
@@ -671,6 +688,7 @@ describe("authenticated app shell", () => {
     expect(screen.getByLabelText("Study Objective")).toHaveValue(
       "professional_learning",
     );
+    expect(screen.getByLabelText("Study Intensity")).toHaveValue("intensive");
     expect(screen.getByLabelText("User Time Zone")).toHaveValue(
       "America/New_York",
     );

@@ -11,8 +11,11 @@ import {
   defaultUserTimeZone,
   fallbackUserLanguage,
   getAppAuthError,
+  type StudyIntensityPreference,
+  type StudyIntensityPreferenceOption,
   type StudyObjectivePreference,
   type StudyObjectivePreferenceOption,
+  studyIntensityPreferences,
   studyObjectivePreferences,
   type UserLanguage,
   type UserTimeZonePreference,
@@ -38,6 +41,12 @@ const studyObjectiveLabels: Record<StudyObjectivePreferenceOption, string> = {
   other: "Other",
 };
 
+const studyIntensityLabels: Record<StudyIntensityPreferenceOption, string> = {
+  light: "Light",
+  regular: "Regular",
+  intensive: "Intensive",
+};
+
 const fallbackUserTimeZones = [
   "America/New_York",
   "America/Chicago",
@@ -61,16 +70,17 @@ function getUserTimeZoneOptions(
   ).sort();
 }
 
-function readStudyObjectivePreference(value: string): StudyObjectivePreference {
-  return value === "" ? null : (value as StudyObjectivePreferenceOption);
+function readOptionalPreference<TOption extends string>(
+  value: string,
+): TOption | null {
+  return value === "" ? null : (value as TOption);
 }
 
-function getStudyObjectiveLabel(
-  studyObjective: StudyObjectivePreference,
+function getOptionalPreferenceLabel<TOption extends string>(
+  value: TOption | null,
+  labels: Record<TOption, string>,
 ): string {
-  return studyObjective === null
-    ? "Not set"
-    : studyObjectiveLabels[studyObjective];
+  return value === null ? "Not set" : labels[value];
 }
 
 function SettingsPage() {
@@ -84,6 +94,8 @@ function SettingsPage() {
   );
   const [studyObjective, setStudyObjective] =
     useState<StudyObjectivePreference>(user?.studyObjective ?? null);
+  const [studyIntensity, setStudyIntensity] =
+    useState<StudyIntensityPreference>(user?.studyIntensity ?? null);
   const [userTimeZone, setUserTimeZone] = useState<UserTimeZonePreference>(
     user?.userTimeZone ?? defaultUserTimeZone,
   );
@@ -99,6 +111,7 @@ function SettingsPage() {
     setDisplayName(user?.displayName ?? "");
     setUserLanguage(user?.userLanguage ?? fallbackUserLanguage);
     setStudyObjective(user?.studyObjective ?? null);
+    setStudyIntensity(user?.studyIntensity ?? null);
     setUserTimeZone(user?.userTimeZone ?? defaultUserTimeZone);
   }, [user]);
 
@@ -108,10 +121,12 @@ function SettingsPage() {
 
   const savedUserTimeZone = user.userTimeZone ?? defaultUserTimeZone;
   const savedStudyObjective = user.studyObjective ?? null;
+  const savedStudyIntensity = user.studyIntensity ?? null;
   const hasPreferenceChanges =
     displayName !== user.displayName ||
     userLanguage !== user.userLanguage ||
     studyObjective !== savedStudyObjective ||
+    studyIntensity !== savedStudyIntensity ||
     userTimeZone !== savedUserTimeZone;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -125,6 +140,7 @@ function SettingsPage() {
         displayName,
         userLanguage,
         studyObjective,
+        studyIntensity,
         userTimeZone,
       });
       setStatusMessage("Preferences saved.");
@@ -207,7 +223,9 @@ function SettingsPage() {
                 name="studyObjective"
                 onChange={(event) => {
                   setStudyObjective(
-                    readStudyObjectivePreference(event.target.value),
+                    readOptionalPreference<StudyObjectivePreferenceOption>(
+                      event.target.value,
+                    ),
                   );
                   setStatusMessage(null);
                 }}
@@ -217,6 +235,30 @@ function SettingsPage() {
                 {studyObjectivePreferences.map((objective) => (
                   <option key={objective} value={objective}>
                     {studyObjectiveLabels[objective]}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="settings-form__field">
+              <span>Study Intensity</span>
+              <select
+                className="settings-form__control"
+                name="studyIntensity"
+                onChange={(event) => {
+                  setStudyIntensity(
+                    readOptionalPreference<StudyIntensityPreferenceOption>(
+                      event.target.value,
+                    ),
+                  );
+                  setStatusMessage(null);
+                }}
+                value={studyIntensity ?? ""}
+              >
+                <option value="">No intensity selected</option>
+                {studyIntensityPreferences.map((intensity) => (
+                  <option key={intensity} value={intensity}>
+                    {studyIntensityLabels[intensity]}
                   </option>
                 ))}
               </select>
@@ -293,7 +335,21 @@ function SettingsPage() {
             </div>
             <div>
               <dt>Study Objective</dt>
-              <dd>{getStudyObjectiveLabel(studyObjective)}</dd>
+              <dd>
+                {getOptionalPreferenceLabel(
+                  studyObjective,
+                  studyObjectiveLabels,
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Study Intensity</dt>
+              <dd>
+                {getOptionalPreferenceLabel(
+                  studyIntensity,
+                  studyIntensityLabels,
+                )}
+              </dd>
             </div>
             <div>
               <dt>User Time Zone</dt>
