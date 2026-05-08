@@ -11,6 +11,9 @@ import {
   defaultUserTimeZone,
   fallbackUserLanguage,
   getAppAuthError,
+  type StudyObjectivePreference,
+  type StudyObjectivePreferenceOption,
+  studyObjectivePreferences,
   type UserLanguage,
   type UserTimeZonePreference,
   userLanguagePreferences,
@@ -25,6 +28,14 @@ const languageLabels: Record<UserLanguage, string> = {
   en: "English",
   es: "Spanish",
   "pt-PT": "Portuguese (Portugal)",
+};
+
+const studyObjectiveLabels: Record<StudyObjectivePreferenceOption, string> = {
+  university_study: "University study",
+  self_study: "Self study",
+  specific_exam: "Specific exam",
+  professional_learning: "Professional learning",
+  other: "Other",
 };
 
 const fallbackUserTimeZones = [
@@ -50,6 +61,18 @@ function getUserTimeZoneOptions(
   ).sort();
 }
 
+function readStudyObjectivePreference(value: string): StudyObjectivePreference {
+  return value === "" ? null : (value as StudyObjectivePreferenceOption);
+}
+
+function getStudyObjectiveLabel(
+  studyObjective: StudyObjectivePreference,
+): string {
+  return studyObjective === null
+    ? "Not set"
+    : studyObjectiveLabels[studyObjective];
+}
+
 function SettingsPage() {
   const { session, sessionSnapshot } = useResolvedProtectedSession(
     "/_protected/settings",
@@ -59,6 +82,8 @@ function SettingsPage() {
   const [userLanguage, setUserLanguage] = useState<UserLanguage>(
     user?.userLanguage ?? fallbackUserLanguage,
   );
+  const [studyObjective, setStudyObjective] =
+    useState<StudyObjectivePreference>(user?.studyObjective ?? null);
   const [userTimeZone, setUserTimeZone] = useState<UserTimeZonePreference>(
     user?.userTimeZone ?? defaultUserTimeZone,
   );
@@ -73,6 +98,7 @@ function SettingsPage() {
   useEffect(() => {
     setDisplayName(user?.displayName ?? "");
     setUserLanguage(user?.userLanguage ?? fallbackUserLanguage);
+    setStudyObjective(user?.studyObjective ?? null);
     setUserTimeZone(user?.userTimeZone ?? defaultUserTimeZone);
   }, [user]);
 
@@ -81,9 +107,11 @@ function SettingsPage() {
   }
 
   const savedUserTimeZone = user.userTimeZone ?? defaultUserTimeZone;
+  const savedStudyObjective = user.studyObjective ?? null;
   const hasPreferenceChanges =
     displayName !== user.displayName ||
     userLanguage !== user.userLanguage ||
+    studyObjective !== savedStudyObjective ||
     userTimeZone !== savedUserTimeZone;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -96,6 +124,7 @@ function SettingsPage() {
       await session.updatePreferences({
         displayName,
         userLanguage,
+        studyObjective,
         userTimeZone,
       });
       setStatusMessage("Preferences saved.");
@@ -172,6 +201,28 @@ function SettingsPage() {
             </label>
 
             <label className="settings-form__field">
+              <span>Study Objective</span>
+              <select
+                className="settings-form__control"
+                name="studyObjective"
+                onChange={(event) => {
+                  setStudyObjective(
+                    readStudyObjectivePreference(event.target.value),
+                  );
+                  setStatusMessage(null);
+                }}
+                value={studyObjective ?? ""}
+              >
+                <option value="">No objective selected</option>
+                {studyObjectivePreferences.map((objective) => (
+                  <option key={objective} value={objective}>
+                    {studyObjectiveLabels[objective]}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="settings-form__field">
               <span>User Time Zone</span>
               <select
                 className="settings-form__control"
@@ -239,6 +290,10 @@ function SettingsPage() {
             <div>
               <dt>User Language</dt>
               <dd>{languageLabels[userLanguage]}</dd>
+            </div>
+            <div>
+              <dt>Study Objective</dt>
+              <dd>{getStudyObjectiveLabel(studyObjective)}</dd>
             </div>
             <div>
               <dt>User Time Zone</dt>

@@ -17,6 +17,7 @@ import {
   isUserTimeZonePreference,
   type LoginInput,
   type RegisterInput,
+  studyObjectivePreferences,
   type UpdatePreferencesInput,
   userLanguagePreferences,
 } from "./session-contract";
@@ -44,6 +45,7 @@ const loginInputSchema = z.object({
 const updatePreferencesInputSchema = z.object({
   displayName: z.string(),
   userLanguage: z.enum(userLanguagePreferences),
+  studyObjective: z.enum(studyObjectivePreferences).nullable(),
   userTimeZone: userTimeZoneSchema,
 });
 

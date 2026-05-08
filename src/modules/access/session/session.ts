@@ -7,9 +7,12 @@ import {
   type LoginInput,
   normalizeUserLanguage,
   type RegisterInput,
+  type StudyObjectivePreference,
+  type StudyObjectivePreferenceOption,
   type UpdatePreferencesInput,
   type UserLanguage,
   type UserTimeZonePreference,
+  validateStudyObjectivePreference,
   validateUserLanguagePreference,
   validateUserTimeZonePreference,
 } from "./session-contract";
@@ -22,6 +25,9 @@ export {
   defaultUserTimeZone,
   fallbackUserLanguage,
   getAppAuthError,
+  type StudyObjectivePreference,
+  type StudyObjectivePreferenceOption,
+  studyObjectivePreferences,
   type UserLanguage,
   type UserTimeZonePreference,
   userLanguagePreferences,
@@ -37,7 +43,7 @@ type MemoryStoredUserRecord = {
   passwordSalt: string;
   userLanguage?: UserLanguage;
   interfaceLanguage?: string;
-  studyLanguage?: string;
+  studyObjective: StudyObjectivePreference;
   userTimeZone?: UserTimeZonePreference;
 };
 
@@ -150,6 +156,7 @@ function buildSnapshot(
       userLanguage: normalizeUserLanguage(
         user.userLanguage ?? user.interfaceLanguage,
       ),
+      studyObjective: user.studyObjective,
       userTimeZone: user.userTimeZone ?? defaultUserTimeZone,
     },
   };
@@ -397,6 +404,7 @@ export function createMemorySessionService(
           passwordSalt,
         ),
         userLanguage: safeUserLanguage,
+        studyObjective: null,
         userTimeZone: safeUserTimeZone,
       };
 
@@ -405,7 +413,12 @@ export function createMemorySessionService(
 
       return buildSnapshot(nextUser);
     },
-    updatePreferences: async ({ displayName, userLanguage, userTimeZone }) => {
+    updatePreferences: async ({
+      displayName,
+      userLanguage,
+      studyObjective,
+      userTimeZone,
+    }) => {
       const activeUser = readSessionUser(cookie, store);
 
       if (activeUser === null) {
@@ -414,6 +427,8 @@ export function createMemorySessionService(
 
       const safeDisplayName = validateDisplayName(displayName);
       const safeUserLanguage = validateUserLanguagePreference(userLanguage);
+      const safeStudyObjective =
+        validateStudyObjectivePreference(studyObjective);
       const safeUserTimeZone = validateUserTimeZonePreference(userTimeZone);
       const userIndex = store.users.findIndex(
         (user) => user.id === activeUser.id,
@@ -427,6 +442,7 @@ export function createMemorySessionService(
         ...store.users[userIndex],
         displayName: safeDisplayName,
         userLanguage: safeUserLanguage,
+        studyObjective: safeStudyObjective,
         userTimeZone: safeUserTimeZone,
       };
 

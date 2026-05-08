@@ -62,6 +62,7 @@ describe("app session context", () => {
 
     expect(hasActiveSession(session.getSnapshot())).toBe(true);
     expect(session.getSnapshot().user?.displayName).toBe("Casey Learner");
+    expect(session.getSnapshot().user?.studyObjective).toBeNull();
     expect(session.getSnapshot().user?.userTimeZone).toBe("UTC");
     expect(cookie.get()).not.toBe("casey@example.com");
     expect(JSON.stringify(store.users)).not.toContain(
@@ -324,19 +325,43 @@ describe("app session context", () => {
     await session.updatePreferences({
       displayName: "Jordan Rivera",
       userLanguage: "pt-PT",
+      studyObjective: "self_study",
       userTimeZone: "Europe/Lisbon",
     });
 
     expect(session.getSnapshot().user).toMatchObject({
       displayName: "Jordan Rivera",
       userLanguage: "pt-PT",
+      studyObjective: "self_study",
       userTimeZone: "Europe/Lisbon",
     });
+
+    await session.updatePreferences({
+      displayName: "Jordan Rivera",
+      userLanguage: "pt-PT",
+      studyObjective: null,
+      userTimeZone: "Europe/Lisbon",
+    });
+
+    expect(session.getSnapshot().user?.studyObjective).toBeNull();
 
     await expect(
       session.updatePreferences({
         displayName: "Jordan Rivera",
         userLanguage: "pt-PT",
+        studyObjective: "unsupported_objective" as never,
+        userTimeZone: "Europe/Lisbon",
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_input",
+      message: "Study Objective must be one of the supported options.",
+    } satisfies Pick<AppAuthError, "code" | "message">);
+
+    await expect(
+      session.updatePreferences({
+        displayName: "Jordan Rivera",
+        userLanguage: "pt-PT",
+        studyObjective: null,
         userTimeZone: "Not/A_Zone",
       }),
     ).rejects.toMatchObject({
@@ -354,6 +379,7 @@ describe("app session context", () => {
     expect(session.getSnapshot().user).toMatchObject({
       displayName: "Casey Learner",
       userLanguage: "en",
+      studyObjective: null,
       userTimeZone: "UTC",
     });
   });

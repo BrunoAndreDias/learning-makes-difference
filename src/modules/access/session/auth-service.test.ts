@@ -64,6 +64,7 @@ describe("createAuthService", () => {
       displayName: "Casey Learner",
       email: "casey@example.com",
       userLanguage: "en",
+      studyObjective: null,
       userTimeZone: "UTC",
     });
     expect(cookieJar.get()).toBeTruthy();
@@ -168,6 +169,7 @@ describe("createAuthService", () => {
     await auth.updatePreferences({
       displayName: "Casey Rivers",
       userLanguage: "pt-PT",
+      studyObjective: "specific_exam",
       userTimeZone: "America/New_York",
     });
     await auth.logout();
@@ -192,6 +194,7 @@ describe("createAuthService", () => {
       user: {
         displayName: "Casey Rivers",
         userLanguage: "pt-PT",
+        studyObjective: "specific_exam",
         userTimeZone: "America/New_York",
       },
     });
@@ -265,7 +268,7 @@ describe("createAuthService", () => {
     expect(legacyColumns.rows).toEqual([]);
   });
 
-  it("rejects invalid User Time Zone preference updates", async () => {
+  it("rejects invalid account preference updates", async () => {
     const client = new PGlite();
     databases.add(client);
     const db = drizzle(client, { schema: authSchema });
@@ -291,6 +294,19 @@ describe("createAuthService", () => {
       auth.updatePreferences({
         displayName: "Casey Learner",
         userLanguage: "en",
+        studyObjective: "career_change" as never,
+        userTimeZone: "Europe/Lisbon",
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_input",
+      message: "Study Objective must be one of the supported options.",
+    });
+
+    await expect(
+      auth.updatePreferences({
+        displayName: "Casey Learner",
+        userLanguage: "en",
+        studyObjective: null,
         userTimeZone: "Mars/Base",
       }),
     ).rejects.toMatchObject({
