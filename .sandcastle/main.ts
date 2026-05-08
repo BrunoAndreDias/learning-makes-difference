@@ -166,7 +166,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
         const implement = await sandbox.run({
           name: "implementer",
           maxIterations: 100,
-          agent: sandcastle.codex("gpt-5.4", { effort: "medium" }),
+          agent: sandcastle.codex("gpt-5.5", { effort: "medium" }),
           promptFile: "./.sandcastle/implement-prompt.md",
           promptArgs: {
             TASK_ID: issue.id,
