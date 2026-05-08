@@ -21,6 +21,7 @@ import {
 import type { AppFocusContext, AppPersistentFocusContext } from "../../focus";
 import type { AppLabelsContext } from "../../labels/label-management/labels";
 import type { AppPersistentLabelsContext } from "../../labels/persistent-labels";
+import { AppLanguageProvider, useAppTranslation } from "../../language";
 import type { AppNotesContext, AppPersistentNotesContext } from "../../notes";
 import type {
   AppPersistentRecallContext,
@@ -110,6 +111,22 @@ function NotFoundRedirect() {
 }
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
+  return (
+    <html lang="en">
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        <AppLanguageProvider>
+          <RootDocumentBody>{children}</RootDocumentBody>
+        </AppLanguageProvider>
+        <Scripts />
+      </body>
+    </html>
+  );
+}
+
+function RootDocumentBody({ children }: Readonly<{ children: ReactNode }>) {
   const isAuthRoute = useRouterState({
     select: (state) =>
       state.matches.some((match) => match.routeId.startsWith("/_auth")),
@@ -118,70 +135,66 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
     isDevelopment: import.meta.env.DEV,
   });
 
+  const { t } = useAppTranslation();
+
   return (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <div className={isAuthRoute ? "app-shell" : "app-shell shell"}>
-          <a className="skip-link" href="#main-content">
-            Skip to main content
-          </a>
-          {isAuthRoute ? null : (
-            <header className="topbar">
-              <Link className="topbar__brand" to="/">
-                <span aria-hidden="true" className="topbar__mark">
-                  L
-                </span>
-                <span className="topbar__wordmark">
-                  Learning <em>Makes</em> Difference
-                </span>
-              </Link>
+    <>
+      <div className={isAuthRoute ? "app-shell" : "app-shell shell"}>
+        <a className="skip-link" href="#main-content">
+          {t("common.skipToMain")}
+        </a>
+        {isAuthRoute ? null : (
+          <header className="topbar">
+            <Link className="topbar__brand" to="/">
+              <span aria-hidden="true" className="topbar__mark">
+                L
+              </span>
+              <span className="topbar__wordmark">
+                Learning <em>Makes</em> Difference
+              </span>
+            </Link>
 
-              <nav aria-label="Primary">
-                <ul className="nav-list">
-                  <li>
-                    <Link
-                      to="/"
-                      activeProps={{ className: "nav-link nav-link-active" }}
-                      activeOptions={{ exact: true }}
-                      className="nav-link"
-                    >
-                      Home
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/notes"
-                      activeProps={{ className: "nav-link nav-link-active" }}
-                      className="nav-link"
-                    >
-                      Workspace
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/login"
-                      activeProps={{ className: "nav-link nav-link-active" }}
-                      className="nav-link nav-link--ghost"
-                    >
-                      Sign in
-                    </Link>
-                  </li>
-                </ul>
-              </nav>
-            </header>
-          )}
+            <nav aria-label="Primary">
+              <ul className="nav-list">
+                <li>
+                  <Link
+                    to="/"
+                    activeProps={{ className: "nav-link nav-link-active" }}
+                    activeOptions={{ exact: true }}
+                    className="nav-link"
+                  >
+                    Home
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/notes"
+                    activeProps={{ className: "nav-link nav-link-active" }}
+                    className="nav-link"
+                  >
+                    Workspace
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/login"
+                    activeProps={{ className: "nav-link nav-link-active" }}
+                    className="nav-link nav-link--ghost"
+                  >
+                    Sign in
+                  </Link>
+                </li>
+              </ul>
+            </nav>
+          </header>
+        )}
 
-          <main id="main-content">{children}</main>
-        </div>
+        <main id="main-content">{children}</main>
+      </div>
 
-        {showRouterDevtools ? (
-          <TanStackRouterDevtools position="bottom-right" />
-        ) : null}
-        <Scripts />
-      </body>
-    </html>
+      {showRouterDevtools ? (
+        <TanStackRouterDevtools position="bottom-right" />
+      ) : null}
+    </>
   );
 }

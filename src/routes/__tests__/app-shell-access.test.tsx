@@ -20,6 +20,70 @@ import {
 } from "./app-shell-test-support";
 
 describe("authenticated app shell", () => {
+  it("translates the anonymous login page from Portuguese browser language", async () => {
+    Object.defineProperty(window.navigator, "languages", {
+      configurable: true,
+      value: ["pt-PT", "en"],
+    });
+
+    renderRoute("/login", { session: { user: null } });
+
+    expect(
+      await screen.findByRole("heading", { name: "Bem-vindo de volta" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Entre na sua conta para continuar"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("form", { name: "Formulario de inicio de sessao" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Entrar" })).toBeInTheDocument();
+  });
+
+  it("translates the anonymous registration page from Spanish browser language", async () => {
+    Object.defineProperty(window.navigator, "languages", {
+      configurable: true,
+      value: ["es-MX", "en"],
+    });
+
+    renderRoute("/register", { session: { user: null } });
+
+    expect(
+      await screen.findByRole("heading", { name: "Crea tu cuenta" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Nombre visible")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Codigo de registro piloto"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("form", { name: "Formulario de registro" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Registrarte" }),
+    ).toBeInTheDocument();
+  });
+
+  it("falls back to English for unsupported browser languages on forgot-password", async () => {
+    Object.defineProperty(window.navigator, "languages", {
+      configurable: true,
+      value: ["fr-FR"],
+    });
+
+    renderRoute("/forgot-password", { session: { user: null } });
+
+    expect(
+      await screen.findByRole("heading", { name: "Reset your password" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Password reset is coming soon. For now, please contact support.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Back to sign in" }),
+    ).toBeInTheDocument();
+  });
+
   it("redirects anonymous visits to the root path into login", async () => {
     const { router } = renderRoute("/", { session: { user: null } });
 

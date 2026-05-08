@@ -8,6 +8,7 @@ import {
 import { type FormEvent, useState } from "react";
 import { z } from "zod";
 
+import { useAppTranslation } from "../../language";
 import { getAppAuthError, hasActiveSession } from "./session";
 
 export const Route = createFileRoute("/_auth/login")({
@@ -27,6 +28,7 @@ export const Route = createFileRoute("/_auth/login")({
 });
 
 function LoginPage() {
+  const { t } = useAppTranslation();
   const search = Route.useSearch();
   const session = Route.useRouteContext({
     select: (context) => context.session,
@@ -55,7 +57,7 @@ function LoginPage() {
       if (appAuthError !== null) {
         setErrorMessage(appAuthError.message);
       } else {
-        setErrorMessage("Authentication failed. Try again.");
+        setErrorMessage(t("access.login.error.fallback"));
       }
     } finally {
       setSubmitting(false);
@@ -65,19 +67,17 @@ function LoginPage() {
   return (
     <article className="auth-card">
       <header className="auth-card__header">
-        <h2 className="auth-card__heading">Welcome back</h2>
-        <p className="auth-card__subtitle">
-          Log in to your account to continue
-        </p>
+        <h2 className="auth-card__heading">{t("access.login.heading")}</h2>
+        <p className="auth-card__subtitle">{t("access.login.subtitle")}</p>
       </header>
 
       <form
-        aria-label="Sign in form"
+        aria-label={t("access.login.formLabel")}
         className="auth-form"
         onSubmit={handleSubmit}
       >
         <label className="auth-field-label" htmlFor="login-email">
-          Email
+          {t("access.login.email.label")}
         </label>
         <div className="auth-field">
           <span aria-hidden="true" className="auth-field__icon">
@@ -91,7 +91,7 @@ function LoginPage() {
               viewBox="0 0 24 24"
               width="18"
             >
-              <title>Email</title>
+              <title>{t("access.login.email.label")}</title>
               <rect height="14" rx="2" width="18" x="3" y="5" />
               <path d="m3 7 9 6 9-6" />
             </svg>
@@ -102,7 +102,7 @@ function LoginPage() {
             id="login-email"
             name="email"
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="Enter your email"
+            placeholder={t("access.login.email.placeholder")}
             required
             type="email"
             value={email}
@@ -110,7 +110,7 @@ function LoginPage() {
         </div>
 
         <label className="auth-field-label" htmlFor="login-password">
-          Password
+          {t("access.login.password.label")}
         </label>
         <div className="auth-field">
           <span aria-hidden="true" className="auth-field__icon">
@@ -124,7 +124,7 @@ function LoginPage() {
               viewBox="0 0 24 24"
               width="18"
             >
-              <title>Password</title>
+              <title>{t("access.login.password.label")}</title>
               <rect height="11" rx="2" width="14" x="5" y="11" />
               <path d="M8 11V8a4 4 0 0 1 8 0v3" />
             </svg>
@@ -135,13 +135,17 @@ function LoginPage() {
             id="login-password"
             name="password"
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="Enter your password"
+            placeholder={t("access.login.password.placeholder")}
             required
             type={showPassword ? "text" : "password"}
             value={password}
           />
           <button
-            aria-label={showPassword ? "Hide password" : "Show password"}
+            aria-label={
+              showPassword
+                ? t("access.login.password.hide")
+                : t("access.login.password.show")
+            }
             className="auth-field__toggle"
             onClick={() => setShowPassword((value) => !value)}
             type="button"
@@ -156,7 +160,11 @@ function LoginPage() {
               viewBox="0 0 24 24"
               width="18"
             >
-              <title>{showPassword ? "Hide password" : "Show password"}</title>
+              <title>
+                {showPassword
+                  ? t("access.login.password.hide")
+                  : t("access.login.password.show")}
+              </title>
               {showPassword ? (
                 <>
                   <path d="M3 3l18 18" />
@@ -175,7 +183,7 @@ function LoginPage() {
 
         <div className="auth-row">
           <Link className="auth-link" to="/forgot-password">
-            Forgot password?
+            {t("access.login.forgotPassword")}
           </Link>
         </div>
 
@@ -186,18 +194,20 @@ function LoginPage() {
         ) : null}
 
         <button className="auth-submit" disabled={isSubmitting} type="submit">
-          {isSubmitting ? "Signing in..." : "Sign in"}
+          {isSubmitting
+            ? t("access.login.submitting")
+            : t("access.login.submit")}
         </button>
       </form>
 
       <div className="auth-divider">
-        <span>or</span>
+        <span>{t("common.or")}</span>
       </div>
 
       <p className="auth-footer">
-        Don't have an account?{" "}
+        {t("access.login.footer.prompt")}{" "}
         <Link className="auth-link" search={(prev) => prev} to="/register">
-          Sign up
+          {t("access.login.footer.signup")}
         </Link>
       </p>
     </article>

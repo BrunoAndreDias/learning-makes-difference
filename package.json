@@ -31,9 +31,11 @@
     "@tanstack/react-start": "^1.167.43",
     "argon2": "^0.44.0",
     "drizzle-orm": "^0.45.2",
+    "i18next": "^26.0.10",
     "postgres": "^3.4.9",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-i18next": "^17.0.7",
     "varlock": "^0.9.1",
     "zod": "^3.25.76"
   },
