@@ -12,7 +12,9 @@ import {
   type AppAuthErrorCode,
   type AppSessionSnapshot,
   appLanguagePreferences,
+  defaultUserTimeZone,
   getAppAuthError,
+  isUserTimeZonePreference,
   type LoginInput,
   type RegisterInput,
   type UpdatePreferencesInput,
@@ -25,6 +27,11 @@ const registerInputSchema = z.object({
   email: z.string(),
   password: z.string(),
   pilotRegistrationCode: z.string(),
+  userTimeZone: z
+    .string()
+    .refine(isUserTimeZonePreference)
+    .optional()
+    .default(defaultUserTimeZone),
 });
 
 const loginInputSchema = z.object({
@@ -36,6 +43,7 @@ const updatePreferencesInputSchema = z.object({
   displayName: z.string(),
   interfaceLanguage: z.enum(appLanguagePreferences),
   studyLanguage: z.enum(appLanguagePreferences),
+  userTimeZone: z.string().refine(isUserTimeZonePreference),
 });
 
 type SessionMutationResult =

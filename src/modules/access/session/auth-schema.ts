@@ -13,6 +13,7 @@ export const usersTable = pgTable("users", {
   studyLanguage: text("study_language", {
     enum: appLanguagePreferences,
   }).notNull(),
+  userTimeZone: text("user_time_zone").notNull().default("UTC"),
   createdAt: timestamp("created_at", {
     mode: "date",
     withTimezone: true,

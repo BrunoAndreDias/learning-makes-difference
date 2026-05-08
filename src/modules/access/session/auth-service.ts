@@ -12,10 +12,13 @@ import {
   type AppSessionSnapshot,
   type AppSessionUser,
   buildAnonymousSnapshot,
+  defaultUserTimeZone,
   isLanguagePreference,
+  isUserTimeZonePreference,
   type LoginInput,
   type RegisterInput,
   type UpdatePreferencesInput,
+  type UserTimeZonePreference,
 } from "./session-contract";
 
 type AuthDatabase = PgDatabase<PgQueryResultHKT, typeof authSchema>;
@@ -66,6 +69,7 @@ function buildSessionUser(user: StoredUser): AppSessionUser {
     email: user.email,
     interfaceLanguage: user.interfaceLanguage,
     studyLanguage: user.studyLanguage,
+    userTimeZone: user.userTimeZone ?? defaultUserTimeZone,
   };
 }
 
@@ -127,6 +131,21 @@ function validateLanguagePreference(
   }
 
   return value;
+}
+
+function validateUserTimeZonePreference(
+  value: string | undefined,
+): UserTimeZonePreference {
+  const timeZone = value ?? defaultUserTimeZone;
+
+  if (!isUserTimeZonePreference(timeZone)) {
+    throw new AppAuthError(
+      "invalid_input",
+      "User Time Zone must be a supported IANA time zone.",
+    );
+  }
+
+  return timeZone;
 }
 
 function validatePilotRegistrationCode(
@@ -280,6 +299,7 @@ async function getStoredUserForActiveSession({
       passwordHash: usersTable.passwordHash,
       interfaceLanguage: usersTable.interfaceLanguage,
       studyLanguage: usersTable.studyLanguage,
+      userTimeZone: usersTable.userTimeZone,
       createdAt: usersTable.createdAt,
       updatedAt: usersTable.updatedAt,
     })
@@ -385,6 +405,7 @@ export function createAuthService({
       email,
       password,
       pilotRegistrationCode: providedRegistrationCode,
+      userTimeZone,
     }: RegisterInput): Promise<AppSessionSnapshot> {
       const safeDisplayName = validateDisplayName(displayName);
       const safeEmail = validateEmail(email);
@@ -393,6 +414,7 @@ export function createAuthService({
         providedRegistrationCode,
         pilotRegistrationCode,
       );
+      const safeUserTimeZone = validateUserTimeZonePreference(userTimeZone);
 
       const existingUsers = await db
         .select({ id: usersTable.id })
@@ -418,6 +440,7 @@ export function createAuthService({
         passwordHash,
         interfaceLanguage: "en",
         studyLanguage: "en",
+        userTimeZone: safeUserTimeZone,
         createdAt: timestamp,
         updatedAt: timestamp,
       });
@@ -428,6 +451,7 @@ export function createAuthService({
         email: safeEmail,
         interfaceLanguage: "en",
         studyLanguage: "en",
+        userTimeZone: safeUserTimeZone,
       };
 
       await issueSessionForUser({
@@ -446,6 +470,7 @@ export function createAuthService({
       displayName,
       interfaceLanguage,
       studyLanguage,
+      userTimeZone,
     }: UpdatePreferencesInput): Promise<AppSessionSnapshot> {
       const storedUser = await getStoredUserForActiveSession({
         cookie,
@@ -468,6 +493,7 @@ export function createAuthService({
         studyLanguage,
         "Study language",
       );
+      const safeUserTimeZone = validateUserTimeZonePreference(userTimeZone);
       const updatedAt = now();
 
       await db
@@ -476,6 +502,7 @@ export function createAuthService({
           displayName: safeDisplayName,
           interfaceLanguage: safeInterfaceLanguage,
           studyLanguage: safeStudyLanguage,
+          userTimeZone: safeUserTimeZone,
           updatedAt,
         })
         .where(eq(usersTable.id, storedUser.id));
@@ -487,6 +514,7 @@ export function createAuthService({
           email: storedUser.email,
           interfaceLanguage: safeInterfaceLanguage,
           studyLanguage: safeStudyLanguage,
+          userTimeZone: safeUserTimeZone,
         },
       };
     },

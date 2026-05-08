@@ -62,6 +62,7 @@ describe("app session context", () => {
 
     expect(hasActiveSession(session.getSnapshot())).toBe(true);
     expect(session.getSnapshot().user?.displayName).toBe("Casey Learner");
+    expect(session.getSnapshot().user?.userTimeZone).toBe("UTC");
     expect(cookie.get()).not.toBe("casey@example.com");
     expect(JSON.stringify(store.users)).not.toContain(
       "correct horse battery staple",
@@ -291,13 +292,27 @@ describe("app session context", () => {
       displayName: "Jordan Rivera",
       interfaceLanguage: "pt-BR",
       studyLanguage: "es",
+      userTimeZone: "Europe/Lisbon",
     });
 
     expect(session.getSnapshot().user).toMatchObject({
       displayName: "Jordan Rivera",
       interfaceLanguage: "pt-BR",
       studyLanguage: "es",
+      userTimeZone: "Europe/Lisbon",
     });
+
+    await expect(
+      session.updatePreferences({
+        displayName: "Jordan Rivera",
+        interfaceLanguage: "pt-BR",
+        studyLanguage: "es",
+        userTimeZone: "Not/A_Zone",
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_input",
+      message: "User Time Zone must be a supported IANA time zone.",
+    } satisfies Pick<AppAuthError, "code" | "message">);
 
     await session.logout();
 
@@ -310,6 +325,7 @@ describe("app session context", () => {
       displayName: "Casey Learner",
       interfaceLanguage: "en",
       studyLanguage: "en",
+      userTimeZone: "UTC",
     });
   });
 });

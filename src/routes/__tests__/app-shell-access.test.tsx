@@ -153,6 +153,74 @@ describe("authenticated app shell", () => {
     expect(router.state.location.pathname).toBe("/login");
   });
 
+  it("captures the browser-detected User Time Zone during registration", async () => {
+    const actualDateTimeFormat = Intl.DateTimeFormat;
+    const register = vi.fn(async () => ({
+      user: {
+        displayName: "Casey Learner",
+        email: "casey@example.com",
+        id: "user-casey",
+        interfaceLanguage: "en" as const,
+        studyLanguage: "en" as const,
+        userTimeZone: "Europe/Lisbon",
+      },
+    }));
+
+    const dateTimeFormatSpy = vi
+      .spyOn(Intl, "DateTimeFormat")
+      .mockImplementation(((
+        locales?: Intl.LocalesArgument,
+        options?: Intl.DateTimeFormatOptions,
+      ) => {
+        if (locales === undefined && options === undefined) {
+          return {
+            resolvedOptions: () => ({ timeZone: "Europe/Lisbon" }),
+          } as Intl.DateTimeFormat;
+        }
+
+        return actualDateTimeFormat(locales, options);
+      }) as typeof Intl.DateTimeFormat);
+
+    renderRoute("/register", {
+      sessionContext: {
+        getSnapshot: () => ({ user: null }),
+        refresh: () => Promise.resolve({ user: null }),
+        subscribe: () => () => undefined,
+        login: () => Promise.resolve({ user: null }),
+        logout: () => Promise.resolve({ user: null }),
+        register,
+        updatePreferences: () => Promise.resolve({ user: null }),
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Create your account" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Display name"), {
+      target: { value: "Casey Learner" },
+    });
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "casey@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Pilot registration code"), {
+      target: { value: TEST_PILOT_REGISTRATION_CODE },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Sign up form" }));
+
+    await waitFor(() => {
+      expect(register).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userTimeZone: "Europe/Lisbon",
+        }),
+      );
+    });
+    dateTimeFormatSpy.mockRestore();
+  });
+
   it("restores a protected route after refresh until sign-out clears the session", async () => {
     const store = createRouteTestSessionStore();
     const cookie = createSessionCookieJar();
@@ -166,6 +234,7 @@ describe("authenticated app shell", () => {
       email: "casey@example.com",
       password: "correct horse battery staple",
       pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
+      userTimeZone: "Europe/Lisbon",
     });
 
     const refreshedSessionContext = createRouteTestSessionContext({
@@ -436,6 +505,9 @@ describe("authenticated app shell", () => {
     fireEvent.change(screen.getByLabelText("Study language"), {
       target: { value: "es" },
     });
+    fireEvent.change(screen.getByLabelText("User Time Zone"), {
+      target: { value: "America/New_York" },
+    });
     fireEvent.submit(
       screen.getByRole("form", { name: "Account preferences form" }),
     );
@@ -446,6 +518,14 @@ describe("authenticated app shell", () => {
     expect(screen.getAllByText("Casey Rivers")).not.toHaveLength(0);
     expect(screen.getByLabelText("Interface language")).toHaveValue("pt-BR");
     expect(screen.getByLabelText("Study language")).toHaveValue("es");
+    expect(screen.getByLabelText("User Time Zone")).toHaveValue(
+      "America/New_York",
+    );
+    expect(
+      within(screen.getByLabelText("Current account settings")).getByText(
+        "America/New_York",
+      ),
+    ).toBeInTheDocument();
 
     openAccountMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Log out" }));
@@ -479,6 +559,9 @@ describe("authenticated app shell", () => {
     expect(screen.getByLabelText("Display name")).toHaveValue("Casey Rivers");
     expect(screen.getByLabelText("Interface language")).toHaveValue("pt-BR");
     expect(screen.getByLabelText("Study language")).toHaveValue("es");
+    expect(screen.getByLabelText("User Time Zone")).toHaveValue(
+      "America/New_York",
+    );
   });
 
   it("restores persisted note metaphors and acronyms after refresh and account sign-in", async () => {

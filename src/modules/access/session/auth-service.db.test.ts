@@ -64,6 +64,7 @@ describe("createAuthService PostgreSQL integration", () => {
       displayName: "Casey Rivers",
       interfaceLanguage: "pt-BR",
       studyLanguage: "es",
+      userTimeZone: "America/New_York",
     });
 
     await caseyAuth.logout();
@@ -84,6 +85,7 @@ describe("createAuthService PostgreSQL integration", () => {
       displayName: "Jordan Rivera",
       interfaceLanguage: "en",
       studyLanguage: "pt-BR",
+      userTimeZone: "Europe/Lisbon",
     });
 
     await caseyAuth.login({
@@ -106,6 +108,7 @@ describe("createAuthService PostgreSQL integration", () => {
         email: "casey@example.com",
         interfaceLanguage: "pt-BR",
         studyLanguage: "es",
+        userTimeZone: "America/New_York",
       },
     });
     await expect(restoredJordan.getSessionSnapshot()).resolves.toMatchObject({
@@ -114,6 +117,7 @@ describe("createAuthService PostgreSQL integration", () => {
         email: "jordan@example.com",
         interfaceLanguage: "en",
         studyLanguage: "pt-BR",
+        userTimeZone: "Europe/Lisbon",
       },
     });
 

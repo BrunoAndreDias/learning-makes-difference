@@ -9,6 +9,7 @@ import { type FormEvent, useState } from "react";
 import { z } from "zod";
 
 import { getAppAuthError, hasActiveSession } from "./session";
+import { defaultUserTimeZone } from "./session-contract";
 
 export const Route = createFileRoute("/_auth/register")({
   validateSearch: z.object({
@@ -53,6 +54,7 @@ function RegisterPage() {
         email,
         password,
         pilotRegistrationCode,
+        userTimeZone: detectBrowserUserTimeZone(),
       });
       await router.invalidate();
       await navigate({ to: redirectTarget });
@@ -272,5 +274,11 @@ function RegisterPage() {
         </Link>
       </p>
     </article>
+  );
+}
+
+function detectBrowserUserTimeZone() {
+  return (
+    Intl.DateTimeFormat().resolvedOptions().timeZone ?? defaultUserTimeZone
   );
 }

@@ -65,6 +65,7 @@ describe("createAuthService", () => {
       email: "casey@example.com",
       interfaceLanguage: "en",
       studyLanguage: "en",
+      userTimeZone: "UTC",
     });
     expect(cookieJar.get()).toBeTruthy();
     expect(cookieJar.get()).not.toContain("casey@example.com");
@@ -169,6 +170,7 @@ describe("createAuthService", () => {
       displayName: "Casey Rivers",
       interfaceLanguage: "pt-BR",
       studyLanguage: "es",
+      userTimeZone: "America/New_York",
     });
     await auth.logout();
 
@@ -193,7 +195,43 @@ describe("createAuthService", () => {
         displayName: "Casey Rivers",
         interfaceLanguage: "pt-BR",
         studyLanguage: "es",
+        userTimeZone: "America/New_York",
       },
+    });
+  });
+
+  it("rejects invalid User Time Zone preference updates", async () => {
+    const client = new PGlite();
+    databases.add(client);
+    const db = drizzle(client, { schema: authSchema });
+    await migrateDatabase(db, client);
+
+    const auth = createAuthService({
+      cookie: createCookieJar(),
+      db,
+      pilotRegistrationCode: "pilot-123",
+      sessionSecret: "12345678901234567890123456789012",
+      secureCookies: false,
+    });
+
+    await auth.register({
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      password: "correct horse battery staple",
+      pilotRegistrationCode: "pilot-123",
+      userTimeZone: "Europe/Lisbon",
+    });
+
+    await expect(
+      auth.updatePreferences({
+        displayName: "Casey Learner",
+        interfaceLanguage: "en",
+        studyLanguage: "en",
+        userTimeZone: "Mars/Base",
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_input",
+      message: "User Time Zone must be a supported IANA time zone.",
     });
   });
 });
