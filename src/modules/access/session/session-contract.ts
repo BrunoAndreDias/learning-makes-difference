@@ -146,23 +146,20 @@ function isSupportedPreferenceOption<TOption extends string>(
   );
 }
 
-function isNullablePreferenceOption<TOption extends string>(
-  value: unknown,
-  supportedOptions: readonly TOption[],
-): value is TOption | null {
-  return value === null || isSupportedPreferenceOption(value, supportedOptions);
-}
-
-function validateNullablePreferenceOption<TOption extends string>(
+function validateOptionalPreferenceOption<TOption extends string>(
   value: unknown,
   supportedOptions: readonly TOption[],
   message: string,
 ): TOption | null {
-  if (!isNullablePreferenceOption(value, supportedOptions)) {
-    throw new AppAuthError("invalid_input", message);
+  if (value === null) {
+    return null;
   }
 
-  return value;
+  if (isSupportedPreferenceOption(value, supportedOptions)) {
+    return value;
+  }
+
+  throw new AppAuthError("invalid_input", message);
 }
 
 function isUserLanguage(value: unknown): value is UserLanguage {
@@ -183,7 +180,7 @@ export function validateUserLanguagePreference(value: unknown): UserLanguage {
 export function validateStudyObjectivePreference(
   value: unknown,
 ): StudyObjectivePreference {
-  return validateNullablePreferenceOption(
+  return validateOptionalPreferenceOption(
     value,
     studyObjectivePreferences,
     "Study Objective must be one of the supported options.",
@@ -193,7 +190,7 @@ export function validateStudyObjectivePreference(
 export function validateStudyIntensityPreference(
   value: unknown,
 ): StudyIntensityPreference {
-  return validateNullablePreferenceOption(
+  return validateOptionalPreferenceOption(
     value,
     studyIntensityPreferences,
     "Study Intensity must be one of the supported options.",
