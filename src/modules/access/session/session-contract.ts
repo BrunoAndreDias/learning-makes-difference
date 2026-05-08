@@ -135,6 +135,21 @@ export function isUserTimeZonePreference(
   }
 }
 
+export function validateUserTimeZonePreference(
+  value: string | undefined,
+): UserTimeZonePreference {
+  const timeZone = value ?? defaultUserTimeZone;
+
+  if (!isUserTimeZonePreference(timeZone)) {
+    throw new AppAuthError(
+      "invalid_input",
+      "User Time Zone must be a supported IANA time zone.",
+    );
+  }
+
+  return timeZone;
+}
+
 export function buildAnonymousSnapshot(): AppSessionSnapshot {
   return { user: null };
 }

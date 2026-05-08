@@ -8,8 +8,12 @@ import {
 import { type FormEvent, useState } from "react";
 import { z } from "zod";
 
-import { getAppAuthError, hasActiveSession } from "./session";
-import { defaultUserTimeZone } from "./session-contract";
+import {
+  defaultUserTimeZone,
+  getAppAuthError,
+  hasActiveSession,
+  type UserTimeZonePreference,
+} from "./session";
 
 export const Route = createFileRoute("/_auth/register")({
   validateSearch: z.object({
@@ -277,7 +281,7 @@ function RegisterPage() {
   );
 }
 
-function detectBrowserUserTimeZone() {
+function detectBrowserUserTimeZone(): UserTimeZonePreference {
   return (
     Intl.DateTimeFormat().resolvedOptions().timeZone ?? defaultUserTimeZone
   );

@@ -1,5 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { type ChangeEvent, type FormEvent, useEffect, useState } from "react";
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import {
   type AppLanguagePreference,
@@ -21,7 +27,6 @@ const languageLabels: Record<AppLanguagePreference, string> = {
 };
 
 const fallbackUserTimeZones = [
-  defaultUserTimeZone,
   "America/New_York",
   "America/Chicago",
   "America/Denver",
@@ -31,7 +36,9 @@ const fallbackUserTimeZones = [
   "Europe/London",
 ] as const;
 
-function getUserTimeZoneOptions(currentTimeZone: string) {
+function getUserTimeZoneOptions(
+  currentTimeZone: UserTimeZonePreference,
+): UserTimeZonePreference[] {
   const supportedTimeZones =
     typeof Intl.supportedValuesOf === "function"
       ? Intl.supportedValuesOf("timeZone")
@@ -59,6 +66,10 @@ function SettingsPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
+  const userTimeZoneOptions = useMemo(
+    () => getUserTimeZoneOptions(userTimeZone),
+    [userTimeZone],
+  );
 
   function updateLanguagePreference(
     setter: (value: AppLanguagePreference) => void,
@@ -80,12 +91,12 @@ function SettingsPage() {
     return null;
   }
 
+  const savedUserTimeZone = user.userTimeZone ?? defaultUserTimeZone;
   const hasPreferenceChanges =
     displayName !== user.displayName ||
     interfaceLanguage !== user.interfaceLanguage ||
     studyLanguage !== user.studyLanguage ||
-    userTimeZone !== (user.userTimeZone ?? defaultUserTimeZone);
-  const userTimeZoneOptions = getUserTimeZoneOptions(userTimeZone);
+    userTimeZone !== savedUserTimeZone;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

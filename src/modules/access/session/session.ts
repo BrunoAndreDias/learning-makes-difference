@@ -6,11 +6,11 @@ import {
   defaultUserTimeZone,
   getAppAuthError,
   isLanguagePreference,
-  isUserTimeZonePreference,
   type LoginInput,
   type RegisterInput,
   type UpdatePreferencesInput,
   type UserTimeZonePreference,
+  validateUserTimeZonePreference,
 } from "./session-contract";
 import { createServerSessionService } from "./session-server-fns";
 
@@ -216,21 +216,6 @@ function validateLanguagePreference(
   }
 
   return value;
-}
-
-function validateUserTimeZonePreference(
-  value: string | undefined,
-): UserTimeZonePreference {
-  const timeZone = value ?? defaultUserTimeZone;
-
-  if (!isUserTimeZonePreference(timeZone)) {
-    throw new AppAuthError(
-      "invalid_input",
-      "User Time Zone must be a supported IANA time zone.",
-    );
-  }
-
-  return timeZone;
 }
 
 function validatePilotRegistrationCode(

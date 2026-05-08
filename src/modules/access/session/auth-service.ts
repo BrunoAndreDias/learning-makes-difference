@@ -14,11 +14,10 @@ import {
   buildAnonymousSnapshot,
   defaultUserTimeZone,
   isLanguagePreference,
-  isUserTimeZonePreference,
   type LoginInput,
   type RegisterInput,
   type UpdatePreferencesInput,
-  type UserTimeZonePreference,
+  validateUserTimeZonePreference,
 } from "./session-contract";
 
 type AuthDatabase = PgDatabase<PgQueryResultHKT, typeof authSchema>;
@@ -131,21 +130,6 @@ function validateLanguagePreference(
   }
 
   return value;
-}
-
-function validateUserTimeZonePreference(
-  value: string | undefined,
-): UserTimeZonePreference {
-  const timeZone = value ?? defaultUserTimeZone;
-
-  if (!isUserTimeZonePreference(timeZone)) {
-    throw new AppAuthError(
-      "invalid_input",
-      "User Time Zone must be a supported IANA time zone.",
-    );
-  }
-
-  return timeZone;
 }
 
 function validatePilotRegistrationCode(

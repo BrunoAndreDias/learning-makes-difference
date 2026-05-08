@@ -181,44 +181,47 @@ describe("authenticated app shell", () => {
         return actualDateTimeFormat(locales, options);
       }) as typeof Intl.DateTimeFormat);
 
-    renderRoute("/register", {
-      sessionContext: {
-        getSnapshot: () => ({ user: null }),
-        refresh: () => Promise.resolve({ user: null }),
-        subscribe: () => () => undefined,
-        login: () => Promise.resolve({ user: null }),
-        logout: () => Promise.resolve({ user: null }),
-        register,
-        updatePreferences: () => Promise.resolve({ user: null }),
-      },
-    });
+    try {
+      renderRoute("/register", {
+        sessionContext: {
+          getSnapshot: () => ({ user: null }),
+          refresh: () => Promise.resolve({ user: null }),
+          subscribe: () => () => undefined,
+          login: () => Promise.resolve({ user: null }),
+          logout: () => Promise.resolve({ user: null }),
+          register,
+          updatePreferences: () => Promise.resolve({ user: null }),
+        },
+      });
 
-    expect(
-      await screen.findByRole("heading", { name: "Create your account" }),
-    ).toBeInTheDocument();
+      expect(
+        await screen.findByRole("heading", { name: "Create your account" }),
+      ).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Display name"), {
-      target: { value: "Casey Learner" },
-    });
-    fireEvent.change(screen.getByLabelText("Email"), {
-      target: { value: "casey@example.com" },
-    });
-    fireEvent.change(screen.getByLabelText("Pilot registration code"), {
-      target: { value: TEST_PILOT_REGISTRATION_CODE },
-    });
-    fireEvent.change(screen.getByLabelText("Password"), {
-      target: { value: "correct horse battery staple" },
-    });
-    fireEvent.submit(screen.getByRole("form", { name: "Sign up form" }));
+      fireEvent.change(screen.getByLabelText("Display name"), {
+        target: { value: "Casey Learner" },
+      });
+      fireEvent.change(screen.getByLabelText("Email"), {
+        target: { value: "casey@example.com" },
+      });
+      fireEvent.change(screen.getByLabelText("Pilot registration code"), {
+        target: { value: TEST_PILOT_REGISTRATION_CODE },
+      });
+      fireEvent.change(screen.getByLabelText("Password"), {
+        target: { value: "correct horse battery staple" },
+      });
+      fireEvent.submit(screen.getByRole("form", { name: "Sign up form" }));
 
-    await waitFor(() => {
-      expect(register).toHaveBeenCalledWith(
-        expect.objectContaining({
-          userTimeZone: "Europe/Lisbon",
-        }),
-      );
-    });
-    dateTimeFormatSpy.mockRestore();
+      await waitFor(() => {
+        expect(register).toHaveBeenCalledWith(
+          expect.objectContaining({
+            userTimeZone: "Europe/Lisbon",
+          }),
+        );
+      });
+    } finally {
+      dateTimeFormatSpy.mockRestore();
+    }
   });
 
   it("restores a protected route after refresh until sign-out clears the session", async () => {
