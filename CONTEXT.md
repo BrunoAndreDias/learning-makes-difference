@@ -144,6 +144,37 @@ _Avoid_: Account, member, profile
 A server-managed authenticated access period for a User, represented in the browser only by an HTTP-only cookie.
 _Avoid_: Local login state, browser account
 
+**User Language**:
+The User's single preferred language for app chrome and language-aware study defaults in v1.
+In v1, supported User Languages are English, Portuguese (Portugal), and Spanish.
+In v1, changing User Language translates app chrome such as navigation, controls, validation messages, empty states, and settings copy.
+For a new User, initial User Language is detected from the browser on first visit and stored when the User registers; unsupported browser languages fall back to English.
+After registration, Settings is the only place where the User changes User Language.
+Anonymous pages use the detected User Language before registration or login; authenticated pages use the stored User Language.
+Changing User Language does not translate or mutate existing Notes, Labels, Metaphors, Acronyms, RecallSessions, SessionResults, FocusSessions, or FocusRecords.
+_Avoid_: Interface language, Study Language, Note Language, app language, translation mode, Portuguese (Brazil)
+
+**User Time Zone**:
+The User's required IANA time zone preference for displaying and grouping time-based study records.
+For a new User, initial User Time Zone is detected from the browser and stored when the User registers; if detection is unavailable, the app falls back to UTC.
+After registration, Settings is the only place where the User changes User Time Zone.
+Existing Users without a stored User Time Zone receive UTC rather than being blocked from Settings.
+_Avoid_: Locale, region, timezone string, device time zone
+
+**Study Objective**:
+An optional User preference that captures the User's broad reason for using the app, such as university study, self study, or a specific exam.
+In v1, Study Objective is selected from fixed options: University study, Self study, Specific exam, Professional learning, or Other.
+In v1, Study Objective is profile context only; it does not affect RecallSession targeting, FocusTargets, analytics, or Labels.
+In v1, Settings is the only place where the User sets or changes Study Objective.
+_Avoid_: Main objective, goal, FocusTarget, Label
+
+**Study Intensity**:
+An optional User preference that describes the User's intended study cadence or commitment level.
+In v1, Study Intensity is selected from fixed options: Light, Regular, or Intensive.
+In v1, Study Intensity is profile context only; it does not affect FocusSession timing defaults, RecallSession difficulty, analytics, scheduling, or notifications.
+In v1, Settings is the only place where the User sets or changes Study Intensity.
+_Avoid_: Difficulty, RecallMode, FocusMethod, streak target
+
 **BYOK** (Bring Your Own Key):
 The current premium access model. A User supplies their own AI provider API key; the app uses it for AiAssisted and AiGraded RecallModes. Future model: per-use credits. BYOK key persistence is deferred until AiAssisted or AiGraded is in scope.
 
@@ -242,6 +273,23 @@ _Avoid_: Product menu, sidebar navigation
 - Study edits should not be counted as **StudyActivity** while the **FocusSession** is still in a **BreakInterval**
 - A **FocusSession** may exist without a linked **RecallSession**, **Note**, or **Label**
 - A **FocusSession** may have multiple **FocusTargets**
+- A **User** has exactly one **User Language**
+- **User Language** controls translated app chrome and v1 language-aware study defaults.
+- A new **User**'s initial **User Language** is detected from the browser on first visit, with English as the fallback for unsupported browser languages.
+- After registration, **User Language** is changed only in Settings.
+- Anonymous pages use the detected **User Language**.
+- Authenticated pages use the stored **User Language**.
+- Changing **User Language** does not translate or mutate the User's **Persistent Study Data**.
+- A **User** has exactly one **User Time Zone**.
+- **User Time Zone** controls how time-based study records are displayed and grouped.
+- A new **User**'s initial **User Time Zone** is detected from the browser on registration, with UTC as the fallback when detection is unavailable.
+- After registration, **User Time Zone** is changed only in Settings.
+- A **User** may have zero or one **Study Objective**.
+- **Study Objective** is User profile context only and does not create or modify **FocusTargets**, **RecallSessions**, or **Labels**.
+- **Study Objective** is set or changed only in Settings.
+- A **User** may have zero or one **Study Intensity**.
+- **Study Intensity** is User profile context only and does not change **FocusSession** timing, **RecallMode**, scheduling, analytics, or notifications.
+- **Study Intensity** is set or changed only in Settings.
 - A **FocusTarget** may refer to a **Label**, a **RecallSession**, or unlabeled Note work
 - In v1, **FocusTargets** are captured automatically from the User's observed study activity during the **FocusSession**
 - In v1, the app stores the resulting **FocusTargets** for a **FocusSession** rather than a full **StudyActivity** event log.
@@ -492,6 +540,21 @@ _Avoid_: Product menu, sidebar navigation
 > **Dev:** "Should the primary navigation label say 'Recall' or 'Practice'?"
 > **Domain expert:** "Use 'Recall' in v1 because it matches the domain language, but revisit 'Practice' if general users do not recognize active recall terminology."
 
+> **Dev:** "In v1, should a User choose separate languages for app chrome, Notes, and translation?"
+> **Domain expert:** "No — v1 has one **User Language** for app chrome and language-aware study defaults; translation is a later explicit feature."
+
+> **Dev:** "Should Portuguese mean Brazilian Portuguese?"
+> **Domain expert:** "No — v1 supports Portuguese (Portugal), alongside English and Spanish."
+
+> **Dev:** "If a User changes **User Language** to Portuguese, should buttons and validation messages still be English until later?"
+> **Domain expert:** "No — v1 must translate app chrome for every supported **User Language**, but User-created study data stays as written."
+
+> **Dev:** "How does a new User get their first **User Language**?"
+> **Domain expert:** "Detect it from the browser on first visit, fall back to English if unsupported, and store it when the User registers."
+
+> **Dev:** "Should registration and login stay English until the User has an account?"
+> **Domain expert:** "No — anonymous pages use the detected **User Language**; after login, the stored **User Language** wins."
+
 ## Flagged ambiguities
 
 - "trained" was used while discussing **Learning State** — resolved: use "recalled" when referring to a **Note** being attempted in a **RecallSession**.
@@ -506,6 +569,12 @@ _Avoid_: Product menu, sidebar navigation
 - "Selecting Notes" could mean opening a Note for editing or choosing Notes for recall — resolved: in the **Notes Workspace**, selection opens a Note for editing; in **Recall Selection Mode**, selection toggles Notes into the temporary RecallSession target set.
 - "Recall view" could have meant either the base **Recall Section** or an active **Recall Session View** — resolved: the base section reviews SessionResults and starts RecallSessions; the session view only represents an active RecallSession.
 - "Recall route" could have meant only an active session route — resolved: `/recall` is the base **Recall Section** and canonical **SessionResult** review workspace, `/recall/select` is **Recall Selection Mode**, `/recall/session` is the active **Recall Session View**, and `/recall/results` is removed.
+- "Different languages" could mean app chrome, study material, per-Note language, or automatic content translation — resolved for v1: use one **User Language** for app chrome and language-aware study defaults; translation is a later explicit feature.
+- "Interface Language", "Study Language", and "Note Language" could have become separate v1 concepts — resolved for v1: avoid those terms and use **User Language**.
+- "Portuguese" could mean Portuguese (Portugal) or Portuguese (Brazil) — resolved for v1: support Portuguese (Portugal), not Portuguese (Brazil).
+- "Language selector" could have been a stored preference without visible translated UI — resolved for v1: **User Language** must translate app chrome for all supported languages.
+- "Initial language" could have required a registration form choice — resolved for v1: detect from browser on first visit, fall back to English, and let the User change it later in Settings.
+- "Anonymous language" could have stayed English until login — resolved for v1: anonymous pages use detected **User Language**, while authenticated pages use stored **User Language**.
 - "Recall Dashboard" or "Recall Home" could have named the default `/recall` screen — resolved: use **Recall Section** only; its default surface is the Results master-detail workspace.
 - "Exam notes" could have meant the app is already the primary source of truth for exam material — resolved: for the exam-support pilot, the app is a **Study Layer** over material that remains available elsewhere, while the long-term direction is to become the **User**'s primary study workspace.
 - "Breadcrumb" could have acted like primary navigation — resolved: the **Workspace Breadcrumb** indicates position inside the current workspace section, not product sections.
