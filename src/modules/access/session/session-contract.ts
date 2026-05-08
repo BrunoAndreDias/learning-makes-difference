@@ -5,6 +5,7 @@ import {
 } from "../../language/user-language";
 
 export type { UserLanguage } from "../../language/user-language";
+export { fallbackUserLanguage } from "../../language/user-language";
 
 export type AppSessionUser = {
   email: string;
@@ -113,11 +114,22 @@ export function getAppAuthError(error: unknown): AppAuthError | null {
   return null;
 }
 
-export function isUserLanguage(value: unknown): value is UserLanguage {
+function isUserLanguage(value: unknown): value is UserLanguage {
   return (
     typeof value === "string" &&
     userLanguagePreferences.includes(value as UserLanguage)
   );
+}
+
+export function validateUserLanguagePreference(value: unknown): UserLanguage {
+  if (!isUserLanguage(value)) {
+    throw new AppAuthError(
+      "invalid_input",
+      "User Language must be one of the supported language options.",
+    );
+  }
+
+  return value;
 }
 
 export function normalizeUserLanguage(value: unknown): UserLanguage {

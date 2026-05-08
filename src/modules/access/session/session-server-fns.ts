@@ -12,6 +12,7 @@ import {
   type AppAuthErrorCode,
   type AppSessionSnapshot,
   defaultUserTimeZone,
+  fallbackUserLanguage,
   getAppAuthError,
   isUserTimeZonePreference,
   type LoginInput,
@@ -28,7 +29,10 @@ const registerInputSchema = z.object({
   email: z.string(),
   password: z.string(),
   pilotRegistrationCode: z.string(),
-  userLanguage: z.enum(userLanguagePreferences).optional().default("en"),
+  userLanguage: z
+    .enum(userLanguagePreferences)
+    .optional()
+    .default(fallbackUserLanguage),
   userTimeZone: userTimeZoneSchema.optional().default(defaultUserTimeZone),
 });
 

@@ -13,8 +13,6 @@ import {
   type UserLanguage,
 } from "./user-language";
 
-export { detectAnonymousUserLanguage } from "./user-language";
-
 function getBrowserLanguages(): readonly string[] {
   if (typeof navigator === "undefined") {
     return [];
@@ -42,6 +40,10 @@ function createAppI18n(language: UserLanguage): i18n {
   return instance;
 }
 
+export function detectBrowserUserLanguage(): UserLanguage {
+  return detectAnonymousUserLanguage(getBrowserLanguages());
+}
+
 export function AppLanguageProvider({
   children,
   language,
@@ -49,8 +51,7 @@ export function AppLanguageProvider({
   children: ReactNode;
   language?: UserLanguage;
 }>) {
-  const activeLanguage =
-    language ?? detectAnonymousUserLanguage(getBrowserLanguages());
+  const activeLanguage = language ?? detectBrowserUserLanguage();
   const i18n = useMemo(() => createAppI18n(activeLanguage), [activeLanguage]);
 
   return <I18nextProvider i18n={i18n}>{children}</I18nextProvider>;

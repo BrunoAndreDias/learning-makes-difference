@@ -9,6 +9,7 @@ import {
 
 import {
   defaultUserTimeZone,
+  fallbackUserLanguage,
   getAppAuthError,
   type UserLanguage,
   type UserTimeZonePreference,
@@ -56,7 +57,7 @@ function SettingsPage() {
   const user = sessionSnapshot.user;
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
   const [userLanguage, setUserLanguage] = useState<UserLanguage>(
-    user?.userLanguage ?? "en",
+    user?.userLanguage ?? fallbackUserLanguage,
   );
   const [userTimeZone, setUserTimeZone] = useState<UserTimeZonePreference>(
     user?.userTimeZone ?? defaultUserTimeZone,
@@ -71,7 +72,7 @@ function SettingsPage() {
 
   useEffect(() => {
     setDisplayName(user?.displayName ?? "");
-    setUserLanguage(user?.userLanguage ?? "en");
+    setUserLanguage(user?.userLanguage ?? fallbackUserLanguage);
     setUserTimeZone(user?.userTimeZone ?? defaultUserTimeZone);
   }, [user]);
 

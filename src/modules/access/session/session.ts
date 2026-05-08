@@ -1,16 +1,16 @@
-import type { UserLanguage } from "../../language/user-language";
 import {
   AppAuthError,
   type AppSessionSnapshot,
   buildAnonymousSnapshot,
   defaultUserTimeZone,
   getAppAuthError,
-  isUserLanguage,
   type LoginInput,
   normalizeUserLanguage,
   type RegisterInput,
   type UpdatePreferencesInput,
+  type UserLanguage,
   type UserTimeZonePreference,
+  validateUserLanguagePreference,
   validateUserTimeZonePreference,
 } from "./session-contract";
 import { createServerSessionService } from "./session-server-fns";
@@ -20,6 +20,7 @@ export {
   type AppSessionSnapshot,
   type AppSessionUser,
   defaultUserTimeZone,
+  fallbackUserLanguage,
   getAppAuthError,
   type UserLanguage,
   type UserTimeZonePreference,
@@ -205,20 +206,6 @@ function validateEmail(email: string): string {
   }
 
   return normalizedEmail;
-}
-
-function validateLanguagePreference(
-  value: string,
-  fieldLabel: string,
-): UserLanguage {
-  if (!isUserLanguage(value)) {
-    throw new AppAuthError(
-      "invalid_input",
-      `${fieldLabel} must be one of the supported language options.`,
-    );
-  }
-
-  return value;
 }
 
 function validatePilotRegistrationCode(
@@ -426,10 +413,7 @@ export function createMemorySessionService(
       }
 
       const safeDisplayName = validateDisplayName(displayName);
-      const safeUserLanguage = validateLanguagePreference(
-        userLanguage,
-        "User Language",
-      );
+      const safeUserLanguage = validateUserLanguagePreference(userLanguage);
       const safeUserTimeZone = validateUserTimeZonePreference(userTimeZone);
       const userIndex = store.users.findIndex(
         (user) => user.id === activeUser.id,

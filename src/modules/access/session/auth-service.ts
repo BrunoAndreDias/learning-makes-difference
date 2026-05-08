@@ -12,12 +12,11 @@ import {
   type AppSessionUser,
   buildAnonymousSnapshot,
   defaultUserTimeZone,
-  isUserLanguage,
   type LoginInput,
   normalizeUserLanguage,
   type RegisterInput,
   type UpdatePreferencesInput,
-  type UserLanguage,
+  validateUserLanguagePreference,
   validateUserTimeZonePreference,
 } from "./session-contract";
 
@@ -116,20 +115,6 @@ function validateEmail(email: string): string {
   }
 
   return normalizedEmail;
-}
-
-function validateLanguagePreference(
-  value: string,
-  fieldLabel: string,
-): UserLanguage {
-  if (!isUserLanguage(value)) {
-    throw new AppAuthError(
-      "invalid_input",
-      `${fieldLabel} must be one of the supported language options.`,
-    );
-  }
-
-  return value;
 }
 
 function validatePilotRegistrationCode(
@@ -467,10 +452,7 @@ export function createAuthService({
       }
 
       const safeDisplayName = validateDisplayName(displayName);
-      const safeUserLanguage = validateLanguagePreference(
-        userLanguage,
-        "User Language",
-      );
+      const safeUserLanguage = validateUserLanguagePreference(userLanguage);
       const safeUserTimeZone = validateUserTimeZonePreference(userTimeZone);
       const updatedAt = now();
 
