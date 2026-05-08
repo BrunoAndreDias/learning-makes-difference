@@ -26,6 +26,13 @@ import { NotesWorkspaceProvider } from "../../notes";
 type NavigationIconName = "focus" | "label" | "note" | "recall" | "settings";
 
 function getWorkspaceTitle(pathname: string) {
+  if (
+    pathname === "/study-notes-prototype" ||
+    pathname.startsWith("/study-notes-prototype/")
+  ) {
+    return "Study Notes Prototype";
+  }
+
   if (pathname === "/labels" || pathname.startsWith("/labels/")) {
     return "Labels";
   }
@@ -62,7 +69,12 @@ function getRecallWorkspaceTitle(pathname: string) {
 }
 
 function isNotesWorkspacePath(pathname: string) {
-  return pathname === "/notes" || pathname.startsWith("/notes/");
+  return (
+    pathname === "/notes" ||
+    pathname.startsWith("/notes/") ||
+    pathname === "/study-notes-prototype" ||
+    pathname.startsWith("/study-notes-prototype/")
+  );
 }
 
 export function AppLayout() {

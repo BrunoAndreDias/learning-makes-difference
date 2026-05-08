@@ -71,6 +71,11 @@ export default defineConfig({
                 },
                 {
                   type: "route",
+                  path: "/study-notes-prototype",
+                  file: "modules/notes/study-notes-prototype/study-notes-prototype-route.tsx",
+                },
+                {
+                  type: "route",
                   path: "/focus",
                   file: "modules/focus/focus-route.tsx",
                 },

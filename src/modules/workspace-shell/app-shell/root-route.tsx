@@ -35,6 +35,7 @@ const redirectableProtectedPaths = [
   "/notes",
   "/recall",
   "/settings",
+  "/study-notes-prototype",
 ];
 
 function isProtectedPath(pathname: string): boolean {
