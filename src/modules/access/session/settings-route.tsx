@@ -11,8 +11,11 @@ import {
   defaultUserTimeZone,
   fallbackUserLanguage,
   getAppAuthError,
+  type StudyIntensityPreference,
+  type StudyIntensityPreferenceOption,
   type StudyObjectivePreference,
   type StudyObjectivePreferenceOption,
+  studyIntensityPreferences,
   studyObjectivePreferences,
   type UserLanguage,
   type UserTimeZonePreference,
@@ -36,6 +39,12 @@ const studyObjectiveLabels: Record<StudyObjectivePreferenceOption, string> = {
   specific_exam: "Specific exam",
   professional_learning: "Professional learning",
   other: "Other",
+};
+
+const studyIntensityLabels: Record<StudyIntensityPreferenceOption, string> = {
+  light: "Light",
+  regular: "Regular",
+  intensive: "Intensive",
 };
 
 const fallbackUserTimeZones = [
@@ -65,12 +74,24 @@ function readStudyObjectivePreference(value: string): StudyObjectivePreference {
   return value === "" ? null : (value as StudyObjectivePreferenceOption);
 }
 
+function readStudyIntensityPreference(value: string): StudyIntensityPreference {
+  return value === "" ? null : (value as StudyIntensityPreferenceOption);
+}
+
 function getStudyObjectiveLabel(
   studyObjective: StudyObjectivePreference,
 ): string {
   return studyObjective === null
     ? "Not set"
     : studyObjectiveLabels[studyObjective];
+}
+
+function getStudyIntensityLabel(
+  studyIntensity: StudyIntensityPreference,
+): string {
+  return studyIntensity === null
+    ? "Not set"
+    : studyIntensityLabels[studyIntensity];
 }
 
 function SettingsPage() {
@@ -84,6 +105,8 @@ function SettingsPage() {
   );
   const [studyObjective, setStudyObjective] =
     useState<StudyObjectivePreference>(user?.studyObjective ?? null);
+  const [studyIntensity, setStudyIntensity] =
+    useState<StudyIntensityPreference>(user?.studyIntensity ?? null);
   const [userTimeZone, setUserTimeZone] = useState<UserTimeZonePreference>(
     user?.userTimeZone ?? defaultUserTimeZone,
   );
@@ -99,6 +122,7 @@ function SettingsPage() {
     setDisplayName(user?.displayName ?? "");
     setUserLanguage(user?.userLanguage ?? fallbackUserLanguage);
     setStudyObjective(user?.studyObjective ?? null);
+    setStudyIntensity(user?.studyIntensity ?? null);
     setUserTimeZone(user?.userTimeZone ?? defaultUserTimeZone);
   }, [user]);
 
@@ -108,10 +132,12 @@ function SettingsPage() {
 
   const savedUserTimeZone = user.userTimeZone ?? defaultUserTimeZone;
   const savedStudyObjective = user.studyObjective ?? null;
+  const savedStudyIntensity = user.studyIntensity ?? null;
   const hasPreferenceChanges =
     displayName !== user.displayName ||
     userLanguage !== user.userLanguage ||
     studyObjective !== savedStudyObjective ||
+    studyIntensity !== savedStudyIntensity ||
     userTimeZone !== savedUserTimeZone;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -125,6 +151,7 @@ function SettingsPage() {
         displayName,
         userLanguage,
         studyObjective,
+        studyIntensity,
         userTimeZone,
       });
       setStatusMessage("Preferences saved.");
@@ -223,6 +250,28 @@ function SettingsPage() {
             </label>
 
             <label className="settings-form__field">
+              <span>Study Intensity</span>
+              <select
+                className="settings-form__control"
+                name="studyIntensity"
+                onChange={(event) => {
+                  setStudyIntensity(
+                    readStudyIntensityPreference(event.target.value),
+                  );
+                  setStatusMessage(null);
+                }}
+                value={studyIntensity ?? ""}
+              >
+                <option value="">No intensity selected</option>
+                {studyIntensityPreferences.map((intensity) => (
+                  <option key={intensity} value={intensity}>
+                    {studyIntensityLabels[intensity]}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="settings-form__field">
               <span>User Time Zone</span>
               <select
                 className="settings-form__control"
@@ -294,6 +343,10 @@ function SettingsPage() {
             <div>
               <dt>Study Objective</dt>
               <dd>{getStudyObjectiveLabel(studyObjective)}</dd>
+            </div>
+            <div>
+              <dt>Study Intensity</dt>
+              <dd>{getStudyIntensityLabel(studyIntensity)}</dd>
             </div>
             <div>
               <dt>User Time Zone</dt>

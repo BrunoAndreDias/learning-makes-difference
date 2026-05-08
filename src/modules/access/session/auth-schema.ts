@@ -2,6 +2,7 @@ import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import {
   defaultUserTimeZone,
+  studyIntensityPreferences,
   studyObjectivePreferences,
   userLanguagePreferences,
 } from "./session-contract";
@@ -16,6 +17,9 @@ export const usersTable = pgTable("users", {
   }).notNull(),
   studyObjective: text("study_objective", {
     enum: studyObjectivePreferences,
+  }),
+  studyIntensity: text("study_intensity", {
+    enum: studyIntensityPreferences,
   }),
   userTimeZone: text("user_time_zone").notNull().default(defaultUserTimeZone),
   createdAt: timestamp("created_at", {

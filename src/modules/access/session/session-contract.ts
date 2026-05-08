@@ -10,6 +10,9 @@ export { fallbackUserLanguage } from "../../language/user-language";
 export type StudyObjectivePreferenceOption =
   (typeof studyObjectivePreferences)[number];
 export type StudyObjectivePreference = StudyObjectivePreferenceOption | null;
+export type StudyIntensityPreferenceOption =
+  (typeof studyIntensityPreferences)[number];
+export type StudyIntensityPreference = StudyIntensityPreferenceOption | null;
 
 export type AppSessionUser = {
   email: string;
@@ -17,6 +20,7 @@ export type AppSessionUser = {
   displayName: string;
   userLanguage: UserLanguage;
   studyObjective?: StudyObjectivePreference;
+  studyIntensity?: StudyIntensityPreference;
   userTimeZone?: UserTimeZonePreference;
 };
 
@@ -31,6 +35,11 @@ export const studyObjectivePreferences = [
   "specific_exam",
   "professional_learning",
   "other",
+] as const;
+export const studyIntensityPreferences = [
+  "light",
+  "regular",
+  "intensive",
 ] as const;
 export const defaultUserTimeZone = "UTC";
 const appAuthErrorCodes = [
@@ -62,6 +71,7 @@ export type UpdatePreferencesInput = {
   displayName: string;
   userLanguage: UserLanguage;
   studyObjective: StudyObjectivePreference;
+  studyIntensity: StudyIntensityPreference;
   userTimeZone: UserTimeZonePreference;
 };
 
@@ -164,6 +174,31 @@ export function validateStudyObjectivePreference(
     throw new AppAuthError(
       "invalid_input",
       "Study Objective must be one of the supported options.",
+    );
+  }
+
+  return value;
+}
+
+function isStudyIntensityPreference(
+  value: unknown,
+): value is StudyIntensityPreference {
+  return (
+    value === null ||
+    (typeof value === "string" &&
+      studyIntensityPreferences.includes(
+        value as StudyIntensityPreferenceOption,
+      ))
+  );
+}
+
+export function validateStudyIntensityPreference(
+  value: unknown,
+): StudyIntensityPreference {
+  if (!isStudyIntensityPreference(value)) {
+    throw new AppAuthError(
+      "invalid_input",
+      "Study Intensity must be one of the supported options.",
     );
   }
 

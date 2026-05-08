@@ -7,11 +7,12 @@ import {
   type LoginInput,
   normalizeUserLanguage,
   type RegisterInput,
+  type StudyIntensityPreference,
   type StudyObjectivePreference,
-  type StudyObjectivePreferenceOption,
   type UpdatePreferencesInput,
   type UserLanguage,
   type UserTimeZonePreference,
+  validateStudyIntensityPreference,
   validateStudyObjectivePreference,
   validateUserLanguagePreference,
   validateUserTimeZonePreference,
@@ -25,8 +26,11 @@ export {
   defaultUserTimeZone,
   fallbackUserLanguage,
   getAppAuthError,
+  type StudyIntensityPreference,
+  type StudyIntensityPreferenceOption,
   type StudyObjectivePreference,
   type StudyObjectivePreferenceOption,
+  studyIntensityPreferences,
   studyObjectivePreferences,
   type UserLanguage,
   type UserTimeZonePreference,
@@ -44,6 +48,7 @@ type MemoryStoredUserRecord = {
   userLanguage?: UserLanguage;
   interfaceLanguage?: string;
   studyObjective: StudyObjectivePreference;
+  studyIntensity: StudyIntensityPreference;
   userTimeZone?: UserTimeZonePreference;
 };
 
@@ -157,6 +162,7 @@ function buildSnapshot(
         user.userLanguage ?? user.interfaceLanguage,
       ),
       studyObjective: user.studyObjective,
+      studyIntensity: user.studyIntensity,
       userTimeZone: user.userTimeZone ?? defaultUserTimeZone,
     },
   };
@@ -405,6 +411,7 @@ export function createMemorySessionService(
         ),
         userLanguage: safeUserLanguage,
         studyObjective: null,
+        studyIntensity: null,
         userTimeZone: safeUserTimeZone,
       };
 
@@ -417,6 +424,7 @@ export function createMemorySessionService(
       displayName,
       userLanguage,
       studyObjective,
+      studyIntensity,
       userTimeZone,
     }) => {
       const activeUser = readSessionUser(cookie, store);
@@ -429,6 +437,8 @@ export function createMemorySessionService(
       const safeUserLanguage = validateUserLanguagePreference(userLanguage);
       const safeStudyObjective =
         validateStudyObjectivePreference(studyObjective);
+      const safeStudyIntensity =
+        validateStudyIntensityPreference(studyIntensity);
       const safeUserTimeZone = validateUserTimeZonePreference(userTimeZone);
       const userIndex = store.users.findIndex(
         (user) => user.id === activeUser.id,
@@ -443,6 +453,7 @@ export function createMemorySessionService(
         displayName: safeDisplayName,
         userLanguage: safeUserLanguage,
         studyObjective: safeStudyObjective,
+        studyIntensity: safeStudyIntensity,
         userTimeZone: safeUserTimeZone,
       };
 

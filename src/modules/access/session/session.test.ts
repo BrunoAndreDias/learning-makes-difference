@@ -326,6 +326,7 @@ describe("app session context", () => {
       displayName: "Jordan Rivera",
       userLanguage: "pt-PT",
       studyObjective: "self_study",
+      studyIntensity: "regular",
       userTimeZone: "Europe/Lisbon",
     });
 
@@ -333,6 +334,7 @@ describe("app session context", () => {
       displayName: "Jordan Rivera",
       userLanguage: "pt-PT",
       studyObjective: "self_study",
+      studyIntensity: "regular",
       userTimeZone: "Europe/Lisbon",
     });
 
@@ -340,16 +342,19 @@ describe("app session context", () => {
       displayName: "Jordan Rivera",
       userLanguage: "pt-PT",
       studyObjective: null,
+      studyIntensity: null,
       userTimeZone: "Europe/Lisbon",
     });
 
     expect(session.getSnapshot().user?.studyObjective).toBeNull();
+    expect(session.getSnapshot().user?.studyIntensity).toBeNull();
 
     await expect(
       session.updatePreferences({
         displayName: "Jordan Rivera",
         userLanguage: "pt-PT",
         studyObjective: "unsupported_objective" as never,
+        studyIntensity: null,
         userTimeZone: "Europe/Lisbon",
       }),
     ).rejects.toMatchObject({
@@ -362,6 +367,20 @@ describe("app session context", () => {
         displayName: "Jordan Rivera",
         userLanguage: "pt-PT",
         studyObjective: null,
+        studyIntensity: "extreme" as never,
+        userTimeZone: "Europe/Lisbon",
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_input",
+      message: "Study Intensity must be one of the supported options.",
+    } satisfies Pick<AppAuthError, "code" | "message">);
+
+    await expect(
+      session.updatePreferences({
+        displayName: "Jordan Rivera",
+        userLanguage: "pt-PT",
+        studyObjective: null,
+        studyIntensity: null,
         userTimeZone: "Not/A_Zone",
       }),
     ).rejects.toMatchObject({
@@ -380,6 +399,7 @@ describe("app session context", () => {
       displayName: "Casey Learner",
       userLanguage: "en",
       studyObjective: null,
+      studyIntensity: null,
       userTimeZone: "UTC",
     });
   });

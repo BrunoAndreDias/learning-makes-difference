@@ -170,6 +170,7 @@ describe("createAuthService", () => {
       displayName: "Casey Rivers",
       userLanguage: "pt-PT",
       studyObjective: "specific_exam",
+      studyIntensity: "intensive",
       userTimeZone: "America/New_York",
     });
     await auth.logout();
@@ -195,6 +196,7 @@ describe("createAuthService", () => {
         displayName: "Casey Rivers",
         userLanguage: "pt-PT",
         studyObjective: "specific_exam",
+        studyIntensity: "intensive",
         userTimeZone: "America/New_York",
       },
     });
@@ -295,6 +297,7 @@ describe("createAuthService", () => {
         displayName: "Casey Learner",
         userLanguage: "en",
         studyObjective: "career_change" as never,
+        studyIntensity: null,
         userTimeZone: "Europe/Lisbon",
       }),
     ).rejects.toMatchObject({
@@ -307,6 +310,20 @@ describe("createAuthService", () => {
         displayName: "Casey Learner",
         userLanguage: "en",
         studyObjective: null,
+        studyIntensity: "extreme" as never,
+        userTimeZone: "Europe/Lisbon",
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_input",
+      message: "Study Intensity must be one of the supported options.",
+    });
+
+    await expect(
+      auth.updatePreferences({
+        displayName: "Casey Learner",
+        userLanguage: "en",
+        studyObjective: null,
+        studyIntensity: null,
         userTimeZone: "Mars/Base",
       }),
     ).rejects.toMatchObject({

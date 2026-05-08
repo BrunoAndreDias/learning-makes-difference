@@ -64,6 +64,7 @@ describe("createAuthService PostgreSQL integration", () => {
       displayName: "Casey Rivers",
       userLanguage: "pt-PT",
       studyObjective: "specific_exam",
+      studyIntensity: "light",
       userTimeZone: "America/New_York",
     });
 
@@ -85,6 +86,7 @@ describe("createAuthService PostgreSQL integration", () => {
       displayName: "Jordan Rivera",
       userLanguage: "en",
       studyObjective: null,
+      studyIntensity: null,
       userTimeZone: "Europe/Lisbon",
     });
 
@@ -108,6 +110,7 @@ describe("createAuthService PostgreSQL integration", () => {
         email: "casey@example.com",
         userLanguage: "pt-PT",
         studyObjective: "specific_exam",
+        studyIntensity: "light",
         userTimeZone: "America/New_York",
       },
     });
@@ -117,6 +120,7 @@ describe("createAuthService PostgreSQL integration", () => {
         email: "jordan@example.com",
         userLanguage: "en",
         studyObjective: null,
+        studyIntensity: null,
         userTimeZone: "Europe/Lisbon",
       },
     });
