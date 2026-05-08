@@ -178,7 +178,7 @@ function RootDocumentBody({ children }: Readonly<{ children: ReactNode }>) {
               </span>
             </Link>
 
-            <nav aria-label="Primary">
+            <nav aria-label={t("shell.topbar.primary")}>
               <ul className="nav-list">
                 <li>
                   <Link

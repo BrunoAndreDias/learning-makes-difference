@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Button, type ButtonVariant } from "../../design-system/button";
+import { useAppTranslation } from "../language";
 import {
   type AppFocusContext,
   AppFocusError,
@@ -37,6 +38,7 @@ export function FocusSessionStartControl({
   persistentFocus?: AppPersistentFocusContext;
   userId: string | null;
 }>) {
+  const { t } = useAppTranslation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const errorId = useId();
   const focusSessionButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -79,7 +81,7 @@ export function FocusSessionStartControl({
   }, [currentActiveFocusSession]);
 
   if (currentActiveFocusSession !== null) {
-    const focusStatus = getFocusStatus(currentActiveFocusSession);
+    const focusStatus = getFocusStatus(currentActiveFocusSession, t);
 
     async function startNewFocusSession() {
       if (userId === null) {
@@ -116,7 +118,7 @@ export function FocusSessionStartControl({
 
     return (
       <fieldset className="app-focus-session-status tag-row">
-        <legend className="sr-only">Active focus session</legend>
+        <legend className="sr-only">{t("focus.activeSession.legend")}</legend>
         {userId === null ? null : (
           <>
             {currentActiveFocusSession.isStale ? (
@@ -129,7 +131,7 @@ export function FocusSessionStartControl({
                 type="button"
                 variant={actionButtonVariant}
               >
-                Start new focus
+                {t("focus.action.startNew")}
               </Button>
             ) : (
               <Button
@@ -148,7 +150,7 @@ export function FocusSessionStartControl({
                 type="button"
                 variant={actionButtonVariant}
               >
-                End focus
+                {t("focus.action.end")}
                 {focusStatus.isPersistentState ? null : (
                   <span aria-hidden="true">{focusStatus.label}</span>
                 )}
@@ -218,7 +220,7 @@ export function FocusSessionStartControl({
         type="button"
         variant={actionButtonVariant}
       >
-        Start Focus
+        {t("focus.action.start")}
       </Button>
       {errorMessage === null ? null : (
         <span id={errorId} role="status">
@@ -247,12 +249,16 @@ export function useFocusTimerTick(session: FocusSession | null) {
   }, [session?.stateEndsAt]);
 }
 
-function getFocusStatus(session: FocusSession) {
+function getFocusStatus(
+  session: FocusSession,
+  t: ReturnType<typeof useAppTranslation>["t"],
+) {
   if (session.intervalState === "AwaitingNextFocus") {
     return {
       isPersistentState: true,
-      label: session.isStale ? "Focus session stale" : "Ready for next focus",
-      prefix: "",
+      label: session.isStale
+        ? t("focus.status.stale")
+        : t("focus.status.awaitingNext"),
     };
   }
 
@@ -261,19 +267,16 @@ function getFocusStatus(session: FocusSession) {
       return {
         isPersistentState: false,
         label: getRemainingTimerLabel(session),
-        prefix: "Transition window: ",
       };
     case "Break":
       return {
         isPersistentState: false,
         label: getRemainingTimerLabel(session),
-        prefix: "Break: ",
       };
     case "Focus":
       return {
         isPersistentState: false,
         label: getRemainingTimerLabel(session),
-        prefix: "Focus: ",
       };
   }
 }
