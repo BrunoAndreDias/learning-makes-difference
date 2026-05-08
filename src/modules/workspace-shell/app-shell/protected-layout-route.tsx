@@ -438,7 +438,7 @@ function GlobalNavigation({
             <span aria-hidden="true" className="app-sidebar__icon">
               <NavigationIcon name="note" />
             </span>
-            <span className="app-sidebar__label">Study Notes</span>
+            <span className="app-sidebar__label">{t("shell.nav.notes")}</span>
           </Link>
         </li>
         <li>
