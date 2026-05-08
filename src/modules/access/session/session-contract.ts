@@ -4,6 +4,7 @@ export type AppSessionUser = {
   displayName: string;
   interfaceLanguage: AppLanguagePreference;
   studyLanguage: AppLanguagePreference;
+  userTimeZone?: UserTimeZonePreference;
 };
 
 export type AppSessionSnapshot = {
@@ -11,6 +12,7 @@ export type AppSessionSnapshot = {
 };
 
 export const appLanguagePreferences = ["en", "es", "pt-BR"] as const;
+export const defaultUserTimeZone = "UTC";
 const appAuthErrorCodes = [
   "email_taken",
   "invalid_credentials",
@@ -20,6 +22,7 @@ const appAuthErrorCodes = [
 ] as const;
 
 export type AppLanguagePreference = (typeof appLanguagePreferences)[number];
+export type UserTimeZonePreference = string;
 export type AppAuthErrorCode = (typeof appAuthErrorCodes)[number];
 
 export type RegisterInput = {
@@ -27,6 +30,7 @@ export type RegisterInput = {
   email: string;
   password: string;
   pilotRegistrationCode: string;
+  userTimeZone?: UserTimeZonePreference;
 };
 
 export type LoginInput = {
@@ -38,6 +42,7 @@ export type UpdatePreferencesInput = {
   displayName: string;
   interfaceLanguage: AppLanguagePreference;
   studyLanguage: AppLanguagePreference;
+  userTimeZone: UserTimeZonePreference;
 };
 
 export class AppAuthError extends Error {
@@ -109,6 +114,40 @@ export function isLanguagePreference(
     typeof value === "string" &&
     appLanguagePreferences.includes(value as AppLanguagePreference)
   );
+}
+
+export function isUserTimeZonePreference(
+  value: unknown,
+): value is UserTimeZonePreference {
+  if (
+    typeof value !== "string" ||
+    value.trim() !== value ||
+    value.length === 0
+  ) {
+    return false;
+  }
+
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value }).format(new Date());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function validateUserTimeZonePreference(
+  value: string | undefined,
+): UserTimeZonePreference {
+  const timeZone = value ?? defaultUserTimeZone;
+
+  if (!isUserTimeZonePreference(timeZone)) {
+    throw new AppAuthError(
+      "invalid_input",
+      "User Time Zone must be a supported IANA time zone.",
+    );
+  }
+
+  return timeZone;
 }
 
 export function buildAnonymousSnapshot(): AppSessionSnapshot {

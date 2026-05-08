@@ -3,11 +3,14 @@ import {
   type AppLanguagePreference,
   type AppSessionSnapshot,
   buildAnonymousSnapshot,
+  defaultUserTimeZone,
   getAppAuthError,
   isLanguagePreference,
   type LoginInput,
   type RegisterInput,
   type UpdatePreferencesInput,
+  type UserTimeZonePreference,
+  validateUserTimeZonePreference,
 } from "./session-contract";
 import { createServerSessionService } from "./session-server-fns";
 
@@ -17,7 +20,9 @@ export {
   type AppSessionSnapshot,
   type AppSessionUser,
   appLanguagePreferences,
+  defaultUserTimeZone,
   getAppAuthError,
+  type UserTimeZonePreference,
 } from "./session-contract";
 
 type SessionListener = () => void;
@@ -30,6 +35,7 @@ type MemoryStoredUserRecord = {
   passwordSalt: string;
   interfaceLanguage: AppLanguagePreference;
   studyLanguage: AppLanguagePreference;
+  userTimeZone?: UserTimeZonePreference;
 };
 
 type MemoryStoredSessionRecord = {
@@ -140,6 +146,7 @@ function buildSnapshot(
       email: user.email,
       interfaceLanguage: user.interfaceLanguage,
       studyLanguage: user.studyLanguage,
+      userTimeZone: user.userTimeZone ?? defaultUserTimeZone,
     },
   };
 }
@@ -366,6 +373,7 @@ export function createMemorySessionService(
       email,
       password,
       pilotRegistrationCode: providedRegistrationCode,
+      userTimeZone,
     }) => {
       const safeDisplayName = validateDisplayName(displayName);
       const safeEmail = validateEmail(email);
@@ -374,6 +382,7 @@ export function createMemorySessionService(
         providedRegistrationCode,
         pilotRegistrationCode,
       );
+      const safeUserTimeZone = validateUserTimeZonePreference(userTimeZone);
 
       if (
         store.users.some((user) => normalizeEmail(user.email) === safeEmail)
@@ -397,6 +406,7 @@ export function createMemorySessionService(
         ),
         interfaceLanguage: "en",
         studyLanguage: "en",
+        userTimeZone: safeUserTimeZone,
       };
 
       store.users.push(nextUser);
@@ -408,6 +418,7 @@ export function createMemorySessionService(
       displayName,
       interfaceLanguage,
       studyLanguage,
+      userTimeZone,
     }) => {
       const activeUser = readSessionUser(cookie, store);
 
@@ -424,6 +435,7 @@ export function createMemorySessionService(
         studyLanguage,
         "Study language",
       );
+      const safeUserTimeZone = validateUserTimeZonePreference(userTimeZone);
       const userIndex = store.users.findIndex(
         (user) => user.id === activeUser.id,
       );
@@ -437,6 +449,7 @@ export function createMemorySessionService(
         displayName: safeDisplayName,
         interfaceLanguage: safeInterfaceLanguage,
         studyLanguage: safeStudyLanguage,
+        userTimeZone: safeUserTimeZone,
       };
 
       store.users[userIndex] = nextUser;

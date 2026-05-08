@@ -7,9 +7,13 @@ import {
 } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
 import { z } from "zod";
-
 import { useAppTranslation } from "../../language";
-import { getAppAuthError, hasActiveSession } from "./session";
+import {
+  defaultUserTimeZone,
+  getAppAuthError,
+  hasActiveSession,
+  type UserTimeZonePreference,
+} from "./session";
 
 export const Route = createFileRoute("/_auth/register")({
   validateSearch: z.object({
@@ -61,6 +65,7 @@ function RegisterPage() {
         email,
         password,
         pilotRegistrationCode,
+        userTimeZone: detectBrowserUserTimeZone(),
       });
       await router.invalidate();
       await navigate({ to: redirectTarget });
@@ -280,5 +285,11 @@ function RegisterPage() {
         </Link>
       </p>
     </article>
+  );
+}
+
+function detectBrowserUserTimeZone(): UserTimeZonePreference {
+  return (
+    Intl.DateTimeFormat().resolvedOptions().timeZone ?? defaultUserTimeZone
   );
 }

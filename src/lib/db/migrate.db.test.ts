@@ -41,6 +41,9 @@ describe("migrateDatabase PostgreSQL integration", () => {
       {
         name: "0004_focus_sessions_and_records.sql",
       },
+      {
+        name: "0005_user_time_zone_preference.sql",
+      },
     ]);
 
     const tables = await database.client.unsafe<Array<{ table_name: string }>>(`

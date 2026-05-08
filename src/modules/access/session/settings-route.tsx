@@ -1,10 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { type ChangeEvent, type FormEvent, useEffect, useState } from "react";
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import {
   type AppLanguagePreference,
   appLanguagePreferences,
+  defaultUserTimeZone,
   getAppAuthError,
+  type UserTimeZonePreference,
 } from "./session";
 import { useResolvedProtectedSession } from "./use-resolved-protected-session";
 
@@ -18,6 +26,29 @@ const languageLabels: Record<AppLanguagePreference, string> = {
   "pt-BR": "Portuguese (Brazil)",
 };
 
+const fallbackUserTimeZones = [
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "Europe/Lisbon",
+  "Europe/Madrid",
+  "Europe/London",
+] as const;
+
+function getUserTimeZoneOptions(
+  currentTimeZone: UserTimeZonePreference,
+): UserTimeZonePreference[] {
+  const supportedTimeZones =
+    typeof Intl.supportedValuesOf === "function"
+      ? Intl.supportedValuesOf("timeZone")
+      : fallbackUserTimeZones;
+
+  return Array.from(
+    new Set([defaultUserTimeZone, currentTimeZone, ...supportedTimeZones]),
+  ).sort();
+}
+
 function SettingsPage() {
   const { session, sessionSnapshot } = useResolvedProtectedSession(
     "/_protected/settings",
@@ -29,9 +60,16 @@ function SettingsPage() {
   const [studyLanguage, setStudyLanguage] = useState<AppLanguagePreference>(
     user?.studyLanguage ?? "en",
   );
+  const [userTimeZone, setUserTimeZone] = useState<UserTimeZonePreference>(
+    user?.userTimeZone ?? defaultUserTimeZone,
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
+  const userTimeZoneOptions = useMemo(
+    () => getUserTimeZoneOptions(userTimeZone),
+    [userTimeZone],
+  );
 
   function updateLanguagePreference(
     setter: (value: AppLanguagePreference) => void,
@@ -46,16 +84,19 @@ function SettingsPage() {
     setDisplayName(user?.displayName ?? "");
     setInterfaceLanguage(user?.interfaceLanguage ?? "en");
     setStudyLanguage(user?.studyLanguage ?? "en");
+    setUserTimeZone(user?.userTimeZone ?? defaultUserTimeZone);
   }, [user]);
 
   if (user === null) {
     return null;
   }
 
+  const savedUserTimeZone = user.userTimeZone ?? defaultUserTimeZone;
   const hasPreferenceChanges =
     displayName !== user.displayName ||
     interfaceLanguage !== user.interfaceLanguage ||
-    studyLanguage !== user.studyLanguage;
+    studyLanguage !== user.studyLanguage ||
+    userTimeZone !== savedUserTimeZone;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -68,6 +109,7 @@ function SettingsPage() {
         displayName,
         interfaceLanguage,
         studyLanguage,
+        userTimeZone,
       });
       setStatusMessage("Preferences saved.");
     } catch (error) {
@@ -155,6 +197,26 @@ function SettingsPage() {
               </select>
             </label>
 
+            <label className="settings-form__field">
+              <span>User Time Zone</span>
+              <select
+                className="settings-form__control"
+                name="userTimeZone"
+                onChange={(event) => {
+                  setUserTimeZone(event.target.value);
+                  setStatusMessage(null);
+                }}
+                required
+                value={userTimeZone}
+              >
+                {userTimeZoneOptions.map((timeZone) => (
+                  <option key={timeZone} value={timeZone}>
+                    {timeZone}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             {errorMessage !== null ? (
               <p
                 className="auth-form__error settings-form__message"
@@ -207,6 +269,10 @@ function SettingsPage() {
             <div>
               <dt>Study language</dt>
               <dd>{languageLabels[studyLanguage]}</dd>
+            </div>
+            <div>
+              <dt>User Time Zone</dt>
+              <dd>{userTimeZone}</dd>
             </div>
           </dl>
         </article>
