@@ -1,4 +1,5 @@
 import type { Resource } from "i18next";
+import type { UserLanguage } from "./user-language";
 
 const englishTranslations = {
   "access.login.email.label": "Email",
@@ -1155,7 +1156,7 @@ export const userLanguageCatalogs = {
   en: englishTranslations,
   "pt-PT": portugueseTranslations,
   es: spanishTranslations,
-} satisfies Record<string, TranslationCatalog>;
+} satisfies Record<UserLanguage, TranslationCatalog>;
 
 export const userLanguageResources = {
   en: {

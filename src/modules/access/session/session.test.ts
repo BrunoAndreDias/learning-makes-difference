@@ -6,6 +6,7 @@ import {
   createMemorySessionService,
   createMemorySessionStore,
   hasActiveSession,
+  type MemorySessionStore,
 } from "./session";
 
 const TEST_PILOT_REGISTRATION_CODE = "test-pilot-code";
@@ -24,6 +25,19 @@ function createMemoryCookieStore() {
       value = nextValue;
     },
   };
+}
+
+function persistUnsupportedUserLanguage(
+  store: MemorySessionStore,
+  userLanguage: string,
+) {
+  const [storedUser] = store.users;
+
+  if (storedUser === undefined) {
+    throw new Error("Expected a stored test user.");
+  }
+
+  Object.assign(storedUser, { userLanguage });
 }
 
 describe("app session context", () => {
@@ -134,10 +148,7 @@ describe("app session context", () => {
       pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
       userLanguage: "es",
     });
-    store.users[0] = {
-      ...store.users[0],
-      userLanguage: "fr-FR" as never,
-    };
+    persistUnsupportedUserLanguage(store, "fr-FR");
 
     await session.logout();
     await session.login({
