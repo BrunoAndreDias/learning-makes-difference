@@ -16,6 +16,7 @@ import { formatCount } from "../../../lib/format-count";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import { useResolvedProtectedSession } from "../../access/session/use-resolved-protected-session";
 import { FocusSessionStartControl } from "../../focus";
+import { useAppTranslation } from "../../language";
 import { listNotesForUser } from "../../notes";
 import { normalizeLabelParentIds } from "../label-graph";
 import { type AppLabel, AppLabelError } from "./labels";
@@ -228,6 +229,7 @@ function restoreFocusAndClearRef(focusRef: FocusRestoreRef) {
 }
 
 function LabelsPage() {
+  const { t } = useAppTranslation();
   const labels = useRouteContext({
     from: "/_protected/labels",
     select: (context) => context.labels,
@@ -812,14 +814,12 @@ function LabelsPage() {
       <header className="labels-management-header">
         <div className="labels-management-header__copy recall-surface__header">
           <div className="notes-editor__title-stack">
-            <h3 id="labels-route-heading">Labels</h3>
-            <p className="muted notes-editor__meta">
-              Organize notes with reusable topics.
-            </p>
+            <h3 id="labels-route-heading">{t("labels.heading")}</h3>
+            <p className="muted notes-editor__meta">{t("labels.subtitle")}</p>
           </div>
           {hasLabels ? (
             <section
-              aria-label="Labels summary"
+              aria-label={t("labels.summary.label")}
               className="labels-management-header__summary"
             >
               <div className="labels-management-header__summary-metrics">
@@ -832,8 +832,7 @@ function LabelsPage() {
                 <span>{summaryUnusedText}</span>
               </div>
               <p className="labels-management-header__rules-note">
-                Rules: multiple parents allowed, cycles blocked, deleting labels
-                keeps notes.
+                {t("labels.rules")}
               </p>
             </section>
           ) : null}
@@ -845,7 +844,7 @@ function LabelsPage() {
             type="button"
             variant="primary"
           >
-            New label
+            {t("labels.action.newLabel")}
           </Button>
           <FocusSessionStartControl
             activeFocusSession={activeFocusSession}
@@ -868,11 +867,11 @@ function LabelsPage() {
       ) : null}
 
       {hasLabels ? (
-        <section className="labels-toolbar" aria-label="Labels toolbar">
+        <section className="labels-toolbar" aria-label={t("labels.toolbar")}>
           <div className="labels-toolbar__search labels-input-with-icon">
             <SearchIcon />
             <label className="sr-only" htmlFor={searchInputId}>
-              Search labels
+              {t("labels.search.label")}
             </label>
             <input
               autoComplete="off"
@@ -884,7 +883,7 @@ function LabelsPage() {
                   setSearchQuery("");
                 }
               }}
-              placeholder="Search labels..."
+              placeholder={t("labels.search.placeholder")}
               ref={searchInputRef}
               type="search"
               value={searchQuery}
@@ -919,35 +918,35 @@ function LabelsPage() {
             <div className="labels-empty-state__icon" aria-hidden="true">
               <LabelTagIcon />
             </div>
-            <h4>No labels yet</h4>
-            <p className="muted">
-              Create your first label to group related notes.
-            </p>
+            <h4>{t("labels.empty.noLabelsYet")}</h4>
+            <p className="muted">{t("labels.empty.createFirst")}</p>
             <button
               className="notes-action notes-action-primary"
               onClick={(event) => openEmptyCreateDrawer(event.currentTarget)}
               type="button"
             >
-              New label
+              {t("labels.action.newLabel")}
             </button>
           </article>
         ) : visibleRows.length === 0 ? (
           <article className="labels-empty-state labels-empty-state--search">
             <div className="labels-table-shell__state-header">
-              Search results
+              {t("labels.search.results")}
             </div>
             <div className="labels-empty-state__content">
               <div className="labels-empty-state__icon" aria-hidden="true">
                 <SearchIcon />
               </div>
               {hasSearchQuery ? (
-                <h4>{`No label found for “${normalizedSearchQuery}”`}</h4>
+                <h4>
+                  {t("labels.empty.noSearchMatch", {
+                    query: normalizedSearchQuery,
+                  })}
+                </h4>
               ) : (
-                <h4>No labels match the current filters.</h4>
+                <h4>{t("labels.empty.noLabelsMatchFilters")}</h4>
               )}
-              <p className="muted">
-                Create it now or clear the search to see all labels.
-              </p>
+              <p className="muted">{t("labels.empty.createOrClear")}</p>
               {hasSearchQuery ? (
                 <button
                   className="notes-action notes-action-primary"
@@ -966,7 +965,7 @@ function LabelsPage() {
           </article>
         ) : (
           <div className="labels-table-scroll" data-labels-table-scroll="">
-            <table aria-label="Labels list" className="labels-table">
+            <table aria-label={t("labels.table.list")} className="labels-table">
               <thead>
                 <tr>
                   <th
@@ -975,9 +974,9 @@ function LabelsPage() {
                     }
                     scope="col"
                   >
-                    Label
+                    {t("labels.table.label")}
                   </th>
-                  <th scope="col">Parents</th>
+                  <th scope="col">{t("labels.table.parents")}</th>
                   <th
                     aria-sort={
                       sortValue === "children-desc" ? "descending" : undefined
@@ -997,7 +996,7 @@ function LabelsPage() {
                       onClick={() => handleCountColumnSort("children-desc")}
                       type="button"
                     >
-                      <span>Children</span>
+                      <span>{t("labels.table.children")}</span>
                       <SortDescendingIcon />
                     </button>
                   </th>
@@ -1020,12 +1019,14 @@ function LabelsPage() {
                       onClick={() => handleCountColumnSort("notes-desc")}
                       type="button"
                     >
-                      <span>Notes</span>
+                      <span>{t("labels.table.notes")}</span>
                       <SortDescendingIcon />
                     </button>
                   </th>
                   <th scope="col">
-                    <span className="sr-only">Row actions</span>
+                    <span className="sr-only">
+                      {t("labels.table.rowActions")}
+                    </span>
                   </th>
                 </tr>
               </thead>
@@ -1113,9 +1114,9 @@ function LabelsPage() {
         >
           <header className="labels-create-drawer__header">
             <div>
-              <h4 id={createDrawerTitleId}>New label</h4>
+              <h4 id={createDrawerTitleId}>{t("labels.action.newLabel")}</h4>
               <p className="muted" id={createDrawerDescriptionId}>
-                Create a reusable topic for notes.
+                {t("labels.create.description")}
               </p>
             </div>
             <button
@@ -1129,18 +1130,18 @@ function LabelsPage() {
           </header>
 
           <form
-            aria-label="Create label form"
+            aria-label={t("labels.form.create")}
             className="labels-create-drawer__form"
             onSubmit={handleCreateLabel}
           >
             <div className="labels-create-drawer__body">
               <label className="labels-field" htmlFor={createInputId}>
-                <span>Label name</span>
+                <span>{t("labels.form.labelName")}</span>
                 <input
                   id={createInputId}
                   name="newLabelName"
                   onChange={(event) => setCreateName(event.target.value)}
-                  placeholder="Example: Fitness"
+                  placeholder={t("labels.placeholder.example")}
                   ref={createInputRef}
                   required
                   type="text"
@@ -1152,15 +1153,15 @@ function LabelsPage() {
                 className="labels-field"
                 htmlFor={createParentSearchInputId}
               >
-                <span>Parent labels</span>
+                <span>{t("labels.form.parentLabels")}</span>
                 <input
-                  aria-label="Search parent labels"
+                  aria-label={t("labels.form.searchParents")}
                   id={createParentSearchInputId}
                   name="searchParentLabels"
                   onChange={(event) =>
                     setCreateParentSearchQuery(event.target.value)
                   }
-                  placeholder="Search parent labels..."
+                  placeholder={t("labels.form.searchParentsPlaceholder")}
                   type="search"
                   value={createParentSearchQuery}
                 />
@@ -1173,7 +1174,7 @@ function LabelsPage() {
                 >
                   {createParentOptions.length === 0 ? (
                     <li className="labels-parent-options__empty muted">
-                      No matching parent labels.
+                      {t("labels.empty.noMatchingParents")}
                     </li>
                   ) : (
                     createParentOptions.map((option) => {
@@ -1204,9 +1205,11 @@ function LabelsPage() {
               ) : null}
 
               <section className="labels-selected-parents">
-                <p className="labels-drawer-section-title">Selected parents</p>
+                <p className="labels-drawer-section-title">
+                  {t("labels.form.selectedParents")}
+                </p>
                 {selectedCreateParentRows.length === 0 ? (
-                  <p className="muted">No parent selected</p>
+                  <p className="muted">{t("labels.empty.noParentSelected")}</p>
                 ) : (
                   <ul aria-label="Selected parent labels" className="tag-row">
                     {selectedCreateParentRows.map((parentRow) => (
@@ -1230,7 +1233,9 @@ function LabelsPage() {
                 aria-label="Relationship preview"
                 className="labels-preview-card"
               >
-                <p className="labels-drawer-section-title">Preview</p>
+                <p className="labels-drawer-section-title">
+                  {t("labels.section.preview")}
+                </p>
                 <p>{createRelationshipPreview}</p>
               </section>
             </div>
@@ -1241,14 +1246,14 @@ function LabelsPage() {
                 onClick={closeCreateDrawer}
                 type="button"
               >
-                Cancel
+                {t("labels.action.cancel")}
               </button>
               <button
                 className="notes-action notes-action-primary"
                 disabled={!createNameIsValid}
                 type="submit"
               >
-                Create label
+                {t("labels.action.createLabel")}
               </button>
             </footer>
           </form>
@@ -1265,7 +1270,7 @@ function LabelsPage() {
         >
           <header className="labels-create-drawer__header">
             <div>
-              <h4 id={editDrawerTitleId}>Edit label</h4>
+              <h4 id={editDrawerTitleId}>{t("labels.action.editLabel")}</h4>
               <p className="muted" id={editDrawerDescriptionId}>
                 {editUsageSummary}
               </p>
@@ -1281,18 +1286,18 @@ function LabelsPage() {
           </header>
 
           <form
-            aria-label="Edit label form"
+            aria-label={t("labels.form.edit")}
             className="labels-create-drawer__form"
             onSubmit={handleEditLabel}
           >
             <div className="labels-create-drawer__body">
               <label className="labels-field" htmlFor={editInputId}>
-                <span>Label name</span>
+                <span>{t("labels.form.labelName")}</span>
                 <input
                   id={editInputId}
                   name="editLabelName"
                   onChange={(event) => setEditName(event.target.value)}
-                  placeholder="Example: Fitness"
+                  placeholder={t("labels.placeholder.example")}
                   ref={editInputRef}
                   required
                   type="text"
@@ -1301,15 +1306,15 @@ function LabelsPage() {
               </label>
 
               <label className="labels-field" htmlFor={editParentSearchInputId}>
-                <span>Parent labels</span>
+                <span>{t("labels.form.parentLabels")}</span>
                 <input
-                  aria-label="Search parent labels"
+                  aria-label={t("labels.form.searchParents")}
                   id={editParentSearchInputId}
                   name="searchParentLabelsForEdit"
                   onChange={(event) =>
                     setEditParentSearchQuery(event.target.value)
                   }
-                  placeholder="Search parent labels..."
+                  placeholder={t("labels.form.searchParentsPlaceholder")}
                   type="search"
                   value={editParentSearchQuery}
                 />
@@ -1322,7 +1327,7 @@ function LabelsPage() {
                 >
                   {editParentOptions.length === 0 ? (
                     <li className="labels-parent-options__empty muted">
-                      No matching parent labels.
+                      {t("labels.empty.noMatchingParents")}
                     </li>
                   ) : (
                     editParentOptions.map((option) => {
@@ -1353,9 +1358,11 @@ function LabelsPage() {
               ) : null}
 
               <section className="labels-selected-parents">
-                <p className="labels-drawer-section-title">Selected parents</p>
+                <p className="labels-drawer-section-title">
+                  {t("labels.form.selectedParents")}
+                </p>
                 {selectedEditParentRows.length === 0 ? (
-                  <p className="muted">No parent selected</p>
+                  <p className="muted">{t("labels.empty.noParentSelected")}</p>
                 ) : (
                   <ul aria-label="Selected parent labels" className="tag-row">
                     {selectedEditParentRows.map((parentRow) => (
@@ -1430,14 +1437,14 @@ function LabelsPage() {
                 onClick={closeEditDrawer}
                 type="button"
               >
-                Cancel
+                {t("labels.action.cancel")}
               </button>
               <button
                 className="notes-action notes-action-primary"
                 disabled={!canSaveEdit}
                 type="submit"
               >
-                Save changes
+                {t("labels.action.saveChanges")}
               </button>
             </footer>
           </form>

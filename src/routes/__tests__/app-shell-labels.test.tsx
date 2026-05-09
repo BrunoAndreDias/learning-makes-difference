@@ -212,6 +212,56 @@ describe("authenticated app shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("translates Spanish labels chrome without changing authored label names", async () => {
+    const { labelsContext, notesContext, userId } = createLabelsRouteContexts(
+      "spanish-labels-chrome",
+    );
+
+    labelsContext.createLabel({
+      name: "Organic Chemistry",
+      userId,
+    });
+    labelsContext.createLabel({
+      name: "Stoichiometry",
+      userId,
+    });
+
+    renderRoute("/labels", {
+      labelsContext,
+      notesContext,
+      session: {
+        user: {
+          displayName: "Sofia Labels",
+          email: "sofia.labels@example.com",
+          id: userId,
+          userLanguage: "es",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Etiquetas" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Organiza notas con temas reutilizables."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Nueva etiqueta" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("Buscar etiquetas..."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Organic Chemistry" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Stoichiometry" }),
+    ).toBeInTheDocument();
+    expect(
+      labelsContext.getLabelsForUser(userId).map((label) => label.name),
+    ).toEqual(["Organic Chemistry", "Stoichiometry"]);
+  });
+
   it("keeps the labels search icon from overlapping placeholder text", () => {
     const css = readFileSync(
       join(process.cwd(), "src/modules/labels/labels.css"),

@@ -29,6 +29,7 @@ import {
   isBreakIntervalActive,
 } from "../../focus";
 import type { AppLabel } from "../../labels/label-management/labels";
+import { useAppTranslation } from "../../language";
 import type { AppPersistentNotesContext } from "..";
 import {
   deriveLearningStates,
@@ -434,12 +435,13 @@ function LabelPickerPanel({
   onSearchQueryChange,
   onToggle,
 }: LabelPickerPanelProps) {
+  const { t } = useAppTranslation();
   const hasAvailableLabels = availableLabels.length > 0;
   const trimmedSearchQuery = searchQuery.trim();
 
   return (
     <section
-      aria-label="Assign labels"
+      aria-label={t("notes.action.assignLabels")}
       aria-modal="false"
       className="notes-label-picker"
       id={labelPickerPanelId}
@@ -447,22 +449,26 @@ function LabelPickerPanel({
     >
       <div className="notes-label-picker__header">
         <div>
-          <p className="section-label">Labels</p>
-          <h4>Assign labels</h4>
+          <p className="section-label">{t("shell.navigation.labels")}</p>
+          <h4>{t("notes.labelPicker.heading")}</h4>
         </div>
         {hasAvailableLabels ? (
-          <span className="tag">{`${draftLabelIds.length} selected`}</span>
+          <span className="tag">
+            {t("notes.labelPicker.selectedCount", {
+              count: draftLabelIds.length,
+            })}
+          </span>
         ) : null}
       </div>
 
       {hasAvailableLabels ? (
         <>
           <label className="notes-label-picker__search" htmlFor={searchInputId}>
-            <span>Search existing labels</span>
+            <span>{t("notes.labelPicker.search.label")}</span>
             <input
               id={searchInputId}
               onChange={(event) => onSearchQueryChange(event.target.value)}
-              placeholder="Search existing labels"
+              placeholder={t("notes.labelPicker.search.placeholder")}
               ref={searchInputRef}
               type="search"
               value={searchQuery}
@@ -470,11 +476,13 @@ function LabelPickerPanel({
           </label>
           {visibleLabels.length === 0 ? (
             <p className="muted notes-label-picker__empty">
-              No labels match "{trimmedSearchQuery}".
+              {t("notes.empty.searchLabels", { query: trimmedSearchQuery })}
             </p>
           ) : (
             <fieldset className="notes-label-picker__list">
-              <legend className="sr-only">Available labels</legend>
+              <legend className="sr-only">
+                {t("notes.labelPicker.availableLabels")}
+              </legend>
               {visibleLabels.map((label) => (
                 <label className="notes-label-picker__option" key={label.id}>
                   <input
@@ -492,16 +500,18 @@ function LabelPickerPanel({
         </>
       ) : (
         <div className="notes-label-picker__empty-state">
-          <p className="muted notes-label-picker__empty">No labels available</p>
+          <p className="muted notes-label-picker__empty">
+            {t("notes.empty.noLabelsAvailable")}
+          </p>
           <p className="muted notes-label-picker__empty-copy">
-            Create and manage Labels in the Labels section.
+            {t("notes.empty.noLabelsAvailableDescription")}
           </p>
         </div>
       )}
 
       <div className="notes-label-picker__actions">
         <button className="notes-action" onClick={onCancel} type="button">
-          Cancel
+          {t("notes.action.cancel")}
         </button>
         {hasAvailableLabels ? (
           <button
@@ -509,7 +519,7 @@ function LabelPickerPanel({
             onClick={onSave}
             type="button"
           >
-            Save
+            {t("notes.action.save")}
           </button>
         ) : (
           <button
@@ -518,7 +528,7 @@ function LabelPickerPanel({
             ref={goToLabelsButtonRef}
             type="button"
           >
-            Open Labels
+            {t("notes.action.openLabels")}
           </button>
         )}
       </div>
@@ -570,6 +580,7 @@ function hasUnsavedHookDraftChanges(noteEditor: NoteEditorState) {
 }
 
 function NotesWorkspace() {
+  const { t } = useAppTranslation();
   const location = useLocation();
   const focusContext = useRouteContext({
     from: "/_protected/notes",
@@ -1880,7 +1891,9 @@ function NotesWorkspace() {
   );
   const noteCountLabel = formatCount(notes.length, "note");
   const selectedLabelCount = formatCount(selectedLabels.length, "label");
-  const workspaceModeLabel = isCreating ? "Draft mode" : "Editing note";
+  const workspaceModeLabel = isCreating
+    ? t("notes.status.draftMode")
+    : t("notes.status.editingNote");
   const hasUnsavedChanges = hasUnsavedNoteChanges;
   const hasUnsavedHookChanges = hasUnsavedHookDraftChanges(noteEditor);
   const shouldShowEditorActions = isCreating || hasUnsavedChanges;
@@ -1916,10 +1929,10 @@ function NotesWorkspace() {
   };
   const selectedNoteUpdatedLabel =
     selectedNote === null
-      ? "Unsaved draft"
+      ? t("notes.status.unsavedDraft")
       : hasUnsavedChanges
-        ? "Unsaved changes"
-        : "Saved";
+        ? t("notes.status.unsavedChanges")
+        : t("notes.status.saved");
   const isSearchListboxOpen =
     hasSearchQuery && isSearchOpen && searchResults.length > 0;
   const activeSearchResult = searchResults[activeSearchResultIndex];
@@ -1993,10 +2006,8 @@ function NotesWorkspace() {
       <header className="notes-workspace__page-header">
         <div className="notes-workspace__header-copy">
           <div className="notes-workspace__identity">
-            <h1>Notes</h1>
-            <p className="muted">
-              Capture small concepts and reinforce them through recall.
-            </p>
+            <h1>{t("notes.heading")}</h1>
+            <p className="muted">{t("notes.subtitle")}</p>
           </div>
         </div>
         <div className="notes-workspace__quick-actions">
@@ -2005,7 +2016,7 @@ function NotesWorkspace() {
             onClick={() => void handleOpenRecallSelection()}
             type="button"
           >
-            Start Recall
+            {t("notes.action.startRecall")}
           </button>
           <FocusSessionStartControl
             activeFocusSession={activeFocusSession}
@@ -2041,7 +2052,7 @@ function NotesWorkspace() {
               type="button"
             >
               <PlusCircleIcon />
-              New note
+              {t("notes.action.newNote")}
             </button>
             <span className="sr-only" id="notes-list-count">
               {noteCountLabel}
@@ -2058,7 +2069,7 @@ function NotesWorkspace() {
               <SearchIcon />
             </span>
             <label className="sr-only" htmlFor="notes-search">
-              Search notes
+              {t("notes.search.label")}
             </label>
             <input
               aria-activedescendant={activeSearchOptionId}
@@ -2077,7 +2088,7 @@ function NotesWorkspace() {
                 }
               }}
               onKeyDown={handleSearchKeyDown}
-              placeholder="Search notes"
+              placeholder={t("notes.search.placeholder")}
               ref={searchInputRef}
               role="combobox"
               type="search"
@@ -2119,23 +2130,23 @@ function NotesWorkspace() {
           <nav aria-label="Notes list" className="notes-list__nav">
             {notes.length === 0 ? (
               <div className="notes-list__empty-state">
-                <h3>No notes yet</h3>
-                <p className="muted">
-                  Create your first small concept to start the learning loop.
-                </p>
+                <h3>{t("notes.empty.noNotesYet")}</h3>
+                <p className="muted">{t("notes.empty.noNotesDescription")}</p>
                 <button
                   className="notes-action notes-action-primary"
                   onClick={handleStartNewNote}
                   type="button"
                 >
-                  New note
+                  {t("notes.action.newNote")}
                 </button>
               </div>
             ) : visibleNoteRows.length === 0 ? (
               <div className="notes-list__empty-state">
-                <h3>No notes found</h3>
+                <h3>{t("notes.empty.noNotesFound")}</h3>
                 <p className="muted">
-                  No saved notes match "{trimmedSearchQuery}".
+                  {t("notes.empty.noSavedNotesMatch", {
+                    query: trimmedSearchQuery,
+                  })}
                 </p>
                 <div className="notes-list__empty-actions">
                   <button
@@ -2143,14 +2154,14 @@ function NotesWorkspace() {
                     onClick={handleCreateFromSearch}
                     type="button"
                   >
-                    Create from search
+                    {t("notes.action.createFromSearch")}
                   </button>
                   <button
                     className="notes-action"
                     onClick={resetSearchNavigationState}
                     type="button"
                   >
-                    Clear search
+                    {t("notes.action.clearSearch")}
                   </button>
                 </div>
               </div>
@@ -2304,7 +2315,9 @@ function NotesWorkspace() {
                 <div className="notes-editor__title-stack">
                   <div className="notes-editor__title-row">
                     <label className="notes-title-editor">
-                      <span className="sr-only">Title</span>
+                      <span className="sr-only">
+                        {t("notes.form.title.label")}
+                      </span>
                       <input
                         form={noteEditorFormId}
                         ref={titleInputRef}
@@ -2312,7 +2325,7 @@ function NotesWorkspace() {
                         onChange={(event) =>
                           handleEditorChange("title", event.target.value)
                         }
-                        placeholder="Name this note"
+                        placeholder={t("notes.form.title.placeholder")}
                         type="text"
                         value={editorState.title}
                       />
@@ -2331,7 +2344,7 @@ function NotesWorkspace() {
                     >
                       {isCatalogHidden
                         ? `Show list (${notes.length})`
-                        : "Focus writing"}
+                        : t("notes.action.focusWriting")}
                     </button>
                     {shouldShowEditorActions ? (
                       <span className="notes-editor__inline-actions">
@@ -2341,7 +2354,9 @@ function NotesWorkspace() {
                             form={noteEditorFormId}
                             type="submit"
                           >
-                            {isCreating ? "Create note" : "Save"}
+                            {isCreating
+                              ? t("notes.action.createNote")
+                              : t("notes.action.save")}
                           </button>
                         ) : null}
                         {hasUnsavedChanges ? (
@@ -2350,7 +2365,7 @@ function NotesWorkspace() {
                             onClick={() => discardEditorChanges(notes)}
                             type="button"
                           >
-                            Discard
+                            {t("notes.action.discard")}
                           </button>
                         ) : null}
                       </span>
@@ -2362,7 +2377,7 @@ function NotesWorkspace() {
                   >
                     <div className="notes-editor__label-row">
                       {selectedLabels.length === 0 ? (
-                        <p className="muted">No labels yet</p>
+                        <p className="muted">{t("notes.empty.noLabels")}</p>
                       ) : (
                         <section
                           aria-label="Assigned labels"
@@ -2396,7 +2411,7 @@ function NotesWorkspace() {
                           aria-expanded={isLabelPickerOpen}
                           aria-controls={labelPickerPanelId}
                           aria-haspopup="dialog"
-                          aria-label="Assign labels"
+                          aria-label={t("notes.action.assignLabels")}
                           className="notes-inline-action"
                           onClick={() =>
                             isLabelPickerOpen
@@ -2406,7 +2421,7 @@ function NotesWorkspace() {
                           ref={labelPickerTriggerRef}
                           type="button"
                         >
-                          Assign labels
+                          {t("notes.action.assignLabels")}
                         </button>
                         {labelPickerContent}
                       </span>
@@ -2416,14 +2431,16 @@ function NotesWorkspace() {
               </header>
 
               <form
-                aria-label="Note editor"
+                aria-label={t("notes.form.editor.label")}
                 className="notes-form"
                 id={noteEditorFormId}
                 onSubmit={handleSubmit}
               >
                 <div className="notes-form__primary">
                   <label className="notes-form__field notes-form__body-field">
-                    <span className="sr-only">Body</span>
+                    <span className="sr-only">
+                      {t("notes.form.body.label")}
+                    </span>
                     <textarea
                       ref={bodyTextareaRef}
                       name="body"
@@ -2431,7 +2448,7 @@ function NotesWorkspace() {
                         handleEditorChange("body", event.target.value)
                       }
                       onPointerDown={handleBodyTextareaPointerDown}
-                      placeholder="Explain the concept in your own words"
+                      placeholder={t("notes.form.body.placeholder")}
                       rows={10}
                       value={editorState.body}
                     />
@@ -2516,14 +2533,14 @@ function NotesWorkspace() {
                 onClick={() => setDeleteCandidateNoteId(null)}
                 type="button"
               >
-                Cancel
+                {t("notes.action.cancel")}
               </button>
               <button
                 className="notes-action notes-action-danger"
                 onClick={() => void handleConfirmDeleteNote()}
                 type="button"
               >
-                Delete note
+                {t("notes.action.deleteNote")}
               </button>
             </div>
           </div>
@@ -2551,7 +2568,7 @@ function NotesWorkspace() {
                 ref={guardedTransitionCancelRef}
                 type="button"
               >
-                Cancel
+                {t("notes.action.cancel")}
               </button>
               <button
                 className="notes-action notes-action-primary"
@@ -2559,7 +2576,7 @@ function NotesWorkspace() {
                 ref={guardedTransitionDiscardRef}
                 type="button"
               >
-                Discard changes
+                {t("notes.action.discardChanges")}
               </button>
             </div>
           </div>
