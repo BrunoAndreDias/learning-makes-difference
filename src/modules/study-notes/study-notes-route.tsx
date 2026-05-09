@@ -84,6 +84,13 @@ function StudyNotesWorkspace() {
     studyNotes.find((studyNote) => studyNote.id === selectedStudyNoteId) ??
     studyNotes[0] ??
     null;
+  const selectedSourceStudyNotes =
+    selectedStudyNote === null
+      ? []
+      : studyNotes.filter(
+          (studyNote) =>
+            studyNote.sourceNoteId === selectedStudyNote.sourceNoteId,
+        );
   const [draft, setDraft] = useState<UpdateStudyNoteInput>(() =>
     createDraftFromStudyNote(selectedStudyNote),
   );
@@ -131,6 +138,57 @@ function StudyNotesWorkspace() {
         sourceTitle: "New Study Note",
       });
       setSelectedStudyNoteId(createdStudyNote.id);
+    } catch (error) {
+      handleError(error);
+    }
+  }
+
+  async function handleAddStudyNoteFromSource() {
+    if (selectedStudyNote === null) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setSaveStatus(null);
+
+    try {
+      const createdStudyNote = await storeMutation.createStudyNoteFromSource(
+        userId,
+        {
+          sourceNoteId: selectedStudyNote.sourceNoteId,
+        },
+      );
+      setSelectedStudyNoteId(createdStudyNote.id);
+    } catch (error) {
+      handleError(error);
+    }
+  }
+
+  async function handleDeleteStudyNote() {
+    if (selectedStudyNote === null) {
+      return;
+    }
+
+    const hasSiblingStudyNotes = selectedSourceStudyNotes.length > 1;
+
+    if (
+      !hasSiblingStudyNotes &&
+      !window.confirm("Delete this last Study Note and its source Note?")
+    ) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setSaveStatus(null);
+
+    try {
+      await storeMutation.deleteStudyNote(userId, selectedStudyNote.id, {
+        deleteSource: !hasSiblingStudyNotes,
+      });
+      setSelectedStudyNoteId(
+        studyNotes.find((studyNote) => studyNote.id !== selectedStudyNote.id)
+          ?.id ?? null,
+      );
     } catch (error) {
       handleError(error);
     }
@@ -268,6 +326,22 @@ function StudyNotesWorkspace() {
               >
                 Save
               </button>
+              <button
+                className="notes-action"
+                disabled={selectedStudyNote === null}
+                onClick={() => void handleAddStudyNoteFromSource()}
+                type="button"
+              >
+                Add Study Note from this source
+              </button>
+              <button
+                className="notes-action notes-action-danger"
+                disabled={selectedStudyNote === null}
+                onClick={() => void handleDeleteStudyNote()}
+                type="button"
+              >
+                Delete Study Note
+              </button>
             </div>
 
             <div className="study-notes-editor__fields">
@@ -293,6 +367,11 @@ function StudyNotesWorkspace() {
                 <div>
                   <p className="section-label">Source Note</p>
                   <h2>Source Note</h2>
+                  {selectedSourceStudyNotes.length > 1 ? (
+                    <p className="muted study-notes-editor__shared-source">
+                      {`Shared source: ${selectedSourceStudyNotes.length} Study Notes`}
+                    </p>
+                  ) : null}
                 </div>
                 <label className="notes-form__field">
                   <span>Source title</span>

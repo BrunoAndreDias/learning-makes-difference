@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { fireEvent, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createAppStudyNotesContext } from "../../modules/study-notes";
 import { renderRoute } from "./app-shell-test-support";
@@ -106,5 +106,81 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.getByLabelText("Source body")).toHaveValue(
       "Edited source body.",
     );
+  });
+
+  it("adds Study Notes from a shared source and confirms last-link deletion", async () => {
+    const studyNotesContext = createAppStudyNotesContext({
+      keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+
+    studyNotesContext.createStudyNote(userId, {
+      sourceBody: "One source can support several practice targets.",
+      sourceTitle: "Shared practice source",
+    });
+
+    renderRoute("/study-notes", {
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+      studyNotesContext,
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Add Study Note from this source",
+      }),
+    );
+
+    expect(
+      screen.getAllByRole("button", { name: "Shared practice source" }),
+    ).toHaveLength(2);
+    expect(
+      screen.getByText("Shared source: 2 Study Notes"),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Prompt"), {
+      target: { value: "What can share a source?" },
+    });
+    fireEvent.change(screen.getByLabelText("Expected answer"), {
+      target: { value: "Several Study Notes." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Saved");
+    expect(screen.getByLabelText("Source body")).toHaveValue(
+      "One source can support several practice targets.",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete Study Note" }));
+
+    const catalog = screen.getByRole("complementary", {
+      name: "Study Notes catalog",
+    });
+    expect(within(catalog).getAllByRole("button")).toHaveLength(1);
+    expect(
+      screen.queryByText("Shared source: 2 Study Notes"),
+    ).not.toBeInTheDocument();
+
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValueOnce(false);
+    fireEvent.click(screen.getByRole("button", { name: "Delete Study Note" }));
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      "Delete this last Study Note and its source Note?",
+    );
+    expect(within(catalog).getAllByRole("button")).toHaveLength(1);
+
+    confirmSpy.mockReturnValueOnce(true);
+    fireEvent.click(screen.getByRole("button", { name: "Delete Study Note" }));
+
+    expect(within(catalog).queryByRole("button")).not.toBeInTheDocument();
+
+    confirmSpy.mockRestore();
   });
 });

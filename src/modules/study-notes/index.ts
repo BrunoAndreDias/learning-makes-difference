@@ -11,7 +11,9 @@ export type {
   AppStudyNote,
   AppStudyNoteSource,
   AppStudyNotesContext,
+  CreateStudyNoteFromSourceInput,
   CreateStudyNoteInput,
+  DeleteStudyNoteInput,
   UpdateStudyNoteInput,
 } from "./study-notes";
 export {

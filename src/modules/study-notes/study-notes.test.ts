@@ -91,6 +91,96 @@ describe("app study notes context", () => {
     });
   });
 
+  it("creates another Study Note from an existing source and shares source edits", () => {
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-shared-source-test",
+      storage: createMemoryStorage(),
+    });
+    const firstStudyNote = studyNotes.createStudyNote("user-casey", {
+      sourceBody: "Broad source about spacing and retrieval.",
+      sourceTitle: "Practice source",
+    });
+
+    const secondStudyNote = studyNotes.createStudyNoteFromSource("user-casey", {
+      sourceNoteId: firstStudyNote.sourceNoteId,
+    });
+    studyNotes.updateStudyNote("user-casey", secondStudyNote.id, {
+      expectedAnswer: "Use spacing for durable access.",
+      prompt: "How does spacing help?",
+      sourceBody: "Edited shared source context.",
+      sourceTitle: "Edited practice source",
+    });
+
+    expect(
+      listStudyNotesForUser(studyNotes.getSnapshot(), "user-casey"),
+    ).toMatchObject([
+      {
+        expectedAnswer: "Use spacing for durable access.",
+        prompt: "How does spacing help?",
+        source: {
+          body: "Edited shared source context.",
+          title: "Edited practice source",
+        },
+        sourceNoteId: firstStudyNote.sourceNoteId,
+      },
+      {
+        expectedAnswer: "Broad source about spacing and retrieval.",
+        prompt: "Practice source",
+        source: {
+          body: "Edited shared source context.",
+          title: "Edited practice source",
+        },
+        sourceNoteId: firstStudyNote.sourceNoteId,
+      },
+    ]);
+  });
+
+  it("deletes shared Study Notes without orphaning the last source Note", () => {
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-delete-test",
+      storage: createMemoryStorage(),
+    });
+    const firstStudyNote = studyNotes.createStudyNote("user-casey", {
+      sourceBody: "Shared source body.",
+      sourceTitle: "Shared source",
+    });
+    const secondStudyNote = studyNotes.createStudyNoteFromSource("user-casey", {
+      sourceNoteId: firstStudyNote.sourceNoteId,
+    });
+
+    studyNotes.deleteStudyNote("user-casey", secondStudyNote.id, {
+      deleteSource: false,
+    });
+
+    expect(
+      listStudyNotesForUser(studyNotes.getSnapshot(), "user-casey"),
+    ).toMatchObject([
+      {
+        id: firstStudyNote.id,
+        sourceNoteId: firstStudyNote.sourceNoteId,
+      },
+    ]);
+    expect(() =>
+      studyNotes.deleteStudyNote("user-casey", firstStudyNote.id, {
+        deleteSource: false,
+      }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: "invalid_input",
+      } satisfies Pick<AppStudyNotesError, "code">),
+    );
+
+    studyNotes.deleteStudyNote("user-casey", firstStudyNote.id, {
+      deleteSource: true,
+    });
+
+    expect(
+      listStudyNotesForUser(studyNotes.getSnapshot(), "user-casey"),
+    ).toEqual([]);
+  });
+
   it("keeps Study Notes scoped to the owning account", () => {
     const studyNotes = createAppStudyNotesContext({
       keyPrefix: "study-notes-scope-test",

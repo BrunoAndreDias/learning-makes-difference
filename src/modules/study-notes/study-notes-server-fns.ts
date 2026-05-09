@@ -15,6 +15,15 @@ const createStudyNoteInputSchema = z.object({
   sourceTitle: z.string(),
 });
 
+const createStudyNoteFromSourceInputSchema = z.object({
+  sourceNoteId: z.string(),
+});
+
+const deleteStudyNoteInputSchema = z.object({
+  deleteSource: z.boolean(),
+  studyNoteId: z.string(),
+});
+
 const updateStudyNoteInputSchema = z.object({
   expectedAnswer: z.string(),
   prompt: z.string(),
@@ -114,6 +123,38 @@ const createStudyNoteServerFn = createServerFn({
     });
   });
 
+const createStudyNoteFromSourceServerFn = createServerFn({
+  method: "POST",
+})
+  .inputValidator(createStudyNoteFromSourceInputSchema)
+  .handler(async ({ data }) => {
+    const [userId, studyNotes] = await Promise.all([
+      requireRequestUserId(),
+      createRequestStudyNotesService(),
+    ]);
+
+    return studyNotes.createStudyNoteFromSource({
+      input: data,
+      userId,
+    });
+  });
+
+const deleteStudyNoteServerFn = createServerFn({
+  method: "POST",
+})
+  .inputValidator(deleteStudyNoteInputSchema)
+  .handler(async ({ data }) => {
+    const [userId, studyNotes] = await Promise.all([
+      requireRequestUserId(),
+      createRequestStudyNotesService(),
+    ]);
+
+    await studyNotes.deleteStudyNote({
+      input: data,
+      userId,
+    });
+  });
+
 const updateStudyNoteServerFn = createServerFn({
   method: "POST",
 })
@@ -134,6 +175,11 @@ export function createServerStudyNotesService(): AppPersistentStudyNotesService 
   return {
     createStudyNote: (input: z.infer<typeof createStudyNoteInputSchema>) =>
       createStudyNoteServerFn({ data: input }),
+    createStudyNoteFromSource: (
+      input: z.infer<typeof createStudyNoteFromSourceInputSchema>,
+    ) => createStudyNoteFromSourceServerFn({ data: input }),
+    deleteStudyNote: (input: z.infer<typeof deleteStudyNoteInputSchema>) =>
+      deleteStudyNoteServerFn({ data: input }),
     listStudyNotes: () => listStudyNotesServerFn(),
     updateStudyNote: (input: z.infer<typeof updateStudyNoteInputSchema>) =>
       updateStudyNoteServerFn({ data: input }),

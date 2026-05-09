@@ -5,7 +5,9 @@ import { notesTable } from "../notes/notes-schema";
 import {
   type AppStudyNote,
   AppStudyNotesError,
+  type CreateStudyNoteFromSourceInput,
   type CreateStudyNoteInput,
+  type DeleteStudyNoteInput,
   type UpdateStudyNoteInput,
 } from "./study-notes";
 import { studyNotesTable } from "./study-notes-schema";
@@ -170,6 +172,106 @@ export function createStudyNotesService({
         sourceTitle,
         sourceUpdatedAt: timestamp,
         updatedAt: timestamp,
+      });
+    },
+    async createStudyNoteFromSource({
+      input,
+      userId,
+    }: {
+      input: CreateStudyNoteFromSourceInput;
+      userId: string;
+    }) {
+      const source =
+        (
+          await db
+            .select()
+            .from(notesTable)
+            .where(
+              and(
+                eq(notesTable.id, input.sourceNoteId),
+                eq(notesTable.userId, userId),
+              ),
+            )
+            .limit(1)
+        )[0] ?? null;
+
+      if (source === null) {
+        throw new AppStudyNotesError(
+          "not_found",
+          "The requested source Note could not be found for this account.",
+        );
+      }
+
+      const timestamp = now();
+      const studyNoteId = crypto.randomUUID();
+
+      await db.insert(studyNotesTable).values({
+        createdAt: timestamp,
+        expectedAnswer: source.body,
+        id: studyNoteId,
+        prompt: source.title,
+        sourceNoteId: source.id,
+        updatedAt: timestamp,
+      });
+
+      return toAppStudyNote({
+        createdAt: timestamp,
+        expectedAnswer: source.body,
+        id: studyNoteId,
+        prompt: source.title,
+        sourceBody: source.body,
+        sourceNoteId: source.id,
+        sourceTitle: source.title,
+        sourceUpdatedAt: source.updatedAt,
+        updatedAt: timestamp,
+      });
+    },
+    async deleteStudyNote({
+      input,
+      userId,
+    }: {
+      input: DeleteStudyNoteInput & { studyNoteId: string };
+      userId: string;
+    }) {
+      const existingStudyNote = await readOwnedStudyNote({
+        db,
+        studyNoteId: input.studyNoteId,
+        userId,
+      });
+      const siblingStudyNotes = await db
+        .select({ id: studyNotesTable.id })
+        .from(studyNotesTable)
+        .innerJoin(notesTable, eq(studyNotesTable.sourceNoteId, notesTable.id))
+        .where(
+          and(
+            eq(studyNotesTable.sourceNoteId, existingStudyNote.sourceNoteId),
+            eq(notesTable.userId, userId),
+          ),
+        );
+      const isLastStudyNote = siblingStudyNotes.length === 1;
+
+      if (isLastStudyNote && !input.deleteSource) {
+        throw new AppStudyNotesError(
+          "invalid_input",
+          "Deleting the last Study Note for a source Note requires deleting the source too.",
+        );
+      }
+
+      await db.transaction(async (tx) => {
+        await tx
+          .delete(studyNotesTable)
+          .where(eq(studyNotesTable.id, existingStudyNote.id));
+
+        if (isLastStudyNote) {
+          await tx
+            .delete(notesTable)
+            .where(
+              and(
+                eq(notesTable.id, existingStudyNote.sourceNoteId),
+                eq(notesTable.userId, userId),
+              ),
+            );
+        }
       });
     },
     async listStudyNotes({ userId }: { userId: string }) {

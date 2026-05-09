@@ -6,6 +6,10 @@
   align-content: start;
 }
 
+.study-notes-editor .notes-editor__header {
+  flex-wrap: wrap;
+}
+
 .study-notes-editor__fields {
   display: grid;
   gap: 1.25rem;

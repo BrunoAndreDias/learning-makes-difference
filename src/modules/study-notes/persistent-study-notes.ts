@@ -3,7 +3,9 @@ import {
   type AppStudyNote,
   type AppStudyNotesContext,
   AppStudyNotesError,
+  type CreateStudyNoteFromSourceInput,
   type CreateStudyNoteInput,
+  type DeleteStudyNoteInput,
   type UpdateStudyNoteInput,
 } from "./study-notes";
 
@@ -11,6 +13,12 @@ type PersistentStudyNotesListener = () => void;
 
 export type AppPersistentStudyNotesService = {
   createStudyNote: (input: CreateStudyNoteInput) => Promise<AppStudyNote>;
+  createStudyNoteFromSource: (
+    input: CreateStudyNoteFromSourceInput,
+  ) => Promise<AppStudyNote>;
+  deleteStudyNote: (
+    input: DeleteStudyNoteInput & { studyNoteId: string },
+  ) => Promise<void>;
   listStudyNotes: () => Promise<AppStudyNote[]>;
   updateStudyNote: (
     input: UpdateStudyNoteInput & { studyNoteId: string },
@@ -22,6 +30,15 @@ export type AppPersistentStudyNotesContext = {
     userId: string | null,
     input: CreateStudyNoteInput,
   ) => Promise<AppStudyNote>;
+  createStudyNoteFromSource: (
+    userId: string | null,
+    input: CreateStudyNoteFromSourceInput,
+  ) => Promise<AppStudyNote>;
+  deleteStudyNote: (
+    userId: string | null,
+    studyNoteId: string,
+    input: DeleteStudyNoteInput,
+  ) => Promise<void>;
   getSnapshot: () => readonly AppStoredStudyNote[];
   refresh: (userId: string | null) => Promise<readonly AppStoredStudyNote[]>;
   subscribe: (listener: PersistentStudyNotesListener) => () => void;
@@ -75,6 +92,16 @@ export function createReadonlyStudyNotesContext(
         "Readonly Study Notes context cannot create Study Notes. Use persistentStudyNotes instead.",
       );
     },
+    createStudyNoteFromSource: () => {
+      throw new Error(
+        "Readonly Study Notes context cannot create Study Notes. Use persistentStudyNotes instead.",
+      );
+    },
+    deleteStudyNote: () => {
+      throw new Error(
+        "Readonly Study Notes context cannot delete Study Notes. Use persistentStudyNotes instead.",
+      );
+    },
     getSnapshot: persistentStudyNotes.getSnapshot,
     subscribe: persistentStudyNotes.subscribe,
     updateStudyNote: () => {
@@ -123,6 +150,30 @@ export function createPersistentStudyNotesContext(
 
       return createdStudyNote;
     },
+    async createStudyNoteFromSource(userId, input) {
+      if (userId === null) {
+        throw createNotAuthenticatedError();
+      }
+
+      const createdStudyNote =
+        await requireService().createStudyNoteFromSource(input);
+      writeSnapshot([toStoredStudyNote(createdStudyNote, userId), ...snapshot]);
+
+      return createdStudyNote;
+    },
+    async deleteStudyNote(userId, studyNoteId, input) {
+      if (userId === null) {
+        throw createNotAuthenticatedError();
+      }
+
+      await requireService().deleteStudyNote({
+        ...input,
+        studyNoteId,
+      });
+      writeSnapshot(
+        snapshot.filter((studyNote) => studyNote.id !== studyNoteId),
+      );
+    },
     getSnapshot() {
       return snapshot;
     },
@@ -155,7 +206,16 @@ export function createPersistentStudyNotesContext(
       });
       writeSnapshot([
         toStoredStudyNote(updatedStudyNote, userId),
-        ...snapshot.filter((studyNote) => studyNote.id !== studyNoteId),
+        ...snapshot
+          .filter((studyNote) => studyNote.id !== studyNoteId)
+          .map((studyNote) =>
+            studyNote.sourceNoteId === updatedStudyNote.sourceNoteId
+              ? {
+                  ...studyNote,
+                  source: updatedStudyNote.source,
+                }
+              : studyNote,
+          ),
       ]);
 
       return updatedStudyNote;
