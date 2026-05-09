@@ -251,6 +251,7 @@ describe("authenticated app shell", () => {
     expect(
       screen.getByPlaceholderText("Buscar etiquetas..."),
     ).toBeInTheDocument();
+    expect(screen.getByLabelText("Filtrar etiquetas")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Organic Chemistry" }),
     ).toBeInTheDocument();
@@ -260,6 +261,31 @@ describe("authenticated app shell", () => {
     expect(
       labelsContext.getLabelsForUser(userId).map((label) => label.name),
     ).toEqual(["Organic Chemistry", "Stoichiometry"]);
+
+    const labelsTable = screen.getByRole("table", {
+      name: "Lista de etiquetas",
+    });
+    const organicChemistryRow = getLabelRow(labelsTable, "Organic Chemistry");
+
+    fireEvent.click(
+      within(organicChemistryRow).getByRole("button", {
+        name: "Acciones de fila para Organic Chemistry",
+      }),
+    );
+
+    const rowMenu = await screen.findByRole("menu", {
+      name: "Acciones de fila para Organic Chemistry",
+    });
+
+    expect(
+      within(rowMenu).getByRole("menuitem", { name: "Editar etiqueta" }),
+    ).toBeInTheDocument();
+    expect(
+      within(rowMenu).getByRole("menuitem", { name: "Duplicar" }),
+    ).toBeInTheDocument();
+    expect(
+      within(rowMenu).getByRole("menuitem", { name: "Eliminar etiqueta" }),
+    ).toBeInTheDocument();
   });
 
   it("keeps the labels search icon from overlapping placeholder text", () => {

@@ -128,6 +128,16 @@ describe("authenticated app shell", () => {
     expect(screen.getByLabelText("Titulo")).toHaveDisplayValue(
       "Chair conformations",
     );
+    const hideCatalogButton = screen.getByRole("button", {
+      name: "Ocultar catalogo de notas",
+    });
+    expect(hideCatalogButton).toHaveTextContent("Focar escrita");
+
+    fireEvent.click(hideCatalogButton);
+
+    expect(
+      screen.getByRole("button", { name: "Mostrar catalogo de notas" }),
+    ).toHaveTextContent("Mostrar lista (1)");
     expect(
       screen.getByDisplayValue("Cyclohexane chair flips stay in English."),
     ).toBeInTheDocument();

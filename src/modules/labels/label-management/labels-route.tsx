@@ -894,15 +894,15 @@ function LabelsPage() {
             className="labels-field labels-field--control"
             htmlFor={filterSelectId}
           >
-            <span className="sr-only">Filter labels</span>
+            <span className="sr-only">{t("labels.filter.label")}</span>
             <select
               id={filterSelectId}
               onChange={handleFilterChange}
               value={filterValue}
             >
-              <option value="all">All labels</option>
-              <option value="top-level">Top-level</option>
-              <option value="unused">Unused</option>
+              <option value="all">{t("labels.filter.all")}</option>
+              <option value="top-level">{t("labels.filter.topLevel")}</option>
+              <option value="unused">{t("labels.filter.unused")}</option>
             </select>
           </label>
         </section>
@@ -958,7 +958,9 @@ function LabelsPage() {
                   }
                   type="button"
                 >
-                  {`Create “${normalizedSearchQuery}”`}
+                  {t("labels.action.createNamed", {
+                    query: normalizedSearchQuery,
+                  })}
                 </button>
               ) : null}
             </div>
@@ -1120,7 +1122,7 @@ function LabelsPage() {
               </p>
             </div>
             <button
-              aria-label="Close new label drawer"
+              aria-label={t("labels.action.closeNewDrawer")}
               className="labels-icon-button"
               onClick={closeCreateDrawer}
               type="button"
@@ -1169,7 +1171,7 @@ function LabelsPage() {
 
               {createParentSearchQuery.trim().length > 0 ? (
                 <ul
-                  aria-label="Parent label options"
+                  aria-label={t("labels.form.parentOptions")}
                   className="labels-parent-options"
                 >
                   {createParentOptions.length === 0 ? (
@@ -1211,12 +1213,17 @@ function LabelsPage() {
                 {selectedCreateParentRows.length === 0 ? (
                   <p className="muted">{t("labels.empty.noParentSelected")}</p>
                 ) : (
-                  <ul aria-label="Selected parent labels" className="tag-row">
+                  <ul
+                    aria-label={t("labels.form.selectedParentLabels")}
+                    className="tag-row"
+                  >
                     {selectedCreateParentRows.map((parentRow) => (
                       <li className="tag" key={parentRow.id}>
                         <span>{parentRow.label}</span>
                         <button
-                          aria-label={`Remove ${parentRow.label}`}
+                          aria-label={t("labels.action.removeParent", {
+                            label: parentRow.label,
+                          })}
                           className="labels-chip-remove"
                           onClick={() => removeCreateParent(parentRow.id)}
                           type="button"
@@ -1230,7 +1237,7 @@ function LabelsPage() {
               </section>
 
               <section
-                aria-label="Relationship preview"
+                aria-label={t("labels.form.relationshipPreview")}
                 className="labels-preview-card"
               >
                 <p className="labels-drawer-section-title">
@@ -1276,7 +1283,7 @@ function LabelsPage() {
               </p>
             </div>
             <button
-              aria-label="Close edit label drawer"
+              aria-label={t("labels.action.closeEditDrawer")}
               className="labels-icon-button"
               onClick={closeEditDrawer}
               type="button"
@@ -1322,7 +1329,7 @@ function LabelsPage() {
 
               {editParentSearchQuery.trim().length > 0 ? (
                 <ul
-                  aria-label="Parent label options"
+                  aria-label={t("labels.form.parentOptions")}
                   className="labels-parent-options"
                 >
                   {editParentOptions.length === 0 ? (
@@ -1364,12 +1371,17 @@ function LabelsPage() {
                 {selectedEditParentRows.length === 0 ? (
                   <p className="muted">{t("labels.empty.noParentSelected")}</p>
                 ) : (
-                  <ul aria-label="Selected parent labels" className="tag-row">
+                  <ul
+                    aria-label={t("labels.form.selectedParentLabels")}
+                    className="tag-row"
+                  >
                     {selectedEditParentRows.map((parentRow) => (
                       <li className="tag" key={parentRow.id}>
                         <span>{parentRow.label}</span>
                         <button
-                          aria-label={`Remove ${parentRow.label}`}
+                          aria-label={t("labels.action.removeParent", {
+                            label: parentRow.label,
+                          })}
                           className="labels-chip-remove"
                           onClick={() => removeEditParent(parentRow.id)}
                           type="button"
@@ -1383,14 +1395,16 @@ function LabelsPage() {
               </section>
 
               <section
-                aria-label="Child labels"
+                aria-label={t("labels.section.childLabels")}
                 className="labels-preview-card labels-child-labels"
               >
-                <p className="labels-drawer-section-title">Child labels</p>
+                <p className="labels-drawer-section-title">
+                  {t("labels.section.childLabels")}
+                </p>
                 {editChildRows.length === 0 ? (
-                  <p className="muted">No child labels</p>
+                  <p className="muted">{t("labels.empty.noChildLabels")}</p>
                 ) : (
-                  <ul aria-label="Child labels">
+                  <ul aria-label={t("labels.section.childLabels")}>
                     {editChildRows.map((childRow) => (
                       <li key={childRow.id}>
                         <span className="labels-parent-option__label">
@@ -1406,17 +1420,20 @@ function LabelsPage() {
                 )}
               </section>
 
-              <section aria-label="Danger zone" className="labels-danger-zone">
-                <p className="labels-drawer-section-title">Danger zone</p>
+              <section
+                aria-label={t("labels.section.dangerZone")}
+                className="labels-danger-zone"
+              >
+                <p className="labels-drawer-section-title">
+                  {t("labels.section.dangerZone")}
+                </p>
                 <div className="labels-danger-zone__panel">
                   <div>
-                    <p>Delete this label</p>
-                    <p className="muted">
-                      Notes will stay available. Relationships will be removed.
-                    </p>
+                    <p>{t("labels.danger.heading")}</p>
+                    <p className="muted">{t("labels.danger.description")}</p>
                   </div>
                   <button
-                    aria-label="Delete label"
+                    aria-label={t("labels.action.deleteLabel")}
                     className="notes-action notes-action-danger"
                     onClick={() => {
                       if (editingRow !== null) {
@@ -1425,7 +1442,7 @@ function LabelsPage() {
                     }}
                     type="button"
                   >
-                    Delete
+                    {t("labels.action.delete")}
                   </button>
                 </div>
               </section>
@@ -1470,6 +1487,7 @@ function DeleteLabelDialog({
   onConfirm,
   titleId,
 }: DeleteLabelDialogProps) {
+  const { t } = useAppTranslation();
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -1485,7 +1503,7 @@ function DeleteLabelDialog({
   return (
     <div className="labels-delete-dialog" role="presentation">
       <button
-        aria-label="Close delete confirmation"
+        aria-label={t("labels.action.closeDeleteConfirmation")}
         className="labels-delete-dialog__backdrop"
         onClick={onClose}
         type="button"
@@ -1520,7 +1538,7 @@ function DeleteLabelDialog({
             ref={cancelButtonRef}
             type="button"
           >
-            Cancel
+            {t("labels.action.cancel")}
           </button>
           <button
             className="notes-action notes-action-danger"
@@ -1529,7 +1547,7 @@ function DeleteLabelDialog({
             }}
             type="button"
           >
-            Delete label
+            {t("labels.action.deleteLabel")}
           </button>
         </div>
       </div>
@@ -1547,10 +1565,12 @@ function LabelRowActionsMenu({
   onEdit,
   onToggle,
 }: LabelRowActionsMenuProps) {
+  const { t } = useAppTranslation();
   const menuContainerRef = useRef<HTMLDivElement>(null);
   const menuPopoverRef = useRef<HTMLDivElement>(null);
   const triggerButtonRef = useRef<HTMLButtonElement>(null);
   const [menuDirection, setMenuDirection] = useState<"down" | "up">("down");
+  const rowActionsLabel = t("labels.table.rowActionsFor", { label });
 
   const updateMenuDirection = useCallback(() => {
     if (!isOpen) {
@@ -1645,7 +1665,7 @@ function LabelRowActionsMenu({
         aria-controls={menuId}
         aria-expanded={isOpen}
         aria-haspopup="menu"
-        aria-label={`Row actions for ${label}`}
+        aria-label={rowActionsLabel}
         className="notes-icon-button labels-row-menu__trigger"
         onClick={(event) => {
           event.stopPropagation();
@@ -1659,7 +1679,7 @@ function LabelRowActionsMenu({
       </button>
       {isOpen ? (
         <div
-          aria-label={`Row actions for ${label}`}
+          aria-label={rowActionsLabel}
           className="labels-row-menu__popover shell-panel"
           id={menuId}
           onClick={(event) => {
@@ -1676,7 +1696,7 @@ function LabelRowActionsMenu({
             type="button"
           >
             <EditIcon />
-            <span>Edit label</span>
+            <span>{t("labels.action.editLabel")}</span>
           </button>
           <button
             className="labels-row-menu__item"
@@ -1685,7 +1705,7 @@ function LabelRowActionsMenu({
             type="button"
           >
             <PlusIcon />
-            <span>Duplicate</span>
+            <span>{t("labels.action.duplicate")}</span>
           </button>
           <button
             className="labels-row-menu__item labels-row-menu__item--danger"
@@ -1694,7 +1714,7 @@ function LabelRowActionsMenu({
             type="button"
           >
             <TrashIcon />
-            <span>Delete label</span>
+            <span>{t("labels.action.deleteLabel")}</span>
           </button>
         </div>
       ) : null}

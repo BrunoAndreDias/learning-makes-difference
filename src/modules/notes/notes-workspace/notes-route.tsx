@@ -1917,8 +1917,8 @@ function NotesWorkspace() {
           "note",
         )}`;
   const notesCatalogToggleLabel = isCatalogHidden
-    ? "Show notes catalog"
-    : "Hide notes catalog";
+    ? t("notes.catalog.show")
+    : t("notes.catalog.hide");
   const deleteCandidateNote =
     deleteCandidateNoteId === null
       ? null
@@ -1927,12 +1927,14 @@ function NotesWorkspace() {
   const notesEditorLayoutStyle: NotesEditorLayoutStyle = {
     "--notes-body-fraction": bodyFraction,
   };
-  const selectedNoteUpdatedLabel =
-    selectedNote === null
-      ? t("notes.status.unsavedDraft")
-      : hasUnsavedChanges
-        ? t("notes.status.unsavedChanges")
-        : t("notes.status.saved");
+  let selectedNoteUpdatedLabel = t("notes.status.saved");
+
+  if (selectedNote === null) {
+    selectedNoteUpdatedLabel = t("notes.status.unsavedDraft");
+  } else if (hasUnsavedChanges) {
+    selectedNoteUpdatedLabel = t("notes.status.unsavedChanges");
+  }
+
   const isSearchListboxOpen =
     hasSearchQuery && isSearchOpen && searchResults.length > 0;
   const activeSearchResult = searchResults[activeSearchResultIndex];
@@ -2343,7 +2345,9 @@ function NotesWorkspace() {
                       type="button"
                     >
                       {isCatalogHidden
-                        ? `Show list (${notes.length})`
+                        ? t("notes.catalog.showList", {
+                            count: notes.length,
+                          })
                         : t("notes.action.focusWriting")}
                     </button>
                     {shouldShowEditorActions ? (
@@ -2522,11 +2526,8 @@ function NotesWorkspace() {
           role="dialog"
         >
           <div className="notes-delete-dialog__panel">
-            <h3 id="notes-delete-title">Delete this note?</h3>
-            <p id="notes-delete-description">
-              This will permanently delete the note and its memory hooks. Past
-              results keep their saved snapshots.
-            </p>
+            <h3 id="notes-delete-title">{t("notes.delete.title")}</h3>
+            <p id="notes-delete-description">{t("notes.delete.description")}</p>
             <div className="notes-delete-dialog__actions">
               <button
                 className="notes-action"
@@ -2557,9 +2558,9 @@ function NotesWorkspace() {
           role="dialog"
         >
           <div className="notes-unsaved-search-dialog__panel">
-            <h3 id="notes-unsaved-search-title">Discard unsaved changes?</h3>
+            <h3 id="notes-unsaved-search-title">{t("notes.unsaved.title")}</h3>
             <p id="notes-unsaved-search-description">
-              Navigation will replace the current note editor state.
+              {t("notes.unsaved.description")}
             </p>
             <div className="notes-unsaved-search-dialog__actions">
               <button
