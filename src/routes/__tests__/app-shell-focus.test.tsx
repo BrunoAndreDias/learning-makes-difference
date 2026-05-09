@@ -21,6 +21,95 @@ import {
 } from "./app-shell-test-support";
 
 describe("authenticated app shell", () => {
+  it("translates Focus chrome while preserving stored focus record data", async () => {
+    vi.useFakeTimers();
+
+    const userId = "user-focus-translated";
+    const { focusContext, labelsContext, notesContext, recallContext } =
+      createLearningLoopTestContexts();
+    const label = labelsContext.createLabel({
+      name: "Organic Chemistry",
+      userId,
+    });
+    const note = createRecallNote(notesContext, userId, {
+      body: "Carbon chain notes.",
+      labelIds: [label.id],
+      title: "SN1 reaction mechanism",
+    });
+
+    vi.setSystemTime(new Date("2026-05-06T08:00:00.000Z"));
+    focusContext.startFocusSession({
+      breakIntervalMinutes: 5,
+      focusIntervalMinutes: 25,
+      userId,
+    });
+    focusContext.captureNoteStudyActivity({
+      labels: labelsContext.getLabelsForUser(userId),
+      note,
+      userId,
+    });
+    vi.setSystemTime(new Date("2026-05-06T08:25:00.000Z"));
+    focusContext.endFocusSession({ userId });
+    vi.useRealTimers();
+
+    renderRoute("/focus", {
+      focusContext,
+      labelsContext,
+      notesContext,
+      recallContext,
+      session: {
+        user: {
+          displayName: "Casey Focus Translated",
+          email: "casey.focus.translated@example.com",
+          id: userId,
+          userLanguage: "pt-PT",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 2,
+        name: "Foco",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Execute uma sessao Pomodoro para manter o foco e progredir de forma consistente.",
+      ),
+    ).toBeInTheDocument();
+
+    const setupPanel = screen.getByRole("form", {
+      name: "Configuracao da sessao",
+    });
+    expect(within(setupPanel).getByLabelText("Minutos de foco")).toHaveValue(
+      25,
+    );
+    expect(
+      within(setupPanel).getByRole("button", {
+        name: "Iniciar sessao de foco",
+      }),
+    ).toBeEnabled();
+
+    const analyticsStrip = screen.getByRole("region", {
+      name: "Esta semana em resumo",
+    });
+    expect(
+      within(analyticsStrip).getByText("Minutos de foco"),
+    ).toBeInTheDocument();
+
+    expect(focusContext.getFocusRecords({ userId })[0]).toMatchObject({
+      targets: [
+        expect.objectContaining({
+          labels: [expect.objectContaining({ name: "Organic Chemistry" })],
+          note: expect.objectContaining({
+            title: "SN1 reaction mechanism",
+          }),
+        }),
+      ],
+    });
+  });
+
   it("renders an active FocusSession workspace with supported actions and disabled setup controls", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date("2026-05-01T10:00:00.000Z"));

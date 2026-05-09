@@ -9,9 +9,14 @@ import {
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import type { AppLabel } from "../labels/label-management/labels";
+import { type AppTranslationKey, useAppTranslation } from "../language";
 import { type AppNote, listNotesForUser } from "../notes";
 import { searchNoteResults } from "../notes/notes-workspace/note-search";
-import { formatRecallModeLabel } from "./learner-copy";
+import {
+  formatRecallModeLabel,
+  getRecallModeTranslationKey,
+  getRecallSelectionHelperTranslationKey,
+} from "./learner-copy";
 import { AppRecallError, type RecallMode } from "./recall";
 
 export const Route = createFileRoute("/_protected/recall")({
@@ -66,39 +71,44 @@ function RecallRouteShell() {
 
 type RecallTypeOption = {
   disabled: boolean;
-  helper: string;
   mode: RecallMode;
 };
 
 const recallTypeOptions = [
   {
     disabled: false,
-    helper: "Reveal each Note and rate your recall.",
     mode: "FlashCard",
   },
   {
     disabled: true,
-    helper: "Connect API key to use AI Assisted recall.",
     mode: "AiAssisted",
   },
   {
     disabled: true,
-    helper: "Connect API key to use AI Graded recall.",
     mode: "AiGraded",
   },
 ] as const satisfies readonly RecallTypeOption[];
 
 const recallQuestionStylePlaceholderFields = [
-  "Question format",
-  "Difficulty",
-  "Number of questions",
-] as const;
+  {
+    id: "recall-question-format",
+    key: "recall.selection.questionStyle.format",
+  },
+  {
+    id: "recall-difficulty",
+    key: "recall.selection.questionStyle.difficulty",
+  },
+  {
+    id: "recall-number-of-questions",
+    key: "recall.selection.questionStyle.count",
+  },
+] as const satisfies readonly { id: string; key: AppTranslationKey }[];
 
-function getNotePreview(note: AppNote) {
+function getNotePreview(note: AppNote, emptyBodyLabel: string) {
   const body = note.body.trim();
 
   if (body.length === 0) {
-    return "No body saved.";
+    return emptyBodyLabel;
   }
 
   return body.length > 150 ? `${body.slice(0, 147)}...` : body;
@@ -135,13 +145,14 @@ function getSelectedNotes(input: {
 function getDisabledStartReason(input: {
   selectedCount: number;
   selectedRecallType: RecallMode;
+  t: ReturnType<typeof useAppTranslation>["t"];
 }) {
   if (input.selectedCount === 0) {
-    return "Select at least one Note.";
+    return input.t("recall.selection.disabled.noNotes");
   }
 
   if (input.selectedRecallType !== "FlashCard") {
-    return "Connect API key to start this Recall type.";
+    return input.t("recall.selection.disabled.ai");
   }
 
   return null;
@@ -152,6 +163,7 @@ export function RecallSelectionPage({
 }: {
   initialSelectedNoteIds?: readonly string[];
 }) {
+  const { t } = useAppTranslation();
   const navigate = useNavigate();
   const persistentRecallContext = useRouteContext({
     from: "/_protected",
@@ -197,6 +209,7 @@ export function RecallSelectionPage({
   const disabledStartReason = getDisabledStartReason({
     selectedCount: selectedNotes.length,
     selectedRecallType,
+    t,
   });
   const canStart = disabledStartReason === null;
 
@@ -241,49 +254,50 @@ export function RecallSelectionPage({
 
   return (
     <section
-      aria-label="Recall selection workspace"
+      aria-label={t("shell.workspace.recallSetup")}
       className="recall-workspace"
     >
       <article className="recall-surface">
         <header className="recall-surface__header recall-select__header">
           <div className="notes-editor__title-stack">
-            <nav aria-label="Breadcrumb" className="recall-breadcrumb">
-              <Link to="/recall">Recall</Link> / Select notes
+            <nav
+              aria-label={t("recall.breadcrumb")}
+              className="recall-breadcrumb"
+            >
+              <Link to="/recall">{t("shell.workspace.recall")}</Link> /{" "}
+              {t("recall.selection.title")}
             </nav>
-            <h3>Select notes</h3>
+            <h3>{t("recall.selection.title")}</h3>
             <p className="muted notes-editor__meta">
-              Choose the notes for this recall session.
+              {t("recall.selection.description")}
             </p>
           </div>
         </header>
 
         {notes.length === 0 ? (
           <section className="recall-panel recall-empty-state">
-            <h4>Recall starts with notes</h4>
-            <p className="muted">
-              Create Notes first, then use Metaphors and Acronyms to reinforce
-              each concept.
-            </p>
+            <h4>{t("recall.empty.title")}</h4>
+            <p className="muted">{t("recall.empty.selectionBody")}</p>
             <Link className="notes-action notes-action-primary" to="/notes">
-              Open Notes Workspace
+              {t("recall.action.openNotes")}
             </Link>
           </section>
         ) : (
           <div className="recall-selection-layout recall-selection-layout--picker">
             <section
-              aria-label="Available Notes"
+              aria-label={t("recall.selection.availableNotes")}
               className="recall-panel recall-note-picker recall-select-note-picker"
             >
               <label
                 className="recall-field recall-search-field"
                 htmlFor="recall-note-search"
               >
-                <span className="sr-only">Search Notes</span>
+                <span className="sr-only">{t("recall.selection.search")}</span>
                 <SearchIcon />
                 <input
                   id="recall-note-search"
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search notes"
+                  placeholder={t("recall.selection.searchPlaceholder")}
                   type="search"
                   value={searchQuery}
                 />
@@ -309,7 +323,12 @@ export function RecallSelectionPage({
                         <span className="recall-select-note-row__main">
                           <span className="recall-select-note-row__content">
                             <strong>{note.title}</strong>
-                            <span>{getNotePreview(note)}</span>
+                            <span>
+                              {getNotePreview(
+                                note,
+                                t("recall.selection.noBody"),
+                              )}
+                            </span>
                             <span className="recall-select-note-row__labels">
                               {labelNames.length > 0 ? (
                                 labelNames.slice(0, 2).map((labelName) => (
@@ -325,18 +344,22 @@ export function RecallSelectionPage({
                                   className="recall-select-note-row__label"
                                   data-tone="muted"
                                 >
-                                  No label
+                                  {t("recall.selection.noLabel")}
                                 </span>
                               )}
                             </span>
                           </span>
                           <span className="recall-select-note-row__counts">
                             <span className="recall-select-note-row__count">
-                              <span>Metaphors</span>
+                              <span>
+                                {t("recall.selection.counts.metaphors")}
+                              </span>
                               <strong>{note.metaphors.length}</strong>
                             </span>
                             <span className="recall-select-note-row__count">
-                              <span>Acronyms</span>
+                              <span>
+                                {t("recall.selection.counts.acronyms")}
+                              </span>
                               <strong>{note.acronyms.length}</strong>
                             </span>
                           </span>
@@ -349,12 +372,15 @@ export function RecallSelectionPage({
 
               {visibleNotes.length === 0 ? (
                 <p className="notes-search__empty" role="status">
-                  No Notes match this search.
+                  {t("recall.selection.noSearchMatches")}
                 </p>
               ) : null}
 
               <footer className="recall-note-picker__footer">
-                Showing {visibleNotes.length} of {notes.length} notes
+                {t("recall.selection.showingNotes", {
+                  totalCount: notes.length,
+                  visibleCount: visibleNotes.length,
+                })}
               </footer>
             </section>
 
@@ -391,6 +417,7 @@ function SessionSetupPanel({
   selectedNotes: readonly AppNote[];
   selectedRecallType: RecallMode;
 }) {
+  const { t } = useAppTranslation();
   const selectedRecallOption = recallTypeOptions.find(
     (option) => option.mode === selectedRecallType,
   );
@@ -401,16 +428,16 @@ function SessionSetupPanel({
 
   return (
     <aside
-      aria-label="Session setup"
+      aria-label={t("recall.selection.sessionSetup")}
       className="recall-panel recall-session-setup recall-select-session-setup"
     >
       <header className="recall-select-session-setup__header">
-        <p className="section-label">Session setup</p>
+        <p className="section-label">{t("recall.selection.sessionSetup")}</p>
         <PinIcon />
       </header>
 
       <div className="recall-select-session-setup__selected-notes">
-        <p className="muted">Selected notes</p>
+        <p className="muted">{t("recall.selection.selectedNotes")}</p>
         <p className="recall-select-session-setup__selected-count">
           {selectedNotes.length}
         </p>
@@ -442,8 +469,10 @@ function SessionSetupPanel({
                 <RecallTypeIcon mode={option.mode} />
               </span>
               <span>
-                <strong>{formatRecallModeLabel(option.mode)}</strong>
-                <span>{option.helper}</span>
+                <strong>{t(getRecallModeTranslationKey(option.mode))}</strong>
+                <span>
+                  {t(getRecallSelectionHelperTranslationKey(option.mode))}
+                </span>
               </span>
             </label>
           ))}
@@ -452,17 +481,18 @@ function SessionSetupPanel({
 
       <section className="recall-select-session-setup__question-style">
         <h5 className="recall-select-session-setup__section-title">
-          Question style
+          {t("recall.selection.questionStyle")}
           <InfoIcon />
         </h5>
         {recallQuestionStylePlaceholderFields.map((field) => {
-          const fieldId = `recall-${field.toLowerCase().replaceAll(" ", "-")}`;
+          const fieldLabel = t(field.key);
+          const fieldId = field.id;
 
           return (
-            <label className="recall-field" htmlFor={fieldId} key={field}>
-              <span className="sr-only">{field}</span>
-              <select id={fieldId} disabled value={field}>
-                <option value={field}>{field}</option>
+            <label className="recall-field" htmlFor={fieldId} key={field.id}>
+              <span className="sr-only">{fieldLabel}</span>
+              <select id={fieldId} disabled value={field.id}>
+                <option value={field.id}>{fieldLabel}</option>
               </select>
             </label>
           );
@@ -471,9 +501,7 @@ function SessionSetupPanel({
 
       <p className="recall-select-session-setup__hint">
         <InfoIcon />
-        <span>
-          Your selection is temporary and used only for this recall session.
-        </span>
+        <span>{t("recall.selection.temporary")}</span>
       </p>
 
       <div className="recall-session-setup__actions">
@@ -486,7 +514,7 @@ function SessionSetupPanel({
           onClick={onStartRecall}
           type="button"
         >
-          Start recall
+          {t("recall.selection.start")}
         </button>
       </div>
 
