@@ -30,8 +30,10 @@ export const Route = createFileRoute("/_protected/study-notes")({
 
 function createBlankDraft(): UpdateStudyNoteInput {
   return {
+    acronyms: [],
     expectedAnswer: "",
     labelIds: [],
+    metaphors: [],
     prompt: "",
     sourceBody: "",
     sourceTitle: "",
@@ -46,8 +48,10 @@ function createDraftFromStudyNote(
   }
 
   return {
+    acronyms: studyNote.acronyms.map((acronym) => ({ ...acronym })),
     expectedAnswer: studyNote.expectedAnswer,
     labelIds: [...studyNote.labelIds],
+    metaphors: studyNote.metaphors.map((metaphor) => ({ ...metaphor })),
     prompt: studyNote.prompt,
     sourceBody: studyNote.source.body,
     sourceTitle: studyNote.source.title,
@@ -64,6 +68,14 @@ function setLabelIdSelection(
   }
 
   return labelIds.filter((currentLabelId) => currentLabelId !== labelId);
+}
+
+function createSingleHookDraft(description: string) {
+  if (description.trim().length === 0) {
+    return [];
+  }
+
+  return [{ description }];
 }
 
 function StudyNotesWorkspace() {
@@ -286,6 +298,16 @@ function StudyNotesWorkspace() {
     throw error;
   }
 
+  function updateDraftMemoryHook(
+    field: "acronyms" | "metaphors",
+    description: string,
+  ) {
+    setDraft((current) => ({
+      ...current,
+      [field]: createSingleHookDraft(description),
+    }));
+  }
+
   return (
     <section className="notes-workspace study-notes-workspace">
       <header className="notes-toolbar">
@@ -454,6 +476,38 @@ function StudyNotesWorkspace() {
                     ))}
                   </div>
                 )}
+              </section>
+
+              <section
+                aria-label="Memory hooks"
+                className="study-notes-editor__memory-hooks"
+              >
+                <div>
+                  <p className="section-label">Memory hooks</p>
+                  <h2>Memory hooks</h2>
+                </div>
+                <label className="notes-form__field">
+                  <span>Metaphor</span>
+                  <textarea
+                    aria-label="Metaphor"
+                    onChange={(event) => {
+                      updateDraftMemoryHook("metaphors", event.target.value);
+                    }}
+                    rows={3}
+                    value={draft.metaphors[0]?.description ?? ""}
+                  />
+                </label>
+                <label className="notes-form__field">
+                  <span>Acronym</span>
+                  <textarea
+                    aria-label="Acronym"
+                    onChange={(event) => {
+                      updateDraftMemoryHook("acronyms", event.target.value);
+                    }}
+                    rows={3}
+                    value={draft.acronyms[0]?.description ?? ""}
+                  />
+                </label>
               </section>
 
               <section

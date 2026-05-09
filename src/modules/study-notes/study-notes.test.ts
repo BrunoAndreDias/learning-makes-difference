@@ -44,8 +44,11 @@ describe("app study notes context", () => {
     });
 
     expect(createdStudyNote).toMatchObject({
+      acronyms: [],
       expectedAnswer: "Retrieval practice strengthens access to memory.",
       id: "id-2",
+      labelIds: [],
+      metaphors: [],
       prompt: "Retrieval practice",
       source: {
         body: "Retrieval practice strengthens access to memory.",
@@ -59,7 +62,7 @@ describe("app study notes context", () => {
     ).toEqual([createdStudyNote]);
   });
 
-  it("keeps Study Note fields and source Note fields independent after creation", () => {
+  it("keeps Study Note fields, labels, and memory hooks independent after creation", () => {
     const studyNotes = createAppStudyNotesContext({
       crypto: createDeterministicCrypto(),
       keyPrefix: "study-notes-independent-test",
@@ -74,8 +77,12 @@ describe("app study notes context", () => {
       "user-casey",
       createdStudyNote.id,
       {
+        acronyms: [{ description: "HIP keeps the structure memorable." }],
         expectedAnswer: "It binds context for recall.",
         labelIds: [],
+        metaphors: [
+          { description: "The hippocampus is a library index for memory." },
+        ],
         prompt: "What does the hippocampus support?",
         sourceBody: "The hippocampus helps bind memory context and navigation.",
         sourceTitle: "Hippocampus source",
@@ -83,7 +90,11 @@ describe("app study notes context", () => {
     );
 
     expect(updatedStudyNote).toMatchObject({
+      acronyms: [{ description: "HIP keeps the structure memorable." }],
       expectedAnswer: "It binds context for recall.",
+      metaphors: [
+        { description: "The hippocampus is a library index for memory." },
+      ],
       prompt: "What does the hippocampus support?",
       source: {
         body: "The hippocampus helps bind memory context and navigation.",
@@ -107,8 +118,10 @@ describe("app study notes context", () => {
       sourceNoteId: firstStudyNote.sourceNoteId,
     });
     studyNotes.updateStudyNote("user-casey", secondStudyNote.id, {
+      acronyms: [{ description: "SPA cues spacing." }],
       expectedAnswer: "Use spacing for durable access.",
       labelIds: [],
+      metaphors: [{ description: "Spacing is a path worn in over time." }],
       prompt: "How does spacing help?",
       sourceBody: "Edited shared source context.",
       sourceTitle: "Edited practice source",
@@ -118,7 +131,9 @@ describe("app study notes context", () => {
       listStudyNotesForUser(studyNotes.getSnapshot(), "user-casey"),
     ).toMatchObject([
       {
+        acronyms: [{ description: "SPA cues spacing." }],
         expectedAnswer: "Use spacing for durable access.",
+        metaphors: [{ description: "Spacing is a path worn in over time." }],
         prompt: "How does spacing help?",
         source: {
           body: "Edited shared source context.",
@@ -127,7 +142,9 @@ describe("app study notes context", () => {
         sourceNoteId: firstStudyNote.sourceNoteId,
       },
       {
+        acronyms: [],
         expectedAnswer: "Broad source about spacing and retrieval.",
+        metaphors: [],
         prompt: "Practice source",
         source: {
           body: "Edited shared source context.",
@@ -195,8 +212,10 @@ describe("app study notes context", () => {
 
     expect(() =>
       studyNotes.updateStudyNote("user-jordan", createdStudyNote.id, {
+        acronyms: [],
         expectedAnswer: "Cross-account answer.",
         labelIds: [],
+        metaphors: [],
         prompt: "Cross-account prompt",
         sourceBody: "Cross-account source.",
         sourceTitle: "Cross-account source",

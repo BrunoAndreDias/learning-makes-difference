@@ -5,11 +5,21 @@ export type AppStudyNoteSource = {
   updatedAt: string;
 };
 
+type AppStudyNoteMemoryHook = {
+  description: string;
+};
+
+export type AppStudyNoteMetaphor = AppStudyNoteMemoryHook;
+
+export type AppStudyNoteAcronym = AppStudyNoteMemoryHook;
+
 export type AppStudyNote = {
+  acronyms: AppStudyNoteAcronym[];
   createdAt: string;
   expectedAnswer: string;
   id: string;
   labelIds: string[];
+  metaphors: AppStudyNoteMetaphor[];
   prompt: string;
   source: AppStudyNoteSource;
   sourceNoteId: string;
@@ -21,7 +31,9 @@ export type AppStoredStudyNote = AppStudyNote & {
 };
 
 export type CreateStudyNoteInput = {
+  acronyms?: AppStudyNoteAcronym[];
   labelIds?: string[];
+  metaphors?: AppStudyNoteMetaphor[];
   sourceBody: string;
   sourceTitle: string;
 };
@@ -35,8 +47,10 @@ export type DeleteStudyNoteInput = {
 };
 
 export type UpdateStudyNoteInput = {
+  acronyms: AppStudyNoteAcronym[];
   expectedAnswer: string;
   labelIds: string[];
+  metaphors: AppStudyNoteMetaphor[];
   prompt: string;
   sourceBody: string;
   sourceTitle: string;
@@ -168,12 +182,68 @@ function validateOwnedLabelIds(
   );
 }
 
+function validateHookCount(hooks: readonly unknown[], label: string) {
+  if (hooks.length <= 1) {
+    return;
+  }
+
+  throw new AppStudyNotesError(
+    "invalid_input",
+    `Only one ${label.toLowerCase()} can be saved per Study Note.`,
+  );
+}
+
+function validateHooks(
+  hooks: readonly { description: string }[] | undefined,
+  label: string,
+): AppStudyNoteMemoryHook[] {
+  const safeHooks = hooks ?? [];
+  validateHookCount(safeHooks, label);
+
+  return safeHooks.map((hook) => {
+    const description = hook.description.trim();
+
+    if (description.length === 0) {
+      throw new AppStudyNotesError(
+        "invalid_input",
+        `${label} description is required.`,
+      );
+    }
+
+    return {
+      description,
+    };
+  });
+}
+
+function validateMetaphors(
+  metaphors: readonly AppStudyNoteMetaphor[] | undefined,
+): AppStudyNoteMetaphor[] {
+  return validateHooks(metaphors, "Metaphor");
+}
+
+function validateAcronyms(
+  acronyms: readonly AppStudyNoteAcronym[] | undefined,
+): AppStudyNoteAcronym[] {
+  return validateHooks(acronyms, "Acronym");
+}
+
+type PersistedStudyNoteRecord = Omit<
+  AppStoredStudyNote,
+  "acronyms" | "metaphors"
+> & {
+  acronyms?: AppStudyNoteAcronym[];
+  metaphors?: AppStudyNoteMetaphor[];
+};
+
 function toPublicStudyNote(note: AppStoredStudyNote): AppStudyNote {
   return {
+    acronyms: note.acronyms.map((acronym) => ({ ...acronym })),
     createdAt: note.createdAt,
     expectedAnswer: note.expectedAnswer,
     id: note.id,
     labelIds: [...note.labelIds],
+    metaphors: note.metaphors.map((metaphor) => ({ ...metaphor })),
     prompt: note.prompt,
     source: { ...note.source },
     sourceNoteId: note.sourceNoteId,
@@ -203,21 +273,50 @@ function isStoredStudyNoteSource(value: unknown): value is AppStudyNoteSource {
   );
 }
 
-function isStoredStudyNote(value: unknown): value is AppStoredStudyNote {
+function isStoredMemoryHook(value: unknown): value is AppStudyNoteMemoryHook {
+  return isObjectRecord(value) && typeof value.description === "string";
+}
+
+function isStoredMemoryHooks(
+  value: unknown,
+): value is AppStudyNoteMemoryHook[] {
+  return Array.isArray(value) && value.every(isStoredMemoryHook);
+}
+
+function hasOptionalStoredMemoryHooks(value: unknown) {
+  return value === undefined || isStoredMemoryHooks(value);
+}
+
+function isPersistedStudyNote(
+  value: unknown,
+): value is PersistedStudyNoteRecord {
   return (
     isObjectRecord(value) &&
+    hasOptionalStoredMemoryHooks(value.acronyms) &&
     typeof value.createdAt === "string" &&
     typeof value.expectedAnswer === "string" &&
     typeof value.id === "string" &&
     (value.labelIds === undefined ||
       (Array.isArray(value.labelIds) &&
         value.labelIds.every((labelId) => typeof labelId === "string"))) &&
+    hasOptionalStoredMemoryHooks(value.metaphors) &&
     typeof value.prompt === "string" &&
     typeof value.sourceNoteId === "string" &&
     typeof value.updatedAt === "string" &&
     typeof value.userId === "string" &&
     isStoredStudyNoteSource(value.source)
   );
+}
+
+function toStoredStudyNote(
+  studyNote: PersistedStudyNoteRecord,
+): AppStoredStudyNote {
+  return {
+    ...studyNote,
+    acronyms: studyNote.acronyms ?? [],
+    labelIds: Array.isArray(studyNote.labelIds) ? studyNote.labelIds : [],
+    metaphors: studyNote.metaphors ?? [],
+  };
 }
 
 function parseStoredStudyNotes(value: string | null): AppStoredStudyNote[] {
@@ -232,10 +331,7 @@ function parseStoredStudyNotes(value: string | null): AppStoredStudyNote[] {
       return [];
     }
 
-    return parsedValue.filter(isStoredStudyNote).map((studyNote) => ({
-      ...studyNote,
-      labelIds: Array.isArray(studyNote.labelIds) ? studyNote.labelIds : [],
-    }));
+    return parsedValue.filter(isPersistedStudyNote).map(toStoredStudyNote);
   } catch {
     return [];
   }
@@ -297,16 +393,20 @@ export function createAppStudyNotesContext(
         "Source title",
       );
       const sourceBody = validateOptionalText(input.sourceBody);
+      const acronyms = validateAcronyms(input.acronyms);
       const labelIds = validateOwnedLabelIds(input.labelIds, {
         getOwnedLabelIdsForUser: options.getOwnedLabelIdsForUser,
         userId: validatedUserId,
       });
+      const metaphors = validateMetaphors(input.metaphors);
       const sourceNoteId = cryptoProvider.randomUUID();
       const studyNote: AppStoredStudyNote = {
+        acronyms,
         createdAt: timestamp,
         expectedAnswer: sourceBody,
         id: cryptoProvider.randomUUID(),
         labelIds,
+        metaphors,
         prompt: sourceTitle,
         source: {
           body: sourceBody,
@@ -340,10 +440,12 @@ export function createAppStudyNotesContext(
 
       const timestamp = new Date().toISOString();
       const studyNote: AppStoredStudyNote = {
+        acronyms: [],
         createdAt: timestamp,
         expectedAnswer: sourceStudyNote.source.body,
         id: cryptoProvider.randomUUID(),
         labelIds: [],
+        metaphors: [],
         prompt: sourceStudyNote.source.title,
         source: { ...sourceStudyNote.source },
         sourceNoteId: sourceStudyNote.sourceNoteId,
@@ -416,20 +518,24 @@ export function createAppStudyNotesContext(
       }
 
       const timestamp = new Date().toISOString();
+      const acronyms = validateAcronyms(input.acronyms);
+      const labelIds = validateOwnedLabelIds(input.labelIds, {
+        getOwnedLabelIdsForUser: options.getOwnedLabelIdsForUser,
+        userId: validatedUserId,
+      });
+      const metaphors = validateMetaphors(input.metaphors);
       const updatedSource = {
         ...existingStudyNote.source,
         body: validateOptionalText(input.sourceBody),
         title: validateRequiredText(input.sourceTitle, "Source title"),
         updatedAt: timestamp,
       };
-      const labelIds = validateOwnedLabelIds(input.labelIds, {
-        getOwnedLabelIdsForUser: options.getOwnedLabelIdsForUser,
-        userId: validatedUserId,
-      });
       const updatedStudyNote: AppStoredStudyNote = {
         ...existingStudyNote,
+        acronyms,
         expectedAnswer: validateOptionalText(input.expectedAnswer),
         labelIds,
+        metaphors,
         prompt: validateRequiredText(input.prompt, "Prompt"),
         source: updatedSource,
         updatedAt: timestamp,
