@@ -806,44 +806,50 @@ function listFilteredSessionResults(input: {
   });
 }
 
+function normalizeSelectedRecallTargetIds(input: {
+  emptySelectionMessage: string;
+  ids: readonly string[] | undefined;
+}): string[] {
+  if (!Array.isArray(input.ids)) {
+    throw new AppRecallError("invalid_input", input.emptySelectionMessage);
+  }
+
+  const selectedIds: string[] = [];
+  const seenIds = new Set<string>();
+
+  for (const id of input.ids) {
+    if (typeof id !== "string" || id.length === 0) {
+      continue;
+    }
+
+    if (seenIds.has(id)) {
+      continue;
+    }
+
+    seenIds.add(id);
+    selectedIds.push(id);
+  }
+
+  if (selectedIds.length === 0) {
+    throw new AppRecallError("invalid_input", input.emptySelectionMessage);
+  }
+
+  return selectedIds;
+}
+
 function resolveRecallableNotesFromSelection(input: {
   noteIds: readonly string[] | undefined;
   notes: AppNotesContext;
   userId: string;
-}): RecallNoteSnapshot[] {
-  if (!Array.isArray(input.noteIds)) {
-    throw new AppRecallError(
-      "invalid_input",
-      "Choose at least one note for recall.",
-    );
-  }
-
-  const selectedNoteIds: string[] = [];
-  const seenNoteIds = new Set<string>();
-
-  for (const noteId of input.noteIds) {
-    if (typeof noteId !== "string" || noteId.length === 0) {
-      continue;
-    }
-
-    if (seenNoteIds.has(noteId)) {
-      continue;
-    }
-
-    seenNoteIds.add(noteId);
-    selectedNoteIds.push(noteId);
-  }
-
-  if (selectedNoteIds.length === 0) {
-    throw new AppRecallError(
-      "invalid_input",
-      "Choose at least one note for recall.",
-    );
-  }
-
+}): AppNote[] {
+  const selectedNoteIds = normalizeSelectedRecallTargetIds({
+    emptySelectionMessage: "Choose at least one note for recall.",
+    ids: input.noteIds,
+  });
   const ownedNotes = listNotesForUser(input.notes.getSnapshot(), input.userId);
   const ownedNotesById = new Map(ownedNotes.map((note) => [note.id, note]));
-  const recallableNotes = selectedNoteIds.map((noteId) => {
+
+  return selectedNoteIds.map((noteId) => {
     const note = ownedNotesById.get(noteId);
 
     if (note === undefined) {
@@ -852,8 +858,6 @@ function resolveRecallableNotesFromSelection(input: {
 
     return note;
   });
-
-  return recallableNotes;
 }
 
 function resolveRecallableStudyNotesFromSelection(input: {
@@ -861,36 +865,10 @@ function resolveRecallableStudyNotesFromSelection(input: {
   studyNotes: AppStudyNotesContext;
   userId: string;
 }): AppStudyNote[] {
-  if (!Array.isArray(input.studyNoteIds)) {
-    throw new AppRecallError(
-      "invalid_input",
-      "Choose at least one Study Note for recall.",
-    );
-  }
-
-  const selectedStudyNoteIds: string[] = [];
-  const seenStudyNoteIds = new Set<string>();
-
-  for (const studyNoteId of input.studyNoteIds) {
-    if (typeof studyNoteId !== "string" || studyNoteId.length === 0) {
-      continue;
-    }
-
-    if (seenStudyNoteIds.has(studyNoteId)) {
-      continue;
-    }
-
-    seenStudyNoteIds.add(studyNoteId);
-    selectedStudyNoteIds.push(studyNoteId);
-  }
-
-  if (selectedStudyNoteIds.length === 0) {
-    throw new AppRecallError(
-      "invalid_input",
-      "Choose at least one Study Note for recall.",
-    );
-  }
-
+  const selectedStudyNoteIds = normalizeSelectedRecallTargetIds({
+    emptySelectionMessage: "Choose at least one Study Note for recall.",
+    ids: input.studyNoteIds,
+  });
   const ownedStudyNotes = listStudyNotesForUser(
     input.studyNotes.getSnapshot(),
     input.userId,
@@ -908,6 +886,39 @@ function resolveRecallableStudyNotesFromSelection(input: {
 
     return studyNote;
   });
+}
+
+function createRecallNoteSnapshotsFromSelection(input: {
+  labelsById: ReadonlyMap<string, AppLabel>;
+  noteIds: readonly string[] | undefined;
+  notes: AppNotesContext;
+  studyNoteIds: readonly string[] | undefined;
+  studyNotes: AppStudyNotesContext | undefined;
+  userId: string;
+}): RecallNoteSnapshot[] {
+  if (input.studyNotes !== undefined && input.studyNoteIds !== undefined) {
+    return resolveRecallableStudyNotesFromSelection({
+      studyNoteIds: input.studyNoteIds,
+      studyNotes: input.studyNotes,
+      userId: input.userId,
+    }).map((studyNote) =>
+      toRecallStudyNoteSnapshot({
+        labelsById: input.labelsById,
+        studyNote,
+      }),
+    );
+  }
+
+  return resolveRecallableNotesFromSelection({
+    noteIds: input.noteIds,
+    notes: input.notes,
+    userId: input.userId,
+  }).map((note) =>
+    toRecallNoteSnapshot({
+      labelsById: input.labelsById,
+      note,
+    }),
+  );
 }
 
 export function createAppRecallContext(
@@ -1181,28 +1192,14 @@ export function createAppRecallContext(
         label,
       ]),
     );
-    const noteSnapshots =
-      options.studyNotes === undefined || input.studyNoteIds === undefined
-        ? resolveRecallableNotesFromSelection({
-            noteIds: input.noteIds,
-            notes: options.notes,
-            userId: input.userId,
-          }).map((note) =>
-            toRecallNoteSnapshot({
-              labelsById,
-              note,
-            }),
-          )
-        : resolveRecallableStudyNotesFromSelection({
-            studyNoteIds: input.studyNoteIds,
-            studyNotes: options.studyNotes,
-            userId: input.userId,
-          }).map((studyNote) =>
-            toRecallStudyNoteSnapshot({
-              labelsById,
-              studyNote,
-            }),
-          );
+    const noteSnapshots = createRecallNoteSnapshotsFromSelection({
+      labelsById,
+      noteIds: input.noteIds,
+      notes: options.notes,
+      studyNoteIds: input.studyNoteIds,
+      studyNotes: options.studyNotes,
+      userId: input.userId,
+    });
     const shuffledNotes = cloneRecallNoteSnapshots(shuffleNotes(noteSnapshots));
 
     const nextSession: StoredRecallSession = {

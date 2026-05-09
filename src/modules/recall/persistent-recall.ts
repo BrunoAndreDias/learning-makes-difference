@@ -125,6 +125,7 @@ function cloneNoteSnapshot(note: RecallNoteSnapshot): RecallNoteSnapshot {
     labelIds: [...note.labelIds],
     labels: (note.labels ?? []).map((label) => ({ ...label })),
     metaphors: note.metaphors.map((metaphor) => ({ ...metaphor })),
+    source: note.source === undefined ? undefined : { ...note.source },
   };
 }
 
