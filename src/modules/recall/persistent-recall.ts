@@ -26,7 +26,8 @@ type StoredSessionResult = SessionResult & {
 
 type StartRecallSessionInput = {
   mode?: "AiAssisted" | "AiGraded" | "FlashCard";
-  noteIds: string[];
+  noteIds?: string[];
+  studyNoteIds?: string[];
 };
 
 type UpdateRecallSessionInput = {

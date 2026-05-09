@@ -116,6 +116,14 @@ export function renderRoute(
       keyPrefix: `test-focus-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
     });
+  const studyNotesContext =
+    options.studyNotesContext ??
+    createAppStudyNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labelsContext.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
   const recallContext =
     options.recallContext ??
     options.persistentRecallContext?.readonlyContext ??
@@ -125,14 +133,7 @@ export function renderRoute(
       notes: notesContext,
       onStudyActivity: focusContext.captureRecallSessionStudyActivity,
       storage: window.localStorage,
-    });
-  const studyNotesContext =
-    options.studyNotesContext ??
-    createAppStudyNotesContext({
-      getOwnedLabelIdsForUser: (userId) =>
-        labelsContext.getLabelsForUser(userId).map((label) => label.id),
-      keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
-      storage: window.localStorage,
+      studyNotes: studyNotesContext,
     });
   const router = createRouter({
     routeTree,
@@ -238,12 +239,19 @@ export function createLearningLoopTestContexts(
     keyPrefix: `test-focus-${Math.random().toString(36).slice(2)}`,
     storage: window.localStorage,
   });
+  const studyNotesContext = createAppStudyNotesContext({
+    getOwnedLabelIdsForUser: (userId) =>
+      labelsContext.getLabelsForUser(userId).map((label) => label.id),
+    keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
+    storage: window.localStorage,
+  });
   const recallContext = createAppRecallContext({
     getLabelsForUser: (userId) => labelsContext.getLabelsForUser(userId),
     keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
     notes: notesContext,
     onStudyActivity: focusContext.captureRecallSessionStudyActivity,
     storage: window.localStorage,
+    studyNotes: studyNotesContext,
     ...recallOptions,
   });
 
@@ -252,6 +260,7 @@ export function createLearningLoopTestContexts(
     labelsContext,
     notesContext,
     recallContext,
+    studyNotesContext,
   };
 }
 

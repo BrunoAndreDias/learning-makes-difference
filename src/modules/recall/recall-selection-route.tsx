@@ -3,7 +3,7 @@ import { z } from "zod";
 import { RecallSelectionPage } from "./recall-route";
 
 const recallSelectionSearchSchema = z.object({
-  noteIds: z.string().optional(),
+  studyNoteIds: z.string().optional(),
 });
 
 type RecallSelectionSearch = z.infer<typeof recallSelectionSearchSchema>;
@@ -13,26 +13,29 @@ export const Route = createFileRoute("/_protected/recall/select")({
   component: RecallSelectionRoute,
 });
 
-function parseSelectedNoteIds(search: RecallSelectionSearch) {
-  if (search.noteIds === undefined) {
+function parseSelectedStudyNoteIds(search: RecallSelectionSearch) {
+  if (search.studyNoteIds === undefined) {
     return [];
   }
 
-  const selectedNoteIds: string[] = [];
-  const seenNoteIds = new Set<string>();
+  const selectedStudyNoteIds: string[] = [];
+  const seenStudyNoteIds = new Set<string>();
 
-  for (const noteId of search.noteIds.split(",")) {
-    const normalizedNoteId = noteId.trim();
+  for (const studyNoteId of search.studyNoteIds.split(",")) {
+    const normalizedStudyNoteId = studyNoteId.trim();
 
-    if (normalizedNoteId.length === 0 || seenNoteIds.has(normalizedNoteId)) {
+    if (
+      normalizedStudyNoteId.length === 0 ||
+      seenStudyNoteIds.has(normalizedStudyNoteId)
+    ) {
       continue;
     }
 
-    seenNoteIds.add(normalizedNoteId);
-    selectedNoteIds.push(normalizedNoteId);
+    seenStudyNoteIds.add(normalizedStudyNoteId);
+    selectedStudyNoteIds.push(normalizedStudyNoteId);
   }
 
-  return selectedNoteIds;
+  return selectedStudyNoteIds;
 }
 
 function RecallSelectionRoute() {
@@ -40,7 +43,7 @@ function RecallSelectionRoute() {
 
   return (
     <RecallSelectionPage
-      initialSelectedNoteIds={parseSelectedNoteIds(search)}
+      initialSelectedStudyNoteIds={parseSelectedStudyNoteIds(search)}
     />
   );
 }

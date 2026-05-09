@@ -291,7 +291,7 @@ describe("authenticated recall workspace", () => {
     );
 
     expect(screen.getByText("Tu respuesta")).toBeInTheDocument();
-    expect(screen.getByText("Nota de referencia")).toBeInTheDocument();
+    expect(screen.getByText("Contexto fuente")).toBeInTheDocument();
     expect(
       screen.getByText("Learner answer stays literal."),
     ).toBeInTheDocument();
@@ -360,7 +360,9 @@ describe("authenticated recall workspace", () => {
     expect(screen.getAllByText("Stored prompt title").length).toBeGreaterThan(
       0,
     );
-    expect(screen.getByRole("button", { name: "Reveal note" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Reveal Study Note" }),
+    ).toBeEnabled();
   });
 
   it("uses the routed authenticated session to hydrate the Recall session view immediately", async () => {
@@ -429,12 +431,16 @@ describe("authenticated recall workspace", () => {
     });
 
     expect(
-      await screen.findByText("Try to recall this note before revealing it."),
+      await screen.findByText(
+        "Try to recall this Study Note before revealing it.",
+      ),
     ).toBeInTheDocument();
     expect(screen.getAllByText("Hydrated prompt title").length).toBeGreaterThan(
       0,
     );
-    expect(screen.getByRole("button", { name: "Reveal note" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Reveal Study Note" }),
+    ).toBeEnabled();
     expect(router.state.location.pathname).toBe("/recall/session");
     expect(refreshSpy).toHaveBeenCalled();
     expect(persistentRecallContext.readonlyContext.getSnapshot()).toMatchObject(
@@ -449,14 +455,16 @@ describe("authenticated recall workspace", () => {
     renderRoute("/recall", { session: createSession() });
 
     expect(
-      await screen.findByRole("heading", { name: "Recall starts with notes" }),
+      await screen.findByRole("heading", {
+        name: "Recall starts with Study Notes",
+      }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("navigation", { name: "Breadcrumb" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Open Notes Workspace" }),
-    ).toHaveAttribute("href", "/notes");
+      screen.getByRole("link", { name: "Open Study Notes" }),
+    ).toHaveAttribute("href", "/study-notes");
   });
 
   it("uses the route-hydrated session to show Recall results immediately", async () => {
@@ -491,15 +499,15 @@ describe("authenticated recall workspace", () => {
       within(selectedResult).getAllByText("Stored prompt title").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.queryByRole("heading", { name: "Recall starts with notes" }),
+      screen.queryByRole("heading", { name: "Recall starts with Study Notes" }),
     ).not.toBeInTheDocument();
   });
 
   it("links child Recall breadcrumbs back to the default Recall page", async () => {
     const contexts = createDeterministicRecallTestContexts();
-    createRecallNote(contexts.notesContext, testUser.id, {
-      body: "Recall body",
-      title: "Recall note",
+    contexts.studyNotesContext.createStudyNote(testUser.id, {
+      sourceBody: "Recall body",
+      sourceTitle: "Recall Study Note",
     });
 
     const { router } = renderRoute("/recall/select", {
@@ -508,7 +516,10 @@ describe("authenticated recall workspace", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Select notes" }),
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Select Study Notes",
+      }),
     ).toBeInTheDocument();
 
     const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
@@ -516,13 +527,16 @@ describe("authenticated recall workspace", () => {
       name: "Recall",
     });
 
-    expect(breadcrumb).toHaveTextContent(/Recall\s*\/\s*Select notes/);
+    expect(breadcrumb).toHaveTextContent(/Recall\s*\/\s*Select Study Notes/);
     expect(recallLink).toHaveAttribute("href", "/recall");
 
     fireEvent.click(recallLink);
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Recall" }),
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Recall starts with Study Notes",
+      }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
     expect(
@@ -532,9 +546,9 @@ describe("authenticated recall workspace", () => {
 
   it("uses the route-hydrated session to load Recall setup notes immediately", async () => {
     const contexts = createDeterministicRecallTestContexts();
-    createRecallNote(contexts.notesContext, testUser.id, {
-      body: "Recall body",
-      title: "Recall note",
+    contexts.studyNotesContext.createStudyNote(testUser.id, {
+      sourceBody: "Recall body",
+      sourceTitle: "Recall Study Note",
     });
 
     renderRoute("/recall/select", {
@@ -543,11 +557,13 @@ describe("authenticated recall workspace", () => {
     });
 
     const availableNotes = await screen.findByRole("region", {
-      name: "Available Notes",
+      name: "Available Study Notes",
     });
-    expect(within(availableNotes).getByText("Recall note")).toBeInTheDocument();
     expect(
-      screen.queryByRole("heading", { name: "Recall starts with notes" }),
+      within(availableNotes).getByText("Recall Study Note"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Recall starts with Study Notes" }),
     ).not.toBeInTheDocument();
   });
 
@@ -745,14 +761,22 @@ describe("authenticated recall workspace", () => {
     expect(screen.getByText("No matching results")).toBeInTheDocument();
   });
 
-  it("selects Notes, blocks disabled AI Recall types, clears selection, and starts FlashCard", async () => {
+  it("selects Study Notes, blocks disabled AI Recall types, clears selection, and starts FlashCard", async () => {
     const contexts = createDeterministicRecallTestContexts();
-    contexts.notesContext.createNote(testUser.id, {
+    const studyNote = contexts.studyNotesContext.createStudyNote(testUser.id, {
       acronyms: [{ description: "ABC remembers retrieval steps." }],
-      body: "Searchable body.",
+      sourceBody: "Searchable source context.",
+      sourceTitle: "Searchable source",
+      metaphors: [{ description: "A lighthouse for recall." }],
+    });
+    contexts.studyNotesContext.updateStudyNote(testUser.id, studyNote.id, {
+      acronyms: [{ description: "ABC remembers retrieval steps." }],
+      expectedAnswer: "Searchable expected answer.",
       labelIds: [],
       metaphors: [{ description: "A lighthouse for recall." }],
-      title: "Searchable Note",
+      prompt: "Searchable Study Note",
+      sourceBody: "Searchable source context.",
+      sourceTitle: "Searchable source",
     });
 
     const { router } = renderRoute("/recall/select", {
@@ -761,12 +785,17 @@ describe("authenticated recall workspace", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Select notes" }),
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Select Study Notes",
+      }),
     ).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Search Notes"), {
+    fireEvent.change(screen.getByLabelText("Search Study Notes"), {
       target: { value: "lighthouse" },
     });
-    fireEvent.click(screen.getByRole("checkbox", { name: /Searchable Note/ }));
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /Searchable Study Note/ }),
+    );
 
     fireEvent.click(screen.getByRole("radio", { name: /AI Assisted/ }));
     expect(screen.getByRole("button", { name: "Start recall" })).toBeDisabled();
@@ -777,10 +806,14 @@ describe("authenticated recall workspace", () => {
     fireEvent.click(screen.getByRole("radio", { name: /FlashCard/ }));
     expect(screen.getByRole("button", { name: "Start recall" })).toBeEnabled();
 
-    fireEvent.click(screen.getByRole("checkbox", { name: /Searchable Note/ }));
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /Searchable Study Note/ }),
+    );
     expect(screen.getByRole("button", { name: "Start recall" })).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("checkbox", { name: /Searchable Note/ }));
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /Searchable Study Note/ }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
 
     await screen.findByRole("heading", { level: 3, name: "Recall session" });
@@ -788,6 +821,39 @@ describe("authenticated recall workspace", () => {
       screen.getByRole("navigation", { name: "Breadcrumb" }),
     ).toHaveTextContent(/Recall\s*\/\s*Session/);
     expect(router.state.location.pathname).toBe("/recall/session");
+  });
+
+  it("clears temporary Study Note selections on setup cancel", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const studyNote = contexts.studyNotesContext.createStudyNote(testUser.id, {
+      sourceBody: "Temporary answer.",
+      sourceTitle: "Temporary Study Note",
+    });
+
+    const { router } = renderRoute(
+      `/recall/select?studyNoteIds=${studyNote.id}`,
+      {
+        ...contexts,
+        session: createSession(),
+      },
+    );
+
+    await screen.findByRole("heading", {
+      level: 3,
+      name: "Select Study Notes",
+    });
+    expect(screen.getByText("1")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/recall"));
+
+    await router.navigate({ to: "/recall/select" });
+
+    await screen.findByRole("heading", {
+      level: 3,
+      name: "Select Study Notes",
+    });
+    expect(screen.getByRole("button", { name: "Start recall" })).toBeDisabled();
   });
 
   it("runs the FlashCard reveal and self-rating flow, then saves to Results", async () => {
@@ -807,20 +873,68 @@ describe("authenticated recall workspace", () => {
     });
 
     expect(
-      await screen.findByText("Try to recall this note before revealing it."),
+      await screen.findByText(
+        "Try to recall this Study Note before revealing it.",
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByText("Saved result body.")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Reveal note" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reveal Study Note" }));
     expect(screen.getByText("Saved result body.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
-    fireEvent.click(screen.getByRole("button", { name: "Next note" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next Study Note" }));
 
     expect(router.state.location.pathname).toBe("/recall");
     expect(
       await screen.findByText("Recall session saved to results"),
     ).toBeInTheDocument();
     expect(screen.getAllByText("75%").length).toBeGreaterThan(0);
+  });
+
+  it("reveals Study Note expected answer before source Note context", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const studyNote = contexts.studyNotesContext.createStudyNote(testUser.id, {
+      sourceBody: "Broader source context comes second.",
+      sourceTitle: "Source context title",
+    });
+    const updatedStudyNote = contexts.studyNotesContext.updateStudyNote(
+      testUser.id,
+      studyNote.id,
+      {
+        acronyms: [],
+        expectedAnswer: "Specific expected answer comes first.",
+        labelIds: [],
+        metaphors: [],
+        prompt: "Practice prompt",
+        sourceBody: "Broader source context comes second.",
+        sourceTitle: "Source context title",
+      },
+    );
+    contexts.recallContext.startFlashCardSession({
+      studyNoteIds: [updatedStudyNote.id],
+      userId: testUser.id,
+    });
+
+    renderRoute("/recall/session", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: /Reveal/ }));
+
+    const expectedAnswer = screen.getByText(
+      "Specific expected answer comes first.",
+    );
+    const sourceContext = screen.getByText(
+      "Broader source context comes second.",
+    );
+
+    expect(
+      expectedAnswer.compareDocumentPosition(sourceContext) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByText("Expected answer")).toBeInTheDocument();
+    expect(screen.getByText("Source context")).toBeInTheDocument();
   });
 
   it("uses FlashCard session self-rating semantics in selected Results review", async () => {
@@ -840,12 +954,14 @@ describe("authenticated recall workspace", () => {
     });
 
     expect(
-      await screen.findByText("Try to recall this note before revealing it."),
+      await screen.findByText(
+        "Try to recall this Study Note before revealing it.",
+      ),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Reveal note" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reveal Study Note" }));
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
-    fireEvent.click(screen.getByRole("button", { name: "Next note" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next Study Note" }));
 
     expect(router.state.location.pathname).toBe("/recall");
     const selectedResult = await screen.findByRole("region", {
@@ -1197,7 +1313,7 @@ describe("authenticated recall workspace", () => {
     const detailPanel = getControlledPanel(exactAnswerQuestion);
     const selfRatingBlock = getDetailBlockByLabel(detailPanel, "Self rating");
     const answerBlock = getDetailBlockByLabel(detailPanel, "Your answer");
-    const referenceBlock = getDetailBlockByLabel(detailPanel, "Reference note");
+    const referenceBlock = getDetailBlockByLabel(detailPanel, "Source context");
 
     expect(selfRatingBlock).toHaveTextContent("Good");
     expect(
@@ -1233,7 +1349,7 @@ describe("authenticated recall workspace", () => {
     expect(
       await screen.findByRole("heading", {
         level: 3,
-        name: "Recall starts with notes",
+        name: "Recall starts with Study Notes",
       }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");

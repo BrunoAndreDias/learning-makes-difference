@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createAppFocusContext } from "../focus";
 import { createAppLabelsContext } from "../labels/label-management/labels";
 import { createAppNotesContext } from "../notes";
+import { createAppStudyNotesContext } from "../study-notes";
 import { createAppRecallContext, summarizeAttempts } from "./recall";
 
 function createMemoryStorage() {
@@ -518,6 +519,119 @@ describe("recall focus target capture", () => {
 });
 
 describe("recall session setup", () => {
+  it("starts FlashCard sessions from selected Study Notes and snapshots their practice fields", () => {
+    const storage = createMemoryStorage();
+    const labels = createAppLabelsContext({
+      keyPrefix: "recall-study-note-start-labels",
+      storage,
+    });
+    const studyNotes = createAppStudyNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labels.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: "recall-study-note-start-study-notes",
+      storage,
+    });
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          "session-study-note-start" as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "recall-study-note-start-session",
+      notes: createAppNotesContext({
+        keyPrefix: "recall-study-note-start-source-notes",
+        storage,
+      }),
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+      getLabelsForUser: (userId) => labels.getLabelsForUser(userId),
+    });
+    const userId = "owner";
+    const biology = labels.createLabel({ name: "Biology", userId });
+    const studyNote = studyNotes.createStudyNote(userId, {
+      labelIds: [biology.id],
+      sourceBody: "Cell respiration is the source context.",
+      sourceTitle: "Cell respiration source",
+    });
+    const updatedStudyNote = studyNotes.updateStudyNote(userId, studyNote.id, {
+      acronyms: [{ description: "ATP: Adenosine triphosphate" }],
+      expectedAnswer: "ATP is the expected answer.",
+      labelIds: [biology.id],
+      metaphors: [{ description: "ATP acts like a rechargeable battery." }],
+      prompt: "What molecule stores transferable energy?",
+      sourceBody: "Cell respiration is the source context.",
+      sourceTitle: "Cell respiration source",
+    });
+
+    expect(() =>
+      recall.startFlashCardSession({
+        noteIds: [updatedStudyNote.sourceNoteId],
+        userId,
+      }),
+    ).toThrowError(expect.objectContaining({ code: "not_found" }));
+
+    const session = recall.startFlashCardSession({
+      studyNoteIds: [updatedStudyNote.id],
+      userId,
+    });
+
+    studyNotes.updateStudyNote(userId, updatedStudyNote.id, {
+      acronyms: [],
+      expectedAnswer: "Changed answer",
+      labelIds: [],
+      metaphors: [],
+      prompt: "Changed prompt",
+      sourceBody: "Changed source body",
+      sourceTitle: "Changed source title",
+    });
+
+    expect(session).toMatchObject({
+      id: "session-study-note-start",
+      notes: [
+        {
+          body: "ATP is the expected answer.",
+          expectedAnswer: "ATP is the expected answer.",
+          id: updatedStudyNote.id,
+          labelIds: [biology.id],
+          labels: [{ id: biology.id, name: "Biology" }],
+          prompt: "What molecule stores transferable energy?",
+          source: {
+            body: "Cell respiration is the source context.",
+            id: updatedStudyNote.sourceNoteId,
+            title: "Cell respiration source",
+          },
+          sourceNoteId: updatedStudyNote.sourceNoteId,
+          title: "What molecule stores transferable energy?",
+        },
+      ],
+      questions: [
+        {
+          noteId: updatedStudyNote.id,
+          noteSnapshot: {
+            expectedAnswer: "ATP is the expected answer.",
+            prompt: "What molecule stores transferable energy?",
+            source: {
+              body: "Cell respiration is the source context.",
+              title: "Cell respiration source",
+            },
+          },
+        },
+      ],
+    });
+    expect(recall.getSnapshot()).toMatchObject({
+      notes: [
+        {
+          expectedAnswer: "ATP is the expected answer.",
+          prompt: "What molecule stores transferable energy?",
+          source: {
+            body: "Cell respiration is the source context.",
+            title: "Cell respiration source",
+          },
+        },
+      ],
+    });
+  });
+
   it("does not start FlashCard sessions from label targets", () => {
     const storage = createMemoryStorage();
     const labels = createAppLabelsContext({

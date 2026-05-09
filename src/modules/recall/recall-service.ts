@@ -6,6 +6,12 @@ import type { AppLabel } from "../labels/label-management/labels";
 import { createLabelsService } from "../labels/labels-service";
 import type { AppNote, AppNotesContext, AppStoredNote } from "../notes";
 import { createNotesService } from "../notes/notes-service";
+import type {
+  AppStoredStudyNote,
+  AppStudyNote,
+  AppStudyNotesContext,
+} from "../study-notes";
+import { createStudyNotesService } from "../study-notes/study-notes-service";
 import {
   createAppRecallContext,
   type RecallSelfRating,
@@ -39,7 +45,8 @@ type ShuffleNotes = (
 ) => RecallNoteSnapshot[];
 
 type StartRecallSessionInput = {
-  noteIds: string[];
+  noteIds?: string[];
+  studyNoteIds?: string[];
   userId: string;
 };
 
@@ -92,6 +99,16 @@ function toStoredNote(note: AppNote, userId: string): AppStoredNote {
   };
 }
 
+function toStoredStudyNote(
+  studyNote: AppStudyNote,
+  userId: string,
+): AppStoredStudyNote {
+  return {
+    ...studyNote,
+    userId,
+  };
+}
+
 function createReadonlyNotesContext(
   notes: readonly AppNote[],
   userId: string,
@@ -113,6 +130,44 @@ function createReadonlyNotesContext(
     },
     updateNote: () => {
       throw new Error("Readonly recall notes context cannot update notes.");
+    },
+  };
+}
+
+function createReadonlyStudyNotesContext(
+  studyNotes: readonly AppStudyNote[],
+  userId: string,
+): AppStudyNotesContext {
+  const snapshot = studyNotes.map((studyNote) =>
+    toStoredStudyNote(studyNote, userId),
+  );
+
+  return {
+    createStudyNote: () => {
+      throw new Error(
+        "Readonly recall Study Notes context cannot create Study Notes.",
+      );
+    },
+    createStudyNoteFromSource: () => {
+      throw new Error(
+        "Readonly recall Study Notes context cannot create Study Notes.",
+      );
+    },
+    deleteStudyNote: () => {
+      throw new Error(
+        "Readonly recall Study Notes context cannot delete Study Notes.",
+      );
+    },
+    getSnapshot() {
+      return snapshot;
+    },
+    subscribe() {
+      return () => undefined;
+    },
+    updateStudyNote: () => {
+      throw new Error(
+        "Readonly recall Study Notes context cannot update Study Notes.",
+      );
     },
   };
 }
@@ -240,19 +295,26 @@ async function createMutableRecallContext(input: {
   const notesService = createNotesService({
     db: input.db,
   });
+  const studyNotesService = createStudyNotesService({
+    db: input.db,
+  });
   const labelsService = createLabelsService({
     db: input.db,
   });
-  const [notes, labels, activeSession, sessionResults] = await Promise.all([
-    notesService.listNotes({
-      userId: input.userId,
-    }),
-    labelsService.listLabels({
-      userId: input.userId,
-    }),
-    readStoredActiveSession(input.db, input.userId),
-    readStoredSessionResults(input.db, input.userId),
-  ]);
+  const [notes, studyNotes, labels, activeSession, sessionResults] =
+    await Promise.all([
+      notesService.listNotes({
+        userId: input.userId,
+      }),
+      studyNotesService.listStudyNotes({
+        userId: input.userId,
+      }),
+      labelsService.listLabels({
+        userId: input.userId,
+      }),
+      readStoredActiveSession(input.db, input.userId),
+      readStoredSessionResults(input.db, input.userId),
+    ]);
   const storage = createMemoryStorage({
     [getActiveSessionStorageKey(SERVICE_STORAGE_KEY_PREFIX)]:
       activeSession === null ? null : JSON.stringify(activeSession),
@@ -267,6 +329,7 @@ async function createMutableRecallContext(input: {
     notes: createReadonlyNotesContext(notes, input.userId),
     shuffleNotes: input.shuffleNotes,
     storage,
+    studyNotes: createReadonlyStudyNotesContext(studyNotes, input.userId),
   });
 }
 

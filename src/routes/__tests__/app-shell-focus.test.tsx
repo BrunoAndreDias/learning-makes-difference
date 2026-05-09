@@ -1381,7 +1381,9 @@ describe("authenticated app shell", () => {
     const overlay = screen.getByRole("region", {
       name: "Break interval reminder",
     });
-    const revealButton = screen.getByRole("button", { name: "Reveal note" });
+    const revealButton = screen.getByRole("button", {
+      name: "Reveal Study Note",
+    });
 
     expect(revealButton).toBeDisabled();
     fireEvent.click(
@@ -1398,7 +1400,7 @@ describe("authenticated app shell", () => {
 
     fireEvent.click(revealButton);
     fireEvent.click(screen.getByRole("button", { name: "Easy" }));
-    fireEvent.click(screen.getByRole("button", { name: "Next note" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next Study Note" }));
 
     expect(router.state.location.pathname).toBe("/recall");
     expect(

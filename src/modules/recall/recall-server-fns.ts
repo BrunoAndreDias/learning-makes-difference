@@ -15,7 +15,8 @@ import {
 const SESSION_COOKIE_NAME = "learning-makes-difference-session";
 
 const startFlashCardSessionInputSchema = z.object({
-  noteIds: z.array(z.string()),
+  noteIds: z.array(z.string()).optional(),
+  studyNoteIds: z.array(z.string()).optional(),
 });
 
 const updateRecallSessionInputSchema = z.object({
@@ -134,6 +135,7 @@ const startFlashCardSessionServerFn = createServerFn({
 
     return recall.startFlashCardSession({
       noteIds: data.noteIds,
+      studyNoteIds: data.studyNoteIds,
       userId,
     });
   });

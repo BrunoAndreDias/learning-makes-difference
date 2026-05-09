@@ -392,7 +392,7 @@ function NoNotesRecallState() {
       <article className="recall-surface recall-empty-surface">
         <h3>{t("recall.empty.title")}</h3>
         <p className="muted">{t("recall.empty.body")}</p>
-        <Link className="notes-action notes-action-primary" to="/notes">
+        <Link className="notes-action notes-action-primary" to="/study-notes">
           {t("recall.action.openNotes")}
         </Link>
       </article>

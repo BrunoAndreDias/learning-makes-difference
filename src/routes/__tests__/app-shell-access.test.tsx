@@ -129,7 +129,7 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", {
         level: 3,
-        name: "Recall starts with notes",
+        name: "Recall starts with Study Notes",
       }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
@@ -507,7 +507,7 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", {
         level: 3,
-        name: "Recall starts with notes",
+        name: "Recall starts with Study Notes",
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("Skip to main content")).toBeInTheDocument();

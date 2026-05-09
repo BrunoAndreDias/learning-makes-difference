@@ -511,7 +511,19 @@ function RecallNoteDetails({ note }: { note: FlashCardRecallNote }) {
 
   return (
     <div className="recall-note-details">
-      <p className="recall-card__body">{note.body}</p>
+      <section aria-label={t("recall.session.answer.expectedAnswer")}>
+        <h5>{t("recall.session.answer.expectedAnswer")}</h5>
+        <p className="recall-card__body">{note.expectedAnswer ?? note.body}</p>
+      </section>
+      {note.source !== undefined ? (
+        <section aria-label={t("recall.session.answer.sourceContext")}>
+          <h5>{t("recall.session.answer.sourceContext")}</h5>
+          <p className="recall-card__body">
+            <strong>{note.source.title}</strong>
+          </p>
+          <p className="recall-card__body">{note.source.body}</p>
+        </section>
+      ) : null}
       {note.metaphors.length > 0 || note.acronyms.length > 0 ? (
         <div className="recall-memory-aids">
           {note.metaphors.length > 0 ? (
