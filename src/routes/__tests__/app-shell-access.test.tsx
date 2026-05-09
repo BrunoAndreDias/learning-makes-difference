@@ -11,19 +11,92 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAppSessionContext } from "../../modules/access/session/session";
 import {
   createAppNotesContext,
+  createDeterministicRecallTestContexts,
   createRouteTestSessionContext,
   createRouteTestSessionStore,
   createSessionCookieJar,
+  listNotesForUser,
   openAccountMenu,
   renderRoute,
   TEST_PILOT_REGISTRATION_CODE,
 } from "./app-shell-test-support";
+
+type LearningLoopTestContexts = ReturnType<
+  typeof createDeterministicRecallTestContexts
+>;
 
 function setBrowserLanguages(languages: readonly string[]) {
   Object.defineProperty(window.navigator, "languages", {
     configurable: true,
     value: languages,
   });
+}
+
+function createPersistentStudyData(
+  {
+    focusContext,
+    labelsContext,
+    notesContext,
+    recallContext,
+  }: LearningLoopTestContexts,
+  userId: string,
+) {
+  const label = labelsContext.createLabel({
+    name: "Organic Chemistry",
+    userId,
+  });
+  const note = notesContext.createNote(userId, {
+    acronyms: [{ description: "SN1 stays exactly as written" }],
+    body: "Cyclohexane chair flips stay in English.",
+    labelIds: [label.id],
+    metaphors: [{ description: "A conformer is like a folding chair" }],
+    title: "Chair conformations",
+  });
+
+  vi.setSystemTime(new Date("2026-05-06T09:00:00.000Z"));
+  const recallSession = recallContext.startFlashCardSession({
+    noteIds: [note.id],
+    userId,
+  });
+  recallContext.revealFlashCardAnswer({
+    sessionId: recallSession.id,
+    userId,
+  });
+  recallContext.rateFlashCardAnswer({
+    rating: "good",
+    sessionId: recallSession.id,
+    userId,
+  });
+
+  vi.setSystemTime(new Date("2026-05-06T10:00:00.000Z"));
+  focusContext.startFocusSession({
+    focusIntervalMinutes: 25,
+    userId,
+  });
+  focusContext.captureNoteStudyActivity({
+    labels: labelsContext.getLabelsForUser(userId),
+    note,
+    userId,
+  });
+  vi.setSystemTime(new Date("2026-05-06T10:25:00.000Z"));
+  focusContext.endFocusSession({ userId });
+}
+
+function readPersistentStudyData(
+  {
+    focusContext,
+    labelsContext,
+    notesContext,
+    recallContext,
+  }: LearningLoopTestContexts,
+  userId: string,
+) {
+  return {
+    focusRecords: focusContext.getFocusRecords({ userId }),
+    labels: labelsContext.getLabelsForUser(userId),
+    notes: listNotesForUser(notesContext.getSnapshot(), userId),
+    sessionResults: recallContext.listSessionResults({ userId }),
+  };
 }
 
 afterEach(() => {
@@ -290,6 +363,57 @@ describe("authenticated app shell", () => {
     } finally {
       dateTimeFormatSpy.mockRestore();
     }
+  });
+
+  it("changes User Language without mutating Persistent Study Data", async () => {
+    const sessionContext = createRouteTestSessionContext();
+    const contexts = createDeterministicRecallTestContexts();
+
+    await sessionContext.register({
+      displayName: "Casey Language",
+      email: "casey.language@example.com",
+      password: "correct horse battery staple",
+      pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
+      userLanguage: "en",
+    });
+    const userId = sessionContext.getSnapshot().user?.id;
+
+    if (userId === undefined) {
+      throw new Error("Expected registered test user.");
+    }
+
+    vi.useFakeTimers();
+    try {
+      createPersistentStudyData(contexts, userId);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    const persistentStudyDataBefore = readPersistentStudyData(contexts, userId);
+
+    renderRoute("/settings", {
+      ...contexts,
+      sessionContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Settings" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Language"), {
+      target: { value: "es" },
+    });
+    fireEvent.submit(
+      screen.getByRole("form", { name: "Account preferences form" }),
+    );
+
+    await waitFor(() => {
+      expect(sessionContext.getSnapshot().user?.userLanguage).toBe("es");
+    });
+
+    expect(readPersistentStudyData(contexts, userId)).toEqual(
+      persistentStudyDataBefore,
+    );
   });
 
   it("restores a protected route after refresh until sign-out clears the session", async () => {

@@ -6,6 +6,7 @@ import {
   createMemorySessionService,
   createMemorySessionStore,
   hasActiveSession,
+  type MemorySessionStore,
 } from "./session";
 
 const TEST_PILOT_REGISTRATION_CODE = "test-pilot-code";
@@ -24,6 +25,19 @@ function createMemoryCookieStore() {
       value = nextValue;
     },
   };
+}
+
+function persistUnsupportedUserLanguage(
+  store: MemorySessionStore,
+  userLanguage: string,
+) {
+  const [storedUser] = store.users;
+
+  if (storedUser === undefined) {
+    throw new Error("Expected a stored test user.");
+  }
+
+  Object.assign(storedUser, { userLanguage });
 }
 
 describe("app session context", () => {
@@ -115,6 +129,35 @@ describe("app session context", () => {
 
     expect(session.getSnapshot().user).toMatchObject({
       userLanguage: "pt-PT",
+    });
+  });
+
+  it("falls back to English when a persisted User Language is unsupported", async () => {
+    const store = createMemorySessionStore();
+    const session = createAppSessionContext({
+      service: createMemorySessionService({
+        pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
+        store,
+      }),
+    });
+
+    await session.register({
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      password: "correct horse battery staple",
+      pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
+      userLanguage: "es",
+    });
+    persistUnsupportedUserLanguage(store, "fr-FR");
+
+    await session.logout();
+    await session.login({
+      email: "casey@example.com",
+      password: "correct horse battery staple",
+    });
+
+    expect(session.getSnapshot().user).toMatchObject({
+      userLanguage: "en",
     });
   });
 
