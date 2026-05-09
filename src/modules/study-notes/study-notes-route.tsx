@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
+import type { AppLabel } from "../labels/label-management/labels";
 import "../notes/notes-workspace/notes-editor-route.css";
 import "../notes/notes-workspace/notes-form-foundation.css";
 import "../notes/notes-workspace/notes-foundation.css";
@@ -30,6 +31,7 @@ export const Route = createFileRoute("/_protected/study-notes")({
 function createBlankDraft(): UpdateStudyNoteInput {
   return {
     expectedAnswer: "",
+    labelIds: [],
     prompt: "",
     sourceBody: "",
     sourceTitle: "",
@@ -45,10 +47,23 @@ function createDraftFromStudyNote(
 
   return {
     expectedAnswer: studyNote.expectedAnswer,
+    labelIds: [...studyNote.labelIds],
     prompt: studyNote.prompt,
     sourceBody: studyNote.source.body,
     sourceTitle: studyNote.source.title,
   };
+}
+
+function setLabelIdSelection(
+  labelIds: readonly string[],
+  labelId: string,
+  isSelected: boolean,
+): string[] {
+  if (isSelected) {
+    return [...labelIds, labelId];
+  }
+
+  return labelIds.filter((currentLabelId) => currentLabelId !== labelId);
 }
 
 function StudyNotesWorkspace() {
@@ -59,6 +74,10 @@ function StudyNotesWorkspace() {
   const persistentStudyNotesContext = useRouteContext({
     from: "/_protected/study-notes",
     select: (context) => context.persistentStudyNotes,
+  });
+  const labelsContext = useRouteContext({
+    from: "/_protected/study-notes",
+    select: (context) => context.labels,
   });
   const { sessionSnapshot } = useResolvedProtectedSession(
     "/_protected/study-notes",
@@ -73,9 +92,16 @@ function StudyNotesWorkspace() {
     studyNotesStore.getSnapshot,
     studyNotesStore.getSnapshot,
   );
+  const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
+  const [selectedLabelId, setSelectedLabelId] = useState("");
   const studyNotes = useMemo(
-    () => listStudyNotesForUser(studyNotesSnapshot, userId),
-    [studyNotesSnapshot, userId],
+    () =>
+      listStudyNotesForUser(
+        studyNotesSnapshot,
+        userId,
+        selectedLabelId === "" ? {} : { labelId: selectedLabelId },
+      ),
+    [selectedLabelId, studyNotesSnapshot, userId],
   );
   const [selectedStudyNoteId, setSelectedStudyNoteId] = useState<string | null>(
     studyNotes[0]?.id ?? null,
@@ -112,6 +138,32 @@ function StudyNotesWorkspace() {
       throw error;
     });
   }, [persistentStudyNotesContext, userId]);
+
+  useEffect(() => {
+    function syncLabels() {
+      if (userId === null) {
+        setAvailableLabels([]);
+        return;
+      }
+
+      setAvailableLabels(labelsContext.getLabelsForUser(userId));
+    }
+
+    syncLabels();
+
+    return labelsContext.subscribe(syncLabels);
+  }, [labelsContext, userId]);
+
+  useEffect(() => {
+    if (
+      selectedLabelId === "" ||
+      availableLabels.some((label) => label.id === selectedLabelId)
+    ) {
+      return;
+    }
+
+    setSelectedLabelId("");
+  }, [availableLabels, selectedLabelId]);
 
   useEffect(() => {
     if (
@@ -262,6 +314,21 @@ function StudyNotesWorkspace() {
             </div>
             <span className="tag">{`${studyNotes.length} Study Notes`}</span>
           </div>
+          <label className="notes-form__field study-notes-filter">
+            <span>Filter by label</span>
+            <select
+              aria-label="Filter Study Notes by label"
+              onChange={(event) => setSelectedLabelId(event.target.value)}
+              value={selectedLabelId}
+            >
+              <option value="">All Study Notes</option>
+              {availableLabels.map((label) => (
+                <option key={label.id} value={label.id}>
+                  {label.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <nav aria-label="Study Notes list" className="notes-list">
             {studyNotes.length === 0 ? (
               <p className="muted notes-list__empty">
@@ -359,6 +426,35 @@ function StudyNotesWorkspace() {
                   value={draft.expectedAnswer}
                 />
               </label>
+
+              <section aria-label="Study Note labels">
+                <p className="section-label">Labels</p>
+                {availableLabels.length === 0 ? (
+                  <p className="muted">No Labels yet.</p>
+                ) : (
+                  <div className="study-notes-labels">
+                    {availableLabels.map((label) => (
+                      <label key={label.id} className="study-notes-label">
+                        <input
+                          checked={draft.labelIds.includes(label.id)}
+                          onChange={(event) =>
+                            setDraft((current) => ({
+                              ...current,
+                              labelIds: setLabelIdSelection(
+                                current.labelIds,
+                                label.id,
+                                event.target.checked,
+                              ),
+                            }))
+                          }
+                          type="checkbox"
+                        />
+                        <span>{label.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </section>
 
               <section
                 aria-label="Source Note"

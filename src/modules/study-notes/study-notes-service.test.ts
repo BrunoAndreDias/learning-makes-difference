@@ -4,6 +4,11 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { migrateDatabase } from "../../lib/db/migrate";
 import { authSchema, usersTable } from "../access/session/auth-schema";
+import {
+  labelsSchema,
+  labelsTable,
+  studyNoteLabelsTable,
+} from "../labels/labels-schema";
 import { notesSchema, notesTable } from "../notes/notes-schema";
 import { studyNotesSchema } from "./study-notes-schema";
 import { createStudyNotesService } from "./study-notes-service";
@@ -33,6 +38,7 @@ describe("createStudyNotesService", () => {
     const db = drizzle(client, {
       schema: {
         ...authSchema,
+        ...labelsSchema,
         ...notesSchema,
         ...studyNotesSchema,
       },
@@ -76,6 +82,7 @@ describe("createStudyNotesService", () => {
     const updatedStudyNote = await studyNotes.updateStudyNote({
       input: {
         expectedAnswer: "Recall first, then review.",
+        labelIds: [],
         prompt: "How should active recall feel?",
         sourceBody: "Practice recall before reviewing the answer. Add context.",
         sourceTitle: "Active recall source",
@@ -117,6 +124,7 @@ describe("createStudyNotesService", () => {
     const db = drizzle(client, {
       schema: {
         ...authSchema,
+        ...labelsSchema,
         ...notesSchema,
         ...studyNotesSchema,
       },
@@ -173,6 +181,7 @@ describe("createStudyNotesService", () => {
     const db = drizzle(client, {
       schema: {
         ...authSchema,
+        ...labelsSchema,
         ...notesSchema,
         ...studyNotesSchema,
       },
@@ -246,5 +255,158 @@ describe("createStudyNotesService", () => {
         db.select().from(notesTable),
       ]),
     ).resolves.toEqual([[], []]);
+  });
+
+  it("assigns Labels to Study Notes independently from the source Note and protects label ownership", async () => {
+    const client = new PGlite();
+    databases.add(client);
+    const db = drizzle(client, {
+      schema: {
+        ...authSchema,
+        ...labelsSchema,
+        ...notesSchema,
+        ...studyNotesSchema,
+      },
+    });
+    await migrateDatabase(db, client);
+    await db.insert(usersTable).values([
+      {
+        createdAt: new Date("2026-05-02T12:00:00.000Z"),
+        displayName: "Casey Learner",
+        email: "casey@example.com",
+        id: "user-casey",
+        passwordHash: "hash",
+        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+        userLanguage: "en",
+      },
+      {
+        createdAt: new Date("2026-05-02T12:00:00.000Z"),
+        displayName: "Jordan Learner",
+        email: "jordan@example.com",
+        id: "user-jordan",
+        passwordHash: "hash",
+        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+        userLanguage: "en",
+      },
+    ]);
+    await db.insert(labelsTable).values([
+      {
+        createdAt: new Date("2026-05-02T12:00:00.000Z"),
+        id: "label-biology",
+        name: "Biology",
+        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+        userId: "user-casey",
+      },
+      {
+        createdAt: new Date("2026-05-02T12:00:00.000Z"),
+        id: "label-history",
+        name: "History",
+        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+        userId: "user-casey",
+      },
+      {
+        createdAt: new Date("2026-05-02T12:00:00.000Z"),
+        id: "label-other",
+        name: "Other",
+        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+        userId: "user-jordan",
+      },
+    ]);
+    const studyNotes = createStudyNotesService({
+      crypto: createDeterministicCrypto(),
+      db,
+      now: () => new Date("2026-05-02T12:00:00.000Z"),
+    });
+
+    const first = await studyNotes.createStudyNote({
+      input: {
+        labelIds: ["label-biology"],
+        sourceBody: "One source body.",
+        sourceTitle: "Shared source one",
+      },
+      userId: "user-casey",
+    });
+    const second = await studyNotes.createStudyNote({
+      input: {
+        labelIds: ["label-history"],
+        sourceBody: "One source body.",
+        sourceTitle: "Shared source two",
+      },
+      userId: "user-casey",
+    });
+
+    await studyNotes.updateStudyNote({
+      input: {
+        expectedAnswer: second.expectedAnswer,
+        labelIds: [],
+        prompt: second.prompt,
+        sourceBody: second.source.body,
+        sourceTitle: second.source.title,
+        studyNoteId: second.id,
+      },
+      userId: "user-casey",
+    });
+
+    const [biologyStudyNotes, allStudyNotes, sourceNotes, studyNoteLabels] =
+      await Promise.all([
+        studyNotes.listStudyNotes({
+          labelId: "label-biology",
+          userId: "user-casey",
+        }),
+        studyNotes.listStudyNotes({ userId: "user-casey" }),
+        db.select().from(notesTable),
+        db.select().from(studyNoteLabelsTable),
+      ]);
+
+    expect(biologyStudyNotes).toMatchObject([
+      {
+        id: first.id,
+        labelIds: ["label-biology"],
+      },
+    ]);
+    expect(allStudyNotes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: first.id,
+          labelIds: ["label-biology"],
+        }),
+        expect.objectContaining({
+          id: second.id,
+          labelIds: [],
+        }),
+      ]),
+    );
+    expect(sourceNotes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: first.sourceNoteId,
+          labelIds: [],
+        }),
+        expect.objectContaining({
+          id: second.sourceNoteId,
+          labelIds: [],
+        }),
+      ]),
+    );
+    expect(studyNoteLabels).toEqual([
+      {
+        labelId: "label-biology",
+        studyNoteId: first.id,
+      },
+    ]);
+
+    await expect(
+      studyNotes.updateStudyNote({
+        input: {
+          expectedAnswer: first.expectedAnswer,
+          labelIds: ["label-other"],
+          prompt: first.prompt,
+          sourceBody: first.source.body,
+          sourceTitle: first.source.title,
+          studyNoteId: first.id,
+        },
+        userId: "user-casey",
+      }),
+    ).rejects.toThrow("Study Notes can only be assigned");
   });
 });
