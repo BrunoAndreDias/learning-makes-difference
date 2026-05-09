@@ -55,6 +55,14 @@ function createDraftFromStudyNote(
   };
 }
 
+function createSingleHookDraft(description: string) {
+  if (description.trim().length === 0) {
+    return [];
+  }
+
+  return [{ description }];
+}
+
 function StudyNotesWorkspace() {
   const studyNotesContext = useRouteContext({
     from: "/_protected/study-notes",
@@ -180,6 +188,16 @@ function StudyNotesWorkspace() {
     throw error;
   }
 
+  function updateDraftMemoryHook(
+    field: "acronyms" | "metaphors",
+    description: string,
+  ) {
+    setDraft((current) => ({
+      ...current,
+      [field]: createSingleHookDraft(description),
+    }));
+  }
+
   return (
     <section className="notes-workspace study-notes-workspace">
       <header className="notes-toolbar">
@@ -303,14 +321,7 @@ function StudyNotesWorkspace() {
                   <textarea
                     aria-label="Metaphor"
                     onChange={(event) => {
-                      const description = event.target.value;
-                      setDraft((current) => ({
-                        ...current,
-                        metaphors:
-                          description.trim().length === 0
-                            ? []
-                            : [{ description }],
-                      }));
+                      updateDraftMemoryHook("metaphors", event.target.value);
                     }}
                     rows={3}
                     value={draft.metaphors[0]?.description ?? ""}
@@ -321,14 +332,7 @@ function StudyNotesWorkspace() {
                   <textarea
                     aria-label="Acronym"
                     onChange={(event) => {
-                      const description = event.target.value;
-                      setDraft((current) => ({
-                        ...current,
-                        acronyms:
-                          description.trim().length === 0
-                            ? []
-                            : [{ description }],
-                      }));
+                      updateDraftMemoryHook("acronyms", event.target.value);
                     }}
                     rows={3}
                     value={draft.acronyms[0]?.description ?? ""}

@@ -24,6 +24,23 @@ function createDeterministicCrypto() {
   };
 }
 
+const TEST_CREATED_AT = new Date("2026-05-02T12:00:00.000Z");
+const TEST_UPDATED_AT = new Date("2026-05-02T12:30:00.000Z");
+
+type TestUserInsert = typeof usersTable.$inferInsert;
+
+function createUserValues(
+  overrides: Pick<TestUserInsert, "displayName" | "email" | "id">,
+): TestUserInsert {
+  return {
+    createdAt: TEST_CREATED_AT,
+    passwordHash: "hash",
+    updatedAt: TEST_CREATED_AT,
+    userLanguage: "en",
+    ...overrides,
+  };
+}
+
 describe("createStudyNotesService", () => {
   const databases = new Set<PGlite>();
 
@@ -36,7 +53,7 @@ describe("createStudyNotesService", () => {
     return left.id.localeCompare(right.id);
   }
 
-  it("persists Study Notes with default source Notes and independent copied fields", async () => {
+  async function createTestDb() {
     const client = new PGlite();
     databases.add(client);
     const db = drizzle(client, {
@@ -47,20 +64,34 @@ describe("createStudyNotesService", () => {
       },
     });
     await migrateDatabase(db, client);
-    await db.insert(usersTable).values({
-      createdAt: new Date("2026-05-02T12:00:00.000Z"),
-      displayName: "Casey Learner",
-      email: "casey@example.com",
-      id: "user-casey",
-      passwordHash: "hash",
-      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
-      userLanguage: "en",
-    });
+
+    return db;
+  }
+
+  async function createStudyNotesHarness(
+    options: { now?: () => Date; users?: TestUserInsert[] } = {},
+  ) {
+    const db = await createTestDb();
+    await db.insert(usersTable).values(
+      options.users ?? [
+        createUserValues({
+          displayName: "Casey Learner",
+          email: "casey@example.com",
+          id: "user-casey",
+        }),
+      ],
+    );
     const studyNotes = createStudyNotesService({
       crypto: createDeterministicCrypto(),
       db,
-      now: () => new Date("2026-05-02T12:00:00.000Z"),
+      now: options.now ?? (() => TEST_CREATED_AT),
     });
+
+    return { db, studyNotes };
+  }
+
+  it("persists Study Notes with default source Notes and independent copied fields", async () => {
+    const { db, studyNotes } = await createStudyNotesHarness();
 
     const createdStudyNote = await studyNotes.createStudyNote({
       input: {
@@ -123,30 +154,7 @@ describe("createStudyNotesService", () => {
   });
 
   it("does not rewrite copied Study Note fields when the source Note changes", async () => {
-    const client = new PGlite();
-    databases.add(client);
-    const db = drizzle(client, {
-      schema: {
-        ...authSchema,
-        ...notesSchema,
-        ...studyNotesSchema,
-      },
-    });
-    await migrateDatabase(db, client);
-    await db.insert(usersTable).values({
-      createdAt: new Date("2026-05-02T12:00:00.000Z"),
-      displayName: "Casey Learner",
-      email: "casey@example.com",
-      id: "user-casey",
-      passwordHash: "hash",
-      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
-      userLanguage: "en",
-    });
-    const studyNotes = createStudyNotesService({
-      crypto: createDeterministicCrypto(),
-      db,
-      now: () => new Date("2026-05-02T12:00:00.000Z"),
-    });
+    const { studyNotes } = await createStudyNotesHarness();
     const createdStudyNote = await studyNotes.createStudyNote({
       input: {
         sourceBody: "Original source body.",
@@ -181,67 +189,48 @@ describe("createStudyNotesService", () => {
   });
 
   it("keeps memory hooks owned by each Study Note across shared sources, clearing, and account boundaries", async () => {
-    const client = new PGlite();
-    databases.add(client);
-    const db = drizzle(client, {
-      schema: {
-        ...authSchema,
-        ...notesSchema,
-        ...studyNotesSchema,
-      },
+    const { db, studyNotes } = await createStudyNotesHarness({
+      now: () => TEST_UPDATED_AT,
+      users: [
+        createUserValues({
+          displayName: "Casey Learner",
+          email: "casey@example.com",
+          id: "user-casey",
+        }),
+        createUserValues({
+          displayName: "Jordan Learner",
+          email: "jordan@example.com",
+          id: "user-jordan",
+        }),
+      ],
     });
-    await migrateDatabase(db, client);
-    await db.insert(usersTable).values([
-      {
-        createdAt: new Date("2026-05-02T12:00:00.000Z"),
-        displayName: "Casey Learner",
-        email: "casey@example.com",
-        id: "user-casey",
-        passwordHash: "hash",
-        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
-        userLanguage: "en",
-      },
-      {
-        createdAt: new Date("2026-05-02T12:00:00.000Z"),
-        displayName: "Jordan Learner",
-        email: "jordan@example.com",
-        id: "user-jordan",
-        passwordHash: "hash",
-        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
-        userLanguage: "en",
-      },
-    ]);
     await db.insert(notesTable).values({
       body: "One source can support several precise recall targets.",
-      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      createdAt: TEST_CREATED_AT,
       id: "source-shared",
       labelIds: [],
       title: "Shared source",
-      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: TEST_CREATED_AT,
       userId: "user-casey",
     });
     await db.insert(studyNotesTable).values([
       {
-        createdAt: new Date("2026-05-02T12:00:00.000Z"),
+        createdAt: TEST_CREATED_AT,
         expectedAnswer: "Answer one",
         id: "study-one",
         prompt: "Prompt one",
         sourceNoteId: "source-shared",
-        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+        updatedAt: TEST_CREATED_AT,
       },
       {
-        createdAt: new Date("2026-05-02T12:00:00.000Z"),
+        createdAt: TEST_CREATED_AT,
         expectedAnswer: "Answer two",
         id: "study-two",
         prompt: "Prompt two",
         sourceNoteId: "source-shared",
-        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+        updatedAt: TEST_CREATED_AT,
       },
     ]);
-    const studyNotes = createStudyNotesService({
-      db,
-      now: () => new Date("2026-05-02T12:30:00.000Z"),
-    });
 
     await studyNotes.updateStudyNote({
       input: {

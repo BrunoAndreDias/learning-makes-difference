@@ -10,37 +10,21 @@ import { AppStudyNotesError } from "./study-notes";
 
 const SESSION_COOKIE_NAME = "learning-makes-difference-session";
 
+const memoryHookSchema = z.object({
+  description: z.string(),
+});
+
 const createStudyNoteInputSchema = z.object({
-  acronyms: z
-    .array(
-      z.object({
-        description: z.string(),
-      }),
-    )
-    .optional(),
-  metaphors: z
-    .array(
-      z.object({
-        description: z.string(),
-      }),
-    )
-    .optional(),
+  acronyms: z.array(memoryHookSchema).optional(),
+  metaphors: z.array(memoryHookSchema).optional(),
   sourceBody: z.string(),
   sourceTitle: z.string(),
 });
 
 const updateStudyNoteInputSchema = z.object({
-  acronyms: z.array(
-    z.object({
-      description: z.string(),
-    }),
-  ),
+  acronyms: z.array(memoryHookSchema),
   expectedAnswer: z.string(),
-  metaphors: z.array(
-    z.object({
-      description: z.string(),
-    }),
-  ),
+  metaphors: z.array(memoryHookSchema),
   prompt: z.string(),
   sourceBody: z.string(),
   sourceTitle: z.string(),

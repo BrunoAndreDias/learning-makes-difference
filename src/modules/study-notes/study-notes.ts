@@ -5,13 +5,13 @@ export type AppStudyNoteSource = {
   updatedAt: string;
 };
 
-export type AppStudyNoteMetaphor = {
+type AppStudyNoteMemoryHook = {
   description: string;
 };
 
-export type AppStudyNoteAcronym = {
-  description: string;
-};
+export type AppStudyNoteMetaphor = AppStudyNoteMemoryHook;
+
+export type AppStudyNoteAcronym = AppStudyNoteMemoryHook;
 
 export type AppStudyNote = {
   acronyms: AppStudyNoteAcronym[];
@@ -128,6 +128,14 @@ function validateOptionalText(value: string): string {
   return value.trim();
 }
 
+type PersistedStudyNoteRecord = Omit<
+  AppStoredStudyNote,
+  "acronyms" | "metaphors"
+> & {
+  acronyms?: AppStudyNoteAcronym[];
+  metaphors?: AppStudyNoteMetaphor[];
+};
+
 function validateHookCount(hooks: readonly unknown[], label: string) {
   if (hooks.length <= 1) {
     return;
@@ -142,7 +150,7 @@ function validateHookCount(hooks: readonly unknown[], label: string) {
 function validateHooks(
   hooks: readonly { description: string }[] | undefined,
   label: string,
-) {
+): AppStudyNoteMemoryHook[] {
   const safeHooks = hooks ?? [];
   validateHookCount(safeHooks, label);
 
@@ -160,6 +168,18 @@ function validateHooks(
       description,
     };
   });
+}
+
+function validateMetaphors(
+  metaphors: readonly AppStudyNoteMetaphor[] | undefined,
+): AppStudyNoteMetaphor[] {
+  return validateHooks(metaphors, "Metaphor");
+}
+
+function validateAcronyms(
+  acronyms: readonly AppStudyNoteAcronym[] | undefined,
+): AppStudyNoteAcronym[] {
+  return validateHooks(acronyms, "Acronym");
 }
 
 function toPublicStudyNote(note: AppStoredStudyNote): AppStudyNote {
@@ -198,28 +218,46 @@ function isStoredStudyNoteSource(value: unknown): value is AppStudyNoteSource {
   );
 }
 
-function isStoredMemoryHook(value: unknown): value is { description: string } {
+function isStoredMemoryHook(value: unknown): value is AppStudyNoteMemoryHook {
   return isObjectRecord(value) && typeof value.description === "string";
 }
 
-function isStoredStudyNote(value: unknown): value is AppStoredStudyNote {
+function isStoredMemoryHooks(
+  value: unknown,
+): value is AppStudyNoteMemoryHook[] {
+  return Array.isArray(value) && value.every(isStoredMemoryHook);
+}
+
+function hasOptionalStoredMemoryHooks(value: unknown) {
+  return value === undefined || isStoredMemoryHooks(value);
+}
+
+function isPersistedStudyNote(
+  value: unknown,
+): value is PersistedStudyNoteRecord {
   return (
     isObjectRecord(value) &&
-    (value.acronyms === undefined ||
-      (Array.isArray(value.acronyms) &&
-        value.acronyms.every(isStoredMemoryHook))) &&
+    hasOptionalStoredMemoryHooks(value.acronyms) &&
     typeof value.createdAt === "string" &&
     typeof value.expectedAnswer === "string" &&
     typeof value.id === "string" &&
-    (value.metaphors === undefined ||
-      (Array.isArray(value.metaphors) &&
-        value.metaphors.every(isStoredMemoryHook))) &&
+    hasOptionalStoredMemoryHooks(value.metaphors) &&
     typeof value.prompt === "string" &&
     typeof value.sourceNoteId === "string" &&
     typeof value.updatedAt === "string" &&
     typeof value.userId === "string" &&
     isStoredStudyNoteSource(value.source)
   );
+}
+
+function toStoredStudyNote(
+  studyNote: PersistedStudyNoteRecord,
+): AppStoredStudyNote {
+  return {
+    ...studyNote,
+    acronyms: studyNote.acronyms ?? [],
+    metaphors: studyNote.metaphors ?? [],
+  };
 }
 
 function parseStoredStudyNotes(value: string | null): AppStoredStudyNote[] {
@@ -234,11 +272,7 @@ function parseStoredStudyNotes(value: string | null): AppStoredStudyNote[] {
       return [];
     }
 
-    return parsedValue.filter(isStoredStudyNote).map((studyNote) => ({
-      ...studyNote,
-      acronyms: Array.isArray(studyNote.acronyms) ? studyNote.acronyms : [],
-      metaphors: Array.isArray(studyNote.metaphors) ? studyNote.metaphors : [],
-    }));
+    return parsedValue.filter(isPersistedStudyNote).map(toStoredStudyNote);
   } catch {
     return [];
   }
@@ -292,8 +326,8 @@ export function createAppStudyNotesContext(
         "Source title",
       );
       const sourceBody = validateOptionalText(input.sourceBody);
-      const metaphors = validateHooks(input.metaphors, "Metaphor");
-      const acronyms = validateHooks(input.acronyms, "Acronym");
+      const metaphors = validateMetaphors(input.metaphors);
+      const acronyms = validateAcronyms(input.acronyms);
       const sourceNoteId = cryptoProvider.randomUUID();
       const studyNote: AppStoredStudyNote = {
         acronyms,
@@ -346,9 +380,9 @@ export function createAppStudyNotesContext(
       const timestamp = new Date().toISOString();
       const updatedStudyNote: AppStoredStudyNote = {
         ...existingStudyNote,
-        acronyms: validateHooks(input.acronyms, "Acronym"),
+        acronyms: validateAcronyms(input.acronyms),
         expectedAnswer: validateOptionalText(input.expectedAnswer),
-        metaphors: validateHooks(input.metaphors, "Metaphor"),
+        metaphors: validateMetaphors(input.metaphors),
         prompt: validateRequiredText(input.prompt, "Prompt"),
         source: {
           ...existingStudyNote.source,
