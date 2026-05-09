@@ -120,14 +120,18 @@ function validateOptionalText(value: string): string {
   return value.trim();
 }
 
-function validateLabelIds(
+function normalizeLabelIds(labelIds: readonly string[] | undefined): string[] {
+  return [...new Set((labelIds ?? []).filter(Boolean))];
+}
+
+function validateOwnedLabelIds(
   labelIds: readonly string[] | undefined,
   options: {
     getOwnedLabelIdsForUser?: OwnedLabelIdsLookup;
     userId: string;
   },
 ): string[] {
-  const normalizedLabelIds = [...new Set((labelIds ?? []).filter(Boolean))];
+  const normalizedLabelIds = normalizeLabelIds(labelIds);
 
   if (options.getOwnedLabelIdsForUser === undefined) {
     return normalizedLabelIds;
@@ -276,7 +280,7 @@ export function createAppStudyNotesContext(
         "Source title",
       );
       const sourceBody = validateOptionalText(input.sourceBody);
-      const labelIds = validateLabelIds(input.labelIds, {
+      const labelIds = validateOwnedLabelIds(input.labelIds, {
         getOwnedLabelIdsForUser: options.getOwnedLabelIdsForUser,
         userId: validatedUserId,
       });
@@ -329,7 +333,7 @@ export function createAppStudyNotesContext(
       }
 
       const timestamp = new Date().toISOString();
-      const labelIds = validateLabelIds(input.labelIds, {
+      const labelIds = validateOwnedLabelIds(input.labelIds, {
         getOwnedLabelIdsForUser: options.getOwnedLabelIdsForUser,
         userId: validatedUserId,
       });

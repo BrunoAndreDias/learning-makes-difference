@@ -56,6 +56,11 @@ type StudyNoteRow = {
   updatedAt: Date;
 };
 
+type StudyNoteLabelRow = {
+  labelId: string;
+  studyNoteId: string;
+};
+
 function getDefaultCrypto(): StudyNotesCrypto {
   return globalThis.crypto;
 }
@@ -74,7 +79,7 @@ function validateOptionalText(value: string): string {
   return value.trim();
 }
 
-function validateLabelIds(labelIds: readonly string[] | undefined): string[] {
+function normalizeLabelIds(labelIds: readonly string[] | undefined): string[] {
   return [...new Set((labelIds ?? []).filter(Boolean))];
 }
 
@@ -110,25 +115,42 @@ async function validateOwnedLabelIds(input: {
 }
 
 function groupLabelIdsByStudyNoteId(
-  studyNoteLabels: readonly { labelId: string; studyNoteId: string }[],
+  studyNoteLabels: readonly StudyNoteLabelRow[],
 ) {
   const labelIdsByStudyNoteId = new Map<string, Set<string>>();
 
   for (const studyNoteLabel of studyNoteLabels) {
-    const labelIds =
-      labelIdsByStudyNoteId.get(studyNoteLabel.studyNoteId) ?? new Set();
+    const labelIds = labelIdsByStudyNoteId.get(studyNoteLabel.studyNoteId);
+
+    if (labelIds === undefined) {
+      labelIdsByStudyNoteId.set(
+        studyNoteLabel.studyNoteId,
+        new Set([studyNoteLabel.labelId]),
+      );
+      continue;
+    }
+
     labelIds.add(studyNoteLabel.labelId);
-    labelIdsByStudyNoteId.set(studyNoteLabel.studyNoteId, labelIds);
   }
 
   return labelIdsByStudyNoteId;
 }
 
-function getStoredStudyNoteLabelIds(input: {
+function getSortedStudyNoteLabelIds(input: {
   labelIdsByStudyNoteId: Map<string, Set<string>>;
   studyNoteId: string;
 }) {
   return [...(input.labelIdsByStudyNoteId.get(input.studyNoteId) ?? [])].sort();
+}
+
+function createStudyNoteLabelRows(
+  studyNoteId: string,
+  labelIds: readonly string[],
+): StudyNoteLabelRow[] {
+  return labelIds.map((labelId) => ({
+    labelId,
+    studyNoteId,
+  }));
 }
 
 function toAppStudyNote(input: {
@@ -180,7 +202,7 @@ async function toAppStudyNotes(input: {
   return input.rows.map((row) =>
     toAppStudyNote({
       ...row,
-      labelIds: getStoredStudyNoteLabelIds({
+      labelIds: getSortedStudyNoteLabelIds({
         labelIdsByStudyNoteId,
         studyNoteId: row.id,
       }),
@@ -241,7 +263,7 @@ export function createStudyNotesService({
       const sourceBody = validateOptionalText(input.sourceBody);
       const safeLabelIds = await validateOwnedLabelIds({
         db,
-        labelIds: validateLabelIds(input.labelIds),
+        labelIds: normalizeLabelIds(input.labelIds),
         userId,
       });
 
@@ -264,12 +286,9 @@ export function createStudyNotesService({
           updatedAt: timestamp,
         });
         if (safeLabelIds.length > 0) {
-          await tx.insert(studyNoteLabelsTable).values(
-            safeLabelIds.map((labelId) => ({
-              labelId,
-              studyNoteId,
-            })),
-          );
+          await tx
+            .insert(studyNoteLabelsTable)
+            .values(createStudyNoteLabelRows(studyNoteId, safeLabelIds));
         }
       });
 
@@ -343,7 +362,7 @@ export function createStudyNotesService({
       const sourceBody = validateOptionalText(input.sourceBody);
       const safeLabelIds = await validateOwnedLabelIds({
         db,
-        labelIds: validateLabelIds(input.labelIds),
+        labelIds: normalizeLabelIds(input.labelIds),
         userId,
       });
 
@@ -373,12 +392,11 @@ export function createStudyNotesService({
           .delete(studyNoteLabelsTable)
           .where(eq(studyNoteLabelsTable.studyNoteId, existingStudyNote.id));
         if (safeLabelIds.length > 0) {
-          await tx.insert(studyNoteLabelsTable).values(
-            safeLabelIds.map((labelId) => ({
-              labelId,
-              studyNoteId: existingStudyNote.id,
-            })),
-          );
+          await tx
+            .insert(studyNoteLabelsTable)
+            .values(
+              createStudyNoteLabelRows(existingStudyNote.id, safeLabelIds),
+            );
         }
       });
 

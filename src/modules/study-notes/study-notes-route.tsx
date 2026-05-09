@@ -54,6 +54,18 @@ function createDraftFromStudyNote(
   };
 }
 
+function setLabelIdSelection(
+  labelIds: readonly string[],
+  labelId: string,
+  isSelected: boolean,
+): string[] {
+  if (isSelected) {
+    return [...labelIds, labelId];
+  }
+
+  return labelIds.filter((currentLabelId) => currentLabelId !== labelId);
+}
+
 function StudyNotesWorkspace() {
   const studyNotesContext = useRouteContext({
     from: "/_protected/study-notes",
@@ -354,11 +366,11 @@ function StudyNotesWorkspace() {
                           onChange={(event) =>
                             setDraft((current) => ({
                               ...current,
-                              labelIds: event.target.checked
-                                ? [...current.labelIds, label.id]
-                                : current.labelIds.filter(
-                                    (labelId) => labelId !== label.id,
-                                  ),
+                              labelIds: setLabelIdSelection(
+                                current.labelIds,
+                                label.id,
+                                event.target.checked,
+                              ),
                             }))
                           }
                           type="checkbox"
