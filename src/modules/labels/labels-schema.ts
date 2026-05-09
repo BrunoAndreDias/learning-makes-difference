@@ -10,6 +10,7 @@ import {
 
 import { usersTable } from "../access/session/auth-schema";
 import { notesTable } from "../notes/notes-schema";
+import { studyNotesTable } from "../study-notes/study-notes-schema";
 
 export const labelsTable = pgTable(
   "labels",
@@ -85,8 +86,32 @@ export const noteLabelsTable = pgTable(
   ],
 );
 
+export const studyNoteLabelsTable = pgTable(
+  "study_note_labels",
+  {
+    studyNoteId: text("study_note_id")
+      .notNull()
+      .references(() => studyNotesTable.id, {
+        onDelete: "cascade",
+      }),
+    labelId: text("label_id")
+      .notNull()
+      .references(() => labelsTable.id, {
+        onDelete: "cascade",
+      }),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.studyNoteId, table.labelId],
+      name: "study_note_labels_pk",
+    }),
+    index("study_note_labels_label_id_idx").on(table.labelId),
+  ],
+);
+
 export const labelsSchema = {
   labelEdgesTable,
   labelsTable,
   noteLabelsTable,
+  studyNoteLabelsTable,
 };

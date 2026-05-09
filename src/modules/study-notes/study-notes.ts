@@ -9,6 +9,7 @@ export type AppStudyNote = {
   createdAt: string;
   expectedAnswer: string;
   id: string;
+  labelIds: string[];
   prompt: string;
   source: AppStudyNoteSource;
   sourceNoteId: string;
@@ -20,12 +21,14 @@ export type AppStoredStudyNote = AppStudyNote & {
 };
 
 export type CreateStudyNoteInput = {
+  labelIds?: string[];
   sourceBody: string;
   sourceTitle: string;
 };
 
 export type UpdateStudyNoteInput = {
   expectedAnswer: string;
+  labelIds: string[];
   prompt: string;
   sourceBody: string;
   sourceTitle: string;
@@ -39,8 +42,11 @@ type StudyNotesCrypto = {
   randomUUID: () => string;
 };
 
+type OwnedLabelIdsLookup = (userId: string) => readonly string[];
+
 type CreateAppStudyNotesContextOptions = {
   crypto?: StudyNotesCrypto;
+  getOwnedLabelIdsForUser?: OwnedLabelIdsLookup;
   keyPrefix?: string;
   storage?: StudyNotesStorageAdapter;
 };
@@ -114,11 +120,39 @@ function validateOptionalText(value: string): string {
   return value.trim();
 }
 
+function validateLabelIds(
+  labelIds: readonly string[] | undefined,
+  options: {
+    getOwnedLabelIdsForUser?: OwnedLabelIdsLookup;
+    userId: string;
+  },
+): string[] {
+  const normalizedLabelIds = [...new Set((labelIds ?? []).filter(Boolean))];
+
+  if (options.getOwnedLabelIdsForUser === undefined) {
+    return normalizedLabelIds;
+  }
+
+  const ownedLabelIds = new Set(
+    options.getOwnedLabelIdsForUser(options.userId),
+  );
+
+  if (normalizedLabelIds.every((labelId) => ownedLabelIds.has(labelId))) {
+    return normalizedLabelIds;
+  }
+
+  throw new AppStudyNotesError(
+    "invalid_input",
+    "Study Notes can only be assigned to labels owned by this account.",
+  );
+}
+
 function toPublicStudyNote(note: AppStoredStudyNote): AppStudyNote {
   return {
     createdAt: note.createdAt,
     expectedAnswer: note.expectedAnswer,
     id: note.id,
+    labelIds: [...note.labelIds],
     prompt: note.prompt,
     source: { ...note.source },
     sourceNoteId: note.sourceNoteId,
@@ -154,6 +188,9 @@ function isStoredStudyNote(value: unknown): value is AppStoredStudyNote {
     typeof value.createdAt === "string" &&
     typeof value.expectedAnswer === "string" &&
     typeof value.id === "string" &&
+    (value.labelIds === undefined ||
+      (Array.isArray(value.labelIds) &&
+        value.labelIds.every((labelId) => typeof labelId === "string"))) &&
     typeof value.prompt === "string" &&
     typeof value.sourceNoteId === "string" &&
     typeof value.updatedAt === "string" &&
@@ -174,7 +211,10 @@ function parseStoredStudyNotes(value: string | null): AppStoredStudyNote[] {
       return [];
     }
 
-    return parsedValue.filter(isStoredStudyNote);
+    return parsedValue.filter(isStoredStudyNote).map((studyNote) => ({
+      ...studyNote,
+      labelIds: Array.isArray(studyNote.labelIds) ? studyNote.labelIds : [],
+    }));
   } catch {
     return [];
   }
@@ -183,13 +223,21 @@ function parseStoredStudyNotes(value: string | null): AppStoredStudyNote[] {
 export function listStudyNotesForUser(
   studyNotes: readonly AppStoredStudyNote[],
   userId: string | null,
+  options: {
+    labelId?: string;
+  } = {},
 ): AppStudyNote[] {
   if (userId === null) {
     return [];
   }
 
   return sortStoredStudyNotes(
-    studyNotes.filter((studyNote) => studyNote.userId === userId),
+    studyNotes.filter(
+      (studyNote) =>
+        studyNote.userId === userId &&
+        (options.labelId === undefined ||
+          studyNote.labelIds.includes(options.labelId)),
+    ),
   ).map(toPublicStudyNote);
 }
 
@@ -228,11 +276,16 @@ export function createAppStudyNotesContext(
         "Source title",
       );
       const sourceBody = validateOptionalText(input.sourceBody);
+      const labelIds = validateLabelIds(input.labelIds, {
+        getOwnedLabelIdsForUser: options.getOwnedLabelIdsForUser,
+        userId: validatedUserId,
+      });
       const sourceNoteId = cryptoProvider.randomUUID();
       const studyNote: AppStoredStudyNote = {
         createdAt: timestamp,
         expectedAnswer: sourceBody,
         id: cryptoProvider.randomUUID(),
+        labelIds,
         prompt: sourceTitle,
         source: {
           body: sourceBody,
@@ -276,9 +329,14 @@ export function createAppStudyNotesContext(
       }
 
       const timestamp = new Date().toISOString();
+      const labelIds = validateLabelIds(input.labelIds, {
+        getOwnedLabelIdsForUser: options.getOwnedLabelIdsForUser,
+        userId: validatedUserId,
+      });
       const updatedStudyNote: AppStoredStudyNote = {
         ...existingStudyNote,
         expectedAnswer: validateOptionalText(input.expectedAnswer),
+        labelIds,
         prompt: validateRequiredText(input.prompt, "Prompt"),
         source: {
           ...existingStudyNote.source,

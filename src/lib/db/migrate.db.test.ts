@@ -56,6 +56,8 @@ describe("migrateDatabase PostgreSQL integration", () => {
           'notes',
           'recall_sessions',
           'session_results',
+          'study_note_labels',
+          'study_notes',
           'users'
         )
       order by table_name;
@@ -74,6 +76,8 @@ describe("migrateDatabase PostgreSQL integration", () => {
       "notes",
       "recall_sessions",
       "session_results",
+      "study_note_labels",
+      "study_notes",
       "users",
     ]);
   });

@@ -11,12 +11,14 @@ import { AppStudyNotesError } from "./study-notes";
 const SESSION_COOKIE_NAME = "learning-makes-difference-session";
 
 const createStudyNoteInputSchema = z.object({
+  labelIds: z.array(z.string()).optional(),
   sourceBody: z.string(),
   sourceTitle: z.string(),
 });
 
 const updateStudyNoteInputSchema = z.object({
   expectedAnswer: z.string(),
+  labelIds: z.array(z.string()),
   prompt: z.string(),
   sourceBody: z.string(),
   sourceTitle: z.string(),

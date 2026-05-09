@@ -11,7 +11,7 @@ type PersistentStudyNotesListener = () => void;
 
 export type AppPersistentStudyNotesService = {
   createStudyNote: (input: CreateStudyNoteInput) => Promise<AppStudyNote>;
-  listStudyNotes: () => Promise<AppStudyNote[]>;
+  listStudyNotes: (input?: { labelId?: string }) => Promise<AppStudyNote[]>;
   updateStudyNote: (
     input: UpdateStudyNoteInput & { studyNoteId: string },
   ) => Promise<AppStudyNote>;

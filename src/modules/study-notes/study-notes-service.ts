@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { PgDatabase } from "drizzle-orm/pg-core/db";
 import type { PgQueryResultHKT } from "drizzle-orm/pg-core/session";
+import { labelsTable, studyNoteLabelsTable } from "../labels/labels-schema";
 import { notesTable } from "../notes/notes-schema";
 import {
   type AppStudyNote,
@@ -43,6 +44,18 @@ const studyNoteSelectFields = {
   updatedAt: studyNotesTable.updatedAt,
 };
 
+type StudyNoteRow = {
+  createdAt: Date;
+  expectedAnswer: string;
+  id: string;
+  prompt: string;
+  sourceBody: string;
+  sourceNoteId: string;
+  sourceTitle: string;
+  sourceUpdatedAt: Date;
+  updatedAt: Date;
+};
+
 function getDefaultCrypto(): StudyNotesCrypto {
   return globalThis.crypto;
 }
@@ -61,10 +74,68 @@ function validateOptionalText(value: string): string {
   return value.trim();
 }
 
+function validateLabelIds(labelIds: readonly string[] | undefined): string[] {
+  return [...new Set((labelIds ?? []).filter(Boolean))];
+}
+
+async function validateOwnedLabelIds(input: {
+  db: StudyNotesDatabase<Record<string, unknown>>;
+  labelIds: string[];
+  userId: string;
+}) {
+  if (input.labelIds.length === 0) {
+    return input.labelIds;
+  }
+
+  const ownedLabels = await input.db
+    .select({
+      id: labelsTable.id,
+    })
+    .from(labelsTable)
+    .where(
+      and(
+        eq(labelsTable.userId, input.userId),
+        inArray(labelsTable.id, input.labelIds),
+      ),
+    );
+
+  if (ownedLabels.length !== input.labelIds.length) {
+    throw new AppStudyNotesError(
+      "invalid_input",
+      "Study Notes can only be assigned to labels owned by this account.",
+    );
+  }
+
+  return input.labelIds;
+}
+
+function groupLabelIdsByStudyNoteId(
+  studyNoteLabels: readonly { labelId: string; studyNoteId: string }[],
+) {
+  const labelIdsByStudyNoteId = new Map<string, Set<string>>();
+
+  for (const studyNoteLabel of studyNoteLabels) {
+    const labelIds =
+      labelIdsByStudyNoteId.get(studyNoteLabel.studyNoteId) ?? new Set();
+    labelIds.add(studyNoteLabel.labelId);
+    labelIdsByStudyNoteId.set(studyNoteLabel.studyNoteId, labelIds);
+  }
+
+  return labelIdsByStudyNoteId;
+}
+
+function getStoredStudyNoteLabelIds(input: {
+  labelIdsByStudyNoteId: Map<string, Set<string>>;
+  studyNoteId: string;
+}) {
+  return [...(input.labelIdsByStudyNoteId.get(input.studyNoteId) ?? [])].sort();
+}
+
 function toAppStudyNote(input: {
   createdAt: Date;
   expectedAnswer: string;
   id: string;
+  labelIds: string[];
   prompt: string;
   sourceBody: string;
   sourceNoteId: string;
@@ -76,6 +147,7 @@ function toAppStudyNote(input: {
     createdAt: input.createdAt.toISOString(),
     expectedAnswer: input.expectedAnswer,
     id: input.id,
+    labelIds: [...input.labelIds],
     prompt: input.prompt,
     source: {
       body: input.sourceBody,
@@ -86,6 +158,34 @@ function toAppStudyNote(input: {
     sourceNoteId: input.sourceNoteId,
     updatedAt: input.updatedAt.toISOString(),
   };
+}
+
+async function toAppStudyNotes(input: {
+  db: StudyNotesDatabase<Record<string, unknown>>;
+  rows: StudyNoteRow[];
+}) {
+  if (input.rows.length === 0) {
+    return [];
+  }
+
+  const studyNoteIds = input.rows.map((row) => row.id);
+  const storedStudyNoteLabels = await input.db
+    .select()
+    .from(studyNoteLabelsTable)
+    .where(inArray(studyNoteLabelsTable.studyNoteId, studyNoteIds));
+  const labelIdsByStudyNoteId = groupLabelIdsByStudyNoteId(
+    storedStudyNoteLabels,
+  );
+
+  return input.rows.map((row) =>
+    toAppStudyNote({
+      ...row,
+      labelIds: getStoredStudyNoteLabelIds({
+        labelIdsByStudyNoteId,
+        studyNoteId: row.id,
+      }),
+    }),
+  );
 }
 
 async function readOwnedStudyNote(input: {
@@ -115,7 +215,7 @@ async function readOwnedStudyNote(input: {
     );
   }
 
-  return row;
+  return row satisfies StudyNoteRow;
 }
 
 export function createStudyNotesService({
@@ -139,6 +239,11 @@ export function createStudyNotesService({
         "Source title",
       );
       const sourceBody = validateOptionalText(input.sourceBody);
+      const safeLabelIds = await validateOwnedLabelIds({
+        db,
+        labelIds: validateLabelIds(input.labelIds),
+        userId,
+      });
 
       await db.transaction(async (tx) => {
         await tx.insert(notesTable).values({
@@ -158,12 +263,21 @@ export function createStudyNotesService({
           sourceNoteId,
           updatedAt: timestamp,
         });
+        if (safeLabelIds.length > 0) {
+          await tx.insert(studyNoteLabelsTable).values(
+            safeLabelIds.map((labelId) => ({
+              labelId,
+              studyNoteId,
+            })),
+          );
+        }
       });
 
       return toAppStudyNote({
         createdAt: timestamp,
         expectedAnswer: sourceBody,
         id: studyNoteId,
+        labelIds: safeLabelIds,
         prompt: sourceTitle,
         sourceBody,
         sourceNoteId,
@@ -172,20 +286,40 @@ export function createStudyNotesService({
         updatedAt: timestamp,
       });
     },
-    async listStudyNotes({ userId }: { userId: string }) {
+    async listStudyNotes({
+      labelId,
+      userId,
+    }: {
+      labelId?: string;
+      userId: string;
+    }) {
       const rows = await db
         .select(studyNoteSelectFields)
         .from(studyNotesTable)
         .innerJoin(notesTable, eq(studyNotesTable.sourceNoteId, notesTable.id))
-        .where(eq(notesTable.userId, userId));
+        .where(
+          labelId === undefined
+            ? eq(notesTable.userId, userId)
+            : and(
+                eq(notesTable.userId, userId),
+                inArray(
+                  studyNotesTable.id,
+                  db
+                    .select({ id: studyNoteLabelsTable.studyNoteId })
+                    .from(studyNoteLabelsTable)
+                    .where(eq(studyNoteLabelsTable.labelId, labelId)),
+                ),
+              ),
+        );
 
-      return rows
-        .sort((left, right) =>
+      return toAppStudyNotes({
+        db,
+        rows: rows.sort((left, right) =>
           right.updatedAt
             .toISOString()
             .localeCompare(left.updatedAt.toISOString()),
-        )
-        .map(toAppStudyNote);
+        ),
+      });
     },
     async updateStudyNote({
       input,
@@ -207,6 +341,11 @@ export function createStudyNotesService({
         "Source title",
       );
       const sourceBody = validateOptionalText(input.sourceBody);
+      const safeLabelIds = await validateOwnedLabelIds({
+        db,
+        labelIds: validateLabelIds(input.labelIds),
+        userId,
+      });
 
       await db.transaction(async (tx) => {
         await tx
@@ -230,12 +369,24 @@ export function createStudyNotesService({
               eq(notesTable.userId, userId),
             ),
           );
+        await tx
+          .delete(studyNoteLabelsTable)
+          .where(eq(studyNoteLabelsTable.studyNoteId, existingStudyNote.id));
+        if (safeLabelIds.length > 0) {
+          await tx.insert(studyNoteLabelsTable).values(
+            safeLabelIds.map((labelId) => ({
+              labelId,
+              studyNoteId: existingStudyNote.id,
+            })),
+          );
+        }
       });
 
       return toAppStudyNote({
         createdAt: existingStudyNote.createdAt,
         expectedAnswer,
         id: existingStudyNote.id,
+        labelIds: safeLabelIds,
         prompt,
         sourceBody,
         sourceNoteId: existingStudyNote.sourceNoteId,
@@ -293,8 +444,9 @@ export function createStudyNotesService({
         return [];
       }
 
-      return (
-        await Promise.all(
+      return toAppStudyNotes({
+        db,
+        rows: await Promise.all(
           affectedStudyNotes.map((studyNote) =>
             readOwnedStudyNote({
               db,
@@ -302,8 +454,8 @@ export function createStudyNotesService({
               userId,
             }),
           ),
-        )
-      ).map(toAppStudyNote);
+        ),
+      });
     },
     async listStudyNotesForSources({
       sourceNoteIds,
@@ -327,7 +479,7 @@ export function createStudyNotesService({
           ),
         );
 
-      return rows.map(toAppStudyNote);
+      return toAppStudyNotes({ db, rows });
     },
   };
 }
