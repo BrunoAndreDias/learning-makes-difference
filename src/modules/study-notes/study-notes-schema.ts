@@ -30,6 +30,26 @@ export const studyNotesTable = pgTable(
   ],
 );
 
+export const studyNoteMetaphorsTable = pgTable("study_note_metaphors", {
+  studyNoteId: text("study_note_id")
+    .primaryKey()
+    .references(() => studyNotesTable.id, {
+      onDelete: "cascade",
+    }),
+  description: text("description").notNull(),
+});
+
+export const studyNoteAcronymsTable = pgTable("study_note_acronyms", {
+  studyNoteId: text("study_note_id")
+    .primaryKey()
+    .references(() => studyNotesTable.id, {
+      onDelete: "cascade",
+    }),
+  description: text("description").notNull(),
+});
+
 export const studyNotesSchema = {
+  studyNoteAcronymsTable,
+  studyNoteMetaphorsTable,
   studyNotesTable,
 };

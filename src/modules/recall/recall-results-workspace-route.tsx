@@ -4,8 +4,12 @@ import { z } from "zod";
 import { formatCount } from "../../lib/format-count";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import type { AppLabel } from "../labels/label-management/labels";
+import { useAppTranslation } from "../language";
 import { listNotesForUser } from "../notes";
-import { formatRecallModeLabel } from "./learner-copy";
+import {
+  getRecallModeTranslationKey,
+  getRecallRatingTranslationKey,
+} from "./learner-copy";
 import type {
   FlashCardSessionResult,
   RecallMode,
@@ -58,31 +62,8 @@ function formatResultTime(timestamp: string) {
   return resultTimeFormatter.format(resultDate);
 }
 
-function formatRatingLabel(rating: RecallSelfRating) {
-  switch (rating) {
-    case "forgot":
-      return "Forgot";
-    case "hard":
-      return "Hard";
-    case "good":
-      return "Good";
-    case "easy":
-      return "Easy";
-  }
-}
-
 function formatResultScore(score: number | null) {
   return score === null ? "No score" : `${Math.round(score)}%`;
-}
-
-function formatResultMetricLabel(mode: RecallMode) {
-  switch (mode) {
-    case "FlashCard":
-      return "Session self rating";
-    case "AiAssisted":
-    case "AiGraded":
-      return "Score";
-  }
 }
 
 function getRatingTone(rating: RecallSelfRating | null) {
@@ -139,35 +120,6 @@ function getQuestionPrompt(question: RecallQuestion) {
   }
 
   return question.noteSnapshot.body;
-}
-
-function getQuestionAnswerText(question: RecallQuestion) {
-  const typedAnswer = question.typedAnswer ?? "";
-
-  if (typedAnswer.trim().length === 0) {
-    return "No typed answer recorded";
-  }
-
-  return typedAnswer;
-}
-
-function getQuestionSelfRatingLabel(rating: RecallSelfRating | null) {
-  if (rating === null) {
-    return "Not answered";
-  }
-
-  return formatRatingLabel(rating);
-}
-
-function getResultsCountLabel(results: readonly FlashCardSessionResult[]) {
-  if (results.length === 0) {
-    return "";
-  }
-
-  return `Showing 1-${results.length} of ${formatCount(
-    results.length,
-    "result",
-  )}`;
 }
 
 function getSelectedResultIdForResults(
@@ -266,6 +218,7 @@ function subscribeToReviewStatsLayout(callback: () => void) {
 }
 
 function RecallResultsWorkspacePage() {
+  const { t } = useAppTranslation();
   const recallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.recall,
@@ -359,28 +312,33 @@ function RecallResultsWorkspacePage() {
     filteredResults.find((result) => result.id === selectedResultId) ?? null;
 
   return (
-    <section aria-label="Recall workspace" className="recall-workspace">
+    <section
+      aria-label={t("shell.workspace.recall")}
+      className="recall-workspace"
+    >
       <article className="recall-surface recall-results-surface">
         <div className="recall-results-top">
           <header className="recall-surface__header">
             <div className="notes-editor__title-stack">
-              <h3>Recall</h3>
+              <h3>{t("shell.workspace.recall")}</h3>
               <p className="muted notes-editor__meta">
-                Review past results or start a new recall session.
+                {t("recall.results.description")}
               </p>
             </div>
           </header>
 
           {savedMessage !== null ? (
             <p className="recall-feedback" role="status">
-              {savedMessage}
+              {savedMessage === "Recall session saved to results"
+                ? t("recall.result.saved")
+                : savedMessage}
               <button
-                aria-label="Dismiss recall saved message"
+                aria-label={t("recall.result.saved.dismiss")}
                 className="recall-feedback__dismiss"
                 onClick={() => setSavedMessage(null)}
                 type="button"
               >
-                Dismiss
+                {t("recall.action.dismiss")}
               </button>
             </p>
           ) : null}
@@ -424,16 +382,18 @@ function useHasCalmReviewStatsLayout() {
 }
 
 function NoNotesRecallState() {
+  const { t } = useAppTranslation();
+
   return (
-    <section aria-label="Recall workspace" className="recall-workspace">
+    <section
+      aria-label={t("shell.workspace.recall")}
+      className="recall-workspace"
+    >
       <article className="recall-surface recall-empty-surface">
-        <h3>Recall starts with notes</h3>
-        <p className="muted">
-          Create Notes first, then use Metaphors and Acronyms to make each
-          concept easier to recall.
-        </p>
+        <h3>{t("recall.empty.title")}</h3>
+        <p className="muted">{t("recall.empty.body")}</p>
         <Link className="notes-action notes-action-primary" to="/notes">
-          Open Notes Workspace
+          {t("recall.action.openNotes")}
         </Link>
       </article>
     </section>
@@ -465,15 +425,17 @@ function ResultsMasterPanel({
   selectedResultId: string | null;
   totalResults: number;
 }) {
+  const { t } = useAppTranslation();
+
   return (
     <section
-      aria-label="Recall results"
+      aria-label={t("recall.results")}
       className="recall-panel recall-results-master"
     >
       <div className="recall-results-master__actions">
         <Link className="recall-start-button" to="/recall/select">
           <PlusCircleIcon />
-          Start Recall
+          {t("recall.action.start")}
         </Link>
       </div>
 
@@ -481,12 +443,12 @@ function ResultsMasterPanel({
         className="recall-field recall-search-field"
         htmlFor="recall-results-search"
       >
-        <span className="sr-only">Search results</span>
+        <span className="sr-only">{t("recall.result.search")}</span>
         <SearchIcon />
         <input
           id="recall-results-search"
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Search results..."
+          placeholder={t("recall.result.searchPlaceholder")}
           type="search"
           value={query}
         />
@@ -494,13 +456,13 @@ function ResultsMasterPanel({
 
       <div className="recall-results-filters">
         <label className="recall-field" htmlFor="recall-results-label">
-          <span className="sr-only">Filter results by label</span>
+          <span className="sr-only">{t("recall.filters.label")}</span>
           <select
             id="recall-results-label"
             onChange={(event) => onLabelChange(event.target.value)}
             value={selectedLabelId}
           >
-            <option value="">All labels</option>
+            <option value="">{t("recall.filters.allLabels")}</option>
             {labels.map((label) => (
               <option key={label.id} value={label.id}>
                 {label.name}
@@ -509,7 +471,7 @@ function ResultsMasterPanel({
           </select>
         </label>
         <label className="recall-field" htmlFor="recall-results-type">
-          <span className="sr-only">Filter results by recall type</span>
+          <span className="sr-only">{t("recall.filters.type")}</span>
           <select
             id="recall-results-type"
             onChange={(event) =>
@@ -517,10 +479,10 @@ function ResultsMasterPanel({
             }
             value={selectedRecallType}
           >
-            <option value="all">All modes</option>
+            <option value="all">{t("recall.filters.allModes")}</option>
             {recallModes.map((mode) => (
               <option key={mode} value={mode}>
-                {formatRecallModeLabel(mode)}
+                {t(getRecallModeTranslationKey(mode))}
               </option>
             ))}
           </select>
@@ -548,11 +510,13 @@ function ResultsMasterPanelContent({
   selectedResultId: string | null;
   totalResults: number;
 }) {
+  const { t } = useAppTranslation();
+
   if (totalResults === 0) {
     return (
       <div className="recall-results-empty" role="status">
-        <h4>No results yet</h4>
-        <p className="muted">Results will appear here.</p>
+        <h4>{t("recall.result.resultsEmptyTitle")}</h4>
+        <p className="muted">{t("recall.result.resultsEmptyBody")}</p>
       </div>
     );
   }
@@ -560,8 +524,8 @@ function ResultsMasterPanelContent({
   if (results.length === 0) {
     return (
       <div className="recall-results-empty" role="status">
-        <h4>No matching results</h4>
-        <p className="muted">Adjust search, label, or recall type filters.</p>
+        <h4>{t("recall.result.resultsMatchingEmptyTitle")}</h4>
+        <p className="muted">{t("recall.result.resultsMatchingEmptyBody")}</p>
       </div>
     );
   }
@@ -599,13 +563,17 @@ function ResultsMasterPanelContent({
                 className="recall-mode-pill"
                 data-mode-tone={getModeTone(result.mode)}
               >
-                {formatRecallModeLabel(result.mode)}
+                {t(getRecallModeTranslationKey(result.mode))}
               </span>
             </button>
           </li>
         ))}
       </ol>
-      <p className="recall-results-count">{getResultsCountLabel(results)}</p>
+      <p className="recall-results-count">
+        {results.length === 1
+          ? t("recall.result.count", { count: results.length })
+          : t("recall.result.count_plural", { count: results.length })}
+      </p>
     </div>
   );
 }
@@ -682,15 +650,21 @@ function ResultsDetailPanel({
   onExpandedQuestionKeyChange: ExpandedQuestionKeyChange;
   result: FlashCardSessionResult | null;
 }) {
+  const { t } = useAppTranslation();
+
   return (
     <section
-      aria-label="Selected result"
+      aria-label={t("recall.result.selected")}
       className="recall-panel recall-results-detail-panel"
     >
       {result === null ? (
         <div className="recall-results-empty" role="status">
-          <h4>{hasAnyResults ? "No result selected" : "No results yet"}</h4>
-          <p className="muted">Results will appear here.</p>
+          <h4>
+            {hasAnyResults
+              ? t("recall.result.noResultSelected")
+              : t("recall.result.resultsEmptyTitle")}
+          </h4>
+          <p className="muted">{t("recall.result.resultsEmptyBody")}</p>
         </div>
       ) : (
         <SelectedResultDetail
@@ -712,6 +686,7 @@ function SelectedResultDetail({
   onExpandedQuestionKeyChange: ExpandedQuestionKeyChange;
   result: FlashCardSessionResult;
 }) {
+  const { t } = useAppTranslation();
   const review = projectSessionReview(result);
   const questionsAttempted = review.attemptedQuestions.length;
   const resultScore = result.score ?? null;
@@ -724,7 +699,7 @@ function SelectedResultDetail({
   return (
     <div className="recall-results-detail recall-selected-result">
       <header className="recall-selected-result__heading">
-        <h4>Session review</h4>
+        <h4>{t("recall.result.sessionReview")}</h4>
       </header>
 
       <div
@@ -749,14 +724,18 @@ function SelectedResultDetail({
             data-mode-tone={getModeTone(result.mode)}
           >
             <SparklesIcon />
-            {formatRecallModeLabel(result.mode)}
+            {t(getRecallModeTranslationKey(result.mode))}
           </span>
         </div>
         <div className="recall-selected-result__stat">
           <ScoreRing score={resultScore} />
           <div className="recall-selected-result__stat-copy recall-selected-result__stat-copy--stacked">
             <strong>{formatResultScore(resultScore)}</strong>
-            <span>{formatResultMetricLabel(result.mode)}</span>
+            <span>
+              {result.mode === "FlashCard"
+                ? t("recall.result.metric.selfRating")
+                : t("recall.result.metric.score")}
+            </span>
           </div>
         </div>
         <div className="recall-selected-result__stat">
@@ -768,13 +747,13 @@ function SelectedResultDetail({
           </span>
           <div className="recall-selected-result__stat-copy recall-selected-result__stat-copy--stacked">
             <strong>{questionsAttempted}</strong>
-            <span>Questions</span>
+            <span>{t("recall.result.questions")}</span>
           </div>
         </div>
         {visibleSelfRatingDistribution !== null ? (
           <div className="recall-selected-result__stat">
             <div className="recall-selected-result__stat-copy recall-selected-result__stat-copy--distribution">
-              <strong>Distribution</strong>
+              <strong>{t("recall.result.distribution")}</strong>
               <span>{visibleSelfRatingDistribution.label}</span>
             </div>
           </div>
@@ -811,7 +790,9 @@ function SelectedResultDetail({
         aria-labelledby="recall-result-questions-answers"
         className="recall-selected-result__section"
       >
-        <h4 id="recall-result-questions-answers">Questions</h4>
+        <h4 id="recall-result-questions-answers">
+          {t("recall.result.questions")}
+        </h4>
         {review.attemptedQuestions.length === 0 ? (
           <p className="muted">No attempted questions were saved.</p>
         ) : (
@@ -850,9 +831,13 @@ function QuestionReviewRow({
   question: RecallQuestion;
   questionKey: string;
 }) {
+  const { t } = useAppTranslation();
   const detailId = getQuestionDetailId(index);
   const isExpanded = expandedQuestionKey === questionKey;
-  const ratingLabel = getQuestionSelfRatingLabel(question.selfRating);
+  const ratingLabel =
+    question.selfRating === null
+      ? t("recall.result.notAnswered")
+      : t(getRecallRatingTranslationKey(question.selfRating));
   const ratingTone = getRatingTone(question.selfRating);
 
   function handleToggleQuestion() {
@@ -916,11 +901,13 @@ function QuestionReviewDetail({
   ratingLabel: string;
   ratingTone: ReturnType<typeof getRatingTone>;
 }) {
+  const { t } = useAppTranslation();
+
   return (
     <div className="recall-selected-result__question-detail" id={detailId}>
       <div className="recall-selected-result__question-detail-block">
         <p className="recall-selected-result__question-detail-label">
-          Self rating
+          {t("recall.result.selfRating")}
         </p>
         <span
           className="recall-selected-result__row-pill"
@@ -931,15 +918,17 @@ function QuestionReviewDetail({
       </div>
       <div className="recall-selected-result__question-detail-block">
         <p className="recall-selected-result__question-detail-label">
-          Your answer
+          {t("recall.result.yourAnswer")}
         </p>
         <p className="recall-selected-result__question-detail-copy">
-          {getQuestionAnswerText(question)}
+          {question.typedAnswer?.trim().length
+            ? question.typedAnswer
+            : t("recall.result.answer.empty")}
         </p>
       </div>
       <div className="recall-selected-result__question-detail-block">
         <p className="recall-selected-result__question-detail-label">
-          Reference note
+          {t("recall.result.referenceNote")}
         </p>
         <p className="recall-selected-result__question-detail-title">
           {question.noteSnapshot.title}

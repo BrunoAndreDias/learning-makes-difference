@@ -16,7 +16,12 @@ import {
   resolveProtectedSessionSnapshot,
 } from "../access/session/session";
 import { BreakIntervalOverlay, isBreakIntervalActive } from "../focus";
-import { formatRecallModeLabel } from "./learner-copy";
+import { useAppTranslation } from "../language";
+import {
+  formatRecallModeLabel,
+  getRecallRatingDescriptionTranslationKey,
+  getRecallRatingTranslationKey,
+} from "./learner-copy";
 import {
   AppRecallError,
   type AppRecallSnapshot,
@@ -26,32 +31,12 @@ import {
 } from "./recall";
 
 const recallSessionSavedMessageKey = "learning-makes-difference:recall-saved";
-const ratingOptions = [
-  {
-    description: "Could not recall it.",
-    label: "Forgot",
-    rating: "forgot",
-  },
-  {
-    description: "Recalled it with major effort.",
-    label: "Hard",
-    rating: "hard",
-  },
-  {
-    description: "Recalled the important parts.",
-    label: "Good",
-    rating: "good",
-  },
-  {
-    description: "Recalled it clearly.",
-    label: "Easy",
-    rating: "easy",
-  },
-] as const satisfies readonly {
-  description: string;
-  label: string;
-  rating: FlashCardRecallRating;
-}[];
+const recallRatingOptions = [
+  "forgot",
+  "hard",
+  "good",
+  "easy",
+] as const satisfies readonly FlashCardRecallRating[];
 
 export const Route = createFileRoute("/_protected/recall/session")({
   component: RecallSessionPage,
@@ -87,6 +72,7 @@ function formatElapsedTime(startedAt: string, now: number) {
 }
 
 function RecallSessionPage() {
+  const { t } = useAppTranslation();
   const navigate = useNavigate();
   const focusContext = useRouteContext({
     from: "/_protected",
@@ -353,22 +339,26 @@ function RecallSessionPage() {
   }
 
   return (
-    <section className="recall-shell" aria-label="Recall session">
+    <section className="recall-shell" aria-label={t("recall.session.title")}>
       <header className="recall-shell__header">
         <div className="recall-shell__context">
-          <nav aria-label="Breadcrumb" className="recall-breadcrumb">
-            <Link to="/recall">Recall</Link> / Session
+          <nav
+            aria-label={t("recall.breadcrumb")}
+            className="recall-breadcrumb"
+          >
+            <Link to="/recall">{t("shell.workspace.recall")}</Link> /{" "}
+            {t("recall.session.breadcrumbLabel")}
           </nav>
-          <h3>Recall session</h3>
+          <h3>{t("recall.session.title")}</h3>
         </div>
 
         <div className="recall-progress-card">
           <div className="recall-progress-card__count">
             <strong>{`${progress.currentPosition} of ${progress.totalCount}`}</strong>
-            <span>Notes</span>
+            <span>{t("recall.session.notes")}</span>
           </div>
           <div
-            aria-label="Recall progress"
+            aria-label={t("recall.session.progress")}
             aria-valuemax={progress.totalCount}
             aria-valuemin={0}
             aria-valuenow={progress.currentPosition}
@@ -387,7 +377,7 @@ function RecallSessionPage() {
           <p className="recall-progress-card__time">
             <ClockLineIcon />
             <span>{formatElapsedTime(activeSession.createdAt, now)}</span>
-            <small>elapsed</small>
+            <small>{t("recall.session.elapsed")}</small>
           </p>
         </div>
       </header>
@@ -408,7 +398,9 @@ function RecallSessionPage() {
               className="recall-card__study-surface"
               disabled={isBreakActive}
             >
-              <legend className="sr-only">FlashCard recall</legend>
+              <legend className="sr-only">
+                {t("recall.session.flashCard")}
+              </legend>
               {!activeSession.isAnswerRevealed ? (
                 <div className="recall-card__hidden-state">
                   <span aria-hidden="true" className="recall-card__prompt-icon">
@@ -418,7 +410,7 @@ function RecallSessionPage() {
                   <span className="recall-card__divider" />
                   <p className="recall-card__hint">
                     <SparkIcon />
-                    <span>Try to recall this note before revealing it.</span>
+                    <span>{t("recall.session.hint")}</span>
                   </p>
                   <button
                     className="notes-action notes-action-primary recall-card__reveal"
@@ -426,7 +418,7 @@ function RecallSessionPage() {
                     type="button"
                   >
                     <RevealIcon />
-                    <span>Reveal note</span>
+                    <span>{t("recall.session.reveal")}</span>
                   </button>
                 </div>
               ) : (
@@ -435,22 +427,24 @@ function RecallSessionPage() {
                   <RecallNoteDetails note={currentNote} />
                   <div className="recall-card__footer recall-card__footer--ratings">
                     <fieldset className="recall-rating-row">
-                      <legend>Self-rating</legend>
-                      {ratingOptions.map((option) => (
+                      <legend>{t("recall.session.selfRating")}</legend>
+                      {recallRatingOptions.map((rating) => (
                         <button
-                          aria-label={option.label}
-                          aria-pressed={pendingRating === option.rating}
-                          className={`notes-action recall-rating recall-rating--${option.rating}`}
-                          data-selected={pendingRating === option.rating}
-                          key={option.rating}
-                          onClick={() => setPendingRating(option.rating)}
+                          aria-label={t(getRecallRatingTranslationKey(rating))}
+                          aria-pressed={pendingRating === rating}
+                          className={`notes-action recall-rating recall-rating--${rating}`}
+                          data-selected={pendingRating === rating}
+                          key={rating}
+                          onClick={() => setPendingRating(rating)}
                           type="button"
                         >
                           <span className="recall-rating__label">
-                            {option.label}
+                            {t(getRecallRatingTranslationKey(rating))}
                           </span>
                           <span className="recall-rating__description">
-                            {option.description}
+                            {t(
+                              getRecallRatingDescriptionTranslationKey(rating),
+                            )}
                           </span>
                         </button>
                       ))}
@@ -461,7 +455,7 @@ function RecallSessionPage() {
                       onClick={submitRating}
                       type="button"
                     >
-                      Next note
+                      {t("recall.session.next")}
                     </button>
                   </div>
                 </div>
@@ -480,7 +474,7 @@ function RecallSessionPage() {
               type="button"
             >
               <SkipIcon />
-              <span>Skip</span>
+              <span>{t("recall.session.skip")}</span>
             </button>
             <button
               className="notes-action recall-session-main__action"
@@ -489,7 +483,7 @@ function RecallSessionPage() {
               type="button"
             >
               <EndSessionIcon />
-              <span>End session</span>
+              <span>{t("recall.session.dialog.end")}</span>
             </button>
           </div>
         </div>
@@ -513,14 +507,16 @@ function RecallSessionPage() {
 }
 
 function RecallNoteDetails({ note }: { note: FlashCardRecallNote }) {
+  const { t } = useAppTranslation();
+
   return (
     <div className="recall-note-details">
       <p className="recall-card__body">{note.body}</p>
       {note.metaphors.length > 0 || note.acronyms.length > 0 ? (
         <div className="recall-memory-aids">
           {note.metaphors.length > 0 ? (
-            <section aria-label="Metaphors">
-              <h5>Metaphors</h5>
+            <section aria-label={t("recall.session.answer.metaphors")}>
+              <h5>{t("recall.session.answer.metaphors")}</h5>
               <ul>
                 {note.metaphors.map((metaphor) => (
                   <li key={metaphor.description}>{metaphor.description}</li>
@@ -529,8 +525,8 @@ function RecallNoteDetails({ note }: { note: FlashCardRecallNote }) {
             </section>
           ) : null}
           {note.acronyms.length > 0 ? (
-            <section aria-label="Acronyms">
-              <h5>Acronyms</h5>
+            <section aria-label={t("recall.session.answer.acronyms")}>
+              <h5>{t("recall.session.answer.acronyms")}</h5>
               <ul>
                 {note.acronyms.map((acronym) => (
                   <li key={acronym.description}>{acronym.description}</li>
@@ -553,32 +549,37 @@ function SessionOverviewPanel({
   remainingCount: number;
   selectedCount: number;
 }) {
+  const { t } = useAppTranslation();
+
   return (
-    <aside aria-label="Session overview" className="recall-session-overview">
-      <h4>Session overview</h4>
+    <aside
+      aria-label={t("recall.session.overview")}
+      className="recall-session-overview"
+    >
+      <h4>{t("recall.session.overview")}</h4>
       <div className="recall-session-overview__metrics">
         <SessionOverviewMetric
           icon={<SelectedNotesIcon />}
-          label="Selected notes"
+          label={t("recall.session.overview.selected")}
           tone="selected"
           value={selectedCount}
         />
         <SessionOverviewMetric
           icon={<AnsweredIcon />}
-          label="Answered"
+          label={t("recall.session.overview.answered")}
           tone="answered"
           value={answeredCount}
         />
         <SessionOverviewMetric
           icon={<RemainingIcon />}
-          label="Remaining"
+          label={t("recall.session.overview.remaining")}
           tone="remaining"
           value={remainingCount}
         />
       </div>
       <p className="recall-session-overview__hint">
         <InfoIcon />
-        <span>Notes are shown in a randomized order.</span>
+        <span>{t("recall.session.overview.randomized")}</span>
       </p>
     </aside>
   );
@@ -623,6 +624,8 @@ function EndSessionDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const { t } = useAppTranslation();
+
   return (
     <div
       aria-labelledby="recall-end-dialog-title"
@@ -636,23 +639,27 @@ function EndSessionDialog({
         role="dialog"
       >
         <h4 id="recall-end-dialog-title">
-          {hasAttempts ? "End recall session?" : "Discard recall session?"}
+          {hasAttempts
+            ? t("recall.session.dialog.endTitle")
+            : t("recall.session.dialog.discardTitle")}
         </h4>
         <p className="muted">
           {hasAttempts
-            ? "Attempted Questions will be saved to Results."
-            : "No attempted Questions will be saved."}
+            ? t("recall.session.dialog.endBody")
+            : t("recall.session.dialog.discardBody")}
         </p>
         <div className="recall-dialog__actions">
           <button className="notes-action" onClick={onCancel} type="button">
-            Cancel
+            {t("recall.session.dialog.cancel")}
           </button>
           <button
             className="notes-action notes-action-primary"
             onClick={onConfirm}
             type="button"
           >
-            {hasAttempts ? "End session" : "Discard session"}
+            {hasAttempts
+              ? t("recall.session.dialog.end")
+              : t("recall.session.dialog.discard")}
           </button>
         </div>
       </section>

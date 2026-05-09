@@ -3,6 +3,7 @@
 import { fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { createAppLabelsContext } from "../../modules/labels/label-management/labels";
 import { createAppStudyNotesContext } from "../../modules/study-notes";
 import { renderRoute } from "./app-shell-test-support";
 
@@ -15,6 +16,8 @@ describe("authenticated Study Notes workspace", () => {
     const userId = "user-jordan";
 
     studyNotesContext.createStudyNote(userId, {
+      acronyms: [{ description: "RP means Retrieval Practice." }],
+      metaphors: [{ description: "A trail gets clearer with each walk." }],
       sourceBody: "Testing retrieval strengthens durable recall.",
       sourceTitle: "Retrieval practice",
     });
@@ -48,6 +51,12 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.getByLabelText("Prompt")).toHaveValue("Retrieval practice");
     expect(screen.getByLabelText("Expected answer")).toHaveValue(
       "Testing retrieval strengthens durable recall.",
+    );
+    expect(screen.getByLabelText("Metaphor")).toHaveValue(
+      "A trail gets clearer with each walk.",
+    );
+    expect(screen.getByLabelText("Acronym")).toHaveValue(
+      "RP means Retrieval Practice.",
     );
     expect(screen.getByLabelText("Source title")).toHaveValue(
       "Retrieval practice",
@@ -85,6 +94,12 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.change(screen.getByLabelText("Expected answer"), {
       target: { value: "Recall before reading." },
     });
+    fireEvent.change(screen.getByLabelText("Metaphor"), {
+      target: { value: "A spotlight on the exact recall target." },
+    });
+    fireEvent.change(screen.getByLabelText("Acronym"), {
+      target: { value: "RBR means Recall Before Reading." },
+    });
     fireEvent.change(screen.getByLabelText("Source title"), {
       target: { value: "Edited source title" },
     });
@@ -99,6 +114,12 @@ describe("authenticated Study Notes workspace", () => {
     );
     expect(screen.getByLabelText("Expected answer")).toHaveValue(
       "Recall before reading.",
+    );
+    expect(screen.getByLabelText("Metaphor")).toHaveValue(
+      "A spotlight on the exact recall target.",
+    );
+    expect(screen.getByLabelText("Acronym")).toHaveValue(
+      "RBR means Recall Before Reading.",
     );
     expect(screen.getByLabelText("Source title")).toHaveValue(
       "Edited source title",
@@ -182,5 +203,91 @@ describe("authenticated Study Notes workspace", () => {
     expect(within(catalog).queryByRole("button")).not.toBeInTheDocument();
 
     confirmSpy.mockRestore();
+  });
+
+  it("assigns, removes, and filters labels on Study Notes instead of source Notes", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const studyNotesContext = createAppStudyNotesContext({
+      getOwnedLabelIdsForUser: (ownerId) =>
+        labelsContext.getLabelsForUser(ownerId).map((label) => label.id),
+      keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+    const biology = labelsContext.createLabel({
+      name: "Biology",
+      userId,
+    });
+    const history = labelsContext.createLabel({
+      name: "History",
+      userId,
+    });
+    const first = studyNotesContext.createStudyNote(userId, {
+      labelIds: [biology.id],
+      sourceBody: "Shared source context.",
+      sourceTitle: "Biology recall",
+    });
+    studyNotesContext.createStudyNote(userId, {
+      labelIds: [history.id],
+      sourceBody: "Shared source context.",
+      sourceTitle: "History recall",
+    });
+
+    renderRoute("/study-notes", {
+      labelsContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+      studyNotesContext,
+    });
+
+    fireEvent.change(
+      await screen.findByLabelText("Filter Study Notes by label"),
+      {
+        target: { value: biology.id },
+      },
+    );
+
+    const catalog = screen.getByRole("complementary", {
+      name: "Study Notes catalog",
+    });
+    expect(
+      within(catalog).getByRole("button", { name: "Biology recall" }),
+    ).toBeInTheDocument();
+    expect(
+      within(catalog).queryByRole("button", { name: "History recall" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText("Biology"));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Saved");
+    expect(studyNotesContext.getSnapshot()).toContainEqual(
+      expect.objectContaining({
+        id: first.id,
+        labelIds: [],
+        source: expect.objectContaining({
+          title: "Biology recall",
+        }),
+      }),
+    );
+    expect(
+      within(catalog).queryByRole("button", { name: "Biology recall" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Filter Study Notes by label"), {
+      target: { value: "" },
+    });
+    expect(
+      within(catalog).getByRole("button", { name: "Biology recall" }),
+    ).toBeInTheDocument();
   });
 });

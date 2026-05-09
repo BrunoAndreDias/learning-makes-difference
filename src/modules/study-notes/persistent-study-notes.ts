@@ -19,7 +19,7 @@ export type AppPersistentStudyNotesService = {
   deleteStudyNote: (
     input: DeleteStudyNoteInput & { studyNoteId: string },
   ) => Promise<void>;
-  listStudyNotes: () => Promise<AppStudyNote[]>;
+  listStudyNotes: (input?: { labelId?: string }) => Promise<AppStudyNote[]>;
   updateStudyNote: (
     input: UpdateStudyNoteInput & { studyNoteId: string },
   ) => Promise<AppStudyNote>;

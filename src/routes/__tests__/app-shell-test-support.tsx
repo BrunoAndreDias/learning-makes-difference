@@ -129,6 +129,8 @@ export function renderRoute(
   const studyNotesContext =
     options.studyNotesContext ??
     createAppStudyNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labelsContext.getLabelsForUser(userId).map((label) => label.id),
       keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
     });

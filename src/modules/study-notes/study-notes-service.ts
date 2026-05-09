@@ -1,16 +1,23 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { PgDatabase } from "drizzle-orm/pg-core/db";
 import type { PgQueryResultHKT } from "drizzle-orm/pg-core/session";
+import { labelsTable, studyNoteLabelsTable } from "../labels/labels-schema";
 import { notesTable } from "../notes/notes-schema";
 import {
   type AppStudyNote,
+  type AppStudyNoteAcronym,
+  type AppStudyNoteMetaphor,
   AppStudyNotesError,
   type CreateStudyNoteFromSourceInput,
   type CreateStudyNoteInput,
   type DeleteStudyNoteInput,
   type UpdateStudyNoteInput,
 } from "./study-notes";
-import { studyNotesTable } from "./study-notes-schema";
+import {
+  studyNoteAcronymsTable,
+  studyNoteMetaphorsTable,
+  studyNotesTable,
+} from "./study-notes-schema";
 
 type StudyNotesDatabase<TSchema extends Record<string, unknown>> = PgDatabase<
   PgQueryResultHKT,
@@ -45,6 +52,34 @@ const studyNoteSelectFields = {
   updatedAt: studyNotesTable.updatedAt,
 };
 
+type StudyNoteRow = {
+  createdAt: Date;
+  expectedAnswer: string;
+  id: string;
+  prompt: string;
+  sourceBody: string;
+  sourceNoteId: string;
+  sourceTitle: string;
+  sourceUpdatedAt: Date;
+  updatedAt: Date;
+};
+
+type StudyNoteLabelRow = {
+  labelId: string;
+  studyNoteId: string;
+};
+
+type StudyNoteMemoryHookRow = {
+  description: string;
+  studyNoteId: string;
+};
+
+type StudyNoteRowWithDetails = StudyNoteRow & {
+  acronyms: AppStudyNoteAcronym[];
+  labelIds: string[];
+  metaphors: AppStudyNoteMetaphor[];
+};
+
 function getDefaultCrypto(): StudyNotesCrypto {
   return globalThis.crypto;
 }
@@ -63,21 +98,150 @@ function validateOptionalText(value: string): string {
   return value.trim();
 }
 
-function toAppStudyNote(input: {
-  createdAt: Date;
-  expectedAnswer: string;
-  id: string;
-  prompt: string;
-  sourceBody: string;
-  sourceNoteId: string;
-  sourceTitle: string;
-  sourceUpdatedAt: Date;
-  updatedAt: Date;
-}): AppStudyNote {
+function normalizeLabelIds(labelIds: readonly string[] | undefined): string[] {
+  return [...new Set((labelIds ?? []).filter(Boolean))];
+}
+
+async function validateOwnedLabelIds(input: {
+  db: StudyNotesDatabase<Record<string, unknown>>;
+  labelIds: string[];
+  userId: string;
+}) {
+  if (input.labelIds.length === 0) {
+    return input.labelIds;
+  }
+
+  const ownedLabels = await input.db
+    .select({
+      id: labelsTable.id,
+    })
+    .from(labelsTable)
+    .where(
+      and(
+        eq(labelsTable.userId, input.userId),
+        inArray(labelsTable.id, input.labelIds),
+      ),
+    );
+
+  if (ownedLabels.length !== input.labelIds.length) {
+    throw new AppStudyNotesError(
+      "invalid_input",
+      "Study Notes can only be assigned to labels owned by this account.",
+    );
+  }
+
+  return input.labelIds;
+}
+
+function validateHookCount(hooks: readonly unknown[], label: string) {
+  if (hooks.length <= 1) {
+    return;
+  }
+
+  throw new AppStudyNotesError(
+    "invalid_input",
+    `Only one ${label.toLowerCase()} can be saved per Study Note.`,
+  );
+}
+
+function validateHooks(
+  hooks: readonly { description: string }[] | undefined,
+  label: string,
+): { description: string }[] {
+  const safeHooks = hooks ?? [];
+  validateHookCount(safeHooks, label);
+
+  return safeHooks.map((hook) => {
+    const description = hook.description.trim();
+
+    if (description.length === 0) {
+      throw new AppStudyNotesError(
+        "invalid_input",
+        `${label} description is required.`,
+      );
+    }
+
+    return {
+      description,
+    };
+  });
+}
+
+function validateMetaphors(
+  metaphors: readonly AppStudyNoteMetaphor[] | undefined,
+): AppStudyNoteMetaphor[] {
+  return validateHooks(metaphors, "Metaphor");
+}
+
+function validateAcronyms(
+  acronyms: readonly AppStudyNoteAcronym[] | undefined,
+): AppStudyNoteAcronym[] {
+  return validateHooks(acronyms, "Acronym");
+}
+
+function groupLabelIdsByStudyNoteId(
+  studyNoteLabels: readonly StudyNoteLabelRow[],
+) {
+  const labelIdsByStudyNoteId = new Map<string, Set<string>>();
+
+  for (const studyNoteLabel of studyNoteLabels) {
+    const labelIds = labelIdsByStudyNoteId.get(studyNoteLabel.studyNoteId);
+
+    if (labelIds === undefined) {
+      labelIdsByStudyNoteId.set(
+        studyNoteLabel.studyNoteId,
+        new Set([studyNoteLabel.labelId]),
+      );
+      continue;
+    }
+
+    labelIds.add(studyNoteLabel.labelId);
+  }
+
+  return labelIdsByStudyNoteId;
+}
+
+function getSortedStudyNoteLabelIds(input: {
+  labelIdsByStudyNoteId: Map<string, Set<string>>;
+  studyNoteId: string;
+}) {
+  return [...(input.labelIdsByStudyNoteId.get(input.studyNoteId) ?? [])].sort();
+}
+
+function createStudyNoteLabelRows(
+  studyNoteId: string,
+  labelIds: readonly string[],
+): StudyNoteLabelRow[] {
+  return labelIds.map((labelId) => ({
+    labelId,
+    studyNoteId,
+  }));
+}
+
+function groupHooksByStudyNoteId(rows: readonly StudyNoteMemoryHookRow[]) {
+  const hooksByStudyNoteId = new Map<string, { description: string }[]>();
+
+  for (const row of rows) {
+    const hooks = hooksByStudyNoteId.get(row.studyNoteId) ?? [];
+    hooks.push({ description: row.description });
+    hooksByStudyNoteId.set(row.studyNoteId, hooks);
+  }
+
+  return hooksByStudyNoteId;
+}
+
+function getSingleHookDescription(hooks: readonly { description: string }[]) {
+  return hooks[0]?.description ?? null;
+}
+
+function toAppStudyNote(input: StudyNoteRowWithDetails): AppStudyNote {
   return {
+    acronyms: input.acronyms.map((acronym) => ({ ...acronym })),
     createdAt: input.createdAt.toISOString(),
     expectedAnswer: input.expectedAnswer,
     id: input.id,
+    labelIds: [...input.labelIds],
+    metaphors: input.metaphors.map((metaphor) => ({ ...metaphor })),
     prompt: input.prompt,
     source: {
       body: input.sourceBody,
@@ -88,6 +252,56 @@ function toAppStudyNote(input: {
     sourceNoteId: input.sourceNoteId,
     updatedAt: input.updatedAt.toISOString(),
   };
+}
+
+async function addDetailsToStudyNoteRows(
+  db: StudyNotesDatabase<Record<string, unknown>>,
+  rows: readonly StudyNoteRow[],
+): Promise<StudyNoteRowWithDetails[]> {
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const studyNoteIds = rows.map((row) => row.id);
+  const [storedStudyNoteLabels, storedMetaphors, storedAcronyms] =
+    await Promise.all([
+      db
+        .select()
+        .from(studyNoteLabelsTable)
+        .where(inArray(studyNoteLabelsTable.studyNoteId, studyNoteIds)),
+      db
+        .select()
+        .from(studyNoteMetaphorsTable)
+        .where(inArray(studyNoteMetaphorsTable.studyNoteId, studyNoteIds)),
+      db
+        .select()
+        .from(studyNoteAcronymsTable)
+        .where(inArray(studyNoteAcronymsTable.studyNoteId, studyNoteIds)),
+    ]);
+  const labelIdsByStudyNoteId = groupLabelIdsByStudyNoteId(
+    storedStudyNoteLabels,
+  );
+  const metaphorsByStudyNoteId = groupHooksByStudyNoteId(storedMetaphors);
+  const acronymsByStudyNoteId = groupHooksByStudyNoteId(storedAcronyms);
+
+  return rows.map((row) => ({
+    ...row,
+    acronyms: acronymsByStudyNoteId.get(row.id) ?? [],
+    labelIds: getSortedStudyNoteLabelIds({
+      labelIdsByStudyNoteId,
+      studyNoteId: row.id,
+    }),
+    metaphors: metaphorsByStudyNoteId.get(row.id) ?? [],
+  }));
+}
+
+async function toAppStudyNotes(input: {
+  db: StudyNotesDatabase<Record<string, unknown>>;
+  rows: StudyNoteRow[];
+}) {
+  return (await addDetailsToStudyNoteRows(input.db, input.rows)).map(
+    toAppStudyNote,
+  );
 }
 
 async function readOwnedStudyNote(input: {
@@ -117,7 +331,7 @@ async function readOwnedStudyNote(input: {
     );
   }
 
-  return row;
+  return (await addDetailsToStudyNoteRows(input.db, [row]))[0];
 }
 
 export function createStudyNotesService({
@@ -141,6 +355,13 @@ export function createStudyNotesService({
         "Source title",
       );
       const sourceBody = validateOptionalText(input.sourceBody);
+      const acronyms = validateAcronyms(input.acronyms);
+      const safeLabelIds = await validateOwnedLabelIds({
+        db,
+        labelIds: normalizeLabelIds(input.labelIds),
+        userId,
+      });
+      const metaphors = validateMetaphors(input.metaphors);
 
       await db.transaction(async (tx) => {
         await tx.insert(notesTable).values({
@@ -160,12 +381,35 @@ export function createStudyNotesService({
           sourceNoteId,
           updatedAt: timestamp,
         });
+        if (safeLabelIds.length > 0) {
+          await tx
+            .insert(studyNoteLabelsTable)
+            .values(createStudyNoteLabelRows(studyNoteId, safeLabelIds));
+        }
+        const metaphorDescription = getSingleHookDescription(metaphors);
+        const acronymDescription = getSingleHookDescription(acronyms);
+
+        if (metaphorDescription !== null) {
+          await tx.insert(studyNoteMetaphorsTable).values({
+            description: metaphorDescription,
+            studyNoteId,
+          });
+        }
+        if (acronymDescription !== null) {
+          await tx.insert(studyNoteAcronymsTable).values({
+            description: acronymDescription,
+            studyNoteId,
+          });
+        }
       });
 
       return toAppStudyNote({
+        acronyms,
         createdAt: timestamp,
         expectedAnswer: sourceBody,
         id: studyNoteId,
+        labelIds: safeLabelIds,
+        metaphors,
         prompt: sourceTitle,
         sourceBody,
         sourceNoteId,
@@ -215,9 +459,12 @@ export function createStudyNotesService({
       });
 
       return toAppStudyNote({
+        acronyms: [],
         createdAt: timestamp,
         expectedAnswer: source.body,
         id: studyNoteId,
+        labelIds: [],
+        metaphors: [],
         prompt: source.title,
         sourceBody: source.body,
         sourceNoteId: source.id,
@@ -274,20 +521,40 @@ export function createStudyNotesService({
         }
       });
     },
-    async listStudyNotes({ userId }: { userId: string }) {
+    async listStudyNotes({
+      labelId,
+      userId,
+    }: {
+      labelId?: string;
+      userId: string;
+    }) {
       const rows = await db
         .select(studyNoteSelectFields)
         .from(studyNotesTable)
         .innerJoin(notesTable, eq(studyNotesTable.sourceNoteId, notesTable.id))
-        .where(eq(notesTable.userId, userId));
+        .where(
+          labelId === undefined
+            ? eq(notesTable.userId, userId)
+            : and(
+                eq(notesTable.userId, userId),
+                inArray(
+                  studyNotesTable.id,
+                  db
+                    .select({ id: studyNoteLabelsTable.studyNoteId })
+                    .from(studyNoteLabelsTable)
+                    .where(eq(studyNoteLabelsTable.labelId, labelId)),
+                ),
+              ),
+        );
 
-      return rows
-        .sort((left, right) =>
+      return toAppStudyNotes({
+        db,
+        rows: rows.sort((left, right) =>
           right.updatedAt
             .toISOString()
             .localeCompare(left.updatedAt.toISOString()),
-        )
-        .map(toAppStudyNote);
+        ),
+      });
     },
     async updateStudyNote({
       input,
@@ -302,8 +569,15 @@ export function createStudyNotesService({
         userId,
       });
       const timestamp = now();
-      const prompt = validateRequiredText(input.prompt, "Prompt");
+      const acronyms = validateAcronyms(input.acronyms);
       const expectedAnswer = validateOptionalText(input.expectedAnswer);
+      const safeLabelIds = await validateOwnedLabelIds({
+        db,
+        labelIds: normalizeLabelIds(input.labelIds),
+        userId,
+      });
+      const metaphors = validateMetaphors(input.metaphors);
+      const prompt = validateRequiredText(input.prompt, "Prompt");
       const sourceTitle = validateRequiredText(
         input.sourceTitle,
         "Source title",
@@ -332,12 +606,46 @@ export function createStudyNotesService({
               eq(notesTable.userId, userId),
             ),
           );
+        await tx
+          .delete(studyNoteLabelsTable)
+          .where(eq(studyNoteLabelsTable.studyNoteId, existingStudyNote.id));
+        if (safeLabelIds.length > 0) {
+          await tx
+            .insert(studyNoteLabelsTable)
+            .values(
+              createStudyNoteLabelRows(existingStudyNote.id, safeLabelIds),
+            );
+        }
+        await tx
+          .delete(studyNoteMetaphorsTable)
+          .where(eq(studyNoteMetaphorsTable.studyNoteId, existingStudyNote.id));
+        await tx
+          .delete(studyNoteAcronymsTable)
+          .where(eq(studyNoteAcronymsTable.studyNoteId, existingStudyNote.id));
+        const metaphorDescription = getSingleHookDescription(metaphors);
+        const acronymDescription = getSingleHookDescription(acronyms);
+
+        if (metaphorDescription !== null) {
+          await tx.insert(studyNoteMetaphorsTable).values({
+            description: metaphorDescription,
+            studyNoteId: existingStudyNote.id,
+          });
+        }
+        if (acronymDescription !== null) {
+          await tx.insert(studyNoteAcronymsTable).values({
+            description: acronymDescription,
+            studyNoteId: existingStudyNote.id,
+          });
+        }
       });
 
       return toAppStudyNote({
+        acronyms,
         createdAt: existingStudyNote.createdAt,
         expectedAnswer,
         id: existingStudyNote.id,
+        labelIds: safeLabelIds,
+        metaphors,
         prompt,
         sourceBody,
         sourceNoteId: existingStudyNote.sourceNoteId,
@@ -395,8 +703,9 @@ export function createStudyNotesService({
         return [];
       }
 
-      return (
-        await Promise.all(
+      return toAppStudyNotes({
+        db,
+        rows: await Promise.all(
           affectedStudyNotes.map((studyNote) =>
             readOwnedStudyNote({
               db,
@@ -404,8 +713,8 @@ export function createStudyNotesService({
               userId,
             }),
           ),
-        )
-      ).map(toAppStudyNote);
+        ),
+      });
     },
     async listStudyNotesForSources({
       sourceNoteIds,
@@ -429,7 +738,7 @@ export function createStudyNotesService({
           ),
         );
 
-      return rows.map(toAppStudyNote);
+      return toAppStudyNotes({ db, rows });
     },
   };
 }
