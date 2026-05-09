@@ -8,6 +8,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
+import { useAppTranslation } from "../language";
 import { listNotesForUser } from "../notes";
 import {
   type AppFocusContext,
@@ -51,12 +52,21 @@ const DEFAULT_FOCUS_SESSION_START_VALUES: FocusSessionStartValues = {
   focusMinutes: DEFAULT_FOCUS_MINUTES,
   plannedFocusIntervals: DEFAULT_PLANNED_FOCUS_INTERVALS,
 };
+const focusAnalyticsMetricLabelKeys = {
+  "average-session-length": "focus.analytics.averageSessionLength",
+  "completed-sessions": "focus.analytics.completedSessions",
+  "focus-minutes": "focus.analytics.focusMinutes",
+  "notes-created": "focus.analytics.notesCreated",
+  "notes-touched": "focus.analytics.notesTouched",
+  "recall-answered": "focus.analytics.recallAnswered",
+} as const;
 
 export const Route = createFileRoute("/_protected/focus")({
   component: FocusPage,
 });
 
 function FocusPage() {
+  const { t } = useAppTranslation();
   const focus = Route.useRouteContext({
     select: (context) => context.focus,
   });
@@ -107,6 +117,19 @@ function FocusPage() {
     now: new Date(),
     sessionResults,
   });
+  const translatedWeeklyAnalytics = {
+    heading: t("focus.analytics.heading"),
+    metrics: weeklyAnalytics.metrics.map((metric) => ({
+      ...metric,
+      comparisonLabel:
+        metric.comparisonLabel === "No change vs last week"
+          ? t("focus.analytics.noChange")
+          : t("focus.analytics.vsLastWeek", {
+              value: metric.comparisonLabel.replace(" vs last week", ""),
+            }),
+      label: t(focusAnalyticsMetricLabelKeys[metric.id]),
+    })),
+  };
   useEffect(() => {
     headingRef.current?.focus();
   }, []);
@@ -119,11 +142,9 @@ function FocusPage() {
       <header className="focus-workspace__page-header recall-surface__header">
         <div className="notes-editor__title-stack">
           <h3 id="focus-workspace-heading" ref={headingRef} tabIndex={-1}>
-            Focus
+            {t("focus.heading")}
           </h3>
-          <p className="muted notes-editor__meta">
-            Run a Pomodoro session to stay focused and make steady progress.
-          </p>
+          <p className="muted notes-editor__meta">{t("focus.description")}</p>
         </div>
       </header>
 
@@ -143,19 +164,19 @@ function FocusPage() {
       </section>
 
       <section
-        aria-label={weeklyAnalytics.heading}
+        aria-label={translatedWeeklyAnalytics.heading}
         className="focus-card focus-card--analytics"
       >
         <div className="focus-card__header">
           <div>
-            <p className="section-label">Weekly analytics</p>
+            <p className="section-label">{t("focus.analytics.sectionLabel")}</p>
             <strong className="focus-card-title">
-              {weeklyAnalytics.heading}
+              {translatedWeeklyAnalytics.heading}
             </strong>
           </div>
         </div>
         <dl className="focus-weekly-analytics">
-          {weeklyAnalytics.metrics.map((metric) => (
+          {translatedWeeklyAnalytics.metrics.map((metric) => (
             <div key={metric.id}>
               <dt>{metric.label}</dt>
               <dd>{metric.value}</dd>
@@ -179,8 +200,9 @@ function ActiveFocusSessionPanel({
   persistentFocus?: AppPersistentFocusContext;
   userId: string | null;
 }>) {
-  const sessionStatus = getFocusSessionStatus(activeSession);
-  const sessionDetails = getFocusSessionPanelDetails(activeSession);
+  const { t } = useAppTranslation();
+  const sessionStatus = getFocusSessionStatus(activeSession, t);
+  const sessionDetails = getFocusSessionPanelDetails(activeSession, t);
 
   async function handleEndFocusSession() {
     if (userId === null || activeSession === null) {
@@ -209,11 +231,14 @@ function ActiveFocusSessionPanel({
   }
 
   return (
-    <section aria-label="Active focus session" className="focus-session-panel">
+    <section
+      aria-label={t("focus.activeSession.legend")}
+      className="focus-session-panel"
+    >
       <div className="focus-session-panel__header">
         <div>
-          <p className="section-label">Active session</p>
-          <h4>Focus session</h4>
+          <p className="section-label">{t("focus.panel.activeLabel")}</p>
+          <h4>{t("focus.panel.session")}</h4>
         </div>
         <span className="focus-session-panel__status">
           {sessionStatus.label}
@@ -233,7 +258,7 @@ function ActiveFocusSessionPanel({
             }}
             type="button"
           >
-            End focus session
+            {t("focus.panel.endSession")}
           </button>
           {sessionStatus.actionLabel === null ? null : (
             <button
@@ -258,9 +283,11 @@ function FocusSessionStats({
 }: Readonly<{
   stats: readonly FocusSessionPanelStat[];
 }>) {
+  const { t } = useAppTranslation();
+
   return (
     <dl
-      aria-label="Current session details"
+      aria-label={t("focus.panel.currentDetails")}
       className="focus-session-panel__stats"
     >
       {stats.map((stat) => (
@@ -284,6 +311,7 @@ function FocusSessionConfig({
   persistentFocus?: AppPersistentFocusContext;
   userId: string | null;
 }>) {
+  const { t } = useAppTranslation();
   const [startValues, setStartValues] = useState<FocusSessionStartValues>(
     DEFAULT_FOCUS_SESSION_START_VALUES,
   );
@@ -291,8 +319,8 @@ function FocusSessionConfig({
   const errorId = useId();
   const isFocusSessionActive = activeSession !== null;
   const setupNote = isFocusSessionActive
-    ? "Changes apply to your next session. Setup is locked while focus is active."
-    : "Changes apply to your next session.";
+    ? t("focus.form.setupLocked")
+    : t("focus.form.setupNote");
 
   function updateStartValue(field: FocusSessionStartField, value: string) {
     setStartValues((currentValues) => ({
@@ -341,19 +369,19 @@ function FocusSessionConfig({
     <article className="focus-card focus-card--setup">
       <div className="focus-card__header">
         <div>
-          <p className="section-label">Session setup</p>
-          <strong className="focus-card-title">Session setup</strong>
+          <p className="section-label">{t("focus.form.setup")}</p>
+          <strong className="focus-card-title">{t("focus.form.setup")}</strong>
         </div>
       </div>
       <form
         aria-describedby={errorMessage === null ? undefined : errorId}
-        aria-label="Session setup"
+        aria-label={t("focus.form.setup")}
         className="focus-config-form"
         onSubmit={handleSubmit}
       >
         <div className="focus-config-form__fields">
           <label>
-            <span>Focus minutes</span>
+            <span>{t("focus.form.focusMinutes")}</span>
             <input
               disabled={isFocusSessionActive}
               inputMode="numeric"
@@ -366,7 +394,7 @@ function FocusSessionConfig({
             />
           </label>
           <label>
-            <span>Break minutes</span>
+            <span>{t("focus.form.breakMinutes")}</span>
             <input
               disabled={isFocusSessionActive}
               inputMode="numeric"
@@ -379,7 +407,7 @@ function FocusSessionConfig({
             />
           </label>
           <label>
-            <span>Planned intervals</span>
+            <span>{t("focus.form.plannedIntervals")}</span>
             <input
               disabled={isFocusSessionActive}
               inputMode="numeric"
@@ -399,7 +427,7 @@ function FocusSessionConfig({
             disabled={isFocusSessionActive}
             type="submit"
           >
-            Start focus session
+            {t("focus.form.startSession")}
           </button>
           <button
             className="notes-action"
@@ -407,7 +435,7 @@ function FocusSessionConfig({
             onClick={handleReset}
             type="button"
           >
-            Reset to defaults
+            {t("focus.form.reset")}
           </button>
         </div>
         {errorMessage === null ? null : (
@@ -422,25 +450,26 @@ function FocusSessionConfig({
 
 function getFocusSessionPanelDetails(
   session: FocusSession | null,
+  t: ReturnType<typeof useAppTranslation>["t"],
 ): FocusSessionPanelDetails {
   if (session === null) {
     return {
-      description: "Start a session from setup when you are ready.",
+      description: t("focus.panel.description.empty"),
       stats: [
         {
-          label: "Focus",
+          label: t("focus.panel.focus"),
           value: `${DEFAULT_FOCUS_MINUTES} min`,
         },
         {
-          label: "Break",
+          label: t("focus.panel.break"),
           value: `${DEFAULT_BREAK_MINUTES} min`,
         },
         {
-          label: "Intervals",
+          label: t("focus.panel.intervals"),
           value: DEFAULT_PLANNED_FOCUS_INTERVALS,
         },
         {
-          label: "Completed",
+          label: t("focus.panel.completed"),
           value: `0 / ${DEFAULT_PLANNED_FOCUS_INTERVALS}`,
         },
       ],
@@ -449,22 +478,22 @@ function getFocusSessionPanelDetails(
   }
 
   return {
-    description: getActiveTimerDescription(session),
+    description: getActiveTimerDescription(session, t),
     stats: [
       {
-        label: "Focus",
+        label: t("focus.panel.focus"),
         value: `${session.focusIntervalMinutes} min`,
       },
       {
-        label: "Break",
+        label: t("focus.panel.break"),
         value: `${session.breakIntervalMinutes} min`,
       },
       {
-        label: "Intervals",
-        value: getPlannedIntervalsLabel(session),
+        label: t("focus.panel.intervals"),
+        value: getPlannedIntervalsLabel(session, t),
       },
       {
-        label: "Completed",
+        label: t("focus.panel.completed"),
         value: getCompletedIntervalsLabel(session),
       },
     ],
@@ -472,18 +501,21 @@ function getFocusSessionPanelDetails(
   };
 }
 
-function getFocusSessionStatus(session: FocusSession | null) {
+function getFocusSessionStatus(
+  session: FocusSession | null,
+  t: ReturnType<typeof useAppTranslation>["t"],
+) {
   if (session === null) {
     return {
       actionLabel: null,
-      label: "Ready",
+      label: t("focus.status.ready"),
     };
   }
 
   if (session.isStale) {
     return {
       actionLabel: null,
-      label: "Session stale",
+      label: t("focus.status.stale"),
     };
   }
 
@@ -491,46 +523,52 @@ function getFocusSessionStatus(session: FocusSession | null) {
     case "Focus":
       return {
         actionLabel: null,
-        label: "In progress",
+        label: t("focus.status.inProgress"),
       };
     case "Transition":
       return {
-        actionLabel: "Keep focusing",
-        label: "Transition window",
+        actionLabel: t("focus.status.action.keepFocusing"),
+        label: t("focus.status.transition"),
       };
     case "Break":
       return {
-        actionLabel: "Skip break",
-        label: "Break",
+        actionLabel: t("focus.status.action.skipBreak"),
+        label: t("focus.status.break"),
       };
     case "AwaitingNextFocus":
       return {
-        actionLabel: "Start next focus",
-        label: "Ready for next focus",
+        actionLabel: t("focus.status.action.startNext"),
+        label: t("focus.status.awaitingNext"),
       };
   }
 }
 
-function getActiveTimerDescription(session: FocusSession) {
+function getActiveTimerDescription(
+  session: FocusSession,
+  t: ReturnType<typeof useAppTranslation>["t"],
+) {
   switch (session.intervalState) {
     case "Focus":
-      return "Focus time remaining";
+      return t("focus.panel.description.focus");
     case "Transition":
-      return "Time left to keep focusing before break starts";
+      return t("focus.panel.description.transition");
     case "Break":
-      return "Break time remaining";
+      return t("focus.panel.description.break");
     case "AwaitingNextFocus":
       if (session.isStale) {
-        return "This session is stale and should be ended.";
+        return t("focus.panel.description.stale");
       }
 
-      return "Break complete. Start the next focus interval when ready.";
+      return t("focus.panel.description.awaitingNext");
   }
 }
 
-function getPlannedIntervalsLabel(session: FocusSession) {
+function getPlannedIntervalsLabel(
+  session: FocusSession,
+  t: ReturnType<typeof useAppTranslation>["t"],
+) {
   if (session.plannedFocusIntervalCount === null) {
-    return "Open";
+    return t("focus.panel.open");
   }
 
   return String(session.plannedFocusIntervalCount);

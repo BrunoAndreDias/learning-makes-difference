@@ -239,6 +239,65 @@ afterEach(() => {
 });
 
 describe("authenticated recall workspace", () => {
+  it("translates Recall chrome while preserving historical session data", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const note = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "Stored mitochondria answer.",
+      title: "Stored mitochondria prompt",
+    });
+
+    completeMultiQuestionRecall({
+      questions: [
+        {
+          noteId: note.id,
+          rating: "good",
+          typedAnswer: "Learner answer stays literal.",
+        },
+      ],
+      recallContext: contexts.recallContext,
+      timestamp: "2026-04-05T09:00:00.000Z",
+    });
+
+    renderRoute("/recall", {
+      ...contexts,
+      session: {
+        user: {
+          ...testUser,
+          userLanguage: "es",
+        },
+      },
+    });
+
+    const results = await screen.findByRole("region", {
+      name: "Resultados de repaso",
+    });
+    expect(
+      within(results).getByRole("link", { name: "Iniciar repaso" }),
+    ).toHaveAttribute("href", "/recall/select");
+    expect(screen.getByLabelText("Buscar resultados")).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Resultado seleccionado" }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getAllByText("Stored mitochondria prompt").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText("Indicacion de mitocondrias guardada"),
+    ).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Stored mitochondria prompt/i }),
+    );
+
+    expect(screen.getByText("Tu respuesta")).toBeInTheDocument();
+    expect(screen.getByText("Nota de referencia")).toBeInTheDocument();
+    expect(
+      screen.getByText("Learner answer stays literal."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Stored mitochondria answer.")).toBeInTheDocument();
+  });
+
   it("restores an active recall session from the persistent recall service on route entry", async () => {
     const persistentRecallContext = createPersistentRecallContext({
       service: createPersistentRecallService({
