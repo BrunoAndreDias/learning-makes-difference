@@ -72,6 +72,86 @@ describe("authenticated app shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("translates Portuguese notes chrome without changing authored note data", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-labels-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (ownerId) =>
+        labelsContext.getLabelsForUser(ownerId).map((label) => label.id),
+      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-portuguese-notes";
+
+    labelsContext.createLabel({
+      name: "Organic Chemistry",
+      userId,
+    });
+    notesContext.createNote(userId, {
+      acronyms: [
+        {
+          description: "SN1 stays exactly as written",
+        },
+      ],
+      body: "Cyclohexane chair flips stay in English.",
+      labelIds: [],
+      metaphors: [
+        {
+          description: "A conformer is like a folding chair",
+        },
+      ],
+      title: "Chair conformations",
+    });
+
+    renderRoute("/notes", {
+      labelsContext,
+      notesContext,
+      session: {
+        user: {
+          displayName: "Joana Notes",
+          email: "joana.notes@example.com",
+          id: userId,
+          userLanguage: "pt-PT",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Notas" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Nova nota" }),
+    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Pesquisar notas")).toBeInTheDocument();
+    expect(screen.getByLabelText("Titulo")).toHaveDisplayValue(
+      "Chair conformations",
+    );
+    const hideCatalogButton = screen.getByRole("button", {
+      name: "Ocultar catalogo de notas",
+    });
+    expect(hideCatalogButton).toHaveTextContent("Focar escrita");
+
+    fireEvent.click(hideCatalogButton);
+
+    expect(
+      screen.getByRole("button", { name: "Mostrar catalogo de notas" }),
+    ).toHaveTextContent("Mostrar lista (1)");
+    expect(
+      screen.getByDisplayValue("Cyclohexane chair flips stay in English."),
+    ).toBeInTheDocument();
+
+    expect(listNotesForUser(notesContext.getSnapshot(), userId)).toMatchObject([
+      {
+        acronyms: [{ description: "SN1 stays exactly as written" }],
+        body: "Cyclohexane chair flips stay in English.",
+        metaphors: [{ description: "A conformer is like a folding chair" }],
+        title: "Chair conformations",
+      },
+    ]);
+  });
+
   it("keeps the notes header Focus action primary and second beside recall entry", async () => {
     renderRoute("/notes");
 

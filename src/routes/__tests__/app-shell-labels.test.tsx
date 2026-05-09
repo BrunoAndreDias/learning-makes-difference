@@ -212,6 +212,82 @@ describe("authenticated app shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("translates Spanish labels chrome without changing authored label names", async () => {
+    const { labelsContext, notesContext, userId } = createLabelsRouteContexts(
+      "spanish-labels-chrome",
+    );
+
+    labelsContext.createLabel({
+      name: "Organic Chemistry",
+      userId,
+    });
+    labelsContext.createLabel({
+      name: "Stoichiometry",
+      userId,
+    });
+
+    renderRoute("/labels", {
+      labelsContext,
+      notesContext,
+      session: {
+        user: {
+          displayName: "Sofia Labels",
+          email: "sofia.labels@example.com",
+          id: userId,
+          userLanguage: "es",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Etiquetas" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Organiza notas con temas reutilizables."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Nueva etiqueta" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("Buscar etiquetas..."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Filtrar etiquetas")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Organic Chemistry" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Stoichiometry" }),
+    ).toBeInTheDocument();
+    expect(
+      labelsContext.getLabelsForUser(userId).map((label) => label.name),
+    ).toEqual(["Organic Chemistry", "Stoichiometry"]);
+
+    const labelsTable = screen.getByRole("table", {
+      name: "Lista de etiquetas",
+    });
+    const organicChemistryRow = getLabelRow(labelsTable, "Organic Chemistry");
+
+    fireEvent.click(
+      within(organicChemistryRow).getByRole("button", {
+        name: "Acciones de fila para Organic Chemistry",
+      }),
+    );
+
+    const rowMenu = await screen.findByRole("menu", {
+      name: "Acciones de fila para Organic Chemistry",
+    });
+
+    expect(
+      within(rowMenu).getByRole("menuitem", { name: "Editar etiqueta" }),
+    ).toBeInTheDocument();
+    expect(
+      within(rowMenu).getByRole("menuitem", { name: "Duplicar" }),
+    ).toBeInTheDocument();
+    expect(
+      within(rowMenu).getByRole("menuitem", { name: "Eliminar etiqueta" }),
+    ).toBeInTheDocument();
+  });
+
   it("keeps the labels search icon from overlapping placeholder text", () => {
     const css = readFileSync(
       join(process.cwd(), "src/modules/labels/labels.css"),
