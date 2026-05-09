@@ -24,6 +24,14 @@ export type CreateStudyNoteInput = {
   sourceTitle: string;
 };
 
+export type CreateStudyNoteFromSourceInput = {
+  sourceNoteId: string;
+};
+
+export type DeleteStudyNoteInput = {
+  deleteSource: boolean;
+};
+
 export type UpdateStudyNoteInput = {
   expectedAnswer: string;
   prompt: string;
@@ -64,6 +72,15 @@ export type AppStudyNotesContext = {
     userId: string | null,
     input: CreateStudyNoteInput,
   ) => AppStudyNote;
+  createStudyNoteFromSource: (
+    userId: string | null,
+    input: CreateStudyNoteFromSourceInput,
+  ) => AppStudyNote;
+  deleteStudyNote: (
+    userId: string | null,
+    studyNoteId: string,
+    input: DeleteStudyNoteInput,
+  ) => void;
   getSnapshot: () => readonly AppStoredStudyNote[];
   subscribe: (listener: StudyNotesListener) => () => void;
   updateStudyNote: (
@@ -249,6 +266,71 @@ export function createAppStudyNotesContext(
 
       return toPublicStudyNote(studyNote);
     },
+    createStudyNoteFromSource(userId, input) {
+      const validatedUserId = validateUserId(userId);
+      const sourceStudyNote = snapshot.find(
+        (studyNote) =>
+          studyNote.sourceNoteId === input.sourceNoteId &&
+          studyNote.userId === validatedUserId,
+      );
+
+      if (sourceStudyNote === undefined) {
+        throw new AppStudyNotesError(
+          "not_found",
+          "The requested source Note could not be found for this account.",
+        );
+      }
+
+      const timestamp = new Date().toISOString();
+      const studyNote: AppStoredStudyNote = {
+        createdAt: timestamp,
+        expectedAnswer: sourceStudyNote.source.body,
+        id: cryptoProvider.randomUUID(),
+        prompt: sourceStudyNote.source.title,
+        source: { ...sourceStudyNote.source },
+        sourceNoteId: sourceStudyNote.sourceNoteId,
+        updatedAt: timestamp,
+        userId: validatedUserId,
+      };
+
+      writeSnapshot([studyNote, ...snapshot]);
+
+      return toPublicStudyNote(studyNote);
+    },
+    deleteStudyNote(userId, studyNoteId, input) {
+      const validatedUserId = validateUserId(userId);
+      const existingStudyNote = snapshot.find(
+        (studyNote) => studyNote.id === studyNoteId,
+      );
+
+      if (
+        existingStudyNote === undefined ||
+        existingStudyNote.userId !== validatedUserId
+      ) {
+        throw new AppStudyNotesError(
+          "not_found",
+          "The requested Study Note could not be found for this account.",
+        );
+      }
+
+      const siblingStudyNotes = snapshot.filter(
+        (studyNote) =>
+          studyNote.userId === validatedUserId &&
+          studyNote.sourceNoteId === existingStudyNote.sourceNoteId &&
+          studyNote.id !== existingStudyNote.id,
+      );
+
+      if (siblingStudyNotes.length === 0 && !input.deleteSource) {
+        throw new AppStudyNotesError(
+          "invalid_input",
+          "Deleting the last Study Note for a source Note requires deleting the source too.",
+        );
+      }
+
+      writeSnapshot(
+        snapshot.filter((studyNote) => studyNote.id !== existingStudyNote.id),
+      );
+    },
     getSnapshot() {
       return snapshot;
     },
@@ -276,22 +358,32 @@ export function createAppStudyNotesContext(
       }
 
       const timestamp = new Date().toISOString();
+      const updatedSource = {
+        ...existingStudyNote.source,
+        body: validateOptionalText(input.sourceBody),
+        title: validateRequiredText(input.sourceTitle, "Source title"),
+        updatedAt: timestamp,
+      };
       const updatedStudyNote: AppStoredStudyNote = {
         ...existingStudyNote,
         expectedAnswer: validateOptionalText(input.expectedAnswer),
         prompt: validateRequiredText(input.prompt, "Prompt"),
-        source: {
-          ...existingStudyNote.source,
-          body: validateOptionalText(input.sourceBody),
-          title: validateRequiredText(input.sourceTitle, "Source title"),
-          updatedAt: timestamp,
-        },
+        source: updatedSource,
         updatedAt: timestamp,
       };
 
       writeSnapshot([
         updatedStudyNote,
-        ...snapshot.filter((studyNote) => studyNote.id !== studyNoteId),
+        ...snapshot
+          .filter((studyNote) => studyNote.id !== studyNoteId)
+          .map((studyNote) =>
+            studyNote.sourceNoteId === existingStudyNote.sourceNoteId
+              ? {
+                  ...studyNote,
+                  source: updatedSource,
+                }
+              : studyNote,
+          ),
       ]);
 
       return toPublicStudyNote(updatedStudyNote);

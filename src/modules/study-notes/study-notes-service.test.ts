@@ -166,4 +166,85 @@ describe("createStudyNotesService", () => {
       },
     ]);
   });
+
+  it("creates shared-source Study Notes and deletes the source only after last-link confirmation", async () => {
+    const client = new PGlite();
+    databases.add(client);
+    const db = drizzle(client, {
+      schema: {
+        ...authSchema,
+        ...notesSchema,
+        ...studyNotesSchema,
+      },
+    });
+    await migrateDatabase(db, client);
+    await db.insert(usersTable).values({
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      id: "user-casey",
+      passwordHash: "hash",
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+      userLanguage: "en",
+    });
+    const studyNotes = createStudyNotesService({
+      crypto: createDeterministicCrypto(),
+      db,
+      now: () => new Date("2026-05-02T12:00:00.000Z"),
+    });
+    const firstStudyNote = await studyNotes.createStudyNote({
+      input: {
+        sourceBody: "Shared source body.",
+        sourceTitle: "Shared source",
+      },
+      userId: "user-casey",
+    });
+    const secondStudyNote = await studyNotes.createStudyNoteFromSource({
+      input: {
+        sourceNoteId: firstStudyNote.sourceNoteId,
+      },
+      userId: "user-casey",
+    });
+
+    expect(secondStudyNote).toMatchObject({
+      expectedAnswer: "Shared source body.",
+      prompt: "Shared source",
+      sourceNoteId: firstStudyNote.sourceNoteId,
+    });
+
+    await studyNotes.deleteStudyNote({
+      input: {
+        deleteSource: false,
+        studyNoteId: secondStudyNote.id,
+      },
+      userId: "user-casey",
+    });
+
+    await expect(
+      studyNotes.deleteStudyNote({
+        input: {
+          deleteSource: false,
+          studyNoteId: firstStudyNote.id,
+        },
+        userId: "user-casey",
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_input",
+    });
+
+    await studyNotes.deleteStudyNote({
+      input: {
+        deleteSource: true,
+        studyNoteId: firstStudyNote.id,
+      },
+      userId: "user-casey",
+    });
+
+    await expect(
+      Promise.all([
+        studyNotes.listStudyNotes({ userId: "user-casey" }),
+        db.select().from(notesTable),
+      ]),
+    ).resolves.toEqual([[], []]);
+  });
 });
