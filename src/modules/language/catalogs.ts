@@ -1149,14 +1149,22 @@ const spanishTranslations = {
   "shell.workspace.studyNotesPrototype": "Prototipo de notas de estudio",
 } satisfies TranslationCatalog;
 
+// Catalogs are keyed by stable User Language codes. Add new app chrome keys to
+// English first, then keep every supported catalog on the same key set.
+export const userLanguageCatalogs = {
+  en: englishTranslations,
+  "pt-PT": portugueseTranslations,
+  es: spanishTranslations,
+} satisfies Record<string, TranslationCatalog>;
+
 export const userLanguageResources = {
   en: {
-    translation: englishTranslations,
+    translation: userLanguageCatalogs.en,
   },
   "pt-PT": {
-    translation: portugueseTranslations,
+    translation: userLanguageCatalogs["pt-PT"],
   },
   es: {
-    translation: spanishTranslations,
+    translation: userLanguageCatalogs.es,
   },
 } satisfies Resource;

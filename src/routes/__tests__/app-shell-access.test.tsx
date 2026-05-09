@@ -11,9 +11,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAppSessionContext } from "../../modules/access/session/session";
 import {
   createAppNotesContext,
+  createLearningLoopTestContexts,
   createRouteTestSessionContext,
   createRouteTestSessionStore,
   createSessionCookieJar,
+  listNotesForUser,
   openAccountMenu,
   renderRoute,
   TEST_PILOT_REGISTRATION_CODE,
@@ -289,6 +291,113 @@ describe("authenticated app shell", () => {
       });
     } finally {
       dateTimeFormatSpy.mockRestore();
+    }
+  });
+
+  it("changes User Language without mutating Persistent Study Data", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const sessionContext = createRouteTestSessionContext();
+      const { focusContext, labelsContext, notesContext, recallContext } =
+        createLearningLoopTestContexts({
+          shuffleNotes: (sessionNotes) => [...sessionNotes],
+        });
+
+      await sessionContext.register({
+        displayName: "Casey Language",
+        email: "casey.language@example.com",
+        password: "correct horse battery staple",
+        pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
+        userLanguage: "en",
+      });
+      const userId = sessionContext.getSnapshot().user?.id;
+
+      if (userId === undefined) {
+        throw new Error("Expected registered test user.");
+      }
+
+      const label = labelsContext.createLabel({
+        name: "Organic Chemistry",
+        userId,
+      });
+      const note = notesContext.createNote(userId, {
+        acronyms: [{ description: "SN1 stays exactly as written" }],
+        body: "Cyclohexane chair flips stay in English.",
+        labelIds: [label.id],
+        metaphors: [{ description: "A conformer is like a folding chair" }],
+        title: "Chair conformations",
+      });
+
+      vi.setSystemTime(new Date("2026-05-06T09:00:00.000Z"));
+      const recallSession = recallContext.startFlashCardSession({
+        noteIds: [note.id],
+        userId,
+      });
+      recallContext.revealFlashCardAnswer({
+        sessionId: recallSession.id,
+        userId,
+      });
+      recallContext.rateFlashCardAnswer({
+        rating: "good",
+        sessionId: recallSession.id,
+        userId,
+      });
+
+      vi.setSystemTime(new Date("2026-05-06T10:00:00.000Z"));
+      focusContext.startFocusSession({
+        focusIntervalMinutes: 25,
+        userId,
+      });
+      focusContext.captureNoteStudyActivity({
+        labels: labelsContext.getLabelsForUser(userId),
+        note,
+        userId,
+      });
+      vi.setSystemTime(new Date("2026-05-06T10:25:00.000Z"));
+      focusContext.endFocusSession({ userId });
+      vi.useRealTimers();
+
+      const notesBefore = listNotesForUser(notesContext.getSnapshot(), userId);
+      const labelsBefore = labelsContext.getLabelsForUser(userId);
+      const sessionResultsBefore = recallContext.listSessionResults({ userId });
+      const focusRecordsBefore = focusContext.getFocusRecords({ userId });
+
+      renderRoute("/settings", {
+        focusContext,
+        labelsContext,
+        notesContext,
+        recallContext,
+        sessionContext,
+      });
+
+      expect(
+        await screen.findByRole("heading", { name: "Settings" }),
+      ).toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText("Language"), {
+        target: { value: "es" },
+      });
+      fireEvent.submit(
+        screen.getByRole("form", { name: "Account preferences form" }),
+      );
+
+      await waitFor(() => {
+        expect(sessionContext.getSnapshot().user?.userLanguage).toBe("es");
+      });
+
+      expect(listNotesForUser(notesContext.getSnapshot(), userId)).toEqual(
+        notesBefore,
+      );
+      expect(labelsContext.getLabelsForUser(userId)).toEqual(labelsBefore);
+      expect(recallContext.listSessionResults({ userId })).toEqual(
+        sessionResultsBefore,
+      );
+      expect(focusContext.getFocusRecords({ userId })).toEqual(
+        focusRecordsBefore,
+      );
+    } finally {
+      vi.useRealTimers();
     }
   });
 

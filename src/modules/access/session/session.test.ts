@@ -118,6 +118,38 @@ describe("app session context", () => {
     });
   });
 
+  it("falls back to English when a persisted User Language is unsupported", async () => {
+    const store = createMemorySessionStore();
+    const session = createAppSessionContext({
+      service: createMemorySessionService({
+        pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
+        store,
+      }),
+    });
+
+    await session.register({
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      password: "correct horse battery staple",
+      pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
+      userLanguage: "es",
+    });
+    store.users[0] = {
+      ...store.users[0],
+      userLanguage: "fr-FR" as never,
+    };
+
+    await session.logout();
+    await session.login({
+      email: "casey@example.com",
+      password: "correct horse battery staple",
+    });
+
+    expect(session.getSnapshot().user).toMatchObject({
+      userLanguage: "en",
+    });
+  });
+
   it("restores the active user from an opaque persisted session and clears it on sign-out", async () => {
     const store = createMemorySessionStore();
     const cookie = createMemoryCookieStore();
