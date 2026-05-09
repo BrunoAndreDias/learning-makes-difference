@@ -5,10 +5,20 @@ export type AppStudyNoteSource = {
   updatedAt: string;
 };
 
+export type AppStudyNoteMetaphor = {
+  description: string;
+};
+
+export type AppStudyNoteAcronym = {
+  description: string;
+};
+
 export type AppStudyNote = {
+  acronyms: AppStudyNoteAcronym[];
   createdAt: string;
   expectedAnswer: string;
   id: string;
+  metaphors: AppStudyNoteMetaphor[];
   prompt: string;
   source: AppStudyNoteSource;
   sourceNoteId: string;
@@ -20,12 +30,16 @@ export type AppStoredStudyNote = AppStudyNote & {
 };
 
 export type CreateStudyNoteInput = {
+  acronyms?: AppStudyNoteAcronym[];
+  metaphors?: AppStudyNoteMetaphor[];
   sourceBody: string;
   sourceTitle: string;
 };
 
 export type UpdateStudyNoteInput = {
+  acronyms: AppStudyNoteAcronym[];
   expectedAnswer: string;
+  metaphors: AppStudyNoteMetaphor[];
   prompt: string;
   sourceBody: string;
   sourceTitle: string;
@@ -114,11 +128,47 @@ function validateOptionalText(value: string): string {
   return value.trim();
 }
 
+function validateHookCount(hooks: readonly unknown[], label: string) {
+  if (hooks.length <= 1) {
+    return;
+  }
+
+  throw new AppStudyNotesError(
+    "invalid_input",
+    `Only one ${label.toLowerCase()} can be saved per Study Note.`,
+  );
+}
+
+function validateHooks(
+  hooks: readonly { description: string }[] | undefined,
+  label: string,
+) {
+  const safeHooks = hooks ?? [];
+  validateHookCount(safeHooks, label);
+
+  return safeHooks.map((hook) => {
+    const description = hook.description.trim();
+
+    if (description.length === 0) {
+      throw new AppStudyNotesError(
+        "invalid_input",
+        `${label} description is required.`,
+      );
+    }
+
+    return {
+      description,
+    };
+  });
+}
+
 function toPublicStudyNote(note: AppStoredStudyNote): AppStudyNote {
   return {
+    acronyms: note.acronyms.map((acronym) => ({ ...acronym })),
     createdAt: note.createdAt,
     expectedAnswer: note.expectedAnswer,
     id: note.id,
+    metaphors: note.metaphors.map((metaphor) => ({ ...metaphor })),
     prompt: note.prompt,
     source: { ...note.source },
     sourceNoteId: note.sourceNoteId,
@@ -148,12 +198,22 @@ function isStoredStudyNoteSource(value: unknown): value is AppStudyNoteSource {
   );
 }
 
+function isStoredMemoryHook(value: unknown): value is { description: string } {
+  return isObjectRecord(value) && typeof value.description === "string";
+}
+
 function isStoredStudyNote(value: unknown): value is AppStoredStudyNote {
   return (
     isObjectRecord(value) &&
+    (value.acronyms === undefined ||
+      (Array.isArray(value.acronyms) &&
+        value.acronyms.every(isStoredMemoryHook))) &&
     typeof value.createdAt === "string" &&
     typeof value.expectedAnswer === "string" &&
     typeof value.id === "string" &&
+    (value.metaphors === undefined ||
+      (Array.isArray(value.metaphors) &&
+        value.metaphors.every(isStoredMemoryHook))) &&
     typeof value.prompt === "string" &&
     typeof value.sourceNoteId === "string" &&
     typeof value.updatedAt === "string" &&
@@ -174,7 +234,11 @@ function parseStoredStudyNotes(value: string | null): AppStoredStudyNote[] {
       return [];
     }
 
-    return parsedValue.filter(isStoredStudyNote);
+    return parsedValue.filter(isStoredStudyNote).map((studyNote) => ({
+      ...studyNote,
+      acronyms: Array.isArray(studyNote.acronyms) ? studyNote.acronyms : [],
+      metaphors: Array.isArray(studyNote.metaphors) ? studyNote.metaphors : [],
+    }));
   } catch {
     return [];
   }
@@ -228,11 +292,15 @@ export function createAppStudyNotesContext(
         "Source title",
       );
       const sourceBody = validateOptionalText(input.sourceBody);
+      const metaphors = validateHooks(input.metaphors, "Metaphor");
+      const acronyms = validateHooks(input.acronyms, "Acronym");
       const sourceNoteId = cryptoProvider.randomUUID();
       const studyNote: AppStoredStudyNote = {
+        acronyms,
         createdAt: timestamp,
         expectedAnswer: sourceBody,
         id: cryptoProvider.randomUUID(),
+        metaphors,
         prompt: sourceTitle,
         source: {
           body: sourceBody,
@@ -278,7 +346,9 @@ export function createAppStudyNotesContext(
       const timestamp = new Date().toISOString();
       const updatedStudyNote: AppStoredStudyNote = {
         ...existingStudyNote,
+        acronyms: validateHooks(input.acronyms, "Acronym"),
         expectedAnswer: validateOptionalText(input.expectedAnswer),
+        metaphors: validateHooks(input.metaphors, "Metaphor"),
         prompt: validateRequiredText(input.prompt, "Prompt"),
         source: {
           ...existingStudyNote.source,

@@ -74,7 +74,9 @@ describe("app study notes context", () => {
       "user-casey",
       createdStudyNote.id,
       {
+        acronyms: [],
         expectedAnswer: "It binds context for recall.",
+        metaphors: [],
         prompt: "What does the hippocampus support?",
         sourceBody: "The hippocampus helps bind memory context and navigation.",
         sourceTitle: "Hippocampus source",
@@ -103,7 +105,9 @@ describe("app study notes context", () => {
 
     expect(() =>
       studyNotes.updateStudyNote("user-jordan", createdStudyNote.id, {
+        acronyms: [],
         expectedAnswer: "Cross-account answer.",
+        metaphors: [],
         prompt: "Cross-account prompt",
         sourceBody: "Cross-account source.",
         sourceTitle: "Cross-account source",

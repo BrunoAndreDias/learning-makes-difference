@@ -15,6 +15,8 @@ describe("authenticated Study Notes workspace", () => {
     const userId = "user-jordan";
 
     studyNotesContext.createStudyNote(userId, {
+      acronyms: [{ description: "RP means Retrieval Practice." }],
+      metaphors: [{ description: "A trail gets clearer with each walk." }],
       sourceBody: "Testing retrieval strengthens durable recall.",
       sourceTitle: "Retrieval practice",
     });
@@ -48,6 +50,12 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.getByLabelText("Prompt")).toHaveValue("Retrieval practice");
     expect(screen.getByLabelText("Expected answer")).toHaveValue(
       "Testing retrieval strengthens durable recall.",
+    );
+    expect(screen.getByLabelText("Metaphor")).toHaveValue(
+      "A trail gets clearer with each walk.",
+    );
+    expect(screen.getByLabelText("Acronym")).toHaveValue(
+      "RP means Retrieval Practice.",
     );
     expect(screen.getByLabelText("Source title")).toHaveValue(
       "Retrieval practice",
@@ -85,6 +93,12 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.change(screen.getByLabelText("Expected answer"), {
       target: { value: "Recall before reading." },
     });
+    fireEvent.change(screen.getByLabelText("Metaphor"), {
+      target: { value: "A spotlight on the exact recall target." },
+    });
+    fireEvent.change(screen.getByLabelText("Acronym"), {
+      target: { value: "RBR means Recall Before Reading." },
+    });
     fireEvent.change(screen.getByLabelText("Source title"), {
       target: { value: "Edited source title" },
     });
@@ -99,6 +113,12 @@ describe("authenticated Study Notes workspace", () => {
     );
     expect(screen.getByLabelText("Expected answer")).toHaveValue(
       "Recall before reading.",
+    );
+    expect(screen.getByLabelText("Metaphor")).toHaveValue(
+      "A spotlight on the exact recall target.",
+    );
+    expect(screen.getByLabelText("Acronym")).toHaveValue(
+      "RBR means Recall Before Reading.",
     );
     expect(screen.getByLabelText("Source title")).toHaveValue(
       "Edited source title",

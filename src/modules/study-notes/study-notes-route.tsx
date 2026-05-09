@@ -29,7 +29,9 @@ export const Route = createFileRoute("/_protected/study-notes")({
 
 function createBlankDraft(): UpdateStudyNoteInput {
   return {
+    acronyms: [],
     expectedAnswer: "",
+    metaphors: [],
     prompt: "",
     sourceBody: "",
     sourceTitle: "",
@@ -44,7 +46,9 @@ function createDraftFromStudyNote(
   }
 
   return {
+    acronyms: studyNote.acronyms.map((acronym) => ({ ...acronym })),
     expectedAnswer: studyNote.expectedAnswer,
+    metaphors: studyNote.metaphors.map((metaphor) => ({ ...metaphor })),
     prompt: studyNote.prompt,
     sourceBody: studyNote.source.body,
     sourceTitle: studyNote.source.title,
@@ -285,6 +289,52 @@ function StudyNotesWorkspace() {
                   value={draft.expectedAnswer}
                 />
               </label>
+
+              <section
+                aria-label="Memory hooks"
+                className="study-notes-editor__memory-hooks"
+              >
+                <div>
+                  <p className="section-label">Memory hooks</p>
+                  <h2>Memory hooks</h2>
+                </div>
+                <label className="notes-form__field">
+                  <span>Metaphor</span>
+                  <textarea
+                    aria-label="Metaphor"
+                    onChange={(event) => {
+                      const description = event.target.value;
+                      setDraft((current) => ({
+                        ...current,
+                        metaphors:
+                          description.trim().length === 0
+                            ? []
+                            : [{ description }],
+                      }));
+                    }}
+                    rows={3}
+                    value={draft.metaphors[0]?.description ?? ""}
+                  />
+                </label>
+                <label className="notes-form__field">
+                  <span>Acronym</span>
+                  <textarea
+                    aria-label="Acronym"
+                    onChange={(event) => {
+                      const description = event.target.value;
+                      setDraft((current) => ({
+                        ...current,
+                        acronyms:
+                          description.trim().length === 0
+                            ? []
+                            : [{ description }],
+                      }));
+                    }}
+                    rows={3}
+                    value={draft.acronyms[0]?.description ?? ""}
+                  />
+                </label>
+              </section>
 
               <section
                 aria-label="Source Note"
