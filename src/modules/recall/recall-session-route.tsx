@@ -17,7 +17,11 @@ import {
 } from "../access/session/session";
 import { BreakIntervalOverlay, isBreakIntervalActive } from "../focus";
 import { useAppTranslation } from "../language";
-import { formatRecallModeLabel } from "./learner-copy";
+import {
+  formatRecallModeLabel,
+  getRecallRatingDescriptionTranslationKey,
+  getRecallRatingTranslationKey,
+} from "./learner-copy";
 import {
   AppRecallError,
   type AppRecallSnapshot,
@@ -27,32 +31,12 @@ import {
 } from "./recall";
 
 const recallSessionSavedMessageKey = "learning-makes-difference:recall-saved";
-const ratingOptions = [
-  {
-    description: "Could not recall it.",
-    label: "Forgot",
-    rating: "forgot",
-  },
-  {
-    description: "Recalled it with major effort.",
-    label: "Hard",
-    rating: "hard",
-  },
-  {
-    description: "Recalled the important parts.",
-    label: "Good",
-    rating: "good",
-  },
-  {
-    description: "Recalled it clearly.",
-    label: "Easy",
-    rating: "easy",
-  },
-] as const satisfies readonly {
-  description: string;
-  label: string;
-  rating: FlashCardRecallRating;
-}[];
+const recallRatingOptions = [
+  "forgot",
+  "hard",
+  "good",
+  "easy",
+] as const satisfies readonly FlashCardRecallRating[];
 
 export const Route = createFileRoute("/_protected/recall/session")({
   component: RecallSessionPage,
@@ -444,22 +428,22 @@ function RecallSessionPage() {
                   <div className="recall-card__footer recall-card__footer--ratings">
                     <fieldset className="recall-rating-row">
                       <legend>{t("recall.session.selfRating")}</legend>
-                      {ratingOptions.map((option) => (
+                      {recallRatingOptions.map((rating) => (
                         <button
-                          aria-label={t(`recall.rating.${option.rating}`)}
-                          aria-pressed={pendingRating === option.rating}
-                          className={`notes-action recall-rating recall-rating--${option.rating}`}
-                          data-selected={pendingRating === option.rating}
-                          key={option.rating}
-                          onClick={() => setPendingRating(option.rating)}
+                          aria-label={t(getRecallRatingTranslationKey(rating))}
+                          aria-pressed={pendingRating === rating}
+                          className={`notes-action recall-rating recall-rating--${rating}`}
+                          data-selected={pendingRating === rating}
+                          key={rating}
+                          onClick={() => setPendingRating(rating)}
                           type="button"
                         >
                           <span className="recall-rating__label">
-                            {t(`recall.rating.${option.rating}`)}
+                            {t(getRecallRatingTranslationKey(rating))}
                           </span>
                           <span className="recall-rating__description">
                             {t(
-                              `recall.session.rating.${option.rating}.description`,
+                              getRecallRatingDescriptionTranslationKey(rating),
                             )}
                           </span>
                         </button>
@@ -614,8 +598,6 @@ function SessionOverviewMetric({
   tone: SessionOverviewMetricTone;
   value: number;
 }) {
-  const { t } = useAppTranslation();
-
   return (
     <div className="recall-overview-metric">
       <span

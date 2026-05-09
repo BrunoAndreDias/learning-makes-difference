@@ -6,7 +6,10 @@ import { useResolvedProtectedSession } from "../access/session/use-resolved-prot
 import type { AppLabel } from "../labels/label-management/labels";
 import { useAppTranslation } from "../language";
 import { listNotesForUser } from "../notes";
-import { formatRecallModeLabel } from "./learner-copy";
+import {
+  getRecallModeTranslationKey,
+  getRecallRatingTranslationKey,
+} from "./learner-copy";
 import type {
   FlashCardSessionResult,
   RecallMode,
@@ -59,42 +62,8 @@ function formatResultTime(timestamp: string) {
   return resultTimeFormatter.format(resultDate);
 }
 
-function formatRatingLabel(rating: RecallSelfRating) {
-  switch (rating) {
-    case "forgot":
-      return "Forgot";
-    case "hard":
-      return "Hard";
-    case "good":
-      return "Good";
-    case "easy":
-      return "Easy";
-  }
-}
-
-function getRecallModeLabelKey(mode: RecallMode) {
-  switch (mode) {
-    case "FlashCard":
-      return "recall.mode.flashCard";
-    case "AiAssisted":
-      return "recall.mode.aiAssisted";
-    case "AiGraded":
-      return "recall.mode.aiGraded";
-  }
-}
-
 function formatResultScore(score: number | null) {
   return score === null ? "No score" : `${Math.round(score)}%`;
-}
-
-function formatResultMetricLabel(mode: RecallMode) {
-  switch (mode) {
-    case "FlashCard":
-      return "Session self rating";
-    case "AiAssisted":
-    case "AiGraded":
-      return "Score";
-  }
 }
 
 function getRatingTone(rating: RecallSelfRating | null) {
@@ -151,35 +120,6 @@ function getQuestionPrompt(question: RecallQuestion) {
   }
 
   return question.noteSnapshot.body;
-}
-
-function getQuestionAnswerText(question: RecallQuestion) {
-  const typedAnswer = question.typedAnswer ?? "";
-
-  if (typedAnswer.trim().length === 0) {
-    return "No typed answer recorded";
-  }
-
-  return typedAnswer;
-}
-
-function getQuestionSelfRatingLabel(rating: RecallSelfRating | null) {
-  if (rating === null) {
-    return "Not answered";
-  }
-
-  return formatRatingLabel(rating);
-}
-
-function getResultsCountLabel(results: readonly FlashCardSessionResult[]) {
-  if (results.length === 0) {
-    return "";
-  }
-
-  return `Showing 1-${results.length} of ${formatCount(
-    results.length,
-    "result",
-  )}`;
 }
 
 function getSelectedResultIdForResults(
@@ -542,7 +482,7 @@ function ResultsMasterPanel({
             <option value="all">{t("recall.filters.allModes")}</option>
             {recallModes.map((mode) => (
               <option key={mode} value={mode}>
-                {t(getRecallModeLabelKey(mode))}
+                {t(getRecallModeTranslationKey(mode))}
               </option>
             ))}
           </select>
@@ -623,7 +563,7 @@ function ResultsMasterPanelContent({
                 className="recall-mode-pill"
                 data-mode-tone={getModeTone(result.mode)}
               >
-                {t(getRecallModeLabelKey(result.mode))}
+                {t(getRecallModeTranslationKey(result.mode))}
               </span>
             </button>
           </li>
@@ -784,7 +724,7 @@ function SelectedResultDetail({
             data-mode-tone={getModeTone(result.mode)}
           >
             <SparklesIcon />
-            {t(getRecallModeLabelKey(result.mode))}
+            {t(getRecallModeTranslationKey(result.mode))}
           </span>
         </div>
         <div className="recall-selected-result__stat">
@@ -897,7 +837,7 @@ function QuestionReviewRow({
   const ratingLabel =
     question.selfRating === null
       ? t("recall.result.notAnswered")
-      : t(`recall.rating.${question.selfRating}`);
+      : t(getRecallRatingTranslationKey(question.selfRating));
   const ratingTone = getRatingTone(question.selfRating);
 
   function handleToggleQuestion() {

@@ -8,7 +8,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
-import { useAppTranslation } from "../language";
+import { type AppTranslationKey, useAppTranslation } from "../language";
 import { listNotesForUser } from "../notes";
 import {
   type AppFocusContext,
@@ -16,8 +16,14 @@ import {
   type FocusSession,
 } from "./focus";
 import { useFocusTimerTick } from "./focus-session-start-control";
-import { deriveFocusWeeklyAnalytics } from "./focus-weekly-analytics";
+import {
+  deriveFocusWeeklyAnalytics,
+  type FocusWeeklyAnalytics,
+  type FocusWeeklyAnalyticsMetric,
+} from "./focus-weekly-analytics";
 import type { AppPersistentFocusContext } from "./persistent-focus";
+
+type AppTranslate = ReturnType<typeof useAppTranslation>["t"];
 
 type FocusSessionStartValues = {
   breakMinutes: string;
@@ -52,6 +58,8 @@ const DEFAULT_FOCUS_SESSION_START_VALUES: FocusSessionStartValues = {
   focusMinutes: DEFAULT_FOCUS_MINUTES,
   plannedFocusIntervals: DEFAULT_PLANNED_FOCUS_INTERVALS,
 };
+const focusAnalyticsComparisonSuffix = " vs last week";
+const focusAnalyticsNoChangeComparison = `No change${focusAnalyticsComparisonSuffix}`;
 const focusAnalyticsMetricLabelKeys = {
   "average-session-length": "focus.analytics.averageSessionLength",
   "completed-sessions": "focus.analytics.completedSessions",
@@ -59,7 +67,10 @@ const focusAnalyticsMetricLabelKeys = {
   "notes-created": "focus.analytics.notesCreated",
   "notes-touched": "focus.analytics.notesTouched",
   "recall-answered": "focus.analytics.recallAnswered",
-} as const;
+} as const satisfies Record<
+  FocusWeeklyAnalyticsMetric["id"],
+  AppTranslationKey
+>;
 
 export const Route = createFileRoute("/_protected/focus")({
   component: FocusPage,
@@ -117,19 +128,10 @@ function FocusPage() {
     now: new Date(),
     sessionResults,
   });
-  const translatedWeeklyAnalytics = {
-    heading: t("focus.analytics.heading"),
-    metrics: weeklyAnalytics.metrics.map((metric) => ({
-      ...metric,
-      comparisonLabel:
-        metric.comparisonLabel === "No change vs last week"
-          ? t("focus.analytics.noChange")
-          : t("focus.analytics.vsLastWeek", {
-              value: metric.comparisonLabel.replace(" vs last week", ""),
-            }),
-      label: t(focusAnalyticsMetricLabelKeys[metric.id]),
-    })),
-  };
+  const translatedWeeklyAnalytics = translateFocusWeeklyAnalytics(
+    weeklyAnalytics,
+    t,
+  );
   useEffect(() => {
     headingRef.current?.focus();
   }, []);
@@ -450,7 +452,7 @@ function FocusSessionConfig({
 
 function getFocusSessionPanelDetails(
   session: FocusSession | null,
-  t: ReturnType<typeof useAppTranslation>["t"],
+  t: AppTranslate,
 ): FocusSessionPanelDetails {
   if (session === null) {
     return {
@@ -501,10 +503,7 @@ function getFocusSessionPanelDetails(
   };
 }
 
-function getFocusSessionStatus(
-  session: FocusSession | null,
-  t: ReturnType<typeof useAppTranslation>["t"],
-) {
+function getFocusSessionStatus(session: FocusSession | null, t: AppTranslate) {
   if (session === null) {
     return {
       actionLabel: null,
@@ -543,10 +542,7 @@ function getFocusSessionStatus(
   }
 }
 
-function getActiveTimerDescription(
-  session: FocusSession,
-  t: ReturnType<typeof useAppTranslation>["t"],
-) {
+function getActiveTimerDescription(session: FocusSession, t: AppTranslate) {
   switch (session.intervalState) {
     case "Focus":
       return t("focus.panel.description.focus");
@@ -563,10 +559,7 @@ function getActiveTimerDescription(
   }
 }
 
-function getPlannedIntervalsLabel(
-  session: FocusSession,
-  t: ReturnType<typeof useAppTranslation>["t"],
-) {
+function getPlannedIntervalsLabel(session: FocusSession, t: AppTranslate) {
   if (session.plannedFocusIntervalCount === null) {
     return t("focus.panel.open");
   }
@@ -580,6 +573,36 @@ function getCompletedIntervalsLabel(session: FocusSession) {
   }
 
   return `${session.completedFocusIntervalCount} / ${session.plannedFocusIntervalCount}`;
+}
+
+function translateFocusWeeklyAnalytics(
+  weeklyAnalytics: FocusWeeklyAnalytics,
+  t: AppTranslate,
+): FocusWeeklyAnalytics {
+  return {
+    heading: t("focus.analytics.heading"),
+    metrics: weeklyAnalytics.metrics.map((metric) => ({
+      ...metric,
+      comparisonLabel: translateFocusAnalyticsComparisonLabel(
+        metric.comparisonLabel,
+        t,
+      ),
+      label: t(focusAnalyticsMetricLabelKeys[metric.id]),
+    })),
+  };
+}
+
+function translateFocusAnalyticsComparisonLabel(
+  comparisonLabel: string,
+  t: AppTranslate,
+) {
+  if (comparisonLabel === focusAnalyticsNoChangeComparison) {
+    return t("focus.analytics.noChange");
+  }
+
+  return t("focus.analytics.vsLastWeek", {
+    value: comparisonLabel.replace(focusAnalyticsComparisonSuffix, ""),
+  });
 }
 
 function getRemainingTimerLabel(session: FocusSession) {

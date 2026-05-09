@@ -9,10 +9,14 @@ import {
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import type { AppLabel } from "../labels/label-management/labels";
-import { useAppTranslation } from "../language";
+import { type AppTranslationKey, useAppTranslation } from "../language";
 import { type AppNote, listNotesForUser } from "../notes";
 import { searchNoteResults } from "../notes/notes-workspace/note-search";
-import { formatRecallModeLabel } from "./learner-copy";
+import {
+  formatRecallModeLabel,
+  getRecallModeTranslationKey,
+  getRecallSelectionHelperTranslationKey,
+} from "./learner-copy";
 import { AppRecallError, type RecallMode } from "./recall";
 
 export const Route = createFileRoute("/_protected/recall")({
@@ -67,24 +71,20 @@ function RecallRouteShell() {
 
 type RecallTypeOption = {
   disabled: boolean;
-  helper: string;
   mode: RecallMode;
 };
 
 const recallTypeOptions = [
   {
     disabled: false,
-    helper: "Reveal each Note and rate your recall.",
     mode: "FlashCard",
   },
   {
     disabled: true,
-    helper: "Connect API key to use AI Assisted recall.",
     mode: "AiAssisted",
   },
   {
     disabled: true,
-    helper: "Connect API key to use AI Graded recall.",
     mode: "AiGraded",
   },
 ] as const satisfies readonly RecallTypeOption[];
@@ -102,29 +102,7 @@ const recallQuestionStylePlaceholderFields = [
     id: "recall-number-of-questions",
     key: "recall.selection.questionStyle.count",
   },
-] as const;
-
-function getRecallModeLabelKey(mode: RecallMode) {
-  switch (mode) {
-    case "FlashCard":
-      return "recall.mode.flashCard";
-    case "AiAssisted":
-      return "recall.mode.aiAssisted";
-    case "AiGraded":
-      return "recall.mode.aiGraded";
-  }
-}
-
-function getRecallTypeHelperKey(mode: RecallMode) {
-  switch (mode) {
-    case "FlashCard":
-      return "recall.selection.helper.flashCard";
-    case "AiAssisted":
-      return "recall.selection.helper.aiAssisted";
-    case "AiGraded":
-      return "recall.selection.helper.aiGraded";
-  }
-}
+] as const satisfies readonly { id: string; key: AppTranslationKey }[];
 
 function getNotePreview(note: AppNote, emptyBodyLabel: string) {
   const body = note.body.trim();
@@ -491,8 +469,10 @@ function SessionSetupPanel({
                 <RecallTypeIcon mode={option.mode} />
               </span>
               <span>
-                <strong>{t(getRecallModeLabelKey(option.mode))}</strong>
-                <span>{t(getRecallTypeHelperKey(option.mode))}</span>
+                <strong>{t(getRecallModeTranslationKey(option.mode))}</strong>
+                <span>
+                  {t(getRecallSelectionHelperTranslationKey(option.mode))}
+                </span>
               </span>
             </label>
           ))}
