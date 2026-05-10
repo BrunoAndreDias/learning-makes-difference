@@ -11,7 +11,8 @@ import {
   type CreateStudyNoteFromSourceInput,
   type CreateStudyNoteInput,
   type DeleteStudyNoteInput,
-  normalizeCreateStudyNoteInput,
+  getStudyNoteSourceDisplayName,
+  resolveCreateStudyNoteFields,
   type UpdateStudyNoteInput,
 } from "./study-notes";
 import {
@@ -82,8 +83,6 @@ type StudyNoteRowWithDetails = StudyNoteRow & {
   sourceDisplayName: string;
 };
 
-const UNTITLED_SOURCE_DISPLAY_NAME = "Untitled source";
-
 function getDefaultCrypto(): StudyNotesCrypto {
   return globalThis.crypto;
 }
@@ -102,25 +101,17 @@ function validateOptionalText(value: string): string {
   return value.trim();
 }
 
-function getSourceDisplayName(input: {
+function getSourceDisplayNameFromRows(input: {
   linkedStudyNotes: readonly Pick<StudyNoteRow, "createdAt" | "prompt">[];
   sourceTitle: string;
 }): string {
-  const trimmedTitle = input.sourceTitle.trim();
-
-  if (trimmedTitle.length > 0) {
-    return trimmedTitle;
-  }
-
-  const fallbackPrompt =
-    [...input.linkedStudyNotes]
-      .sort(
-        (left, right) => left.createdAt.getTime() - right.createdAt.getTime(),
-      )
-      .find((studyNote) => studyNote.prompt.trim().length > 0)
-      ?.prompt.trim() ?? null;
-
-  return fallbackPrompt ?? UNTITLED_SOURCE_DISPLAY_NAME;
+  return getStudyNoteSourceDisplayName({
+    linkedStudyNotes: input.linkedStudyNotes.map((studyNote) => ({
+      createdAt: studyNote.createdAt.getTime(),
+      prompt: studyNote.prompt,
+    })),
+    sourceTitle: input.sourceTitle,
+  });
 }
 
 function normalizeLabelIds(labelIds: readonly string[] | undefined): string[] {
@@ -255,6 +246,18 @@ function groupHooksByStudyNoteId(rows: readonly StudyNoteMemoryHookRow[]) {
   return hooksByStudyNoteId;
 }
 
+function groupStudyNotesBySourceNoteId(rows: readonly StudyNoteRow[]) {
+  const studyNotesBySourceNoteId = new Map<string, StudyNoteRow[]>();
+
+  for (const row of rows) {
+    const studyNotes = studyNotesBySourceNoteId.get(row.sourceNoteId) ?? [];
+    studyNotes.push(row);
+    studyNotesBySourceNoteId.set(row.sourceNoteId, studyNotes);
+  }
+
+  return studyNotesBySourceNoteId;
+}
+
 function getSingleHookDescription(hooks: readonly { description: string }[]) {
   return hooks[0]?.description ?? null;
 }
@@ -315,6 +318,8 @@ async function addDetailsToStudyNoteRows(
   );
   const metaphorsByStudyNoteId = groupHooksByStudyNoteId(storedMetaphors);
   const acronymsByStudyNoteId = groupHooksByStudyNoteId(storedAcronyms);
+  const linkedStudyNotesBySourceNoteId =
+    groupStudyNotesBySourceNoteId(linkedStudyNoteRows);
 
   return rows.map((row) => ({
     ...row,
@@ -324,10 +329,9 @@ async function addDetailsToStudyNoteRows(
       studyNoteId: row.id,
     }),
     metaphors: metaphorsByStudyNoteId.get(row.id) ?? [],
-    sourceDisplayName: getSourceDisplayName({
-      linkedStudyNotes: linkedStudyNoteRows.filter(
-        (studyNote) => studyNote.sourceNoteId === row.sourceNoteId,
-      ),
+    sourceDisplayName: getSourceDisplayNameFromRows({
+      linkedStudyNotes:
+        linkedStudyNotesBySourceNoteId.get(row.sourceNoteId) ?? [],
       sourceTitle: row.sourceTitle,
     }),
   }));
@@ -388,8 +392,12 @@ export function createStudyNotesService({
       const timestamp = now();
       const sourceNoteId = crypto.randomUUID();
       const studyNoteId = crypto.randomUUID();
-      const { expectedAnswer, prompt, sourceBody, sourceTitle } =
-        normalizeCreateStudyNoteInput(input);
+      const sourceTitle = validateOptionalText(input.sourceTitle);
+      const sourceBody = validateOptionalText(input.sourceBody);
+      const { expectedAnswer, prompt } = resolveCreateStudyNoteFields(input, {
+        expectedAnswer: sourceBody,
+        prompt: sourceTitle,
+      });
       const acronyms = validateAcronyms(input.acronyms);
       const safeLabelIds = await validateOwnedLabelIds({
         db,
@@ -447,7 +455,7 @@ export function createStudyNotesService({
         metaphors,
         prompt,
         sourceBody,
-        sourceDisplayName: getSourceDisplayName({
+        sourceDisplayName: getSourceDisplayNameFromRows({
           linkedStudyNotes: [{ createdAt: timestamp, prompt }],
           sourceTitle,
         }),
@@ -492,7 +500,7 @@ export function createStudyNotesService({
         .from(studyNotesTable)
         .innerJoin(notesTable, eq(studyNotesTable.sourceNoteId, notesTable.id))
         .where(eq(studyNotesTable.sourceNoteId, source.id));
-      const prompt = getSourceDisplayName({
+      const prompt = getSourceDisplayNameFromRows({
         linkedStudyNotes,
         sourceTitle: source.title,
       });
@@ -515,7 +523,7 @@ export function createStudyNotesService({
         metaphors: [],
         prompt,
         sourceBody: source.body,
-        sourceDisplayName: getSourceDisplayName({
+        sourceDisplayName: getSourceDisplayNameFromRows({
           linkedStudyNotes: [
             ...linkedStudyNotes,
             { createdAt: timestamp, prompt },

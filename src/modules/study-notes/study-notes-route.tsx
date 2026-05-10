@@ -31,6 +31,7 @@ import {
   listStudyNotesForUser,
   type StudyNoteLearningState,
   toStudyNoteRecallHistories,
+  UNTITLED_SOURCE_DISPLAY_NAME,
   type UpdateStudyNoteInput,
 } from ".";
 
@@ -702,7 +703,7 @@ function StudyNotesWorkspace() {
                         sourceTitle: event.target.value,
                       }))
                     }
-                    placeholder="Untitled source"
+                    placeholder={UNTITLED_SOURCE_DISPLAY_NAME}
                     value={draft.sourceTitle}
                   />
                 </label>
