@@ -13,6 +13,7 @@ import {
 import type {
   FlashCardSessionResult,
   RecallMode,
+  RecallNoteSnapshot,
   RecallQuestion,
   RecallSelfRating,
 } from "./recall";
@@ -36,6 +37,7 @@ const calmReviewStatsMinWidth = 960;
 type RecallTypeFilter = "all" | RecallMode;
 type ExpandedQuestionKey = string | null;
 type ExpandedQuestionKeyChange = (questionKey: ExpandedQuestionKey) => void;
+type QuestionReferenceNoteSnapshot = Pick<RecallNoteSnapshot, "body" | "title">;
 
 export const Route = createFileRoute("/_protected/recall/")({
   validateSearch: recallResultsSearchSchema,
@@ -112,10 +114,12 @@ function getScoreTone(score: number | null) {
   return "forgot";
 }
 
+function getNoteResultTitle(note: RecallNoteSnapshot) {
+  return note.prompt ?? note.title;
+}
+
 function getQuestionPrompt(question: RecallQuestion) {
-  const prompt = (
-    question.noteSnapshot.prompt ?? question.noteSnapshot.title
-  ).trim();
+  const prompt = getNoteResultTitle(question.noteSnapshot).trim();
 
   if (prompt.length > 0) {
     return prompt;
@@ -199,7 +203,9 @@ function getQuestionExpectedAnswer(question: RecallQuestion) {
   return question.noteSnapshot.expectedAnswer ?? question.noteSnapshot.body;
 }
 
-function getQuestionSourceSnapshot(question: RecallQuestion) {
+function getQuestionReferenceNoteSnapshot(
+  question: RecallQuestion,
+): QuestionReferenceNoteSnapshot {
   return (
     question.noteSnapshot.source ?? {
       body: question.noteSnapshot.body,
@@ -795,7 +801,7 @@ function SelectedResultDetail({
             {review.notReachedNotes.map((note) => (
               <li key={note.id}>
                 <p className="recall-selected-result__row-title">
-                  {note.prompt ?? note.title}
+                  {getNoteResultTitle(note)}
                 </p>
               </li>
             ))}
@@ -919,7 +925,7 @@ function QuestionReviewDetail({
   ratingTone: ReturnType<typeof getRatingTone>;
 }) {
   const { t } = useAppTranslation();
-  const sourceSnapshot = getQuestionSourceSnapshot(question);
+  const referenceNoteSnapshot = getQuestionReferenceNoteSnapshot(question);
 
   return (
     <div className="recall-selected-result__question-detail" id={detailId}>
@@ -957,10 +963,10 @@ function QuestionReviewDetail({
           {t("recall.result.referenceNote")}
         </p>
         <p className="recall-selected-result__question-detail-title">
-          {sourceSnapshot.title}
+          {referenceNoteSnapshot.title}
         </p>
         <p className="recall-selected-result__question-detail-copy">
-          {sourceSnapshot.body}
+          {referenceNoteSnapshot.body}
         </p>
       </div>
     </div>

@@ -22,6 +22,10 @@ const testUser = {
   userLanguage: "en",
 } as const;
 
+type DeterministicRecallTestContexts = ReturnType<
+  typeof createDeterministicRecallTestContexts
+>;
+
 function createSession() {
   return { user: testUser };
 }
@@ -29,9 +33,7 @@ function createSession() {
 function completeRecallAt(input: {
   noteId: string;
   rating: RecallSelfRating;
-  recallContext: ReturnType<
-    typeof createDeterministicRecallTestContexts
-  >["recallContext"];
+  recallContext: DeterministicRecallTestContexts["recallContext"];
   timestamp: string;
 }) {
   vi.setSystemTime(new Date(input.timestamp));
@@ -148,9 +150,7 @@ function completeMultiQuestionRecall(input: {
     rating: RecallSelfRating;
     typedAnswer?: string;
   }>;
-  recallContext: ReturnType<
-    typeof createDeterministicRecallTestContexts
-  >["recallContext"];
+  recallContext: DeterministicRecallTestContexts["recallContext"];
   timestamp: string;
 }) {
   vi.setSystemTime(new Date(input.timestamp));
@@ -494,7 +494,7 @@ describe("authenticated recall workspace", () => {
     expect(restartLinks).toHaveLength(1);
   });
 
-  it("shows early-ended coverage and only unreached note titles in Not reached notes", async () => {
+  it("shows early-ended coverage and only unreached note titles in Not reached Study Notes", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const firstNote = createRecallNote(contexts.notesContext, testUser.id, {
       body: "First historical answer.",

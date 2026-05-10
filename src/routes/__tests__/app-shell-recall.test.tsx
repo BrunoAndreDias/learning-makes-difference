@@ -24,6 +24,10 @@ const testUser = {
   userLanguage: "en",
 } as const;
 
+type DeterministicRecallTestContexts = ReturnType<
+  typeof createDeterministicRecallTestContexts
+>;
+
 function createSession() {
   return { user: testUser };
 }
@@ -31,9 +35,7 @@ function createSession() {
 function completeRecallAt(input: {
   noteId: string;
   rating: RecallSelfRating;
-  recallContext: ReturnType<
-    typeof createDeterministicRecallTestContexts
-  >["recallContext"];
+  recallContext: DeterministicRecallTestContexts["recallContext"];
   timestamp: string;
 }) {
   vi.setSystemTime(new Date(input.timestamp));
@@ -150,9 +152,7 @@ function completeMultiQuestionRecall(input: {
     rating: RecallSelfRating;
     typedAnswer?: string;
   }>;
-  recallContext: ReturnType<
-    typeof createDeterministicRecallTestContexts
-  >["recallContext"];
+  recallContext: DeterministicRecallTestContexts["recallContext"];
   timestamp: string;
 }) {
   vi.setSystemTime(new Date(input.timestamp));
@@ -180,6 +180,43 @@ function completeMultiQuestionRecall(input: {
       userId: testUser.id,
     });
   });
+}
+
+type StudyNoteSnapshotInput = {
+  expectedAnswer: string;
+  labelIds: string[];
+  prompt: string;
+  sourceBody: string;
+  sourceTitle: string;
+};
+
+function updateStudyNoteSnapshot(
+  contexts: DeterministicRecallTestContexts,
+  studyNoteId: string,
+  input: StudyNoteSnapshotInput,
+) {
+  return contexts.studyNotesContext.updateStudyNote(testUser.id, studyNoteId, {
+    acronyms: [],
+    expectedAnswer: input.expectedAnswer,
+    labelIds: input.labelIds,
+    metaphors: [],
+    prompt: input.prompt,
+    sourceBody: input.sourceBody,
+    sourceTitle: input.sourceTitle,
+  });
+}
+
+function createStudyNoteSnapshot(
+  contexts: DeterministicRecallTestContexts,
+  input: StudyNoteSnapshotInput,
+) {
+  const studyNote = contexts.studyNotesContext.createStudyNote(testUser.id, {
+    labelIds: input.labelIds,
+    sourceBody: input.sourceBody,
+    sourceTitle: input.sourceTitle,
+  });
+
+  return updateStudyNoteSnapshot(contexts, studyNote.id, input);
 }
 
 function _getControlledPanel(control: HTMLElement) {
@@ -512,57 +549,24 @@ describe("authenticated recall workspace", () => {
       name: "Cell biology",
       userId: testUser.id,
     });
-    const attemptedStudyNote = contexts.studyNotesContext.createStudyNote(
-      testUser.id,
-      {
-        labelIds: [label.id],
-        sourceBody: "Original ATP source context.",
-        sourceTitle: "Original ATP source note",
-      },
-    );
-    const updatedAttemptedStudyNote =
-      contexts.studyNotesContext.updateStudyNote(
-        testUser.id,
-        attemptedStudyNote.id,
-        {
-          acronyms: [],
-          expectedAnswer: "ATP transfers energy in cells.",
-          labelIds: [label.id],
-          metaphors: [],
-          prompt: "What does ATP do?",
-          sourceBody: "Original ATP source context.",
-          sourceTitle: "Original ATP source note",
-        },
-      );
-    const notReachedStudyNote = contexts.studyNotesContext.createStudyNote(
-      testUser.id,
-      {
-        labelIds: [label.id],
-        sourceBody: "Original glucose source context.",
-        sourceTitle: "Original glucose source note",
-      },
-    );
-    const updatedNotReachedStudyNote =
-      contexts.studyNotesContext.updateStudyNote(
-        testUser.id,
-        notReachedStudyNote.id,
-        {
-          acronyms: [],
-          expectedAnswer: "Glucose is broken down during respiration.",
-          labelIds: [label.id],
-          metaphors: [],
-          prompt: "What happens to glucose?",
-          sourceBody: "Original glucose source context.",
-          sourceTitle: "Original glucose source note",
-        },
-      );
+    const attemptedStudyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "ATP transfers energy in cells.",
+      labelIds: [label.id],
+      prompt: "What does ATP do?",
+      sourceBody: "Original ATP source context.",
+      sourceTitle: "Original ATP source note",
+    });
+    const notReachedStudyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Glucose is broken down during respiration.",
+      labelIds: [label.id],
+      prompt: "What happens to glucose?",
+      sourceBody: "Original glucose source context.",
+      sourceTitle: "Original glucose source note",
+    });
 
     vi.setSystemTime(new Date("2026-05-07T09:00:00.000Z"));
     const session = contexts.recallContext.startFlashCardSession({
-      studyNoteIds: [
-        updatedAttemptedStudyNote.id,
-        updatedNotReachedStudyNote.id,
-      ],
+      studyNoteIds: [attemptedStudyNote.id, notReachedStudyNote.id],
       userId: testUser.id,
     });
     contexts.recallContext.updateFlashCardAttemptText({
@@ -584,32 +588,20 @@ describe("authenticated recall workspace", () => {
       userId: testUser.id,
     });
 
-    contexts.studyNotesContext.updateStudyNote(
-      testUser.id,
-      updatedAttemptedStudyNote.id,
-      {
-        acronyms: [],
-        expectedAnswer: "Edited ATP answer.",
-        labelIds: [],
-        metaphors: [],
-        prompt: "Edited ATP prompt?",
-        sourceBody: "Edited ATP source context.",
-        sourceTitle: "Edited ATP source note",
-      },
-    );
-    contexts.studyNotesContext.updateStudyNote(
-      testUser.id,
-      updatedNotReachedStudyNote.id,
-      {
-        acronyms: [],
-        expectedAnswer: "Edited glucose answer.",
-        labelIds: [],
-        metaphors: [],
-        prompt: "Edited glucose prompt?",
-        sourceBody: "Edited glucose source context.",
-        sourceTitle: "Edited glucose source note",
-      },
-    );
+    updateStudyNoteSnapshot(contexts, attemptedStudyNote.id, {
+      expectedAnswer: "Edited ATP answer.",
+      labelIds: [],
+      prompt: "Edited ATP prompt?",
+      sourceBody: "Edited ATP source context.",
+      sourceTitle: "Edited ATP source note",
+    });
+    updateStudyNoteSnapshot(contexts, notReachedStudyNote.id, {
+      expectedAnswer: "Edited glucose answer.",
+      labelIds: [],
+      prompt: "Edited glucose prompt?",
+      sourceBody: "Edited glucose source context.",
+      sourceTitle: "Edited glucose source note",
+    });
 
     renderRoute("/recall", { ...contexts, session: createSession() });
 
