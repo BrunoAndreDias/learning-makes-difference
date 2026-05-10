@@ -1,8 +1,6 @@
-import { PGlite } from "@electric-sql/pglite";
-import { drizzle } from "drizzle-orm/pglite";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { migrateDatabase } from "../../lib/db/migrate";
+import { createPgliteServiceTestDatabase } from "../../lib/db/pglite-service-test-db";
 import { authSchema, usersTable } from "../access/session/auth-schema";
 import {
   labelsSchema,
@@ -17,6 +15,13 @@ import {
   studyNotesTable,
 } from "./study-notes-schema";
 import { createStudyNotesService } from "./study-notes-service";
+
+const studyNotesTestSchema = {
+  ...authSchema,
+  ...labelsSchema,
+  ...notesSchema,
+  ...studyNotesSchema,
+};
 
 function createDeterministicCrypto() {
   let index = 0;
@@ -47,37 +52,32 @@ function createUserValues(
 }
 
 describe("createStudyNotesService", () => {
-  const databases = new Set<PGlite>();
+  let testDatabase: Awaited<
+    ReturnType<
+      typeof createPgliteServiceTestDatabase<typeof studyNotesTestSchema>
+    >
+  >;
+
+  beforeAll(async () => {
+    testDatabase = await createPgliteServiceTestDatabase(studyNotesTestSchema);
+  });
 
   afterEach(async () => {
-    await Promise.all(Array.from(databases, (database) => database.close()));
-    databases.clear();
+    await testDatabase.reset();
+  });
+
+  afterAll(async () => {
+    await testDatabase.close();
   });
 
   function byId(left: { id: string }, right: { id: string }) {
     return left.id.localeCompare(right.id);
   }
 
-  async function createTestDb() {
-    const client = new PGlite();
-    databases.add(client);
-    const db = drizzle(client, {
-      schema: {
-        ...authSchema,
-        ...labelsSchema,
-        ...notesSchema,
-        ...studyNotesSchema,
-      },
-    });
-    await migrateDatabase(db, client);
-
-    return db;
-  }
-
   async function createStudyNotesHarness(
     options: { now?: () => Date; users?: TestUserInsert[] } = {},
   ) {
-    const db = await createTestDb();
+    const db = testDatabase.db;
     await db.insert(usersTable).values(
       options.users ?? [
         createUserValues({

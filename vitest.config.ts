@@ -1,5 +1,7 @@
 import { defineConfig } from "vitest/config";
 
+const maxWorkers = process.env.VITEST_MAX_WORKERS ?? "80%";
+
 export default defineConfig({
   test: {
     environment: "node",
@@ -9,7 +11,7 @@ export default defineConfig({
       "e2e/**",
       "**/*.db.test.ts",
     ],
-    maxWorkers: 2,
+    maxWorkers,
     reporters: ["default", "hanging-process"],
     teardownTimeout: 5000,
   },

@@ -13,9 +13,9 @@ import { Route as modulesAccessPublicEntryPublicLayoutRouteRouteImport } from '.
 import { Route as modulesWorkspaceShellAppShellProtectedRouteRouteImport } from './modules/workspace-shell/app-shell/protected-route'
 import { Route as modulesAccessSessionAuthLayoutRouteRouteImport } from './modules/access/session/auth-layout-route'
 import { Route as modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRouteImport } from './modules/notes/study-notes-prototype/study-notes-prototype-route'
+import { Route as modulesStudyNotesStudyNotesRouteRouteImport } from './modules/study-notes/study-notes-route'
 import { Route as modulesAccessSessionSettingsRouteRouteImport } from './modules/access/session/settings-route'
 import { Route as modulesRecallRecallRouteRouteImport } from './modules/recall/recall-route'
-import { Route as modulesStudyNotesStudyNotesRouteRouteImport } from './modules/study-notes/study-notes-route'
 import { Route as modulesNotesNotesWorkspaceNotesRouteRouteImport } from './modules/notes/notes-workspace/notes-route'
 import { Route as modulesLabelsLabelManagementLabelsRouteRouteImport } from './modules/labels/label-management/labels-route'
 import { Route as modulesFocusFocusRouteRouteImport } from './modules/focus/focus-route'
@@ -48,6 +48,12 @@ const modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRoute =
     path: '/study-notes-prototype',
     getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
   } as any)
+const modulesStudyNotesStudyNotesRouteRoute =
+  modulesStudyNotesStudyNotesRouteRouteImport.update({
+    id: '/study-notes',
+    path: '/study-notes',
+    getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
+  } as any)
 const modulesAccessSessionSettingsRouteRoute =
   modulesAccessSessionSettingsRouteRouteImport.update({
     id: '/settings',
@@ -58,12 +64,6 @@ const modulesRecallRecallRouteRoute =
   modulesRecallRecallRouteRouteImport.update({
     id: '/recall',
     path: '/recall',
-    getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
-  } as any)
-const modulesStudyNotesStudyNotesRouteRoute =
-  modulesStudyNotesStudyNotesRouteRouteImport.update({
-    id: '/study-notes',
-    path: '/study-notes',
     getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
   } as any)
 const modulesNotesNotesWorkspaceNotesRouteRoute =
@@ -134,9 +134,9 @@ export interface FileRoutesByFullPath {
   '/focus': typeof modulesFocusFocusRouteRoute
   '/labels': typeof modulesLabelsLabelManagementLabelsRouteRoute
   '/notes': typeof modulesNotesNotesWorkspaceNotesRouteRoute
-  '/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
   '/recall': typeof modulesRecallRecallRouteRouteWithChildren
   '/settings': typeof modulesAccessSessionSettingsRouteRoute
+  '/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
   '/study-notes-prototype': typeof modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRoute
   '/recall/': typeof modulesRecallRecallResultsWorkspaceRouteRoute
   '/recall/select': typeof modulesRecallRecallSelectionRouteRoute
@@ -150,8 +150,8 @@ export interface FileRoutesByTo {
   '/focus': typeof modulesFocusFocusRouteRoute
   '/labels': typeof modulesLabelsLabelManagementLabelsRouteRoute
   '/notes': typeof modulesNotesNotesWorkspaceNotesRouteRoute
-  '/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
   '/settings': typeof modulesAccessSessionSettingsRouteRoute
+  '/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
   '/study-notes-prototype': typeof modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRoute
   '/recall': typeof modulesRecallRecallResultsWorkspaceRouteRoute
   '/recall/select': typeof modulesRecallRecallSelectionRouteRoute
@@ -169,9 +169,9 @@ export interface FileRoutesById {
   '/_protected/focus': typeof modulesFocusFocusRouteRoute
   '/_protected/labels': typeof modulesLabelsLabelManagementLabelsRouteRoute
   '/_protected/notes': typeof modulesNotesNotesWorkspaceNotesRouteRoute
-  '/_protected/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
   '/_protected/recall': typeof modulesRecallRecallRouteRouteWithChildren
   '/_protected/settings': typeof modulesAccessSessionSettingsRouteRoute
+  '/_protected/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
   '/_protected/study-notes-prototype': typeof modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRoute
   '/_protected/recall/': typeof modulesRecallRecallResultsWorkspaceRouteRoute
   '/_protected/recall/select': typeof modulesRecallRecallSelectionRouteRoute
@@ -187,9 +187,9 @@ export interface FileRouteTypes {
     | '/focus'
     | '/labels'
     | '/notes'
-    | '/study-notes'
     | '/recall'
     | '/settings'
+    | '/study-notes'
     | '/study-notes-prototype'
     | '/recall/'
     | '/recall/select'
@@ -203,8 +203,8 @@ export interface FileRouteTypes {
     | '/focus'
     | '/labels'
     | '/notes'
-    | '/study-notes'
     | '/settings'
+    | '/study-notes'
     | '/study-notes-prototype'
     | '/recall'
     | '/recall/select'
@@ -221,9 +221,9 @@ export interface FileRouteTypes {
     | '/_protected/focus'
     | '/_protected/labels'
     | '/_protected/notes'
-    | '/_protected/study-notes'
     | '/_protected/recall'
     | '/_protected/settings'
+    | '/_protected/study-notes'
     | '/_protected/study-notes-prototype'
     | '/_protected/recall/'
     | '/_protected/recall/select'
@@ -266,6 +266,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRouteImport
       parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
     }
+    '/_protected/study-notes': {
+      id: '/_protected/study-notes'
+      path: '/study-notes'
+      fullPath: '/study-notes'
+      preLoaderRoute: typeof modulesStudyNotesStudyNotesRouteRouteImport
+      parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
+    }
     '/_protected/settings': {
       id: '/_protected/settings'
       path: '/settings'
@@ -278,13 +285,6 @@ declare module '@tanstack/react-router' {
       path: '/recall'
       fullPath: '/recall'
       preLoaderRoute: typeof modulesRecallRecallRouteRouteImport
-      parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
-    }
-    '/_protected/study-notes': {
-      id: '/_protected/study-notes'
-      path: '/study-notes'
-      fullPath: '/study-notes'
-      preLoaderRoute: typeof modulesStudyNotesStudyNotesRouteRouteImport
       parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
     }
     '/_protected/notes': {
@@ -404,9 +404,9 @@ interface modulesWorkspaceShellAppShellProtectedRouteRouteChildren {
   modulesFocusFocusRouteRoute: typeof modulesFocusFocusRouteRoute
   modulesLabelsLabelManagementLabelsRouteRoute: typeof modulesLabelsLabelManagementLabelsRouteRoute
   modulesNotesNotesWorkspaceNotesRouteRoute: typeof modulesNotesNotesWorkspaceNotesRouteRoute
-  modulesStudyNotesStudyNotesRouteRoute: typeof modulesStudyNotesStudyNotesRouteRoute
   modulesRecallRecallRouteRoute: typeof modulesRecallRecallRouteRouteWithChildren
   modulesAccessSessionSettingsRouteRoute: typeof modulesAccessSessionSettingsRouteRoute
+  modulesStudyNotesStudyNotesRouteRoute: typeof modulesStudyNotesStudyNotesRouteRoute
   modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRoute: typeof modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRoute
 }
 
@@ -417,11 +417,11 @@ const modulesWorkspaceShellAppShellProtectedRouteRouteChildren: modulesWorkspace
       modulesLabelsLabelManagementLabelsRouteRoute,
     modulesNotesNotesWorkspaceNotesRouteRoute:
       modulesNotesNotesWorkspaceNotesRouteRoute,
-    modulesStudyNotesStudyNotesRouteRoute:
-      modulesStudyNotesStudyNotesRouteRoute,
     modulesRecallRecallRouteRoute: modulesRecallRecallRouteRouteWithChildren,
     modulesAccessSessionSettingsRouteRoute:
       modulesAccessSessionSettingsRouteRoute,
+    modulesStudyNotesStudyNotesRouteRoute:
+      modulesStudyNotesStudyNotesRouteRoute,
     modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRoute:
       modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRoute,
   }

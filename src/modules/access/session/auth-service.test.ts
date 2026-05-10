@@ -1,9 +1,10 @@
 import { PGlite } from "@electric-sql/pglite";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { migrateDatabase } from "../../../lib/db/migrate";
+import { createPgliteServiceTestDatabase } from "../../../lib/db/pglite-service-test-db";
 import { authSchema, authSessionsTable, usersTable } from "./auth-schema";
 import { createAuthService } from "./auth-service";
 
@@ -30,18 +31,29 @@ function createCookieJar() {
 }
 
 describe("createAuthService", () => {
-  const databases = new Set<PGlite>();
+  const migrationDatabases = new Set<PGlite>();
+  let testDatabase: Awaited<
+    ReturnType<typeof createPgliteServiceTestDatabase<typeof authSchema>>
+  >;
+
+  beforeAll(async () => {
+    testDatabase = await createPgliteServiceTestDatabase(authSchema);
+  });
 
   afterEach(async () => {
-    await Promise.all(Array.from(databases, (database) => database.close()));
-    databases.clear();
+    await testDatabase.reset();
+    await Promise.all(
+      Array.from(migrationDatabases, (database) => database.close()),
+    );
+    migrationDatabases.clear();
+  });
+
+  afterAll(async () => {
+    await testDatabase.close();
   });
 
   it("registers a pilot user in the migration-backed auth store, hashes the password, and restores the session from the cookie token", async () => {
-    const client = new PGlite();
-    databases.add(client);
-    const db = drizzle(client, { schema: authSchema });
-    await migrateDatabase(db, client);
+    const db = testDatabase.db;
 
     const cookieJar = createCookieJar();
     const auth = createAuthService({
@@ -110,10 +122,7 @@ describe("createAuthService", () => {
   });
 
   it("rejects missing or invalid pilot registration codes without creating a user", async () => {
-    const client = new PGlite();
-    databases.add(client);
-    const db = drizzle(client, { schema: authSchema });
-    await migrateDatabase(db, client);
+    const db = testDatabase.db;
 
     const cookieJar = createCookieJar();
     const auth = createAuthService({
@@ -146,10 +155,7 @@ describe("createAuthService", () => {
   });
 
   it("invalidates sessions on logout, then restores the same account and preferences on login", async () => {
-    const client = new PGlite();
-    databases.add(client);
-    const db = drizzle(client, { schema: authSchema });
-    await migrateDatabase(db, client);
+    const db = testDatabase.db;
 
     const cookieJar = createCookieJar();
     const auth = createAuthService({
@@ -205,7 +211,7 @@ describe("createAuthService", () => {
 
   it("migrates old language columns into one User Language using interface language precedence", async () => {
     const client = new PGlite();
-    databases.add(client);
+    migrationDatabases.add(client);
     const db = drizzle(client, { schema: authSchema });
 
     await client.exec(`
@@ -272,10 +278,7 @@ describe("createAuthService", () => {
   });
 
   it("rejects invalid account preference updates", async () => {
-    const client = new PGlite();
-    databases.add(client);
-    const db = drizzle(client, { schema: authSchema });
-    await migrateDatabase(db, client);
+    const db = testDatabase.db;
 
     const auth = createAuthService({
       cookie: createCookieJar(),

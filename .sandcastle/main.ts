@@ -23,6 +23,12 @@
 
 import * as sandcastle from "@ai-hero/sandcastle";
 import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
+import { execFileSync } from "node:child_process";
+
+// Sandcastle's merge-to-head sync runs plain `git merge` on the host.
+// Keep it non-interactive so divergent syncs fail or complete instead of
+// waiting for a merge-message editor until Sandcastle's 30s timeout.
+process.env.GIT_MERGE_AUTOEDIT ??= "no";
 
 type PlanIssue = { id: string; title: string; branch: string };
 type Plan = { issues: PlanIssue[] };
@@ -75,6 +81,30 @@ const parsePositiveInteger = (value: string | undefined, fallback: number) => {
 
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const getHostGitStatus = () =>
+  execFileSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], {
+    encoding: "utf8",
+  }).replace(/\n$/, "");
+
+const assertCleanHostWorktree = (phase: string) => {
+  const status = getHostGitStatus();
+
+  if (status.length === 0) {
+    return;
+  }
+
+  const lines = status.split("\n");
+  const preview = lines.slice(0, 20).join("\n");
+  const suffix =
+    lines.length > 20 ? `\n...and ${lines.length - 20} more change(s)` : "";
+
+  throw new Error(
+    `Sandcastle ${phase} requires a clean host worktree before merge-to-head can run safely.\n` +
+      "Commit or stash these host changes, then rerun Sandcastle:\n\n" +
+      `${preview}${suffix}`,
+  );
 };
 
 // ---------------------------------------------------------------------------
@@ -168,6 +198,7 @@ const runIssuePipeline = async (issue: PlanIssue) => {
 
 for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   console.log(`\n=== Iteration ${iteration}/${MAX_ITERATIONS} ===\n`);
+  assertCleanHostWorktree("planning phase");
 
   // -------------------------------------------------------------------------
   // Phase 1: Plan
@@ -308,6 +339,8 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // The {{BRANCHES}} and {{ISSUES}} prompt arguments are lists that the agent
   // uses to know which branches to merge and which issues to close.
   // -------------------------------------------------------------------------
+  assertCleanHostWorktree("merge phase");
+
   await sandcastle.run({
     hooks: installHooks,
     sandbox: sandboxProvider,

@@ -16,8 +16,11 @@ function uniqueAccount(testTitle: string) {
   };
 }
 
-async function registerAccount(page: Page, account = uniqueAccount(test.info().title)) {
-  await page.goto("/register");
+async function registerAccount(
+  page: Page,
+  account = uniqueAccount(test.info().title),
+) {
+  await page.goto("/register?redirect=/notes");
   await page.waitForLoadState("networkidle");
   await expect(
     page.getByRole("heading", { name: "Create your account" }),

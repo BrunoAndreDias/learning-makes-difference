@@ -10,6 +10,33 @@ import {
 import { authSchema, usersTable } from "../access/session/auth-schema";
 import { labelEdgesTable, labelsSchema, labelsTable } from "./labels-schema";
 
+function findSqlState(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null) {
+    return undefined;
+  }
+
+  if ("code" in error && typeof error.code === "string") {
+    return error.code;
+  }
+
+  if ("cause" in error) {
+    return findSqlState(error.cause);
+  }
+
+  return undefined;
+}
+
+async function expectSqlState(promise: Promise<unknown>, expectedCode: string) {
+  try {
+    await promise;
+  } catch (error) {
+    expect(findSqlState(error)).toBe(expectedCode);
+    return;
+  }
+
+  throw new Error(`Expected PostgreSQL SQLSTATE ${expectedCode}.`);
+}
+
 describe("labels schema PostgreSQL integration", () => {
   const databases = new Set<PostgresIntegrationDatabase>();
 
@@ -59,17 +86,19 @@ describe("labels schema PostgreSQL integration", () => {
       parentLabelId: "label-science",
     });
 
-    await expect(
+    await expectSqlState(
       db.insert(labelEdgesTable).values({
         childLabelId: "label-biology",
         parentLabelId: "label-science",
       }),
-    ).rejects.toThrow(/label_edges_pk|duplicate key value/u);
-    await expect(
+      "23505",
+    );
+    await expectSqlState(
       db.insert(labelEdgesTable).values({
         childLabelId: "label-science",
         parentLabelId: "label-science",
       }),
-    ).rejects.toThrow(/label_edges_no_self_parent_check/u);
+      "23514",
+    );
   });
 });

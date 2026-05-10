@@ -46,6 +46,7 @@ type CaptureRecallStudyActivityInput = {
 type CreateFocusServiceOptions = {
   crypto?: FocusCrypto;
   db: FocusDatabase<Record<string, unknown>>;
+  now?: () => Date;
 };
 
 type MemoryStorage = Pick<Storage, "getItem" | "setItem">;
@@ -198,6 +199,7 @@ async function persistFocusState(input: {
 async function createMutableFocusContext(input: {
   crypto?: FocusCrypto;
   db: FocusDatabase<Record<string, unknown>>;
+  now?: () => Date;
   userId: string;
 }) {
   const labelsService = createLabelsService({
@@ -223,6 +225,7 @@ async function createMutableFocusContext(input: {
     crypto: input.crypto,
     getLabelsForUser: () => labels,
     keyPrefix: SERVICE_STORAGE_KEY_PREFIX,
+    now: input.now,
     storage,
   });
 }
@@ -237,12 +240,14 @@ function areStoredFocusSessionsEqual(
 async function runFocusMutation<TResult>(input: {
   db: FocusDatabase<Record<string, unknown>>;
   crypto?: FocusCrypto;
+  now?: () => Date;
   operation: (focus: MutableFocusContext) => TResult;
   userId: string;
 }) {
   const focus = await createMutableFocusContext({
     crypto: input.crypto,
     db: input.db,
+    now: input.now,
     userId: input.userId,
   });
   const result = input.operation(focus);
@@ -255,12 +260,17 @@ async function runFocusMutation<TResult>(input: {
   return result;
 }
 
-export function createFocusService({ crypto, db }: CreateFocusServiceOptions) {
+export function createFocusService({
+  crypto,
+  db,
+  now,
+}: CreateFocusServiceOptions) {
   return {
     async captureNoteStudyActivity(input: CaptureNoteStudyActivityInput) {
       await runFocusMutation({
         crypto,
         db,
+        now,
         operation: (focus) => {
           focus.captureNoteStudyActivity(input);
         },
@@ -273,6 +283,7 @@ export function createFocusService({ crypto, db }: CreateFocusServiceOptions) {
       await runFocusMutation({
         crypto,
         db,
+        now,
         operation: (focus) => {
           focus.captureRecallSessionStudyActivity(input);
         },
@@ -283,6 +294,7 @@ export function createFocusService({ crypto, db }: CreateFocusServiceOptions) {
       return runFocusMutation({
         crypto,
         db,
+        now,
         operation: (focus) => focus.endFocusSession(input),
         userId: input.userId,
       });
@@ -291,6 +303,7 @@ export function createFocusService({ crypto, db }: CreateFocusServiceOptions) {
       const focus = await createMutableFocusContext({
         crypto,
         db,
+        now,
         userId: input.userId,
       });
       const activeSession = focus.getActiveSession({
@@ -316,6 +329,7 @@ export function createFocusService({ crypto, db }: CreateFocusServiceOptions) {
       const focus = await createMutableFocusContext({
         crypto,
         db,
+        now,
         userId: input.userId,
       });
 
@@ -327,6 +341,7 @@ export function createFocusService({ crypto, db }: CreateFocusServiceOptions) {
       return runFocusMutation({
         crypto,
         db,
+        now,
         operation: (focus) => focus.startFocusSession(input),
         userId: input.userId,
       });
@@ -335,6 +350,7 @@ export function createFocusService({ crypto, db }: CreateFocusServiceOptions) {
       return runFocusMutation({
         crypto,
         db,
+        now,
         operation: (focus) => focus.startNextFocusInterval(input),
         userId: input.userId,
       });

@@ -159,6 +159,7 @@ type CreateAppFocusContextOptions = {
   crypto?: FocusCrypto;
   getLabelsForUser?: (userId: string) => readonly AppLabel[];
   keyPrefix?: string;
+  now?: () => Date;
   storage?: FocusStorageAdapter;
 };
 
@@ -908,6 +909,7 @@ export function createAppFocusContext(
 ): AppFocusContext {
   const storage = options.storage ?? getDefaultStorage();
   const cryptoProvider = options.crypto ?? getDefaultCrypto();
+  const getNow = options.now ?? getCurrentDate;
   const keyPrefix = options.keyPrefix ?? DEFAULT_STORAGE_KEY_PREFIX;
   const listeners = new Set<FocusListener>();
   let activeSessions = parseFocusSnapshot(
@@ -956,7 +958,7 @@ export function createAppFocusContext(
   function getActiveSession({ userId }: GetActiveFocusSessionInput) {
     const session = getActiveStoredSession(activeSessions, userId);
 
-    return session === null ? null : toPublicSession(session, getCurrentDate());
+    return session === null ? null : toPublicSession(session, getNow());
   }
 
   function replaceActiveSession(
@@ -1004,7 +1006,7 @@ export function createAppFocusContext(
       );
     }
 
-    const now = getCurrentDate();
+    const now = getNow();
     const startedAt = now.toISOString();
     const nextSession: StoredFocusSession = {
       breakIntervalMinutes,
@@ -1038,7 +1040,7 @@ export function createAppFocusContext(
       );
     }
 
-    const now = getCurrentDate();
+    const now = getNow();
     const derivedSession = deriveStoredFocusSession(session, now).session;
 
     if (derivedSession.intervalState === "Focus") {
@@ -1070,7 +1072,7 @@ export function createAppFocusContext(
       );
     }
 
-    const now = getCurrentDate();
+    const now = getNow();
     const endedAt = now.toISOString();
     const derivedSession = deriveStoredFocusSession(session, now).session;
     const nextActiveSessions = activeSessions.filter(
@@ -1127,7 +1129,7 @@ export function createAppFocusContext(
       return;
     }
 
-    const now = getCurrentDate();
+    const now = getNow();
     const derivedSession = deriveStoredFocusSession(session, now).session;
 
     if (!isRunningFocusInterval(derivedSession)) {
@@ -1180,7 +1182,7 @@ export function createAppFocusContext(
       return;
     }
 
-    const now = getCurrentDate();
+    const now = getNow();
     const derivedSession = deriveStoredFocusSession(session, now).session;
 
     if (!isRunningFocusInterval(derivedSession)) {

@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/postgres-js";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { migrateDatabase } from "../../lib/db/migrate";
 import {
@@ -16,7 +16,6 @@ describe("createFocusService PostgreSQL integration", () => {
   const databases = new Set<PostgresIntegrationDatabase>();
 
   afterEach(async () => {
-    vi.useRealTimers();
     await closePostgresIntegrationDatabases(databases);
   });
 
@@ -32,8 +31,9 @@ describe("createFocusService PostgreSQL integration", () => {
       },
     });
     await migrateDatabase(db, database.client);
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-05-02T12:00:00.000Z"));
+    let currentTime = new Date("2026-05-02T12:00:00.000Z");
+    const now = () => currentTime;
+
     await db.insert(usersTable).values({
       id: "user-casey",
       displayName: "Casey Learner",
@@ -53,20 +53,22 @@ describe("createFocusService PostgreSQL integration", () => {
 
     let sessionCounter = 0;
     let recordCounter = 0;
-    const service = createFocusService({
-      crypto: {
-        randomUUID: () => {
-          sessionCounter += 1;
+    const crypto = {
+      randomUUID: () => {
+        sessionCounter += 1;
 
-          if (sessionCounter === 1) {
-            return "focus-session-1" as `${string}-${string}-${string}-${string}-${string}`;
-          }
+        if (sessionCounter === 1) {
+          return "focus-session-1" as `${string}-${string}-${string}-${string}-${string}`;
+        }
 
-          recordCounter += 1;
-          return `focus-record-${recordCounter}` as `${string}-${string}-${string}-${string}-${string}`;
-        },
+        recordCounter += 1;
+        return `focus-record-${recordCounter}` as `${string}-${string}-${string}-${string}-${string}`;
       },
+    };
+    const service = createFocusService({
+      crypto,
       db,
+      now,
     });
 
     await expect(
@@ -106,7 +108,9 @@ describe("createFocusService PostgreSQL integration", () => {
     });
 
     const reloadedService = createFocusService({
+      crypto,
       db,
+      now,
     });
 
     await expect(
@@ -114,7 +118,7 @@ describe("createFocusService PostgreSQL integration", () => {
         userId: "user-casey",
       }),
     ).resolves.toMatchObject({
-      focusTargets: [
+      targets: [
         {
           kind: "Note",
           labels: [{ id: "label-biology", name: "Biology" }],
@@ -127,7 +131,7 @@ describe("createFocusService PostgreSQL integration", () => {
       id: "focus-session-1",
     });
 
-    vi.setSystemTime(new Date("2026-05-02T12:25:12.000Z"));
+    currentTime = new Date("2026-05-02T12:25:12.000Z");
 
     await expect(
       reloadedService.endFocusSession({
@@ -136,7 +140,7 @@ describe("createFocusService PostgreSQL integration", () => {
     ).resolves.toMatchObject({
       completedFocusIntervalCount: 1,
       endedAt: "2026-05-02T12:25:12.000Z",
-      focusTargets: [
+      targets: [
         {
           kind: "Note",
           labels: [{ id: "label-biology", name: "Biology" }],
@@ -157,6 +161,7 @@ describe("createFocusService PostgreSQL integration", () => {
 
     const historyService = createFocusService({
       db,
+      now,
     });
 
     await expect(
@@ -171,7 +176,7 @@ describe("createFocusService PostgreSQL integration", () => {
     ).resolves.toMatchObject([
       {
         completedFocusIntervalCount: 1,
-        focusTargets: [
+        targets: [
           {
             kind: "Note",
             labels: [{ id: "label-biology", name: "Biology" }],
