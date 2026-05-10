@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 
+import { Button } from "../../design-system/button";
+
 export function BreakIntervalOverlay({
   onSkipBreak,
 }: Readonly<{
@@ -22,14 +24,14 @@ export function BreakIntervalOverlay({
         <p className="focus-break-overlay__copy">
           Rest first. Skip the break to start the next focus interval.
         </p>
-        <button
-          className="notes-action notes-action-primary"
+        <Button
           onClick={onSkipBreak}
           ref={skipBreakButtonRef}
           type="button"
+          variant="primary"
         >
           Skip break
-        </button>
+        </Button>
       </div>
     </section>
   );

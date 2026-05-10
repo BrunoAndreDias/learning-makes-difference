@@ -924,13 +924,13 @@ function LabelsPage() {
             </div>
             <h4>{t("labels.empty.noLabelsYet")}</h4>
             <p className="muted">{t("labels.empty.createFirst")}</p>
-            <button
-              className="notes-action notes-action-primary"
+            <Button
               onClick={(event) => openEmptyCreateDrawer(event.currentTarget)}
               type="button"
+              variant="primary"
             >
               {t("labels.action.newLabel")}
-            </button>
+            </Button>
           </article>
         ) : visibleRows.length === 0 ? (
           <article className="labels-empty-state labels-empty-state--search">
@@ -952,8 +952,7 @@ function LabelsPage() {
               )}
               <p className="muted">{t("labels.empty.createOrClear")}</p>
               {hasSearchQuery ? (
-                <button
-                  className="notes-action notes-action-primary"
+                <Button
                   onClick={(event) =>
                     openCreateDrawerWithName(
                       normalizedSearchQuery,
@@ -961,11 +960,12 @@ function LabelsPage() {
                     )
                   }
                   type="button"
+                  variant="primary"
                 >
                   {t("labels.action.createNamed", {
                     query: normalizedSearchQuery,
                   })}
-                </button>
+                </Button>
               ) : null}
             </div>
           </article>
@@ -1251,20 +1251,20 @@ function LabelsPage() {
             </div>
 
             <footer className="labels-create-drawer__footer">
-              <button
-                className="notes-action notes-action-secondary"
+              <Button
                 onClick={closeCreateDrawer}
                 type="button"
+                variant="secondary"
               >
                 {t("labels.action.cancel")}
-              </button>
-              <button
-                className="notes-action notes-action-primary"
+              </Button>
+              <Button
                 disabled={!createNameIsValid}
                 type="submit"
+                variant="primary"
               >
                 {t("labels.action.createLabel")}
-              </button>
+              </Button>
             </footer>
           </form>
         </aside>
@@ -1434,37 +1434,33 @@ function LabelsPage() {
                     <p>{t("labels.danger.heading")}</p>
                     <p className="muted">{t("labels.danger.description")}</p>
                   </div>
-                  <button
+                  <Button
                     aria-label={t("labels.action.deleteLabel")}
-                    className="notes-action notes-action-danger"
                     onClick={() => {
                       if (editingRow !== null) {
                         openDeleteDialog(editingRow);
                       }
                     }}
                     type="button"
+                    variant="danger"
                   >
                     {t("labels.action.delete")}
-                  </button>
+                  </Button>
                 </div>
               </section>
             </div>
 
             <footer className="labels-create-drawer__footer">
-              <button
-                className="notes-action notes-action-secondary"
+              <Button
                 onClick={closeEditDrawer}
                 type="button"
+                variant="secondary"
               >
                 {t("labels.action.cancel")}
-              </button>
-              <button
-                className="notes-action notes-action-primary"
-                disabled={!canSaveEdit}
-                type="submit"
-              >
+              </Button>
+              <Button disabled={!canSaveEdit} type="submit" variant="primary">
                 {t("labels.action.saveChanges")}
-              </button>
+              </Button>
             </footer>
           </form>
         </aside>
@@ -1534,23 +1530,23 @@ function DeleteLabelDialog({
           </div>
         </div>
         <div className="labels-delete-dialog__actions">
-          <button
-            className="notes-action notes-action-secondary"
+          <Button
             onClick={onClose}
             ref={cancelButtonRef}
             type="button"
+            variant="secondary"
           >
             {t("labels.action.cancel")}
-          </button>
-          <button
-            className="notes-action notes-action-danger"
+          </Button>
+          <Button
             onClick={() => {
               void onConfirm();
             }}
             type="button"
+            variant="danger"
           >
             {t("labels.action.deleteLabel")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -1663,12 +1659,13 @@ function LabelRowActionsMenu({
       data-row-actions-menu=""
       ref={menuContainerRef}
     >
-      <button
+      <Button
         aria-controls={menuId}
         aria-expanded={isOpen}
         aria-haspopup="menu"
         aria-label={rowActionsLabel}
-        className="notes-icon-button labels-row-menu__trigger"
+        className="labels-row-menu__trigger"
+        iconOnly
         onClick={(event) => {
           event.stopPropagation();
           onToggle();
@@ -1678,7 +1675,7 @@ function LabelRowActionsMenu({
         type="button"
       >
         <RowActionsIcon />
-      </button>
+      </Button>
       {isOpen ? (
         <div
           aria-label={rowActionsLabel}

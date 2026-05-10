@@ -7,6 +7,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import { Button } from "../../design-system/button";
 import { FloatingTextarea } from "../../design-system/floating-textarea";
 import { ListCard } from "../../design-system/list-card";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
@@ -470,13 +471,13 @@ function StudyNotesWorkspace() {
           </div>
         </div>
         <div className="notes-workspace__quick-actions">
-          <button
-            className="notes-action notes-action-primary"
+          <Button
             onClick={() => void handleNewStudyNote()}
             type="button"
+            variant="primary"
           >
             New Study Note
-          </button>
+          </Button>
           <FocusSessionStartControl
             activeFocusSession={activeFocusSession}
             focus={focusContext}
@@ -582,28 +583,24 @@ function StudyNotesWorkspace() {
                   />
                 </label>
               </div>
-              <button
-                className="notes-action notes-action-primary"
-                type="submit"
-              >
+              <Button type="submit" variant="primary">
                 Save
-              </button>
-              <button
-                className="notes-action"
+              </Button>
+              <Button
                 disabled={selectedStudyNote === null}
                 onClick={() => void handleAddStudyNoteFromSource()}
                 type="button"
               >
                 Add Study Note from this explanation
-              </button>
-              <button
-                className="notes-action notes-action-danger"
+              </Button>
+              <Button
                 disabled={selectedStudyNote === null}
                 onClick={() => void handleDeleteStudyNote()}
                 type="button"
+                variant="danger"
               >
                 Delete Study Note
-              </button>
+              </Button>
             </div>
 
             <div className="study-notes-editor__fields">

@@ -1,6 +1,8 @@
 import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { z } from "zod";
+
+import { ButtonLink } from "../../design-system/button";
 import { ListCard } from "../../design-system/list-card";
 import { formatCount } from "../../lib/format-count";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
@@ -414,9 +416,9 @@ function NoNotesRecallState() {
       <article className="recall-surface recall-empty-surface">
         <h3>{t("recall.empty.title")}</h3>
         <p className="muted">{t("recall.empty.body")}</p>
-        <Link className="notes-action notes-action-primary" to="/study-notes">
+        <ButtonLink to="/study-notes" variant="primary">
           {t("recall.action.openNotes")}
-        </Link>
+        </ButtonLink>
       </article>
     </section>
   );

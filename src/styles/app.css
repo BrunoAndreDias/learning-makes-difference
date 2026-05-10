@@ -1,6 +1,6 @@
 @import "../design-system/global.css";
-@import "../design-system/floating-textarea.css";
-@import "../design-system/list-card.css";
+@import "../design-system/floating-textarea/floating-textarea.css";
+@import "../design-system/list-card/list-card.css";
 @import "../design-system/shared-actions.css";
 @import "../modules/workspace-shell/workspace-shell.css";
 @import "../modules/workspace-shell/app-shell/workspace-sidebar.css";

@@ -10,6 +10,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+
+import { Button } from "../../design-system/button";
 import {
   type AppSessionSnapshot,
   resolveProtectedSessionSnapshot,
@@ -408,14 +410,15 @@ function RecallSessionPage() {
                     <SparkIcon />
                     <span>{t("recall.session.hint")}</span>
                   </p>
-                  <button
-                    className="notes-action notes-action-primary recall-card__reveal"
+                  <Button
+                    className="recall-card__reveal"
                     onClick={revealNote}
                     type="button"
+                    variant="primary"
                   >
                     <RevealIcon />
                     <span>{t("recall.session.reveal")}</span>
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <div className="recall-card__revealed-state">
@@ -425,10 +428,10 @@ function RecallSessionPage() {
                     <fieldset className="recall-rating-row">
                       <legend>{t("recall.session.selfRating")}</legend>
                       {recallRatingOptions.map((rating) => (
-                        <button
+                        <Button
                           aria-label={t(getRecallRatingTranslationKey(rating))}
                           aria-pressed={pendingRating === rating}
-                          className={`notes-action recall-rating recall-rating--${rating}`}
+                          className={`recall-rating recall-rating--${rating}`}
                           data-selected={pendingRating === rating}
                           key={rating}
                           onClick={() => setPendingRating(rating)}
@@ -442,17 +445,17 @@ function RecallSessionPage() {
                               getRecallRatingDescriptionTranslationKey(rating),
                             )}
                           </span>
-                        </button>
+                        </Button>
                       ))}
                     </fieldset>
-                    <button
-                      className="notes-action notes-action-primary"
+                    <Button
                       disabled={pendingRating === null}
                       onClick={submitRating}
                       type="button"
+                      variant="primary"
                     >
                       {t("recall.session.next")}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -463,24 +466,24 @@ function RecallSessionPage() {
           </article>
 
           <div className="recall-session-main__actions">
-            <button
-              className="notes-action recall-session-main__action"
+            <Button
+              className="recall-session-main__action"
               disabled={isBreakActive}
               onClick={skipNote}
               type="button"
             >
               <SkipIcon />
               <span>{t("recall.session.skip")}</span>
-            </button>
-            <button
-              className="notes-action recall-session-main__action"
+            </Button>
+            <Button
+              className="recall-session-main__action"
               disabled={isBreakActive}
               onClick={() => setEndDialogOpen(true)}
               type="button"
             >
               <EndSessionIcon />
               <span>{t("recall.session.dialog.end")}</span>
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -657,18 +660,14 @@ function EndSessionDialog({
             : t("recall.session.dialog.discardBody")}
         </p>
         <div className="recall-dialog__actions">
-          <button className="notes-action" onClick={onCancel} type="button">
+          <Button onClick={onCancel} type="button">
             {t("recall.session.dialog.cancel")}
-          </button>
-          <button
-            className="notes-action notes-action-primary"
-            onClick={onConfirm}
-            type="button"
-          >
+          </Button>
+          <Button onClick={onConfirm} type="button" variant="primary">
             {hasAttempts
               ? t("recall.session.dialog.end")
               : t("recall.session.dialog.discard")}
-          </button>
+          </Button>
         </div>
       </section>
     </div>

@@ -38,7 +38,7 @@ describe("FloatingTextarea", () => {
 
   it("publishes the value and focus selectors that move the placeholder label", () => {
     const css = readFileSync(
-      `${process.cwd()}/src/design-system/floating-textarea.css`,
+      `${process.cwd()}/src/design-system/floating-textarea/floating-textarea.css`,
       "utf8",
     );
     const normalizedCss = css.replace(/\s+/g, " ");

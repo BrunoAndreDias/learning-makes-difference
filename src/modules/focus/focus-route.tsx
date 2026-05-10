@@ -7,6 +7,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+
+import { Button } from "../../design-system/button";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { type AppTranslationKey, useAppTranslation } from "../language";
 import { listNotesForUser } from "../notes";
@@ -253,25 +255,24 @@ function ActiveFocusSessionPanel({
       </div>
       {activeSession === null ? null : (
         <div className="focus-session-panel__actions">
-          <button
-            className="notes-action notes-action-primary"
+          <Button
             onClick={() => {
               void handleEndFocusSession();
             }}
             type="button"
+            variant="primary"
           >
             {t("focus.panel.endSession")}
-          </button>
+          </Button>
           {sessionStatus.actionLabel === null ? null : (
-            <button
-              className="notes-action"
+            <Button
               onClick={() => {
                 void handleAdvanceFocusSession();
               }}
               type="button"
             >
               {sessionStatus.actionLabel}
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -424,21 +425,20 @@ function FocusSessionConfig({
         </div>
         <p className="focus-setup-note">{setupNote}</p>
         <div className="focus-config-form__actions">
-          <button
-            className="notes-action notes-action-primary"
+          <Button
             disabled={isFocusSessionActive}
             type="submit"
+            variant="primary"
           >
             {t("focus.form.startSession")}
-          </button>
-          <button
-            className="notes-action"
+          </Button>
+          <Button
             disabled={isFocusSessionActive}
             onClick={handleReset}
             type="button"
           >
             {t("focus.form.reset")}
-          </button>
+          </Button>
         </div>
         {errorMessage === null ? null : (
           <span id={errorId} role="alert">

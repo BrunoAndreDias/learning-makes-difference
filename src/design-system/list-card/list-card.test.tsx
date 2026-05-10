@@ -60,7 +60,7 @@ describe("ListCard", () => {
 
   it("keeps descriptions able to wrap across many lines", () => {
     const css = readFileSync(
-      `${process.cwd()}/src/design-system/list-card.css`,
+      `${process.cwd()}/src/design-system/list-card/list-card.css`,
       "utf8",
     );
     const descriptionRule = css.match(

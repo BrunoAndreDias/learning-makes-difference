@@ -7,6 +7,8 @@ import {
   useRouteContext,
 } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+
+import { Button, ButtonLink } from "../../design-system/button";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import type { AppLabel } from "../labels/label-management/labels";
 import { type AppTranslationKey, useAppTranslation } from "../language";
@@ -310,12 +312,9 @@ export function RecallSelectionPage({
           <section className="recall-panel recall-empty-state">
             <h4>{t("recall.empty.title")}</h4>
             <p className="muted">{t("recall.empty.selectionBody")}</p>
-            <Link
-              className="notes-action notes-action-primary"
-              to="/study-notes"
-            >
+            <ButtonLink to="/study-notes" variant="primary">
               {t("recall.action.openNotes")}
-            </Link>
+            </ButtonLink>
           </section>
         ) : (
           <div className="recall-selection-layout recall-selection-layout--picker">
@@ -543,24 +542,25 @@ function SessionSetupPanel({
       </p>
 
       <div className="recall-session-setup__actions">
-        <button
-          className="notes-action recall-select-session-setup__cancel"
+        <Button
+          className="recall-select-session-setup__cancel"
           onClick={onCancel}
           type="button"
         >
           {t("recall.selection.cancel")}
-        </button>
-        <button
+        </Button>
+        <Button
           aria-describedby={
             recallTypeWarning === null ? undefined : "recall-start-reason"
           }
-          className="notes-action notes-action-primary recall-select-session-setup__start"
+          className="recall-select-session-setup__start"
           disabled={disabledStartReason !== null}
           onClick={onStartRecall}
           type="button"
+          variant="primary"
         >
           {t("recall.selection.start")}
-        </button>
+        </Button>
       </div>
 
       {recallTypeWarning !== null ? (
