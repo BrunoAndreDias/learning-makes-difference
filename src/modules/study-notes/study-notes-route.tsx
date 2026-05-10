@@ -320,8 +320,10 @@ function StudyNotesWorkspace() {
 
     try {
       const createdStudyNote = await storeMutation.createStudyNote(userId, {
+        expectedAnswer: "",
+        prompt: "New Study Note",
         sourceBody: "",
-        sourceTitle: "New Study Note",
+        sourceTitle: "",
       });
       setSelectedStudyNoteId(createdStudyNote.id);
     } catch (error) {
@@ -392,8 +394,10 @@ function StudyNotesWorkspace() {
 
       if (selectedStudyNote === null) {
         const createdStudyNote = await storeMutation.createStudyNote(userId, {
+          expectedAnswer: draft.expectedAnswer,
+          prompt: draft.prompt,
           sourceBody: draft.sourceBody,
-          sourceTitle: draft.sourceTitle || draft.prompt,
+          sourceTitle: draft.sourceTitle,
         });
         const updatedStudyNote = await storeMutation.updateStudyNote(
           userId,

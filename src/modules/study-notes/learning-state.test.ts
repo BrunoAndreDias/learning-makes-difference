@@ -129,6 +129,46 @@ describe("Study Note learning state", () => {
     ).toEqual([first.id, fresh.id]);
   });
 
+  it("keeps incomplete Study Notes out of Learning State and Due for Recall copy", () => {
+    const incomplete = buildStudyNote({
+      expectedAnswer: " ",
+      id: "study-note-incomplete",
+      prompt: "Incomplete target",
+    });
+
+    const [learningState] = deriveStudyNoteLearningStates({
+      histories: [
+        buildHistory(incomplete.id, [
+          {
+            completedAt: "2026-05-01T09:00:00.000Z",
+            rating: "hard",
+          },
+        ]),
+      ],
+      now: "2026-05-02T12:00:00.000Z",
+      studyNotes: [incomplete],
+    });
+
+    expect(learningState).toEqual({
+      dueForRecall: false,
+      lastRecalledAt: null,
+      latestScore: null,
+      needsPractice: false,
+      studyNoteId: incomplete.id,
+    });
+    expect(formatStudyNoteLearningStateCompactLabel(learningState)).toBe(
+      "Add expected answer",
+    );
+    expect(formatStudyNotePracticeSignalLabel(learningState)).toBeNull();
+    expect(formatStudyNoteDueLabel(learningState)).toBeNull();
+    expect(
+      listDueStudyNotesForRecall({
+        learningStates: [learningState],
+        studyNotes: [incomplete],
+      }),
+    ).toEqual([]);
+  });
+
   it("maps recall attempt groups to Study Note recall histories", () => {
     const attemptsByNote: FlashCardRecallAttemptsByNote[] = [
       {

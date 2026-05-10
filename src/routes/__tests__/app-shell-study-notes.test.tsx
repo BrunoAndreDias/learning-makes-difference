@@ -264,6 +264,56 @@ describe("authenticated Study Notes workspace", () => {
     );
   });
 
+  it("saves incomplete Study Notes with completion copy and blocks blank prompts", async () => {
+    const studyNotesContext = createAppStudyNotesContext({
+      keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+
+    renderRoute("/study-notes", {
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+      studyNotesContext,
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "New Study Note" }),
+    );
+    fireEvent.change(screen.getByLabelText("Prompt"), {
+      target: { value: "What needs an answer later?" },
+    });
+    fireEvent.change(screen.getByLabelText("Expected answer"), {
+      target: { value: " " },
+    });
+    fireEvent.change(screen.getByLabelText("Source title"), {
+      target: { value: "" },
+    });
+    fireEvent.change(screen.getByLabelText("Source body"), {
+      target: { value: "" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Saved");
+    expect(screen.getByText("Add expected answer")).toBeInTheDocument();
+    expect(screen.queryByText("Due for Recall")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Prompt"), {
+      target: { value: " " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Prompt is required.",
+    );
+  });
+
   it("captures saved Study Note work as Focus activity with source Note and Label context", async () => {
     const storage = window.localStorage;
     const keySuffix = Math.random().toString(36).slice(2);

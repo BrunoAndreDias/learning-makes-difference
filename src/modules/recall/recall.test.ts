@@ -833,6 +833,42 @@ describe("recall session setup", () => {
     });
   });
 
+  it("does not start FlashCard sessions from incomplete Study Notes", () => {
+    const storage = createMemoryStorage();
+    const studyNotes = createAppStudyNotesContext({
+      keyPrefix: "recall-incomplete-study-notes",
+      storage,
+    });
+    const recall = createAppRecallContext({
+      keyPrefix: "recall-incomplete-study-notes-session",
+      notes: createAppNotesContext({
+        keyPrefix: "recall-incomplete-study-notes-source-notes",
+        storage,
+      }),
+      storage,
+      studyNotes,
+    });
+    const userId = "owner";
+    const incompleteStudyNote = studyNotes.createStudyNote(userId, {
+      expectedAnswer: "",
+      prompt: "What needs completion?",
+      sourceBody: "",
+      sourceTitle: "",
+    });
+
+    expect(() =>
+      recall.startFlashCardSession({
+        studyNoteIds: [incompleteStudyNote.id],
+        userId,
+      }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: "invalid_input",
+        message: "Add expected answer before recall.",
+      }),
+    );
+  });
+
   it("does not start FlashCard sessions from label targets", () => {
     const storage = createMemoryStorage();
     const labels = createAppLabelsContext({

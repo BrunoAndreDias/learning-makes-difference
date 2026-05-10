@@ -163,6 +163,95 @@ describe("createStudyNotesService", () => {
     ]);
   });
 
+  it("persists incomplete Study Notes with prompt-only readiness and optional source fields", async () => {
+    const { studyNotes } = await createStudyNotesHarness();
+
+    const incompleteStudyNote = await studyNotes.createStudyNote({
+      input: {
+        expectedAnswer: " ",
+        prompt: "What still needs an answer?",
+        sourceBody: "",
+        sourceTitle: "",
+      },
+      userId: "user-casey",
+    });
+
+    expect(incompleteStudyNote).toMatchObject({
+      expectedAnswer: "",
+      prompt: "What still needs an answer?",
+      source: {
+        body: "",
+        title: "",
+      },
+    });
+    await expect(
+      studyNotes.createStudyNote({
+        input: {
+          expectedAnswer: "Answer without prompt.",
+          prompt: " ",
+          sourceBody: "",
+          sourceTitle: "",
+        },
+        userId: "user-casey",
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_input",
+      message: "Prompt is required.",
+    });
+  });
+
+  it("persists recallable Study Notes with a blank source body", async () => {
+    const { studyNotes } = await createStudyNotesHarness();
+
+    await expect(
+      studyNotes.createStudyNote({
+        input: {
+          expectedAnswer: "The expected answer drives recall.",
+          prompt: "What drives recall?",
+          sourceBody: "",
+          sourceTitle: "",
+        },
+        userId: "user-casey",
+      }),
+    ).resolves.toMatchObject({
+      expectedAnswer: "The expected answer drives recall.",
+      prompt: "What drives recall?",
+      source: {
+        body: "",
+        title: "",
+      },
+    });
+  });
+
+  it("persists sibling Study Notes from untitled sources with a saveable prompt", async () => {
+    const { studyNotes } = await createStudyNotesHarness();
+    const firstStudyNote = await studyNotes.createStudyNote({
+      input: {
+        expectedAnswer: "",
+        prompt: "First prompt",
+        sourceBody: "",
+        sourceTitle: "",
+      },
+      userId: "user-casey",
+    });
+
+    await expect(
+      studyNotes.createStudyNoteFromSource({
+        input: {
+          sourceNoteId: firstStudyNote.sourceNoteId,
+        },
+        userId: "user-casey",
+      }),
+    ).resolves.toMatchObject({
+      expectedAnswer: "",
+      prompt: "New Study Note",
+      source: {
+        body: "",
+        title: "",
+      },
+    });
+  });
+
   it("does not rewrite copied Study Note fields when the source Note changes", async () => {
     const { studyNotes } = await createStudyNotesHarness();
     const createdStudyNote = await studyNotes.createStudyNote({

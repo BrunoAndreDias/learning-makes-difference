@@ -103,6 +103,97 @@ describe("app study notes context", () => {
     });
   });
 
+  it("saves incomplete Study Notes with a prompt and rejects saving without a prompt", () => {
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-readiness-test",
+      storage: createMemoryStorage(),
+    });
+
+    const incompleteStudyNote = studyNotes.createStudyNote("user-casey", {
+      expectedAnswer: " ",
+      prompt: "What still needs an answer?",
+      sourceBody: "",
+      sourceTitle: "",
+    });
+
+    expect(incompleteStudyNote).toMatchObject({
+      expectedAnswer: "",
+      prompt: "What still needs an answer?",
+      source: {
+        body: "",
+        title: "",
+      },
+    });
+    expect(() =>
+      studyNotes.createStudyNote("user-casey", {
+        expectedAnswer: "Answer without prompt.",
+        prompt: " ",
+        sourceBody: "",
+        sourceTitle: "",
+      }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: "invalid_input",
+        message: "Prompt is required.",
+      } satisfies Pick<AppStudyNotesError, "code" | "message">),
+    );
+  });
+
+  it("keeps Study Notes recallable when their expected answer is filled and source body is blank", () => {
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-recallable-blank-source-test",
+      storage: createMemoryStorage(),
+    });
+
+    const studyNote = studyNotes.createStudyNote("user-casey", {
+      expectedAnswer: "The expected answer drives recall.",
+      prompt: "What drives recall?",
+      sourceBody: "",
+      sourceTitle: "",
+    });
+
+    expect(studyNote).toMatchObject({
+      expectedAnswer: "The expected answer drives recall.",
+      prompt: "What drives recall?",
+      source: {
+        body: "",
+        title: "",
+      },
+    });
+  });
+
+  it("adds sibling Study Notes from untitled sources with a saveable prompt", () => {
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-sibling-untitled-source-test",
+      storage: createMemoryStorage(),
+    });
+    const firstStudyNote = studyNotes.createStudyNote("user-casey", {
+      expectedAnswer: "",
+      prompt: "First prompt",
+      sourceBody: "",
+      sourceTitle: "",
+    });
+
+    const siblingStudyNote = studyNotes.createStudyNoteFromSource(
+      "user-casey",
+      {
+        sourceNoteId: firstStudyNote.sourceNoteId,
+      },
+    );
+
+    expect(siblingStudyNote).toMatchObject({
+      expectedAnswer: "",
+      prompt: "New Study Note",
+      source: {
+        body: "",
+        title: "",
+      },
+    });
+  });
+
   it("creates another Study Note from an existing source and shares source edits", () => {
     const studyNotes = createAppStudyNotesContext({
       crypto: createDeterministicCrypto(),

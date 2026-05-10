@@ -98,6 +98,10 @@ function validateOptionalText(value: string): string {
   return value.trim();
 }
 
+function getDefaultSiblingPrompt(sourceTitle: string): string {
+  return sourceTitle.trim().length > 0 ? sourceTitle.trim() : "New Study Note";
+}
+
 function normalizeLabelIds(labelIds: readonly string[] | undefined): string[] {
   return [...new Set((labelIds ?? []).filter(Boolean))];
 }
@@ -350,11 +354,15 @@ export function createStudyNotesService({
       const timestamp = now();
       const sourceNoteId = crypto.randomUUID();
       const studyNoteId = crypto.randomUUID();
-      const sourceTitle = validateRequiredText(
-        input.sourceTitle,
-        "Explanation title",
-      );
+      const sourceTitle = validateOptionalText(input.sourceTitle);
       const sourceBody = validateOptionalText(input.sourceBody);
+      const prompt = validateRequiredText(
+        input.prompt ?? input.sourceTitle,
+        "Prompt",
+      );
+      const expectedAnswer = validateOptionalText(
+        input.expectedAnswer ?? input.sourceBody,
+      );
       const acronyms = validateAcronyms(input.acronyms);
       const safeLabelIds = await validateOwnedLabelIds({
         db,
@@ -375,9 +383,9 @@ export function createStudyNotesService({
         });
         await tx.insert(studyNotesTable).values({
           createdAt: timestamp,
-          expectedAnswer: sourceBody,
+          expectedAnswer,
           id: studyNoteId,
-          prompt: sourceTitle,
+          prompt,
           sourceNoteId,
           updatedAt: timestamp,
         });
@@ -406,11 +414,11 @@ export function createStudyNotesService({
       return toAppStudyNote({
         acronyms,
         createdAt: timestamp,
-        expectedAnswer: sourceBody,
+        expectedAnswer,
         id: studyNoteId,
         labelIds: safeLabelIds,
         metaphors,
-        prompt: sourceTitle,
+        prompt,
         sourceBody,
         sourceNoteId,
         sourceTitle,
@@ -453,7 +461,7 @@ export function createStudyNotesService({
         createdAt: timestamp,
         expectedAnswer: source.body,
         id: studyNoteId,
-        prompt: source.title,
+        prompt: getDefaultSiblingPrompt(source.title),
         sourceNoteId: source.id,
         updatedAt: timestamp,
       });
@@ -465,7 +473,7 @@ export function createStudyNotesService({
         id: studyNoteId,
         labelIds: [],
         metaphors: [],
-        prompt: source.title,
+        prompt: getDefaultSiblingPrompt(source.title),
         sourceBody: source.body,
         sourceNoteId: source.id,
         sourceTitle: source.title,
@@ -578,10 +586,7 @@ export function createStudyNotesService({
       });
       const metaphors = validateMetaphors(input.metaphors);
       const prompt = validateRequiredText(input.prompt, "Prompt");
-      const sourceTitle = validateRequiredText(
-        input.sourceTitle,
-        "Explanation title",
-      );
+      const sourceTitle = validateOptionalText(input.sourceTitle);
       const sourceBody = validateOptionalText(input.sourceBody);
 
       await db.transaction(async (tx) => {
@@ -662,7 +667,7 @@ export function createStudyNotesService({
       userId: string;
     }) {
       const timestamp = now();
-      const title = validateRequiredText(input.title, "Explanation title");
+      const title = validateOptionalText(input.title);
       const body = validateOptionalText(input.body);
       const existingSource =
         (

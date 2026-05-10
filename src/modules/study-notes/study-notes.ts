@@ -32,8 +32,10 @@ export type AppStoredStudyNote = AppStudyNote & {
 
 export type CreateStudyNoteInput = {
   acronyms?: AppStudyNoteAcronym[];
+  expectedAnswer?: string;
   labelIds?: string[];
   metaphors?: AppStudyNoteMetaphor[];
+  prompt?: string;
   sourceBody: string;
   sourceTitle: string;
 };
@@ -149,6 +151,10 @@ function validateRequiredText(value: string, label: string): string {
 
 function validateOptionalText(value: string): string {
   return value.trim();
+}
+
+function getDefaultSiblingPrompt(sourceTitle: string): string {
+  return sourceTitle.trim().length > 0 ? sourceTitle.trim() : "New Study Note";
 }
 
 function normalizeLabelIds(labelIds: readonly string[] | undefined): string[] {
@@ -388,11 +394,15 @@ export function createAppStudyNotesContext(
     createStudyNote(userId, input) {
       const validatedUserId = validateUserId(userId);
       const timestamp = new Date().toISOString();
-      const sourceTitle = validateRequiredText(
-        input.sourceTitle,
-        "Explanation title",
-      );
+      const sourceTitle = validateOptionalText(input.sourceTitle);
       const sourceBody = validateOptionalText(input.sourceBody);
+      const prompt = validateRequiredText(
+        input.prompt ?? input.sourceTitle,
+        "Prompt",
+      );
+      const expectedAnswer = validateOptionalText(
+        input.expectedAnswer ?? input.sourceBody,
+      );
       const acronyms = validateAcronyms(input.acronyms);
       const labelIds = validateOwnedLabelIds(input.labelIds, {
         getOwnedLabelIdsForUser: options.getOwnedLabelIdsForUser,
@@ -403,11 +413,11 @@ export function createAppStudyNotesContext(
       const studyNote: AppStoredStudyNote = {
         acronyms,
         createdAt: timestamp,
-        expectedAnswer: sourceBody,
+        expectedAnswer,
         id: cryptoProvider.randomUUID(),
         labelIds,
         metaphors,
-        prompt: sourceTitle,
+        prompt,
         source: {
           body: sourceBody,
           id: sourceNoteId,
@@ -446,7 +456,7 @@ export function createAppStudyNotesContext(
         id: cryptoProvider.randomUUID(),
         labelIds: [],
         metaphors: [],
-        prompt: sourceStudyNote.source.title,
+        prompt: getDefaultSiblingPrompt(sourceStudyNote.source.title),
         source: { ...sourceStudyNote.source },
         sourceNoteId: sourceStudyNote.sourceNoteId,
         updatedAt: timestamp,
@@ -527,7 +537,7 @@ export function createAppStudyNotesContext(
       const updatedSource = {
         ...existingStudyNote.source,
         body: validateOptionalText(input.sourceBody),
-        title: validateRequiredText(input.sourceTitle, "Explanation title"),
+        title: validateOptionalText(input.sourceTitle),
         updatedAt: timestamp,
       };
       const updatedStudyNote: AppStoredStudyNote = {

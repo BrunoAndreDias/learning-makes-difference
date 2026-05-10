@@ -2,6 +2,7 @@ import type {
   FlashCardRecallAttemptsByNote,
   RecallSelfRating,
 } from "../recall";
+import { getStudyNoteReadiness } from "./study-note-readiness";
 import type { AppStudyNote } from "./study-notes";
 
 const DUE_RECALL_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
@@ -46,6 +47,10 @@ function formatStudyNoteLearningStateScoreLabel(
 export function formatStudyNoteLearningStateCompactLabel(
   learningState: StudyNoteLearningState,
 ): string {
+  if (learningState.latestScore === null && !learningState.dueForRecall) {
+    return "Add expected answer";
+  }
+
   const scoreLabel = formatStudyNoteLearningStateScoreLabel(
     learningState.latestScore,
   );
@@ -119,6 +124,18 @@ function deriveStudyNoteLearningState(input: {
   now: string;
   studyNote: AppStudyNote;
 }): StudyNoteLearningState {
+  const readiness = getStudyNoteReadiness(input.studyNote);
+
+  if (!readiness.learningStateEligible) {
+    return {
+      dueForRecall: false,
+      lastRecalledAt: null,
+      latestScore: null,
+      needsPractice: false,
+      studyNoteId: input.studyNote.id,
+    };
+  }
+
   const latestAttempt = getLatestStudyNoteRecallAttempt(input.history);
   const lastRecalledAt = getValidAttemptCompletedAt(latestAttempt);
   const latestScore = latestAttempt?.rating ?? null;
@@ -180,6 +197,7 @@ export function listDueStudyNotesForRecall(input: {
 
   return input.studyNotes.filter(
     (studyNote) =>
+      getStudyNoteReadiness(studyNote).dueForRecallEligible &&
       learningStateByStudyNoteId.get(studyNote.id)?.dueForRecall === true,
   );
 }

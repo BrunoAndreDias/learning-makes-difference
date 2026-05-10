@@ -16,8 +16,10 @@ const memoryHookSchema = z.object({
 
 const createStudyNoteInputSchema = z.object({
   acronyms: z.array(memoryHookSchema).optional(),
+  expectedAnswer: z.string().optional(),
   labelIds: z.array(z.string()).optional(),
   metaphors: z.array(memoryHookSchema).optional(),
+  prompt: z.string().optional(),
   sourceBody: z.string(),
   sourceTitle: z.string(),
 });

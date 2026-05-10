@@ -4,6 +4,7 @@ import { type AppNote, type AppNotesContext, listNotesForUser } from "../notes";
 import {
   type AppStudyNote,
   type AppStudyNotesContext,
+  getStudyNoteReadiness,
   listStudyNotesForUser,
 } from "../study-notes";
 
@@ -882,6 +883,13 @@ function resolveRecallableStudyNotesFromSelection(input: {
 
     if (studyNote === undefined) {
       throw new AppRecallError("not_found", "Study Note not found.");
+    }
+
+    if (!getStudyNoteReadiness(studyNote).recallable) {
+      throw new AppRecallError(
+        "invalid_input",
+        "Add expected answer before recall.",
+      );
     }
 
     return studyNote;
