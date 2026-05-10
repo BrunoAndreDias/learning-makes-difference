@@ -431,10 +431,4 @@ afterEach(() => {
 });
 
 export type { AppSessionSnapshot };
-export {
-  createAppFocusContext,
-  createAppLabelsContext,
-  createAppNotesContext,
-  createAppRecallContext,
-  listNotesForUser,
-};
+export { createAppFocusContext, listNotesForUser };

@@ -241,7 +241,7 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { level: 3, name: "Etiquetas" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Organiza notas con temas reutilizables."),
+      screen.getByText("Organiza Study Notes con temas reutilizables."),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Nueva etiqueta" }),
@@ -433,7 +433,7 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { level: 3, name: "Labels" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Organize notes with reusable topics."),
+      screen.getByText("Organize Study Notes with reusable topics."),
     ).toBeInTheDocument();
     expect(screen.getByText("4 labels")).toBeInTheDocument();
     expect(screen.getByText("2 top-level")).toBeInTheDocument();
@@ -441,7 +441,7 @@ describe("authenticated app shell", () => {
     expect(screen.getByText("1 unused")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Rules: multiple parents allowed, cycles blocked, deleting labels keeps notes.",
+        "Rules: multiple parents allowed, cycles blocked, deleting labels keeps Study Notes.",
       ),
     ).toBeInTheDocument();
     expect(
@@ -471,7 +471,7 @@ describe("authenticated app shell", () => {
       name: /Children/i,
     });
     const notesHeader = within(labelsTable).getByRole("columnheader", {
-      name: /Notes/i,
+      name: /Study Notes/i,
     });
 
     expect(labelHeader).toBeInTheDocument();
@@ -491,7 +491,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(
       within(notesHeader).getByRole("button", {
-        name: "Sort by notes, high to low",
+        name: "Sort by study notes, high to low",
       }),
     ).toBeInTheDocument();
 
@@ -539,7 +539,7 @@ describe("authenticated app shell", () => {
 
     fireEvent.click(
       within(notesHeader).getByRole("button", {
-        name: "Sort by notes, high to low",
+        name: "Sort by study notes, high to low",
       }),
     );
 
@@ -563,7 +563,7 @@ describe("authenticated app shell", () => {
     await screen.findByRole("heading", { level: 3, name: "Labels" });
     expect(
       screen.getByText(
-        "Rules: multiple parents allowed, cycles blocked, deleting labels keeps notes.",
+        "Rules: multiple parents allowed, cycles blocked, deleting labels keeps Study Notes.",
       ),
     ).toBeInTheDocument();
     expect(
@@ -635,7 +635,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(openDrawerButton);
     const drawer = await screen.findByRole("dialog", { name: "New label" });
     expect(
-      within(drawer).getByText("Create a reusable topic for notes."),
+      within(drawer).getByText("Create a reusable topic for Study Notes."),
     ).toBeInTheDocument();
 
     const createButton = within(drawer).getByRole("button", {
@@ -659,14 +659,14 @@ describe("authenticated app shell", () => {
       target: { value: "sci" },
     });
     fireEvent.click(
-      within(drawer).getByRole("button", { name: "Science (2 notes)" }),
+      within(drawer).getByRole("button", { name: "Science (2 Study Notes)" }),
     );
 
     fireEvent.change(parentSearchInput, {
       target: { value: "bio" },
     });
     fireEvent.click(
-      within(drawer).getByRole("button", { name: "Biology (1 note)" }),
+      within(drawer).getByRole("button", { name: "Biology (1 Study Note)" }),
     );
 
     const selectedParents = within(drawer).getByRole("list", {
@@ -682,7 +682,7 @@ describe("authenticated app shell", () => {
       target: { value: "sci" },
     });
     expect(
-      within(drawer).queryByRole("button", { name: "Science (2 notes)" }),
+      within(drawer).queryByRole("button", { name: "Science (2 Study Notes)" }),
     ).not.toBeInTheDocument();
 
     fireEvent.click(
@@ -887,7 +887,9 @@ describe("authenticated app shell", () => {
 
     const drawer = await screen.findByRole("dialog", { name: "Edit label" });
     expect(
-      within(drawer).getByText("Biology · used in 2 notes · 1 child label"),
+      within(drawer).getByText(
+        "Biology · used in 2 Study Notes · 1 child label",
+      ),
     ).toBeInTheDocument();
     expect(
       within(drawer).getByRole("button", { name: "Save changes" }),
@@ -927,7 +929,7 @@ describe("authenticated app shell", () => {
       target: { value: "chem" },
     });
     fireEvent.click(
-      within(drawer).getByRole("button", { name: "Chemistry (0 notes)" }),
+      within(drawer).getByRole("button", { name: "Chemistry (0 Study Notes)" }),
     );
     fireEvent.click(
       within(selectedParents).getByRole("button", { name: "Remove Science" }),

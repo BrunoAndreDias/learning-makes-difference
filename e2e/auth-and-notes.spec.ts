@@ -20,7 +20,7 @@ async function registerAccount(
   page: Page,
   account = uniqueAccount(test.info().title),
 ) {
-  await page.goto("/register?redirect=/notes");
+  await page.goto("/register?redirect=/study-notes");
   await page.waitForLoadState("networkidle");
   await expect(
     page.getByRole("heading", { name: "Create your account" }),
@@ -36,34 +36,33 @@ async function registerAccount(
     .fill(account.pilotRegistrationCode);
   await page.getByLabel("Password", { exact: true }).fill(account.password);
   await page.getByRole("button", { name: "Sign up" }).click();
-  await expect(page).toHaveURL(/\/notes$/);
+  await expect(page).toHaveURL(/\/study-notes$/);
 
   return account;
 }
 
 test("redirects protected routes to sign in", async ({ page }) => {
-  await page.goto("/notes");
+  await page.goto("/study-notes");
 
   await expect(page).toHaveURL(/\/login/);
   await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
 });
 
-test("registers, navigates the app, and persists a note after refresh", async ({
+test("registers, navigates the app, and persists a Study Note after refresh", async ({
   page,
 }) => {
   await registerAccount(page);
 
   const noteTitle = `E2E spaced recall ${Date.now()}`;
-  const noteBody = "This note proves browser registration, saving, and reload.";
+  const noteBody =
+    "This Study Note proves browser registration, saving, and reload.";
 
-  await page
-    .getByRole("complementary", { name: "Notes catalog" })
-    .getByRole("button", { name: "New note" })
-    .first()
-    .click();
-  await page.getByLabel("Title").fill(noteTitle);
-  await page.getByRole("textbox", { name: "Body" }).fill(noteBody);
-  await page.getByRole("button", { name: "Create note" }).click();
+  await page.getByRole("button", { name: "New Study Note" }).click();
+  await page.getByLabel("Prompt").fill(noteTitle);
+  await page.getByRole("textbox", { name: "Expected answer" }).fill(noteBody);
+  await page.getByLabel("Source title").fill(noteTitle);
+  await page.getByRole("textbox", { name: "Source body" }).fill(noteBody);
+  await page.getByRole("button", { name: "Save" }).click();
 
   await expect(
     page.getByRole("button", { exact: true, name: noteTitle }),
@@ -73,8 +72,10 @@ test("registers, navigates the app, and persists a note after refresh", async ({
 
   await page.getByRole("button", { exact: true, name: noteTitle }).click();
 
-  await expect(page.getByLabel("Title")).toHaveValue(noteTitle);
-  await expect(page.getByRole("textbox", { name: "Body" })).toHaveValue(
+  await expect(page.getByLabel("Prompt")).toHaveValue(noteTitle);
+  await expect(
+    page.getByRole("textbox", { name: "Expected answer" }),
+  ).toHaveValue(
     noteBody,
   );
 

@@ -451,7 +451,7 @@ describe("authenticated app shell", () => {
     });
   });
 
-  it("keeps the global FocusSession control available across notes, labels, recall, and settings", async () => {
+  it("keeps the global FocusSession control available across labels, recall, and settings", async () => {
     const focusContext = createAppFocusContext({
       keyPrefix: `test-focus-global-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -488,14 +488,14 @@ describe("authenticated app shell", () => {
       screen.getByRole("button", { name: "End focus" }),
     ).toBeInTheDocument();
 
-    await router.navigate({ to: "/notes" });
+    await router.navigate({ to: "/study-notes" });
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Notes" }),
+      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/notes");
+    expect(router.state.location.pathname).toBe("/study-notes");
     expect(
-      screen.getByRole("button", { name: "End focus" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "End focus" }),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /account menu/i }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Settings" }));
@@ -561,14 +561,17 @@ describe("authenticated app shell", () => {
       storage: window.localStorage,
     });
 
-    renderRoute("/notes", {
+    renderRoute("/study-notes", {
       focusContext: reloadedFocusContext,
       session,
     });
 
     expect(
-      await screen.findByRole("button", { name: "End focus" }),
+      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "End focus" }),
+    ).not.toBeInTheDocument();
     expect(reloadedFocusContext.getActiveSession({ userId })).toMatchObject({
       breakIntervalMinutes: 7,
       currentInterval: "Focus",

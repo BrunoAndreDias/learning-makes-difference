@@ -10,7 +10,6 @@ type ProtectedSessionRouteId =
   | "/_protected"
   | "/_protected/focus"
   | "/_protected/labels"
-  | "/_protected/notes"
   | "/_protected/recall"
   | "/_protected/settings"
   | "/_protected/study-notes";

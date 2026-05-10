@@ -779,13 +779,13 @@ describe("authenticated recall workspace", () => {
       await screen.findByRole("heading", { level: 3, name: "Recall" }),
     ).toBeInTheDocument();
 
-    await routeRender.router.navigate({ to: "/notes" });
+    await routeRender.router.navigate({ to: "/study-notes" });
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Notes" }),
+      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Recall note" }),
+      screen.getByRole("button", { name: "New Study Note" }),
     ).toBeInTheDocument();
   });
 

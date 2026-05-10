@@ -138,51 +138,6 @@ function compareSearchResults(
   return right.note.updatedAt.localeCompare(left.note.updatedAt);
 }
 
-function trimPreviewWhitespace(value: string): string {
-  return value.replace(/\s+/g, " ").trim();
-}
-
-function createTextMatchPreview(
-  value: string,
-  match: AppNoteSearchTarget["match"],
-): string {
-  const rawStart = Math.max(0, match.start - 24);
-  const rawEnd = Math.min(value.length, match.end + 48);
-  const prefix = rawStart > 0 ? "..." : "";
-  const suffix = rawEnd < value.length ? "..." : "";
-
-  return `${prefix}${trimPreviewWhitespace(value.slice(rawStart, rawEnd))}${suffix}`;
-}
-
-export function formatNoteSearchResultPreview(
-  result: AppNoteSearchResult,
-): string | null {
-  switch (result.target.field) {
-    case "title":
-      return null;
-    case "body":
-      return createTextMatchPreview(result.note.body, result.target.match);
-    case "metaphorDescription": {
-      const metaphor = result.note.metaphors[result.target.index ?? -1];
-
-      if (metaphor === undefined) {
-        return null;
-      }
-
-      return trimPreviewWhitespace(metaphor.description);
-    }
-    case "acronymDescription": {
-      const acronym = result.note.acronyms[result.target.index ?? -1];
-
-      if (acronym === undefined) {
-        return null;
-      }
-
-      return trimPreviewWhitespace(acronym.description);
-    }
-  }
-}
-
 export function filterNotesByQuery(
   notes: readonly AppNote[],
   query: string,

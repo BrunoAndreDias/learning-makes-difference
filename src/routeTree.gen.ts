@@ -12,11 +12,9 @@ import { Route as rootRouteImport } from './modules/workspace-shell/app-shell/ro
 import { Route as modulesAccessPublicEntryPublicLayoutRouteRouteImport } from './modules/access/public-entry/public-layout-route'
 import { Route as modulesWorkspaceShellAppShellProtectedRouteRouteImport } from './modules/workspace-shell/app-shell/protected-route'
 import { Route as modulesAccessSessionAuthLayoutRouteRouteImport } from './modules/access/session/auth-layout-route'
-import { Route as modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRouteImport } from './modules/notes/study-notes-prototype/study-notes-prototype-route'
 import { Route as modulesStudyNotesStudyNotesRouteRouteImport } from './modules/study-notes/study-notes-route'
 import { Route as modulesAccessSessionSettingsRouteRouteImport } from './modules/access/session/settings-route'
 import { Route as modulesRecallRecallRouteRouteImport } from './modules/recall/recall-route'
-import { Route as modulesNotesNotesWorkspaceNotesRouteRouteImport } from './modules/notes/notes-workspace/notes-route'
 import { Route as modulesLabelsLabelManagementLabelsRouteRouteImport } from './modules/labels/label-management/labels-route'
 import { Route as modulesFocusFocusRouteRouteImport } from './modules/focus/focus-route'
 import { Route as modulesAccessSessionRegisterRouteRouteImport } from './modules/access/session/register-route'
@@ -42,12 +40,6 @@ const modulesAccessSessionAuthLayoutRouteRoute =
     id: '/_auth',
     getParentRoute: () => rootRouteImport,
   } as any)
-const modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRoute =
-  modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRouteImport.update({
-    id: '/study-notes-prototype',
-    path: '/study-notes-prototype',
-    getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
-  } as any)
 const modulesStudyNotesStudyNotesRouteRoute =
   modulesStudyNotesStudyNotesRouteRouteImport.update({
     id: '/study-notes',
@@ -64,12 +56,6 @@ const modulesRecallRecallRouteRoute =
   modulesRecallRecallRouteRouteImport.update({
     id: '/recall',
     path: '/recall',
-    getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
-  } as any)
-const modulesNotesNotesWorkspaceNotesRouteRoute =
-  modulesNotesNotesWorkspaceNotesRouteRouteImport.update({
-    id: '/notes',
-    path: '/notes',
     getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
   } as any)
 const modulesLabelsLabelManagementLabelsRouteRoute =
@@ -133,11 +119,9 @@ export interface FileRoutesByFullPath {
   '/register': typeof modulesAccessSessionRegisterRouteRoute
   '/focus': typeof modulesFocusFocusRouteRoute
   '/labels': typeof modulesLabelsLabelManagementLabelsRouteRoute
-  '/notes': typeof modulesNotesNotesWorkspaceNotesRouteRoute
   '/recall': typeof modulesRecallRecallRouteRouteWithChildren
   '/settings': typeof modulesAccessSessionSettingsRouteRoute
   '/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
-  '/study-notes-prototype': typeof modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRoute
   '/recall/': typeof modulesRecallRecallResultsWorkspaceRouteRoute
   '/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/recall/session': typeof modulesRecallRecallSessionRouteRoute
@@ -149,10 +133,8 @@ export interface FileRoutesByTo {
   '/register': typeof modulesAccessSessionRegisterRouteRoute
   '/focus': typeof modulesFocusFocusRouteRoute
   '/labels': typeof modulesLabelsLabelManagementLabelsRouteRoute
-  '/notes': typeof modulesNotesNotesWorkspaceNotesRouteRoute
   '/settings': typeof modulesAccessSessionSettingsRouteRoute
   '/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
-  '/study-notes-prototype': typeof modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRoute
   '/recall': typeof modulesRecallRecallResultsWorkspaceRouteRoute
   '/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/recall/session': typeof modulesRecallRecallSessionRouteRoute
@@ -168,11 +150,9 @@ export interface FileRoutesById {
   '/_auth/register': typeof modulesAccessSessionRegisterRouteRoute
   '/_protected/focus': typeof modulesFocusFocusRouteRoute
   '/_protected/labels': typeof modulesLabelsLabelManagementLabelsRouteRoute
-  '/_protected/notes': typeof modulesNotesNotesWorkspaceNotesRouteRoute
   '/_protected/recall': typeof modulesRecallRecallRouteRouteWithChildren
   '/_protected/settings': typeof modulesAccessSessionSettingsRouteRoute
   '/_protected/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
-  '/_protected/study-notes-prototype': typeof modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRoute
   '/_protected/recall/': typeof modulesRecallRecallResultsWorkspaceRouteRoute
   '/_protected/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/_protected/recall/session': typeof modulesRecallRecallSessionRouteRoute
@@ -186,11 +166,9 @@ export interface FileRouteTypes {
     | '/register'
     | '/focus'
     | '/labels'
-    | '/notes'
     | '/recall'
     | '/settings'
     | '/study-notes'
-    | '/study-notes-prototype'
     | '/recall/'
     | '/recall/select'
     | '/recall/session'
@@ -202,10 +180,8 @@ export interface FileRouteTypes {
     | '/register'
     | '/focus'
     | '/labels'
-    | '/notes'
     | '/settings'
     | '/study-notes'
-    | '/study-notes-prototype'
     | '/recall'
     | '/recall/select'
     | '/recall/session'
@@ -220,11 +196,9 @@ export interface FileRouteTypes {
     | '/_auth/register'
     | '/_protected/focus'
     | '/_protected/labels'
-    | '/_protected/notes'
     | '/_protected/recall'
     | '/_protected/settings'
     | '/_protected/study-notes'
-    | '/_protected/study-notes-prototype'
     | '/_protected/recall/'
     | '/_protected/recall/select'
     | '/_protected/recall/session'
@@ -259,13 +233,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof modulesAccessSessionAuthLayoutRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_protected/study-notes-prototype': {
-      id: '/_protected/study-notes-prototype'
-      path: '/study-notes-prototype'
-      fullPath: '/study-notes-prototype'
-      preLoaderRoute: typeof modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRouteImport
-      parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
-    }
     '/_protected/study-notes': {
       id: '/_protected/study-notes'
       path: '/study-notes'
@@ -285,13 +252,6 @@ declare module '@tanstack/react-router' {
       path: '/recall'
       fullPath: '/recall'
       preLoaderRoute: typeof modulesRecallRecallRouteRouteImport
-      parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
-    }
-    '/_protected/notes': {
-      id: '/_protected/notes'
-      path: '/notes'
-      fullPath: '/notes'
-      preLoaderRoute: typeof modulesNotesNotesWorkspaceNotesRouteRouteImport
       parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
     }
     '/_protected/labels': {
@@ -403,11 +363,9 @@ const modulesRecallRecallRouteRouteWithChildren =
 interface modulesWorkspaceShellAppShellProtectedRouteRouteChildren {
   modulesFocusFocusRouteRoute: typeof modulesFocusFocusRouteRoute
   modulesLabelsLabelManagementLabelsRouteRoute: typeof modulesLabelsLabelManagementLabelsRouteRoute
-  modulesNotesNotesWorkspaceNotesRouteRoute: typeof modulesNotesNotesWorkspaceNotesRouteRoute
   modulesRecallRecallRouteRoute: typeof modulesRecallRecallRouteRouteWithChildren
   modulesAccessSessionSettingsRouteRoute: typeof modulesAccessSessionSettingsRouteRoute
   modulesStudyNotesStudyNotesRouteRoute: typeof modulesStudyNotesStudyNotesRouteRoute
-  modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRoute: typeof modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRoute
 }
 
 const modulesWorkspaceShellAppShellProtectedRouteRouteChildren: modulesWorkspaceShellAppShellProtectedRouteRouteChildren =
@@ -415,15 +373,11 @@ const modulesWorkspaceShellAppShellProtectedRouteRouteChildren: modulesWorkspace
     modulesFocusFocusRouteRoute: modulesFocusFocusRouteRoute,
     modulesLabelsLabelManagementLabelsRouteRoute:
       modulesLabelsLabelManagementLabelsRouteRoute,
-    modulesNotesNotesWorkspaceNotesRouteRoute:
-      modulesNotesNotesWorkspaceNotesRouteRoute,
     modulesRecallRecallRouteRoute: modulesRecallRecallRouteRouteWithChildren,
     modulesAccessSessionSettingsRouteRoute:
       modulesAccessSessionSettingsRouteRoute,
     modulesStudyNotesStudyNotesRouteRoute:
       modulesStudyNotesStudyNotesRouteRoute,
-    modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRoute:
-      modulesNotesStudyNotesPrototypeStudyNotesPrototypeRouteRoute,
   }
 
 const modulesWorkspaceShellAppShellProtectedRouteRouteWithChildren =

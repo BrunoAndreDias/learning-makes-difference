@@ -66,13 +66,13 @@ describe("deriveFocusWeeklyAnalytics", () => {
       {
         comparisonLabel: "+1 vs last week",
         id: "notes-touched",
-        label: "Notes touched",
+        label: "Study Notes touched",
         value: "2",
       },
       {
         comparisonLabel: "No change vs last week",
         id: "notes-created",
-        label: "Notes created",
+        label: "Study Notes created",
         value: "1",
       },
       {
@@ -114,13 +114,13 @@ describe("deriveFocusWeeklyAnalytics", () => {
       {
         comparisonLabel: "No change vs last week",
         id: "notes-touched",
-        label: "Notes touched",
+        label: "Study Notes touched",
         value: "0",
       },
       {
         comparisonLabel: "No change vs last week",
         id: "notes-created",
-        label: "Notes created",
+        label: "Study Notes created",
         value: "0",
       },
       {
@@ -182,7 +182,7 @@ describe("deriveFocusWeeklyAnalytics", () => {
     expect(analytics.metrics).toContainEqual({
       comparisonLabel: "+1 vs last week",
       id: "notes-touched",
-      label: "Notes touched",
+      label: "Study Notes touched",
       value: "1",
     });
     expect(analytics.metrics).toContainEqual({
@@ -265,7 +265,7 @@ describe("deriveFocusWeeklyAnalytics", () => {
     expect(analytics.metrics).toContainEqual({
       comparisonLabel: "+2 vs last week",
       id: "notes-touched",
-      label: "Notes touched",
+      label: "Study Notes touched",
       value: "2",
     });
   });

@@ -9,7 +9,6 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  createAppNotesContext,
   createDeterministicRecallTestContexts,
   createRouteTestSessionContext,
   createRouteTestSessionStore,
@@ -142,6 +141,65 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "Welcome back" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/login");
+  });
+
+  it("registers a new account into Study Notes when no redirect is provided", async () => {
+    const sessionContext = createRouteTestSessionContext();
+    const { router } = renderRoute("/register", { sessionContext });
+
+    expect(
+      await screen.findByRole("heading", { name: "Create your account" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Display name"), {
+      target: { value: "Casey Default" },
+    });
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "casey.default@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Pilot registration code"), {
+      target: { value: TEST_PILOT_REGISTRATION_CODE },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Sign up form" }));
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/study-notes");
+  });
+
+  it("logs a returning user into Study Notes when no redirect is provided", async () => {
+    const sessionContext = createRouteTestSessionContext();
+
+    await sessionContext.register({
+      displayName: "Jordan Default",
+      email: "jordan.default@example.com",
+      password: "correct horse battery staple",
+      pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
+    });
+    await sessionContext.logout();
+
+    const { router } = renderRoute("/login", { sessionContext });
+
+    expect(
+      await screen.findByRole("heading", { name: "Welcome back" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "jordan.default@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Sign in form" }));
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/study-notes");
   });
 
   it("captures the browser-detected User Time Zone during registration", async () => {
@@ -355,7 +413,7 @@ describe("authenticated app shell", () => {
     expect(screen.queryByText("Unknown user")).not.toBeInTheDocument();
   });
 
-  it("loads notes with the route-hydrated user instead of clearing them as anonymous", async () => {
+  it("loads Study Notes with the route-hydrated user instead of clearing them as anonymous", async () => {
     const anonymousSession = { user: null };
     const hydratedSession = {
       user: {
@@ -365,17 +423,18 @@ describe("authenticated app shell", () => {
         userLanguage: "en" as const,
       },
     };
-    const emptyNotes = [] as const;
+    const emptyStudyNotes = [] as const;
     const refresh = vi.fn(async () => []);
 
-    renderRoute("/notes", {
-      persistentNotesContext: {
-        createNote: vi.fn(),
-        deleteNote: vi.fn(),
-        getSnapshot: () => emptyNotes,
+    renderRoute("/study-notes", {
+      persistentStudyNotesContext: {
+        createStudyNote: vi.fn(),
+        createStudyNoteFromSource: vi.fn(),
+        deleteStudyNote: vi.fn(),
+        getSnapshot: () => emptyStudyNotes,
         refresh,
         subscribe: () => () => undefined,
-        updateNote: vi.fn(),
+        updateStudyNote: vi.fn(),
       },
       sessionContext: {
         getSnapshot: () => anonymousSession,
@@ -392,63 +451,6 @@ describe("authenticated app shell", () => {
       expect(refresh).toHaveBeenCalledWith("user-hydrated-casey");
     });
     expect(refresh).not.toHaveBeenCalledWith(null);
-  });
-
-  it("supports keyboard navigation across memory hook tabs", async () => {
-    const userId = "user-jordan";
-    const notesContext = createAppNotesContext({
-      keyPrefix: `test-notes-keyboard-hooks-${Math.random().toString(36).slice(2)}`,
-      storage: window.localStorage,
-    });
-
-    notesContext.createNote(userId, {
-      acronyms: [],
-      body: "Neurons fire once membrane voltage crosses threshold.",
-      labelIds: [],
-      metaphors: [],
-      title: "Action potentials",
-    });
-
-    renderRoute("/notes", {
-      notesContext,
-      session: {
-        user: {
-          displayName: "Jordan Review",
-          email: "jordan@example.com",
-          id: userId,
-          userLanguage: "en",
-        },
-      },
-    });
-
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "Notes" }),
-    ).toBeInTheDocument();
-
-    const memoryHooks = screen.getByLabelText("Memory hooks");
-    const tablist = within(memoryHooks).getByRole("tablist", {
-      name: "Memory hook types",
-    });
-    const metaphorTab = within(tablist).getByRole("tab", {
-      name: "Metaphor",
-      selected: true,
-    });
-    const acronymTab = within(tablist).getByRole("tab", {
-      name: "Acronym",
-      selected: false,
-    });
-
-    metaphorTab.focus();
-    fireEvent.keyDown(metaphorTab, { key: "ArrowRight" });
-
-    expect(acronymTab).toHaveFocus();
-    expect(acronymTab).toHaveAttribute("aria-selected", "true");
-    expect(metaphorTab).toHaveAttribute("aria-selected", "false");
-
-    fireEvent.keyDown(acronymTab, { key: "ArrowLeft" });
-
-    expect(metaphorTab).toHaveFocus();
-    expect(metaphorTab).toHaveAttribute("aria-selected", "true");
   });
 
   it("logs a returning user into the requested protected route", async () => {
@@ -735,172 +737,5 @@ describe("authenticated app shell", () => {
     expect(screen.getByRole("link", { name: "Notas" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Etiquetas" })).toBeInTheDocument();
     expect(screen.getByLabelText("Idioma")).toHaveValue("es");
-  });
-
-  it("restores persisted note metaphors and acronyms after refresh and account sign-in", async () => {
-    const notesKeyPrefix = `test-notes-persisted-memory-hooks-${Math.random().toString(36).slice(2)}`;
-    const store = createRouteTestSessionStore();
-    const cookie = createSessionCookieJar();
-    const sessionContext = createRouteTestSessionContext({
-      cookie,
-      store,
-    });
-    const notesContext = createAppNotesContext({
-      keyPrefix: notesKeyPrefix,
-      storage: window.localStorage,
-    });
-
-    const initialRoute = renderRoute("/notes", {
-      notesContext,
-      sessionContext,
-    });
-
-    expect(
-      await screen.findByRole("heading", { name: "Welcome back" }),
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getAllByRole("link", { name: "Sign up" })[0]);
-    expect(
-      await screen.findByRole("heading", { name: "Create your account" }),
-    ).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Display name"), {
-      target: { value: "Casey Learner" },
-    });
-    fireEvent.change(screen.getByLabelText("Email"), {
-      target: { value: "casey@example.com" },
-    });
-    fireEvent.change(screen.getByLabelText("Pilot registration code"), {
-      target: { value: TEST_PILOT_REGISTRATION_CODE },
-    });
-    fireEvent.change(screen.getByLabelText("Password"), {
-      target: { value: "correct horse battery staple" },
-    });
-    fireEvent.submit(screen.getByRole("form", { name: "Sign up form" }));
-
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "Notes" }),
-    ).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("Title"), {
-      target: { value: "Action potentials" },
-    });
-    fireEvent.change(screen.getByLabelText("Body"), {
-      target: {
-        value: "Repeated threshold crossings reinforce the same neural path.",
-      },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Create note" }));
-
-    expect(
-      await screen.findByRole("tab", {
-        name: "Metaphor",
-        selected: true,
-      }),
-    ).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("Your metaphor"), {
-      target: {
-        value:
-          "Domino line: crossing threshold is like tipping the first domino so the whole chain commits.",
-      },
-    });
-    fireEvent.click(
-      within(screen.getByRole("group", { name: "Metaphor editor" })).getByRole(
-        "button",
-        { name: "Save" },
-      ),
-    );
-
-    fireEvent.click(screen.getByRole("tab", { name: "Acronym" }));
-    fireEvent.change(screen.getByLabelText("Your acronym"), {
-      target: { value: "LTP means Long-Term Potentiation." },
-    });
-    fireEvent.click(
-      within(screen.getByRole("group", { name: "Acronym editor" })).getByRole(
-        "button",
-        { name: "Save" },
-      ),
-    );
-
-    fireEvent.click(screen.getByRole("tab", { name: "Metaphor" }));
-
-    expect(
-      await screen.findByDisplayValue(
-        "Domino line: crossing threshold is like tipping the first domino so the whole chain commits.",
-      ),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Acronym" }));
-    expect(
-      await screen.findByDisplayValue("LTP means Long-Term Potentiation."),
-    ).toBeInTheDocument();
-
-    openAccountMenu();
-    fireEvent.click(screen.getByRole("menuitem", { name: "Log out" }));
-
-    expect(
-      await screen.findByRole("heading", { name: "Welcome back" }),
-    ).toBeInTheDocument();
-
-    initialRoute.unmount();
-
-    const refreshedRoute = renderRoute("/login?redirect=/notes", {
-      notesContext: createAppNotesContext({
-        keyPrefix: notesKeyPrefix,
-        storage: window.localStorage,
-      }),
-      sessionContext: createRouteTestSessionContext({
-        cookie,
-        store,
-      }),
-    });
-
-    expect(
-      await screen.findByRole("heading", { name: "Welcome back" }),
-    ).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("Email"), {
-      target: { value: "casey@example.com" },
-    });
-    fireEvent.change(screen.getByLabelText("Password"), {
-      target: { value: "correct horse battery staple" },
-    });
-    fireEvent.submit(screen.getByRole("form", { name: "Sign in form" }));
-
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "Notes" }),
-    ).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Action potentials")).toBeInTheDocument();
-    expect(
-      screen.getByDisplayValue(
-        "Domino line: crossing threshold is like tipping the first domino so the whole chain commits.",
-      ),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Acronym" }));
-    expect(
-      screen.getByDisplayValue("LTP means Long-Term Potentiation."),
-    ).toBeInTheDocument();
-
-    fireEvent.change(screen.getByRole("combobox", { name: "Search notes" }), {
-      target: { value: "domino" },
-    });
-
-    expect(
-      within(screen.getByLabelText("Notes search results")).getByRole(
-        "option",
-        { name: /Action potentials/ },
-      ),
-    ).toBeInTheDocument();
-
-    fireEvent.change(screen.getByRole("combobox", { name: "Search notes" }), {
-      target: { value: "long-term potentiation" },
-    });
-
-    expect(
-      within(screen.getByLabelText("Notes search results")).getByRole(
-        "option",
-        { name: /Action potentials/ },
-      ),
-    ).toBeInTheDocument();
-    expect(refreshedRoute.router.state.location.pathname).toBe("/notes");
   });
 });

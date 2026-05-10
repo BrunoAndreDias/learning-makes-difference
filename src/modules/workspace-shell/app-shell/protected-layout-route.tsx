@@ -61,10 +61,6 @@ function isWorkspacePath(pathname: string, workspacePath: string) {
 }
 
 function getWorkspaceTitleKey(pathname: string) {
-  if (isWorkspacePath(pathname, "/study-notes-prototype")) {
-    return "shell.workspace.studyNotesPrototype";
-  }
-
   if (isLabelsWorkspacePath(pathname)) {
     return "shell.workspace.labels";
   }
@@ -101,11 +97,7 @@ function getRecallWorkspaceTitleKey(pathname: string) {
 }
 
 function isNotesWorkspacePath(pathname: string) {
-  return (
-    isWorkspacePath(pathname, "/study-notes") ||
-    isWorkspacePath(pathname, "/notes") ||
-    isWorkspacePath(pathname, "/study-notes-prototype")
-  );
+  return isWorkspacePath(pathname, "/study-notes");
 }
 
 function isRecallWorkspacePath(pathname: string) {

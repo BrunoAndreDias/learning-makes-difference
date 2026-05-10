@@ -15,6 +15,12 @@ describe("route tree", () => {
     expect(generatedRouteTree).toContain(
       "modules/study-notes/study-notes-route",
     );
+    expect(generatedRouteTree).not.toContain(
+      "modules/notes/notes-workspace/notes-route",
+    );
+    expect(generatedRouteTree).not.toContain(
+      "modules/notes/study-notes-prototype/study-notes-prototype-route",
+    );
     expect(generatedRouteTree).toContain(
       "modules/labels/label-management/labels-route",
     );
@@ -33,6 +39,10 @@ describe("route tree", () => {
     expect(generatedRouteTree).toContain(
       "'/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute",
     );
+    expect(generatedRouteTree).not.toContain(
+      "'/notes': typeof modulesNotesNotesWorkspaceNotesRouteRoute",
+    );
+    expect(generatedRouteTree).not.toContain("'/study-notes-prototype'");
     expect(generatedRouteTree).toContain(
       "'/labels': typeof modulesLabelsLabelManagementLabelsRouteRoute",
     );

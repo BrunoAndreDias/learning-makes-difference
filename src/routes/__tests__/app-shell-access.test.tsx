@@ -154,12 +154,12 @@ describe("authenticated app shell", () => {
         updatePreferences: vi.fn(async () => ({ user: null })),
       },
     });
-    const { router } = renderRoute("/notes", { sessionContext });
+    const { router } = renderRoute("/study-notes", { sessionContext });
 
     expect(
       await screen.findByRole("heading", { name: "Welcome back" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/login");
-    expect(router.state.location.search.redirect).toBe("/notes");
+    expect(router.state.location.search.redirect).toBe("/study-notes");
   });
 });

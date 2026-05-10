@@ -235,11 +235,11 @@ describe("authenticated app shell", () => {
 
     expect(
       within(deleteModal).getByText(
-        "This will remove the label from 2 notes. 1 child label will stay available and become a top-level label if it has no other parent.",
+        "This will remove the label from 2 Study Notes. 1 child label will stay available and become a top-level label if it has no other parent.",
       ),
     ).toBeInTheDocument();
     expect(
-      within(deleteModal).getByText("Notes will not be deleted."),
+      within(deleteModal).getByText("Study Notes will not be deleted."),
     ).toBeInTheDocument();
     const cancelButton = within(deleteModal).getByRole("button", {
       name: "Cancel",
@@ -528,7 +528,7 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { level: 4, name: "No labels yet" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Create your first label to group related notes."),
+      screen.getByText("Create your first label to group related Study Notes."),
     ).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "New label" })).toHaveLength(
       2,

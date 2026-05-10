@@ -36,11 +36,9 @@ import { shouldShowRouterDevtools } from "./router-devtools-gate";
 const authRoutePaths = new Set(["/forgot-password", "/login", "/register"]);
 const redirectableProtectedPaths = [
   "/labels",
-  "/notes",
   "/recall",
   "/settings",
   "/study-notes",
-  "/study-notes-prototype",
 ];
 
 function isProtectedPath(pathname: string): boolean {

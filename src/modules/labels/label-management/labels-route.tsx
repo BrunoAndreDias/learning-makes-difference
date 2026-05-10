@@ -126,7 +126,7 @@ function getRowsByIds(
 }
 
 function getColumnSortButtonLabel(input: {
-  columnLabel: "Children" | "Notes";
+  columnLabel: "Children" | "Study Notes";
   isActive: boolean;
 }) {
   if (input.isActive) {
@@ -153,7 +153,7 @@ function formatEditUsageSummary(input: {
   label: string;
   noteCount: number;
 }) {
-  return `${input.label} · used in ${formatCount(input.noteCount, "note")} · ${formatCount(input.childCount, "child label")}`;
+  return `${input.label} · used in ${formatCount(input.noteCount, "Study Note")} · ${formatCount(input.childCount, "child label")}`;
 }
 
 function formatPreviewLabelName(labelName: string) {
@@ -183,7 +183,7 @@ function formatDeleteImpactSummary(input: {
   childCount: number;
   noteCount: number;
 }) {
-  const notesImpact = formatCount(input.noteCount, "note");
+  const notesImpact = formatCount(input.noteCount, "Study Note");
 
   if (input.childCount === 0) {
     return `This will remove the label from ${notesImpact}.`;
@@ -370,7 +370,7 @@ function LabelsPage() {
     }
 
     void persistentNotesContext.refresh(currentUserId).catch(() => {
-      setFeedbackMessage("Notes refresh failed. Try again.");
+      setFeedbackMessage("Study Notes refresh failed. Try again.");
     });
   }, [currentUserId, persistentNotesContext]);
 
@@ -1010,7 +1010,7 @@ function LabelsPage() {
                   >
                     <button
                       aria-label={getColumnSortButtonLabel({
-                        columnLabel: "Notes",
+                        columnLabel: "Study Notes",
                         isActive: sortValue === "notes-desc",
                       })}
                       className={`labels-table-sort-button${
@@ -1182,7 +1182,7 @@ function LabelsPage() {
                     createParentOptions.map((option) => {
                       const noteCountLabel = formatCount(
                         option.directNoteCount,
-                        "note",
+                        "Study Note",
                       );
 
                       return (
@@ -1340,7 +1340,7 @@ function LabelsPage() {
                     editParentOptions.map((option) => {
                       const noteCountLabel = formatCount(
                         option.directNoteCount,
-                        "note",
+                        "Study Note",
                       );
 
                       return (
@@ -1412,7 +1412,7 @@ function LabelsPage() {
                           <span>{childRow.label}</span>
                         </span>
                         <span className="muted">
-                          {formatCount(childRow.directNoteCount, "note")}
+                          {formatCount(childRow.directNoteCount, "Study Note")}
                         </span>
                       </li>
                     ))}
@@ -1527,7 +1527,7 @@ function DeleteLabelDialog({
         </div>
         <div className="labels-delete-dialog__body">
           <div className="labels-delete-dialog__safety-note">
-            <p>Notes will not be deleted.</p>
+            <p>Study Notes will not be deleted.</p>
             <p>Only the label and its relationships are removed.</p>
           </div>
         </div>
