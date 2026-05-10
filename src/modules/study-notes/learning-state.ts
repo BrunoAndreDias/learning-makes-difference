@@ -65,7 +65,7 @@ export function formatStudyNoteDueLabel(
   return learningState.dueForRecall ? "Due for Recall" : null;
 }
 
-function isNeedsPractice(rating: RecallSelfRating | null) {
+function isNeedsPractice(rating: RecallSelfRating | null): boolean {
   return rating === "forgot" || rating === "hard";
 }
 
@@ -73,7 +73,7 @@ function isDueForRecall(input: {
   lastRecalledAt: string | null;
   latestScore: RecallSelfRating | null;
   now: string;
-}) {
+}): boolean {
   if (input.lastRecalledAt === null) {
     return true;
   }
@@ -92,21 +92,35 @@ function isDueForRecall(input: {
   return now - recalledAt >= DUE_RECALL_WINDOW_MS;
 }
 
+function getLatestStudyNoteRecallAttempt(
+  history: StudyNoteRecallHistory | null,
+): StudyNoteRecallHistoryAttempt | null {
+  if (history === null) {
+    return null;
+  }
+
+  return history.attempts[history.attempts.length - 1] ?? null;
+}
+
+function getValidAttemptCompletedAt(
+  attempt: StudyNoteRecallHistoryAttempt | null,
+): string | null {
+  if (attempt === null) {
+    return null;
+  }
+
+  const completedAt = new Date(attempt.completedAt);
+
+  return Number.isNaN(completedAt.getTime()) ? null : attempt.completedAt;
+}
+
 function deriveStudyNoteLearningState(input: {
   history: StudyNoteRecallHistory | null;
   now: string;
   studyNote: AppStudyNote;
 }): StudyNoteLearningState {
-  const latestAttempt =
-    input.history === null
-      ? null
-      : (input.history.attempts[input.history.attempts.length - 1] ?? null);
-  const recalledAt =
-    latestAttempt === null ? null : new Date(latestAttempt.completedAt);
-  const lastRecalledAt =
-    latestAttempt === null || Number.isNaN(recalledAt?.getTime())
-      ? null
-      : latestAttempt.completedAt;
+  const latestAttempt = getLatestStudyNoteRecallAttempt(input.history);
+  const lastRecalledAt = getValidAttemptCompletedAt(latestAttempt);
   const latestScore = latestAttempt?.rating ?? null;
 
   return {

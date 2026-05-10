@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { fireEvent, screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { createAppLabelsContext } from "../../modules/labels/label-management/labels";
@@ -293,7 +293,7 @@ describe("authenticated Study Notes workspace", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows Study Note-owned Learning State, Due for Recall, and Needs practice copy", async () => {
+  it("updates Study Note-owned Learning State, Due for Recall, and Needs practice copy", async () => {
     const studyNotesContext = createAppStudyNotesContext({
       keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -341,17 +341,6 @@ describe("authenticated Study Notes workspace", () => {
       sourceTitle: "Shared source",
     });
 
-    const session = recallContext.startFlashCardSession({
-      studyNoteIds: [updatedFirst.id],
-      userId,
-    });
-    recallContext.revealFlashCardAnswer({ sessionId: session.id, userId });
-    recallContext.rateFlashCardAnswer({
-      rating: "hard",
-      sessionId: session.id,
-      userId,
-    });
-
     renderRoute("/study-notes", {
       notesContext,
       recallContext,
@@ -376,12 +365,37 @@ describe("authenticated Study Notes workspace", () => {
       name: "Second recall target",
     });
 
-    expect(firstRow).toHaveTextContent("Last score: Hard");
-    expect(firstRow).toHaveTextContent("Needs practice");
+    expect(firstRow).toHaveTextContent("Not recalled yet");
     expect(firstRow).toHaveTextContent("Due for Recall");
-    expect(firstRow).not.toHaveTextContent("Weak");
     expect(secondRow).toHaveTextContent("Not recalled yet");
     expect(secondRow).toHaveTextContent("Due for Recall");
-    expect(secondRow).not.toHaveTextContent("Last score: Hard");
+
+    act(() => {
+      const session = recallContext.startFlashCardSession({
+        studyNoteIds: [updatedFirst.id],
+        userId,
+      });
+      recallContext.revealFlashCardAnswer({ sessionId: session.id, userId });
+      recallContext.rateFlashCardAnswer({
+        rating: "hard",
+        sessionId: session.id,
+        userId,
+      });
+    });
+
+    const updatedFirstRow = within(catalog).getByRole("button", {
+      name: "First recall target",
+    });
+    const unchangedSecondRow = within(catalog).getByRole("button", {
+      name: "Second recall target",
+    });
+
+    expect(updatedFirstRow).toHaveTextContent("Last score: Hard");
+    expect(updatedFirstRow).toHaveTextContent("Needs practice");
+    expect(updatedFirstRow).toHaveTextContent("Due for Recall");
+    expect(updatedFirstRow).not.toHaveTextContent("Weak");
+    expect(unchangedSecondRow).toHaveTextContent("Not recalled yet");
+    expect(unchangedSecondRow).toHaveTextContent("Due for Recall");
+    expect(unchangedSecondRow).not.toHaveTextContent("Last score: Hard");
   });
 });

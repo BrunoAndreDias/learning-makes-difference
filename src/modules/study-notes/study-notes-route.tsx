@@ -25,6 +25,7 @@ import {
   formatStudyNoteLearningStateCompactLabel,
   formatStudyNotePracticeSignalLabel,
   listStudyNotesForUser,
+  type StudyNoteLearningState,
   toStudyNoteRecallHistories,
   type UpdateStudyNoteInput,
 } from ".";
@@ -102,6 +103,24 @@ function formatLastRecalledLabel(lastRecalledAt: string | null) {
   return `Last recalled ${learningStateDateFormatter.format(recalledAt)}`;
 }
 
+type StudyNoteLearningLabels = {
+  compact: string;
+  due: string | null;
+  lastRecalled: string | null;
+  practice: string | null;
+};
+
+function getStudyNoteLearningLabels(
+  learningState: StudyNoteLearningState,
+): StudyNoteLearningLabels {
+  return {
+    compact: formatStudyNoteLearningStateCompactLabel(learningState),
+    due: formatStudyNoteDueLabel(learningState),
+    lastRecalled: formatLastRecalledLabel(learningState.lastRecalledAt),
+    practice: formatStudyNotePracticeSignalLabel(learningState),
+  };
+}
+
 function StudyNotesWorkspace() {
   const studyNotesContext = useRouteContext({
     from: "/_protected/study-notes",
@@ -132,7 +151,7 @@ function StudyNotesWorkspace() {
     studyNotesStore.getSnapshot,
     studyNotesStore.getSnapshot,
   );
-  useSyncExternalStore(
+  const recallResultsSnapshot = useSyncExternalStore(
     recallContext.subscribe,
     recallContext.getSessionResultsSnapshot,
     recallContext.getSessionResultsSnapshot,
@@ -152,7 +171,7 @@ function StudyNotesWorkspace() {
     () =>
       deriveStudyNoteLearningStates({
         histories:
-          userId === null
+          userId === null || recallResultsSnapshot.length === 0
             ? []
             : toStudyNoteRecallHistories(
                 recallContext.listAttemptsByNote({ userId }),
@@ -160,7 +179,7 @@ function StudyNotesWorkspace() {
         now: new Date().toISOString(),
         studyNotes,
       }),
-    [recallContext, studyNotes, userId],
+    [recallContext, recallResultsSnapshot, studyNotes, userId],
   );
   const learningStateByStudyNoteId = useMemo(
     () =>
@@ -419,18 +438,10 @@ function StudyNotesWorkspace() {
                   const learningState = learningStateByStudyNoteId.get(
                     studyNote.id,
                   );
-                  const dueLabel =
+                  const learningLabels =
                     learningState === undefined
                       ? null
-                      : formatStudyNoteDueLabel(learningState);
-                  const practiceSignalLabel =
-                    learningState === undefined
-                      ? null
-                      : formatStudyNotePracticeSignalLabel(learningState);
-                  const lastRecalledLabel =
-                    learningState === undefined
-                      ? null
-                      : formatLastRecalledLabel(learningState.lastRecalledAt);
+                      : getStudyNoteLearningLabels(learningState);
 
                   return (
                     <li key={studyNote.id}>
@@ -450,19 +461,17 @@ function StudyNotesWorkspace() {
                       >
                         <strong>{studyNote.prompt}</strong>
                         <span>{studyNote.source.title}</span>
-                        {learningState === undefined ? null : (
+                        {learningLabels === null ? null : (
                           <span className="notes-list__item-status">
-                            <span>
-                              {formatStudyNoteLearningStateCompactLabel(
-                                learningState,
-                              )}
-                            </span>
-                            {lastRecalledLabel === null ? null : (
-                              <span>{lastRecalledLabel}</span>
+                            <span>{learningLabels.compact}</span>
+                            {learningLabels.lastRecalled === null ? null : (
+                              <span>{learningLabels.lastRecalled}</span>
                             )}
-                            {dueLabel === null ? null : <span>{dueLabel}</span>}
-                            {practiceSignalLabel === null ? null : (
-                              <span>{practiceSignalLabel}</span>
+                            {learningLabels.due === null ? null : (
+                              <span>{learningLabels.due}</span>
+                            )}
+                            {learningLabels.practice === null ? null : (
+                              <span>{learningLabels.practice}</span>
                             )}
                           </span>
                         )}

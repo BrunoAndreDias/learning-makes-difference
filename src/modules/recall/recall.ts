@@ -1256,13 +1256,13 @@ export function createAppRecallContext(
         .map(cloneSessionResult);
     },
     listAttemptsByNote: ({ labelId, userId }) => {
-      const currentNotesById = new Map(
+      const currentNoteTitlesById = new Map(
         listNotesForUser(options.notes.getSnapshot(), userId).map((note) => [
           note.id,
           note.title,
         ]),
       );
-      const currentStudyNotesById = new Map(
+      const currentStudyNotePromptsById = new Map(
         options.studyNotes === undefined
           ? []
           : listStudyNotesForUser(options.studyNotes.getSnapshot(), userId).map(
@@ -1340,8 +1340,8 @@ export function createAppRecallContext(
               );
             }),
             currentTitle:
-              currentStudyNotesById.get(noteId) ??
-              currentNotesById.get(noteId) ??
+              currentStudyNotePromptsById.get(noteId) ??
+              currentNoteTitlesById.get(noteId) ??
               null,
             noteId,
             snapshotTitle: group.snapshotTitle,
