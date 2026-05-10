@@ -1,5 +1,6 @@
 import type { AppLabel } from "../labels/label-management/labels";
 import type { AppAcronym, AppMetaphor, AppNote } from "../notes";
+import type { AppStudyNote } from "../study-notes";
 
 export type FocusMethod = "Pomodoro";
 
@@ -23,8 +24,25 @@ export type RecallStudyActivitySession = {
   createdAt: string;
   id: string;
   mode: RecallStudyActivityMode;
-  notes: readonly AppNote[];
+  notes: readonly StudyActivityNoteSnapshot[];
 };
+
+export type StudyActivitySourceNoteSnapshot = {
+  body: string;
+  id: string;
+  title: string;
+  updatedAt: string;
+};
+
+export type StudyActivityNoteSnapshot = AppNote & {
+  expectedAnswer?: string;
+  labels?: readonly Pick<AppLabel, "id" | "name">[];
+  prompt?: string;
+  source?: StudyActivitySourceNoteSnapshot;
+  sourceNoteId?: string;
+};
+
+export type StudyNoteFocusSnapshot = AppStudyNote;
 
 export type NoteFocusTarget = {
   kind: "Note";
@@ -32,10 +50,17 @@ export type NoteFocusTarget = {
   note: AppNote;
 };
 
+export type StudyNoteFocusTarget = {
+  kind: "StudyNote";
+  labels: readonly AppLabel[];
+  sourceNote: StudyActivitySourceNoteSnapshot;
+  studyNote: StudyNoteFocusSnapshot;
+};
+
 export type RecallSessionFocusTarget = {
   kind: "RecallSession";
   labels: readonly AppLabel[];
-  notes: readonly AppNote[];
+  notes: readonly StudyActivityNoteSnapshot[];
   recallSession: {
     createdAt: string;
     id: string;
@@ -43,7 +68,10 @@ export type RecallSessionFocusTarget = {
   };
 };
 
-export type FocusTarget = NoteFocusTarget | RecallSessionFocusTarget;
+export type FocusTarget =
+  | NoteFocusTarget
+  | RecallSessionFocusTarget
+  | StudyNoteFocusTarget;
 
 export type FocusRecord = {
   breakIntervalMinutes: number;
@@ -151,6 +179,12 @@ type CaptureNoteStudyActivityInput = {
   userId: string;
 };
 
+type CaptureStudyNoteStudyActivityInput = {
+  labels: readonly AppLabel[];
+  studyNote: AppStudyNote;
+  userId: string;
+};
+
 type GetFocusRecordsInput = {
   userId: string;
 };
@@ -183,6 +217,9 @@ export type AppFocusContext = {
     recallSession: RecallStudyActivitySession;
     userId: string;
   }) => void;
+  captureStudyNoteStudyActivity: (
+    input: CaptureStudyNoteStudyActivityInput,
+  ) => void;
   endFocusSession: (input: EndFocusSessionInput) => FocusRecord | null;
   getActiveSession: (input: GetActiveFocusSessionInput) => FocusSession | null;
   getFocusRecords: (input: GetFocusRecordsInput) => readonly FocusRecord[];
@@ -291,15 +328,49 @@ function cloneNote(note: AppNote): AppNote {
   };
 }
 
+function cloneStudyActivityNoteSnapshot(
+  note: StudyActivityNoteSnapshot,
+): StudyActivityNoteSnapshot {
+  return {
+    ...cloneNote(note),
+    expectedAnswer: note.expectedAnswer,
+    labels: Array.isArray(note.labels)
+      ? note.labels.map((label) => ({ ...label }))
+      : undefined,
+    prompt: note.prompt,
+    source: note.source === undefined ? undefined : { ...note.source },
+    sourceNoteId: note.sourceNoteId,
+  };
+}
+
+function cloneStudyNote(studyNote: AppStudyNote): AppStudyNote {
+  return {
+    ...studyNote,
+    acronyms: studyNote.acronyms.map((acronym) => ({ ...acronym })),
+    labelIds: [...studyNote.labelIds],
+    metaphors: studyNote.metaphors.map((metaphor) => ({ ...metaphor })),
+    source: { ...studyNote.source },
+  };
+}
+
 function cloneFocusTarget(target: FocusTarget): FocusTarget {
   if (target.kind === "RecallSession") {
     return {
       kind: "RecallSession",
       labels: target.labels.map(cloneLabel),
-      notes: target.notes.map(cloneNote),
+      notes: target.notes.map(cloneStudyActivityNoteSnapshot),
       recallSession: {
         ...target.recallSession,
       },
+    };
+  }
+
+  if (target.kind === "StudyNote") {
+    return {
+      kind: "StudyNote",
+      labels: target.labels.map(cloneLabel),
+      sourceNote: { ...target.sourceNote },
+      studyNote: cloneStudyNote(target.studyNote),
     };
   }
 
@@ -465,6 +536,82 @@ function isAppNote(entry: unknown): entry is AppNote {
   );
 }
 
+function isRecallLabelSnapshot(
+  entry: unknown,
+): entry is Pick<AppLabel, "id" | "name"> {
+  if (typeof entry !== "object" || entry === null) {
+    return false;
+  }
+
+  const candidate = entry as Partial<Pick<AppLabel, "id" | "name">>;
+
+  return typeof candidate.id === "string" && typeof candidate.name === "string";
+}
+
+function isStudyActivitySourceNoteSnapshot(
+  entry: unknown,
+): entry is StudyActivitySourceNoteSnapshot {
+  if (typeof entry !== "object" || entry === null) {
+    return false;
+  }
+
+  const candidate = entry as Partial<StudyActivitySourceNoteSnapshot>;
+
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.title === "string" &&
+    typeof candidate.body === "string" &&
+    typeof candidate.updatedAt === "string"
+  );
+}
+
+function isStudyActivityNoteSnapshot(
+  entry: unknown,
+): entry is StudyActivityNoteSnapshot {
+  if (!isAppNote(entry)) {
+    return false;
+  }
+
+  const candidate = entry as Partial<StudyActivityNoteSnapshot>;
+
+  return (
+    (!("expectedAnswer" in candidate) ||
+      typeof candidate.expectedAnswer === "string") &&
+    (!("prompt" in candidate) || typeof candidate.prompt === "string") &&
+    (!("sourceNoteId" in candidate) ||
+      typeof candidate.sourceNoteId === "string") &&
+    (!("source" in candidate) ||
+      isStudyActivitySourceNoteSnapshot(candidate.source)) &&
+    (!("labels" in candidate) ||
+      (Array.isArray(candidate.labels) &&
+        candidate.labels.every(isRecallLabelSnapshot)))
+  );
+}
+
+function isAppStudyNote(entry: unknown): entry is AppStudyNote {
+  if (typeof entry !== "object" || entry === null) {
+    return false;
+  }
+
+  const candidate = entry as Partial<AppStudyNote>;
+
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.prompt === "string" &&
+    typeof candidate.expectedAnswer === "string" &&
+    typeof candidate.createdAt === "string" &&
+    typeof candidate.updatedAt === "string" &&
+    typeof candidate.sourceNoteId === "string" &&
+    Array.isArray(candidate.labelIds) &&
+    candidate.labelIds.every((labelId) => typeof labelId === "string") &&
+    Array.isArray(candidate.metaphors) &&
+    candidate.metaphors.every(isAppMetaphor) &&
+    Array.isArray(candidate.acronyms) &&
+    candidate.acronyms.every(isAppAcronym) &&
+    isStudyActivitySourceNoteSnapshot(candidate.source)
+  );
+}
+
 function isFocusTarget(entry: unknown): entry is FocusTarget {
   if (typeof entry !== "object" || entry === null) {
     return false;
@@ -477,12 +624,21 @@ function isFocusTarget(entry: unknown): entry is FocusTarget {
       Array.isArray(candidate.labels) &&
       candidate.labels.every(isAppLabel) &&
       Array.isArray(candidate.notes) &&
-      candidate.notes.every(isAppNote) &&
+      candidate.notes.every(isStudyActivityNoteSnapshot) &&
       typeof candidate.recallSession === "object" &&
       candidate.recallSession !== null &&
       typeof candidate.recallSession.id === "string" &&
       typeof candidate.recallSession.createdAt === "string" &&
       isRecallStudyActivityMode(candidate.recallSession.mode)
+    );
+  }
+
+  if (candidate.kind === "StudyNote") {
+    return (
+      Array.isArray(candidate.labels) &&
+      candidate.labels.every(isAppLabel) &&
+      isAppStudyNote(candidate.studyNote) &&
+      isStudyActivitySourceNoteSnapshot(candidate.sourceNote)
     );
   }
 
@@ -824,9 +980,58 @@ function mergeNoteFocusTarget(
   });
 }
 
+function mergeStudyNoteFocusTarget(
+  currentTargets: readonly FocusTarget[],
+  input: CaptureStudyNoteStudyActivityInput,
+) {
+  const studyNoteLabelIds = new Set(input.studyNote.labelIds);
+  const nextTarget: FocusTarget = {
+    kind: "StudyNote",
+    labels: input.labels
+      .filter((label) => studyNoteLabelIds.has(label.id))
+      .map(cloneLabel),
+    sourceNote: { ...input.studyNote.source },
+    studyNote: cloneStudyNote(input.studyNote),
+  };
+  const existingTarget = currentTargets.find(
+    (target): target is StudyNoteFocusTarget =>
+      target.kind === "StudyNote" && target.studyNote.id === input.studyNote.id,
+  );
+
+  if (existingTarget === undefined) {
+    return [...currentTargets.map(cloneFocusTarget), nextTarget];
+  }
+
+  const labelsById = new Map(
+    existingTarget.labels.map((label) => [label.id, cloneLabel(label)]),
+  );
+
+  for (const label of nextTarget.labels) {
+    labelsById.set(label.id, cloneLabel(label));
+  }
+
+  const mergedTarget: FocusTarget = {
+    kind: "StudyNote",
+    labels: [...labelsById.values()],
+    sourceNote: { ...input.studyNote.source },
+    studyNote: cloneStudyNote(input.studyNote),
+  };
+
+  return currentTargets.map((target) => {
+    if (
+      target.kind === "StudyNote" &&
+      target.studyNote.id === existingTarget.studyNote.id
+    ) {
+      return mergedTarget;
+    }
+
+    return cloneFocusTarget(target);
+  });
+}
+
 function getRecallTargetLabelSnapshots(input: {
   getLabelsForUser?: (userId: string) => readonly AppLabel[];
-  noteSnapshots: readonly AppNote[];
+  noteSnapshots: readonly StudyActivityNoteSnapshot[];
   userId: string;
 }) {
   const labelsById = new Map(
@@ -1198,9 +1403,35 @@ export function createAppFocusContext(
     replaceActiveSession(input.userId, nextSession);
   }
 
+  function captureStudyNoteStudyActivity(
+    input: CaptureStudyNoteStudyActivityInput,
+  ) {
+    const session = getActiveStoredSession(activeSessions, input.userId);
+
+    if (session === null) {
+      return;
+    }
+
+    const now = getNow();
+    const derivedSession = deriveStoredFocusSession(session, now).session;
+
+    if (!isRunningFocusInterval(derivedSession)) {
+      syncInactiveDerivedSession(input.userId, session, derivedSession);
+      return;
+    }
+
+    const nextSession: StoredFocusSession = {
+      ...derivedSession,
+      targets: mergeStudyNoteFocusTarget(derivedSession.targets, input),
+    };
+
+    replaceActiveSession(input.userId, nextSession);
+  }
+
   return {
     captureNoteStudyActivity,
     captureRecallSessionStudyActivity,
+    captureStudyNoteStudyActivity,
     endFocusSession,
     getActiveSession,
     getFocusRecords,

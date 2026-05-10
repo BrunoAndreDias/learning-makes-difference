@@ -3,6 +3,7 @@
 import { fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { createAppFocusContext } from "../../modules/focus";
 import { createAppLabelsContext } from "../../modules/labels/label-management/labels";
 import { createAppStudyNotesContext } from "../../modules/study-notes";
 import { renderRoute } from "./app-shell-test-support";
@@ -127,6 +128,79 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.getByLabelText("Source body")).toHaveValue(
       "Edited source body.",
     );
+  });
+
+  it("captures saved Study Note work as Focus activity with source Note and Label context", async () => {
+    const storage = window.localStorage;
+    const keySuffix = Math.random().toString(36).slice(2);
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-study-notes-focus-labels-${keySuffix}`,
+      storage,
+    });
+    const studyNotesContext = createAppStudyNotesContext({
+      getOwnedLabelIdsForUser: (ownerId) =>
+        labelsContext.getLabelsForUser(ownerId).map((label) => label.id),
+      keyPrefix: `test-study-notes-focus-study-notes-${keySuffix}`,
+      storage,
+    });
+    const focusContext = createAppFocusContext({
+      keyPrefix: `test-study-notes-focus-focus-${keySuffix}`,
+      storage,
+    });
+    const userId = "user-study-notes-focus";
+    const biology = labelsContext.createLabel({ name: "Biology", userId });
+    const studyNote = studyNotesContext.createStudyNote(userId, {
+      labelIds: [biology.id],
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration",
+    });
+
+    focusContext.startFocusSession({
+      focusIntervalMinutes: 25,
+      userId,
+    });
+
+    renderRoute("/study-notes", {
+      focusContext,
+      labelsContext,
+      session: {
+        user: {
+          displayName: "Jordan Focus",
+          email: "jordan.focus@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+      studyNotesContext,
+    });
+
+    fireEvent.change(await screen.findByLabelText("Prompt"), {
+      target: { value: "What molecule stores transferable energy?" },
+    });
+    fireEvent.change(screen.getByLabelText("Expected answer"), {
+      target: { value: "ATP stores transferable energy." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Saved");
+    expect(focusContext.getActiveSession({ userId })?.targets).toMatchObject([
+      {
+        kind: "StudyNote",
+        labels: [{ id: biology.id, name: "Biology" }],
+        sourceNote: {
+          body: "Cell respiration source context.",
+          id: studyNote.sourceNoteId,
+          title: "Cell respiration",
+        },
+        studyNote: {
+          expectedAnswer: "ATP stores transferable energy.",
+          id: studyNote.id,
+          labelIds: [biology.id],
+          prompt: "What molecule stores transferable energy?",
+          sourceNoteId: studyNote.sourceNoteId,
+        },
+      },
+    ]);
   });
 
   it("adds Study Notes from a shared source and confirms last-link deletion", async () => {

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AppNote } from "../notes";
+import type { AppStudyNote } from "../study-notes";
 import { AppFocusError, createAppFocusContext } from "./focus";
 
 function createMemoryStorage() {
@@ -531,6 +532,89 @@ describe("focus sessions", () => {
             id: "note-1",
             labelIds: ["label-biology"],
             title: "Neural pathways",
+          },
+        },
+      ],
+    });
+  });
+
+  it("captures Study Note editing with source Note and Label snapshots in the FocusRecord", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    const focus = createAppFocusContext({
+      keyPrefix: "focus-test-study-note-target",
+      storage: createMemoryStorage(),
+    });
+    const studyNote: AppStudyNote = {
+      acronyms: [{ description: "ATP: Adenosine triphosphate" }],
+      createdAt: "2026-04-29T10:00:00.000Z",
+      expectedAnswer: "ATP stores transferable energy.",
+      id: "study-note-1",
+      labelIds: ["label-biology"],
+      metaphors: [{ description: "ATP acts like a charged battery." }],
+      prompt: "What molecule stores transferable energy?",
+      source: {
+        body: "Cell respiration source context.",
+        id: "source-note-1",
+        title: "Cell respiration",
+        updatedAt: "2026-04-30T10:05:00.000Z",
+      },
+      sourceNoteId: "source-note-1",
+      updatedAt: "2026-04-30T10:05:00.000Z",
+    };
+
+    focus.startFocusSession({
+      focusIntervalMinutes: 25,
+      userId: "owner",
+    });
+
+    focus.captureStudyNoteStudyActivity({
+      labels: [
+        {
+          id: "label-biology",
+          name: "Biology",
+          parentIds: [],
+        },
+        {
+          id: "label-history",
+          name: "History",
+          parentIds: [],
+        },
+      ],
+      studyNote,
+      userId: "owner",
+    });
+
+    studyNote.prompt = "Mutated outside focus";
+    studyNote.source.title = "Mutated source";
+
+    vi.setSystemTime(new Date("2026-04-30T10:25:12.000Z"));
+
+    const record = focus.endFocusSession({ userId: "owner" });
+
+    expect(record).toMatchObject({
+      targets: [
+        {
+          kind: "StudyNote",
+          labels: [
+            {
+              id: "label-biology",
+              name: "Biology",
+              parentIds: [],
+            },
+          ],
+          sourceNote: {
+            body: "Cell respiration source context.",
+            id: "source-note-1",
+            title: "Cell respiration",
+          },
+          studyNote: {
+            expectedAnswer: "ATP stores transferable energy.",
+            id: "study-note-1",
+            labelIds: ["label-biology"],
+            prompt: "What molecule stores transferable energy?",
+            sourceNoteId: "source-note-1",
           },
         },
       ],

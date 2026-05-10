@@ -48,6 +48,7 @@ describe("authenticated app shell", () => {
     const service: AppPersistentFocusService = {
       captureNoteStudyActivity: vi.fn(async () => undefined),
       captureRecallSessionStudyActivity: vi.fn(async () => undefined),
+      captureStudyNoteStudyActivity: vi.fn(async () => undefined),
       endFocusSession: vi.fn(async () => null),
       getActiveSession: vi.fn(async () => activeSession),
       listFocusRecords: vi.fn(async () => focusRecords),
@@ -137,6 +138,7 @@ describe("authenticated app shell", () => {
     const service: AppPersistentFocusService = {
       captureNoteStudyActivity: vi.fn(async () => undefined),
       captureRecallSessionStudyActivity: vi.fn(async () => undefined),
+      captureStudyNoteStudyActivity: vi.fn(async () => undefined),
       endFocusSession: vi.fn(async () => null),
       getActiveSession: refreshSpy,
       listFocusRecords: vi.fn(async () => []),

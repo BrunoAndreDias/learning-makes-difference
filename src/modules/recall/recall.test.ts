@@ -445,6 +445,116 @@ describe("recall focus target capture", () => {
     }
   });
 
+  it("captures Study Notes as RecallSession FocusTargets with source Note and Label context", () => {
+    vi.useFakeTimers();
+
+    try {
+      vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+      const storage = createMemoryStorage();
+      const labels = createAppLabelsContext({
+        keyPrefix: "recall-focus-study-note-labels",
+        storage,
+      });
+      const studyNotes = createAppStudyNotesContext({
+        getOwnedLabelIdsForUser: (userId) =>
+          labels.getLabelsForUser(userId).map((label) => label.id),
+        keyPrefix: "recall-focus-study-note-study-notes",
+        storage,
+      });
+      const focus = createAppFocusContext({
+        getLabelsForUser: (ownerId) => labels.getLabelsForUser(ownerId),
+        keyPrefix: "recall-focus-study-note-focus",
+        storage,
+      });
+      const recall = createAppRecallContext({
+        keyPrefix: "recall-focus-study-note-recall",
+        notes: createAppNotesContext({
+          keyPrefix: "recall-focus-study-note-source-notes",
+          storage,
+        }),
+        onStudyActivity: focus.captureRecallSessionStudyActivity,
+        shuffleNotes: (sessionNotes) => [...sessionNotes],
+        storage,
+        studyNotes,
+        getLabelsForUser: (userId) => labels.getLabelsForUser(userId),
+      });
+      const userId = "owner";
+      const biology = labels.createLabel({ name: "Biology", userId });
+      const studyNote = studyNotes.createStudyNote(userId, {
+        labelIds: [biology.id],
+        sourceBody: "Cell respiration source context.",
+        sourceTitle: "Cell respiration",
+      });
+      const updatedStudyNote = studyNotes.updateStudyNote(
+        userId,
+        studyNote.id,
+        {
+          acronyms: [],
+          expectedAnswer: "ATP stores transferable energy.",
+          labelIds: [biology.id],
+          metaphors: [],
+          prompt: "What molecule stores transferable energy?",
+          sourceBody: "Cell respiration source context.",
+          sourceTitle: "Cell respiration",
+        },
+      );
+
+      focus.startFocusSession({
+        focusIntervalMinutes: 25,
+        userId,
+      });
+
+      const session = recall.startRecallSession({
+        studyNoteIds: [updatedStudyNote.id],
+        userId,
+      });
+
+      recall.revealAnswer({ sessionId: session.id, userId });
+      recall.answerQuestion({
+        rating: "easy",
+        sessionId: session.id,
+        userId,
+      });
+
+      vi.setSystemTime(new Date("2026-04-30T10:25:12.000Z"));
+
+      const record = focus.endFocusSession({ userId });
+
+      expect(record).toMatchObject({
+        completedFocusIntervalCount: 1,
+        focusTargets: [
+          {
+            kind: "RecallSession",
+            recallSession: {
+              id: session.id,
+              mode: "FlashCard",
+            },
+            labels: [{ id: biology.id, name: "Biology" }],
+            notes: [
+              {
+                expectedAnswer: "ATP stores transferable energy.",
+                id: updatedStudyNote.id,
+                labelIds: [biology.id],
+                labels: [{ id: biology.id, name: "Biology" }],
+                prompt: "What molecule stores transferable energy?",
+                source: {
+                  body: "Cell respiration source context.",
+                  id: updatedStudyNote.sourceNoteId,
+                  title: "Cell respiration",
+                },
+                sourceNoteId: updatedStudyNote.sourceNoteId,
+                title: "What molecule stores transferable energy?",
+              },
+            ],
+          },
+        ],
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("ignores RecallSession study activity during a BreakInterval", () => {
     vi.useFakeTimers();
 

@@ -35,6 +35,49 @@ const noteSchema = z.object({
   updatedAt: z.string(),
 });
 
+const sourceNoteSchema = z.object({
+  body: z.string(),
+  id: z.string(),
+  title: z.string(),
+  updatedAt: z.string(),
+});
+
+const studyActivityNoteSchema = noteSchema.extend({
+  expectedAnswer: z.string().optional(),
+  labels: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+      }),
+    )
+    .optional(),
+  prompt: z.string().optional(),
+  source: sourceNoteSchema.optional(),
+  sourceNoteId: z.string().optional(),
+});
+
+const studyNoteSchema = z.object({
+  acronyms: z.array(
+    z.object({
+      description: z.string(),
+    }),
+  ),
+  createdAt: z.string(),
+  expectedAnswer: z.string(),
+  id: z.string(),
+  labelIds: z.array(z.string()),
+  metaphors: z.array(
+    z.object({
+      description: z.string(),
+    }),
+  ),
+  prompt: z.string(),
+  source: sourceNoteSchema,
+  sourceNoteId: z.string(),
+  updatedAt: z.string(),
+});
+
 const startFocusSessionInputSchema = z.object({
   breakIntervalMinutes: z.number().int().min(1).optional(),
   focusIntervalMinutes: z.number().int().min(1).optional(),
@@ -51,8 +94,13 @@ const captureRecallSessionStudyActivityInputSchema = z.object({
     createdAt: z.string(),
     id: z.string(),
     mode: z.enum(["AiAssisted", "AiGraded", "FlashCard"]),
-    notes: z.array(noteSchema),
+    notes: z.array(studyActivityNoteSchema),
   }),
+});
+
+const captureStudyNoteStudyActivityInputSchema = z.object({
+  labels: z.array(labelSchema),
+  studyNote: studyNoteSchema,
 });
 
 async function createRequestAuthService() {
@@ -221,6 +269,22 @@ const captureRecallSessionStudyActivityServerFn = createServerFn({
     });
   });
 
+const captureStudyNoteStudyActivityServerFn = createServerFn({
+  method: "POST",
+})
+  .inputValidator(captureStudyNoteStudyActivityInputSchema)
+  .handler(async ({ data }) => {
+    const [userId, focus] = await Promise.all([
+      requireRequestUserId(),
+      createRequestFocusService(),
+    ]);
+
+    await focus.captureStudyNoteStudyActivity({
+      ...data,
+      userId,
+    });
+  });
+
 export function createServerFocusService(): AppPersistentFocusService {
   return {
     captureNoteStudyActivity: (input) =>
@@ -249,8 +313,31 @@ export function createServerFocusService(): AppPersistentFocusService {
               ...note,
               acronyms: note.acronyms.map((acronym) => ({ ...acronym })),
               labelIds: [...note.labelIds],
+              labels: note.labels?.map((label) => ({ ...label })),
               metaphors: note.metaphors.map((metaphor) => ({ ...metaphor })),
+              source:
+                note.source === undefined ? undefined : { ...note.source },
             })),
+          },
+        },
+      }),
+    captureStudyNoteStudyActivity: (input) =>
+      captureStudyNoteStudyActivityServerFn({
+        data: {
+          labels: input.labels.map((label) => ({
+            ...label,
+            parentIds: [...label.parentIds],
+          })),
+          studyNote: {
+            ...input.studyNote,
+            acronyms: input.studyNote.acronyms.map((acronym) => ({
+              ...acronym,
+            })),
+            labelIds: [...input.studyNote.labelIds],
+            metaphors: input.studyNote.metaphors.map((metaphor) => ({
+              ...metaphor,
+            })),
+            source: { ...input.studyNote.source },
           },
         },
       }),

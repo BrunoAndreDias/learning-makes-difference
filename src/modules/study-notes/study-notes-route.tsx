@@ -91,6 +91,14 @@ function StudyNotesWorkspace() {
     from: "/_protected/study-notes",
     select: (context) => context.labels,
   });
+  const focusContext = useRouteContext({
+    from: "/_protected/study-notes",
+    select: (context) => context.focus,
+  });
+  const persistentFocusContext = useRouteContext({
+    from: "/_protected/study-notes",
+    select: (context) => context.persistentFocus,
+  });
   const { sessionSnapshot } = useResolvedProtectedSession(
     "/_protected/study-notes",
   );
@@ -264,6 +272,8 @@ function StudyNotesWorkspace() {
     setSaveStatus(null);
 
     try {
+      let savedStudyNote: AppStudyNote;
+
       if (selectedStudyNote === null) {
         const createdStudyNote = await storeMutation.createStudyNote(userId, {
           sourceBody: draft.sourceBody,
@@ -275,17 +285,44 @@ function StudyNotesWorkspace() {
           draft,
         );
         setSelectedStudyNoteId(updatedStudyNote.id);
+        savedStudyNote = updatedStudyNote;
       } else {
-        await storeMutation.updateStudyNote(
+        savedStudyNote = await storeMutation.updateStudyNote(
           userId,
           selectedStudyNote.id,
           draft,
         );
       }
 
+      await captureFocusStudyNoteActivity(savedStudyNote);
       setSaveStatus("Saved");
     } catch (error) {
       handleError(error);
+    }
+  }
+
+  async function captureFocusStudyNoteActivity(studyNote: AppStudyNote) {
+    if (userId === null) {
+      return;
+    }
+
+    const input = {
+      labels: labelsContext
+        .getLabelsForUser(userId)
+        .filter((label) => studyNote.labelIds.includes(label.id)),
+      studyNote,
+    };
+
+    if (persistentFocusContext === undefined) {
+      focusContext.captureStudyNoteStudyActivity({
+        ...input,
+        userId,
+      });
+      return;
+    }
+
+    if (persistentFocusContext !== undefined) {
+      await persistentFocusContext.captureStudyNoteStudyActivity(userId, input);
     }
   }
 

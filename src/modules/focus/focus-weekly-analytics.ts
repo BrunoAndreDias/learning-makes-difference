@@ -183,18 +183,20 @@ function addTouchedNoteIds(
   targets: readonly FocusTarget[],
 ) {
   for (const target of targets) {
-    if (!isNoteFocusTarget(target)) {
-      continue;
+    if (target.kind === "Note") {
+      noteIds.add(target.note.id);
     }
 
-    noteIds.add(target.note.id);
-  }
-}
+    if (target.kind === "StudyNote") {
+      noteIds.add(target.studyNote.id);
+    }
 
-function isNoteFocusTarget(
-  target: FocusTarget,
-): target is Extract<FocusTarget, { kind: "Note" }> {
-  return target.kind === "Note";
+    if (target.kind === "RecallSession") {
+      for (const note of target.notes) {
+        noteIds.add(note.id);
+      }
+    }
+  }
 }
 
 function getRecallAnsweredCount(results: readonly SessionResult[]) {

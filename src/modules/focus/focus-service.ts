@@ -5,6 +5,7 @@ import type { PgQueryResultHKT } from "drizzle-orm/pg-core/session";
 import type { AppLabel } from "../labels/label-management/labels";
 import { createLabelsService } from "../labels/labels-service";
 import type { AppNote } from "../notes";
+import type { AppStudyNote } from "../study-notes";
 import {
   createAppFocusContext,
   type RecallStudyActivitySession,
@@ -35,6 +36,12 @@ type UpdateFocusSessionInput = {
 type CaptureNoteStudyActivityInput = {
   labels: readonly AppLabel[];
   note: AppNote;
+  userId: string;
+};
+
+type CaptureStudyNoteStudyActivityInput = {
+  labels: readonly AppLabel[];
+  studyNote: AppStudyNote;
   userId: string;
 };
 
@@ -286,6 +293,19 @@ export function createFocusService({
         now,
         operation: (focus) => {
           focus.captureRecallSessionStudyActivity(input);
+        },
+        userId: input.userId,
+      });
+    },
+    async captureStudyNoteStudyActivity(
+      input: CaptureStudyNoteStudyActivityInput,
+    ) {
+      await runFocusMutation({
+        crypto,
+        db,
+        now,
+        operation: (focus) => {
+          focus.captureStudyNoteStudyActivity(input);
         },
         userId: input.userId,
       });
