@@ -83,7 +83,6 @@ function createSingleHookDraft(description: string) {
 
   return [{ description }];
 }
-
 const learningStateDateFormatter = new Intl.DateTimeFormat("en", {
   dateStyle: "medium",
   timeZone: "UTC",
@@ -121,6 +120,15 @@ function getStudyNoteLearningLabels(
   };
 }
 
+function getAttachedLabels(
+  labels: readonly AppLabel[],
+  labelIds: readonly string[],
+) {
+  const attachedLabelIds = new Set(labelIds);
+
+  return labels.filter((label) => attachedLabelIds.has(label.id));
+}
+
 function StudyNotesWorkspace() {
   const studyNotesContext = useRouteContext({
     from: "/_protected/study-notes",
@@ -137,6 +145,14 @@ function StudyNotesWorkspace() {
   const recallContext = useRouteContext({
     from: "/_protected/study-notes",
     select: (context) => context.recall,
+  });
+  const focusContext = useRouteContext({
+    from: "/_protected/study-notes",
+    select: (context) => context.focus,
+  });
+  const persistentFocusContext = useRouteContext({
+    from: "/_protected/study-notes",
+    select: (context) => context.persistentFocus,
   });
   const { sessionSnapshot } = useResolvedProtectedSession(
     "/_protected/study-notes",
@@ -340,6 +356,8 @@ function StudyNotesWorkspace() {
     setSaveStatus(null);
 
     try {
+      let savedStudyNote: AppStudyNote;
+
       if (selectedStudyNote === null) {
         const createdStudyNote = await storeMutation.createStudyNote(userId, {
           sourceBody: draft.sourceBody,
@@ -351,18 +369,44 @@ function StudyNotesWorkspace() {
           draft,
         );
         setSelectedStudyNoteId(updatedStudyNote.id);
+        savedStudyNote = updatedStudyNote;
       } else {
-        await storeMutation.updateStudyNote(
+        savedStudyNote = await storeMutation.updateStudyNote(
           userId,
           selectedStudyNote.id,
           draft,
         );
       }
 
+      await captureFocusStudyNoteActivity(savedStudyNote);
       setSaveStatus("Saved");
     } catch (error) {
       handleError(error);
     }
+  }
+
+  async function captureFocusStudyNoteActivity(studyNote: AppStudyNote) {
+    if (userId === null) {
+      return;
+    }
+
+    const input = {
+      labels: getAttachedLabels(
+        labelsContext.getLabelsForUser(userId),
+        studyNote.labelIds,
+      ),
+      studyNote,
+    };
+
+    if (persistentFocusContext !== undefined) {
+      await persistentFocusContext.captureStudyNoteStudyActivity(userId, input);
+      return;
+    }
+
+    focusContext.captureStudyNoteStudyActivity({
+      ...input,
+      userId,
+    });
   }
 
   function handleError(error: unknown) {

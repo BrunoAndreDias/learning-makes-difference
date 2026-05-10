@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { AppNote } from "../notes";
 import type { SessionResult } from "../recall";
-import type { FocusRecord, FocusTarget } from "./focus";
+import type {
+  FocusRecord,
+  FocusTarget,
+  StudyActivityNoteSnapshot,
+} from "./focus";
 import { deriveFocusWeeklyAnalytics } from "./focus-weekly-analytics";
 
 describe("deriveFocusWeeklyAnalytics", () => {
@@ -188,6 +192,83 @@ describe("deriveFocusWeeklyAnalytics", () => {
       value: "25 min",
     });
   });
+
+  it("counts Study Note editor and RecallSession focus targets as touched practice objects", () => {
+    const sourceNote = createNote(
+      "source-note-target",
+      "2026-05-05T09:00:00.000Z",
+    );
+
+    const analytics = deriveFocusWeeklyAnalytics({
+      focusRecords: [
+        {
+          ...createFocusRecord({
+            endedAt: "2026-05-05T10:25:00.000Z",
+            focusIntervalMinutes: 25,
+            id: "focus-current-study-notes",
+            noteIds: [],
+          }),
+          focusTargets: [
+            createRecallSessionTarget([
+              {
+                ...sourceNote,
+                expectedAnswer: "Expected answer",
+                id: "study-note-recall",
+                prompt: "Recall prompt",
+                source: {
+                  body: sourceNote.body,
+                  id: sourceNote.id,
+                  title: sourceNote.title,
+                  updatedAt: sourceNote.updatedAt,
+                },
+                sourceNoteId: sourceNote.id,
+                title: "Recall prompt",
+              } satisfies StudyActivityNoteSnapshot,
+            ]),
+          ],
+          targets: [
+            {
+              kind: "StudyNote",
+              labels: [],
+              sourceNote: {
+                body: sourceNote.body,
+                id: sourceNote.id,
+                title: sourceNote.title,
+                updatedAt: sourceNote.updatedAt,
+              },
+              studyNote: {
+                acronyms: [],
+                createdAt: "2026-05-05T09:00:00.000Z",
+                expectedAnswer: "Expected answer",
+                id: "study-note-edited",
+                labelIds: [],
+                metaphors: [],
+                prompt: "Edited prompt",
+                source: {
+                  body: sourceNote.body,
+                  id: sourceNote.id,
+                  title: sourceNote.title,
+                  updatedAt: sourceNote.updatedAt,
+                },
+                sourceNoteId: sourceNote.id,
+                updatedAt: "2026-05-05T09:05:00.000Z",
+              },
+            },
+          ],
+        },
+      ],
+      notes: [sourceNote],
+      now: new Date("2026-05-06T12:00:00.000Z"),
+      sessionResults: [],
+    });
+
+    expect(analytics.metrics).toContainEqual({
+      comparisonLabel: "+2 vs last week",
+      id: "notes-touched",
+      label: "Notes touched",
+      value: "2",
+    });
+  });
 });
 
 function createNote(id: string, createdAt: string): AppNote {
@@ -263,7 +344,9 @@ function createNoteTarget(noteId: string): FocusTarget {
   };
 }
 
-function createRecallSessionTarget(notes: readonly AppNote[]): FocusTarget {
+function createRecallSessionTarget(
+  notes: readonly StudyActivityNoteSnapshot[],
+): FocusTarget {
   return {
     kind: "RecallSession",
     labels: [],

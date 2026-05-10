@@ -145,6 +145,23 @@ describe("createPersistentFocusContext", () => {
           ],
         };
       }),
+      captureStudyNoteStudyActivity: vi.fn(async ({ studyNote }) => {
+        if (activeSession === null) {
+          return;
+        }
+
+        activeSession = {
+          ...activeSession,
+          targets: [
+            {
+              kind: "StudyNote",
+              labels: [],
+              sourceNote: studyNote.source,
+              studyNote,
+            },
+          ],
+        };
+      }),
       endFocusSession: vi.fn(async () => {
         const endedSession = activeSession;
 
