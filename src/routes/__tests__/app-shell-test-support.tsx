@@ -7,14 +7,8 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from "@testing-library/react";
-import { afterEach, beforeAll, expect, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeAll, vi } from "vitest";
 import {
   type AppSessionContext,
   type AppSessionSnapshot,
@@ -264,9 +258,6 @@ export function createLearningLoopTestContexts(
   };
 }
 
-export type AppShellRouter = ReturnType<typeof renderRoute>["router"];
-export type RenderRouteOptions = NonNullable<Parameters<typeof renderRoute>[1]>;
-
 export function createDeterministicRecallTestContexts() {
   return createLearningLoopTestContexts({
     shuffleNotes: (sessionNotes) => [...sessionNotes],
@@ -317,100 +308,8 @@ export function createCompletedRecallSession(
   });
 }
 
-function completeRecallSessionAt({
-  noteId,
-  rating,
-  recallContext,
-  timestamp,
-  userId,
-}: {
-  noteId: string;
-  rating: FlashCardRecallRating;
-  recallContext: AppRecallContext;
-  timestamp: string;
-  userId: string;
-}) {
-  createCompletedRecallSession(recallContext, {
-    noteId,
-    rating,
-    timestamp,
-    userId,
-  });
-}
-
-function rateFlashCardAnswers({
-  ratings,
-  recallContext,
-  sessionId,
-  userId,
-}: {
-  ratings: readonly FlashCardRecallRating[];
-  recallContext: AppRecallContext;
-  sessionId: string;
-  userId: string;
-}) {
-  for (const rating of ratings) {
-    recallContext.revealFlashCardAnswer({
-      sessionId,
-      userId,
-    });
-    recallContext.rateFlashCardAnswer({
-      rating,
-      sessionId,
-      userId,
-    });
-  }
-}
-
-async function renderRecallSelection(contexts: RenderRouteOptions) {
-  const routeRender = renderRoute("/recall/select", contexts);
-
-  expect(
-    await screen.findByRole("heading", { level: 3, name: "Recall setup" }),
-  ).toBeInTheDocument();
-
-  return routeRender;
-}
-
-function selectRecallableNote(title: string, _body: string) {
-  fireEvent.click(
-    within(screen.getByLabelText("Recallable notes")).getByRole("button", {
-      name: `Select ${title}`,
-    }),
-  );
-}
-
-async function startSelectedRecallSession() {
-  fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
-
-  expect(
-    await screen.findByRole("heading", { name: "Recall session" }),
-  ).toBeInTheDocument();
-}
-
-async function expectReturnedToRecall(router: AppShellRouter) {
-  expect(
-    await screen.findByRole("heading", { level: 3, name: "Practice" }),
-  ).toBeInTheDocument();
-  expect(router.state.location.pathname).toBe("/recall");
-}
-
-async function openRecallResultsSection() {
-  fireEvent.click(screen.getByRole("link", { name: "Results" }));
-
-  expect(
-    await screen.findByRole("heading", { level: 3, name: "Results" }),
-  ).toBeInTheDocument();
-}
-
 export function openAccountMenu() {
   fireEvent.click(screen.getByRole("button", { name: /account menu/i }));
-}
-
-function getSelectedSessionResultRegion() {
-  return screen.getByRole("region", {
-    name: "Selected review",
-  });
 }
 
 let documentVisibilityState: DocumentVisibilityState = "visible";

@@ -391,10 +391,10 @@ describe("authenticated app shell", () => {
     const sidebar = screen.getByRole("complementary", {
       name: "Study Notes workspace",
     });
-    const notesCatalog = screen.getByRole("complementary", {
+    const studyNotesCatalog = screen.getByRole("complementary", {
       name: "Study Notes catalog",
     });
-    const notesList = within(notesCatalog).getByRole("navigation", {
+    const studyNotesList = within(studyNotesCatalog).getByRole("navigation", {
       name: "Study Notes list",
     });
 
@@ -412,7 +412,7 @@ describe("authenticated app shell", () => {
       within(sidebar).getByRole("button", { name: /account menu/i }),
     ).toBeInTheDocument();
 
-    const retrievalPracticeButton = within(notesList).getByRole("button", {
+    const retrievalPracticeButton = within(studyNotesList).getByRole("button", {
       name: "Retrieval practice",
     });
 

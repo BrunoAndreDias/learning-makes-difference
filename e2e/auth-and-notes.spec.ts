@@ -53,30 +53,34 @@ test("registers, navigates the app, and persists a Study Note after refresh", as
 }) => {
   await registerAccount(page);
 
-  const noteTitle = `E2E spaced recall ${Date.now()}`;
-  const noteBody =
+  const studyNotePrompt = `E2E spaced recall ${Date.now()}`;
+  const expectedAnswer =
     "This Study Note proves browser registration, saving, and reload.";
 
   await page.getByRole("button", { name: "New Study Note" }).click();
-  await page.getByLabel("Prompt").fill(noteTitle);
-  await page.getByRole("textbox", { name: "Expected answer" }).fill(noteBody);
-  await page.getByLabel("Source title").fill(noteTitle);
-  await page.getByRole("textbox", { name: "Source body" }).fill(noteBody);
+  await page.getByLabel("Prompt").fill(studyNotePrompt);
+  await page
+    .getByRole("textbox", { name: "Expected answer" })
+    .fill(expectedAnswer);
+  await page.getByLabel("Source title").fill(studyNotePrompt);
+  await page.getByRole("textbox", { name: "Source body" }).fill(expectedAnswer);
   await page.getByRole("button", { name: "Save" }).click();
 
   await expect(
-    page.getByRole("button", { exact: true, name: noteTitle }),
+    page.getByRole("button", { exact: true, name: studyNotePrompt }),
   ).toBeVisible();
 
   await page.reload();
 
-  await page.getByRole("button", { exact: true, name: noteTitle }).click();
+  await page
+    .getByRole("button", { exact: true, name: studyNotePrompt })
+    .click();
 
-  await expect(page.getByLabel("Prompt")).toHaveValue(noteTitle);
+  await expect(page.getByLabel("Prompt")).toHaveValue(studyNotePrompt);
   await expect(
     page.getByRole("textbox", { name: "Expected answer" }),
   ).toHaveValue(
-    noteBody,
+    expectedAnswer,
   );
 
   const appSections = page.getByRole("navigation", { name: "App sections" });

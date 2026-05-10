@@ -96,7 +96,7 @@ function getRecallWorkspaceTitleKey(pathname: string) {
   return null;
 }
 
-function isNotesWorkspacePath(pathname: string) {
+function isStudyNotesWorkspacePath(pathname: string) {
   return isWorkspacePath(pathname, "/study-notes");
 }
 
@@ -119,7 +119,7 @@ function isSettingsWorkspacePath(pathname: string) {
 function getWorkspaceFrameName(
   pathname: string,
 ): WorkspaceFrameName | undefined {
-  if (isNotesWorkspacePath(pathname)) {
+  if (isStudyNotesWorkspacePath(pathname)) {
     return "notes";
   }
 
@@ -176,7 +176,9 @@ export function AppLayout() {
   const recallWorkspaceTitle =
     recallWorkspaceTitleKey === null ? null : t(recallWorkspaceTitleKey);
   const workspaceFrameName = getWorkspaceFrameName(location.pathname);
-  const isNotesWorkspaceRoute = isNotesWorkspacePath(location.pathname);
+  const isStudyNotesWorkspaceRoute = isStudyNotesWorkspacePath(
+    location.pathname,
+  );
   const isRecallWorkspaceRoute = isRecallWorkspacePath(location.pathname);
   const isLabelsWorkspaceRoute = isLabelsWorkspacePath(location.pathname);
   const isFocusWorkspaceRoute = isFocusWorkspacePath(location.pathname);
@@ -312,7 +314,7 @@ export function AppLayout() {
             collapsedSidebarToggleRef={collapsedSidebarToggleRef}
             focus={focus}
             persistentFocus={persistentFocus}
-            isNotesWorkspaceRoute={isNotesWorkspaceRoute}
+            isStudyNotesWorkspaceRoute={isStudyNotesWorkspaceRoute}
             isRecallWorkspaceRoute={isRecallWorkspaceRoute}
             isLabelsWorkspaceRoute={isLabelsWorkspaceRoute}
             isFocusWorkspaceRoute={isFocusWorkspaceRoute}
@@ -342,7 +344,7 @@ function WorkspaceHeader({
   collapsedSidebarToggleRef,
   focus,
   persistentFocus,
-  isNotesWorkspaceRoute,
+  isStudyNotesWorkspaceRoute,
   isRecallWorkspaceRoute,
   isLabelsWorkspaceRoute,
   isFocusWorkspaceRoute,
@@ -365,7 +367,7 @@ function WorkspaceHeader({
   persistentFocus: Parameters<
     typeof FocusSessionStartControl
   >[0]["persistentFocus"];
-  isNotesWorkspaceRoute: boolean;
+  isStudyNotesWorkspaceRoute: boolean;
   isRecallWorkspaceRoute: boolean;
   isLabelsWorkspaceRoute: boolean;
   isFocusWorkspaceRoute: boolean;
@@ -415,7 +417,7 @@ function WorkspaceHeader({
             <SidebarReopenIcon />
           </Button>
         ) : null}
-        {isNotesWorkspaceRoute ? null : (
+        {isStudyNotesWorkspaceRoute ? null : (
           <h2
             className={
               hasVisuallyHiddenWorkspaceTitle
@@ -430,7 +432,7 @@ function WorkspaceHeader({
         )}
       </div>
       <div className="app-frame__actions">
-        {isNotesWorkspaceRoute || isLabelsWorkspaceRoute ? null : (
+        {isStudyNotesWorkspaceRoute || isLabelsWorkspaceRoute ? null : (
           <FocusSessionStartControl
             activeFocusSession={activeFocusSession}
             focus={focus}

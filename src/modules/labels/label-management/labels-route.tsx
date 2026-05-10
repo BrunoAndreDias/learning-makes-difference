@@ -136,6 +136,10 @@ function getColumnSortButtonLabel(input: {
   return `Sort by ${input.columnLabel.toLowerCase()}, high to low`;
 }
 
+function formatStudyNoteCount(count: number) {
+  return formatCount(count, "Study Note");
+}
+
 function getChildRows(input: {
   labelId: string;
   labels: readonly AppLabel[];
@@ -153,7 +157,7 @@ function formatEditUsageSummary(input: {
   label: string;
   noteCount: number;
 }) {
-  return `${input.label} · used in ${formatCount(input.noteCount, "Study Note")} · ${formatCount(input.childCount, "child label")}`;
+  return `${input.label} · used in ${formatStudyNoteCount(input.noteCount)} · ${formatCount(input.childCount, "child label")}`;
 }
 
 function formatPreviewLabelName(labelName: string) {
@@ -183,10 +187,10 @@ function formatDeleteImpactSummary(input: {
   childCount: number;
   noteCount: number;
 }) {
-  const notesImpact = formatCount(input.noteCount, "Study Note");
+  const studyNotesImpact = formatStudyNoteCount(input.noteCount);
 
   if (input.childCount === 0) {
-    return `This will remove the label from ${notesImpact}.`;
+    return `This will remove the label from ${studyNotesImpact}.`;
   }
 
   const childImpact = formatCount(input.childCount, "child label");
@@ -195,7 +199,7 @@ function formatDeleteImpactSummary(input: {
       ? "will stay available and become a top-level label if it has no other parent"
       : "will stay available and become top-level labels if they have no other parent";
 
-  return `This will remove the label from ${notesImpact}. ${childImpact} ${childRelationshipImpact}.`;
+  return `This will remove the label from ${studyNotesImpact}. ${childImpact} ${childRelationshipImpact}.`;
 }
 
 function getActiveFocusRestoreTarget() {
@@ -1180,15 +1184,14 @@ function LabelsPage() {
                     </li>
                   ) : (
                     createParentOptions.map((option) => {
-                      const noteCountLabel = formatCount(
+                      const studyNoteCountLabel = formatStudyNoteCount(
                         option.directNoteCount,
-                        "Study Note",
                       );
 
                       return (
                         <li key={option.id}>
                           <button
-                            aria-label={`${option.label} (${noteCountLabel})`}
+                            aria-label={`${option.label} (${studyNoteCountLabel})`}
                             className="labels-parent-option"
                             onClick={() => addCreateParent(option.id)}
                             type="button"
@@ -1197,7 +1200,7 @@ function LabelsPage() {
                               <LabelTagIcon />
                               <span>{option.label}</span>
                             </span>
-                            <span className="muted">{noteCountLabel}</span>
+                            <span className="muted">{studyNoteCountLabel}</span>
                           </button>
                         </li>
                       );
@@ -1338,15 +1341,14 @@ function LabelsPage() {
                     </li>
                   ) : (
                     editParentOptions.map((option) => {
-                      const noteCountLabel = formatCount(
+                      const studyNoteCountLabel = formatStudyNoteCount(
                         option.directNoteCount,
-                        "Study Note",
                       );
 
                       return (
                         <li key={option.id}>
                           <button
-                            aria-label={`${option.label} (${noteCountLabel})`}
+                            aria-label={`${option.label} (${studyNoteCountLabel})`}
                             className="labels-parent-option"
                             onClick={() => addEditParent(option.id)}
                             type="button"
@@ -1355,7 +1357,7 @@ function LabelsPage() {
                               <LabelTagIcon />
                               <span>{option.label}</span>
                             </span>
-                            <span className="muted">{noteCountLabel}</span>
+                            <span className="muted">{studyNoteCountLabel}</span>
                           </button>
                         </li>
                       );
@@ -1412,7 +1414,7 @@ function LabelsPage() {
                           <span>{childRow.label}</span>
                         </span>
                         <span className="muted">
-                          {formatCount(childRow.directNoteCount, "Study Note")}
+                          {formatStudyNoteCount(childRow.directNoteCount)}
                         </span>
                       </li>
                     ))}
