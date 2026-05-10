@@ -20,7 +20,13 @@ import {
   type AppStudyNote,
   type AppStudyNotesContext,
   AppStudyNotesError,
+  deriveStudyNoteLearningStates,
+  formatStudyNoteDueLabel,
+  formatStudyNoteLearningStateCompactLabel,
+  formatStudyNotePracticeSignalLabel,
   listStudyNotesForUser,
+  type StudyNoteLearningState,
+  toStudyNoteRecallHistories,
   type UpdateStudyNoteInput,
 } from ".";
 
@@ -78,6 +84,43 @@ function createSingleHookDraft(description: string) {
   return [{ description }];
 }
 
+const learningStateDateFormatter = new Intl.DateTimeFormat("en", {
+  dateStyle: "medium",
+  timeZone: "UTC",
+});
+
+function formatLastRecalledLabel(lastRecalledAt: string | null) {
+  if (lastRecalledAt === null) {
+    return null;
+  }
+
+  const recalledAt = new Date(lastRecalledAt);
+
+  if (Number.isNaN(recalledAt.getTime())) {
+    return null;
+  }
+
+  return `Last recalled ${learningStateDateFormatter.format(recalledAt)}`;
+}
+
+type StudyNoteLearningLabels = {
+  compact: string;
+  due: string | null;
+  lastRecalled: string | null;
+  practice: string | null;
+};
+
+function getStudyNoteLearningLabels(
+  learningState: StudyNoteLearningState,
+): StudyNoteLearningLabels {
+  return {
+    compact: formatStudyNoteLearningStateCompactLabel(learningState),
+    due: formatStudyNoteDueLabel(learningState),
+    lastRecalled: formatLastRecalledLabel(learningState.lastRecalledAt),
+    practice: formatStudyNotePracticeSignalLabel(learningState),
+  };
+}
+
 function StudyNotesWorkspace() {
   const studyNotesContext = useRouteContext({
     from: "/_protected/study-notes",
@@ -90,6 +133,10 @@ function StudyNotesWorkspace() {
   const labelsContext = useRouteContext({
     from: "/_protected/study-notes",
     select: (context) => context.labels,
+  });
+  const recallContext = useRouteContext({
+    from: "/_protected/study-notes",
+    select: (context) => context.recall,
   });
   const { sessionSnapshot } = useResolvedProtectedSession(
     "/_protected/study-notes",
@@ -104,6 +151,11 @@ function StudyNotesWorkspace() {
     studyNotesStore.getSnapshot,
     studyNotesStore.getSnapshot,
   );
+  const recallResultsSnapshot = useSyncExternalStore(
+    recallContext.subscribe,
+    recallContext.getSessionResultsSnapshot,
+    recallContext.getSessionResultsSnapshot,
+  );
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
   const [selectedLabelId, setSelectedLabelId] = useState("");
   const studyNotes = useMemo(
@@ -114,6 +166,30 @@ function StudyNotesWorkspace() {
         selectedLabelId === "" ? {} : { labelId: selectedLabelId },
       ),
     [selectedLabelId, studyNotesSnapshot, userId],
+  );
+  const learningStates = useMemo(
+    () =>
+      deriveStudyNoteLearningStates({
+        histories:
+          userId === null || recallResultsSnapshot.length === 0
+            ? []
+            : toStudyNoteRecallHistories(
+                recallContext.listAttemptsByNote({ userId }),
+              ),
+        now: new Date().toISOString(),
+        studyNotes,
+      }),
+    [recallContext, recallResultsSnapshot, studyNotes, userId],
+  );
+  const learningStateByStudyNoteId = useMemo(
+    () =>
+      new Map(
+        learningStates.map((learningState) => [
+          learningState.studyNoteId,
+          learningState,
+        ]),
+      ),
+    [learningStates],
   );
   const [selectedStudyNoteId, setSelectedStudyNoteId] = useState<string | null>(
     studyNotes[0]?.id ?? null,
@@ -358,27 +434,51 @@ function StudyNotesWorkspace() {
               </p>
             ) : (
               <ul>
-                {studyNotes.map((studyNote) => (
-                  <li key={studyNote.id}>
-                    <button
-                      aria-label={studyNote.prompt}
-                      aria-current={
-                        studyNote.id === selectedStudyNote?.id
-                          ? "page"
-                          : undefined
-                      }
-                      className="notes-list__item"
-                      onClick={() => {
-                        setSelectedStudyNoteId(studyNote.id);
-                        setSaveStatus(null);
-                      }}
-                      type="button"
-                    >
-                      <strong>{studyNote.prompt}</strong>
-                      <span>{studyNote.source.title}</span>
-                    </button>
-                  </li>
-                ))}
+                {studyNotes.map((studyNote) => {
+                  const learningState = learningStateByStudyNoteId.get(
+                    studyNote.id,
+                  );
+                  const learningLabels =
+                    learningState === undefined
+                      ? null
+                      : getStudyNoteLearningLabels(learningState);
+
+                  return (
+                    <li key={studyNote.id}>
+                      <button
+                        aria-label={studyNote.prompt}
+                        aria-current={
+                          studyNote.id === selectedStudyNote?.id
+                            ? "page"
+                            : undefined
+                        }
+                        className="notes-list__item"
+                        onClick={() => {
+                          setSelectedStudyNoteId(studyNote.id);
+                          setSaveStatus(null);
+                        }}
+                        type="button"
+                      >
+                        <strong>{studyNote.prompt}</strong>
+                        <span>{studyNote.source.title}</span>
+                        {learningLabels === null ? null : (
+                          <span className="notes-list__item-status">
+                            <span>{learningLabels.compact}</span>
+                            {learningLabels.lastRecalled === null ? null : (
+                              <span>{learningLabels.lastRecalled}</span>
+                            )}
+                            {learningLabels.due === null ? null : (
+                              <span>{learningLabels.due}</span>
+                            )}
+                            {learningLabels.practice === null ? null : (
+                              <span>{learningLabels.practice}</span>
+                            )}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </nav>

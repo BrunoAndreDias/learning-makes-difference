@@ -1256,11 +1256,18 @@ export function createAppRecallContext(
         .map(cloneSessionResult);
     },
     listAttemptsByNote: ({ labelId, userId }) => {
-      const currentNotesById = new Map(
+      const currentNoteTitlesById = new Map(
         listNotesForUser(options.notes.getSnapshot(), userId).map((note) => [
           note.id,
-          note,
+          note.title,
         ]),
+      );
+      const currentStudyNotePromptsById = new Map(
+        options.studyNotes === undefined
+          ? []
+          : listStudyNotesForUser(options.studyNotes.getSnapshot(), userId).map(
+              (studyNote) => [studyNote.id, studyNote.prompt],
+            ),
       );
       const groups = new Map<
         string,
@@ -1332,7 +1339,10 @@ export function createAppRecallContext(
                 left.sessionId.localeCompare(right.sessionId)
               );
             }),
-            currentTitle: currentNotesById.get(noteId)?.title ?? null,
+            currentTitle:
+              currentStudyNotePromptsById.get(noteId) ??
+              currentNoteTitlesById.get(noteId) ??
+              null,
             noteId,
             snapshotTitle: group.snapshotTitle,
             totalAttempts: group.attempts.length,
