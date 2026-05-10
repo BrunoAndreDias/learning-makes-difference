@@ -5,13 +5,117 @@ import { join } from "node:path";
 
 import { fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import {
-  createAppNotesContext,
-  openAccountMenu,
-  renderRoute,
-} from "./app-shell-test-support";
+import { createAppStudyNotesContext } from "../../modules/study-notes";
+import { openAccountMenu, renderRoute } from "./app-shell-test-support";
+
+function setBrowserLanguages(languages: readonly string[]) {
+  Object.defineProperty(window.navigator, "languages", {
+    configurable: true,
+    value: languages,
+  });
+}
 
 describe("authenticated app shell", () => {
+  it("uses the stored User Language for authenticated shell chrome instead of browser detection", async () => {
+    setBrowserLanguages(["pt-PT", "en"]);
+
+    renderRoute("/settings", {
+      session: {
+        user: {
+          displayName: "Casey Learner",
+          email: "casey@example.com",
+          id: "user-casey",
+          userLanguage: "es",
+        },
+      },
+    });
+
+    const sidebar = await screen.findByRole("complementary", {
+      name: "Espacio de trabajo de notas de estudio",
+    });
+    const appSections = within(sidebar).getByRole("navigation", {
+      name: "Secciones de la aplicacion",
+    });
+
+    expect(
+      within(appSections).getByRole("link", { name: "Notas" }),
+    ).toBeInTheDocument();
+    expect(
+      within(appSections).getByRole("link", { name: "Repaso" }),
+    ).toBeInTheDocument();
+    expect(
+      within(appSections).getByRole("link", { name: "Etiquetas" }),
+    ).toBeInTheDocument();
+    expect(
+      within(appSections).getByRole("link", { name: "Concentracion" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Configuracion" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Abrir menu de navegacion" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Iniciar concentracion" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Casey Learner casey@example.com menu de cuenta",
+      }),
+    );
+
+    const accountMenu = screen.getByRole("menu", {
+      name: "Opciones de cuenta",
+    });
+
+    expect(
+      within(accountMenu).getByRole("menuitem", { name: "Configuracion" }),
+    ).toHaveAttribute("href", "/settings");
+    expect(
+      within(accountMenu).getByRole("menuitem", { name: "Cerrar sesion" }),
+    ).toBeInTheDocument();
+  });
+
+  it("translates representative authenticated shell chrome in Portuguese", async () => {
+    renderRoute("/focus", {
+      session: {
+        user: {
+          displayName: "Casey Learner",
+          email: "casey@example.com",
+          id: "user-casey",
+          userLanguage: "pt-PT",
+        },
+      },
+    });
+
+    const sidebar = await screen.findByRole("complementary", {
+      name: "Area de trabalho de notas de estudo",
+    });
+    const appSections = within(sidebar).getByRole("navigation", {
+      name: "Seccoes da aplicacao",
+    });
+
+    expect(
+      within(appSections).getByRole("link", { name: "Notas" }),
+    ).toBeInTheDocument();
+    expect(
+      within(appSections).getByRole("link", { name: "Recordar" }),
+    ).toBeInTheDocument();
+    expect(
+      within(appSections).getByRole("link", { name: "Etiquetas" }),
+    ).toBeInTheDocument();
+    expect(
+      within(appSections).getByRole("link", { name: "Foco" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Foco" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Abrir menu de navegacao" }),
+    ).toBeInTheDocument();
+  });
+
   it("keeps the collapsed workspace header as an overlaid menu toggle", () => {
     const appCss = readFileSync(join(process.cwd(), "src/styles/app.css"), {
       encoding: "utf8",
@@ -46,11 +150,11 @@ describe("authenticated app shell", () => {
     );
   });
 
-  it("renders a Notes Workspace shell with an account menu instead of product navigation", async () => {
+  it("renders a Study Notes workspace shell with an account menu instead of product navigation", async () => {
     renderRoute("/settings");
 
     const sidebar = await screen.findByRole("complementary", {
-      name: "Notes workspace",
+      name: "Study Notes workspace",
     });
     const accountMenuButton = within(sidebar).getByRole("button", {
       name: /Placeholder user placeholder@example\.com account menu/,
@@ -64,7 +168,7 @@ describe("authenticated app shell", () => {
       name: "App sections",
     });
     expect(
-      within(appSections).getByRole("link", { name: "Notes" }),
+      within(appSections).getByRole("link", { name: "Study Notes" }),
     ).toBeInTheDocument();
     expect(
       within(appSections).getByRole("link", { name: "Labels" }),
@@ -149,19 +253,21 @@ describe("authenticated app shell", () => {
   });
 
   it("renders global workspace navigation and updates the active link when navigating", async () => {
-    const { router } = renderRoute("/notes");
+    const { router } = renderRoute("/study-notes");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Notes" }),
+      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
     ).toBeInTheDocument();
 
     const sidebar = screen.getByRole("complementary", {
-      name: "Notes workspace",
+      name: "Study Notes workspace",
     });
     const appSections = within(sidebar).getByRole("navigation", {
       name: "App sections",
     });
-    const notesLink = within(appSections).getByRole("link", { name: "Notes" });
+    const notesLink = within(appSections).getByRole("link", {
+      name: "Study Notes",
+    });
     const labelsLink = within(appSections).getByRole("link", {
       name: "Labels",
     });
@@ -179,7 +285,7 @@ describe("authenticated app shell", () => {
     expect(
       within(appSections).queryByRole("link", { name: "Recall history" }),
     ).not.toBeInTheDocument();
-    expect(notesLink).toHaveAttribute("href", "/notes");
+    expect(notesLink).toHaveAttribute("href", "/study-notes");
     expect(labelsLink).toHaveAttribute("href", "/labels");
     expect(recallLink).toHaveAttribute("href", "/recall");
     expect(notesLink).toHaveAttribute("aria-current", "page");
@@ -198,7 +304,7 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", {
         level: 3,
-        name: "Recall starts with notes",
+        name: "Recall starts with Study Notes",
       }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
@@ -207,14 +313,14 @@ describe("authenticated app shell", () => {
   });
 
   it("adds Focus to primary navigation and opens the Focus section", async () => {
-    const { router } = renderRoute("/notes");
+    const { router } = renderRoute("/study-notes");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Notes" }),
+      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
     ).toBeInTheDocument();
 
     const sidebar = screen.getByRole("complementary", {
-      name: "Notes workspace",
+      name: "Study Notes workspace",
     });
     const appSections = within(sidebar).getByRole("navigation", {
       name: "App sections",
@@ -233,10 +339,10 @@ describe("authenticated app shell", () => {
   });
 
   it("supports skip navigation with a header navigation opener", async () => {
-    renderRoute("/notes");
+    renderRoute("/study-notes");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Notes" }),
+      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
     ).toBeInTheDocument();
 
     const skipLink = screen.getByRole("link", { name: "Skip to main content" });
@@ -250,61 +356,54 @@ describe("authenticated app shell", () => {
     ).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("uses the in-page notes list with a header navigation opener", async () => {
-    const notesContext = createAppNotesContext({
+  it("uses the in-page Study Notes list with a header navigation opener", async () => {
+    const studyNotesContext = createAppStudyNotesContext({
       getOwnedLabelIdsForUser: () => [],
-      keyPrefix: `test-notes-${Math.random().toString(36).slice(2)}`,
+      keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
     });
 
-    notesContext.createNote("user-jordan", {
-      acronyms: [],
-      body: "Repeated review strengthens long-term retention.",
-      labelIds: [],
-      metaphors: [],
-      title: "Spaced repetition",
+    studyNotesContext.createStudyNote("user-jordan", {
+      sourceBody: "Repeated review strengthens long-term retention.",
+      sourceTitle: "Spaced repetition",
     });
-    notesContext.createNote("user-jordan", {
-      acronyms: [],
-      body: "Retrieval cues make later recall easier.",
-      labelIds: [],
-      metaphors: [],
-      title: "Retrieval practice",
+    studyNotesContext.createStudyNote("user-jordan", {
+      sourceBody: "Retrieval cues make later recall easier.",
+      sourceTitle: "Retrieval practice",
     });
 
-    renderRoute("/notes", {
-      notesContext,
+    renderRoute("/study-notes", {
       session: {
         user: {
           displayName: "Jordan Review",
           email: "jordan@example.com",
           id: "user-jordan",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
+      studyNotesContext,
     });
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Notes" }),
+      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
     ).toBeInTheDocument();
 
     const sidebar = screen.getByRole("complementary", {
-      name: "Notes workspace",
+      name: "Study Notes workspace",
     });
-    const notesCatalog = screen.getByRole("complementary", {
-      name: "Notes catalog",
+    const studyNotesCatalog = screen.getByRole("complementary", {
+      name: "Study Notes catalog",
     });
-    const notesList = within(notesCatalog).getByRole("navigation", {
-      name: "Notes list",
+    const studyNotesList = within(studyNotesCatalog).getByRole("navigation", {
+      name: "Study Notes list",
     });
 
     expect(sidebar).toHaveAttribute("data-mobile-open", "false");
     expect(
-      within(notesCatalog).getByRole("button", { name: "New note" }),
+      screen.getByRole("button", { name: "New Study Note" }),
     ).toBeInTheDocument();
     expect(
-      within(sidebar).queryByRole("navigation", { name: "Notes list" }),
+      within(sidebar).queryByRole("navigation", { name: "Study Notes list" }),
     ).not.toBeInTheDocument();
     expect(
       within(sidebar).getByRole("navigation", { name: "App sections" }),
@@ -313,7 +412,7 @@ describe("authenticated app shell", () => {
       within(sidebar).getByRole("button", { name: /account menu/i }),
     ).toBeInTheDocument();
 
-    const retrievalPracticeButton = within(notesList).getByRole("button", {
+    const retrievalPracticeButton = within(studyNotesList).getByRole("button", {
       name: "Retrieval practice",
     });
 
@@ -323,23 +422,21 @@ describe("authenticated app shell", () => {
     fireEvent.click(retrievalPracticeButton);
 
     expect(sidebar).toHaveAttribute("data-mobile-open", "false");
-    expect(
-      screen.getByDisplayValue("Retrieval cues make later recall easier."),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Prompt")).toHaveValue("Retrieval practice");
     expect(
       screen.getByRole("button", { name: "Open navigation menu" }),
     ).toHaveAttribute("aria-expanded", "false");
   });
 
   it("opens and closes the mobile navigation menu from the header", async () => {
-    renderRoute("/notes");
+    renderRoute("/study-notes");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Notes" }),
+      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
     ).toBeInTheDocument();
 
     const sidebar = screen.getByRole("complementary", {
-      name: "Notes workspace",
+      name: "Study Notes workspace",
     });
     const mobileToggle = screen.getByRole("button", {
       name: "Open navigation menu",

@@ -1,9 +1,6 @@
 import { useRouteContext } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
-import {
-  type AppSessionSnapshot,
-  hasActiveSession,
-} from "../../access/session/session";
+import { useResolvedProtectedSession } from "../../access/session/use-resolved-protected-session";
 import type { AppNotesContext, AppPersistentNotesContext } from "..";
 import {
   deriveLearningStates,
@@ -43,14 +40,7 @@ export function NotesWorkspaceSidebar({
     from: "/_protected",
     select: (context) => context.persistentNotes,
   });
-  const session = useRouteContext({
-    from: "/_protected",
-    select: (context) => context.session,
-  });
-  const routedSessionSnapshot = useRouteContext({
-    from: "/_protected",
-    select: (context) => context.sessionSnapshot,
-  });
+  const { sessionSnapshot } = useResolvedProtectedSession("/_protected");
   const {
     activateNoteTarget,
     activeNoteId,
@@ -60,15 +50,6 @@ export function NotesWorkspaceSidebar({
   } = useNotesWorkspace();
   const isDraftingNewNote = noteEditor.mode === "draft";
   const activeNoteRef = useRef<HTMLButtonElement | null>(null);
-  const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
-    session.subscribe,
-    session.getSnapshot,
-    session.getSnapshot,
-  );
-  const effectiveSessionSnapshot =
-    hasActiveSession(sessionSnapshot) || routedSessionSnapshot === undefined
-      ? sessionSnapshot
-      : routedSessionSnapshot;
   const recallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.recall,
@@ -87,11 +68,8 @@ export function NotesWorkspaceSidebar({
     recallContext.getSessionResultsSnapshot,
     recallContext.getSessionResultsSnapshot,
   );
-  const notes = listNotesForUser(
-    notesSnapshot,
-    effectiveSessionSnapshot.user?.id ?? null,
-  );
-  const userId = effectiveSessionSnapshot.user?.id ?? null;
+  const userId = sessionSnapshot.user?.id ?? null;
+  const notes = listNotesForUser(notesSnapshot, userId);
   const noteLearningStates = deriveLearningStates({
     histories:
       userId === null || recallResultsSnapshot.length === 0

@@ -1,5 +1,9 @@
-import { type AppNote, type AppNotesContext, AppNotesError } from "./index";
-import type { AppStoredNote } from "./notes-workspace/notes";
+import {
+  type AppNote,
+  type AppNotesContext,
+  AppNotesError,
+  type AppStoredNote,
+} from "./notes-workspace/notes";
 
 type PersistentNotesListener = () => void;
 

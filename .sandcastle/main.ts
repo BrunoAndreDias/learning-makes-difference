@@ -23,6 +23,12 @@
 
 import * as sandcastle from "@ai-hero/sandcastle";
 import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
+import { execFileSync } from "node:child_process";
+
+// Sandcastle's merge-to-head sync runs plain `git merge` on the host.
+// Keep it non-interactive so divergent syncs fail or complete instead of
+// waiting for a merge-message editor until Sandcastle's 30s timeout.
+process.env.GIT_MERGE_AUTOEDIT ??= "no";
 
 type PlanIssue = { id: string; title: string; branch: string };
 type Plan = { issues: PlanIssue[] };
@@ -68,6 +74,39 @@ const parsePlanJson = (rawPlan: string): Plan => {
   );
 };
 
+const parsePositiveInteger = (value: string | undefined, fallback: number) => {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const getHostGitStatus = () =>
+  execFileSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], {
+    encoding: "utf8",
+  }).replace(/\n$/, "");
+
+const assertCleanHostWorktree = (phase: string) => {
+  const status = getHostGitStatus();
+
+  if (status.length === 0) {
+    return;
+  }
+
+  const lines = status.split("\n");
+  const preview = lines.slice(0, 20).join("\n");
+  const suffix =
+    lines.length > 20 ? `\n...and ${lines.length - 20} more change(s)` : "";
+
+  throw new Error(
+    `Sandcastle ${phase} requires a clean host worktree before merge-to-head can run safely.\n` +
+      "Commit or stash these host changes, then rerun Sandcastle:\n\n" +
+      `${preview}${suffix}`,
+  );
+};
+
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
@@ -75,6 +114,18 @@ const parsePlanJson = (rawPlan: string): Plan => {
 // Maximum number of plan→execute→merge cycles before stopping.
 // Raise this if your backlog is large; lower it for a quick smoke-test run.
 const MAX_ITERATIONS = 10;
+
+// Limit concurrently-running issue sandboxes. This keeps local resource usage
+// and process signal listeners bounded while still allowing useful parallelism.
+const MAX_PARALLEL_ISSUES = parsePositiveInteger(
+  process.env.SANDCASTLE_MAX_PARALLEL_ISSUES,
+  4,
+);
+
+const AGENT_IDLE_TIMEOUT_SECONDS = parsePositiveInteger(
+  process.env.SANDCASTLE_IDLE_TIMEOUT_SECONDS,
+  1_800,
+);
 
 // Hooks run inside worktree-backed sandboxes before agents start.
 // CI=true prevents pnpm from prompting if it needs to recreate node_modules.
@@ -92,12 +143,62 @@ const sandboxProvider = docker({
   ],
 });
 
+const runIssuePipeline = async (issue: PlanIssue) => {
+  const sandbox = await sandcastle.createSandbox({
+    branch: issue.branch,
+    sandbox: sandboxProvider,
+    hooks: installHooks,
+  });
+
+  try {
+    // Run the implementer
+    const implement = await sandbox.run({
+      name: "implementer",
+      maxIterations: 100,
+      idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
+      agent: sandcastle.codex("gpt-5.5", { effort: "medium" }),
+      promptFile: "./.sandcastle/implement-prompt.md",
+      promptArgs: {
+        TASK_ID: issue.id,
+        ISSUE_TITLE: issue.title,
+        BRANCH: issue.branch,
+      },
+    });
+
+    // Only review if the implementer produced commits
+    if (implement.commits.length > 0) {
+      const review = await sandbox.run({
+        name: "reviewer",
+        maxIterations: 1,
+        idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
+        agent: sandcastle.codex("gpt-5.5", { effort: "xhigh" }),
+        promptFile: "./.sandcastle/review-prompt.md",
+        promptArgs: {
+          BRANCH: issue.branch,
+        },
+      });
+
+      // Merge commits from both runs so the merge phase sees all of them.
+      // Each sandbox.run() only returns commits from its own run.
+      return {
+        ...review,
+        commits: [...implement.commits, ...review.commits],
+      };
+    }
+
+    return implement;
+  } finally {
+    await sandbox.close();
+  }
+};
+
 // ---------------------------------------------------------------------------
 // Main loop
 // ---------------------------------------------------------------------------
 
 for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   console.log(`\n=== Iteration ${iteration}/${MAX_ITERATIONS} ===\n`);
+  assertCleanHostWorktree("planning phase");
 
   // -------------------------------------------------------------------------
   // Phase 1: Plan
@@ -114,6 +215,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     // One iteration is enough: the planner just needs to read and reason,
     // not write code.
     maxIterations: 1,
+    idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
     // Opus for planning: dependency analysis benefits from deeper reasoning.
     agent: sandcastle.codex("gpt-5.5"),
     promptFile: "./.sandcastle/plan-prompt.md",
@@ -153,60 +255,52 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // Promise.allSettled means one failing pipeline doesn't cancel the others.
   // -------------------------------------------------------------------------
 
-  const settled = await Promise.allSettled(
-    issues.map(async (issue) => {
-      const sandbox = await sandcastle.createSandbox({
-        branch: issue.branch,
-        sandbox: sandboxProvider,
-        hooks: installHooks,
-      });
+  const settled: Array<{
+    issue: PlanIssue;
+    outcome: PromiseSettledResult<
+      Awaited<ReturnType<typeof runIssuePipeline>>
+    >;
+  }> = [];
 
-      try {
-        // Run the implementer
-        const implement = await sandbox.run({
-          name: "implementer",
-          maxIterations: 100,
-          agent: sandcastle.codex("gpt-5.4", { effort: "medium" }),
-          promptFile: "./.sandcastle/implement-prompt.md",
-          promptArgs: {
-            TASK_ID: issue.id,
-            ISSUE_TITLE: issue.title,
-            BRANCH: issue.branch,
-          },
-        });
+  for (let start = 0; start < issues.length; start += MAX_PARALLEL_ISSUES) {
+    const batch = issues.slice(start, start + MAX_PARALLEL_ISSUES);
+    const batchNumber = Math.floor(start / MAX_PARALLEL_ISSUES) + 1;
+    const batchCount = Math.ceil(issues.length / MAX_PARALLEL_ISSUES);
 
-        // Only review if the implementer produced commits
-        if (implement.commits.length > 0) {
-          const review = await sandbox.run({
-            name: "reviewer",
-            maxIterations: 1,
-            agent: sandcastle.codex("gpt-5.5", { effort: "xhigh" }),
-            promptFile: "./.sandcastle/review-prompt.md",
-            promptArgs: {
-              BRANCH: issue.branch,
-            },
-          });
+    console.log(
+      `\nStarting issue batch ${batchNumber}/${batchCount} (${batch.length} issue(s), max ${MAX_PARALLEL_ISSUES} parallel):`,
+    );
+    for (const issue of batch) {
+      console.log(`  ${issue.id}: ${issue.title} → ${issue.branch}`);
+    }
 
-          // Merge commits from both runs so the merge phase sees all of them.
-          // Each sandbox.run() only returns commits from its own run.
+    const batchSettled = await Promise.all(
+      batch.map(async (issue) => {
+        try {
           return {
-            ...review,
-            commits: [...implement.commits, ...review.commits],
+            issue,
+            outcome: {
+              status: "fulfilled" as const,
+              value: await runIssuePipeline(issue),
+            },
+          };
+        } catch (reason) {
+          return {
+            issue,
+            outcome: { status: "rejected" as const, reason },
           };
         }
+      }),
+    );
 
-        return implement;
-      } finally {
-        await sandbox.close();
-      }
-    }),
-  );
+    settled.push(...batchSettled);
+  }
 
   // Log any agents that threw (network error, sandbox crash, etc.).
-  for (const [i, outcome] of settled.entries()) {
+  for (const { issue, outcome } of settled) {
     if (outcome.status === "rejected") {
       console.error(
-        `  ✗ ${issues[i]!.id} (${issues[i]!.branch}) failed: ${outcome.reason}`,
+        `  ✗ ${issue.id} (${issue.branch}) failed: ${outcome.reason}`,
       );
     }
   }
@@ -214,7 +308,6 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // Only pass branches that actually produced commits to the merge phase.
   // An agent that ran successfully but made no commits has nothing to merge.
   const completedIssues = settled
-    .map((outcome, i) => ({ outcome, issue: issues[i]! }))
     .filter(
       (entry) =>
         entry.outcome.status === "fulfilled" &&
@@ -246,12 +339,15 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // The {{BRANCHES}} and {{ISSUES}} prompt arguments are lists that the agent
   // uses to know which branches to merge and which issues to close.
   // -------------------------------------------------------------------------
+  assertCleanHostWorktree("merge phase");
+
   await sandcastle.run({
     hooks: installHooks,
     sandbox: sandboxProvider,
     branchStrategy: { type: "merge-to-head" },
     name: "merger",
     maxIterations: 1,
+    idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
     agent: sandcastle.codex("gpt-5.4", { effort: "medium" }),
     promptFile: "./.sandcastle/merge-prompt.md",
     promptArgs: {

@@ -1,0 +1,64 @@
+.study-notes-layout {
+  grid-template-columns: minmax(15rem, 22rem) minmax(24rem, 1fr);
+}
+
+.study-notes-editor {
+  align-content: start;
+}
+
+.study-notes-editor .notes-editor__header {
+  flex-wrap: wrap;
+}
+
+.study-notes-editor__fields {
+  display: grid;
+  gap: 1.25rem;
+  padding-top: 1.25rem;
+}
+
+.study-notes-editor__source {
+  display: grid;
+  gap: 0.9rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-content-border-soft);
+}
+
+.study-notes-editor__source h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.study-notes-filter {
+  margin-bottom: 0.9rem;
+}
+
+.study-notes-filter select {
+  width: 100%;
+}
+
+.study-notes-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.study-notes-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.375rem;
+}
+
+.study-notes-editor .notes-form__field input,
+.study-notes-editor .notes-form__field textarea,
+.study-notes-editor .notes-form__field select {
+  width: 100%;
+}
+
+@media (max-width: 860px) {
+  .study-notes-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

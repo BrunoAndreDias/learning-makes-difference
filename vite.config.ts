@@ -66,8 +66,8 @@ export default defineConfig({
                 },
                 {
                   type: "route",
-                  path: "/notes",
-                  file: "modules/notes/notes-workspace/notes-route.tsx",
+                  path: "/study-notes",
+                  file: "modules/study-notes/study-notes-route.tsx",
                 },
                 {
                   type: "route",

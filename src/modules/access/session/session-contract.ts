@@ -1,16 +1,47 @@
+import {
+  fallbackUserLanguage,
+  supportedUserLanguages,
+  type UserLanguage,
+} from "../../language/user-language";
+
+export type { UserLanguage } from "../../language/user-language";
+export { fallbackUserLanguage } from "../../language/user-language";
+
+export type StudyObjectivePreferenceOption =
+  (typeof studyObjectivePreferences)[number];
+export type StudyObjectivePreference = StudyObjectivePreferenceOption | null;
+export type StudyIntensityPreferenceOption =
+  (typeof studyIntensityPreferences)[number];
+export type StudyIntensityPreference = StudyIntensityPreferenceOption | null;
+
 export type AppSessionUser = {
   email: string;
   id: string;
   displayName: string;
-  interfaceLanguage: AppLanguagePreference;
-  studyLanguage: AppLanguagePreference;
+  userLanguage: UserLanguage;
+  studyObjective?: StudyObjectivePreference;
+  studyIntensity?: StudyIntensityPreference;
+  userTimeZone?: UserTimeZonePreference;
 };
 
 export type AppSessionSnapshot = {
   user: AppSessionUser | null;
 };
 
-export const appLanguagePreferences = ["en", "es", "pt-BR"] as const;
+export const userLanguagePreferences = supportedUserLanguages;
+export const studyObjectivePreferences = [
+  "university_study",
+  "self_study",
+  "specific_exam",
+  "professional_learning",
+  "other",
+] as const;
+export const studyIntensityPreferences = [
+  "light",
+  "regular",
+  "intensive",
+] as const;
+export const defaultUserTimeZone = "UTC";
 const appAuthErrorCodes = [
   "email_taken",
   "invalid_credentials",
@@ -19,7 +50,7 @@ const appAuthErrorCodes = [
   "not_authenticated",
 ] as const;
 
-export type AppLanguagePreference = (typeof appLanguagePreferences)[number];
+export type UserTimeZonePreference = string;
 export type AppAuthErrorCode = (typeof appAuthErrorCodes)[number];
 
 export type RegisterInput = {
@@ -27,6 +58,8 @@ export type RegisterInput = {
   email: string;
   password: string;
   pilotRegistrationCode: string;
+  userLanguage?: UserLanguage;
+  userTimeZone?: UserTimeZonePreference;
 };
 
 export type LoginInput = {
@@ -36,8 +69,10 @@ export type LoginInput = {
 
 export type UpdatePreferencesInput = {
   displayName: string;
-  interfaceLanguage: AppLanguagePreference;
-  studyLanguage: AppLanguagePreference;
+  userLanguage: UserLanguage;
+  studyObjective: StudyObjectivePreference;
+  studyIntensity: StudyIntensityPreference;
+  userTimeZone: UserTimeZonePreference;
 };
 
 export class AppAuthError extends Error {
@@ -102,13 +137,106 @@ export function getAppAuthError(error: unknown): AppAuthError | null {
   return null;
 }
 
-export function isLanguagePreference(
+function isSupportedPreferenceOption<TOption extends string>(
   value: unknown,
-): value is AppLanguagePreference {
+  supportedOptions: readonly TOption[],
+): value is TOption {
   return (
-    typeof value === "string" &&
-    appLanguagePreferences.includes(value as AppLanguagePreference)
+    typeof value === "string" && supportedOptions.includes(value as TOption)
   );
+}
+
+function validateOptionalPreferenceOption<TOption extends string>(
+  value: unknown,
+  supportedOptions: readonly TOption[],
+  message: string,
+): TOption | null {
+  if (value === null) {
+    return null;
+  }
+
+  if (isSupportedPreferenceOption(value, supportedOptions)) {
+    return value;
+  }
+
+  throw new AppAuthError("invalid_input", message);
+}
+
+function isUserLanguage(value: unknown): value is UserLanguage {
+  return isSupportedPreferenceOption(value, userLanguagePreferences);
+}
+
+export function validateUserLanguagePreference(value: unknown): UserLanguage {
+  if (!isUserLanguage(value)) {
+    throw new AppAuthError(
+      "invalid_input",
+      "User Language must be one of the supported language options.",
+    );
+  }
+
+  return value;
+}
+
+export function validateStudyObjectivePreference(
+  value: unknown,
+): StudyObjectivePreference {
+  return validateOptionalPreferenceOption(
+    value,
+    studyObjectivePreferences,
+    "Study Objective must be one of the supported options.",
+  );
+}
+
+export function validateStudyIntensityPreference(
+  value: unknown,
+): StudyIntensityPreference {
+  return validateOptionalPreferenceOption(
+    value,
+    studyIntensityPreferences,
+    "Study Intensity must be one of the supported options.",
+  );
+}
+
+export function normalizeUserLanguage(value: unknown): UserLanguage {
+  if (value === "pt-BR") {
+    return "pt-PT";
+  }
+
+  return isUserLanguage(value) ? value : fallbackUserLanguage;
+}
+
+export function isUserTimeZonePreference(
+  value: unknown,
+): value is UserTimeZonePreference {
+  if (
+    typeof value !== "string" ||
+    value.trim() !== value ||
+    value.length === 0
+  ) {
+    return false;
+  }
+
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value }).format(new Date());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function validateUserTimeZonePreference(
+  value: string | undefined,
+): UserTimeZonePreference {
+  const timeZone = value ?? defaultUserTimeZone;
+
+  if (!isUserTimeZonePreference(timeZone)) {
+    throw new AppAuthError(
+      "invalid_input",
+      "User Time Zone must be a supported IANA time zone.",
+    );
+  }
+
+  return timeZone;
 }
 
 export function buildAnonymousSnapshot(): AppSessionSnapshot {

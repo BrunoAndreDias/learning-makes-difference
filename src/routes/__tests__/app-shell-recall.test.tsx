@@ -1,11 +1,19 @@
 // @vitest-environment jsdom
 
-import { fireEvent, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import { createPersistentRecallContext } from "../../modules/recall";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  type AppPersistentRecallService,
+  createPersistentRecallContext,
+  type RecallNoteSnapshot,
+  type RecallQuestion,
+  type RecallSelfRating,
+  type SessionResult,
+} from "../../modules/recall";
 import {
   createDeterministicRecallTestContexts,
   createRecallNote,
+  createRouteHydratedSessionContext,
   renderRoute,
 } from "./app-shell-test-support";
 
@@ -13,9 +21,12 @@ const testUser = {
   displayName: "Jordan Recall",
   email: "jordan.recall@example.com",
   id: "user-recall",
-  interfaceLanguage: "en",
-  studyLanguage: "en",
+  userLanguage: "en",
 } as const;
+
+type DeterministicRecallTestContexts = ReturnType<
+  typeof createDeterministicRecallTestContexts
+>;
 
 function createSession() {
   return { user: testUser };
@@ -23,10 +34,8 @@ function createSession() {
 
 function completeRecallAt(input: {
   noteId: string;
-  rating: "easy" | "forgot" | "good" | "hard";
-  recallContext: ReturnType<
-    typeof createDeterministicRecallTestContexts
-  >["recallContext"];
+  rating: RecallSelfRating;
+  recallContext: DeterministicRecallTestContexts["recallContext"];
   timestamp: string;
 }) {
   vi.setSystemTime(new Date(input.timestamp));
@@ -46,13 +55,292 @@ function completeRecallAt(input: {
   });
 }
 
+function createPersistentRecallService(
+  overrides: Partial<AppPersistentRecallService>,
+): AppPersistentRecallService {
+  return {
+    endRecallSession: vi.fn(async () => {
+      throw new Error("not used");
+    }),
+    getActiveSession: vi.fn(async () => null),
+    listSessionResults: vi.fn(async () => []),
+    rateFlashCardAnswer: vi.fn(async () => null),
+    revealFlashCardAnswer: vi.fn(async () => {
+      throw new Error("not used");
+    }),
+    startFlashCardSession: vi.fn(async () => {
+      throw new Error("not used");
+    }),
+    updateFlashCardAttemptText: vi.fn(async () => {
+      throw new Error("not used");
+    }),
+    ...overrides,
+  };
+}
+
+function createStoredRecallNote(
+  overrides: Partial<RecallNoteSnapshot> = {},
+): RecallNoteSnapshot {
+  return {
+    acronyms: [],
+    body: "Stored answer body.",
+    createdAt: "2026-05-07T08:50:00.000Z",
+    id: "note-restored",
+    labelIds: [],
+    metaphors: [],
+    title: "Stored prompt title",
+    updatedAt: "2026-05-07T08:50:00.000Z",
+    ...overrides,
+  };
+}
+
+function createStoredRecallQuestion(input: {
+  note: RecallNoteSnapshot;
+  score: number | null;
+  selfRating: RecallSelfRating | null;
+}): RecallQuestion {
+  return {
+    isAnswerRevealed: true,
+    noteId: input.note.id,
+    noteSnapshot: input.note,
+    score: input.score,
+    selfRating: input.selfRating,
+    typedAnswer: "",
+  };
+}
+
+function createStoredSessionResult(
+  overrides: {
+    completedAt?: string;
+    createdAt?: string;
+    id?: string;
+    note?: RecallNoteSnapshot;
+    rating?: RecallSelfRating;
+    score?: number | null;
+  } = {},
+): SessionResult {
+  const note = overrides.note ?? createStoredRecallNote();
+  const rating = overrides.rating ?? "good";
+  const score = overrides.score === undefined ? 75 : overrides.score;
+
+  return {
+    attempts: [
+      {
+        noteId: note.id,
+        rating,
+      },
+    ],
+    completedAt: overrides.completedAt ?? "2026-05-07T09:10:00.000Z",
+    createdAt: overrides.createdAt ?? "2026-05-07T09:00:00.000Z",
+    id: overrides.id ?? "session-restored-result",
+    mode: "FlashCard",
+    notes: [note],
+    questions: [
+      createStoredRecallQuestion({
+        note,
+        score,
+        selfRating: rating,
+      }),
+    ],
+    score,
+  };
+}
+
+function completeMultiQuestionRecall(input: {
+  questions: ReadonlyArray<{
+    noteId: string;
+    rating: RecallSelfRating;
+    typedAnswer?: string;
+  }>;
+  recallContext: DeterministicRecallTestContexts["recallContext"];
+  timestamp: string;
+}) {
+  vi.setSystemTime(new Date(input.timestamp));
+  const sessionId = input.recallContext.startFlashCardSession({
+    noteIds: input.questions.map((question) => question.noteId),
+    userId: testUser.id,
+  }).id;
+
+  input.questions.forEach((question) => {
+    if (question.typedAnswer !== undefined) {
+      input.recallContext.updateFlashCardAttemptText({
+        sessionId,
+        text: question.typedAnswer,
+        userId: testUser.id,
+      });
+    }
+
+    input.recallContext.revealFlashCardAnswer({
+      sessionId,
+      userId: testUser.id,
+    });
+    input.recallContext.rateFlashCardAnswer({
+      rating: question.rating,
+      sessionId,
+      userId: testUser.id,
+    });
+  });
+}
+
+type StudyNoteSnapshotInput = {
+  expectedAnswer: string;
+  labelIds: string[];
+  prompt: string;
+  sourceBody: string;
+  sourceTitle: string;
+};
+
+function updateStudyNoteSnapshot(
+  contexts: DeterministicRecallTestContexts,
+  studyNoteId: string,
+  input: StudyNoteSnapshotInput,
+) {
+  return contexts.studyNotesContext.updateStudyNote(testUser.id, studyNoteId, {
+    acronyms: [],
+    expectedAnswer: input.expectedAnswer,
+    labelIds: input.labelIds,
+    metaphors: [],
+    prompt: input.prompt,
+    sourceBody: input.sourceBody,
+    sourceTitle: input.sourceTitle,
+  });
+}
+
+function createStudyNoteSnapshot(
+  contexts: DeterministicRecallTestContexts,
+  input: StudyNoteSnapshotInput,
+) {
+  const studyNote = contexts.studyNotesContext.createStudyNote(testUser.id, {
+    labelIds: input.labelIds,
+    sourceBody: input.sourceBody,
+    sourceTitle: input.sourceTitle,
+  });
+
+  return updateStudyNoteSnapshot(contexts, studyNote.id, input);
+}
+
+function _getControlledPanel(control: HTMLElement) {
+  const panelId = control.getAttribute("aria-controls");
+
+  if (panelId === null) {
+    throw new Error("Expected control to reference a detail panel.");
+  }
+
+  const panel = document.getElementById(panelId);
+
+  if (panel === null) {
+    throw new Error(`Expected detail panel "${panelId}" to exist.`);
+  }
+
+  return panel;
+}
+
+function _getDetailBlockByLabel(panel: HTMLElement, label: string) {
+  const labelElement = within(panel).getByText(label);
+  const block = labelElement.closest(
+    ".recall-selected-result__question-detail-block",
+  );
+
+  if (!(block instanceof HTMLElement)) {
+    throw new Error(`Expected "${label}" to be inside a detail block.`);
+  }
+
+  return block;
+}
+
+function _getDetailBlockCopy(block: HTMLElement) {
+  const copy = block.querySelector(
+    ".recall-selected-result__question-detail-copy",
+  );
+
+  if (!(copy instanceof HTMLElement)) {
+    throw new Error("Expected detail block to include copy text.");
+  }
+
+  return copy;
+}
+
+const defaultViewportWidth = window.innerWidth;
+
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: width,
+    writable: true,
+  });
+  fireEvent(window, new Event("resize"));
+}
+
+afterEach(() => {
+  setViewportWidth(defaultViewportWidth);
+});
+
 describe("authenticated recall workspace", () => {
+  it("translates Recall chrome while preserving historical session data", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const note = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "Stored mitochondria answer.",
+      title: "Stored mitochondria prompt",
+    });
+
+    completeMultiQuestionRecall({
+      questions: [
+        {
+          noteId: note.id,
+          rating: "good",
+          typedAnswer: "Learner answer stays literal.",
+        },
+      ],
+      recallContext: contexts.recallContext,
+      timestamp: "2026-04-05T09:00:00.000Z",
+    });
+
+    renderRoute("/recall", {
+      ...contexts,
+      session: {
+        user: {
+          ...testUser,
+          userLanguage: "es",
+        },
+      },
+    });
+
+    const results = await screen.findByRole("region", {
+      name: "Resultados de repaso",
+    });
+    expect(
+      within(results).getByRole("link", { name: "Iniciar repaso" }),
+    ).toHaveAttribute("href", "/recall/select");
+    expect(screen.getByLabelText("Buscar resultados")).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Resultado seleccionado" }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getAllByText("Stored mitochondria prompt").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText("Indicacion de mitocondrias guardada"),
+    ).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Stored mitochondria prompt/i }),
+    );
+
+    expect(screen.getByText("Tu respuesta")).toBeInTheDocument();
+    expect(screen.getByText("Respuesta esperada")).toBeInTheDocument();
+    expect(screen.getByText("Nota de referencia")).toBeInTheDocument();
+    expect(
+      screen.getByText("Learner answer stays literal."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Stored mitochondria answer.").length,
+    ).toBeGreaterThan(0);
+  });
+
   it("restores an active recall session from the persistent recall service on route entry", async () => {
     const persistentRecallContext = createPersistentRecallContext({
-      service: {
-        endRecallSession: vi.fn(async () => {
-          throw new Error("not used");
-        }),
+      service: createPersistentRecallService({
         getActiveSession: vi.fn(async () => ({
           attempts: [],
           createdAt: "2026-05-02T12:00:00.000Z",
@@ -94,18 +382,7 @@ describe("authenticated recall workspace", () => {
             },
           ],
         })),
-        listSessionResults: vi.fn(async () => []),
-        rateFlashCardAnswer: vi.fn(async () => null),
-        revealFlashCardAnswer: vi.fn(async () => {
-          throw new Error("not used");
-        }),
-        startFlashCardSession: vi.fn(async () => {
-          throw new Error("not used");
-        }),
-        updateFlashCardAttemptText: vi.fn(async () => {
-          throw new Error("not used");
-        }),
-      },
+      }),
     });
 
     renderRoute("/recall/session", {
@@ -123,116 +400,51 @@ describe("authenticated recall workspace", () => {
     expect(screen.getAllByText("Stored prompt title").length).toBeGreaterThan(
       0,
     );
-    expect(screen.getByRole("button", { name: "Reveal note" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Reveal Study Note" }),
+    ).toBeEnabled();
   });
 
-  it("shows no-note guidance on /recall", async () => {
-    renderRoute("/recall", { session: createSession() });
-
-    expect(
-      await screen.findByRole("heading", { name: "Recall starts with notes" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("navigation", { name: "Breadcrumb" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Open Notes Workspace" }),
-    ).toHaveAttribute("href", "/notes");
-  });
-
-  it("links child Recall breadcrumbs back to the default Recall page", async () => {
-    const contexts = createDeterministicRecallTestContexts();
-    createRecallNote(contexts.notesContext, testUser.id, {
-      body: "Recall body",
-      title: "Recall note",
-    });
-
-    const { router } = renderRoute("/recall/select", {
-      ...contexts,
-      session: createSession(),
-    });
-
-    expect(
-      await screen.findByRole("heading", { level: 3, name: "Select notes" }),
-    ).toBeInTheDocument();
-
-    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
-    const recallLink = within(breadcrumb).getByRole("link", {
-      name: "Recall",
-    });
-
-    expect(breadcrumb).toHaveTextContent(/Recall\s*\/\s*Select notes/);
-    expect(recallLink).toHaveAttribute("href", "/recall");
-
-    fireEvent.click(recallLink);
-
-    expect(
-      await screen.findByRole("heading", { level: 3, name: "Recall" }),
-    ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall");
-    expect(
-      screen.queryByRole("navigation", { name: "Breadcrumb" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("does not crash when switching from Recall results to Notes if a persisted result has an overflowing completed timestamp", async () => {
-    const contexts = createDeterministicRecallTestContexts();
-    const note = createRecallNote(contexts.notesContext, testUser.id, {
-      body: "Recall body",
-      title: "Recall note",
-    });
+  it("uses the routed authenticated session to hydrate the Recall session view immediately", async () => {
+    const userId = "user-route-hydrated-recall";
+    const hydratedNote = {
+      acronyms: [],
+      body: "Hydrated answer body.",
+      createdAt: "2026-05-07T08:55:00.000Z",
+      id: "route-hydrated-note",
+      labelIds: [],
+      metaphors: [],
+      title: "Hydrated prompt title",
+      updatedAt: "2026-05-07T08:55:00.000Z",
+    };
+    const refreshSpy = vi.fn(async () => ({
+      attempts: [],
+      createdAt: "2026-05-07T09:00:00.000Z",
+      currentIndex: 0,
+      currentQuestionIndex: 0,
+      draftAnswer: "",
+      id: "route-hydrated-recall-session",
+      isAnswerRevealed: false,
+      mode: "FlashCard" as const,
+      notes: [hydratedNote],
+      questions: [
+        {
+          isAnswerRevealed: false,
+          noteId: "route-hydrated-note",
+          noteSnapshot: hydratedNote,
+          score: null,
+          selfRating: null,
+          typedAnswer: "",
+        },
+      ],
+    }));
     const persistentRecallContext = createPersistentRecallContext({
       service: {
         endRecallSession: vi.fn(async () => {
           throw new Error("not used");
         }),
-        getActiveSession: vi.fn(async () => null),
-        listSessionResults: vi.fn(async () => [
-          {
-            attempts: [
-              {
-                noteId: note.id,
-                rating: "good" as const,
-              },
-            ],
-            completedAt: "+275760-09-13T00:00:00.000Z",
-            createdAt: "2026-05-02T12:00:00.000Z",
-            id: "session-invalid-date",
-            mode: "FlashCard" as const,
-            notes: [
-              {
-                acronyms: [],
-                body: note.body,
-                createdAt: note.createdAt,
-                id: note.id,
-                labelIds: [],
-                metaphors: [],
-                title: note.title,
-                updatedAt: note.updatedAt,
-              },
-            ],
-            questions: [
-              {
-                isAnswerRevealed: true,
-                noteId: note.id,
-                noteSnapshot: {
-                  acronyms: [],
-                  body: note.body,
-                  createdAt: note.createdAt,
-                  id: note.id,
-                  labelIds: [],
-                  metaphors: [],
-                  title: note.title,
-                  updatedAt: note.updatedAt,
-                },
-                score: null,
-                selfRating: "good" as const,
-                typedAnswer: "",
-              },
-            ],
-            score: null,
-          },
-        ]),
+        getActiveSession: refreshSpy,
+        listSessionResults: vi.fn(async () => []),
         rateFlashCardAnswer: vi.fn(async () => null),
         revealFlashCardAnswer: vi.fn(async () => {
           throw new Error("not used");
@@ -246,7 +458,318 @@ describe("authenticated recall workspace", () => {
       },
     });
 
+    const { router } = renderRoute("/recall/session", {
+      persistentRecallContext,
+      sessionContext: createRouteHydratedSessionContext({
+        user: {
+          displayName: "Casey Routed Recall",
+          email: "casey.routed.recall@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      }),
+    });
+
+    expect(
+      await screen.findByText(
+        "Try to recall this Study Note before revealing it.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Hydrated prompt title").length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      screen.getByRole("button", { name: "Reveal Study Note" }),
+    ).toBeEnabled();
+    expect(router.state.location.pathname).toBe("/recall/session");
+    expect(refreshSpy).toHaveBeenCalled();
+    expect(persistentRecallContext.readonlyContext.getSnapshot()).toMatchObject(
+      {
+        id: "route-hydrated-recall-session",
+        userId,
+      },
+    );
+  });
+
+  it("shows no-note guidance on /recall", async () => {
+    renderRoute("/recall", { session: createSession() });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Recall starts with Study Notes",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("navigation", { name: "Breadcrumb" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open Study Notes" }),
+    ).toHaveAttribute("href", "/study-notes");
+  });
+
+  it("uses the route-hydrated session to show Recall results immediately", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const note = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "Stored answer body",
+      title: "Stored prompt title",
+    });
+
+    completeRecallAt({
+      noteId: note.id,
+      rating: "good",
+      recallContext: contexts.recallContext,
+      timestamp: "2026-05-07T09:00:00.000Z",
+    });
+
     renderRoute("/recall", {
+      ...contexts,
+      sessionContext: createRouteHydratedSessionContext(createSession()),
+    });
+
+    const results = await screen.findByRole("region", {
+      name: "Recall results",
+    });
+    const selectedResult = screen.getByRole("region", {
+      name: "Selected result",
+    });
+    expect(
+      within(results).getByText("Showing 1-1 of 1 result"),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getAllByText("Stored prompt title").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("heading", { name: "Recall starts with Study Notes" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders Study Note result snapshots with source context and not-reached Study Notes", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const label = contexts.labelsContext.createLabel({
+      name: "Cell biology",
+      userId: testUser.id,
+    });
+    const attemptedStudyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "ATP transfers energy in cells.",
+      labelIds: [label.id],
+      prompt: "What does ATP do?",
+      sourceBody: "Original ATP source context.",
+      sourceTitle: "Original ATP source note",
+    });
+    const notReachedStudyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Glucose is broken down during respiration.",
+      labelIds: [label.id],
+      prompt: "What happens to glucose?",
+      sourceBody: "Original glucose source context.",
+      sourceTitle: "Original glucose source note",
+    });
+
+    vi.setSystemTime(new Date("2026-05-07T09:00:00.000Z"));
+    const session = contexts.recallContext.startFlashCardSession({
+      studyNoteIds: [attemptedStudyNote.id, notReachedStudyNote.id],
+      userId: testUser.id,
+    });
+    contexts.recallContext.updateFlashCardAttemptText({
+      sessionId: session.id,
+      text: "Energy currency",
+      userId: testUser.id,
+    });
+    contexts.recallContext.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId: testUser.id,
+    });
+    contexts.recallContext.rateFlashCardAnswer({
+      rating: "good",
+      sessionId: session.id,
+      userId: testUser.id,
+    });
+    contexts.recallContext.endFlashCardSession({
+      sessionId: session.id,
+      userId: testUser.id,
+    });
+
+    updateStudyNoteSnapshot(contexts, attemptedStudyNote.id, {
+      expectedAnswer: "Edited ATP answer.",
+      labelIds: [],
+      prompt: "Edited ATP prompt?",
+      sourceBody: "Edited ATP source context.",
+      sourceTitle: "Edited ATP source note",
+    });
+    updateStudyNoteSnapshot(contexts, notReachedStudyNote.id, {
+      expectedAnswer: "Edited glucose answer.",
+      labelIds: [],
+      prompt: "Edited glucose prompt?",
+      sourceBody: "Edited glucose source context.",
+      sourceTitle: "Edited glucose source note",
+    });
+
+    renderRoute("/recall", { ...contexts, session: createSession() });
+
+    await screen.findByRole("heading", { level: 3, name: "Recall" });
+    fireEvent.change(screen.getByLabelText("Filter results by label"), {
+      target: { value: label.id },
+    });
+
+    const selectedResult = screen.getByRole("region", {
+      name: "Selected result",
+    });
+    expect(
+      within(selectedResult).getByText("What does ATP do?"),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("What happens to glucose?"),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("2 targeted Study Notes"),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByRole("heading", {
+        name: "Not reached Study Notes",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(selectedResult).getByRole("button", {
+        name: /What does ATP do?/i,
+      }),
+    );
+
+    expect(within(selectedResult).getByText("Your answer")).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("Expected answer"),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("ATP transfers energy in cells."),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("Reference note"),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("Original ATP source note"),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("Original ATP source context."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Edited ATP prompt?")).toBeNull();
+    expect(screen.queryByText("Edited ATP answer.")).toBeNull();
+    expect(screen.queryByText("Edited ATP source context.")).toBeNull();
+  });
+
+  it("links child Recall breadcrumbs back to the default Recall page", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    contexts.studyNotesContext.createStudyNote(testUser.id, {
+      sourceBody: "Recall body",
+      sourceTitle: "Recall Study Note",
+    });
+
+    const { router } = renderRoute("/recall/select", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Select Study Notes",
+      }),
+    ).toBeInTheDocument();
+
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    const recallLink = within(breadcrumb).getByRole("link", {
+      name: "Recall",
+    });
+
+    expect(breadcrumb).toHaveTextContent(/Recall\s*\/\s*Select Study Notes/);
+    expect(recallLink).toHaveAttribute("href", "/recall");
+
+    fireEvent.click(recallLink);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Recall starts with Study Notes",
+      }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall");
+    expect(
+      screen.queryByRole("navigation", { name: "Breadcrumb" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("uses the route-hydrated session to load Recall setup notes immediately", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    contexts.studyNotesContext.createStudyNote(testUser.id, {
+      sourceBody: "Recall body",
+      sourceTitle: "Recall Study Note",
+    });
+
+    renderRoute("/recall/select", {
+      ...contexts,
+      sessionContext: createRouteHydratedSessionContext(createSession()),
+    });
+
+    const availableNotes = await screen.findByRole("region", {
+      name: "Available Study Notes",
+    });
+    expect(
+      within(availableNotes).getByText("Recall Study Note"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Recall starts with Study Notes" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("uses the route-hydrated session when refreshing persistent Recall results", async () => {
+    const persistentRecallContext = createPersistentRecallContext({
+      service: createPersistentRecallService({
+        listSessionResults: vi.fn(async () => [createStoredSessionResult()]),
+      }),
+    });
+
+    renderRoute("/recall", {
+      persistentRecallContext,
+      sessionContext: createRouteHydratedSessionContext(createSession()),
+    });
+
+    await waitFor(() => {
+      expect(
+        persistentRecallContext.readonlyContext.listSessionResults({
+          userId: testUser.id,
+        }),
+      ).toHaveLength(1);
+    });
+
+    const selectedResult = await screen.findByRole("region", {
+      name: "Selected result",
+    });
+    await waitFor(() => {
+      expect(
+        within(selectedResult).getAllByText("Stored prompt title").length,
+      ).toBeGreaterThan(0);
+    });
+  });
+
+  it("does not crash when switching from Recall results to Notes if a persisted result has an overflowing completed timestamp", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const note = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "Recall body",
+      title: "Recall note",
+    });
+    const persistentRecallContext = createPersistentRecallContext({
+      service: createPersistentRecallService({
+        listSessionResults: vi.fn(async () => [
+          createStoredSessionResult({
+            completedAt: "+275760-09-13T00:00:00.000Z",
+            createdAt: "2026-05-02T12:00:00.000Z",
+            id: "session-invalid-date",
+            note,
+            score: null,
+          }),
+        ]),
+      }),
+    });
+
+    const routeRender = renderRoute("/recall", {
       ...contexts,
       persistentRecallContext,
       session: createSession(),
@@ -256,13 +779,13 @@ describe("authenticated recall workspace", () => {
       await screen.findByRole("heading", { level: 3, name: "Recall" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("link", { name: "Notes" }));
+    await routeRender.router.navigate({ to: "/study-notes" });
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Notes" }),
+      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Recall note" }),
+      screen.getByRole("button", { name: "New Study Note" }),
     ).toBeInTheDocument();
   });
 
@@ -327,7 +850,7 @@ describe("authenticated recall workspace", () => {
       name: "Selected result",
     });
     expect(
-      within(detail).getAllByText("Newest result body.").length,
+      within(detail).getAllByText("Newest result note").length,
     ).toBeGreaterThan(0);
     expect(screen.getByText("Showing 1-2 of 2 results")).toBeInTheDocument();
 
@@ -337,7 +860,7 @@ describe("authenticated recall workspace", () => {
 
     expect(router.state.location.pathname).toBe("/recall");
     expect(
-      within(detail).getAllByText("Older result body.").length,
+      within(detail).getAllByText("Older result note").length,
     ).toBeGreaterThan(0);
   });
 
@@ -376,8 +899,8 @@ describe("authenticated recall workspace", () => {
     fireEvent.change(screen.getByLabelText("Filter results by label"), {
       target: { value: label.id },
     });
-    expect(screen.getAllByText("Synapse snapshot.").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Plain snapshot.")).toBeNull();
+    expect(screen.getAllByText("Labeled result").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Plain result")).toBeNull();
 
     fireEvent.change(screen.getByLabelText("Search results"), {
       target: { value: "plain" },
@@ -390,14 +913,22 @@ describe("authenticated recall workspace", () => {
     expect(screen.getByText("No matching results")).toBeInTheDocument();
   });
 
-  it("selects Notes, blocks disabled AI Recall types, clears selection, and starts FlashCard", async () => {
+  it("selects Study Notes, blocks disabled AI Recall types, clears selection, and starts FlashCard", async () => {
     const contexts = createDeterministicRecallTestContexts();
-    contexts.notesContext.createNote(testUser.id, {
+    const studyNote = contexts.studyNotesContext.createStudyNote(testUser.id, {
       acronyms: [{ description: "ABC remembers retrieval steps." }],
-      body: "Searchable body.",
+      sourceBody: "Searchable source context.",
+      sourceTitle: "Searchable source",
+      metaphors: [{ description: "A lighthouse for recall." }],
+    });
+    contexts.studyNotesContext.updateStudyNote(testUser.id, studyNote.id, {
+      acronyms: [{ description: "ABC remembers retrieval steps." }],
+      expectedAnswer: "Searchable expected answer.",
       labelIds: [],
       metaphors: [{ description: "A lighthouse for recall." }],
-      title: "Searchable Note",
+      prompt: "Searchable Study Note",
+      sourceBody: "Searchable source context.",
+      sourceTitle: "Searchable source",
     });
 
     const { router } = renderRoute("/recall/select", {
@@ -406,12 +937,17 @@ describe("authenticated recall workspace", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Select notes" }),
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Select Study Notes",
+      }),
     ).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Search Notes"), {
+    fireEvent.change(screen.getByLabelText("Search Study Notes"), {
       target: { value: "lighthouse" },
     });
-    fireEvent.click(screen.getByRole("checkbox", { name: /Searchable Note/ }));
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /Searchable Study Note/ }),
+    );
 
     fireEvent.click(screen.getByRole("radio", { name: /AI Assisted/ }));
     expect(screen.getByRole("button", { name: "Start recall" })).toBeDisabled();
@@ -422,10 +958,14 @@ describe("authenticated recall workspace", () => {
     fireEvent.click(screen.getByRole("radio", { name: /FlashCard/ }));
     expect(screen.getByRole("button", { name: "Start recall" })).toBeEnabled();
 
-    fireEvent.click(screen.getByRole("checkbox", { name: /Searchable Note/ }));
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /Searchable Study Note/ }),
+    );
     expect(screen.getByRole("button", { name: "Start recall" })).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("checkbox", { name: /Searchable Note/ }));
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /Searchable Study Note/ }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
 
     await screen.findByRole("heading", { level: 3, name: "Recall session" });
@@ -435,81 +975,36 @@ describe("authenticated recall workspace", () => {
     expect(router.state.location.pathname).toBe("/recall/session");
   });
 
-  it("runs the FlashCard reveal and self-rating flow, then saves to Results", async () => {
+  it("clears temporary Study Note selections on setup cancel", async () => {
     const contexts = createDeterministicRecallTestContexts();
-    const note = createRecallNote(contexts.notesContext, testUser.id, {
-      body: "Saved result body.",
-      title: "Saved result note",
-    });
-    contexts.recallContext.startFlashCardSession({
-      noteIds: [note.id],
-      userId: testUser.id,
+    const studyNote = contexts.studyNotesContext.createStudyNote(testUser.id, {
+      sourceBody: "Temporary answer.",
+      sourceTitle: "Temporary Study Note",
     });
 
-    const { router } = renderRoute("/recall/session", {
-      ...contexts,
-      session: createSession(),
+    const { router } = renderRoute(
+      `/recall/select?studyNoteIds=${studyNote.id}`,
+      {
+        ...contexts,
+        session: createSession(),
+      },
+    );
+
+    await screen.findByRole("heading", {
+      level: 3,
+      name: "Select Study Notes",
     });
+    expect(screen.getByText("1")).toBeInTheDocument();
 
-    expect(
-      await screen.findByText("Try to recall this note before revealing it."),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("Saved result body.")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/recall"));
 
-    fireEvent.click(screen.getByRole("button", { name: "Reveal note" }));
-    expect(screen.getByText("Saved result body.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Good" }));
-    fireEvent.click(screen.getByRole("button", { name: "Next note" }));
+    await router.navigate({ to: "/recall/select" });
 
-    expect(router.state.location.pathname).toBe("/recall");
-    expect(
-      await screen.findByText("Recall session saved to results"),
-    ).toBeInTheDocument();
-    expect(screen.getAllByText("75%").length).toBeGreaterThan(0);
-  });
-
-  it("discards a zero-attempt session after confirmation", async () => {
-    const contexts = createDeterministicRecallTestContexts();
-    const note = createRecallNote(contexts.notesContext, testUser.id, {
-      body: "Discarded body.",
-      title: "Discarded note",
+    await screen.findByRole("heading", {
+      level: 3,
+      name: "Select Study Notes",
     });
-    contexts.recallContext.startFlashCardSession({
-      noteIds: [note.id],
-      userId: testUser.id,
-    });
-
-    const { router } = renderRoute("/recall/session", {
-      ...contexts,
-      session: createSession(),
-    });
-
-    expect(
-      await screen.findByRole("navigation", { name: "Breadcrumb" }),
-    ).toHaveTextContent(/Recall\s*\/\s*Session/);
-    fireEvent.click(screen.getAllByRole("button", { name: "End session" })[0]);
-    expect(
-      screen.getByRole("dialog", { name: "Discard recall session?" }),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Discard session" }));
-
-    expect(router.state.location.pathname).toBe("/recall");
-    expect(
-      contexts.recallContext.listSessionResults({ userId: testUser.id }),
-    ).toEqual([]);
-  });
-
-  it("redirects direct /recall/session visits without an active session", async () => {
-    const { router } = renderRoute("/recall/session", {
-      session: createSession(),
-    });
-
-    expect(
-      await screen.findByRole("heading", {
-        level: 3,
-        name: "Recall starts with notes",
-      }),
-    ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall");
+    expect(screen.getByRole("button", { name: "Start recall" })).toBeDisabled();
   });
 });

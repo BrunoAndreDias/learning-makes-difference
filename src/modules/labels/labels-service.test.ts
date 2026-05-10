@@ -1,37 +1,40 @@
-import { PGlite } from "@electric-sql/pglite";
-import { drizzle } from "drizzle-orm/pglite";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { migrateDatabase } from "../../lib/db/migrate";
+import { createPgliteServiceTestDatabase } from "../../lib/db/pglite-service-test-db";
 import { authSchema, usersTable } from "../access/session/auth-schema";
 import { labelsSchema } from "./labels-schema";
 import { createLabelsService } from "./labels-service";
 
+const labelsTestSchema = {
+  ...authSchema,
+  ...labelsSchema,
+};
+
 describe("createLabelsService", () => {
-  const databases = new Set<PGlite>();
+  let testDatabase: Awaited<
+    ReturnType<typeof createPgliteServiceTestDatabase<typeof labelsTestSchema>>
+  >;
+
+  beforeAll(async () => {
+    testDatabase = await createPgliteServiceTestDatabase(labelsTestSchema);
+  });
 
   afterEach(async () => {
-    await Promise.all(Array.from(databases, (database) => database.close()));
-    databases.clear();
+    await testDatabase.reset();
+  });
+
+  afterAll(async () => {
+    await testDatabase.close();
   });
 
   it("persists label DAG edges and rejects cycle-causing relationships", async () => {
-    const client = new PGlite();
-    databases.add(client);
-    const db = drizzle(client, {
-      schema: {
-        ...authSchema,
-        ...labelsSchema,
-      },
-    });
-    await migrateDatabase(db, client);
+    const db = testDatabase.db;
     await db.insert(usersTable).values({
       id: "user-casey",
       displayName: "Casey Learner",
       email: "casey@example.com",
       passwordHash: "hash",
-      interfaceLanguage: "en",
-      studyLanguage: "en",
+      userLanguage: "en",
       createdAt: new Date("2026-05-02T12:00:00.000Z"),
       updatedAt: new Date("2026-05-02T12:00:00.000Z"),
     });
@@ -167,23 +170,14 @@ describe("createLabelsService", () => {
   });
 
   it("keeps label reads and mutations scoped to the owning account", async () => {
-    const client = new PGlite();
-    databases.add(client);
-    const db = drizzle(client, {
-      schema: {
-        ...authSchema,
-        ...labelsSchema,
-      },
-    });
-    await migrateDatabase(db, client);
+    const db = testDatabase.db;
     await db.insert(usersTable).values([
       {
         id: "user-casey",
         displayName: "Casey Learner",
         email: "casey@example.com",
         passwordHash: "hash",
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
         createdAt: new Date("2026-05-02T12:00:00.000Z"),
         updatedAt: new Date("2026-05-02T12:00:00.000Z"),
       },
@@ -192,8 +186,7 @@ describe("createLabelsService", () => {
         displayName: "Jordan Learner",
         email: "jordan@example.com",
         passwordHash: "hash",
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
         createdAt: new Date("2026-05-02T12:00:00.000Z"),
         updatedAt: new Date("2026-05-02T12:00:00.000Z"),
       },
@@ -244,23 +237,14 @@ describe("createLabelsService", () => {
   });
 
   it("creates labels with parent IDs and validates ownership, duplicates, and self-parent", async () => {
-    const client = new PGlite();
-    databases.add(client);
-    const db = drizzle(client, {
-      schema: {
-        ...authSchema,
-        ...labelsSchema,
-      },
-    });
-    await migrateDatabase(db, client);
+    const db = testDatabase.db;
     await db.insert(usersTable).values([
       {
         id: "user-casey",
         displayName: "Casey Learner",
         email: "casey@example.com",
         passwordHash: "hash",
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
         createdAt: new Date("2026-05-02T12:00:00.000Z"),
         updatedAt: new Date("2026-05-02T12:00:00.000Z"),
       },
@@ -269,8 +253,7 @@ describe("createLabelsService", () => {
         displayName: "Jordan Learner",
         email: "jordan@example.com",
         passwordHash: "hash",
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
         createdAt: new Date("2026-05-02T12:00:00.000Z"),
         updatedAt: new Date("2026-05-02T12:00:00.000Z"),
       },
@@ -361,23 +344,14 @@ describe("createLabelsService", () => {
   });
 
   it("updates label name with full parent set and validates cycle-safe parent selections", async () => {
-    const client = new PGlite();
-    databases.add(client);
-    const db = drizzle(client, {
-      schema: {
-        ...authSchema,
-        ...labelsSchema,
-      },
-    });
-    await migrateDatabase(db, client);
+    const db = testDatabase.db;
     await db.insert(usersTable).values([
       {
         id: "user-casey",
         displayName: "Casey Learner",
         email: "casey@example.com",
         passwordHash: "hash",
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
         createdAt: new Date("2026-05-02T12:00:00.000Z"),
         updatedAt: new Date("2026-05-02T12:00:00.000Z"),
       },
@@ -386,8 +360,7 @@ describe("createLabelsService", () => {
         displayName: "Jordan Learner",
         email: "jordan@example.com",
         passwordHash: "hash",
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
         createdAt: new Date("2026-05-02T12:00:00.000Z"),
         updatedAt: new Date("2026-05-02T12:00:00.000Z"),
       },

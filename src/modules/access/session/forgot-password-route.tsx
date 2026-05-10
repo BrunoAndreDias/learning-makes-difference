@@ -1,22 +1,28 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
+import { useAppTranslation } from "../../language";
+
 export const Route = createFileRoute("/_auth/forgot-password")({
   component: ForgotPasswordPage,
 });
 
 function ForgotPasswordPage() {
+  const { t } = useAppTranslation();
+
   return (
     <article className="auth-card">
       <header className="auth-card__header">
-        <h2 className="auth-card__heading">Reset your password</h2>
+        <h2 className="auth-card__heading">
+          {t("access.forgotPassword.heading")}
+        </h2>
         <p className="auth-card__subtitle">
-          Password reset is coming soon. For now, please contact support.
+          {t("access.forgotPassword.subtitle")}
         </p>
       </header>
 
       <p className="auth-footer">
         <Link className="auth-link" to="/login">
-          ← Back to sign in
+          {t("access.forgotPassword.backToLogin")}
         </Link>
       </p>
     </article>

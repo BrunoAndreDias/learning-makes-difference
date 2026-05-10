@@ -13,6 +13,7 @@ import {
   labelsSchema,
   labelsTable,
   noteLabelsTable,
+  studyNoteLabelsTable,
 } from "../labels/labels-schema";
 import {
   noteAcronymsTable,
@@ -20,6 +21,12 @@ import {
   notesSchema,
   notesTable,
 } from "../notes/notes-schema";
+import {
+  studyNoteAcronymsTable,
+  studyNoteMetaphorsTable,
+  studyNotesSchema,
+  studyNotesTable,
+} from "../study-notes/study-notes-schema";
 import { recallSchema } from "./recall-schema";
 import { createRecallService } from "./recall-service";
 
@@ -40,6 +47,7 @@ describe("createRecallService PostgreSQL integration", () => {
         ...labelsSchema,
         ...notesSchema,
         ...recallSchema,
+        ...studyNotesSchema,
       },
     });
     await migrateDatabase(db, database.client);
@@ -48,8 +56,7 @@ describe("createRecallService PostgreSQL integration", () => {
       displayName: "Casey Learner",
       email: "casey@example.com",
       passwordHash: "hash",
-      interfaceLanguage: "en",
-      studyLanguage: "en",
+      userLanguage: "en",
       createdAt: new Date("2026-05-02T12:00:00.000Z"),
       updatedAt: new Date("2026-05-02T12:00:00.000Z"),
     });
@@ -247,5 +254,99 @@ describe("createRecallService PostgreSQL integration", () => {
         ],
       },
     ]);
+  });
+
+  it("starts persistent FlashCard sessions from Study Note IDs with source snapshots", async () => {
+    const database = await createPostgresIntegrationDatabase();
+    databases.add(database);
+
+    const db = drizzle(database.client, {
+      schema: {
+        ...authSchema,
+        ...labelsSchema,
+        ...notesSchema,
+        ...recallSchema,
+        ...studyNotesSchema,
+      },
+    });
+    await migrateDatabase(db, database.client);
+    await db.insert(usersTable).values({
+      id: "user-casey",
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      passwordHash: "hash",
+      userLanguage: "en",
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+    await db.insert(labelsTable).values({
+      id: "label-biology",
+      userId: "user-casey",
+      name: "Biology",
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+    await db.insert(notesTable).values({
+      id: "source-note-1",
+      userId: "user-casey",
+      title: "Cell respiration source",
+      body: "Source context for ATP.",
+      labelIds: [],
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+    await db.insert(studyNotesTable).values({
+      id: "study-note-1",
+      sourceNoteId: "source-note-1",
+      prompt: "What stores transferable energy?",
+      expectedAnswer: "ATP stores transferable energy.",
+      createdAt: new Date("2026-05-02T12:05:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:05:00.000Z"),
+    });
+    await db.insert(studyNoteLabelsTable).values({
+      studyNoteId: "study-note-1",
+      labelId: "label-biology",
+    });
+    await db.insert(studyNoteMetaphorsTable).values({
+      studyNoteId: "study-note-1",
+      description: "ATP is a rechargeable battery.",
+    });
+    await db.insert(studyNoteAcronymsTable).values({
+      studyNoteId: "study-note-1",
+      description: "ATP",
+    });
+
+    const service = createRecallService({
+      crypto: {
+        randomUUID: () =>
+          "session-study-note-db" as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      db,
+      shuffleNotes: (notes) => [...notes],
+    });
+
+    await expect(
+      service.startFlashCardSession({
+        studyNoteIds: ["study-note-1"],
+        userId: "user-casey",
+      }),
+    ).resolves.toMatchObject({
+      id: "session-study-note-db",
+      notes: [
+        {
+          body: "ATP stores transferable energy.",
+          expectedAnswer: "ATP stores transferable energy.",
+          id: "study-note-1",
+          labels: [{ id: "label-biology", name: "Biology" }],
+          prompt: "What stores transferable energy?",
+          source: {
+            body: "Source context for ATP.",
+            id: "source-note-1",
+            title: "Cell respiration source",
+          },
+          title: "What stores transferable energy?",
+        },
+      ],
+    });
   });
 });

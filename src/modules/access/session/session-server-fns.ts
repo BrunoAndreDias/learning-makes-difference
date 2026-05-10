@@ -11,20 +11,31 @@ import {
   AppAuthError,
   type AppAuthErrorCode,
   type AppSessionSnapshot,
-  appLanguagePreferences,
+  defaultUserTimeZone,
+  fallbackUserLanguage,
   getAppAuthError,
+  isUserTimeZonePreference,
   type LoginInput,
   type RegisterInput,
+  studyIntensityPreferences,
+  studyObjectivePreferences,
   type UpdatePreferencesInput,
+  userLanguagePreferences,
 } from "./session-contract";
 
 const SESSION_COOKIE_NAME = "learning-makes-difference-session";
+const userTimeZoneSchema = z.string().refine(isUserTimeZonePreference);
 
 const registerInputSchema = z.object({
   displayName: z.string(),
   email: z.string(),
   password: z.string(),
   pilotRegistrationCode: z.string(),
+  userLanguage: z
+    .enum(userLanguagePreferences)
+    .optional()
+    .default(fallbackUserLanguage),
+  userTimeZone: userTimeZoneSchema.optional().default(defaultUserTimeZone),
 });
 
 const loginInputSchema = z.object({
@@ -34,8 +45,10 @@ const loginInputSchema = z.object({
 
 const updatePreferencesInputSchema = z.object({
   displayName: z.string(),
-  interfaceLanguage: z.enum(appLanguagePreferences),
-  studyLanguage: z.enum(appLanguagePreferences),
+  userLanguage: z.enum(userLanguagePreferences),
+  studyObjective: z.enum(studyObjectivePreferences).nullable(),
+  studyIntensity: z.enum(studyIntensityPreferences).nullable(),
+  userTimeZone: userTimeZoneSchema,
 });
 
 type SessionMutationResult =

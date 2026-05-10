@@ -6,6 +6,7 @@ import {
   createMemorySessionService,
   createMemorySessionStore,
   hasActiveSession,
+  type MemorySessionStore,
 } from "./session";
 
 const TEST_PILOT_REGISTRATION_CODE = "test-pilot-code";
@@ -24,6 +25,19 @@ function createMemoryCookieStore() {
       value = nextValue;
     },
   };
+}
+
+function persistUnsupportedUserLanguage(
+  store: MemorySessionStore,
+  userLanguage: string,
+) {
+  const [storedUser] = store.users;
+
+  if (storedUser === undefined) {
+    throw new Error("Expected a stored test user.");
+  }
+
+  Object.assign(storedUser, { userLanguage });
 }
 
 describe("app session context", () => {
@@ -62,6 +76,9 @@ describe("app session context", () => {
 
     expect(hasActiveSession(session.getSnapshot())).toBe(true);
     expect(session.getSnapshot().user?.displayName).toBe("Casey Learner");
+    expect(session.getSnapshot().user?.studyObjective).toBeNull();
+    expect(session.getSnapshot().user?.studyIntensity).toBeNull();
+    expect(session.getSnapshot().user?.userTimeZone).toBe("UTC");
     expect(cookie.get()).not.toBe("casey@example.com");
     expect(JSON.stringify(store.users)).not.toContain(
       "correct horse battery staple",
@@ -79,6 +96,69 @@ describe("app session context", () => {
     });
 
     expect(session.getSnapshot().user?.email).toBe("casey@example.com");
+  });
+
+  it("persists the detected User Language during registration and restores it on login", async () => {
+    const store = createMemorySessionStore();
+    const session = createAppSessionContext({
+      service: createMemorySessionService({
+        pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
+        store,
+      }),
+    });
+
+    await session.register({
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      password: "correct horse battery staple",
+      pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
+      userLanguage: "pt-PT",
+    });
+
+    expect(session.getSnapshot().user).toMatchObject({
+      userLanguage: "pt-PT",
+    });
+    expect(session.getSnapshot().user).not.toHaveProperty("interfaceLanguage");
+    expect(session.getSnapshot().user).not.toHaveProperty("studyLanguage");
+
+    await session.logout();
+    await session.login({
+      email: "casey@example.com",
+      password: "correct horse battery staple",
+    });
+
+    expect(session.getSnapshot().user).toMatchObject({
+      userLanguage: "pt-PT",
+    });
+  });
+
+  it("falls back to English when a persisted User Language is unsupported", async () => {
+    const store = createMemorySessionStore();
+    const session = createAppSessionContext({
+      service: createMemorySessionService({
+        pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
+        store,
+      }),
+    });
+
+    await session.register({
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      password: "correct horse battery staple",
+      pilotRegistrationCode: TEST_PILOT_REGISTRATION_CODE,
+      userLanguage: "es",
+    });
+    persistUnsupportedUserLanguage(store, "fr-FR");
+
+    await session.logout();
+    await session.login({
+      email: "casey@example.com",
+      password: "correct horse battery staple",
+    });
+
+    expect(session.getSnapshot().user).toMatchObject({
+      userLanguage: "en",
+    });
   });
 
   it("restores the active user from an opaque persisted session and clears it on sign-out", async () => {
@@ -138,8 +218,7 @@ describe("app session context", () => {
           displayName: "Stale Casey",
           email: "casey@example.com",
           id: "user-stale-casey",
-          interfaceLanguage: "en",
-          studyLanguage: "en",
+          userLanguage: "en",
         },
       },
       service: {
@@ -289,15 +368,69 @@ describe("app session context", () => {
 
     await session.updatePreferences({
       displayName: "Jordan Rivera",
-      interfaceLanguage: "pt-BR",
-      studyLanguage: "es",
+      userLanguage: "pt-PT",
+      studyObjective: "self_study",
+      studyIntensity: "regular",
+      userTimeZone: "Europe/Lisbon",
     });
 
     expect(session.getSnapshot().user).toMatchObject({
       displayName: "Jordan Rivera",
-      interfaceLanguage: "pt-BR",
-      studyLanguage: "es",
+      userLanguage: "pt-PT",
+      studyObjective: "self_study",
+      studyIntensity: "regular",
+      userTimeZone: "Europe/Lisbon",
     });
+
+    await session.updatePreferences({
+      displayName: "Jordan Rivera",
+      userLanguage: "pt-PT",
+      studyObjective: null,
+      studyIntensity: null,
+      userTimeZone: "Europe/Lisbon",
+    });
+
+    expect(session.getSnapshot().user?.studyObjective).toBeNull();
+    expect(session.getSnapshot().user?.studyIntensity).toBeNull();
+
+    await expect(
+      session.updatePreferences({
+        displayName: "Jordan Rivera",
+        userLanguage: "pt-PT",
+        studyObjective: "unsupported_objective" as never,
+        studyIntensity: null,
+        userTimeZone: "Europe/Lisbon",
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_input",
+      message: "Study Objective must be one of the supported options.",
+    } satisfies Pick<AppAuthError, "code" | "message">);
+
+    await expect(
+      session.updatePreferences({
+        displayName: "Jordan Rivera",
+        userLanguage: "pt-PT",
+        studyObjective: null,
+        studyIntensity: "extreme" as never,
+        userTimeZone: "Europe/Lisbon",
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_input",
+      message: "Study Intensity must be one of the supported options.",
+    } satisfies Pick<AppAuthError, "code" | "message">);
+
+    await expect(
+      session.updatePreferences({
+        displayName: "Jordan Rivera",
+        userLanguage: "pt-PT",
+        studyObjective: null,
+        studyIntensity: null,
+        userTimeZone: "Not/A_Zone",
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_input",
+      message: "User Time Zone must be a supported IANA time zone.",
+    } satisfies Pick<AppAuthError, "code" | "message">);
 
     await session.logout();
 
@@ -308,8 +441,10 @@ describe("app session context", () => {
 
     expect(session.getSnapshot().user).toMatchObject({
       displayName: "Casey Learner",
-      interfaceLanguage: "en",
-      studyLanguage: "en",
+      userLanguage: "en",
+      studyObjective: null,
+      studyIntensity: null,
+      userTimeZone: "UTC",
     });
   });
 });

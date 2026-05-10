@@ -1,8 +1,7 @@
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 
-import type { AppSessionSnapshot } from "../../access/session/session";
-import { hasActiveSession } from "../../access/session/session";
+import { useResolvedProtectedSession } from "../../access/session/use-resolved-protected-session";
 import { AppLayout } from "./protected-layout-route";
 
 export const Route = createFileRoute("/_protected")({
@@ -18,32 +17,26 @@ function ProtectedRouteShell() {
     from: "/_protected",
     select: (context) => context.persistentRecall,
   });
-  const session = useRouteContext({
+  const persistentStudyNotes = useRouteContext({
     from: "/_protected",
-    select: (context) => context.session,
+    select: (context) => context.persistentStudyNotes,
   });
-  const routedSessionSnapshot = useRouteContext({
-    from: "/_protected",
-    select: (context) => context.sessionSnapshot,
-  });
-  const sessionSnapshot = useSyncExternalStore<AppSessionSnapshot>(
-    session.subscribe,
-    session.getSnapshot,
-    session.getSnapshot,
-  );
-  const effectiveSessionSnapshot =
-    hasActiveSession(sessionSnapshot) || routedSessionSnapshot === undefined
-      ? sessionSnapshot
-      : routedSessionSnapshot;
-  const userId = effectiveSessionSnapshot.user?.id ?? null;
+  const { sessionSnapshot } = useResolvedProtectedSession("/_protected");
+  const userId = sessionSnapshot.user?.id ?? null;
   const [isReady, setIsReady] = useState(
-    persistentFocus === undefined && persistentRecall === undefined,
+    persistentFocus === undefined &&
+      persistentRecall === undefined &&
+      persistentStudyNotes === undefined,
   );
 
   useEffect(() => {
     let cancelled = false;
 
-    if (persistentFocus === undefined && persistentRecall === undefined) {
+    if (
+      persistentFocus === undefined &&
+      persistentRecall === undefined &&
+      persistentStudyNotes === undefined
+    ) {
       setIsReady(true);
       return () => {
         cancelled = true;
@@ -54,6 +47,7 @@ function ProtectedRouteShell() {
     void Promise.all([
       persistentFocus?.refresh(userId),
       persistentRecall?.refresh(userId),
+      persistentStudyNotes?.refresh(userId),
     ])
       .catch(() => undefined)
       .finally(() => {
@@ -65,7 +59,7 @@ function ProtectedRouteShell() {
     return () => {
       cancelled = true;
     };
-  }, [persistentFocus, persistentRecall, userId]);
+  }, [persistentFocus, persistentRecall, persistentStudyNotes, userId]);
 
   if (!isReady) {
     return null;

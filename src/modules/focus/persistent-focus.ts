@@ -1,5 +1,6 @@
 import type { AppLabel } from "../labels/label-management/labels";
 import type { AppNote } from "../notes";
+import type { AppStudyNote } from "../study-notes";
 import {
   type AppFocusContext,
   AppFocusError,
@@ -28,6 +29,11 @@ type CaptureNoteStudyActivityInput = {
   note: AppNote;
 };
 
+type CaptureStudyNoteStudyActivityInput = {
+  labels: readonly AppLabel[];
+  studyNote: AppStudyNote;
+};
+
 export type AppPersistentFocusService = {
   captureNoteStudyActivity: (
     input: CaptureNoteStudyActivityInput,
@@ -35,6 +41,9 @@ export type AppPersistentFocusService = {
   captureRecallSessionStudyActivity: (input: {
     recallSession: RecallStudyActivitySession;
   }) => Promise<void>;
+  captureStudyNoteStudyActivity: (
+    input: CaptureStudyNoteStudyActivityInput,
+  ) => Promise<void>;
   endFocusSession: () => Promise<FocusRecord | null>;
   getActiveSession: () => Promise<FocusSession | null>;
   listFocusRecords: () => Promise<readonly FocusRecord[]>;
@@ -52,6 +61,10 @@ export type AppPersistentFocusContext = {
     input: {
       recallSession: RecallStudyActivitySession;
     },
+  ) => Promise<void>;
+  captureStudyNoteStudyActivity: (
+    userId: string | null,
+    input: CaptureStudyNoteStudyActivityInput,
   ) => Promise<void>;
   endFocusSession: (userId: string | null) => Promise<FocusRecord | null>;
   getRecordSnapshot: () => AppFocusRecordSnapshot;
@@ -130,6 +143,11 @@ function createReadonlyFocusContext(
     captureRecallSessionStudyActivity: () => {
       throw new Error(
         "Readonly focus context cannot capture recall activity. Use persistentFocus instead.",
+      );
+    },
+    captureStudyNoteStudyActivity: () => {
+      throw new Error(
+        "Readonly focus context cannot capture study note activity. Use persistentFocus instead.",
       );
     },
     endFocusSession: () => {
@@ -303,6 +321,11 @@ export function createPersistentFocusContext(
     async captureRecallSessionStudyActivity(userId, input) {
       const validatedUserId = requireUserId(userId);
       await requireService().captureRecallSessionStudyActivity(input);
+      await refresh(validatedUserId);
+    },
+    async captureStudyNoteStudyActivity(userId, input) {
+      const validatedUserId = requireUserId(userId);
+      await requireService().captureStudyNoteStudyActivity(input);
       await refresh(validatedUserId);
     },
     async endFocusSession(userId) {

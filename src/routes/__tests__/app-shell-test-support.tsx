@@ -7,14 +7,8 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from "@testing-library/react";
-import { afterEach, beforeAll, expect, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeAll, vi } from "vitest";
 import {
   type AppSessionContext,
   type AppSessionSnapshot,
@@ -46,6 +40,11 @@ import {
   createAppRecallContext,
   type FlashCardRecallRating,
 } from "../../modules/recall";
+import {
+  type AppPersistentStudyNotesContext,
+  type AppStudyNotesContext,
+  createAppStudyNotesContext,
+} from "../../modules/study-notes";
 import { routeTree } from "../../routeTree.gen";
 
 export const TEST_PILOT_REGISTRATION_CODE = "test-pilot-code";
@@ -60,9 +59,11 @@ export function renderRoute(
     persistentLabelsContext?: AppPersistentLabelsContext;
     persistentNotesContext?: AppPersistentNotesContext;
     persistentRecallContext?: AppPersistentRecallContext;
+    persistentStudyNotesContext?: AppPersistentStudyNotesContext;
     recallContext?: AppRecallContext;
     session?: AppSessionSnapshot;
     sessionContext?: AppSessionContext;
+    studyNotesContext?: AppStudyNotesContext;
   } = {},
 ) {
   const staticSnapshot = options.session ?? {
@@ -70,8 +71,7 @@ export function renderRoute(
       displayName: "Placeholder user",
       email: "placeholder@example.com",
       id: "user-placeholder",
-      interfaceLanguage: "en",
-      studyLanguage: "en",
+      userLanguage: "en",
     },
   };
   const sessionContext = options.sessionContext ?? {
@@ -110,6 +110,14 @@ export function renderRoute(
       keyPrefix: `test-focus-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
     });
+  const studyNotesContext =
+    options.studyNotesContext ??
+    createAppStudyNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labelsContext.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
   const recallContext =
     options.recallContext ??
     options.persistentRecallContext?.readonlyContext ??
@@ -119,6 +127,7 @@ export function renderRoute(
       notes: notesContext,
       onStudyActivity: focusContext.captureRecallSessionStudyActivity,
       storage: window.localStorage,
+      studyNotes: studyNotesContext,
     });
   const router = createRouter({
     routeTree,
@@ -133,8 +142,10 @@ export function renderRoute(
       persistentLabels: options.persistentLabelsContext,
       persistentNotes: options.persistentNotesContext,
       persistentRecall: options.persistentRecallContext,
+      persistentStudyNotes: options.persistentStudyNotesContext,
       recall: recallContext,
       session: sessionContext,
+      studyNotes: studyNotesContext,
     },
     defaultPreload: "intent",
     scrollRestoration: true,
@@ -143,6 +154,27 @@ export function renderRoute(
   return {
     router,
     ...render(<RouterProvider router={router} />),
+  };
+}
+
+export function createRouteHydratedSessionContext(
+  routedSessionSnapshot: AppSessionSnapshot,
+): AppSessionContext {
+  const anonymousSnapshot: AppSessionSnapshot = { user: null };
+
+  return {
+    getSnapshot: () => anonymousSnapshot,
+    refresh: () => Promise.resolve(routedSessionSnapshot),
+    subscribe: () => () => undefined,
+    login: () =>
+      Promise.reject(new Error("Test session context cannot log in.")),
+    logout: () => Promise.resolve(anonymousSnapshot),
+    register: () =>
+      Promise.reject(new Error("Test session context cannot register.")),
+    updatePreferences: () =>
+      Promise.reject(
+        new Error("Test session context cannot update preferences."),
+      ),
   };
 }
 
@@ -201,12 +233,19 @@ export function createLearningLoopTestContexts(
     keyPrefix: `test-focus-${Math.random().toString(36).slice(2)}`,
     storage: window.localStorage,
   });
+  const studyNotesContext = createAppStudyNotesContext({
+    getOwnedLabelIdsForUser: (userId) =>
+      labelsContext.getLabelsForUser(userId).map((label) => label.id),
+    keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
+    storage: window.localStorage,
+  });
   const recallContext = createAppRecallContext({
     getLabelsForUser: (userId) => labelsContext.getLabelsForUser(userId),
     keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
     notes: notesContext,
     onStudyActivity: focusContext.captureRecallSessionStudyActivity,
     storage: window.localStorage,
+    studyNotes: studyNotesContext,
     ...recallOptions,
   });
 
@@ -215,11 +254,9 @@ export function createLearningLoopTestContexts(
     labelsContext,
     notesContext,
     recallContext,
+    studyNotesContext,
   };
 }
-
-export type AppShellRouter = ReturnType<typeof renderRoute>["router"];
-export type RenderRouteOptions = NonNullable<Parameters<typeof renderRoute>[1]>;
 
 export function createDeterministicRecallTestContexts() {
   return createLearningLoopTestContexts({
@@ -271,100 +308,8 @@ export function createCompletedRecallSession(
   });
 }
 
-function completeRecallSessionAt({
-  noteId,
-  rating,
-  recallContext,
-  timestamp,
-  userId,
-}: {
-  noteId: string;
-  rating: FlashCardRecallRating;
-  recallContext: AppRecallContext;
-  timestamp: string;
-  userId: string;
-}) {
-  createCompletedRecallSession(recallContext, {
-    noteId,
-    rating,
-    timestamp,
-    userId,
-  });
-}
-
-function rateFlashCardAnswers({
-  ratings,
-  recallContext,
-  sessionId,
-  userId,
-}: {
-  ratings: readonly FlashCardRecallRating[];
-  recallContext: AppRecallContext;
-  sessionId: string;
-  userId: string;
-}) {
-  for (const rating of ratings) {
-    recallContext.revealFlashCardAnswer({
-      sessionId,
-      userId,
-    });
-    recallContext.rateFlashCardAnswer({
-      rating,
-      sessionId,
-      userId,
-    });
-  }
-}
-
-async function renderRecallSelection(contexts: RenderRouteOptions) {
-  const routeRender = renderRoute("/recall/select", contexts);
-
-  expect(
-    await screen.findByRole("heading", { level: 3, name: "Recall setup" }),
-  ).toBeInTheDocument();
-
-  return routeRender;
-}
-
-function selectRecallableNote(title: string, _body: string) {
-  fireEvent.click(
-    within(screen.getByLabelText("Recallable notes")).getByRole("button", {
-      name: `Select ${title}`,
-    }),
-  );
-}
-
-async function startSelectedRecallSession() {
-  fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
-
-  expect(
-    await screen.findByRole("heading", { name: "Recall session" }),
-  ).toBeInTheDocument();
-}
-
-async function expectReturnedToRecall(router: AppShellRouter) {
-  expect(
-    await screen.findByRole("heading", { level: 3, name: "Practice" }),
-  ).toBeInTheDocument();
-  expect(router.state.location.pathname).toBe("/recall");
-}
-
-async function openRecallResultsSection() {
-  fireEvent.click(screen.getByRole("link", { name: "Results" }));
-
-  expect(
-    await screen.findByRole("heading", { level: 3, name: "Results" }),
-  ).toBeInTheDocument();
-}
-
 export function openAccountMenu() {
   fireEvent.click(screen.getByRole("button", { name: /account menu/i }));
-}
-
-function getSelectedSessionResultRegion() {
-  return screen.getByRole("region", {
-    name: "Selected review",
-  });
 }
 
 let documentVisibilityState: DocumentVisibilityState = "visible";
@@ -385,10 +330,4 @@ afterEach(() => {
 });
 
 export type { AppSessionSnapshot };
-export {
-  createAppFocusContext,
-  createAppLabelsContext,
-  createAppNotesContext,
-  createAppRecallContext,
-  listNotesForUser,
-};
+export { createAppFocusContext, listNotesForUser };

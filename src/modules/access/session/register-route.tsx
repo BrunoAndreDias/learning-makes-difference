@@ -7,8 +7,13 @@ import {
 } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
 import { z } from "zod";
-
-import { getAppAuthError, hasActiveSession } from "./session";
+import { detectBrowserUserLanguage, useAppTranslation } from "../../language";
+import {
+  defaultUserTimeZone,
+  getAppAuthError,
+  hasActiveSession,
+  type UserTimeZonePreference,
+} from "./session";
 
 export const Route = createFileRoute("/_auth/register")({
   validateSearch: z.object({
@@ -19,7 +24,7 @@ export const Route = createFileRoute("/_auth/register")({
 
     if (hasActiveSession(sessionSnapshot)) {
       throw redirect({
-        to: search.redirect ?? "/notes",
+        to: search.redirect ?? "/study-notes",
       });
     }
   },
@@ -27,6 +32,7 @@ export const Route = createFileRoute("/_auth/register")({
 });
 
 function RegisterPage() {
+  const { t } = useAppTranslation();
   const search = Route.useSearch();
   const session = Route.useRouteContext({
     select: (context) => context.session,
@@ -40,7 +46,13 @@ function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
-  const redirectTarget = search.redirect ?? "/notes";
+  const redirectTarget = search.redirect ?? "/study-notes";
+  const passwordVisibilityLabel = showPassword
+    ? t("access.login.password.hide")
+    : t("access.login.password.show");
+  const submitLabel = isSubmitting
+    ? t("access.register.submitting")
+    : t("access.register.submit");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -53,6 +65,8 @@ function RegisterPage() {
         email,
         password,
         pilotRegistrationCode,
+        userLanguage: detectBrowserUserLanguage(),
+        userTimeZone: detectBrowserUserTimeZone(),
       });
       await router.invalidate();
       await navigate({ to: redirectTarget });
@@ -62,7 +76,7 @@ function RegisterPage() {
       if (appAuthError !== null) {
         setErrorMessage(appAuthError.message);
       } else {
-        setErrorMessage("Could not create account. Try again.");
+        setErrorMessage(t("access.register.error.fallback"));
       }
     } finally {
       setSubmitting(false);
@@ -72,17 +86,17 @@ function RegisterPage() {
   return (
     <article className="auth-card">
       <header className="auth-card__header">
-        <h2 className="auth-card__heading">Create your account</h2>
-        <p className="auth-card__subtitle">Sign up to start studying</p>
+        <h2 className="auth-card__heading">{t("access.register.heading")}</h2>
+        <p className="auth-card__subtitle">{t("access.register.subtitle")}</p>
       </header>
 
       <form
-        aria-label="Sign up form"
+        aria-label={t("access.register.formLabel")}
         className="auth-form"
         onSubmit={handleSubmit}
       >
         <label className="auth-field-label" htmlFor="register-name">
-          Display name
+          {t("access.register.displayName.label")}
         </label>
         <div className="auth-field">
           <span aria-hidden="true" className="auth-field__icon">
@@ -96,7 +110,7 @@ function RegisterPage() {
               viewBox="0 0 24 24"
               width="18"
             >
-              <title>Display name</title>
+              <title>{t("access.register.displayName.label")}</title>
               <circle cx="12" cy="8" r="4" />
               <path d="M4 21a8 8 0 0 1 16 0" />
             </svg>
@@ -107,7 +121,7 @@ function RegisterPage() {
             id="register-name"
             name="displayName"
             onChange={(event) => setDisplayName(event.target.value)}
-            placeholder="Enter your name"
+            placeholder={t("access.register.displayName.placeholder")}
             required
             type="text"
             value={displayName}
@@ -115,7 +129,7 @@ function RegisterPage() {
         </div>
 
         <label className="auth-field-label" htmlFor="register-email">
-          Email
+          {t("access.register.email.label")}
         </label>
         <div className="auth-field">
           <span aria-hidden="true" className="auth-field__icon">
@@ -129,7 +143,7 @@ function RegisterPage() {
               viewBox="0 0 24 24"
               width="18"
             >
-              <title>Email</title>
+              <title>{t("access.register.email.label")}</title>
               <rect height="14" rx="2" width="18" x="3" y="5" />
               <path d="m3 7 9 6 9-6" />
             </svg>
@@ -140,7 +154,7 @@ function RegisterPage() {
             id="register-email"
             name="email"
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="Enter your email"
+            placeholder={t("access.register.email.placeholder")}
             required
             type="email"
             value={email}
@@ -151,7 +165,7 @@ function RegisterPage() {
           className="auth-field-label"
           htmlFor="register-pilot-registration-code"
         >
-          Pilot registration code
+          {t("access.register.pilotCode.label")}
         </label>
         <div className="auth-field">
           <span aria-hidden="true" className="auth-field__icon">
@@ -165,7 +179,7 @@ function RegisterPage() {
               viewBox="0 0 24 24"
               width="18"
             >
-              <title>Pilot registration code</title>
+              <title>{t("access.register.pilotCode.label")}</title>
               <path d="M4 7h16" />
               <path d="M7 4v6" />
               <path d="M17 4v6" />
@@ -179,7 +193,7 @@ function RegisterPage() {
             id="register-pilot-registration-code"
             name="pilotRegistrationCode"
             onChange={(event) => setPilotRegistrationCode(event.target.value)}
-            placeholder="Enter the shared pilot code"
+            placeholder={t("access.register.pilotCode.placeholder")}
             required
             type="text"
             value={pilotRegistrationCode}
@@ -187,7 +201,7 @@ function RegisterPage() {
         </div>
 
         <label className="auth-field-label" htmlFor="register-password">
-          Password
+          {t("access.register.password.label")}
         </label>
         <div className="auth-field">
           <span aria-hidden="true" className="auth-field__icon">
@@ -201,7 +215,7 @@ function RegisterPage() {
               viewBox="0 0 24 24"
               width="18"
             >
-              <title>Password</title>
+              <title>{t("access.register.password.label")}</title>
               <rect height="11" rx="2" width="14" x="5" y="11" />
               <path d="M8 11V8a4 4 0 0 1 8 0v3" />
             </svg>
@@ -212,13 +226,13 @@ function RegisterPage() {
             id="register-password"
             name="password"
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="Create a password"
+            placeholder={t("access.register.password.placeholder")}
             required
             type={showPassword ? "text" : "password"}
             value={password}
           />
           <button
-            aria-label={showPassword ? "Hide password" : "Show password"}
+            aria-label={passwordVisibilityLabel}
             className="auth-field__toggle"
             onClick={() => setShowPassword((value) => !value)}
             type="button"
@@ -233,7 +247,7 @@ function RegisterPage() {
               viewBox="0 0 24 24"
               width="18"
             >
-              <title>{showPassword ? "Hide password" : "Show password"}</title>
+              <title>{passwordVisibilityLabel}</title>
               {showPassword ? (
                 <>
                   <path d="M3 3l18 18" />
@@ -257,20 +271,26 @@ function RegisterPage() {
         ) : null}
 
         <button className="auth-submit" disabled={isSubmitting} type="submit">
-          {isSubmitting ? "Creating account..." : "Sign up"}
+          {submitLabel}
         </button>
       </form>
 
       <div className="auth-divider">
-        <span>or</span>
+        <span>{t("common.or")}</span>
       </div>
 
       <p className="auth-footer">
-        Already have an account?{" "}
+        {t("access.register.footer.prompt")}{" "}
         <Link className="auth-link" search={(prev) => prev} to="/login">
-          Sign in
+          {t("access.register.footer.login")}
         </Link>
       </p>
     </article>
+  );
+}
+
+function detectBrowserUserTimeZone(): UserTimeZonePreference {
+  return (
+    Intl.DateTimeFormat().resolvedOptions().timeZone ?? defaultUserTimeZone
   );
 }

@@ -1,8 +1,6 @@
-import { PGlite } from "@electric-sql/pglite";
-import { drizzle } from "drizzle-orm/pglite";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { migrateDatabase } from "../../lib/db/migrate";
+import { createPgliteServiceTestDatabase } from "../../lib/db/pglite-service-test-db";
 import { authSchema, usersTable } from "../access/session/auth-schema";
 import {
   labelsSchema,
@@ -16,32 +14,37 @@ import {
 } from "./notes-schema";
 import { createNotesService } from "./notes-service";
 
+const notesTestSchema = {
+  ...authSchema,
+  ...labelsSchema,
+  ...notesSchema,
+};
+
 describe("createNotesService", () => {
-  const databases = new Set<PGlite>();
+  let testDatabase: Awaited<
+    ReturnType<typeof createPgliteServiceTestDatabase<typeof notesTestSchema>>
+  >;
+
+  beforeAll(async () => {
+    testDatabase = await createPgliteServiceTestDatabase(notesTestSchema);
+  });
 
   afterEach(async () => {
-    await Promise.all(Array.from(databases, (database) => database.close()));
-    databases.clear();
+    await testDatabase.reset();
+  });
+
+  afterAll(async () => {
+    await testDatabase.close();
   });
 
   it("persists notes with metaphor and acronym child records in PostgreSQL", async () => {
-    const client = new PGlite();
-    databases.add(client);
-    const db = drizzle(client, {
-      schema: {
-        ...authSchema,
-        ...labelsSchema,
-        ...notesSchema,
-      },
-    });
-    await migrateDatabase(db, client);
+    const db = testDatabase.db;
     await db.insert(usersTable).values({
       id: "user-casey",
       displayName: "Casey Learner",
       email: "casey@example.com",
       passwordHash: "hash",
-      interfaceLanguage: "en",
-      studyLanguage: "en",
+      userLanguage: "en",
       createdAt: new Date("2026-05-02T12:00:00.000Z"),
       updatedAt: new Date("2026-05-02T12:00:00.000Z"),
     });
@@ -85,23 +88,13 @@ describe("createNotesService", () => {
   });
 
   it("stores note-label assignments in PostgreSQL join rows", async () => {
-    const client = new PGlite();
-    databases.add(client);
-    const db = drizzle(client, {
-      schema: {
-        ...authSchema,
-        ...labelsSchema,
-        ...notesSchema,
-      },
-    });
-    await migrateDatabase(db, client);
+    const db = testDatabase.db;
     await db.insert(usersTable).values({
       id: "user-casey",
       displayName: "Casey Learner",
       email: "casey@example.com",
       passwordHash: "hash",
-      interfaceLanguage: "en",
-      studyLanguage: "en",
+      userLanguage: "en",
       createdAt: new Date("2026-05-02T12:00:00.000Z"),
       updatedAt: new Date("2026-05-02T12:00:00.000Z"),
     });
@@ -161,24 +154,14 @@ describe("createNotesService", () => {
   });
 
   it("keeps note updates scoped to the owning account", async () => {
-    const client = new PGlite();
-    databases.add(client);
-    const db = drizzle(client, {
-      schema: {
-        ...authSchema,
-        ...labelsSchema,
-        ...notesSchema,
-      },
-    });
-    await migrateDatabase(db, client);
+    const db = testDatabase.db;
     await db.insert(usersTable).values([
       {
         id: "user-casey",
         displayName: "Casey Learner",
         email: "casey@example.com",
         passwordHash: "hash",
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
         createdAt: new Date("2026-05-02T12:00:00.000Z"),
         updatedAt: new Date("2026-05-02T12:00:00.000Z"),
       },
@@ -187,8 +170,7 @@ describe("createNotesService", () => {
         displayName: "Jordan Learner",
         email: "jordan@example.com",
         passwordHash: "hash",
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
         createdAt: new Date("2026-05-02T12:00:00.000Z"),
         updatedAt: new Date("2026-05-02T12:00:00.000Z"),
       },
@@ -271,24 +253,14 @@ describe("createNotesService", () => {
   });
 
   it("rejects note-label assignments for labels owned by another account", async () => {
-    const client = new PGlite();
-    databases.add(client);
-    const db = drizzle(client, {
-      schema: {
-        ...authSchema,
-        ...labelsSchema,
-        ...notesSchema,
-      },
-    });
-    await migrateDatabase(db, client);
+    const db = testDatabase.db;
     await db.insert(usersTable).values([
       {
         id: "user-casey",
         displayName: "Casey Learner",
         email: "casey@example.com",
         passwordHash: "hash",
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
         createdAt: new Date("2026-05-02T12:00:00.000Z"),
         updatedAt: new Date("2026-05-02T12:00:00.000Z"),
       },
@@ -297,8 +269,7 @@ describe("createNotesService", () => {
         displayName: "Jordan Learner",
         email: "jordan@example.com",
         passwordHash: "hash",
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: "en",
         createdAt: new Date("2026-05-02T12:00:00.000Z"),
         updatedAt: new Date("2026-05-02T12:00:00.000Z"),
       },
@@ -333,23 +304,13 @@ describe("createNotesService", () => {
   });
 
   it("hard-deletes notes and removes their metaphor and acronym child records", async () => {
-    const client = new PGlite();
-    databases.add(client);
-    const db = drizzle(client, {
-      schema: {
-        ...authSchema,
-        ...labelsSchema,
-        ...notesSchema,
-      },
-    });
-    await migrateDatabase(db, client);
+    const db = testDatabase.db;
     await db.insert(usersTable).values({
       id: "user-casey",
       displayName: "Casey Learner",
       email: "casey@example.com",
       passwordHash: "hash",
-      interfaceLanguage: "en",
-      studyLanguage: "en",
+      userLanguage: "en",
       createdAt: new Date("2026-05-02T12:00:00.000Z"),
       updatedAt: new Date("2026-05-02T12:00:00.000Z"),
     });

@@ -62,8 +62,10 @@ describe("createAuthService PostgreSQL integration", () => {
 
     await caseyAuth.updatePreferences({
       displayName: "Casey Rivers",
-      interfaceLanguage: "pt-BR",
-      studyLanguage: "es",
+      userLanguage: "pt-PT",
+      studyObjective: "specific_exam",
+      studyIntensity: "light",
+      userTimeZone: "America/New_York",
     });
 
     await caseyAuth.logout();
@@ -82,8 +84,10 @@ describe("createAuthService PostgreSQL integration", () => {
 
     await jordanAuth.updatePreferences({
       displayName: "Jordan Rivera",
-      interfaceLanguage: "en",
-      studyLanguage: "pt-BR",
+      userLanguage: "en",
+      studyObjective: null,
+      studyIntensity: null,
+      userTimeZone: "Europe/Lisbon",
     });
 
     await caseyAuth.login({
@@ -104,16 +108,20 @@ describe("createAuthService PostgreSQL integration", () => {
       user: {
         displayName: "Casey Rivers",
         email: "casey@example.com",
-        interfaceLanguage: "pt-BR",
-        studyLanguage: "es",
+        userLanguage: "pt-PT",
+        studyObjective: "specific_exam",
+        studyIntensity: "light",
+        userTimeZone: "America/New_York",
       },
     });
     await expect(restoredJordan.getSessionSnapshot()).resolves.toMatchObject({
       user: {
         displayName: "Jordan Rivera",
         email: "jordan@example.com",
-        interfaceLanguage: "en",
-        studyLanguage: "pt-BR",
+        userLanguage: "en",
+        studyObjective: null,
+        studyIntensity: null,
+        userTimeZone: "Europe/Lisbon",
       },
     });
 

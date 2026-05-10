@@ -8,14 +8,18 @@ import type { PgQueryResultHKT } from "drizzle-orm/pg-core/session";
 import { type authSchema, authSessionsTable, usersTable } from "./auth-schema";
 import {
   AppAuthError,
-  type AppLanguagePreference,
   type AppSessionSnapshot,
   type AppSessionUser,
   buildAnonymousSnapshot,
-  isLanguagePreference,
+  defaultUserTimeZone,
   type LoginInput,
+  normalizeUserLanguage,
   type RegisterInput,
   type UpdatePreferencesInput,
+  validateStudyIntensityPreference,
+  validateStudyObjectivePreference,
+  validateUserLanguagePreference,
+  validateUserTimeZonePreference,
 } from "./session-contract";
 
 type AuthDatabase = PgDatabase<PgQueryResultHKT, typeof authSchema>;
@@ -64,8 +68,10 @@ function buildSessionUser(user: StoredUser): AppSessionUser {
     id: user.id,
     displayName: user.displayName,
     email: user.email,
-    interfaceLanguage: user.interfaceLanguage,
-    studyLanguage: user.studyLanguage,
+    userLanguage: normalizeUserLanguage(user.userLanguage),
+    studyObjective: user.studyObjective,
+    studyIntensity: user.studyIntensity,
+    userTimeZone: user.userTimeZone ?? defaultUserTimeZone,
   };
 }
 
@@ -113,20 +119,6 @@ function validateEmail(email: string): string {
   }
 
   return normalizedEmail;
-}
-
-function validateLanguagePreference(
-  value: string,
-  fieldLabel: string,
-): AppLanguagePreference {
-  if (!isLanguagePreference(value)) {
-    throw new AppAuthError(
-      "invalid_input",
-      `${fieldLabel} must be one of the supported language options.`,
-    );
-  }
-
-  return value;
 }
 
 function validatePilotRegistrationCode(
@@ -278,8 +270,10 @@ async function getStoredUserForActiveSession({
       displayName: usersTable.displayName,
       email: usersTable.email,
       passwordHash: usersTable.passwordHash,
-      interfaceLanguage: usersTable.interfaceLanguage,
-      studyLanguage: usersTable.studyLanguage,
+      userLanguage: usersTable.userLanguage,
+      studyObjective: usersTable.studyObjective,
+      studyIntensity: usersTable.studyIntensity,
+      userTimeZone: usersTable.userTimeZone,
       createdAt: usersTable.createdAt,
       updatedAt: usersTable.updatedAt,
     })
@@ -385,6 +379,8 @@ export function createAuthService({
       email,
       password,
       pilotRegistrationCode: providedRegistrationCode,
+      userLanguage,
+      userTimeZone,
     }: RegisterInput): Promise<AppSessionSnapshot> {
       const safeDisplayName = validateDisplayName(displayName);
       const safeEmail = validateEmail(email);
@@ -393,6 +389,8 @@ export function createAuthService({
         providedRegistrationCode,
         pilotRegistrationCode,
       );
+      const safeUserTimeZone = validateUserTimeZonePreference(userTimeZone);
+      const safeUserLanguage = normalizeUserLanguage(userLanguage);
 
       const existingUsers = await db
         .select({ id: usersTable.id })
@@ -416,8 +414,10 @@ export function createAuthService({
         displayName: safeDisplayName,
         email: safeEmail,
         passwordHash,
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: safeUserLanguage,
+        studyObjective: null,
+        studyIntensity: null,
+        userTimeZone: safeUserTimeZone,
         createdAt: timestamp,
         updatedAt: timestamp,
       });
@@ -426,8 +426,10 @@ export function createAuthService({
         id: userId,
         displayName: safeDisplayName,
         email: safeEmail,
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: safeUserLanguage,
+        studyObjective: null,
+        studyIntensity: null,
+        userTimeZone: safeUserTimeZone,
       };
 
       await issueSessionForUser({
@@ -444,8 +446,10 @@ export function createAuthService({
     },
     async updatePreferences({
       displayName,
-      interfaceLanguage,
-      studyLanguage,
+      userLanguage,
+      studyObjective,
+      studyIntensity,
+      userTimeZone,
     }: UpdatePreferencesInput): Promise<AppSessionSnapshot> {
       const storedUser = await getStoredUserForActiveSession({
         cookie,
@@ -460,22 +464,22 @@ export function createAuthService({
       }
 
       const safeDisplayName = validateDisplayName(displayName);
-      const safeInterfaceLanguage = validateLanguagePreference(
-        interfaceLanguage,
-        "Interface language",
-      );
-      const safeStudyLanguage = validateLanguagePreference(
-        studyLanguage,
-        "Study language",
-      );
+      const safeUserLanguage = validateUserLanguagePreference(userLanguage);
+      const safeStudyObjective =
+        validateStudyObjectivePreference(studyObjective);
+      const safeStudyIntensity =
+        validateStudyIntensityPreference(studyIntensity);
+      const safeUserTimeZone = validateUserTimeZonePreference(userTimeZone);
       const updatedAt = now();
 
       await db
         .update(usersTable)
         .set({
           displayName: safeDisplayName,
-          interfaceLanguage: safeInterfaceLanguage,
-          studyLanguage: safeStudyLanguage,
+          userLanguage: safeUserLanguage,
+          studyObjective: safeStudyObjective,
+          studyIntensity: safeStudyIntensity,
+          userTimeZone: safeUserTimeZone,
           updatedAt,
         })
         .where(eq(usersTable.id, storedUser.id));
@@ -485,8 +489,10 @@ export function createAuthService({
           id: storedUser.id,
           displayName: safeDisplayName,
           email: storedUser.email,
-          interfaceLanguage: safeInterfaceLanguage,
-          studyLanguage: safeStudyLanguage,
+          userLanguage: safeUserLanguage,
+          studyObjective: safeStudyObjective,
+          studyIntensity: safeStudyIntensity,
+          userTimeZone: safeUserTimeZone,
         },
       };
     },

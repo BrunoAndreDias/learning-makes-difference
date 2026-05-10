@@ -70,7 +70,7 @@ export function deriveFocusWeeklyAnalytics(
         comparisonUnitSuffix: "",
         current: currentWeek.notesTouched,
         id: "notes-touched",
-        label: "Notes touched",
+        label: "Study Notes touched",
         previous: previousWeek.notesTouched,
         valueSuffix: "",
       }),
@@ -78,7 +78,7 @@ export function deriveFocusWeeklyAnalytics(
         comparisonUnitSuffix: "",
         current: currentWeek.notesCreated,
         id: "notes-created",
-        label: "Notes created",
+        label: "Study Notes created",
         previous: previousWeek.notesCreated,
         valueSuffix: "",
       }),
@@ -183,18 +183,20 @@ function addTouchedNoteIds(
   targets: readonly FocusTarget[],
 ) {
   for (const target of targets) {
-    if (!isNoteFocusTarget(target)) {
-      continue;
+    if (target.kind === "Note") {
+      noteIds.add(target.note.id);
     }
 
-    noteIds.add(target.note.id);
-  }
-}
+    if (target.kind === "StudyNote") {
+      noteIds.add(target.studyNote.id);
+    }
 
-function isNoteFocusTarget(
-  target: FocusTarget,
-): target is Extract<FocusTarget, { kind: "Note" }> {
-  return target.kind === "Note";
+    if (target.kind === "RecallSession") {
+      for (const note of target.notes) {
+        noteIds.add(note.id);
+      }
+    }
+  }
 }
 
 function getRecallAnsweredCount(results: readonly SessionResult[]) {

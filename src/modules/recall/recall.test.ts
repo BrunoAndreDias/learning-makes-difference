@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createAppFocusContext } from "../focus";
 import { createAppLabelsContext } from "../labels/label-management/labels";
 import { createAppNotesContext } from "../notes";
+import { createAppStudyNotesContext } from "../study-notes";
 import { createAppRecallContext, summarizeAttempts } from "./recall";
 
 function createMemoryStorage() {
@@ -183,6 +184,97 @@ describe("recall attempts by note", () => {
         ],
       },
     ]);
+  });
+
+  it("aggregates Study Note attempts independently for shared source material", () => {
+    const storage = createMemoryStorage();
+    const studyNotes = createAppStudyNotesContext({
+      keyPrefix: "recall-test-by-study-note-shared-source-study-notes",
+      storage,
+    });
+    let sessionCounter = 0;
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `session-by-study-note-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "recall-test-by-study-note-shared-source-session",
+      notes: createAppNotesContext({
+        keyPrefix: "recall-test-by-study-note-shared-source-notes",
+        storage,
+      }),
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+    const userId = "owner";
+    const first = studyNotes.createStudyNote(userId, {
+      sourceBody: "One broad source body.",
+      sourceTitle: "Shared source",
+    });
+    const second = studyNotes.createStudyNoteFromSource(userId, {
+      sourceNoteId: first.sourceNoteId,
+    });
+    const updatedFirst = studyNotes.updateStudyNote(userId, first.id, {
+      acronyms: [],
+      expectedAnswer: "First expected answer.",
+      labelIds: [],
+      metaphors: [],
+      prompt: "First target",
+      sourceBody: "One broad source body.",
+      sourceTitle: "Shared source",
+    });
+    const updatedSecond = studyNotes.updateStudyNote(userId, second.id, {
+      acronyms: [],
+      expectedAnswer: "Second expected answer.",
+      labelIds: [],
+      metaphors: [],
+      prompt: "Second target",
+      sourceBody: "One broad source body.",
+      sourceTitle: "Shared source",
+    });
+
+    const firstSession = recall.startFlashCardSession({
+      studyNoteIds: [updatedFirst.id],
+      userId,
+    });
+    recall.revealFlashCardAnswer({ sessionId: firstSession.id, userId });
+    recall.rateFlashCardAnswer({
+      rating: "hard",
+      sessionId: firstSession.id,
+      userId,
+    });
+
+    const secondSession = recall.startFlashCardSession({
+      studyNoteIds: [updatedSecond.id],
+      userId,
+    });
+    recall.revealFlashCardAnswer({ sessionId: secondSession.id, userId });
+    recall.rateFlashCardAnswer({
+      rating: "easy",
+      sessionId: secondSession.id,
+      userId,
+    });
+
+    expect(recall.listAttemptsByNote({ userId })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          currentTitle: "Second target",
+          easy: 1,
+          hard: 0,
+          noteId: updatedSecond.id,
+          totalAttempts: 1,
+        }),
+        expect.objectContaining({
+          currentTitle: "First target",
+          easy: 0,
+          hard: 1,
+          noteId: updatedFirst.id,
+          totalAttempts: 1,
+        }),
+      ]),
+    );
+    expect(recall.listAttemptsByNote({ userId })).toHaveLength(2);
   });
 
   it("sorts notes by attempts then most recent attempt and filters by stored note labels", () => {
@@ -444,6 +536,116 @@ describe("recall focus target capture", () => {
     }
   });
 
+  it("captures Study Notes as RecallSession FocusTargets with source Note and Label context", () => {
+    vi.useFakeTimers();
+
+    try {
+      vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+      const storage = createMemoryStorage();
+      const labels = createAppLabelsContext({
+        keyPrefix: "recall-focus-study-note-labels",
+        storage,
+      });
+      const studyNotes = createAppStudyNotesContext({
+        getOwnedLabelIdsForUser: (userId) =>
+          labels.getLabelsForUser(userId).map((label) => label.id),
+        keyPrefix: "recall-focus-study-note-study-notes",
+        storage,
+      });
+      const focus = createAppFocusContext({
+        getLabelsForUser: (ownerId) => labels.getLabelsForUser(ownerId),
+        keyPrefix: "recall-focus-study-note-focus",
+        storage,
+      });
+      const recall = createAppRecallContext({
+        keyPrefix: "recall-focus-study-note-recall",
+        notes: createAppNotesContext({
+          keyPrefix: "recall-focus-study-note-source-notes",
+          storage,
+        }),
+        onStudyActivity: focus.captureRecallSessionStudyActivity,
+        shuffleNotes: (sessionNotes) => [...sessionNotes],
+        storage,
+        studyNotes,
+        getLabelsForUser: (userId) => labels.getLabelsForUser(userId),
+      });
+      const userId = "owner";
+      const biology = labels.createLabel({ name: "Biology", userId });
+      const studyNote = studyNotes.createStudyNote(userId, {
+        labelIds: [biology.id],
+        sourceBody: "Cell respiration source context.",
+        sourceTitle: "Cell respiration",
+      });
+      const updatedStudyNote = studyNotes.updateStudyNote(
+        userId,
+        studyNote.id,
+        {
+          acronyms: [],
+          expectedAnswer: "ATP stores transferable energy.",
+          labelIds: [biology.id],
+          metaphors: [],
+          prompt: "What molecule stores transferable energy?",
+          sourceBody: "Cell respiration source context.",
+          sourceTitle: "Cell respiration",
+        },
+      );
+
+      focus.startFocusSession({
+        focusIntervalMinutes: 25,
+        userId,
+      });
+
+      const session = recall.startRecallSession({
+        studyNoteIds: [updatedStudyNote.id],
+        userId,
+      });
+
+      recall.revealAnswer({ sessionId: session.id, userId });
+      recall.answerQuestion({
+        rating: "easy",
+        sessionId: session.id,
+        userId,
+      });
+
+      vi.setSystemTime(new Date("2026-04-30T10:25:12.000Z"));
+
+      const record = focus.endFocusSession({ userId });
+
+      expect(record).toMatchObject({
+        completedFocusIntervalCount: 1,
+        focusTargets: [
+          {
+            kind: "RecallSession",
+            recallSession: {
+              id: session.id,
+              mode: "FlashCard",
+            },
+            labels: [{ id: biology.id, name: "Biology" }],
+            notes: [
+              {
+                expectedAnswer: "ATP stores transferable energy.",
+                id: updatedStudyNote.id,
+                labelIds: [biology.id],
+                labels: [{ id: biology.id, name: "Biology" }],
+                prompt: "What molecule stores transferable energy?",
+                source: {
+                  body: "Cell respiration source context.",
+                  id: updatedStudyNote.sourceNoteId,
+                  title: "Cell respiration",
+                },
+                sourceNoteId: updatedStudyNote.sourceNoteId,
+                title: "What molecule stores transferable energy?",
+              },
+            ],
+          },
+        ],
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("ignores RecallSession study activity during a BreakInterval", () => {
     vi.useFakeTimers();
 
@@ -518,6 +720,119 @@ describe("recall focus target capture", () => {
 });
 
 describe("recall session setup", () => {
+  it("starts FlashCard sessions from selected Study Notes and snapshots their practice fields", () => {
+    const storage = createMemoryStorage();
+    const labels = createAppLabelsContext({
+      keyPrefix: "recall-study-note-start-labels",
+      storage,
+    });
+    const studyNotes = createAppStudyNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labels.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: "recall-study-note-start-study-notes",
+      storage,
+    });
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          "session-study-note-start" as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "recall-study-note-start-session",
+      notes: createAppNotesContext({
+        keyPrefix: "recall-study-note-start-source-notes",
+        storage,
+      }),
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+      getLabelsForUser: (userId) => labels.getLabelsForUser(userId),
+    });
+    const userId = "owner";
+    const biology = labels.createLabel({ name: "Biology", userId });
+    const studyNote = studyNotes.createStudyNote(userId, {
+      labelIds: [biology.id],
+      sourceBody: "Cell respiration is the source context.",
+      sourceTitle: "Cell respiration source",
+    });
+    const updatedStudyNote = studyNotes.updateStudyNote(userId, studyNote.id, {
+      acronyms: [{ description: "ATP: Adenosine triphosphate" }],
+      expectedAnswer: "ATP is the expected answer.",
+      labelIds: [biology.id],
+      metaphors: [{ description: "ATP acts like a rechargeable battery." }],
+      prompt: "What molecule stores transferable energy?",
+      sourceBody: "Cell respiration is the source context.",
+      sourceTitle: "Cell respiration source",
+    });
+
+    expect(() =>
+      recall.startFlashCardSession({
+        noteIds: [updatedStudyNote.sourceNoteId],
+        userId,
+      }),
+    ).toThrowError(expect.objectContaining({ code: "not_found" }));
+
+    const session = recall.startFlashCardSession({
+      studyNoteIds: [updatedStudyNote.id],
+      userId,
+    });
+
+    studyNotes.updateStudyNote(userId, updatedStudyNote.id, {
+      acronyms: [],
+      expectedAnswer: "Changed answer",
+      labelIds: [],
+      metaphors: [],
+      prompt: "Changed prompt",
+      sourceBody: "Changed source body",
+      sourceTitle: "Changed source title",
+    });
+
+    expect(session).toMatchObject({
+      id: "session-study-note-start",
+      notes: [
+        {
+          body: "ATP is the expected answer.",
+          expectedAnswer: "ATP is the expected answer.",
+          id: updatedStudyNote.id,
+          labelIds: [biology.id],
+          labels: [{ id: biology.id, name: "Biology" }],
+          prompt: "What molecule stores transferable energy?",
+          source: {
+            body: "Cell respiration is the source context.",
+            id: updatedStudyNote.sourceNoteId,
+            title: "Cell respiration source",
+          },
+          sourceNoteId: updatedStudyNote.sourceNoteId,
+          title: "What molecule stores transferable energy?",
+        },
+      ],
+      questions: [
+        {
+          noteId: updatedStudyNote.id,
+          noteSnapshot: {
+            expectedAnswer: "ATP is the expected answer.",
+            prompt: "What molecule stores transferable energy?",
+            source: {
+              body: "Cell respiration is the source context.",
+              title: "Cell respiration source",
+            },
+          },
+        },
+      ],
+    });
+    expect(recall.getSnapshot()).toMatchObject({
+      notes: [
+        {
+          expectedAnswer: "ATP is the expected answer.",
+          prompt: "What molecule stores transferable energy?",
+          source: {
+            body: "Cell respiration is the source context.",
+            title: "Cell respiration source",
+          },
+        },
+      ],
+    });
+  });
+
   it("does not start FlashCard sessions from label targets", () => {
     const storage = createMemoryStorage();
     const labels = createAppLabelsContext({

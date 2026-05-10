@@ -1,23 +1,40 @@
 import {
   AppAuthError,
-  type AppLanguagePreference,
   type AppSessionSnapshot,
   buildAnonymousSnapshot,
+  defaultUserTimeZone,
   getAppAuthError,
-  isLanguagePreference,
   type LoginInput,
+  normalizeUserLanguage,
   type RegisterInput,
+  type StudyIntensityPreference,
+  type StudyObjectivePreference,
   type UpdatePreferencesInput,
+  type UserLanguage,
+  type UserTimeZonePreference,
+  validateStudyIntensityPreference,
+  validateStudyObjectivePreference,
+  validateUserLanguagePreference,
+  validateUserTimeZonePreference,
 } from "./session-contract";
 import { createServerSessionService } from "./session-server-fns";
 
 export {
   AppAuthError,
-  type AppLanguagePreference,
   type AppSessionSnapshot,
   type AppSessionUser,
-  appLanguagePreferences,
+  defaultUserTimeZone,
+  fallbackUserLanguage,
   getAppAuthError,
+  type StudyIntensityPreference,
+  type StudyIntensityPreferenceOption,
+  type StudyObjectivePreference,
+  type StudyObjectivePreferenceOption,
+  studyIntensityPreferences,
+  studyObjectivePreferences,
+  type UserLanguage,
+  type UserTimeZonePreference,
+  userLanguagePreferences,
 } from "./session-contract";
 
 type SessionListener = () => void;
@@ -28,8 +45,11 @@ type MemoryStoredUserRecord = {
   email: string;
   passwordHash: string;
   passwordSalt: string;
-  interfaceLanguage: AppLanguagePreference;
-  studyLanguage: AppLanguagePreference;
+  userLanguage?: UserLanguage;
+  interfaceLanguage?: string;
+  studyObjective: StudyObjectivePreference;
+  studyIntensity: StudyIntensityPreference;
+  userTimeZone?: UserTimeZonePreference;
 };
 
 type MemoryStoredSessionRecord = {
@@ -138,8 +158,12 @@ function buildSnapshot(
       id: user.id,
       displayName: user.displayName,
       email: user.email,
-      interfaceLanguage: user.interfaceLanguage,
-      studyLanguage: user.studyLanguage,
+      userLanguage: normalizeUserLanguage(
+        user.userLanguage ?? user.interfaceLanguage,
+      ),
+      studyObjective: user.studyObjective,
+      studyIntensity: user.studyIntensity,
+      userTimeZone: user.userTimeZone ?? defaultUserTimeZone,
     },
   };
 }
@@ -197,20 +221,6 @@ function validateEmail(email: string): string {
   return normalizedEmail;
 }
 
-function validateLanguagePreference(
-  value: string,
-  fieldLabel: string,
-): AppLanguagePreference {
-  if (!isLanguagePreference(value)) {
-    throw new AppAuthError(
-      "invalid_input",
-      `${fieldLabel} must be one of the supported language options.`,
-    );
-  }
-
-  return value;
-}
-
 function validatePilotRegistrationCode(
   providedCode: string,
   expectedCode: string,
@@ -265,6 +275,23 @@ function issueSessionForUser(
 
 export function hasActiveSession(session: AppSessionSnapshot): boolean {
   return session.user !== null;
+}
+
+export function resolveProtectedSessionSnapshot({
+  routedSessionSnapshot,
+  sessionSnapshot,
+}: Readonly<{
+  routedSessionSnapshot?: AppSessionSnapshot;
+  sessionSnapshot: AppSessionSnapshot;
+}>): AppSessionSnapshot {
+  if (
+    hasActiveSession(sessionSnapshot) ||
+    routedSessionSnapshot === undefined
+  ) {
+    return sessionSnapshot;
+  }
+
+  return routedSessionSnapshot;
 }
 
 export function createGuestSessionContext(): AppSessionContext {
@@ -349,6 +376,8 @@ export function createMemorySessionService(
       email,
       password,
       pilotRegistrationCode: providedRegistrationCode,
+      userLanguage,
+      userTimeZone,
     }) => {
       const safeDisplayName = validateDisplayName(displayName);
       const safeEmail = validateEmail(email);
@@ -357,6 +386,8 @@ export function createMemorySessionService(
         providedRegistrationCode,
         pilotRegistrationCode,
       );
+      const safeUserTimeZone = validateUserTimeZonePreference(userTimeZone);
+      const safeUserLanguage = normalizeUserLanguage(userLanguage);
 
       if (
         store.users.some((user) => normalizeEmail(user.email) === safeEmail)
@@ -378,8 +409,10 @@ export function createMemorySessionService(
           safePassword,
           passwordSalt,
         ),
-        interfaceLanguage: "en",
-        studyLanguage: "en",
+        userLanguage: safeUserLanguage,
+        studyObjective: null,
+        studyIntensity: null,
+        userTimeZone: safeUserTimeZone,
       };
 
       store.users.push(nextUser);
@@ -389,8 +422,10 @@ export function createMemorySessionService(
     },
     updatePreferences: async ({
       displayName,
-      interfaceLanguage,
-      studyLanguage,
+      userLanguage,
+      studyObjective,
+      studyIntensity,
+      userTimeZone,
     }) => {
       const activeUser = readSessionUser(cookie, store);
 
@@ -399,14 +434,12 @@ export function createMemorySessionService(
       }
 
       const safeDisplayName = validateDisplayName(displayName);
-      const safeInterfaceLanguage = validateLanguagePreference(
-        interfaceLanguage,
-        "Interface language",
-      );
-      const safeStudyLanguage = validateLanguagePreference(
-        studyLanguage,
-        "Study language",
-      );
+      const safeUserLanguage = validateUserLanguagePreference(userLanguage);
+      const safeStudyObjective =
+        validateStudyObjectivePreference(studyObjective);
+      const safeStudyIntensity =
+        validateStudyIntensityPreference(studyIntensity);
+      const safeUserTimeZone = validateUserTimeZonePreference(userTimeZone);
       const userIndex = store.users.findIndex(
         (user) => user.id === activeUser.id,
       );
@@ -418,8 +451,10 @@ export function createMemorySessionService(
       const nextUser: MemoryStoredUserRecord = {
         ...store.users[userIndex],
         displayName: safeDisplayName,
-        interfaceLanguage: safeInterfaceLanguage,
-        studyLanguage: safeStudyLanguage,
+        userLanguage: safeUserLanguage,
+        studyObjective: safeStudyObjective,
+        studyIntensity: safeStudyIntensity,
+        userTimeZone: safeUserTimeZone,
       };
 
       store.users[userIndex] = nextUser;

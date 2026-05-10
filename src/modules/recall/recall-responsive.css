@@ -115,7 +115,6 @@
     grid-template-columns: 1.8rem minmax(0, 1fr) auto;
     grid-template-areas:
       "index main expander"
-      ". score expander"
       ". rating expander";
     align-items: start;
     row-gap: 0.35rem;
@@ -130,13 +129,7 @@
     grid-area: main;
   }
 
-  .recall-selected-result__row--question
-    .recall-selected-result__question-score {
-    grid-area: score;
-  }
-
-  .recall-selected-result__row--question
-    .recall-selected-result__question-rating {
+  .recall-selected-result__row--question .recall-selected-result__row-pill {
     grid-area: rating;
   }
 
@@ -145,17 +138,7 @@
     align-self: center;
   }
 
-  .recall-selected-result__actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .recall-selected-result__actions .notes-action {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .recall-selected-result__start {
-    min-width: 0;
+  .recall-selected-result__question-detail {
+    padding-left: 0.85rem;
   }
 }
