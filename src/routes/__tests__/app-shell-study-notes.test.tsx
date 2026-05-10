@@ -1,14 +1,64 @@
 // @vitest-environment jsdom
 
-import { act, fireEvent, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { createAppFocusContext } from "../../modules/focus";
-import { createAppLabelsContext } from "../../modules/labels/label-management/labels";
+import {
+  type AppLabel,
+  createAppLabelsContext,
+} from "../../modules/labels/label-management/labels";
+import {
+  type AppPersistentLabelsService,
+  createPersistentLabelsContext,
+  createReadonlyLabelsContext,
+} from "../../modules/labels/persistent-labels";
 import { createAppNotesContext } from "../../modules/notes";
 import { createAppRecallContext } from "../../modules/recall";
 import { createAppStudyNotesContext } from "../../modules/study-notes";
 import { renderRoute } from "./app-shell-test-support";
+
+function createUnusedPersistentLabelMutation() {
+  return async () => {
+    throw new Error("This persistent label mutation should not be called.");
+  };
+}
+
+function createTestPersistentLabelsService(
+  initialLabels: readonly AppLabel[],
+): AppPersistentLabelsService {
+  return {
+    addParent: vi.fn<AppPersistentLabelsService["addParent"]>(
+      createUnusedPersistentLabelMutation(),
+    ),
+    createLabel: vi.fn<AppPersistentLabelsService["createLabel"]>(
+      createUnusedPersistentLabelMutation(),
+    ),
+    deleteLabel: vi.fn<AppPersistentLabelsService["deleteLabel"]>(
+      createUnusedPersistentLabelMutation(),
+    ),
+    listLabels: vi.fn<AppPersistentLabelsService["listLabels"]>(async () =>
+      [...initialLabels].sort((left, right) =>
+        left.name.localeCompare(right.name),
+      ),
+    ),
+    removeParent: vi.fn<AppPersistentLabelsService["removeParent"]>(
+      createUnusedPersistentLabelMutation(),
+    ),
+    renameLabel: vi.fn<AppPersistentLabelsService["renameLabel"]>(
+      createUnusedPersistentLabelMutation(),
+    ),
+    updateLabel: vi.fn<AppPersistentLabelsService["updateLabel"]>(
+      createUnusedPersistentLabelMutation(),
+    ),
+  };
+}
 
 describe("authenticated Study Notes workspace", () => {
   it("renders Study Notes as the primary workspace with source context below the Study Note fields", async () => {
@@ -50,6 +100,9 @@ describe("authenticated Study Notes workspace", () => {
     expect(
       within(catalog).getByRole("button", { name: "Retrieval practice" }),
     ).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "Start Focus" })).toHaveClass(
+      "notes-action-primary",
+    );
 
     expect(screen.getByLabelText("Prompt")).toHaveValue("Retrieval practice");
     expect(screen.getByLabelText("Expected answer")).toHaveValue(
@@ -61,12 +114,85 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.getByLabelText("Acronym")).toHaveValue(
       "RP means Retrieval Practice.",
     );
-    expect(screen.getByLabelText("Source title")).toHaveValue(
+    expect(screen.getByLabelText("Explanation title")).toHaveValue(
       "Retrieval practice",
     );
-    expect(screen.getByLabelText("Source body")).toHaveValue(
+    expect(screen.getByLabelText("Explanation")).toHaveValue(
       "Testing retrieval strengthens durable recall.",
     );
+    expect(screen.getByPlaceholderText("Prompt")).toHaveAccessibleName(
+      "Prompt",
+    );
+    expect(screen.getByPlaceholderText("Expected answer")).toHaveAccessibleName(
+      "Expected answer",
+    );
+    expect(screen.getByPlaceholderText("Metaphor")).toHaveAccessibleName(
+      "Metaphor",
+    );
+    expect(screen.getByPlaceholderText("Acronym")).toHaveAccessibleName(
+      "Acronym",
+    );
+    expect(
+      screen.getByPlaceholderText("Explanation title"),
+    ).toHaveAccessibleName("Explanation title");
+    expect(screen.getByPlaceholderText("Explanation")).toHaveAccessibleName(
+      "Explanation",
+    );
+    expect(
+      screen.queryByRole("heading", { level: 2, name: "Memory hooks" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", {
+        level: 2,
+        name: "Reference explanation",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("loads persistent Labels on first direct Study Notes entry", async () => {
+    const persistentLabelsService = createTestPersistentLabelsService([
+      {
+        id: "label-biology",
+        name: "Biology",
+        parentIds: [],
+      },
+    ]);
+    const persistentLabelsContext = createPersistentLabelsContext({
+      service: persistentLabelsService,
+    });
+    const labelsContext = createReadonlyLabelsContext(persistentLabelsContext);
+    const studyNotesContext = createAppStudyNotesContext({
+      getOwnedLabelIdsForUser: (ownerId) =>
+        labelsContext.getLabelsForUser(ownerId).map((label) => label.id),
+      keyPrefix: `test-study-notes-persistent-labels-${Math.random()
+        .toString(36)
+        .slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-direct-study-notes-labels";
+
+    studyNotesContext.createStudyNote(userId, {
+      sourceBody: "Labels should be ready on direct Study Notes entry.",
+      sourceTitle: "Direct labels hydration",
+    });
+
+    renderRoute("/study-notes", {
+      labelsContext,
+      persistentLabelsContext,
+      session: {
+        user: {
+          displayName: "Jordan Labels",
+          email: "jordan.labels@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+      studyNotesContext,
+    });
+
+    expect(await screen.findByLabelText("Biology")).toBeInTheDocument();
+    expect(screen.queryByText("No Labels yet.")).not.toBeInTheDocument();
+    expect(persistentLabelsService.listLabels).toHaveBeenCalledOnce();
   });
 
   it("creates, edits, and saves a Study Note without rewriting source fields into Study Note fields", async () => {
@@ -91,6 +217,12 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "New Study Note" }),
     );
+    await waitFor(() =>
+      expect(screen.getByLabelText("Prompt")).toHaveValue("New Study Note"),
+    );
+    expect(screen.getByPlaceholderText("Expected answer")).toHaveValue("");
+    expect(screen.getByPlaceholderText("Explanation")).toHaveValue("");
+
     fireEvent.change(screen.getByLabelText("Prompt"), {
       target: { value: "What should I recall first?" },
     });
@@ -103,10 +235,10 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.change(screen.getByLabelText("Acronym"), {
       target: { value: "RBR means Recall Before Reading." },
     });
-    fireEvent.change(screen.getByLabelText("Source title"), {
+    fireEvent.change(screen.getByLabelText("Explanation title"), {
       target: { value: "Edited source title" },
     });
-    fireEvent.change(screen.getByLabelText("Source body"), {
+    fireEvent.change(screen.getByLabelText("Explanation"), {
       target: { value: "Edited source body." },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -124,10 +256,10 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.getByLabelText("Acronym")).toHaveValue(
       "RBR means Recall Before Reading.",
     );
-    expect(screen.getByLabelText("Source title")).toHaveValue(
+    expect(screen.getByLabelText("Explanation title")).toHaveValue(
       "Edited source title",
     );
-    expect(screen.getByLabelText("Source body")).toHaveValue(
+    expect(screen.getByLabelText("Explanation")).toHaveValue(
       "Edited source body.",
     );
   });
@@ -231,7 +363,7 @@ describe("authenticated Study Notes workspace", () => {
 
     fireEvent.click(
       await screen.findByRole("button", {
-        name: "Add Study Note from this source",
+        name: "Add Study Note from this explanation",
       }),
     );
 
@@ -239,7 +371,7 @@ describe("authenticated Study Notes workspace", () => {
       screen.getAllByRole("button", { name: "Shared practice source" }),
     ).toHaveLength(2);
     expect(
-      screen.getByText("Shared source: 2 Study Notes"),
+      screen.getByText("Shared explanation: 2 Study Notes"),
     ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Prompt"), {
@@ -251,7 +383,7 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Saved");
-    expect(screen.getByLabelText("Source body")).toHaveValue(
+    expect(screen.getByLabelText("Explanation")).toHaveValue(
       "One source can support several practice targets.",
     );
 
@@ -262,14 +394,14 @@ describe("authenticated Study Notes workspace", () => {
     });
     expect(within(catalog).getAllByRole("button")).toHaveLength(1);
     expect(
-      screen.queryByText("Shared source: 2 Study Notes"),
+      screen.queryByText("Shared explanation: 2 Study Notes"),
     ).not.toBeInTheDocument();
 
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValueOnce(false);
     fireEvent.click(screen.getByRole("button", { name: "Delete Study Note" }));
 
     expect(confirmSpy).toHaveBeenCalledWith(
-      "Delete this last Study Note and its source Note?",
+      "Delete this last Study Note and its reference explanation?",
     );
     expect(within(catalog).getAllByRole("button")).toHaveLength(1);
 

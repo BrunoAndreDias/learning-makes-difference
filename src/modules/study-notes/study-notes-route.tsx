@@ -7,7 +7,10 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import { FloatingTextarea } from "../../design-system/floating-textarea";
+import { ListCard } from "../../design-system/list-card";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
+import { FocusSessionStartControl } from "../focus";
 import type { AppLabel } from "../labels/label-management/labels";
 import "../notes/notes-workspace/notes-editor-route.css";
 import "../notes/notes-workspace/notes-form-foundation.css";
@@ -109,6 +112,11 @@ type StudyNoteLearningLabels = {
   practice: string | null;
 };
 
+type StudyNoteListDescriptionLine = {
+  id: "due" | "last-recalled" | "practice" | "source";
+  text: string;
+};
+
 function getStudyNoteLearningLabels(
   learningState: StudyNoteLearningState,
 ): StudyNoteLearningLabels {
@@ -118,6 +126,20 @@ function getStudyNoteLearningLabels(
     lastRecalled: formatLastRecalledLabel(learningState.lastRecalledAt),
     practice: formatStudyNotePracticeSignalLabel(learningState),
   };
+}
+
+function getStudyNoteListDescriptionLines(
+  studyNote: AppStudyNote,
+  learningLabels: StudyNoteLearningLabels | null,
+): StudyNoteListDescriptionLine[] {
+  const lines: StudyNoteListDescriptionLine[] = [
+    { id: "source", text: studyNote.source.title },
+    { id: "last-recalled", text: learningLabels?.lastRecalled ?? "" },
+    { id: "due", text: learningLabels?.due ?? "" },
+    { id: "practice", text: learningLabels?.practice ?? "" },
+  ];
+
+  return lines.filter((line) => line.text !== "");
 }
 
 function getAttachedLabels(
@@ -172,6 +194,11 @@ function StudyNotesWorkspace() {
     recallContext.getSessionResultsSnapshot,
     recallContext.getSessionResultsSnapshot,
   );
+  useSyncExternalStore(
+    focusContext.subscribe,
+    focusContext.getSnapshot,
+    focusContext.getSnapshot,
+  );
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
   const [selectedLabelId, setSelectedLabelId] = useState("");
   const studyNotes = useMemo(
@@ -221,6 +248,8 @@ function StudyNotesWorkspace() {
           (studyNote) =>
             studyNote.sourceNoteId === selectedStudyNote.sourceNoteId,
         );
+  const activeFocusSession =
+    userId === null ? null : focusContext.getActiveSession({ userId });
   const [draft, setDraft] = useState<UpdateStudyNoteInput>(() =>
     createDraftFromStudyNote(selectedStudyNote),
   );
@@ -290,7 +319,7 @@ function StudyNotesWorkspace() {
 
     try {
       const createdStudyNote = await storeMutation.createStudyNote(userId, {
-        sourceBody: "Expected answer",
+        sourceBody: "",
         sourceTitle: "New Study Note",
       });
       setSelectedStudyNoteId(createdStudyNote.id);
@@ -329,7 +358,9 @@ function StudyNotesWorkspace() {
 
     if (
       !hasSiblingStudyNotes &&
-      !window.confirm("Delete this last Study Note and its source Note?")
+      !window.confirm(
+        "Delete this last Study Note and its reference explanation?",
+      )
     ) {
       return;
     }
@@ -430,21 +461,29 @@ function StudyNotesWorkspace() {
 
   return (
     <section className="notes-workspace study-notes-workspace">
-      <header className="notes-toolbar">
-        <div>
+      <header className="notes-workspace__page-header">
+        <div className="notes-workspace__header-copy">
           <p className="section-label">Workspace</p>
-          <h1>Study Notes</h1>
-          <p className="notes-toolbar__copy">
-            Practice targets with source context underneath.
-          </p>
+          <div className="notes-workspace__identity">
+            <h1>Study Notes</h1>
+            <p>Practice targets with reference explanations underneath.</p>
+          </div>
         </div>
-        <button
-          className="notes-action notes-action-primary"
-          onClick={() => void handleNewStudyNote()}
-          type="button"
-        >
-          New Study Note
-        </button>
+        <div className="notes-workspace__quick-actions">
+          <button
+            className="notes-action notes-action-primary"
+            onClick={() => void handleNewStudyNote()}
+            type="button"
+          >
+            New Study Note
+          </button>
+          <FocusSessionStartControl
+            activeFocusSession={activeFocusSession}
+            focus={focusContext}
+            persistentFocus={persistentFocusContext}
+            userId={userId}
+          />
+        </div>
       </header>
 
       <div className="notes-layout study-notes-layout">
@@ -477,7 +516,7 @@ function StudyNotesWorkspace() {
                 Create a Study Note to start practicing.
               </p>
             ) : (
-              <ul>
+              <ul className="notes-list__items">
                 {studyNotes.map((studyNote) => {
                   const learningState = learningStateByStudyNoteId.get(
                     studyNote.id,
@@ -486,40 +525,31 @@ function StudyNotesWorkspace() {
                     learningState === undefined
                       ? null
                       : getStudyNoteLearningLabels(learningState);
+                  const descriptionLines = getStudyNoteListDescriptionLines(
+                    studyNote,
+                    learningLabels,
+                  );
 
                   return (
                     <li key={studyNote.id}>
-                      <button
+                      <ListCard
                         aria-label={studyNote.prompt}
                         aria-current={
                           studyNote.id === selectedStudyNote?.id
                             ? "page"
                             : undefined
                         }
-                        className="notes-list__item"
+                        chip={learningLabels?.compact ?? "Study Note"}
+                        description={descriptionLines.map((line) => (
+                          <span key={line.id}>{line.text}</span>
+                        ))}
                         onClick={() => {
                           setSelectedStudyNoteId(studyNote.id);
                           setSaveStatus(null);
                         }}
-                        type="button"
-                      >
-                        <strong>{studyNote.prompt}</strong>
-                        <span>{studyNote.source.title}</span>
-                        {learningLabels === null ? null : (
-                          <span className="notes-list__item-status">
-                            <span>{learningLabels.compact}</span>
-                            {learningLabels.lastRecalled === null ? null : (
-                              <span>{learningLabels.lastRecalled}</span>
-                            )}
-                            {learningLabels.due === null ? null : (
-                              <span>{learningLabels.due}</span>
-                            )}
-                            {learningLabels.practice === null ? null : (
-                              <span>{learningLabels.practice}</span>
-                            )}
-                          </span>
-                        )}
-                      </button>
+                        selected={studyNote.id === selectedStudyNote?.id}
+                        title={studyNote.prompt}
+                      />
                     </li>
                   );
                 })}
@@ -537,7 +567,6 @@ function StudyNotesWorkspace() {
             <legend className="sr-only">Study Note</legend>
             <div className="notes-editor__header">
               <div className="notes-editor__title-stack">
-                <p className="section-label">Study Note</p>
                 <label className="notes-title-editor">
                   <span className="sr-only">Prompt</span>
                   <input
@@ -565,7 +594,7 @@ function StudyNotesWorkspace() {
                 onClick={() => void handleAddStudyNoteFromSource()}
                 type="button"
               >
-                Add Study Note from this source
+                Add Study Note from this explanation
               </button>
               <button
                 className="notes-action notes-action-danger"
@@ -578,23 +607,23 @@ function StudyNotesWorkspace() {
             </div>
 
             <div className="study-notes-editor__fields">
-              <label className="notes-form__field">
-                <span>Expected answer</span>
-                <textarea
-                  aria-label="Expected answer"
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      expectedAnswer: event.target.value,
-                    }))
-                  }
-                  rows={9}
-                  value={draft.expectedAnswer}
-                />
-              </label>
+              <FloatingTextarea
+                label="Expected answer"
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    expectedAnswer: event.target.value,
+                  }))
+                }
+                rows={9}
+                value={draft.expectedAnswer}
+              />
 
-              <section aria-label="Study Note labels">
-                <p className="section-label">Labels</p>
+              <section
+                aria-label="Study Note labels"
+                className="study-notes-editor__label-section"
+              >
+                <p className="study-notes-editor__group-label">Labels</p>
                 {availableLabels.length === 0 ? (
                   <p className="muted">No Labels yet.</p>
                 ) : (
@@ -626,74 +655,64 @@ function StudyNotesWorkspace() {
                 aria-label="Memory hooks"
                 className="study-notes-editor__memory-hooks"
               >
-                <div>
-                  <p className="section-label">Memory hooks</p>
-                  <h2>Memory hooks</h2>
-                </div>
-                <label className="notes-form__field">
-                  <span>Metaphor</span>
-                  <textarea
-                    aria-label="Metaphor"
-                    onChange={(event) => {
-                      updateDraftMemoryHook("metaphors", event.target.value);
-                    }}
-                    rows={3}
-                    value={draft.metaphors[0]?.description ?? ""}
-                  />
-                </label>
-                <label className="notes-form__field">
-                  <span>Acronym</span>
-                  <textarea
-                    aria-label="Acronym"
-                    onChange={(event) => {
-                      updateDraftMemoryHook("acronyms", event.target.value);
-                    }}
-                    rows={3}
-                    value={draft.acronyms[0]?.description ?? ""}
-                  />
-                </label>
+                <p className="study-notes-editor__group-label">Memory hooks</p>
+                <FloatingTextarea
+                  label="Metaphor"
+                  onChange={(event) => {
+                    updateDraftMemoryHook("metaphors", event.target.value);
+                  }}
+                  rows={3}
+                  value={draft.metaphors[0]?.description ?? ""}
+                />
+                <FloatingTextarea
+                  label="Acronym"
+                  onChange={(event) => {
+                    updateDraftMemoryHook("acronyms", event.target.value);
+                  }}
+                  rows={3}
+                  value={draft.acronyms[0]?.description ?? ""}
+                />
               </section>
 
               <section
-                aria-label="Source Note"
+                aria-label="Reference explanation"
                 className="study-notes-editor__source"
               >
                 <div>
-                  <p className="section-label">Source Note</p>
-                  <h2>Source Note</h2>
+                  <p className="study-notes-editor__group-label">
+                    Reference explanation
+                  </p>
                   {selectedSourceStudyNotes.length > 1 ? (
                     <p className="muted study-notes-editor__shared-source">
-                      {`Shared source: ${selectedSourceStudyNotes.length} Study Notes`}
+                      {`Shared explanation: ${selectedSourceStudyNotes.length} Study Notes`}
                     </p>
                   ) : null}
                 </div>
                 <label className="notes-form__field">
-                  <span>Source title</span>
+                  <span className="sr-only">Explanation title</span>
                   <input
-                    aria-label="Source title"
+                    aria-label="Explanation title"
                     onChange={(event) =>
                       setDraft((current) => ({
                         ...current,
                         sourceTitle: event.target.value,
                       }))
                     }
+                    placeholder="Explanation title"
                     value={draft.sourceTitle}
                   />
                 </label>
-                <label className="notes-form__field">
-                  <span>Source body</span>
-                  <textarea
-                    aria-label="Source body"
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        sourceBody: event.target.value,
-                      }))
-                    }
-                    rows={8}
-                    value={draft.sourceBody}
-                  />
-                </label>
+                <FloatingTextarea
+                  label="Explanation"
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      sourceBody: event.target.value,
+                    }))
+                  }
+                  rows={8}
+                  value={draft.sourceBody}
+                />
               </section>
             </div>
           </fieldset>

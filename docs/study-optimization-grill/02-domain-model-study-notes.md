@@ -18,7 +18,7 @@ The blueprint proposed that a Note is source material and a Study Item is the ob
 Resolved project language:
 
 ```text
-Note = source concept or source explanation
+Note = source explanation or context behind one or more Study Notes
 Study Note = trainable prompt and expected answer derived from a Note
 Question = prompt inside a RecallSession
 SessionResult = completed RecallSession snapshot
@@ -43,8 +43,8 @@ Note
 Study Note
 -> one Note
 -> many Labels
--> many Metaphors
--> many Acronyms
+-> optional Metaphor
+-> optional Acronym
 -> Learning State
 -> optional Due for Recall state
 
@@ -118,13 +118,14 @@ Recommended migration from the current app:
 
 1. Add or finish Study Note storage.
 2. Ensure every saved Note has one default Study Note.
-3. Default Study Note prompt comes from the source Note title.
+3. Default Study Note prompt can come from the source Note title when a source Note title exists.
 4. Default Study Note expected answer comes from the source Note body.
 5. Existing recall results remain historical SessionResult snapshots.
 6. New RecallSessions target Study Notes while still showing source Note context.
 7. Existing Note label assignments may be copied to each Note's default Study Note; because current pilot data is disposable, resetting the database is also acceptable if simpler.
 
 This keeps the migration vertical and avoids forcing Users to split every existing Note immediately.
+Resolved for the current pilot: old data may be erased instead of migrated.
 
 ## Resolved Baseline
 
@@ -140,36 +141,44 @@ These should not be re-grilled in this packet:
 8. Deleting the last Study Note for a source Note requires confirmation to delete both.
 9. Metaphors and Acronyms are Study Note-owned memory aids, not standalone workspace destinations.
 10. `Question` remains the domain term for a prompt inside a RecallSession.
+11. Study Notes remain untyped in v1; prompt shape does not create a stored Study Note type until templates need behavior.
+12. A saved Study Note may be incomplete while editing, but it is recallable only when it has a non-empty expected answer.
+13. Incomplete Study Notes are not Due for Recall and do not show normal Learning State copy; they show completion-oriented copy such as "Add expected answer".
+14. A Study Note with a non-empty expected answer is recallable even if its source Note body is empty.
+15. A Study Note cannot be saved without a prompt.
+16. A source Note title is optional in v1; the required Study Note prompt is the recall-facing label.
+17. An untitled source Note derives its fallback display name live from the oldest created linked Study Note prompt; the empty source title field itself uses neutral copy such as "Untitled source".
+18. One Note may support several Study Notes when the source explanation is cohesive and the Study Notes are closely related. Split into separate Notes only when the source context no longer reads as one coherent explanation.
 
 ## Decisions To Grill
 
 1. Should Study Note type be explicit, or can prompt shape remain untyped until templates exist?
 
-Recommended answer: Keep type optional or broad until templates and cloze creation need it.
+Resolved answer: Keep Study Notes untyped in v1.
 
 2. Should scheduling fields live directly on Study Note?
 
-Recommended answer: Store enough scheduling fields on Study Note for fast Recall Today selection, but keep historical recall evidence in Questions, SessionResults, or a separately grilled attempt table.
+Resolved answer: Keep deriving Learning State and Due for Recall from recall evidence for now. Add persisted scheduling fields to Study Notes only when an actual scheduler assigns dates.
 
 3. Does the app need a separate recall-attempt table beyond Questions inside SessionResults?
 
-Recommended answer: Only if scheduling, Learning State, or analytics become awkward to compute from SessionResult snapshots.
+Resolved answer: No separate recall-attempt table now. Questions inside SessionResults remain the source of recall evidence.
 
 4. Should "Needs practice" be stored, derived, or both?
 
-Recommended answer: Derive from latest recall evidence for correctness; persist only a cheap projection if filtering requires it.
+Resolved answer: Derive "Needs practice" from recall evidence. Persist only a cheap projection later if filtering requires it.
 
 5. How should Metaphors and Acronyms become practice prompts?
 
-Recommended answer: They remain memory aids by default. The User can create a Study Note that practices a Metaphor or Acronym when that memory aid itself needs recall.
+Resolved answer: They remain support material only in v1. They are not automatically turned into practice prompts.
 
 6. How much UI should warn about shared source Notes?
 
-Recommended answer: Show clear shared-source context before source Note edits, but do not block normal editing.
+Resolved answer: Show clear shared-source context before source Note edits, but do not block normal editing. Confirmation is reserved for destructive actions such as deleting the last Study Note and source Note.
 
 7. Should current code migrate old records or reset pilot data?
 
-Recommended answer: Prefer the simplest safe migration because current pilot data is disposable, but preserve historical SessionResult snapshots if they already exist in a target environment.
+Resolved answer: Reset old pilot data. No backfill is required for current environments.
 
 ## ADR Status
 
