@@ -78,6 +78,15 @@ function createSingleHookDraft(description: string) {
   return [{ description }];
 }
 
+function getAttachedLabels(
+  labels: readonly AppLabel[],
+  labelIds: readonly string[],
+) {
+  const attachedLabelIds = new Set(labelIds);
+
+  return labels.filter((label) => attachedLabelIds.has(label.id));
+}
+
 function StudyNotesWorkspace() {
   const studyNotesContext = useRouteContext({
     from: "/_protected/study-notes",
@@ -307,23 +316,22 @@ function StudyNotesWorkspace() {
     }
 
     const input = {
-      labels: labelsContext
-        .getLabelsForUser(userId)
-        .filter((label) => studyNote.labelIds.includes(label.id)),
+      labels: getAttachedLabels(
+        labelsContext.getLabelsForUser(userId),
+        studyNote.labelIds,
+      ),
       studyNote,
     };
 
-    if (persistentFocusContext === undefined) {
-      focusContext.captureStudyNoteStudyActivity({
-        ...input,
-        userId,
-      });
+    if (persistentFocusContext !== undefined) {
+      await persistentFocusContext.captureStudyNoteStudyActivity(userId, input);
       return;
     }
 
-    if (persistentFocusContext !== undefined) {
-      await persistentFocusContext.captureStudyNoteStudyActivity(userId, input);
-    }
+    focusContext.captureStudyNoteStudyActivity({
+      ...input,
+      userId,
+    });
   }
 
   function handleError(error: unknown) {

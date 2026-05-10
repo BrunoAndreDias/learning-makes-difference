@@ -936,16 +936,39 @@ function isRunningFocusInterval(session: StoredFocusSession) {
   );
 }
 
+function getAttachedLabelSnapshots(
+  labels: readonly AppLabel[],
+  labelIds: readonly string[],
+) {
+  const attachedLabelIds = new Set(labelIds);
+
+  return labels
+    .filter((label) => attachedLabelIds.has(label.id))
+    .map(cloneLabel);
+}
+
+function mergeLabelSnapshots(
+  existingLabels: readonly AppLabel[],
+  nextLabels: readonly AppLabel[],
+) {
+  const labelsById = new Map(
+    existingLabels.map((label) => [label.id, cloneLabel(label)]),
+  );
+
+  for (const label of nextLabels) {
+    labelsById.set(label.id, cloneLabel(label));
+  }
+
+  return [...labelsById.values()];
+}
+
 function mergeNoteFocusTarget(
   currentTargets: readonly FocusTarget[],
   input: CaptureNoteStudyActivityInput,
 ) {
-  const noteLabelIds = new Set(input.note.labelIds);
   const nextTarget: FocusTarget = {
     kind: "Note",
-    labels: input.labels
-      .filter((label) => noteLabelIds.has(label.id))
-      .map(cloneLabel),
+    labels: getAttachedLabelSnapshots(input.labels, input.note.labelIds),
     note: cloneNote(input.note),
   };
   const existingTarget = currentTargets.find(
@@ -957,17 +980,9 @@ function mergeNoteFocusTarget(
     return [...currentTargets.map(cloneFocusTarget), nextTarget];
   }
 
-  const labelsById = new Map(
-    existingTarget.labels.map((label) => [label.id, cloneLabel(label)]),
-  );
-
-  for (const label of nextTarget.labels) {
-    labelsById.set(label.id, cloneLabel(label));
-  }
-
   const mergedTarget: FocusTarget = {
     kind: "Note",
-    labels: [...labelsById.values()],
+    labels: mergeLabelSnapshots(existingTarget.labels, nextTarget.labels),
     note: cloneNote(nextTarget.note),
   };
 
@@ -984,12 +999,9 @@ function mergeStudyNoteFocusTarget(
   currentTargets: readonly FocusTarget[],
   input: CaptureStudyNoteStudyActivityInput,
 ) {
-  const studyNoteLabelIds = new Set(input.studyNote.labelIds);
   const nextTarget: FocusTarget = {
     kind: "StudyNote",
-    labels: input.labels
-      .filter((label) => studyNoteLabelIds.has(label.id))
-      .map(cloneLabel),
+    labels: getAttachedLabelSnapshots(input.labels, input.studyNote.labelIds),
     sourceNote: { ...input.studyNote.source },
     studyNote: cloneStudyNote(input.studyNote),
   };
@@ -1002,19 +1014,11 @@ function mergeStudyNoteFocusTarget(
     return [...currentTargets.map(cloneFocusTarget), nextTarget];
   }
 
-  const labelsById = new Map(
-    existingTarget.labels.map((label) => [label.id, cloneLabel(label)]),
-  );
-
-  for (const label of nextTarget.labels) {
-    labelsById.set(label.id, cloneLabel(label));
-  }
-
   const mergedTarget: FocusTarget = {
     kind: "StudyNote",
-    labels: [...labelsById.values()],
-    sourceNote: { ...input.studyNote.source },
-    studyNote: cloneStudyNote(input.studyNote),
+    labels: mergeLabelSnapshots(existingTarget.labels, nextTarget.labels),
+    sourceNote: { ...nextTarget.sourceNote },
+    studyNote: cloneStudyNote(nextTarget.studyNote),
   };
 
   return currentTargets.map((target) => {
@@ -1349,7 +1353,7 @@ export function createAppFocusContext(
         noteSnapshots: input.recallSession.notes,
         userId: input.userId,
       }),
-      notes: input.recallSession.notes.map(cloneNote),
+      notes: input.recallSession.notes.map(cloneStudyActivityNoteSnapshot),
       recallSession: {
         createdAt: input.recallSession.createdAt,
         id: input.recallSession.id,
