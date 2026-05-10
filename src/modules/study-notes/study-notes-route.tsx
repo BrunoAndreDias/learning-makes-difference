@@ -81,7 +81,7 @@ function setLabelIdSelection(
   return labelIds.filter((currentLabelId) => currentLabelId !== labelId);
 }
 
-function createSingleHookDraft(description: string) {
+function createSingleSupportDescriptionDraft(description: string) {
   if (description.trim().length === 0) {
     return [];
   }
@@ -458,13 +458,13 @@ function StudyNotesWorkspace() {
     throw error;
   }
 
-  function updateDraftMemoryHook(
+  function updateDraftSupportDescription(
     field: "acronyms" | "metaphors",
     description: string,
   ) {
     setDraft((current) => ({
       ...current,
-      [field]: createSingleHookDraft(description),
+      [field]: createSingleSupportDescriptionDraft(description),
     }));
   }
 
@@ -658,7 +658,7 @@ function StudyNotesWorkspace() {
 
               <section
                 aria-label="Memory aid support descriptions"
-                className="study-notes-editor__memory-hooks"
+                className="study-notes-editor__memory-aids"
               >
                 <div>
                   <p className="section-label">Memory aids</p>
@@ -667,7 +667,10 @@ function StudyNotesWorkspace() {
                 <FloatingTextarea
                   label="Metaphor"
                   onChange={(event) => {
-                    updateDraftMemoryHook("metaphors", event.target.value);
+                    updateDraftSupportDescription(
+                      "metaphors",
+                      event.target.value,
+                    );
                   }}
                   rows={3}
                   value={draft.metaphors[0]?.description ?? ""}
@@ -675,7 +678,10 @@ function StudyNotesWorkspace() {
                 <FloatingTextarea
                   label="Acronym"
                   onChange={(event) => {
-                    updateDraftMemoryHook("acronyms", event.target.value);
+                    updateDraftSupportDescription(
+                      "acronyms",
+                      event.target.value,
+                    );
                   }}
                   rows={3}
                   value={draft.acronyms[0]?.description ?? ""}

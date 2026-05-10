@@ -624,7 +624,9 @@ describe("createStudyNotesService", () => {
         acronyms: [{ description: "ONE keeps the first target distinct." }],
         expectedAnswer: "Answer one",
         labelIds: [],
-        metaphors: [{ description: "First hook belongs to study one." }],
+        metaphors: [
+          { description: "First support description belongs to study one." },
+        ],
         prompt: "Prompt one",
         sourceBody: "One source can support several precise recall targets.",
         sourceTitle: "Shared source",
@@ -637,7 +639,9 @@ describe("createStudyNotesService", () => {
         acronyms: [{ description: "TWO keeps the second target distinct." }],
         expectedAnswer: "Answer two",
         labelIds: [],
-        metaphors: [{ description: "Second hook belongs to study two." }],
+        metaphors: [
+          { description: "Second support description belongs to study two." },
+        ],
         prompt: "Prompt two",
         sourceBody: "One source can support several precise recall targets.",
         sourceTitle: "Shared source",
@@ -654,13 +658,17 @@ describe("createStudyNotesService", () => {
       {
         acronyms: [{ description: "ONE keeps the first target distinct." }],
         id: "study-one",
-        metaphors: [{ description: "First hook belongs to study one." }],
+        metaphors: [
+          { description: "First support description belongs to study one." },
+        ],
         sourceNoteId: "source-shared",
       },
       {
         acronyms: [{ description: "TWO keeps the second target distinct." }],
         id: "study-two",
-        metaphors: [{ description: "Second hook belongs to study two." }],
+        metaphors: [
+          { description: "Second support description belongs to study two." },
+        ],
         sourceNoteId: "source-shared",
       },
     ]);
@@ -713,12 +721,14 @@ describe("createStudyNotesService", () => {
         {
           acronyms: [{ description: "TWO keeps the second target distinct." }],
           id: "study-two",
-          metaphors: [{ description: "Second hook belongs to study two." }],
+          metaphors: [
+            { description: "Second support description belongs to study two." },
+          ],
         },
       ],
       [
         {
-          description: "Second hook belongs to study two.",
+          description: "Second support description belongs to study two.",
           studyNoteId: "study-two",
         },
       ],

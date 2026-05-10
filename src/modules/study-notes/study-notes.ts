@@ -6,13 +6,17 @@ export type AppStudyNoteSource = {
   updatedAt: string;
 };
 
-type AppStudyNoteMemoryHook = {
+export type AppStudyNoteSupportDescription = {
   description: string;
 };
 
-export type AppStudyNoteMetaphor = AppStudyNoteMemoryHook;
+export const MAX_STUDY_NOTE_SUPPORT_DESCRIPTIONS_PER_KIND = 1;
 
-export type AppStudyNoteAcronym = AppStudyNoteMemoryHook;
+export type StudyNoteSupportDescriptionKind = "Acronym" | "Metaphor";
+
+export type AppStudyNoteMetaphor = AppStudyNoteSupportDescription;
+
+export type AppStudyNoteAcronym = AppStudyNoteSupportDescription;
 
 export type AppStudyNote = {
   acronyms: AppStudyNoteAcronym[];
@@ -187,31 +191,36 @@ function validateOwnedLabelIds(
   );
 }
 
-function validateHookCount(hooks: readonly unknown[], label: string) {
-  if (hooks.length <= 1) {
+function validateSupportDescriptionCount(
+  supportDescriptions: readonly unknown[],
+  kind: StudyNoteSupportDescriptionKind,
+) {
+  if (
+    supportDescriptions.length <= MAX_STUDY_NOTE_SUPPORT_DESCRIPTIONS_PER_KIND
+  ) {
     return;
   }
 
   throw new AppStudyNotesError(
     "invalid_input",
-    `Only one ${label.toLowerCase()} can be saved per Study Note.`,
+    `Only one ${kind.toLowerCase()} can be saved per Study Note.`,
   );
 }
 
-function validateHooks(
-  hooks: readonly { description: string }[] | undefined,
-  label: string,
-): AppStudyNoteMemoryHook[] {
-  const safeHooks = hooks ?? [];
-  validateHookCount(safeHooks, label);
+export function validateStudyNoteSupportDescriptions(
+  supportDescriptions: readonly { description: string }[] | undefined,
+  kind: StudyNoteSupportDescriptionKind,
+): AppStudyNoteSupportDescription[] {
+  const safeSupportDescriptions = supportDescriptions ?? [];
+  validateSupportDescriptionCount(safeSupportDescriptions, kind);
 
-  return safeHooks.map((hook) => {
-    const description = hook.description.trim();
+  return safeSupportDescriptions.map((supportDescription) => {
+    const description = supportDescription.description.trim();
 
     if (description.length === 0) {
       throw new AppStudyNotesError(
         "invalid_input",
-        `${label} description is required.`,
+        `${kind} description is required.`,
       );
     }
 
@@ -224,13 +233,13 @@ function validateHooks(
 function validateMetaphors(
   metaphors: readonly AppStudyNoteMetaphor[] | undefined,
 ): AppStudyNoteMetaphor[] {
-  return validateHooks(metaphors, "Metaphor");
+  return validateStudyNoteSupportDescriptions(metaphors, "Metaphor");
 }
 
 function validateAcronyms(
   acronyms: readonly AppStudyNoteAcronym[] | undefined,
 ): AppStudyNoteAcronym[] {
-  return validateHooks(acronyms, "Acronym");
+  return validateStudyNoteSupportDescriptions(acronyms, "Acronym");
 }
 
 type PersistedStudyNoteRecord = Omit<
@@ -349,18 +358,20 @@ function isStoredStudyNoteSource(value: unknown): value is AppStudyNoteSource {
   );
 }
 
-function isStoredMemoryHook(value: unknown): value is AppStudyNoteMemoryHook {
+function isStoredSupportDescription(
+  value: unknown,
+): value is AppStudyNoteSupportDescription {
   return isObjectRecord(value) && typeof value.description === "string";
 }
 
-function isStoredMemoryHooks(
+function isStoredSupportDescriptions(
   value: unknown,
-): value is AppStudyNoteMemoryHook[] {
-  return Array.isArray(value) && value.every(isStoredMemoryHook);
+): value is AppStudyNoteSupportDescription[] {
+  return Array.isArray(value) && value.every(isStoredSupportDescription);
 }
 
-function hasOptionalStoredMemoryHooks(value: unknown) {
-  return value === undefined || isStoredMemoryHooks(value);
+function hasOptionalStoredSupportDescriptions(value: unknown) {
+  return value === undefined || isStoredSupportDescriptions(value);
 }
 
 function isPersistedStudyNote(
@@ -368,14 +379,14 @@ function isPersistedStudyNote(
 ): value is PersistedStudyNoteRecord {
   return (
     isObjectRecord(value) &&
-    hasOptionalStoredMemoryHooks(value.acronyms) &&
+    hasOptionalStoredSupportDescriptions(value.acronyms) &&
     typeof value.createdAt === "string" &&
     typeof value.expectedAnswer === "string" &&
     typeof value.id === "string" &&
     (value.labelIds === undefined ||
       (Array.isArray(value.labelIds) &&
         value.labelIds.every((labelId) => typeof labelId === "string"))) &&
-    hasOptionalStoredMemoryHooks(value.metaphors) &&
+    hasOptionalStoredSupportDescriptions(value.metaphors) &&
     typeof value.prompt === "string" &&
     typeof value.sourceNoteId === "string" &&
     typeof value.updatedAt === "string" &&
