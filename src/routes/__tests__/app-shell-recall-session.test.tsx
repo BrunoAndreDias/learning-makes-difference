@@ -315,7 +315,7 @@ describe("authenticated recall workspace", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(screen.getByText("Expected answer")).toBeInTheDocument();
-    expect(screen.getByText("Reference explanation")).toBeInTheDocument();
+    expect(screen.getByText("Source context")).toBeInTheDocument();
   });
 
   it("uses FlashCard session self-rating semantics in selected Results review", async () => {

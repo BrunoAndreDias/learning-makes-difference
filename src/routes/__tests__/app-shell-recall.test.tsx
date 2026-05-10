@@ -948,6 +948,10 @@ describe("authenticated recall workspace", () => {
     fireEvent.change(screen.getByLabelText("Search Study Notes"), {
       target: { value: "lighthouse" },
     });
+    expect(screen.getByText("Metaphor description")).toBeInTheDocument();
+    expect(screen.getByText("Acronym description")).toBeInTheDocument();
+    expect(screen.queryByText("Metaphors")).toBeNull();
+    expect(screen.queryByText("Acronyms")).toBeNull();
     fireEvent.click(
       screen.getByRole("checkbox", { name: /Searchable Study Note/ }),
     );

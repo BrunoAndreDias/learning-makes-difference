@@ -62,7 +62,7 @@ describe("app study notes context", () => {
     ).toEqual([createdStudyNote]);
   });
 
-  it("keeps Study Note fields, labels, and memory hooks independent after creation", () => {
+  it("keeps Study Note fields, labels, and memory aids independent after creation", () => {
     const studyNotes = createAppStudyNotesContext({
       crypto: createDeterministicCrypto(),
       keyPrefix: "study-notes-independent-test",
@@ -140,6 +140,53 @@ describe("app study notes context", () => {
     );
   });
 
+  it("keeps Metaphor and Acronym create input to one support description each", () => {
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-single-memory-aid-create-test",
+      storage: createMemoryStorage(),
+    });
+
+    const createdStudyNote = studyNotes.createStudyNote("user-casey", {
+      acronyms: [{ description: "HIP keeps the structure memorable." }],
+      expectedAnswer: "It binds context for recall.",
+      metaphors: [
+        { description: "The hippocampus is a library index for memory." },
+      ],
+      prompt: "What does the hippocampus support?",
+      sourceBody: "The hippocampus helps bind memory context.",
+      sourceTitle: "Hippocampus",
+    });
+
+    expect(createdStudyNote).toMatchObject({
+      acronyms: [{ description: "HIP keeps the structure memorable." }],
+      metaphors: [
+        { description: "The hippocampus is a library index for memory." },
+      ],
+    });
+    expect(() =>
+      studyNotes.createStudyNote("user-casey", {
+        acronyms: [
+          { description: "HIP keeps the structure memorable." },
+          { description: "IDX means index." },
+        ],
+        expectedAnswer: "It binds context for recall.",
+        metaphors: [
+          { description: "The hippocampus is a library index for memory." },
+          { description: "The hippocampus is a checkout desk." },
+        ],
+        prompt: "What does the hippocampus support?",
+        sourceBody: "The hippocampus helps bind memory context.",
+        sourceTitle: "Hippocampus",
+      }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: "invalid_input",
+        message: "Only one acronym can be saved per Study Note.",
+      } satisfies Pick<AppStudyNotesError, "code" | "message">),
+    );
+  });
+
   it("keeps Study Notes recallable when their expected answer is filled and source body is blank", () => {
     const studyNotes = createAppStudyNotesContext({
       crypto: createDeterministicCrypto(),
@@ -162,6 +209,40 @@ describe("app study notes context", () => {
         title: "",
       },
     });
+  });
+
+  it("keeps Metaphor and Acronym update input to one support description each", () => {
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-single-memory-aid-update-test",
+      storage: createMemoryStorage(),
+    });
+    const createdStudyNote = studyNotes.createStudyNote("user-casey", {
+      expectedAnswer: "It binds context for recall.",
+      prompt: "What does the hippocampus support?",
+      sourceBody: "The hippocampus helps bind memory context.",
+      sourceTitle: "Hippocampus",
+    });
+
+    expect(() =>
+      studyNotes.updateStudyNote("user-casey", createdStudyNote.id, {
+        acronyms: [{ description: "HIP." }, { description: "CTX." }],
+        expectedAnswer: "It binds context for recall.",
+        labelIds: [],
+        metaphors: [
+          { description: "The hippocampus is a library index." },
+          { description: "The hippocampus is a checkout desk." },
+        ],
+        prompt: "What does the hippocampus support?",
+        sourceBody: "The hippocampus helps bind memory context.",
+        sourceTitle: "Hippocampus source",
+      }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: "invalid_input",
+        message: "Only one acronym can be saved per Study Note.",
+      } satisfies Pick<AppStudyNotesError, "code" | "message">),
+    );
   });
 
   it("adds sibling Study Notes from untitled sources with a saveable prompt", () => {

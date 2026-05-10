@@ -790,11 +790,13 @@ describe("recall session setup", () => {
       id: "session-study-note-start",
       notes: [
         {
+          acronyms: [{ description: "ATP: Adenosine triphosphate" }],
           body: "ATP is the expected answer.",
           expectedAnswer: "ATP is the expected answer.",
           id: updatedStudyNote.id,
           labelIds: [biology.id],
           labels: [{ id: biology.id, name: "Biology" }],
+          metaphors: [{ description: "ATP acts like a rechargeable battery." }],
           prompt: "What molecule stores transferable energy?",
           source: {
             body: "Cell respiration is the source context.",
@@ -831,6 +833,7 @@ describe("recall session setup", () => {
         },
       ],
     });
+    expect(session.questions).toHaveLength(1);
   });
 
   it("does not start FlashCard sessions from incomplete Study Notes", () => {

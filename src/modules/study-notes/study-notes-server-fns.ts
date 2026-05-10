@@ -15,10 +15,10 @@ const memoryHookSchema = z.object({
 });
 
 const createStudyNoteInputSchema = z.object({
-  acronyms: z.array(memoryHookSchema).optional(),
+  acronyms: z.array(memoryHookSchema).max(1).optional(),
   expectedAnswer: z.string().optional(),
   labelIds: z.array(z.string()).optional(),
-  metaphors: z.array(memoryHookSchema).optional(),
+  metaphors: z.array(memoryHookSchema).max(1).optional(),
   prompt: z.string().optional(),
   sourceBody: z.string(),
   sourceTitle: z.string(),
@@ -34,10 +34,10 @@ const deleteStudyNoteInputSchema = z.object({
 });
 
 const updateStudyNoteInputSchema = z.object({
-  acronyms: z.array(memoryHookSchema),
+  acronyms: z.array(memoryHookSchema).max(1),
   expectedAnswer: z.string(),
   labelIds: z.array(z.string()),
-  metaphors: z.array(memoryHookSchema),
+  metaphors: z.array(memoryHookSchema).max(1),
   prompt: z.string(),
   sourceBody: z.string(),
   sourceTitle: z.string(),

@@ -575,7 +575,7 @@ describe("createStudyNotesService", () => {
     ).rejects.toThrow("Study Notes can only be assigned");
   });
 
-  it("keeps memory hooks owned by each Study Note across shared sources, clearing, and account boundaries", async () => {
+  it("keeps memory aids owned by each Study Note across shared sources, clearing, and account boundaries", async () => {
     const { db, studyNotes } = await createStudyNotesHarness({
       now: () => TEST_UPDATED_AT,
       users: [
@@ -726,6 +726,72 @@ describe("createStudyNotesService", () => {
         {
           description: "TWO keeps the second target distinct.",
           studyNoteId: "study-two",
+        },
+      ],
+    ]);
+  });
+
+  it("persists one Metaphor description and one Acronym description per Study Note", async () => {
+    const { db, studyNotes } = await createStudyNotesHarness();
+
+    const createdStudyNote = await studyNotes.createStudyNote({
+      input: {
+        acronyms: [{ description: "HIP keeps the structure memorable." }],
+        metaphors: [
+          { description: "The hippocampus is a library index for memory." },
+        ],
+        sourceBody: "The hippocampus helps bind memory context.",
+        sourceTitle: "Hippocampus",
+      },
+      userId: "user-casey",
+    });
+
+    await expect(
+      studyNotes.updateStudyNote({
+        input: {
+          acronyms: [
+            { description: "HIP keeps the structure memorable." },
+            { description: "IDX means index." },
+          ],
+          expectedAnswer: "It binds context for recall.",
+          labelIds: [],
+          metaphors: [
+            { description: "The hippocampus is a library index for memory." },
+          ],
+          prompt: "What does the hippocampus support?",
+          sourceBody: "The hippocampus helps bind memory context.",
+          sourceTitle: "Hippocampus",
+          studyNoteId: createdStudyNote.id,
+        },
+        userId: "user-casey",
+      }),
+    ).rejects.toThrow("Only one acronym can be saved per Study Note.");
+    await expect(
+      studyNotes
+        .listStudyNotes({ userId: "user-casey" })
+        .then((listedStudyNotes) => listedStudyNotes[0]),
+    ).resolves.toMatchObject({
+      acronyms: [{ description: "HIP keeps the structure memorable." }],
+      metaphors: [
+        { description: "The hippocampus is a library index for memory." },
+      ],
+    });
+    await expect(
+      Promise.all([
+        db.select().from(studyNoteMetaphorsTable),
+        db.select().from(studyNoteAcronymsTable),
+      ]),
+    ).resolves.toMatchObject([
+      [
+        {
+          description: "The hippocampus is a library index for memory.",
+          studyNoteId: createdStudyNote.id,
+        },
+      ],
+      [
+        {
+          description: "HIP keeps the structure memorable.",
+          studyNoteId: createdStudyNote.id,
         },
       ],
     ]);

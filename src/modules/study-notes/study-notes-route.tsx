@@ -657,10 +657,13 @@ function StudyNotesWorkspace() {
               </section>
 
               <section
-                aria-label="Memory hooks"
+                aria-label="Memory aid support descriptions"
                 className="study-notes-editor__memory-hooks"
               >
-                <p className="study-notes-editor__group-label">Memory hooks</p>
+                <div>
+                  <p className="section-label">Memory aids</p>
+                  <h2>Support descriptions</h2>
+                </div>
                 <FloatingTextarea
                   label="Metaphor"
                   onChange={(event) => {

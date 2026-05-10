@@ -43,8 +43,8 @@ Note
 Study Note
 -> one Note
 -> many Labels
--> optional Metaphor
--> optional Acronym
+-> optional Metaphor description
+-> optional Acronym description
 -> Learning State
 -> optional Due for Recall state
 
@@ -69,9 +69,7 @@ type StudyNoteType =
   | "explanation"
   | "application"
   | "comparison"
-  | "cloze"
-  | "metaphor_prompt"
-  | "acronym_prompt";
+  | "cloze";
 
 type StudyNoteScheduleState =
   | "not_recalled_yet"

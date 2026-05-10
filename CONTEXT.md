@@ -40,14 +40,14 @@ Deleting the last Study Note for a source Note requires explicit confirmation to
 _Avoid_: Card, flashcard, quiz item
 
 **Metaphor**:
-A memory-aid description that maps a Study Note's recall target onto something familiar. A Study Note can have at most one Metaphor; a Metaphor cannot exist without its Study Note.
-If a Study Note seems to need several Metaphors, that is usually a sign that the Study Note is too broad and should be split into separate Study Notes.
+One optional support description that maps a Study Note's recall target onto something familiar. A Study Note can have at most one Metaphor description in v1; a Metaphor cannot exist without its Study Note.
+Needing several Metaphors is usually a sign that the Study Note is too broad and should be split into separate Study Notes.
 In v1, a Metaphor is support material only; it is not automatically turned into a practiced Study Note.
-_Avoid_: Analogy (use Metaphor)
+_Avoid_: Analogy (use Metaphor), description
 
 **Acronym**:
-A memory-aid mnemonic description created by the user and attached to a Study Note. A Study Note can have at most one Acronym; an Acronym cannot exist without its Study Note.
-If a Study Note seems to need several Acronyms, that is usually a sign that the Study Note is too broad and should be split into separate Study Notes.
+A memory-aid support description created by the user, attached to a Study Note. A Study Note can have at most one Acronym description in v1; an Acronym cannot exist without its Study Note.
+Needing several Acronyms is usually a sign that the Study Note is too broad and should be split into separate Study Notes.
 In v1, an Acronym is support material only; it is not automatically turned into a practiced Study Note.
 _Avoid_: Abbreviation, term definition
 
@@ -66,7 +66,7 @@ In v1, "Needs practice" is derived from recall evidence rather than stored as a 
 In v1, Learning State avoids harsh or broad labels such as "Weak", "Ready for review", or "Recently easy"; it prefers recall facts and soft action-oriented copy.
 Learning State does not itself name due states; scheduled recall belongs to **Due for Recall**.
 In v1, Learning State uses recall language in user-facing copy, such as "Last recalled"; it avoids "review" language.
-In v1, Learning State does not include Metaphor or Acronym counts; memory hooks remain Study Note support material, not recall evidence.
+In v1, Learning State does not include Metaphor or Acronym counts; memory aids remain Study Note support material, not recall evidence.
 Unsaved draft Notes do not have visible Learning State list metadata because they have not produced a saved Study Note yet.
 Incomplete Study Notes do not show normal Learning State copy; they show completion-oriented copy such as "Add expected answer" until they become recallable.
 Every saved Study Note has a Learning State; a saved Study Note with no recall evidence has the Learning State "Not recalled yet".

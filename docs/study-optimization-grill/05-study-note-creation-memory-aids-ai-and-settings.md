@@ -9,8 +9,8 @@
 - The default Study Note starts with the source Note title as its prompt and the full source Note body as its expected answer.
 - After creation, source Note edits do not automatically rewrite Study Note prompts or expected answers.
 - Metaphors and Acronyms attach to Study Notes and cannot exist without their Study Note.
-- A Study Note can have many Metaphors and many Acronyms.
-- Metaphors and Acronyms are memory aids, not standalone workspace destinations.
+- A Study Note can have at most one Metaphor description and at most one Acronym description in v1.
+- Metaphors and Acronyms are support material, not standalone workspace destinations or recall targets.
 - User Language, User Time Zone, Study Objective, and Study Intensity are accepted Settings concepts.
 - Study Objective and Study Intensity are profile context only in v1; they do not affect scheduling, analytics, Labels, FocusTargets, or RecallSessions.
 
@@ -37,7 +37,7 @@ User chooses New Study Note
 -> app creates one default Study Note
 -> User edits Study Note prompt and expected answer
 -> User edits source Note title and body below the Study Note fields
--> User can add Labels, Metaphors, and Acronyms
+-> User can add Labels, one Metaphor description, and one Acronym description
 -> User can add another Study Note from the same source Note
 ```
 
@@ -53,8 +53,6 @@ Candidate manual Study Note types:
 - Application
 - Comparison
 - Cloze
-- Metaphor prompt
-- Acronym prompt
 
 Recommended first manual types:
 
@@ -109,7 +107,7 @@ Accepted domain terms:
 
 ```text
 Metaphor = title + explanation that maps a Study Note's recall target onto something familiar
-Acronym = memory-aid mnemonic attached to a Study Note
+Acronym = memory-aid support description attached to a Study Note
 ```
 
 Candidate umbrella language:
@@ -139,7 +137,7 @@ type Metaphor = {
 
 Recommended rule:
 
-Use Metaphors and Acronyms as Study Note support material and possible hints, not as substitutes for recall.
+Use Metaphors and Acronyms as single Study Note support descriptions and possible hints, not as substitutes for recall.
 
 ## AI Policy
 
@@ -200,7 +198,7 @@ Do not add "new Notes enter recall automatically" as a setting under current lan
 1. Creating a New Study Note creates or uses the source Note behind it.
 2. Every saved Note has at least one default Study Note.
 3. Metaphors and Acronyms belong to Study Notes.
-4. A Study Note can have many Metaphors and many Acronyms.
+4. A Study Note can have at most one Metaphor description and at most one Acronym description in v1.
 5. Cloze creates a Study Note prompt and expected answer; it does not mutate the original source Note body.
 
 ## Decisions To Grill

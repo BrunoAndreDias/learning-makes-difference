@@ -314,6 +314,46 @@ describe("authenticated Study Notes workspace", () => {
     );
   });
 
+  it("presents Metaphor and Acronym as single support descriptions", async () => {
+    const studyNotesContext = createAppStudyNotesContext({
+      keyPrefix: `test-study-notes-memory-aids-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+
+    studyNotesContext.createStudyNote(userId, {
+      expectedAnswer: "Testing retrieval strengthens durable recall.",
+      prompt: "What strengthens durable recall?",
+      sourceBody: "Testing retrieval strengthens durable recall.",
+      sourceTitle: "Retrieval practice",
+    });
+
+    renderRoute("/study-notes", {
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+      studyNotesContext,
+    });
+
+    expect(
+      await screen.findByRole("region", {
+        name: "Memory aid support descriptions",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        level: 2,
+        name: "Support descriptions",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Memory hooks")).toBeNull();
+  });
+
   it("keeps blank source Note titles blank while showing the oldest Study Note prompt as the source display name", async () => {
     const studyNotesContext = createAppStudyNotesContext({
       keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
