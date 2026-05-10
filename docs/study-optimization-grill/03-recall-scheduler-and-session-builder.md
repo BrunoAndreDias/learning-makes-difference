@@ -1,34 +1,48 @@
 # Recall Scheduler And Session Builder
 
+## Current CONTEXT.md Baseline
+
+- RecallSessions target explicitly selected Study Notes.
+- The selected set is temporary and is not a saved deck, collection, or Label.
+- Study Notes are presented in random order inside a RecallSession.
+- A RecallSession snapshots target Study Notes, source Note references, and generated Questions when it starts.
+- Answer reveal shows the Study Note expected answer first and the source Note second.
+- FlashCard self-rating uses `forgot`, `hard`, `good`, and `easy`.
+- Learning State is a per-Study Note signal based on latest recall score and recency.
+- Low-performing user-facing copy is "Needs practice", not "Weak".
+- Due for Recall is the domain term; "Recall Today" is user-facing copy for due Study Notes.
+
 ## Recall Session Flow
 
-Recommended flow:
+Recommended flow to grill:
 
 ```text
-Show Study Item prompt
--> ask confidence before answer
--> user answers
+Show Study Note prompt
+-> optionally ask confidence before answer
+-> user answers or mentally answers
 -> optional hint ladder
--> reveal expected answer and source Note
--> user grades performance
--> create Review Event
+-> reveal Study Note expected answer and source Note
+-> user self-rates or AI grades performance
+-> store Question and SessionResult evidence
+-> update Learning State
 -> schedule next recall
 ```
 
 Current app similarity:
 
-- FlashCard recall already hides the Note body.
-- The user already self-rates with Forgot, Hard, Good, Easy.
+- FlashCard recall already hides the reference material.
+- The User already self-rates with Forgot, Hard, Good, Easy.
+- SessionResults already preserve historical Questions and snapshots.
 
 Missing pieces:
 
-- Study Item prompt separate from Note title
-- expected answer separate from Note body
+- next recall date
+- deterministic scheduler
 - confidence before answer
 - hint usage
-- next review date
-- weak item state
-- automatic session builder
+- Needs practice derivation
+- automatic Recall Today builder
+- optional attempt evidence separate from SessionResult snapshots
 
 ## Grade Language
 
@@ -62,28 +76,28 @@ Easy   -> current interval * 3.0, minimum 7 days
 Candidate fields:
 
 ```ts
-type SchedulableStudyItem = {
+type SchedulableStudyNote = {
   intervalDays: number;
   successStreak: number;
   lapses: number;
-  lastReviewedAt?: Date;
-  nextReviewAt?: Date;
+  lastRecalledAt?: Date;
+  nextRecallAt?: Date;
 };
 ```
 
-## Weak Item Rule
+## Needs Practice Rule
 
 Candidate MVP rule:
 
 ```ts
-function isWeakItem(input: {
-  grade: "forgot" | "hard" | "good" | "easy";
+function needsPractice(input: {
+  selfRating: "forgot" | "hard" | "good" | "easy";
   confidenceBefore?: number;
   hintsUsed: number;
   lapses: number;
 }) {
   return (
-    input.grade === "forgot" ||
+    input.selfRating === "forgot" ||
     input.confidenceBefore === 1 ||
     input.confidenceBefore === 2 ||
     input.hintsUsed > 0 ||
@@ -91,6 +105,8 @@ function isWeakItem(input: {
   );
 }
 ```
+
+"Needs practice" is user-facing copy. Internal names can be grilled, but should not leak "Weak" into v1 UI.
 
 ## Hint Ladder
 
@@ -105,7 +121,7 @@ Recommended ladder:
 5. source Note
 ```
 
-The app should store how far the user went through the ladder.
+The app should store how far the User went through the ladder.
 
 Recommended first implementation:
 
@@ -117,65 +133,74 @@ Recommended first implementation:
 
 Candidate session modes:
 
-- Daily Recall
-- Weak Items
+- Recall Today
+- Needs Practice
 - Label Focus
-- Mixed Review
-- Exam Mode
+- Mixed Recall
+- Exam Support
 
-Candidate Daily Recall mix:
+Candidate Recall Today mix:
 
 ```text
-50% due items
-25% weak items
-15% recent items
-10% interleaved items
+50% Study Notes Due for Recall
+25% Needs practice Study Notes
+15% recent Study Notes
+10% interleaved Study Notes
 ```
 
 Recommended first implementation:
 
 ```text
-Recall Today = due Study Items sorted by nextReviewAt, then weak priority
-Weak Items = weak Study Items sorted by most recent lapse or low confidence
+Recall Today = Study Notes Due for Recall sorted by nextRecallAt, then Needs practice priority
+Needs Practice = low-performing Study Notes sorted by most recent lapse or low confidence
 Manual selection = preserve current user-selected flow
 ```
 
+## Baseline Decisions Not To Reopen
+
+1. Scheduling belongs at Study Note level, not Note level.
+2. Due scheduling is separate from Learning State.
+3. "Review Today" is not the accepted term.
+4. A skipped Study Note is not learning evidence unless the User explicitly marks it Forgot.
+5. A RecallSession may mix sibling Study Notes from the same source Note, but the session builder should avoid placing them too close together if repetition hurts recall.
+
 ## Decisions To Grill
 
-1. Should scheduling happen at Study Item level or Note level?
-
-Recommended answer: Study Item level. Different prompts from the same Note can age differently.
-
-2. Should the first scheduler be deterministic or use an existing algorithm such as SM-2?
+1. Should the first scheduler be deterministic or use an existing algorithm such as SM-2?
 
 Recommended answer: deterministic interval ladder first. It is explainable and enough for MVP.
 
-3. Should confidence before answer be required?
+2. Should confidence before answer be required?
 
 Recommended answer: Optional at first, enabled by setting later. Do not block the simple recall loop.
 
-4. Should hints lower the grade automatically?
+3. Should hints lower the grade automatically?
 
-Recommended answer: No. Store hints as evidence. Let weak/mastery rules interpret them.
+Recommended answer: No. Store hints as evidence. Let Needs practice and future mastery rules interpret them.
 
-5. Should users be able to manually override the next review date?
+4. Should Users be able to manually override the next recall date?
 
-Recommended answer: Not in MVP. Add later if users need control.
+Recommended answer: Not in MVP. Add later if Users need control.
 
-6. Does a skipped Study Item create a Review Event?
+5. Does scheduling need a separate attempt-evidence table?
 
-Recommended answer: No, unless the user explicitly marks it Forgot. A skip is session flow, not learning evidence.
+Recommended answer: Avoid it until computing Learning State or Due for Recall from Questions and SessionResults becomes awkward.
 
-7. Can one Recall Session mix Study Items from the same Note?
+6. Should Recall Today include Study Notes that are not Due for Recall?
 
-Recommended answer: Yes, but avoid showing siblings too close together if it makes the session repetitive.
+Recommended answer: Start with due Study Notes only. Add a mixed session builder later when due scheduling works.
+
+7. How should AI-generated Questions affect scheduling?
+
+Recommended answer: Scheduling should use the final self-rating or AI grade, not the mere fact that an AI Question was generated.
 
 ## Session Outcome To Capture
 
 After grilling, update domain docs with:
 
-- canonical grade labels
+- scheduler algorithm choice
 - whether confidence is required
-- whether scheduling is deterministic
-- whether "weak" is a stored state or derived state
-- what counts as a Review Event
+- whether hint usage affects scheduling directly
+- whether Needs practice is stored or derived
+- what counts as recall evidence for scheduling
+- whether a separate attempt-evidence table exists
