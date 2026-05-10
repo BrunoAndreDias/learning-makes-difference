@@ -134,7 +134,10 @@ function getStudyNoteListDescriptionLines(
   learningLabels: StudyNoteLearningLabels | null,
 ): StudyNoteListDescriptionLine[] {
   const lines: StudyNoteListDescriptionLine[] = [
-    { id: "source", text: studyNote.source.title },
+    {
+      id: "source",
+      text: studyNote.source.displayName ?? studyNote.source.title,
+    },
     { id: "last-recalled", text: learningLabels?.lastRecalled ?? "" },
     { id: "due", text: learningLabels?.due ?? "" },
     { id: "practice", text: learningLabels?.practice ?? "" },
@@ -699,7 +702,7 @@ function StudyNotesWorkspace() {
                         sourceTitle: event.target.value,
                       }))
                     }
-                    placeholder="Explanation title"
+                    placeholder="Untitled source"
                     value={draft.sourceTitle}
                   />
                 </label>

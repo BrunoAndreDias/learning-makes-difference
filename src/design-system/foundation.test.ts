@@ -415,7 +415,7 @@ describe("foundationTokens", () => {
       "utf8",
     );
     const listCardCss = readFileSync(
-      new URL("./list-card.css", import.meta.url),
+      new URL("./list-card/list-card.css", import.meta.url),
       "utf8",
     );
 

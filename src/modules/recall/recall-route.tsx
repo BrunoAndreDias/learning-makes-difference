@@ -132,6 +132,7 @@ function studyNoteMatchesQuery(
   return [
     studyNote.prompt,
     studyNote.expectedAnswer,
+    studyNote.source.displayName ?? "",
     studyNote.source.title,
     studyNote.source.body,
     ...studyNote.metaphors.map((metaphor) => metaphor.description),

@@ -11,7 +11,6 @@ import {
   type CreateStudyNoteFromSourceInput,
   type CreateStudyNoteInput,
   type DeleteStudyNoteInput,
-  getDefaultSiblingStudyNotePrompt,
   normalizeCreateStudyNoteInput,
   type UpdateStudyNoteInput,
 } from "./study-notes";
@@ -80,7 +79,10 @@ type StudyNoteRowWithDetails = StudyNoteRow & {
   acronyms: AppStudyNoteAcronym[];
   labelIds: string[];
   metaphors: AppStudyNoteMetaphor[];
+  sourceDisplayName: string;
 };
+
+const UNTITLED_SOURCE_DISPLAY_NAME = "Untitled source";
 
 function getDefaultCrypto(): StudyNotesCrypto {
   return globalThis.crypto;
@@ -98,6 +100,27 @@ function validateRequiredText(value: string, label: string): string {
 
 function validateOptionalText(value: string): string {
   return value.trim();
+}
+
+function getSourceDisplayName(input: {
+  linkedStudyNotes: readonly Pick<StudyNoteRow, "createdAt" | "prompt">[];
+  sourceTitle: string;
+}): string {
+  const trimmedTitle = input.sourceTitle.trim();
+
+  if (trimmedTitle.length > 0) {
+    return trimmedTitle;
+  }
+
+  const fallbackPrompt =
+    [...input.linkedStudyNotes]
+      .sort(
+        (left, right) => left.createdAt.getTime() - right.createdAt.getTime(),
+      )
+      .find((studyNote) => studyNote.prompt.trim().length > 0)
+      ?.prompt.trim() ?? null;
+
+  return fallbackPrompt ?? UNTITLED_SOURCE_DISPLAY_NAME;
 }
 
 function normalizeLabelIds(labelIds: readonly string[] | undefined): string[] {
@@ -247,6 +270,7 @@ function toAppStudyNote(input: StudyNoteRowWithDetails): AppStudyNote {
     prompt: input.prompt,
     source: {
       body: input.sourceBody,
+      displayName: input.sourceDisplayName,
       id: input.sourceNoteId,
       title: input.sourceTitle,
       updatedAt: input.sourceUpdatedAt.toISOString(),
@@ -265,6 +289,7 @@ async function addDetailsToStudyNoteRows(
   }
 
   const studyNoteIds = rows.map((row) => row.id);
+  const sourceNoteIds = [...new Set(rows.map((row) => row.sourceNoteId))];
   const [storedStudyNoteLabels, storedMetaphors, storedAcronyms] =
     await Promise.all([
       db
@@ -280,6 +305,11 @@ async function addDetailsToStudyNoteRows(
         .from(studyNoteAcronymsTable)
         .where(inArray(studyNoteAcronymsTable.studyNoteId, studyNoteIds)),
     ]);
+  const linkedStudyNoteRows = await db
+    .select(studyNoteSelectFields)
+    .from(studyNotesTable)
+    .innerJoin(notesTable, eq(studyNotesTable.sourceNoteId, notesTable.id))
+    .where(inArray(studyNotesTable.sourceNoteId, sourceNoteIds));
   const labelIdsByStudyNoteId = groupLabelIdsByStudyNoteId(
     storedStudyNoteLabels,
   );
@@ -294,6 +324,12 @@ async function addDetailsToStudyNoteRows(
       studyNoteId: row.id,
     }),
     metaphors: metaphorsByStudyNoteId.get(row.id) ?? [],
+    sourceDisplayName: getSourceDisplayName({
+      linkedStudyNotes: linkedStudyNoteRows.filter(
+        (studyNote) => studyNote.sourceNoteId === row.sourceNoteId,
+      ),
+      sourceTitle: row.sourceTitle,
+    }),
   }));
 }
 
@@ -411,6 +447,10 @@ export function createStudyNotesService({
         metaphors,
         prompt,
         sourceBody,
+        sourceDisplayName: getSourceDisplayName({
+          linkedStudyNotes: [{ createdAt: timestamp, prompt }],
+          sourceTitle,
+        }),
         sourceNoteId,
         sourceTitle,
         sourceUpdatedAt: timestamp,
@@ -447,7 +487,15 @@ export function createStudyNotesService({
 
       const timestamp = now();
       const studyNoteId = crypto.randomUUID();
-      const prompt = getDefaultSiblingStudyNotePrompt(source.title);
+      const linkedStudyNotes = await db
+        .select(studyNoteSelectFields)
+        .from(studyNotesTable)
+        .innerJoin(notesTable, eq(studyNotesTable.sourceNoteId, notesTable.id))
+        .where(eq(studyNotesTable.sourceNoteId, source.id));
+      const prompt = getSourceDisplayName({
+        linkedStudyNotes,
+        sourceTitle: source.title,
+      });
 
       await db.insert(studyNotesTable).values({
         createdAt: timestamp,
@@ -467,6 +515,13 @@ export function createStudyNotesService({
         metaphors: [],
         prompt,
         sourceBody: source.body,
+        sourceDisplayName: getSourceDisplayName({
+          linkedStudyNotes: [
+            ...linkedStudyNotes,
+            { createdAt: timestamp, prompt },
+          ],
+          sourceTitle: source.title,
+        }),
         sourceNoteId: source.id,
         sourceTitle: source.title,
         sourceUpdatedAt: source.updatedAt,
@@ -636,20 +691,13 @@ export function createStudyNotesService({
         }
       });
 
-      return toAppStudyNote({
-        acronyms,
-        createdAt: existingStudyNote.createdAt,
-        expectedAnswer,
-        id: existingStudyNote.id,
-        labelIds: safeLabelIds,
-        metaphors,
-        prompt,
-        sourceBody,
-        sourceNoteId: existingStudyNote.sourceNoteId,
-        sourceTitle,
-        sourceUpdatedAt: timestamp,
-        updatedAt: timestamp,
-      });
+      return toAppStudyNote(
+        await readOwnedStudyNote({
+          db,
+          studyNoteId: existingStudyNote.id,
+          userId,
+        }),
+      );
     },
     async updateSourceNote({
       input,

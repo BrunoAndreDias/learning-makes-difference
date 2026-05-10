@@ -132,9 +132,9 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.getByPlaceholderText("Acronym")).toHaveAccessibleName(
       "Acronym",
     );
-    expect(
-      screen.getByPlaceholderText("Explanation title"),
-    ).toHaveAccessibleName("Explanation title");
+    expect(screen.getByPlaceholderText("Untitled source")).toHaveAccessibleName(
+      "Explanation title",
+    );
     expect(screen.getByPlaceholderText("Explanation")).toHaveAccessibleName(
       "Explanation",
     );
@@ -292,10 +292,10 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.change(screen.getByLabelText("Expected answer"), {
       target: { value: " " },
     });
-    fireEvent.change(screen.getByLabelText("Source title"), {
+    fireEvent.change(screen.getByLabelText("Explanation title"), {
       target: { value: "" },
     });
-    fireEvent.change(screen.getByLabelText("Source body"), {
+    fireEvent.change(screen.getByLabelText("Explanation"), {
       target: { value: "" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -312,6 +312,51 @@ describe("authenticated Study Notes workspace", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Prompt is required.",
     );
+  });
+
+  it("keeps blank source Note titles blank while showing the oldest Study Note prompt as the source display name", async () => {
+    const studyNotesContext = createAppStudyNotesContext({
+      keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan";
+
+    renderRoute("/study-notes", {
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+      studyNotesContext,
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "New Study Note" }),
+    );
+    fireEvent.change(screen.getByLabelText("Prompt"), {
+      target: { value: "Oldest fallback prompt" },
+    });
+    fireEvent.change(screen.getByLabelText("Expected answer"), {
+      target: { value: "Recall answer." },
+    });
+    fireEvent.change(screen.getByLabelText("Explanation title"), {
+      target: { value: "" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Saved");
+    expect(screen.getByLabelText("Explanation title")).toHaveValue("");
+    expect(screen.getByLabelText("Explanation title")).toHaveAttribute(
+      "placeholder",
+      "Untitled source",
+    );
+    expect(
+      screen.getByRole("button", { name: "Oldest fallback prompt" }),
+    ).toHaveTextContent("Oldest fallback prompt");
+    expect(studyNotesContext.getSnapshot()[0]?.source.title).toBe("");
   });
 
   it("captures saved Study Note work as Focus activity with source Note and Label context", async () => {

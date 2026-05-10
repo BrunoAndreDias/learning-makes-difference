@@ -518,7 +518,7 @@ function RecallNoteDetails({ note }: { note: FlashCardRecallNote }) {
         <section aria-label={t("recall.session.answer.sourceContext")}>
           <h5>{t("recall.session.answer.sourceContext")}</h5>
           <p className="recall-card__body">
-            <strong>{note.source.title}</strong>
+            <strong>{note.source.displayName ?? note.source.title}</strong>
           </p>
           <p className="recall-card__body">{note.source.body}</p>
         </section>

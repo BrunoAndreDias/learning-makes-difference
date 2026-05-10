@@ -21,6 +21,7 @@ export type RecallNoteSnapshot = AppNote & {
   prompt?: string;
   source?: {
     body: string;
+    displayName?: string;
     id: string;
     title: string;
     updatedAt: string;
@@ -312,6 +313,8 @@ function isRecallNoteSnapshot(note: unknown): note is RecallNoteSnapshot {
     (!("source" in candidate) ||
       (source !== null &&
         typeof source.body === "string" &&
+        (!("displayName" in source) ||
+          typeof source.displayName === "string") &&
         typeof source.id === "string" &&
         typeof source.title === "string" &&
         typeof source.updatedAt === "string")) &&

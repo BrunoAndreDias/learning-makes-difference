@@ -244,9 +244,10 @@ describe("createStudyNotesService", () => {
       }),
     ).resolves.toMatchObject({
       expectedAnswer: "",
-      prompt: "New Study Note",
+      prompt: "First prompt",
       source: {
         body: "",
+        displayName: "First prompt",
         title: "",
       },
     });
@@ -284,6 +285,97 @@ describe("createStudyNotesService", () => {
           title: "Edited source",
         },
       },
+    ]);
+  });
+
+  it("persists blank source Note titles and returns live display names from the oldest linked Study Note prompt", async () => {
+    const { db, studyNotes } = await createStudyNotesHarness();
+
+    const firstStudyNote = await studyNotes.createStudyNote({
+      input: {
+        expectedAnswer: "First answer.",
+        prompt: "Oldest prompt",
+        sourceBody: "Shared source body.",
+        sourceTitle: "",
+      },
+      userId: "user-casey",
+    });
+    const secondStudyNote = await studyNotes.createStudyNoteFromSource({
+      input: {
+        sourceNoteId: firstStudyNote.sourceNoteId,
+      },
+      userId: "user-casey",
+    });
+
+    expect(firstStudyNote.source).toMatchObject({
+      displayName: "Oldest prompt",
+      title: "",
+    });
+    expect(secondStudyNote).toMatchObject({
+      prompt: "Oldest prompt",
+      source: {
+        displayName: "Oldest prompt",
+        title: "",
+      },
+    });
+
+    await studyNotes.updateStudyNote({
+      input: {
+        acronyms: [],
+        expectedAnswer: "Second answer.",
+        labelIds: [],
+        metaphors: [],
+        prompt: "Newer prompt",
+        sourceBody: "Shared source body.",
+        sourceTitle: "",
+        studyNoteId: secondStudyNote.id,
+      },
+      userId: "user-casey",
+    });
+    await studyNotes.updateStudyNote({
+      input: {
+        acronyms: [],
+        expectedAnswer: "First answer.",
+        labelIds: [],
+        metaphors: [],
+        prompt: "Renamed oldest prompt",
+        sourceBody: "Shared source body.",
+        sourceTitle: "",
+        studyNoteId: firstStudyNote.id,
+      },
+      userId: "user-casey",
+    });
+
+    await expect(
+      Promise.all([
+        studyNotes
+          .listStudyNotes({ userId: "user-casey" })
+          .then((listedStudyNotes) => [...listedStudyNotes].sort(byId)),
+        db.select().from(notesTable),
+      ]),
+    ).resolves.toMatchObject([
+      [
+        {
+          prompt: "Renamed oldest prompt",
+          source: {
+            displayName: "Renamed oldest prompt",
+            title: "",
+          },
+        },
+        {
+          prompt: "Newer prompt",
+          source: {
+            displayName: "Renamed oldest prompt",
+            title: "",
+          },
+        },
+      ],
+      [
+        {
+          id: firstStudyNote.sourceNoteId,
+          title: "",
+        },
+      ],
     ]);
   });
 

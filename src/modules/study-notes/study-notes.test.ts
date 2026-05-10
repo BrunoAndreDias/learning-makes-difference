@@ -186,9 +186,10 @@ describe("app study notes context", () => {
 
     expect(siblingStudyNote).toMatchObject({
       expectedAnswer: "",
-      prompt: "New Study Note",
+      prompt: "First prompt",
       source: {
         body: "",
+        displayName: "First prompt",
         title: "",
       },
     });
@@ -244,6 +245,84 @@ describe("app study notes context", () => {
         sourceNoteId: firstStudyNote.sourceNoteId,
       },
     ]);
+  });
+
+  it("keeps source Note titles optional and derives untitled source display names from the oldest linked Study Note prompt", () => {
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-untitled-source-test",
+      storage: createMemoryStorage(),
+    });
+    const createdStudyNote = studyNotes.createStudyNote("user-casey", {
+      expectedAnswer: "First answer.",
+      prompt: "Oldest prompt",
+      sourceBody: "Shared source body.",
+      sourceTitle: "",
+    });
+    const secondStudyNote = studyNotes.createStudyNoteFromSource("user-casey", {
+      sourceNoteId: createdStudyNote.sourceNoteId,
+    });
+
+    expect(createdStudyNote.source).toMatchObject({
+      displayName: "Oldest prompt",
+      title: "",
+    });
+    expect(secondStudyNote).toMatchObject({
+      prompt: "Oldest prompt",
+      source: {
+        displayName: "Oldest prompt",
+        title: "",
+      },
+    });
+
+    studyNotes.updateStudyNote("user-casey", secondStudyNote.id, {
+      acronyms: [],
+      expectedAnswer: "Second answer.",
+      labelIds: [],
+      metaphors: [],
+      prompt: "Newer prompt",
+      sourceBody: "Shared source body.",
+      sourceTitle: "",
+    });
+    studyNotes.updateStudyNote("user-casey", createdStudyNote.id, {
+      acronyms: [],
+      expectedAnswer: "First answer.",
+      labelIds: [],
+      metaphors: [],
+      prompt: "Renamed oldest prompt",
+      sourceBody: "Shared source body.",
+      sourceTitle: "",
+    });
+
+    expect(
+      listStudyNotesForUser(studyNotes.getSnapshot(), "user-casey"),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          prompt: "Renamed oldest prompt",
+          source: expect.objectContaining({
+            displayName: "Renamed oldest prompt",
+            title: "",
+          }),
+        }),
+        expect.objectContaining({
+          prompt: "Newer prompt",
+          source: expect.objectContaining({
+            displayName: "Renamed oldest prompt",
+            title: "",
+          }),
+        }),
+      ]),
+    );
+    expect(studyNotes.getSnapshot()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: expect.objectContaining({
+            title: "",
+          }),
+        }),
+      ]),
+    );
   });
 
   it("deletes shared Study Notes without orphaning the last source Note", () => {

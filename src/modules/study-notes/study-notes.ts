@@ -1,5 +1,6 @@
 export type AppStudyNoteSource = {
   body: string;
+  displayName?: string;
   id: string;
   title: string;
   updatedAt: string;
@@ -26,7 +27,8 @@ export type AppStudyNote = {
   updatedAt: string;
 };
 
-export type AppStoredStudyNote = AppStudyNote & {
+export type AppStoredStudyNote = Omit<AppStudyNote, "source"> & {
+  source: AppStudyNoteSource;
   userId: string;
 };
 
@@ -76,7 +78,7 @@ type CreateAppStudyNotesContextOptions = {
 };
 
 const DEFAULT_STORAGE_KEY_PREFIX = "learning-makes-difference-study-notes";
-const DEFAULT_SIBLING_STUDY_NOTE_PROMPT = "New Study Note";
+const UNTITLED_SOURCE_DISPLAY_NAME = "Untitled source";
 
 export class AppStudyNotesError extends Error {
   readonly code: "invalid_input" | "not_found" | "unauthorized";
@@ -152,12 +154,6 @@ function validateRequiredText(value: string, label: string): string {
 
 function validateOptionalText(value: string): string {
   return value.trim();
-}
-
-export function getDefaultSiblingStudyNotePrompt(sourceTitle: string): string {
-  const prompt = validateOptionalText(sourceTitle);
-
-  return prompt.length > 0 ? prompt : DEFAULT_SIBLING_STUDY_NOTE_PROMPT;
 }
 
 export function normalizeCreateStudyNoteInput(input: CreateStudyNoteInput): {
@@ -262,7 +258,29 @@ type PersistedStudyNoteRecord = Omit<
   metaphors?: AppStudyNoteMetaphor[];
 };
 
-function toPublicStudyNote(note: AppStoredStudyNote): AppStudyNote {
+function getSourceDisplayName(input: {
+  linkedStudyNotes: readonly Pick<AppStoredStudyNote, "createdAt" | "prompt">[];
+  sourceTitle: string;
+}): string {
+  const trimmedTitle = input.sourceTitle.trim();
+
+  if (trimmedTitle.length > 0) {
+    return trimmedTitle;
+  }
+
+  const fallbackPrompt =
+    [...input.linkedStudyNotes]
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+      .find((studyNote) => studyNote.prompt.trim().length > 0)
+      ?.prompt.trim() ?? null;
+
+  return fallbackPrompt ?? UNTITLED_SOURCE_DISPLAY_NAME;
+}
+
+function toPublicStudyNote(
+  note: AppStoredStudyNote,
+  allStudyNotes: readonly AppStoredStudyNote[],
+): AppStudyNote {
   return {
     acronyms: note.acronyms.map((acronym) => ({ ...acronym })),
     createdAt: note.createdAt,
@@ -271,7 +289,15 @@ function toPublicStudyNote(note: AppStoredStudyNote): AppStudyNote {
     labelIds: [...note.labelIds],
     metaphors: note.metaphors.map((metaphor) => ({ ...metaphor })),
     prompt: note.prompt,
-    source: { ...note.source },
+    source: {
+      ...note.source,
+      displayName: getSourceDisplayName({
+        linkedStudyNotes: allStudyNotes.filter(
+          (studyNote) => studyNote.sourceNoteId === note.sourceNoteId,
+        ),
+        sourceTitle: note.source.title,
+      }),
+    },
     sourceNoteId: note.sourceNoteId,
     updatedAt: note.updatedAt,
   };
@@ -381,7 +407,7 @@ export function listStudyNotesForUser(
         (options.labelId === undefined ||
           studyNote.labelIds.includes(options.labelId)),
     ),
-  ).map(toPublicStudyNote);
+  ).map((studyNote) => toPublicStudyNote(studyNote, studyNotes));
 }
 
 export function createAppStudyNotesContext(
@@ -444,7 +470,7 @@ export function createAppStudyNotesContext(
 
       writeSnapshot([studyNote, ...snapshot]);
 
-      return toPublicStudyNote(studyNote);
+      return toPublicStudyNote(studyNote, [studyNote, ...snapshot]);
     },
     createStudyNoteFromSource(userId, input) {
       const validatedUserId = validateUserId(userId);
@@ -469,7 +495,13 @@ export function createAppStudyNotesContext(
         id: cryptoProvider.randomUUID(),
         labelIds: [],
         metaphors: [],
-        prompt: getDefaultSiblingStudyNotePrompt(sourceStudyNote.source.title),
+        prompt: getSourceDisplayName({
+          linkedStudyNotes: snapshot.filter(
+            (studyNote) =>
+              studyNote.sourceNoteId === sourceStudyNote.sourceNoteId,
+          ),
+          sourceTitle: sourceStudyNote.source.title,
+        }),
         source: { ...sourceStudyNote.source },
         sourceNoteId: sourceStudyNote.sourceNoteId,
         updatedAt: timestamp,
@@ -478,7 +510,7 @@ export function createAppStudyNotesContext(
 
       writeSnapshot([studyNote, ...snapshot]);
 
-      return toPublicStudyNote(studyNote);
+      return toPublicStudyNote(studyNote, [studyNote, ...snapshot]);
     },
     deleteStudyNote(userId, studyNoteId, input) {
       const validatedUserId = validateUserId(userId);
@@ -578,7 +610,10 @@ export function createAppStudyNotesContext(
           ),
       ]);
 
-      return toPublicStudyNote(updatedStudyNote);
+      return toPublicStudyNote(updatedStudyNote, [
+        updatedStudyNote,
+        ...snapshot.filter((studyNote) => studyNote.id !== studyNoteId),
+      ]);
     },
   };
 }
