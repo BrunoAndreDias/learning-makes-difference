@@ -61,10 +61,10 @@ function getDurationLabel(
 
 function getNoteCountLabel(input: { endedEarly: boolean; noteCount: number }) {
   if (input.endedEarly) {
-    return formatCount(input.noteCount, "targeted note");
+    return formatCount(input.noteCount, "targeted Study Note");
   }
 
-  return formatCount(input.noteCount, "note");
+  return formatCount(input.noteCount, "Study Note");
 }
 
 function getQuestionCoverageLabel(input: {

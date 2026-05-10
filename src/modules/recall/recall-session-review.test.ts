@@ -59,7 +59,7 @@ describe("recall session review", () => {
       secondNote.id,
       thirdNote.id,
     ]);
-    expect(review.summary.noteCountLabel).toBe("3 targeted notes");
+    expect(review.summary.noteCountLabel).toBe("3 targeted Study Notes");
     expect(review.summary.questionCoverageLabel).toBe(
       "1 of 3 questions attempted",
     );

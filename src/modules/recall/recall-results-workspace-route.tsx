@@ -113,7 +113,9 @@ function getScoreTone(score: number | null) {
 }
 
 function getQuestionPrompt(question: RecallQuestion) {
-  const prompt = question.noteSnapshot.title.trim();
+  const prompt = (
+    question.noteSnapshot.prompt ?? question.noteSnapshot.title
+  ).trim();
 
   if (prompt.length > 0) {
     return prompt;
@@ -191,6 +193,19 @@ function getInitialSavedMessage() {
 
 function getQuestionKey(question: RecallQuestion, index: number) {
   return `${question.noteId}-${index}`;
+}
+
+function getQuestionExpectedAnswer(question: RecallQuestion) {
+  return question.noteSnapshot.expectedAnswer ?? question.noteSnapshot.body;
+}
+
+function getQuestionSourceSnapshot(question: RecallQuestion) {
+  return (
+    question.noteSnapshot.source ?? {
+      body: question.noteSnapshot.body,
+      title: question.noteSnapshot.title,
+    }
+  );
 }
 
 function getQuestionDetailId(index: number) {
@@ -773,12 +788,14 @@ function SelectedResultDetail({
           aria-labelledby="recall-result-not-reached-notes"
           className="recall-selected-result__section"
         >
-          <h4 id="recall-result-not-reached-notes">Not reached notes</h4>
+          <h4 id="recall-result-not-reached-notes">
+            {t("recall.result.notReachedStudyNotes")}
+          </h4>
           <ol className="recall-selected-result__list">
             {review.notReachedNotes.map((note) => (
               <li key={note.id}>
                 <p className="recall-selected-result__row-title">
-                  {note.title}
+                  {note.prompt ?? note.title}
                 </p>
               </li>
             ))}
@@ -794,7 +811,7 @@ function SelectedResultDetail({
           {t("recall.result.questions")}
         </h4>
         {review.attemptedQuestions.length === 0 ? (
-          <p className="muted">No attempted questions were saved.</p>
+          <p className="muted">{t("recall.result.noAttemptedQuestions")}</p>
         ) : (
           <ol className="recall-selected-result__list">
             {review.attemptedQuestions.map((question, index) => {
@@ -902,6 +919,7 @@ function QuestionReviewDetail({
   ratingTone: ReturnType<typeof getRatingTone>;
 }) {
   const { t } = useAppTranslation();
+  const sourceSnapshot = getQuestionSourceSnapshot(question);
 
   return (
     <div className="recall-selected-result__question-detail" id={detailId}>
@@ -928,13 +946,21 @@ function QuestionReviewDetail({
       </div>
       <div className="recall-selected-result__question-detail-block">
         <p className="recall-selected-result__question-detail-label">
+          {t("recall.result.expectedAnswer")}
+        </p>
+        <p className="recall-selected-result__question-detail-copy">
+          {getQuestionExpectedAnswer(question)}
+        </p>
+      </div>
+      <div className="recall-selected-result__question-detail-block">
+        <p className="recall-selected-result__question-detail-label">
           {t("recall.result.referenceNote")}
         </p>
         <p className="recall-selected-result__question-detail-title">
-          {question.noteSnapshot.title}
+          {sourceSnapshot.title}
         </p>
         <p className="recall-selected-result__question-detail-copy">
-          {question.noteSnapshot.body}
+          {sourceSnapshot.body}
         </p>
       </div>
     </div>

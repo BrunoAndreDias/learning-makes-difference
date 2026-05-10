@@ -291,11 +291,14 @@ describe("authenticated recall workspace", () => {
     );
 
     expect(screen.getByText("Tu respuesta")).toBeInTheDocument();
-    expect(screen.getByText("Contexto fuente")).toBeInTheDocument();
+    expect(screen.getByText("Respuesta esperada")).toBeInTheDocument();
+    expect(screen.getByText("Nota de referencia")).toBeInTheDocument();
     expect(
       screen.getByText("Learner answer stays literal."),
     ).toBeInTheDocument();
-    expect(screen.getByText("Stored mitochondria answer.")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Stored mitochondria answer.").length,
+    ).toBeGreaterThan(0);
   });
 
   it("restores an active recall session from the persistent recall service on route entry", async () => {
@@ -501,6 +504,163 @@ describe("authenticated recall workspace", () => {
     expect(
       screen.queryByRole("heading", { name: "Recall starts with Study Notes" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("renders Study Note result snapshots with source context and not-reached Study Notes", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const label = contexts.labelsContext.createLabel({
+      name: "Cell biology",
+      userId: testUser.id,
+    });
+    const attemptedStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        labelIds: [label.id],
+        sourceBody: "Original ATP source context.",
+        sourceTitle: "Original ATP source note",
+      },
+    );
+    const updatedAttemptedStudyNote =
+      contexts.studyNotesContext.updateStudyNote(
+        testUser.id,
+        attemptedStudyNote.id,
+        {
+          acronyms: [],
+          expectedAnswer: "ATP transfers energy in cells.",
+          labelIds: [label.id],
+          metaphors: [],
+          prompt: "What does ATP do?",
+          sourceBody: "Original ATP source context.",
+          sourceTitle: "Original ATP source note",
+        },
+      );
+    const notReachedStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        labelIds: [label.id],
+        sourceBody: "Original glucose source context.",
+        sourceTitle: "Original glucose source note",
+      },
+    );
+    const updatedNotReachedStudyNote =
+      contexts.studyNotesContext.updateStudyNote(
+        testUser.id,
+        notReachedStudyNote.id,
+        {
+          acronyms: [],
+          expectedAnswer: "Glucose is broken down during respiration.",
+          labelIds: [label.id],
+          metaphors: [],
+          prompt: "What happens to glucose?",
+          sourceBody: "Original glucose source context.",
+          sourceTitle: "Original glucose source note",
+        },
+      );
+
+    vi.setSystemTime(new Date("2026-05-07T09:00:00.000Z"));
+    const session = contexts.recallContext.startFlashCardSession({
+      studyNoteIds: [
+        updatedAttemptedStudyNote.id,
+        updatedNotReachedStudyNote.id,
+      ],
+      userId: testUser.id,
+    });
+    contexts.recallContext.updateFlashCardAttemptText({
+      sessionId: session.id,
+      text: "Energy currency",
+      userId: testUser.id,
+    });
+    contexts.recallContext.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId: testUser.id,
+    });
+    contexts.recallContext.rateFlashCardAnswer({
+      rating: "good",
+      sessionId: session.id,
+      userId: testUser.id,
+    });
+    contexts.recallContext.endFlashCardSession({
+      sessionId: session.id,
+      userId: testUser.id,
+    });
+
+    contexts.studyNotesContext.updateStudyNote(
+      testUser.id,
+      updatedAttemptedStudyNote.id,
+      {
+        acronyms: [],
+        expectedAnswer: "Edited ATP answer.",
+        labelIds: [],
+        metaphors: [],
+        prompt: "Edited ATP prompt?",
+        sourceBody: "Edited ATP source context.",
+        sourceTitle: "Edited ATP source note",
+      },
+    );
+    contexts.studyNotesContext.updateStudyNote(
+      testUser.id,
+      updatedNotReachedStudyNote.id,
+      {
+        acronyms: [],
+        expectedAnswer: "Edited glucose answer.",
+        labelIds: [],
+        metaphors: [],
+        prompt: "Edited glucose prompt?",
+        sourceBody: "Edited glucose source context.",
+        sourceTitle: "Edited glucose source note",
+      },
+    );
+
+    renderRoute("/recall", { ...contexts, session: createSession() });
+
+    await screen.findByRole("heading", { level: 3, name: "Recall" });
+    fireEvent.change(screen.getByLabelText("Filter results by label"), {
+      target: { value: label.id },
+    });
+
+    const selectedResult = screen.getByRole("region", {
+      name: "Selected result",
+    });
+    expect(
+      within(selectedResult).getByText("What does ATP do?"),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("What happens to glucose?"),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("2 targeted Study Notes"),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByRole("heading", {
+        name: "Not reached Study Notes",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(selectedResult).getByRole("button", {
+        name: /What does ATP do?/i,
+      }),
+    );
+
+    expect(within(selectedResult).getByText("Your answer")).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("Expected answer"),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("ATP transfers energy in cells."),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("Reference note"),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("Original ATP source note"),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedResult).getByText("Original ATP source context."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Edited ATP prompt?")).toBeNull();
+    expect(screen.queryByText("Edited ATP answer.")).toBeNull();
+    expect(screen.queryByText("Edited ATP source context.")).toBeNull();
   });
 
   it("links child Recall breadcrumbs back to the default Recall page", async () => {

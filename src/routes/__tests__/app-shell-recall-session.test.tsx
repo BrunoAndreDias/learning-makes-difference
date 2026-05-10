@@ -479,10 +479,10 @@ describe("authenticated recall workspace", () => {
       detailScope.getByText("Questions", { selector: "span" }),
     ).toBeInTheDocument();
     expect(detailScope.queryByText("Notes used")).toBeNull();
-    expect(detailScope.queryByText("Not reached notes")).toBeNull();
-    expect(detailScope.getByText("1 note")).toBeInTheDocument();
+    expect(detailScope.queryByText("Not reached Study Notes")).toBeNull();
+    expect(detailScope.getByText("1 Study Note")).toBeInTheDocument();
     expect(detailScope.getByText("1 question")).toBeInTheDocument();
-    expect(detailScope.queryByText(/targeted notes/i)).toBeNull();
+    expect(detailScope.queryByText(/targeted Study Notes/i)).toBeNull();
     expect(
       detailScope.queryByRole("link", { name: "Back to selection" }),
     ).not.toBeInTheDocument();
@@ -540,17 +540,17 @@ describe("authenticated recall workspace", () => {
     const notReachedSection = detailScope
       .getByRole("heading", {
         level: 4,
-        name: "Not reached notes",
+        name: "Not reached Study Notes",
       })
       .closest("section");
 
-    expect(detailScope.getByText("3 targeted notes")).toBeInTheDocument();
+    expect(detailScope.getByText("3 targeted Study Notes")).toBeInTheDocument();
     expect(
       detailScope.getByText("1 of 3 questions attempted"),
     ).toBeInTheDocument();
     expect(detailScope.queryByText("Notes used")).toBeNull();
     if (!(notReachedSection instanceof HTMLElement)) {
-      throw new Error("Expected Not reached notes section to exist.");
+      throw new Error("Expected Not reached Study Notes section to exist.");
     }
 
     const notReachedScope = within(notReachedSection);
@@ -621,8 +621,9 @@ describe("authenticated recall workspace", () => {
     fireEvent.click(firstQuestion);
 
     expect(
-      await screen.findByText("Reference answer for the first question."),
-    ).toBeInTheDocument();
+      (await screen.findAllByText("Reference answer for the first question."))
+        .length,
+    ).toBeGreaterThan(0);
     expect(
       detailScope.getByRole("button", { name: /First historical prompt/i }),
     ).toHaveAttribute("aria-expanded", "true");
@@ -640,8 +641,9 @@ describe("authenticated recall workspace", () => {
       detailScope.queryByText("Reference answer for the first question."),
     ).toBeNull();
     expect(
-      detailScope.getByText("Reference answer for the second question."),
-    ).toBeInTheDocument();
+      detailScope.getAllByText("Reference answer for the second question.")
+        .length,
+    ).toBeGreaterThan(0);
   });
 
   it("shows expanded historical detail with repeated self-rating, exact typed text, and empty-answer fallback", async () => {
@@ -694,7 +696,11 @@ describe("authenticated recall workspace", () => {
     const detailPanel = getControlledPanel(exactAnswerQuestion);
     const selfRatingBlock = getDetailBlockByLabel(detailPanel, "Self rating");
     const answerBlock = getDetailBlockByLabel(detailPanel, "Your answer");
-    const referenceBlock = getDetailBlockByLabel(detailPanel, "Source context");
+    const expectedAnswerBlock = getDetailBlockByLabel(
+      detailPanel,
+      "Expected answer",
+    );
+    const referenceBlock = getDetailBlockByLabel(detailPanel, "Reference note");
 
     expect(selfRatingBlock).toHaveTextContent("Good");
     expect(
@@ -702,13 +708,17 @@ describe("authenticated recall workspace", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
-      answerBlock.compareDocumentPosition(referenceBlock) &
+      answerBlock.compareDocumentPosition(expectedAnswerBlock) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      expectedAnswerBlock.compareDocumentPosition(referenceBlock) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(getDetailBlockCopy(answerBlock).textContent).toBe(
       "  Learner line one.\nLearner line two with spaces preserved.  ",
     );
-    expect(getDetailBlockCopy(referenceBlock).textContent).toBe(
+    expect(getDetailBlockCopy(expectedAnswerBlock).textContent).toBe(
       "Historical reference body line one.\nHistorical reference body line two.",
     );
 
