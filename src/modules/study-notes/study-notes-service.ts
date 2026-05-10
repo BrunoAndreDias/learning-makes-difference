@@ -352,7 +352,7 @@ export function createStudyNotesService({
       const studyNoteId = crypto.randomUUID();
       const sourceTitle = validateRequiredText(
         input.sourceTitle,
-        "Source title",
+        "Explanation title",
       );
       const sourceBody = validateOptionalText(input.sourceBody);
       const acronyms = validateAcronyms(input.acronyms);
@@ -580,7 +580,7 @@ export function createStudyNotesService({
       const prompt = validateRequiredText(input.prompt, "Prompt");
       const sourceTitle = validateRequiredText(
         input.sourceTitle,
-        "Source title",
+        "Explanation title",
       );
       const sourceBody = validateOptionalText(input.sourceBody);
 
@@ -662,7 +662,7 @@ export function createStudyNotesService({
       userId: string;
     }) {
       const timestamp = now();
-      const title = validateRequiredText(input.title, "Source title");
+      const title = validateRequiredText(input.title, "Explanation title");
       const body = validateOptionalText(input.body);
       const existingSource =
         (

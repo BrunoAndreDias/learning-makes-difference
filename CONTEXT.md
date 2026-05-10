@@ -7,37 +7,48 @@ A personal study app inspired by Barbara Oakley's learning research. Users captu
 ### Core Knowledge Units
 
 **Note**:
-A single concept or idea — small enough to have one coherent metaphor. Not a page summary or chapter dump.
-A Note is the durable source material that Study Notes are extracted from; recall targets are Study Notes, not Notes directly.
+A source explanation or context for one concept or a cohesive small set of closely related Study Notes. Not a page summary or chapter dump.
+A Note is the durable source material behind Study Notes; recall targets are Study Notes, not Notes directly.
+One Note may support several Study Notes when the source explanation is cohesive and the Study Notes are closely related.
 Every saved Note has at least one Study Note so the Note can enter recall without extra setup.
 Users do not create source-only Notes directly; creating a Study Note creates or uses the source Note behind it.
 New Study Note creates a new source Note by default, but the User may explicitly create another Study Note from an existing source Note.
 When a Note has multiple Study Notes, editing the source Note from any linked Study Note updates the shared source Note for all linked Study Notes.
+When a source Note is shared by multiple Study Notes, the UI makes that shared-source context clear before source Note edits, but it does not block normal editing.
+In v1, a source Note title is optional; the required Study Note prompt is the recall-facing label.
+When an untitled source Note needs a display name, the UI derives it live from the oldest created linked Study Note prompt; the empty source title field itself uses neutral copy such as "Untitled source".
 Users do not directly delete source Notes; source Note deletion only happens through confirmed deletion of the last linked Study Note.
-If a concept has distinct sub-parts that need separate recall prompts or separate memory aids, those sub-parts should become separate Study Notes tied to the Note, or separate Notes when they need separate source context.
+Split into separate Notes only when the source context no longer reads as one coherent explanation.
 _Avoid_: Card, entry, document, record
 
 **Study Note**:
 An atomic trainable unit extracted from exactly one Note and targeted by RecallSessions.
 A Study Note cannot exist without its source Note.
+A Study Note does not combine multiple source Notes; if a recall target needs several contexts, use one cohesive Note explanation or split it into sibling Study Notes.
 Study Notes are the durable recall targets used for practice, scoring, scheduling, and improvement.
 The default Study Note for a Note preserves the simple path from saving a Note to recalling it.
-The default Study Note starts with the source Note title as its prompt and the full source Note body as its expected answer.
+The default Study Note may start with the source Note title as its prompt when a source Note title exists.
 A Study Note owns its own title or prompt, which may be more specific than the source Note title.
 A Study Note owns its own expected answer or reference focus so recall can target a precise answer inside broader source material.
+In v1, Study Notes are untyped; templates may help create prompts and expected answers later, but they do not define stored Study Note types.
+A Study Note cannot be saved without a prompt.
+A saved Study Note may be incomplete while editing, but it is recallable only when it has a non-empty expected answer.
+A Study Note with a non-empty expected answer is recallable even if its source Note body is empty.
 After a Study Note is created, later source Note edits do not automatically rewrite the Study Note prompt or expected answer.
 Deleting a Study Note deletes only that Study Note; it does not automatically delete its source Note.
 Deleting the last Study Note for a source Note requires explicit confirmation to delete both the Study Note and source Note.
 _Avoid_: Card, flashcard, quiz item
 
 **Metaphor**:
-A title + explanation that maps a Study Note's recall target onto something familiar. A Study Note can have many Metaphors; a Metaphor cannot exist without its Study Note.
-Having several Metaphors can be useful, but an excessive number is usually a sign that the Study Note is too broad and should be split into separate Study Notes.
-_Avoid_: Analogy (use Metaphor), description
+A memory-aid description that maps a Study Note's recall target onto something familiar. A Study Note can have at most one Metaphor; a Metaphor cannot exist without its Study Note.
+If a Study Note seems to need several Metaphors, that is usually a sign that the Study Note is too broad and should be split into separate Study Notes.
+In v1, a Metaphor is support material only; it is not automatically turned into a practiced Study Note.
+_Avoid_: Analogy (use Metaphor)
 
 **Acronym**:
-A memory-aid mnemonic created by the user — a short word or phrase where each letter stands for something, attached to a Study Note. A Study Note can have many Acronyms; an Acronym cannot exist without its Study Note.
-Having several Acronyms can be useful, but an excessive number is usually a sign that the Study Note is too broad and should be split into separate Study Notes.
+A memory-aid mnemonic description created by the user and attached to a Study Note. A Study Note can have at most one Acronym; an Acronym cannot exist without its Study Note.
+If a Study Note seems to need several Acronyms, that is usually a sign that the Study Note is too broad and should be split into separate Study Notes.
+In v1, an Acronym is support material only; it is not automatically turned into a practiced Study Note.
 _Avoid_: Abbreviation, term definition
 
 **Learning Loop**:
@@ -51,11 +62,13 @@ Learning State is based on the latest recall for the Study Note, not recall tren
 The Learning State score is the latest FlashCard self-rating for the Study Note, shown as plain user-facing copy such as "Last score: Good".
 If a Study Note has not been recalled yet, its Learning State is "Not recalled yet".
 User-facing UI uses "Needs practice" for low-performing Study Notes rather than "Weak".
+In v1, "Needs practice" is derived from recall evidence rather than stored as a durable Study Note status.
 In v1, Learning State avoids harsh or broad labels such as "Weak", "Ready for review", or "Recently easy"; it prefers recall facts and soft action-oriented copy.
 Learning State does not itself name due states; scheduled recall belongs to **Due for Recall**.
 In v1, Learning State uses recall language in user-facing copy, such as "Last recalled"; it avoids "review" language.
 In v1, Learning State does not include Metaphor or Acronym counts; memory hooks remain Study Note support material, not recall evidence.
 Unsaved draft Notes do not have visible Learning State list metadata because they have not produced a saved Study Note yet.
+Incomplete Study Notes do not show normal Learning State copy; they show completion-oriented copy such as "Add expected answer" until they become recallable.
 Every saved Study Note has a Learning State; a saved Study Note with no recall evidence has the Learning State "Not recalled yet".
 Learning State uses simple compact language in Study Notes list rows, such as "Not recalled yet" or "Last score: Good".
 In v1, Learning State appears as compact Study Notes list metadata only, not as a selected-Study Note inspector panel.
@@ -64,6 +77,9 @@ _Avoid_: Report card, spaced-repetition engine, analytics widget, card state
 
 **Due for Recall**:
 A per-Study Note scheduling state meaning the Study Note's recall due date is today or earlier in the User's User Time Zone.
+Incomplete Study Notes are not Due for Recall.
+In v1, Due for Recall is derived from existing recall evidence rather than separately assigned by the User.
+A future scheduler may assign per-Study Note recall dates when scheduled recall behavior exists.
 Use "Recall Today" for user-facing UI copy when presenting the set of Study Notes that are Due for Recall.
 _Avoid_: Review Today, ready for review, due review, due card
 
@@ -86,6 +102,7 @@ _Avoid_: Tag, category, folder, topic, study field
 **RecallSession**:
 A user-initiated event where the user is tested on a selected set of Study Notes. The source Note reference starts hidden; depending on the RecallMode, the user may reveal it later to self-assess or review the answer.
 In v1, the User chooses Study Notes for a RecallSession through search/filter and explicit selection.
+In v1, only Study Notes with non-empty expected answers can enter a RecallSession.
 In v1, the selected set is temporary and exists only to start that RecallSession; it is not saved as a reusable grouping.
 For `AiAssisted` and `AiGraded`, the User chooses the question style for the session up front: `open-ended`, `multiple-choice`, or `mixed`.
 Study Notes are presented in random order within the RecallSession.
@@ -115,6 +132,7 @@ Use "Results" for user-facing UI copy that refers to completed recall work.
 A selectable Results list item represents one SessionResult, not a Note, Label, or saved recall set.
 A RecallSession is considered completed and gets a SessionResult when the user has attempted at least one Question, even if they end the session early before covering every Study Note. A session with zero attempted Questions is discarded.
 Each stored Question in a SessionResult preserves the Study Note prompt, expected answer or reference focus, and source Note snapshot used at the time of the session, so later Note or Study Note edits do not change historical results.
+In v1, Questions stored inside SessionResults are the recall evidence source; there is no separate recall-attempt domain object or table.
 In v1, SessionResult review is question-first: stored Questions are the primary review evidence, while targeted Study Notes and source Notes are supporting context about what was practiced.
 In v1, revealed or historical answer review shows the Study Note expected answer before the source Note.
 In `FlashCard`, a SessionResult shows a session-level aggregate self-rating percentage derived from the stored self-ratings, using the familiar progress iconography in the place where score would otherwise appear, labeled as **Session self rating** rather than score.
@@ -224,6 +242,7 @@ New Study Note is the primary creation action; it creates a new supporting sourc
 Add Study Note from this source is the explicit action for creating another Study Note tied to an existing source Note.
 The Study Note editor shows Study Note fields first and the source Note title/body below them, visible by default.
 When a selected Study Note shares its source Note with other Study Notes, the editor should make that shared source context clear before the User edits it.
+Shared source Note editing should not require confirmation; confirmation is reserved for destructive actions such as deleting the last Study Note and its source Note.
 _Avoid_: Product menu, notes page, Notes Workspace
 
 **Recall Section**:
@@ -268,6 +287,7 @@ _Avoid_: Product menu, sidebar navigation
 - Label graph cycles are invalid; v1 prevents them in application logic and relies on database constraints only for duplicate edges and self-parent edges.
 - A **Study Note** can belong to zero or more **Labels**
 - A **Study Note** belongs to exactly one **Note**
+- A **Study Note** never belongs to multiple source **Notes**
 - A **Note** may produce multiple **Study Notes**
 - Every saved **Note** has at least one default **Study Note**
 - A **Study Note** owns its own title or prompt independently from its source **Note** title

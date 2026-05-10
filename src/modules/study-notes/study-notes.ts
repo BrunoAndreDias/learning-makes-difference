@@ -390,7 +390,7 @@ export function createAppStudyNotesContext(
       const timestamp = new Date().toISOString();
       const sourceTitle = validateRequiredText(
         input.sourceTitle,
-        "Source title",
+        "Explanation title",
       );
       const sourceBody = validateOptionalText(input.sourceBody);
       const acronyms = validateAcronyms(input.acronyms);
@@ -527,7 +527,7 @@ export function createAppStudyNotesContext(
       const updatedSource = {
         ...existingStudyNote.source,
         body: validateOptionalText(input.sourceBody),
-        title: validateRequiredText(input.sourceTitle, "Source title"),
+        title: validateRequiredText(input.sourceTitle, "Explanation title"),
         updatedAt: timestamp,
       };
       const updatedStudyNote: AppStoredStudyNote = {

@@ -1,6 +1,5 @@
 import {
   createFileRoute,
-  Link,
   useNavigate,
   useRouteContext,
 } from "@tanstack/react-router";
@@ -29,6 +28,7 @@ import {
   type FlashCardRecallRating,
   type RecallSession,
 } from "./recall";
+import { RecallBreadcrumb } from "./recall-breadcrumb";
 
 const recallSessionSavedMessageKey = "learning-makes-difference:recall-saved";
 const recallRatingOptions = [
@@ -342,13 +342,9 @@ function RecallSessionPage() {
     <section className="recall-shell" aria-label={t("recall.session.title")}>
       <header className="recall-shell__header">
         <div className="recall-shell__context">
-          <nav
-            aria-label={t("recall.breadcrumb")}
-            className="recall-breadcrumb"
-          >
-            <Link to="/recall">{t("shell.workspace.recall")}</Link> /{" "}
-            {t("recall.session.breadcrumbLabel")}
-          </nav>
+          <RecallBreadcrumb
+            currentLabel={t("recall.session.breadcrumbLabel")}
+          />
           <h3>{t("recall.session.title")}</h3>
         </div>
 

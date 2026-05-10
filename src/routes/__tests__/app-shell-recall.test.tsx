@@ -329,7 +329,7 @@ describe("authenticated recall workspace", () => {
 
     expect(screen.getByText("Tu respuesta")).toBeInTheDocument();
     expect(screen.getByText("Respuesta esperada")).toBeInTheDocument();
-    expect(screen.getByText("Nota de referencia")).toBeInTheDocument();
+    expect(screen.getByText("Explicacion de referencia")).toBeInTheDocument();
     expect(
       screen.getByText("Learner answer stays literal."),
     ).toBeInTheDocument();
@@ -539,6 +539,9 @@ describe("authenticated recall workspace", () => {
       within(selectedResult).getAllByText("Stored prompt title").length,
     ).toBeGreaterThan(0);
     expect(
+      screen.queryByRole("navigation", { name: "Breadcrumb" }),
+    ).not.toBeInTheDocument();
+    expect(
       screen.queryByRole("heading", { name: "Recall starts with Study Notes" }),
     ).not.toBeInTheDocument();
   });
@@ -642,7 +645,7 @@ describe("authenticated recall workspace", () => {
       within(selectedResult).getByText("ATP transfers energy in cells."),
     ).toBeInTheDocument();
     expect(
-      within(selectedResult).getByText("Reference note"),
+      within(selectedResult).getByText("Reference explanation"),
     ).toBeInTheDocument();
     expect(
       within(selectedResult).getByText("Original ATP source note"),

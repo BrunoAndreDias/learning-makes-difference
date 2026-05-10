@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { z } from "zod";
+import { ListCard } from "../../design-system/list-card";
 import { formatCount } from "../../lib/format-count";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import type { AppLabel } from "../labels/label-management/labels";
@@ -554,41 +555,36 @@ function ResultsMasterPanelContent({
   return (
     <div className="recall-results-list-frame">
       <ol className="recall-results-list">
-        {results.map((result) => (
-          <li key={result.id}>
-            <button
-              aria-pressed={result.id === selectedResultId}
-              className="recall-result-row"
-              data-selected={result.id === selectedResultId}
-              onClick={() => onSelectResult(result.id)}
-              type="button"
-            >
-              <span className="recall-result-row__icon" aria-hidden="true">
-                <CalendarIcon />
-              </span>
-              <span className="recall-result-row__main">
-                <strong>{formatResultDate(result.completedAt)}</strong>
-                <span>{formatResultTime(result.completedAt)}</span>
-                <span>
-                  {formatCount(result.questions.length, "question")}{" "}
-                  <span aria-hidden="true">·</span>{" "}
-                  <span
-                    className="recall-result-row__score"
-                    data-score-tone={getScoreTone(result.score ?? null)}
-                  >
-                    {formatResultScore(result.score ?? null)}
-                  </span>
-                </span>
-              </span>
-              <span
-                className="recall-mode-pill"
-                data-mode-tone={getModeTone(result.mode)}
-              >
-                {t(getRecallModeTranslationKey(result.mode))}
-              </span>
-            </button>
-          </li>
-        ))}
+        {results.map((result) => {
+          const isSelected = result.id === selectedResultId;
+
+          return (
+            <li key={result.id}>
+              <ListCard
+                aria-pressed={isSelected}
+                chip={t(getRecallModeTranslationKey(result.mode))}
+                description={
+                  <>
+                    <span>{formatResultTime(result.completedAt)}</span>
+                    <span>
+                      {formatCount(result.questions.length, "question")}{" "}
+                      <span aria-hidden="true">·</span>{" "}
+                      <span
+                        className="recall-result-card__score"
+                        data-score-tone={getScoreTone(result.score ?? null)}
+                      >
+                        {formatResultScore(result.score ?? null)}
+                      </span>
+                    </span>
+                  </>
+                }
+                onClick={() => onSelectResult(result.id)}
+                selected={isSelected}
+                title={formatResultDate(result.completedAt)}
+              />
+            </li>
+          );
+        })}
       </ol>
       <p className="recall-results-count">
         {results.length === 1

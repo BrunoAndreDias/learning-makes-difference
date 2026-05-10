@@ -4,16 +4,28 @@
 
 .study-notes-editor {
   align-content: start;
+  scroll-padding-bottom: 1rem;
 }
 
 .study-notes-editor .notes-editor__header {
   flex-wrap: wrap;
 }
 
+.study-notes-editor .notes-editor__title-stack {
+  gap: 0;
+}
+
 .study-notes-editor__fields {
   display: grid;
   gap: 1.25rem;
   padding-top: 1.25rem;
+  padding-bottom: 0.75rem;
+}
+
+.study-notes-editor__label-section,
+.study-notes-editor__memory-hooks {
+  display: grid;
+  gap: 0.8rem;
 }
 
 .study-notes-editor__source {
@@ -23,9 +35,13 @@
   border-top: 1px solid var(--color-content-border-soft);
 }
 
-.study-notes-editor__source h2 {
+.study-notes-editor__group-label {
   margin: 0;
-  font-size: 1.15rem;
+  color: var(--color-content-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .study-notes-filter {
@@ -55,6 +71,12 @@
 .study-notes-editor .notes-form__field textarea,
 .study-notes-editor .notes-form__field select {
   width: 100%;
+}
+
+.study-notes-editor .notes-form__field input::placeholder,
+.study-notes-editor .notes-form__field textarea::placeholder {
+  color: var(--color-content-muted);
+  opacity: 1;
 }
 
 @media (max-width: 860px) {

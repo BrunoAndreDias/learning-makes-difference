@@ -347,7 +347,6 @@
   list-style: none;
 }
 
-.recall-result-row,
 .recall-note-row {
   display: grid;
   width: 100%;
@@ -420,22 +419,6 @@
   max-height: none;
 }
 
-.recall-result-row {
-  grid-template-columns: 1.9rem minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 0.55rem;
-  min-height: 3.7rem;
-  padding: 0.5rem 0.55rem;
-  border: 1px solid var(--color-content-border-soft);
-  border-left-width: 0.1875rem;
-  border-radius: 0.45rem;
-  background: var(--color-shell-panel);
-  font-size: 0.78rem;
-}
-
-.recall-result-row:hover,
-.recall-result-row:focus-visible,
-.recall-result-row[data-selected="true"],
 .recall-note-row:hover,
 .recall-note-row:focus-within,
 .recall-note-row[data-selected="true"] {
@@ -443,58 +426,27 @@
   background: var(--color-primary-soft);
 }
 
-.recall-result-row[data-selected="true"] {
-  border-left-color: var(--color-primary);
-  background: var(--color-primary-soft);
-}
-
-.recall-result-row__main {
-  display: grid;
-  gap: 0.05rem;
-  min-width: 0;
-  color: var(--color-content-muted);
-  line-height: 1.25;
-}
-
-.recall-result-row__main strong {
-  color: var(--color-content-strong);
-  font-size: 0.78rem;
-  font-weight: 700;
-  line-height: 1.15;
-}
-
-.recall-result-row__icon {
-  display: inline-grid;
-  place-items: center;
-  width: 1.9rem;
-  height: 1.9rem;
-  border: 1px solid var(--color-content-border-soft);
-  border-radius: 0.375rem;
-  background: var(--color-shell-inset);
-  color: var(--color-content-muted);
-}
-
-.recall-result-row__score {
+.recall-result-card__score {
   font-weight: 800;
 }
 
-.recall-result-row__score[data-score-tone="easy"] {
+.recall-result-card__score[data-score-tone="easy"] {
   color: var(--color-success);
 }
 
-.recall-result-row__score[data-score-tone="good"] {
+.recall-result-card__score[data-score-tone="good"] {
   color: var(--color-secondary);
 }
 
-.recall-result-row__score[data-score-tone="hard"] {
+.recall-result-card__score[data-score-tone="hard"] {
   color: var(--color-content-default);
 }
 
-.recall-result-row__score[data-score-tone="forgot"] {
+.recall-result-card__score[data-score-tone="forgot"] {
   color: var(--color-content-default);
 }
 
-.recall-result-row__score[data-score-tone="muted"] {
+.recall-result-card__score[data-score-tone="muted"] {
   color: var(--color-content-muted);
 }
 
@@ -542,7 +494,6 @@
   color: var(--recall-chip-text);
 }
 
-.recall-result-row__meta,
 .recall-note-row__meta {
   color: var(--color-content-muted);
   font-size: 0.84rem;

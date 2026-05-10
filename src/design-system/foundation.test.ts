@@ -414,6 +414,10 @@ describe("foundationTokens", () => {
       new URL("../modules/recall/recall-responsive.css", import.meta.url),
       "utf8",
     );
+    const listCardCss = readFileSync(
+      new URL("./list-card.css", import.meta.url),
+      "utf8",
+    );
 
     expect(workspaceShellCss).toContain(
       '.app-frame[data-workspace="recall-results"] {',
@@ -449,8 +453,20 @@ describe("foundationTokens", () => {
     ).not.toContain("background:");
     expect(recallWorkspaceCss).toContain("align-content: start;");
     expect(recallWorkspaceCss).toContain("gap: 0.5rem;");
-    expect(recallWorkspaceCss).toContain("border-left-width: 0.1875rem;");
-    expect(recallWorkspaceCss).toContain("border-radius: 0.45rem;");
+    expect(recallWorkspaceCss).not.toContain(".recall-result-row {");
+    expect(listCardCss).toContain(".list-card {");
+    expect(getCssRule(listCardCss, ".list-card")).toContain(
+      "grid-template-columns: minmax(0, 1fr) auto;",
+    );
+    expect(getCssRule(listCardCss, ".list-card__description")).toContain(
+      "overflow-wrap: anywhere;",
+    );
+    expect(getCssRule(listCardCss, ".list-card__chip")).toContain(
+      "align-self: start;",
+    );
+    expect(
+      getCssRule(listCardCss, '.list-card[data-selected="true"]'),
+    ).toContain("box-shadow: inset 0 0 0 1px");
     expect(recallWorkspaceCss).toContain(".recall-results-count");
     expect(recallWorkspaceCss).not.toContain(
       ".recall-results-list li + li .recall-result-row",

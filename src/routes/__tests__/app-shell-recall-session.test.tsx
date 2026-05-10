@@ -315,7 +315,7 @@ describe("authenticated recall workspace", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(screen.getByText("Expected answer")).toBeInTheDocument();
-    expect(screen.getByText("Source context")).toBeInTheDocument();
+    expect(screen.getByText("Reference explanation")).toBeInTheDocument();
   });
 
   it("uses FlashCard session self-rating semantics in selected Results review", async () => {
@@ -700,7 +700,10 @@ describe("authenticated recall workspace", () => {
       detailPanel,
       "Expected answer",
     );
-    const referenceBlock = getDetailBlockByLabel(detailPanel, "Reference note");
+    const referenceBlock = getDetailBlockByLabel(
+      detailPanel,
+      "Reference explanation",
+    );
 
     expect(selfRatingBlock).toHaveTextContent("Good");
     expect(
