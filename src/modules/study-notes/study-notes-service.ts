@@ -11,6 +11,8 @@ import {
   type CreateStudyNoteFromSourceInput,
   type CreateStudyNoteInput,
   type DeleteStudyNoteInput,
+  getDefaultSiblingStudyNotePrompt,
+  normalizeCreateStudyNoteInput,
   type UpdateStudyNoteInput,
 } from "./study-notes";
 import {
@@ -96,10 +98,6 @@ function validateRequiredText(value: string, label: string): string {
 
 function validateOptionalText(value: string): string {
   return value.trim();
-}
-
-function getDefaultSiblingPrompt(sourceTitle: string): string {
-  return sourceTitle.trim().length > 0 ? sourceTitle.trim() : "New Study Note";
 }
 
 function normalizeLabelIds(labelIds: readonly string[] | undefined): string[] {
@@ -354,15 +352,8 @@ export function createStudyNotesService({
       const timestamp = now();
       const sourceNoteId = crypto.randomUUID();
       const studyNoteId = crypto.randomUUID();
-      const sourceTitle = validateOptionalText(input.sourceTitle);
-      const sourceBody = validateOptionalText(input.sourceBody);
-      const prompt = validateRequiredText(
-        input.prompt ?? input.sourceTitle,
-        "Prompt",
-      );
-      const expectedAnswer = validateOptionalText(
-        input.expectedAnswer ?? input.sourceBody,
-      );
+      const { expectedAnswer, prompt, sourceBody, sourceTitle } =
+        normalizeCreateStudyNoteInput(input);
       const acronyms = validateAcronyms(input.acronyms);
       const safeLabelIds = await validateOwnedLabelIds({
         db,
@@ -456,12 +447,13 @@ export function createStudyNotesService({
 
       const timestamp = now();
       const studyNoteId = crypto.randomUUID();
+      const prompt = getDefaultSiblingStudyNotePrompt(source.title);
 
       await db.insert(studyNotesTable).values({
         createdAt: timestamp,
         expectedAnswer: source.body,
         id: studyNoteId,
-        prompt: getDefaultSiblingPrompt(source.title),
+        prompt,
         sourceNoteId: source.id,
         updatedAt: timestamp,
       });
@@ -473,7 +465,7 @@ export function createStudyNotesService({
         id: studyNoteId,
         labelIds: [],
         metaphors: [],
-        prompt: getDefaultSiblingPrompt(source.title),
+        prompt,
         sourceBody: source.body,
         sourceNoteId: source.id,
         sourceTitle: source.title,

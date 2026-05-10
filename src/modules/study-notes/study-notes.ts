@@ -76,6 +76,7 @@ type CreateAppStudyNotesContextOptions = {
 };
 
 const DEFAULT_STORAGE_KEY_PREFIX = "learning-makes-difference-study-notes";
+const DEFAULT_SIBLING_STUDY_NOTE_PROMPT = "New Study Note";
 
 export class AppStudyNotesError extends Error {
   readonly code: "invalid_input" | "not_found" | "unauthorized";
@@ -153,8 +154,27 @@ function validateOptionalText(value: string): string {
   return value.trim();
 }
 
-function getDefaultSiblingPrompt(sourceTitle: string): string {
-  return sourceTitle.trim().length > 0 ? sourceTitle.trim() : "New Study Note";
+export function getDefaultSiblingStudyNotePrompt(sourceTitle: string): string {
+  const prompt = validateOptionalText(sourceTitle);
+
+  return prompt.length > 0 ? prompt : DEFAULT_SIBLING_STUDY_NOTE_PROMPT;
+}
+
+export function normalizeCreateStudyNoteInput(input: CreateStudyNoteInput): {
+  expectedAnswer: string;
+  prompt: string;
+  sourceBody: string;
+  sourceTitle: string;
+} {
+  const sourceTitle = validateOptionalText(input.sourceTitle);
+  const sourceBody = validateOptionalText(input.sourceBody);
+
+  return {
+    expectedAnswer: validateOptionalText(input.expectedAnswer ?? sourceBody),
+    prompt: validateRequiredText(input.prompt ?? sourceTitle, "Prompt"),
+    sourceBody,
+    sourceTitle,
+  };
 }
 
 function normalizeLabelIds(labelIds: readonly string[] | undefined): string[] {
@@ -394,15 +414,8 @@ export function createAppStudyNotesContext(
     createStudyNote(userId, input) {
       const validatedUserId = validateUserId(userId);
       const timestamp = new Date().toISOString();
-      const sourceTitle = validateOptionalText(input.sourceTitle);
-      const sourceBody = validateOptionalText(input.sourceBody);
-      const prompt = validateRequiredText(
-        input.prompt ?? input.sourceTitle,
-        "Prompt",
-      );
-      const expectedAnswer = validateOptionalText(
-        input.expectedAnswer ?? input.sourceBody,
-      );
+      const { expectedAnswer, prompt, sourceBody, sourceTitle } =
+        normalizeCreateStudyNoteInput(input);
       const acronyms = validateAcronyms(input.acronyms);
       const labelIds = validateOwnedLabelIds(input.labelIds, {
         getOwnedLabelIdsForUser: options.getOwnedLabelIdsForUser,
@@ -456,7 +469,7 @@ export function createAppStudyNotesContext(
         id: cryptoProvider.randomUUID(),
         labelIds: [],
         metaphors: [],
-        prompt: getDefaultSiblingPrompt(sourceStudyNote.source.title),
+        prompt: getDefaultSiblingStudyNotePrompt(sourceStudyNote.source.title),
         source: { ...sourceStudyNote.source },
         sourceNoteId: sourceStudyNote.sourceNoteId,
         updatedAt: timestamp,

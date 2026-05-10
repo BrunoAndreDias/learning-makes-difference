@@ -8,12 +8,6 @@ export type StudyNoteReadiness = {
   saveable: boolean;
 };
 
-export type StudyNoteReadinessLabels = {
-  compact: string | null;
-  due: string | null;
-  practice: string | null;
-};
-
 export function getStudyNoteReadiness(
   studyNote: Pick<AppStudyNote, "expectedAnswer" | "prompt">,
 ): StudyNoteReadiness {
@@ -27,21 +21,5 @@ export function getStudyNoteReadiness(
     learningStateEligible: recallable,
     recallable,
     saveable: hasPrompt,
-  };
-}
-
-export function getStudyNoteReadinessLabels(
-  studyNote: Pick<AppStudyNote, "expectedAnswer" | "prompt">,
-): StudyNoteReadinessLabels | null {
-  const readiness = getStudyNoteReadiness(studyNote);
-
-  if (!readiness.incomplete) {
-    return null;
-  }
-
-  return {
-    compact: readiness.saveable ? "Add expected answer" : "Add prompt",
-    due: null,
-    practice: null,
   };
 }

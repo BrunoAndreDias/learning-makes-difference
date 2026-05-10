@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  getStudyNoteReadiness,
-  getStudyNoteReadinessLabels,
-} from "./study-note-readiness";
+import { getStudyNoteReadiness } from "./study-note-readiness";
 import type { AppStudyNote } from "./study-notes";
 
 const timestamp = "2026-05-01T00:00:00.000Z";
@@ -30,9 +27,31 @@ function buildStudyNote(overrides: Partial<AppStudyNote> = {}): AppStudyNote {
 }
 
 describe("Study Note readiness", () => {
-  it("requires a prompt to save and a non-empty expected answer for recall-derived surfaces", () => {
+  it("requires a prompt before a Study Note can be saved", () => {
     const missingPrompt = buildStudyNote({ prompt: " " });
+
+    expect(getStudyNoteReadiness(missingPrompt)).toMatchObject({
+      dueForRecallEligible: false,
+      incomplete: true,
+      learningStateEligible: false,
+      recallable: false,
+      saveable: false,
+    });
+  });
+
+  it("marks prompt-only Study Notes as saveable but incomplete", () => {
     const incomplete = buildStudyNote({ expectedAnswer: " " });
+
+    expect(getStudyNoteReadiness(incomplete)).toMatchObject({
+      dueForRecallEligible: false,
+      incomplete: true,
+      learningStateEligible: false,
+      recallable: false,
+      saveable: true,
+    });
+  });
+
+  it("allows recall-derived surfaces when prompt and expected answer are filled", () => {
     const recallableWithoutSourceBody = buildStudyNote({
       expectedAnswer: "Recall this answer.",
       source: {
@@ -43,31 +62,12 @@ describe("Study Note readiness", () => {
       },
     });
 
-    expect(getStudyNoteReadiness(missingPrompt)).toMatchObject({
-      dueForRecallEligible: false,
-      incomplete: true,
-      learningStateEligible: false,
-      recallable: false,
-      saveable: false,
-    });
-    expect(getStudyNoteReadiness(incomplete)).toMatchObject({
-      dueForRecallEligible: false,
-      incomplete: true,
-      learningStateEligible: false,
-      recallable: false,
-      saveable: true,
-    });
     expect(getStudyNoteReadiness(recallableWithoutSourceBody)).toMatchObject({
       dueForRecallEligible: true,
       incomplete: false,
       learningStateEligible: true,
       recallable: true,
       saveable: true,
-    });
-    expect(getStudyNoteReadinessLabels(incomplete)).toEqual({
-      compact: "Add expected answer",
-      due: null,
-      practice: null,
     });
   });
 });
