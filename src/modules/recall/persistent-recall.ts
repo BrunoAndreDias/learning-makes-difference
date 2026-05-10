@@ -1,5 +1,7 @@
 import type { AppNotesContext } from "../notes";
 import { listNotesForUser } from "../notes";
+import type { AppStudyNotesContext } from "../study-notes";
+import { listStudyNotesForUser } from "../study-notes";
 import {
   type AppRecallContext,
   AppRecallError,
@@ -112,6 +114,7 @@ type CreatePersistentRecallContextOptions = {
     },
   ) => void | Promise<void>;
   service?: AppPersistentRecallService;
+  studyNotes?: AppStudyNotesContext;
 };
 
 function createMissingServiceError() {
@@ -305,7 +308,14 @@ export function createPersistentRecallContext(
         options.notes === undefined
           ? []
           : listNotesForUser(options.notes.getSnapshot(), userId).map(
-              (note) => [note.id, note],
+              (note) => [note.id, note.title],
+            ),
+      );
+      const currentStudyNotesById = new Map(
+        options.studyNotes === undefined
+          ? []
+          : listStudyNotesForUser(options.studyNotes.getSnapshot(), userId).map(
+              (studyNote) => [studyNote.id, studyNote.prompt],
             ),
       );
       const groups = new Map<
@@ -378,7 +388,10 @@ export function createPersistentRecallContext(
                 left.sessionId.localeCompare(right.sessionId)
               );
             }),
-            currentTitle: currentNotesById.get(noteId)?.title ?? null,
+            currentTitle:
+              currentStudyNotesById.get(noteId) ??
+              currentNotesById.get(noteId) ??
+              null,
             noteId,
             snapshotTitle: group.snapshotTitle,
             totalAttempts: group.attempts.length,

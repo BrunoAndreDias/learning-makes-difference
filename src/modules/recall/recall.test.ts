@@ -186,6 +186,97 @@ describe("recall attempts by note", () => {
     ]);
   });
 
+  it("aggregates Study Note attempts independently for shared source material", () => {
+    const storage = createMemoryStorage();
+    const studyNotes = createAppStudyNotesContext({
+      keyPrefix: "recall-test-by-study-note-shared-source-study-notes",
+      storage,
+    });
+    let sessionCounter = 0;
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `session-by-study-note-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "recall-test-by-study-note-shared-source-session",
+      notes: createAppNotesContext({
+        keyPrefix: "recall-test-by-study-note-shared-source-notes",
+        storage,
+      }),
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+    const userId = "owner";
+    const first = studyNotes.createStudyNote(userId, {
+      sourceBody: "One broad source body.",
+      sourceTitle: "Shared source",
+    });
+    const second = studyNotes.createStudyNoteFromSource(userId, {
+      sourceNoteId: first.sourceNoteId,
+    });
+    const updatedFirst = studyNotes.updateStudyNote(userId, first.id, {
+      acronyms: [],
+      expectedAnswer: "First expected answer.",
+      labelIds: [],
+      metaphors: [],
+      prompt: "First target",
+      sourceBody: "One broad source body.",
+      sourceTitle: "Shared source",
+    });
+    const updatedSecond = studyNotes.updateStudyNote(userId, second.id, {
+      acronyms: [],
+      expectedAnswer: "Second expected answer.",
+      labelIds: [],
+      metaphors: [],
+      prompt: "Second target",
+      sourceBody: "One broad source body.",
+      sourceTitle: "Shared source",
+    });
+
+    const firstSession = recall.startFlashCardSession({
+      studyNoteIds: [updatedFirst.id],
+      userId,
+    });
+    recall.revealFlashCardAnswer({ sessionId: firstSession.id, userId });
+    recall.rateFlashCardAnswer({
+      rating: "hard",
+      sessionId: firstSession.id,
+      userId,
+    });
+
+    const secondSession = recall.startFlashCardSession({
+      studyNoteIds: [updatedSecond.id],
+      userId,
+    });
+    recall.revealFlashCardAnswer({ sessionId: secondSession.id, userId });
+    recall.rateFlashCardAnswer({
+      rating: "easy",
+      sessionId: secondSession.id,
+      userId,
+    });
+
+    expect(recall.listAttemptsByNote({ userId })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          currentTitle: "Second target",
+          easy: 1,
+          hard: 0,
+          noteId: updatedSecond.id,
+          totalAttempts: 1,
+        }),
+        expect.objectContaining({
+          currentTitle: "First target",
+          easy: 0,
+          hard: 1,
+          noteId: updatedFirst.id,
+          totalAttempts: 1,
+        }),
+      ]),
+    );
+    expect(recall.listAttemptsByNote({ userId })).toHaveLength(2);
+  });
+
   it("sorts notes by attempts then most recent attempt and filters by stored note labels", () => {
     vi.useFakeTimers();
 

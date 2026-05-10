@@ -4,6 +4,8 @@ import { fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { createAppLabelsContext } from "../../modules/labels/label-management/labels";
+import { createAppNotesContext } from "../../modules/notes";
+import { createAppRecallContext } from "../../modules/recall";
 import { createAppStudyNotesContext } from "../../modules/study-notes";
 import { renderRoute } from "./app-shell-test-support";
 
@@ -289,5 +291,97 @@ describe("authenticated Study Notes workspace", () => {
     expect(
       within(catalog).getByRole("button", { name: "Biology recall" }),
     ).toBeInTheDocument();
+  });
+
+  it("shows Study Note-owned Learning State, Due for Recall, and Needs practice copy", async () => {
+    const studyNotesContext = createAppStudyNotesContext({
+      keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-source-notes-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    let sessionCounter = 0;
+    const recallContext = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `study-note-learning-state-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: `test-recall-${Math.random().toString(36).slice(2)}`,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+      studyNotes: studyNotesContext,
+    });
+    const userId = "user-jordan";
+    const first = studyNotesContext.createStudyNote(userId, {
+      sourceBody: "Shared source context.",
+      sourceTitle: "Shared source",
+    });
+    const second = studyNotesContext.createStudyNoteFromSource(userId, {
+      sourceNoteId: first.sourceNoteId,
+    });
+    const updatedFirst = studyNotesContext.updateStudyNote(userId, first.id, {
+      acronyms: [],
+      expectedAnswer: "First expected answer.",
+      labelIds: [],
+      metaphors: [],
+      prompt: "First recall target",
+      sourceBody: "Shared source context.",
+      sourceTitle: "Shared source",
+    });
+    studyNotesContext.updateStudyNote(userId, second.id, {
+      acronyms: [],
+      expectedAnswer: "Second expected answer.",
+      labelIds: [],
+      metaphors: [],
+      prompt: "Second recall target",
+      sourceBody: "Shared source context.",
+      sourceTitle: "Shared source",
+    });
+
+    const session = recallContext.startFlashCardSession({
+      studyNoteIds: [updatedFirst.id],
+      userId,
+    });
+    recallContext.revealFlashCardAnswer({ sessionId: session.id, userId });
+    recallContext.rateFlashCardAnswer({
+      rating: "hard",
+      sessionId: session.id,
+      userId,
+    });
+
+    renderRoute("/study-notes", {
+      notesContext,
+      recallContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+      studyNotesContext,
+    });
+
+    const catalog = await screen.findByRole("complementary", {
+      name: "Study Notes catalog",
+    });
+    const firstRow = within(catalog).getByRole("button", {
+      name: "First recall target",
+    });
+    const secondRow = within(catalog).getByRole("button", {
+      name: "Second recall target",
+    });
+
+    expect(firstRow).toHaveTextContent("Last score: Hard");
+    expect(firstRow).toHaveTextContent("Needs practice");
+    expect(firstRow).toHaveTextContent("Due for Recall");
+    expect(firstRow).not.toHaveTextContent("Weak");
+    expect(secondRow).toHaveTextContent("Not recalled yet");
+    expect(secondRow).toHaveTextContent("Due for Recall");
+    expect(secondRow).not.toHaveTextContent("Last score: Hard");
   });
 });
