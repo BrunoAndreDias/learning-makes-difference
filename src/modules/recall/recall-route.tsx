@@ -12,7 +12,11 @@ import { Button, ButtonLink } from "../../design-system/button";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import type { AppLabel } from "../labels/label-management/labels";
 import { type AppTranslationKey, useAppTranslation } from "../language";
-import { type AppStudyNote, listStudyNotesForUser } from "../study-notes";
+import {
+  type AppStudyNote,
+  getStudyNoteReadiness,
+  listStudyNotesForUser,
+} from "../study-notes";
 import {
   formatRecallModeLabel,
   getRecallModeTranslationKey,
@@ -160,7 +164,10 @@ function getSelectedStudyNotes(input: {
 }) {
   return input.selectedStudyNoteIds
     .map((studyNoteId) => input.studyNotesById.get(studyNoteId))
-    .filter((studyNote): studyNote is AppStudyNote => studyNote !== undefined);
+    .filter(
+      (studyNote): studyNote is AppStudyNote =>
+        studyNote !== undefined && getStudyNoteReadiness(studyNote).recallable,
+    );
 }
 
 function getDisabledStartReason(input: {
@@ -247,6 +254,15 @@ export function RecallSelectionPage({
   const canStart = disabledStartReason === null;
 
   function toggleStudyNote(studyNoteId: string) {
+    const studyNote = studyNotesById.get(studyNoteId);
+
+    if (
+      studyNote === undefined ||
+      !getStudyNoteReadiness(studyNote).recallable
+    ) {
+      return;
+    }
+
     setSelectedStudyNoteIds((currentStudyNoteIds) =>
       currentStudyNoteIds.includes(studyNoteId)
         ? currentStudyNoteIds.filter(
@@ -341,16 +357,20 @@ export function RecallSelectionPage({
               <ol className="recall-note-picker__list">
                 {visibleStudyNotes.map((studyNote) => {
                   const labelNames = getLabelNames(studyNote, labelsById);
+                  const isRecallable =
+                    getStudyNoteReadiness(studyNote).recallable;
 
                   return (
                     <li key={studyNote.id}>
                       <label
                         className="recall-note-row recall-select-note-row"
+                        data-disabled={!isRecallable}
                         data-selected={selectedStudyNoteIdSet.has(studyNote.id)}
                       >
                         <span className="recall-note-row__check">
                           <input
                             checked={selectedStudyNoteIdSet.has(studyNote.id)}
+                            disabled={!isRecallable}
                             onChange={() => toggleStudyNote(studyNote.id)}
                             type="checkbox"
                           />
@@ -361,7 +381,7 @@ export function RecallSelectionPage({
                             <span>
                               {getStudyNotePreview(
                                 studyNote,
-                                t("recall.selection.noBody"),
+                                t("recall.selection.addExpectedAnswer"),
                               )}
                             </span>
                             <span className="recall-select-note-row__labels">

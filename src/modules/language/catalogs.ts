@@ -288,6 +288,7 @@ const englishTranslations = {
   "recall.results": "Recall results",
   "recall.results.description":
     "Review past results or start a new recall session.",
+  "recall.selection.addExpectedAnswer": "Add expected answer",
   "recall.selection.availableNotes": "Available Study Notes",
   "recall.selection.cancel": "Cancel",
   "recall.selection.counts.acronyms": "Acronym description",
@@ -680,6 +681,7 @@ const portugueseTranslations = {
   "recall.results": "Resultados de recordacao",
   "recall.results.description":
     "Reveja resultados anteriores ou inicie uma nova sessao de recordacao.",
+  "recall.selection.addExpectedAnswer": "Adicione resposta esperada",
   "recall.selection.availableNotes": "Notas de estudo disponiveis",
   "recall.selection.cancel": "Cancelar",
   "recall.selection.counts.acronyms": "Descricao de acronimo",
@@ -1075,6 +1077,7 @@ const spanishTranslations = {
   "recall.results": "Resultados de repaso",
   "recall.results.description":
     "Revisa resultados anteriores o inicia una nueva sesion de repaso.",
+  "recall.selection.addExpectedAnswer": "Anade respuesta esperada",
   "recall.selection.availableNotes": "Notas de estudio disponibles",
   "recall.selection.cancel": "Cancelar",
   "recall.selection.counts.acronyms": "Descripcion de acronimo",

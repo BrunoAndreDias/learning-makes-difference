@@ -982,6 +982,62 @@ describe("authenticated recall workspace", () => {
     expect(router.state.location.pathname).toBe("/recall/session");
   });
 
+  it("keeps incomplete Study Notes out of Recall selection and starts only completed selections", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const incompleteStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "",
+        prompt: "Incomplete Study Note",
+        sourceBody: "Draft source context.",
+        sourceTitle: "Draft source",
+      },
+    );
+    const completedStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "Completed expected answer.",
+        prompt: "Completed Study Note",
+        sourceBody: "",
+        sourceTitle: "",
+      },
+    );
+
+    const { router } = renderRoute(
+      `/recall/select?studyNoteIds=${incompleteStudyNote.id},${completedStudyNote.id}`,
+      {
+        ...contexts,
+        session: createSession(),
+      },
+    );
+
+    const availableNotes = await screen.findByRole("region", {
+      name: "Available Study Notes",
+    });
+    expect(
+      within(availableNotes).getByRole("checkbox", {
+        name: /Incomplete Study Note/,
+      }),
+    ).toBeDisabled();
+    expect(
+      within(availableNotes).getByText("Add expected answer"),
+    ).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByRole("complementary", { name: "Session setup" }),
+      ).getByText("1"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
+
+    await screen.findByRole("heading", { level: 3, name: "Recall session" });
+    expect(router.state.location.pathname).toBe("/recall/session");
+    expect(screen.getAllByText("Completed Study Note").length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.queryByText("Incomplete Study Note")).toBeNull();
+  });
+
   it("clears temporary Study Note selections on setup cancel", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const studyNote = contexts.studyNotesContext.createStudyNote(testUser.id, {
