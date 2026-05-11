@@ -114,9 +114,13 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.getByLabelText("Acronym")).toHaveValue(
       "RP means Retrieval Practice.",
     );
-    expect(screen.getByLabelText("Note title")).toHaveValue(
-      "Retrieval practice",
+    const noteTitleField = screen.getByLabelText("Note title");
+    expect(noteTitleField).toBeInstanceOf(HTMLTextAreaElement);
+    expect(noteTitleField).toHaveClass("floating-textarea__control");
+    expect(noteTitleField.closest("label")).toHaveClass(
+      "study-notes-editor__source-title",
     );
+    expect(noteTitleField).toHaveValue("Retrieval practice");
     expect(screen.getByLabelText("Explanation")).toHaveValue(
       "Testing retrieval strengthens durable recall.",
     );

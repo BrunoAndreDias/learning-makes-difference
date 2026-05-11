@@ -724,20 +724,18 @@ function StudyNotesWorkspace() {
                     </p>
                   )}
                 </div>
-                <label className="notes-form__field">
-                  <span className="sr-only">Note title</span>
-                  <input
-                    aria-label="Note title"
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        sourceTitle: event.target.value,
-                      }))
-                    }
-                    placeholder="Note title"
-                    value={draft.sourceTitle}
-                  />
-                </label>
+                <FloatingTextarea
+                  containerClassName="study-notes-editor__source-title"
+                  label="Note title"
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      sourceTitle: event.target.value,
+                    }))
+                  }
+                  rows={1}
+                  value={draft.sourceTitle}
+                />
                 <FloatingTextarea
                   label="Explanation"
                   onChange={(event) =>

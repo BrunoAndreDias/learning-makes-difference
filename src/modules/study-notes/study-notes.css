@@ -35,6 +35,14 @@
   border-top: 1px solid var(--color-content-border-soft);
 }
 
+.study-notes-editor__source-title {
+  --floating-textarea-min-height: 3.25rem;
+}
+
+.study-notes-editor__source-title .floating-textarea__control {
+  resize: none;
+}
+
 .study-notes-editor__group-label {
   margin: 0;
   color: var(--color-content-muted);
