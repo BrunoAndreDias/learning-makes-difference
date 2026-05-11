@@ -161,16 +161,19 @@ function formatPromptList(prompts: readonly string[]) {
     return prompts[0] ?? "";
   }
 
-  return `${prompts.slice(0, -1).join(", ")} and ${prompts[prompts.length - 1]}`;
+  const leadingPrompts = prompts.slice(0, -1).join(", ");
+  const finalPrompt = prompts[prompts.length - 1];
+
+  return `${leadingPrompts} and ${finalPrompt}`;
 }
 
-function formatSharedSourceEditContext(studyNotes: readonly AppStudyNote[]) {
-  if (studyNotes.length <= 1) {
+function formatSharedSourceEditMessage(prompts: readonly string[]) {
+  if (prompts.length <= 1) {
     return null;
   }
 
-  return `Editing this explanation updates ${studyNotes.length} sibling Study Notes: ${formatPromptList(
-    studyNotes.map((studyNote) => studyNote.prompt),
+  return `Editing this explanation updates ${prompts.length} sibling Study Notes: ${formatPromptList(
+    prompts,
   )}.`;
 }
 
@@ -271,8 +274,8 @@ function StudyNotesWorkspace() {
           (studyNote) =>
             studyNote.sourceNoteId === selectedStudyNote.sourceNoteId,
         );
-  const sharedSourceEditContext = formatSharedSourceEditContext(
-    selectedSourceStudyNotes,
+  const sharedSourceEditMessage = formatSharedSourceEditMessage(
+    selectedSourceStudyNotes.map((studyNote) => studyNote.prompt),
   );
   const activeFocusSession =
     userId === null ? null : focusContext.getActiveSession({ userId });
@@ -717,9 +720,9 @@ function StudyNotesWorkspace() {
                   <p className="study-notes-editor__group-label">
                     Reference explanation
                   </p>
-                  {sharedSourceEditContext === null ? null : (
+                  {sharedSourceEditMessage === null ? null : (
                     <p className="muted study-notes-editor__shared-source">
-                      {sharedSourceEditContext}
+                      {sharedSourceEditMessage}
                     </p>
                   )}
                 </div>

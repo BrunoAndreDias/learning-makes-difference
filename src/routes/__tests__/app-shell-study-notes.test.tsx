@@ -472,7 +472,7 @@ describe("authenticated Study Notes workspace", () => {
     ]);
   });
 
-  it("adds Study Notes from a shared source and confirms last-link deletion", async () => {
+  it("adds Study Notes from a shared source, saves shared edits without confirmation, and confirms last-link deletion", async () => {
     const studyNotesContext = createAppStudyNotesContext({
       keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -505,11 +505,9 @@ describe("authenticated Study Notes workspace", () => {
     expect(
       screen.getAllByRole("button", { name: "Shared practice source" }),
     ).toHaveLength(2);
-    expect(
-      screen.getByText(
-        "Editing this explanation updates 2 sibling Study Notes: Shared practice source and Shared practice source.",
-      ),
-    ).toBeInTheDocument();
+    const initialSharedSourceMessage =
+      "Editing this explanation updates 2 sibling Study Notes: Shared practice source and Shared practice source.";
+    expect(screen.getByText(initialSharedSourceMessage)).toBeInTheDocument();
 
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
     fireEvent.change(screen.getByLabelText("Prompt"), {
@@ -537,13 +535,15 @@ describe("authenticated Study Notes workspace", () => {
     expect(within(catalog).getAllByRole("button")).toHaveLength(1);
     expect(
       screen.queryByText(
-        "Editing this explanation updates 2 sibling Study Notes: Shared practice source and What can share a source.",
+        /^Editing this explanation updates \d+ sibling Study Notes:/,
       ),
     ).not.toBeInTheDocument();
+    expect(confirmSpy).not.toHaveBeenCalled();
 
     confirmSpy.mockReturnValueOnce(false);
     fireEvent.click(screen.getByRole("button", { name: "Delete Study Note" }));
 
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
     expect(confirmSpy).toHaveBeenCalledWith(
       "Delete this last Study Note and its reference explanation?",
     );
@@ -552,6 +552,7 @@ describe("authenticated Study Notes workspace", () => {
     confirmSpy.mockReturnValueOnce(true);
     fireEvent.click(screen.getByRole("button", { name: "Delete Study Note" }));
 
+    expect(confirmSpy).toHaveBeenCalledTimes(2);
     expect(within(catalog).queryByRole("button")).not.toBeInTheDocument();
 
     confirmSpy.mockRestore();
