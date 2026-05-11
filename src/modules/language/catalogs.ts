@@ -288,6 +288,7 @@ const englishTranslations = {
   "recall.results": "Recall results",
   "recall.results.description":
     "Review past results or start a new recall session.",
+  "recall.selection.addExpectedAnswer": "Add expected answer",
   "recall.selection.availableNotes": "Available Study Notes",
   "recall.selection.cancel": "Cancel",
   "recall.selection.counts.acronyms": "Acronym description",
@@ -302,7 +303,6 @@ const englishTranslations = {
     "Connect API key to use AI Graded recall.",
   "recall.selection.helper.flashCard":
     "Reveal each Study Note and rate your recall.",
-  "recall.selection.noBody": "No expected answer saved.",
   "recall.selection.noLabel": "No label",
   "recall.selection.noSearchMatches": "No Study Notes match this search.",
   "recall.selection.questionStyle": "Question style",
@@ -680,6 +680,7 @@ const portugueseTranslations = {
   "recall.results": "Resultados de recordacao",
   "recall.results.description":
     "Reveja resultados anteriores ou inicie uma nova sessao de recordacao.",
+  "recall.selection.addExpectedAnswer": "Adicione resposta esperada",
   "recall.selection.availableNotes": "Notas de estudo disponiveis",
   "recall.selection.cancel": "Cancelar",
   "recall.selection.counts.acronyms": "Descricao de acronimo",
@@ -696,7 +697,6 @@ const portugueseTranslations = {
     "Ligue a chave de API para usar recordacao avaliada por IA.",
   "recall.selection.helper.flashCard":
     "Revele cada nota de estudo e avalie a sua recordacao.",
-  "recall.selection.noBody": "Sem resposta esperada guardada.",
   "recall.selection.noLabel": "Sem etiqueta",
   "recall.selection.noSearchMatches":
     "Nenhuma nota de estudo corresponde a esta pesquisa.",
@@ -1075,6 +1075,7 @@ const spanishTranslations = {
   "recall.results": "Resultados de repaso",
   "recall.results.description":
     "Revisa resultados anteriores o inicia una nueva sesion de repaso.",
+  "recall.selection.addExpectedAnswer": "Anade respuesta esperada",
   "recall.selection.availableNotes": "Notas de estudio disponibles",
   "recall.selection.cancel": "Cancelar",
   "recall.selection.counts.acronyms": "Descripcion de acronimo",
@@ -1091,7 +1092,6 @@ const spanishTranslations = {
     "Conecta la clave de API para usar repaso evaluado por IA.",
   "recall.selection.helper.flashCard":
     "Revela cada nota de estudio y evalua tu recuerdo.",
-  "recall.selection.noBody": "Sin respuesta esperada guardada.",
   "recall.selection.noLabel": "Sin etiqueta",
   "recall.selection.noSearchMatches":
     "Ninguna nota de estudio coincide con esta busqueda.",

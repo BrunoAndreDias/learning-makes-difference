@@ -290,7 +290,7 @@ describe("createRecallService PostgreSQL integration", () => {
       id: "source-note-1",
       userId: "user-casey",
       title: "Cell respiration source",
-      body: "Source context for ATP.",
+      body: "",
       labelIds: [],
       createdAt: new Date("2026-05-02T12:00:00.000Z"),
       updatedAt: new Date("2026-05-02T12:00:00.000Z"),
@@ -340,7 +340,7 @@ describe("createRecallService PostgreSQL integration", () => {
           labels: [{ id: "label-biology", name: "Biology" }],
           prompt: "What stores transferable energy?",
           source: {
-            body: "Source context for ATP.",
+            body: "",
             id: "source-note-1",
             title: "Cell respiration source",
           },
@@ -348,5 +348,67 @@ describe("createRecallService PostgreSQL integration", () => {
         },
       ],
     });
+  });
+
+  it("rejects persistent FlashCard sessions from incomplete Study Note IDs", async () => {
+    const database = await createPostgresIntegrationDatabase();
+    databases.add(database);
+
+    const db = drizzle(database.client, {
+      schema: {
+        ...authSchema,
+        ...labelsSchema,
+        ...notesSchema,
+        ...recallSchema,
+        ...studyNotesSchema,
+      },
+    });
+    await migrateDatabase(db, database.client);
+    await db.insert(usersTable).values({
+      id: "user-casey",
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      passwordHash: "hash",
+      userLanguage: "en",
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+    await db.insert(notesTable).values({
+      id: "source-note-incomplete",
+      userId: "user-casey",
+      title: "",
+      body: "Draft source context.",
+      labelIds: [],
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+    await db.insert(studyNotesTable).values({
+      id: "study-note-incomplete",
+      sourceNoteId: "source-note-incomplete",
+      prompt: "What still needs an expected answer?",
+      expectedAnswer: "",
+      createdAt: new Date("2026-05-02T12:05:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:05:00.000Z"),
+    });
+
+    const service = createRecallService({
+      db,
+      shuffleNotes: (notes) => [...notes],
+    });
+
+    await expect(
+      service.startFlashCardSession({
+        studyNoteIds: ["study-note-incomplete"],
+        userId: "user-casey",
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_input",
+      message: "Add expected answer before recall.",
+    });
+    await expect(
+      service.getActiveSession({
+        userId: "user-casey",
+      }),
+    ).resolves.toBeNull();
   });
 });

@@ -544,6 +544,10 @@
   background: var(--color-shell-panel);
 }
 
+.recall-select-note-row[data-disabled="true"] {
+  opacity: 0.72;
+}
+
 .recall-select-note-row__main {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

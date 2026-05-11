@@ -1,6 +1,5 @@
 import {
   createFileRoute,
-  Link,
   Navigate,
   Outlet,
   useNavigate,
@@ -12,7 +11,11 @@ import { Button, ButtonLink } from "../../design-system/button";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import type { AppLabel } from "../labels/label-management/labels";
 import { type AppTranslationKey, useAppTranslation } from "../language";
-import { type AppStudyNote, listStudyNotesForUser } from "../study-notes";
+import {
+  type AppStudyNote,
+  getStudyNoteReadiness,
+  listStudyNotesForUser,
+} from "../study-notes";
 import {
   formatRecallModeLabel,
   getRecallModeTranslationKey,
@@ -106,14 +109,19 @@ const recallQuestionStylePlaceholderFields = [
   },
 ] as const satisfies readonly { id: string; key: AppTranslationKey }[];
 
-function getStudyNotePreview(studyNote: AppStudyNote, emptyBodyLabel: string) {
-  const body = studyNote.expectedAnswer.trim();
+function getStudyNotePreview(
+  studyNote: AppStudyNote,
+  emptyExpectedAnswerLabel: string,
+) {
+  const expectedAnswer = studyNote.expectedAnswer.trim();
 
-  if (body.length === 0) {
-    return emptyBodyLabel;
+  if (expectedAnswer.length === 0) {
+    return emptyExpectedAnswerLabel;
   }
 
-  return body.length > 150 ? `${body.slice(0, 147)}...` : body;
+  return expectedAnswer.length > 150
+    ? `${expectedAnswer.slice(0, 147)}...`
+    : expectedAnswer;
 }
 
 function getLabelNames(
@@ -154,13 +162,22 @@ function filterStudyNotes(studyNotes: readonly AppStudyNote[], query: string) {
   );
 }
 
-function getSelectedStudyNotes(input: {
+function isStudyNoteRecallable(
+  studyNote: Pick<AppStudyNote, "expectedAnswer" | "prompt">,
+) {
+  return getStudyNoteReadiness(studyNote).recallable;
+}
+
+function getRecallableSelectedStudyNotes(input: {
   selectedStudyNoteIds: readonly string[];
   studyNotesById: ReadonlyMap<string, AppStudyNote>;
 }) {
   return input.selectedStudyNoteIds
     .map((studyNoteId) => input.studyNotesById.get(studyNoteId))
-    .filter((studyNote): studyNote is AppStudyNote => studyNote !== undefined);
+    .filter(
+      (studyNote): studyNote is AppStudyNote =>
+        studyNote !== undefined && isStudyNoteRecallable(studyNote),
+    );
 }
 
 function getDisabledStartReason(input: {
@@ -231,22 +248,30 @@ export function RecallSelectionPage({
     () => filterStudyNotes(studyNotes, searchQuery),
     [studyNotes, searchQuery],
   );
-  const selectedStudyNotes = getSelectedStudyNotes({
+  const recallableSelectedStudyNotes = getRecallableSelectedStudyNotes({
     selectedStudyNoteIds,
     studyNotesById,
   });
-  const validSelectedStudyNoteIds = selectedStudyNotes.map(
+  const recallableSelectedStudyNoteIds = recallableSelectedStudyNotes.map(
     (studyNote) => studyNote.id,
   );
-  const selectedStudyNoteIdSet = new Set(validSelectedStudyNoteIds);
+  const recallableSelectedStudyNoteIdSet = new Set(
+    recallableSelectedStudyNoteIds,
+  );
   const disabledStartReason = getDisabledStartReason({
-    selectedCount: selectedStudyNotes.length,
+    selectedCount: recallableSelectedStudyNotes.length,
     selectedRecallType,
     t,
   });
   const canStart = disabledStartReason === null;
 
   function toggleStudyNote(studyNoteId: string) {
+    const studyNote = studyNotesById.get(studyNoteId);
+
+    if (studyNote === undefined || !isStudyNoteRecallable(studyNote)) {
+      return;
+    }
+
     setSelectedStudyNoteIds((currentStudyNoteIds) =>
       currentStudyNoteIds.includes(studyNoteId)
         ? currentStudyNoteIds.filter(
@@ -266,13 +291,13 @@ export function RecallSelectionPage({
       if (persistentRecallContext === undefined) {
         recallContext.startFlashCardSession({
           mode: selectedRecallType,
-          studyNoteIds: validSelectedStudyNoteIds,
+          studyNoteIds: recallableSelectedStudyNoteIds,
           userId,
         });
       } else {
         await persistentRecallContext.startFlashCardSession(userId, {
           mode: selectedRecallType,
-          studyNoteIds: validSelectedStudyNoteIds,
+          studyNoteIds: recallableSelectedStudyNoteIds,
         });
       }
       setErrorMessage(null);
@@ -341,16 +366,23 @@ export function RecallSelectionPage({
               <ol className="recall-note-picker__list">
                 {visibleStudyNotes.map((studyNote) => {
                   const labelNames = getLabelNames(studyNote, labelsById);
+                  const isRecallable = isStudyNoteRecallable(studyNote);
 
                   return (
                     <li key={studyNote.id}>
                       <label
                         className="recall-note-row recall-select-note-row"
-                        data-selected={selectedStudyNoteIdSet.has(studyNote.id)}
+                        data-disabled={!isRecallable}
+                        data-selected={recallableSelectedStudyNoteIdSet.has(
+                          studyNote.id,
+                        )}
                       >
                         <span className="recall-note-row__check">
                           <input
-                            checked={selectedStudyNoteIdSet.has(studyNote.id)}
+                            checked={recallableSelectedStudyNoteIdSet.has(
+                              studyNote.id,
+                            )}
+                            disabled={!isRecallable}
                             onChange={() => toggleStudyNote(studyNote.id)}
                             type="checkbox"
                           />
@@ -361,7 +393,7 @@ export function RecallSelectionPage({
                             <span>
                               {getStudyNotePreview(
                                 studyNote,
-                                t("recall.selection.noBody"),
+                                t("recall.selection.addExpectedAnswer"),
                               )}
                             </span>
                             <span className="recall-select-note-row__labels">
@@ -424,7 +456,7 @@ export function RecallSelectionPage({
               onRecallTypeChange={setSelectedRecallType}
               onCancel={cancelSelection}
               onStartRecall={startRecall}
-              selectedStudyNotes={selectedStudyNotes}
+              selectedStudyNotes={recallableSelectedStudyNotes}
               selectedRecallType={selectedRecallType}
             />
           </div>
