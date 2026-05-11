@@ -303,7 +303,6 @@ const englishTranslations = {
     "Connect API key to use AI Graded recall.",
   "recall.selection.helper.flashCard":
     "Reveal each Study Note and rate your recall.",
-  "recall.selection.noBody": "No expected answer saved.",
   "recall.selection.noLabel": "No label",
   "recall.selection.noSearchMatches": "No Study Notes match this search.",
   "recall.selection.questionStyle": "Question style",
@@ -698,7 +697,6 @@ const portugueseTranslations = {
     "Ligue a chave de API para usar recordacao avaliada por IA.",
   "recall.selection.helper.flashCard":
     "Revele cada nota de estudo e avalie a sua recordacao.",
-  "recall.selection.noBody": "Sem resposta esperada guardada.",
   "recall.selection.noLabel": "Sem etiqueta",
   "recall.selection.noSearchMatches":
     "Nenhuma nota de estudo corresponde a esta pesquisa.",
@@ -1094,7 +1092,6 @@ const spanishTranslations = {
     "Conecta la clave de API para usar repaso evaluado por IA.",
   "recall.selection.helper.flashCard":
     "Revela cada nota de estudio y evalua tu recuerdo.",
-  "recall.selection.noBody": "Sin respuesta esperada guardada.",
   "recall.selection.noLabel": "Sin etiqueta",
   "recall.selection.noSearchMatches":
     "Ninguna nota de estudio coincide con esta busqueda.",
