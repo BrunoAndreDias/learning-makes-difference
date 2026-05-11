@@ -114,7 +114,7 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.getByLabelText("Acronym")).toHaveValue(
       "RP means Retrieval Practice.",
     );
-    expect(screen.getByLabelText("Explanation title")).toHaveValue(
+    expect(screen.getByLabelText("Note title")).toHaveValue(
       "Retrieval practice",
     );
     expect(screen.getByLabelText("Explanation")).toHaveValue(
@@ -132,8 +132,8 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.getByPlaceholderText("Acronym")).toHaveAccessibleName(
       "Acronym",
     );
-    expect(screen.getByPlaceholderText("Untitled source")).toHaveAccessibleName(
-      "Explanation title",
+    expect(screen.getByPlaceholderText("Note title")).toHaveAccessibleName(
+      "Note title",
     );
     expect(screen.getByPlaceholderText("Explanation")).toHaveAccessibleName(
       "Explanation",
@@ -235,7 +235,7 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.change(screen.getByLabelText("Acronym"), {
       target: { value: "RBR means Recall Before Reading." },
     });
-    fireEvent.change(screen.getByLabelText("Explanation title"), {
+    fireEvent.change(screen.getByLabelText("Note title"), {
       target: { value: "Edited source title" },
     });
     fireEvent.change(screen.getByLabelText("Explanation"), {
@@ -256,7 +256,7 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.getByLabelText("Acronym")).toHaveValue(
       "RBR means Recall Before Reading.",
     );
-    expect(screen.getByLabelText("Explanation title")).toHaveValue(
+    expect(screen.getByLabelText("Note title")).toHaveValue(
       "Edited source title",
     );
     expect(screen.getByLabelText("Explanation")).toHaveValue(
@@ -292,7 +292,7 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.change(screen.getByLabelText("Expected answer"), {
       target: { value: " " },
     });
-    fireEvent.change(screen.getByLabelText("Explanation title"), {
+    fireEvent.change(screen.getByLabelText("Note title"), {
       target: { value: "" },
     });
     fireEvent.change(screen.getByLabelText("Explanation"), {
@@ -314,7 +314,7 @@ describe("authenticated Study Notes workspace", () => {
     );
   });
 
-  it("presents Metaphor and Acronym as single support descriptions", async () => {
+  it("presents Metaphor and Acronym under Memory aids without a duplicate title", async () => {
     const studyNotesContext = createAppStudyNotesContext({
       keyPrefix: `test-study-notes-memory-aids-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -345,12 +345,13 @@ describe("authenticated Study Notes workspace", () => {
         name: "Memory aid support descriptions",
       }),
     ).toBeInTheDocument();
+    expect(screen.getByText("Memory aids")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", {
+      screen.queryByRole("heading", {
         level: 2,
         name: "Support descriptions",
       }),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Memory hooks")).toBeNull();
   });
 
@@ -382,16 +383,16 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.change(screen.getByLabelText("Expected answer"), {
       target: { value: "Recall answer." },
     });
-    fireEvent.change(screen.getByLabelText("Explanation title"), {
+    fireEvent.change(screen.getByLabelText("Note title"), {
       target: { value: "" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Saved");
-    expect(screen.getByLabelText("Explanation title")).toHaveValue("");
-    expect(screen.getByLabelText("Explanation title")).toHaveAttribute(
+    expect(screen.getByLabelText("Note title")).toHaveValue("");
+    expect(screen.getByLabelText("Note title")).toHaveAttribute(
       "placeholder",
-      "Untitled source",
+      "Note title",
     );
     expect(
       screen.getByRole("button", { name: "Oldest fallback prompt" }),

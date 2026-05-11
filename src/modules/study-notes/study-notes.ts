@@ -82,7 +82,7 @@ type CreateAppStudyNotesContextOptions = {
 };
 
 const DEFAULT_STORAGE_KEY_PREFIX = "learning-makes-difference-study-notes";
-export const UNTITLED_SOURCE_DISPLAY_NAME = "Untitled source";
+const UNTITLED_SOURCE_DISPLAY_NAME = "Untitled source";
 
 export class AppStudyNotesError extends Error {
   readonly code: "invalid_input" | "not_found" | "unauthorized";

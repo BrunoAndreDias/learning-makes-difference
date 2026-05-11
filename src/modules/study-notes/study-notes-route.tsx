@@ -31,7 +31,6 @@ import {
   listStudyNotesForUser,
   type StudyNoteLearningState,
   toStudyNoteRecallHistories,
-  UNTITLED_SOURCE_DISPLAY_NAME,
   type UpdateStudyNoteInput,
 } from ".";
 
@@ -686,7 +685,6 @@ function StudyNotesWorkspace() {
               >
                 <div>
                   <p className="section-label">Memory aids</p>
-                  <h2>Support descriptions</h2>
                 </div>
                 <FloatingTextarea
                   label="Metaphor"
@@ -727,16 +725,16 @@ function StudyNotesWorkspace() {
                   )}
                 </div>
                 <label className="notes-form__field">
-                  <span className="sr-only">Explanation title</span>
+                  <span className="sr-only">Note title</span>
                   <input
-                    aria-label="Explanation title"
+                    aria-label="Note title"
                     onChange={(event) =>
                       setDraft((current) => ({
                         ...current,
                         sourceTitle: event.target.value,
                       }))
                     }
-                    placeholder={UNTITLED_SOURCE_DISPLAY_NAME}
+                    placeholder="Note title"
                     value={draft.sourceTitle}
                   />
                 </label>

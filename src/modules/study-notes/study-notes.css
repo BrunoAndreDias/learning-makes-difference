@@ -23,7 +23,7 @@
 }
 
 .study-notes-editor__label-section,
-.study-notes-editor__memory-hooks {
+.study-notes-editor__memory-aids {
   display: grid;
   gap: 0.8rem;
 }

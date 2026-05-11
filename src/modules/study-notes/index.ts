@@ -34,5 +34,4 @@ export {
   AppStudyNotesError,
   createAppStudyNotesContext,
   listStudyNotesForUser,
-  UNTITLED_SOURCE_DISPLAY_NAME,
 } from "./study-notes";
