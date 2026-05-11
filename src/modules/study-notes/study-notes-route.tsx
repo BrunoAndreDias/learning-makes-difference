@@ -156,6 +156,24 @@ function getAttachedLabels(
   return labels.filter((label) => attachedLabelIds.has(label.id));
 }
 
+function formatPromptList(prompts: readonly string[]) {
+  if (prompts.length <= 1) {
+    return prompts[0] ?? "";
+  }
+
+  return `${prompts.slice(0, -1).join(", ")} and ${prompts[prompts.length - 1]}`;
+}
+
+function formatSharedSourceEditContext(studyNotes: readonly AppStudyNote[]) {
+  if (studyNotes.length <= 1) {
+    return null;
+  }
+
+  return `Editing this explanation updates ${studyNotes.length} sibling Study Notes: ${formatPromptList(
+    studyNotes.map((studyNote) => studyNote.prompt),
+  )}.`;
+}
+
 function StudyNotesWorkspace() {
   const studyNotesContext = useRouteContext({
     from: "/_protected/study-notes",
@@ -253,6 +271,9 @@ function StudyNotesWorkspace() {
           (studyNote) =>
             studyNote.sourceNoteId === selectedStudyNote.sourceNoteId,
         );
+  const sharedSourceEditContext = formatSharedSourceEditContext(
+    selectedSourceStudyNotes,
+  );
   const activeFocusSession =
     userId === null ? null : focusContext.getActiveSession({ userId });
   const [draft, setDraft] = useState<UpdateStudyNoteInput>(() =>
@@ -696,11 +717,11 @@ function StudyNotesWorkspace() {
                   <p className="study-notes-editor__group-label">
                     Reference explanation
                   </p>
-                  {selectedSourceStudyNotes.length > 1 ? (
+                  {sharedSourceEditContext === null ? null : (
                     <p className="muted study-notes-editor__shared-source">
-                      {`Shared explanation: ${selectedSourceStudyNotes.length} Study Notes`}
+                      {sharedSourceEditContext}
                     </p>
-                  ) : null}
+                  )}
                 </div>
                 <label className="notes-form__field">
                   <span className="sr-only">Explanation title</span>

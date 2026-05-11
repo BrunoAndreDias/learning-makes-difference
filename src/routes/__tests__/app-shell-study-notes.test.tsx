@@ -506,20 +506,27 @@ describe("authenticated Study Notes workspace", () => {
       screen.getAllByRole("button", { name: "Shared practice source" }),
     ).toHaveLength(2);
     expect(
-      screen.getByText("Shared explanation: 2 Study Notes"),
+      screen.getByText(
+        "Editing this explanation updates 2 sibling Study Notes: Shared practice source and Shared practice source.",
+      ),
     ).toBeInTheDocument();
 
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
     fireEvent.change(screen.getByLabelText("Prompt"), {
       target: { value: "What can share a source?" },
     });
     fireEvent.change(screen.getByLabelText("Expected answer"), {
       target: { value: "Several Study Notes." },
     });
+    fireEvent.change(screen.getByLabelText("Explanation"), {
+      target: { value: "Edited source for sibling Study Notes." },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Saved");
+    expect(confirmSpy).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Explanation")).toHaveValue(
-      "One source can support several practice targets.",
+      "Edited source for sibling Study Notes.",
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Delete Study Note" }));
@@ -529,10 +536,12 @@ describe("authenticated Study Notes workspace", () => {
     });
     expect(within(catalog).getAllByRole("button")).toHaveLength(1);
     expect(
-      screen.queryByText("Shared explanation: 2 Study Notes"),
+      screen.queryByText(
+        "Editing this explanation updates 2 sibling Study Notes: Shared practice source and What can share a source.",
+      ),
     ).not.toBeInTheDocument();
 
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValueOnce(false);
+    confirmSpy.mockReturnValueOnce(false);
     fireEvent.click(screen.getByRole("button", { name: "Delete Study Note" }));
 
     expect(confirmSpy).toHaveBeenCalledWith(
