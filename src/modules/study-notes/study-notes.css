@@ -36,11 +36,19 @@
 }
 
 .study-notes-editor__source-title {
-  --floating-textarea-min-height: 3.25rem;
+  --floating-textarea-min-height: 2.75rem;
 }
 
 .study-notes-editor__source-title .floating-textarea__control {
+  height: 2.75rem;
+  min-height: 2.75rem;
+  overflow: hidden;
+  padding-block: 0.6rem;
   resize: none;
+}
+
+.study-notes-editor__source-title .floating-textarea__label {
+  top: 0.82rem;
 }
 
 .study-notes-editor__group-label {
