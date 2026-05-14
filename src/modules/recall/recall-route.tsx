@@ -8,6 +8,7 @@ import {
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { Button, ButtonLink } from "../../design-system/button";
+import { PageHeader } from "../../design-system/page-header";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import type { AppLabel } from "../labels/label-management/labels";
 import { type AppTranslationKey, useAppTranslation } from "../language";
@@ -324,15 +325,14 @@ export function RecallSelectionPage({
       className="recall-workspace"
     >
       <article className="recall-surface">
-        <header className="recall-surface__header recall-select__header">
-          <div className="notes-editor__title-stack">
+        <PageHeader
+          beforeTitle={
             <RecallBreadcrumb currentLabel={t("recall.selection.title")} />
-            <h3>{t("recall.selection.title")}</h3>
-            <p className="muted notes-editor__meta">
-              {t("recall.selection.description")}
-            </p>
-          </div>
-        </header>
+          }
+          className="recall-surface__header recall-select__header"
+          description={t("recall.selection.description")}
+          title={t("recall.selection.title")}
+        />
 
         {studyNotes.length === 0 ? (
           <section className="recall-panel recall-empty-state">

@@ -111,16 +111,6 @@
   padding-bottom: 0.15rem;
 }
 
-.recall-surface__header h3 {
-  margin: 0;
-  color: var(--color-content-strong);
-  font-family: var(--font-heading);
-  font-size: clamp(1.65rem, 2.2vw, 1.9rem);
-  font-weight: 600;
-  line-height: 1.15;
-  letter-spacing: 0;
-}
-
 .recall-breadcrumb {
   margin: 0;
   color: var(--color-content-muted);

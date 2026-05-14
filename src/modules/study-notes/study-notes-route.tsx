@@ -10,6 +10,7 @@ import {
 import { Button } from "../../design-system/button";
 import { FloatingTextarea } from "../../design-system/floating-textarea";
 import { ListCard } from "../../design-system/list-card";
+import { PageHeader } from "../../design-system/page-header";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { FocusSessionStartControl } from "../focus";
 import type { AppLabel } from "../labels/label-management/labels";
@@ -68,6 +69,56 @@ function createDraftFromStudyNote(
   };
 }
 
+function normalizeSupportDescriptionsForComparison(
+  supportDescriptions: readonly { description: string }[],
+) {
+  return supportDescriptions
+    .map((supportDescription) => supportDescription.description.trim())
+    .filter((description) => description.length > 0);
+}
+
+function haveSameStringSet(left: readonly string[], right: readonly string[]) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  const rightValues = new Set(right);
+
+  return left.every((value) => rightValues.has(value));
+}
+
+function haveSameStringSequence(
+  left: readonly string[],
+  right: readonly string[],
+) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((value, index) => value === right[index]);
+}
+
+function areStudyNoteDraftsEqual(
+  left: UpdateStudyNoteInput,
+  right: UpdateStudyNoteInput,
+) {
+  return (
+    left.prompt.trim() === right.prompt.trim() &&
+    left.expectedAnswer.trim() === right.expectedAnswer.trim() &&
+    left.sourceBody.trim() === right.sourceBody.trim() &&
+    left.sourceTitle.trim() === right.sourceTitle.trim() &&
+    haveSameStringSet(left.labelIds, right.labelIds) &&
+    haveSameStringSequence(
+      normalizeSupportDescriptionsForComparison(left.metaphors),
+      normalizeSupportDescriptionsForComparison(right.metaphors),
+    ) &&
+    haveSameStringSequence(
+      normalizeSupportDescriptionsForComparison(left.acronyms),
+      normalizeSupportDescriptionsForComparison(right.acronyms),
+    )
+  );
+}
+
 function setLabelIdSelection(
   labelIds: readonly string[],
   labelId: string,
@@ -91,6 +142,8 @@ const learningStateDateFormatter = new Intl.DateTimeFormat("en", {
   dateStyle: "medium",
   timeZone: "UTC",
 });
+
+const STUDY_NOTE_EDITOR_FORM_ID = "study-note-editor-form";
 
 function formatLastRecalledLabel(lastRecalledAt: string | null) {
   if (lastRecalledAt === null) {
@@ -284,6 +337,10 @@ function StudyNotesWorkspace() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const storeMutation = persistentStudyNotesContext ?? studyNotesContext;
+  const hasDraftChanges = !areStudyNoteDraftsEqual(
+    draft,
+    createDraftFromStudyNote(selectedStudyNote),
+  );
 
   useEffect(() => {
     if (persistentStudyNotesContext === undefined) {
@@ -358,27 +415,6 @@ function StudyNotesWorkspace() {
     }
   }
 
-  async function handleAddStudyNoteFromSource() {
-    if (selectedStudyNote === null) {
-      return;
-    }
-
-    setErrorMessage(null);
-    setSaveStatus(null);
-
-    try {
-      const createdStudyNote = await storeMutation.createStudyNoteFromSource(
-        userId,
-        {
-          sourceNoteId: selectedStudyNote.sourceNoteId,
-        },
-      );
-      setSelectedStudyNoteId(createdStudyNote.id);
-    } catch (error) {
-      handleError(error);
-    }
-  }
-
   async function handleDeleteStudyNote() {
     if (selectedStudyNote === null) {
       return;
@@ -411,8 +447,11 @@ function StudyNotesWorkspace() {
     }
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function saveDraft() {
+    if (!hasDraftChanges) {
+      return;
+    }
+
     setErrorMessage(null);
     setSaveStatus(null);
 
@@ -446,6 +485,12 @@ function StudyNotesWorkspace() {
     } catch (error) {
       handleError(error);
     }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    await saveDraft();
   }
 
   async function captureFocusStudyNoteActivity(studyNote: AppStudyNote) {
@@ -493,40 +538,60 @@ function StudyNotesWorkspace() {
 
   return (
     <section className="notes-workspace study-notes-workspace">
-      <header className="notes-workspace__page-header">
-        <div className="notes-workspace__header-copy">
-          <p className="section-label">Workspace</p>
-          <div className="notes-workspace__identity">
-            <h1>Study Notes</h1>
-            <p>Practice targets with reference explanations underneath.</p>
-          </div>
-        </div>
-        <div className="notes-workspace__quick-actions">
-          <Button
-            onClick={() => void handleNewStudyNote()}
-            type="button"
-            variant="primary"
-          >
-            New Study Note
-          </Button>
+      <PageHeader
+        actions={
           <FocusSessionStartControl
             activeFocusSession={activeFocusSession}
             focus={focusContext}
             persistentFocus={persistentFocusContext}
             userId={userId}
           />
-        </div>
-      </header>
+        }
+        actionsClassName="notes-workspace__quick-actions"
+        className="notes-workspace__page-header study-notes-workspace__page-header"
+        description="Practice targets with reference explanations underneath."
+        headingLevel={1}
+        title="Study Notes"
+      />
 
       <div className="notes-layout study-notes-layout">
         <aside aria-label="Study Notes catalog" className="notes-list-panel">
           <div className="notes-list-panel__header">
-            <div>
-              <p className="section-label">Study Notes</p>
-              <h2>Study Notes</h2>
-            </div>
-            <span className="tag">{`${studyNotes.length} Study Notes`}</span>
+            <h2 className="study-notes-list-heading">
+              <span>Study Notes</span>
+              <span className="tag study-notes-list-heading__count">
+                {studyNotes.length}
+              </span>
+            </h2>
+            <Button
+              aria-label="New Study Note"
+              className="study-notes-list-new"
+              onClick={() => void handleNewStudyNote()}
+              type="button"
+            >
+              New
+            </Button>
           </div>
+          <fieldset className="study-notes-list-actions">
+            <legend className="sr-only">Study Note actions</legend>
+            <Button
+              disabled={!hasDraftChanges}
+              onClick={() => void saveDraft()}
+              type="button"
+              variant="primary"
+            >
+              Save
+            </Button>
+            <Button
+              aria-label="Delete Study Note"
+              disabled={selectedStudyNote === null}
+              onClick={() => void handleDeleteStudyNote()}
+              type="button"
+              variant="danger"
+            >
+              Delete
+            </Button>
+          </fieldset>
           <label className="notes-form__field study-notes-filter">
             <span>Filter by label</span>
             <select
@@ -534,7 +599,7 @@ function StudyNotesWorkspace() {
               onChange={(event) => setSelectedLabelId(event.target.value)}
               value={selectedLabelId}
             >
-              <option value="">All Study Notes</option>
+              <option value="">All</option>
               {availableLabels.map((label) => (
                 <option key={label.id} value={label.id}>
                   {label.name}
@@ -593,6 +658,7 @@ function StudyNotesWorkspace() {
         <form
           aria-label="Study Note editor surface"
           className="notes-editor study-notes-editor"
+          id={STUDY_NOTE_EDITOR_FORM_ID}
           onSubmit={(event) => void handleSubmit(event)}
         >
           <fieldset className="notes-editor__study-surface">
@@ -614,24 +680,6 @@ function StudyNotesWorkspace() {
                   />
                 </label>
               </div>
-              <Button type="submit" variant="primary">
-                Save
-              </Button>
-              <Button
-                disabled={selectedStudyNote === null}
-                onClick={() => void handleAddStudyNoteFromSource()}
-                type="button"
-              >
-                Add Study Note from this explanation
-              </Button>
-              <Button
-                disabled={selectedStudyNote === null}
-                onClick={() => void handleDeleteStudyNote()}
-                type="button"
-                variant="danger"
-              >
-                Delete Study Note
-              </Button>
             </div>
 
             <div className="study-notes-editor__fields">

@@ -213,6 +213,12 @@ describe("page style normalization", () => {
     const appCss = readFileSync(new URL("../styles/app.css", import.meta.url), {
       encoding: "utf8",
     });
+    const pageHeaderCss = readFileSync(
+      new URL("./page-header/page-header.css", import.meta.url),
+      {
+        encoding: "utf8",
+      },
+    );
     const breadcrumbStyle = getCssRules(appCss, ".workspace-breadcrumb").join(
       "\n",
     );
@@ -224,29 +230,13 @@ describe("page style normalization", () => {
       appCss,
       ".recall-breadcrumb span",
     ).join("\n");
-    const notesTitleStyle = getCssRules(
-      appCss,
-      ".notes-workspace__identity h1",
+    const pageHeaderTitleStyle = getCssRules(
+      pageHeaderCss,
+      ".page-header__title",
     ).join("\n");
-    const recallTitleStyle = getCssRules(
-      appCss,
-      ".recall-surface__header h3",
-    ).join("\n");
-    const focusTitleStyle = getCssRules(
-      appCss,
-      ".focus-workspace__page-header h3",
-    ).join("\n");
-    const notesDescriptionStyle = getCssRules(
-      appCss,
-      ".notes-workspace__identity p",
-    ).join("\n");
-    const recallDescriptionStyle = getCssRules(
-      appCss,
-      ".recall-surface__header .notes-editor__meta",
-    ).join("\n");
-    const focusDescriptionStyle = getCssRules(
-      appCss,
-      ".focus-workspace__page-header .notes-editor__meta",
+    const pageHeaderDescriptionStyle = getCssRules(
+      pageHeaderCss,
+      ".page-header__description",
     ).join("\n");
 
     for (const breadcrumbRule of [breadcrumbStyle, recallBreadcrumbStyle]) {
@@ -257,27 +247,20 @@ describe("page style normalization", () => {
     }
     expect(recallBreadcrumbSpanStyle).toContain("color: inherit;");
 
-    for (const titleRule of [
-      notesTitleStyle,
-      recallTitleStyle,
-      focusTitleStyle,
-    ]) {
-      expect(titleRule).toContain("color: var(--color-content-strong);");
-      expect(titleRule).toContain("font-family: var(--font-body);");
-      expect(titleRule).toContain("font-weight: 700;");
-      expect(titleRule).toContain("letter-spacing: 0;");
-    }
-
-    for (const descriptionRule of [
-      notesDescriptionStyle,
-      recallDescriptionStyle,
-      focusDescriptionStyle,
-    ]) {
-      expect(descriptionRule).toContain("color: var(--color-content-muted);");
-      expect(descriptionRule).toContain("font-family: var(--font-body);");
-      expect(descriptionRule).toContain("font-size: 0.95rem;");
-      expect(descriptionRule).toContain("line-height: 1.45;");
-    }
+    expect(pageHeaderTitleStyle).toContain(
+      "color: var(--color-content-strong);",
+    );
+    expect(pageHeaderTitleStyle).toContain("font-family: var(--font-body);");
+    expect(pageHeaderTitleStyle).toContain("font-weight: 700;");
+    expect(pageHeaderTitleStyle).toContain("letter-spacing: 0;");
+    expect(pageHeaderDescriptionStyle).toContain(
+      "color: var(--color-content-muted);",
+    );
+    expect(pageHeaderDescriptionStyle).toContain(
+      "font-family: var(--font-body);",
+    );
+    expect(pageHeaderDescriptionStyle).toContain("font-size: 0.95rem;");
+    expect(pageHeaderDescriptionStyle).toContain("line-height: 1.45;");
   });
 
   it("keeps Recall state accents aligned with the shared page palette", () => {

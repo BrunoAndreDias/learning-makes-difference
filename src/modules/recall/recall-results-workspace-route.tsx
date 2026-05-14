@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { ButtonLink } from "../../design-system/button";
 import { ListCard } from "../../design-system/list-card";
+import { PageHeader } from "../../design-system/page-header";
 import { formatCount } from "../../lib/format-count";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import type { AppLabel } from "../labels/label-management/labels";
@@ -342,14 +343,11 @@ function RecallResultsWorkspacePage() {
     >
       <article className="recall-surface recall-results-surface">
         <div className="recall-results-top">
-          <header className="recall-surface__header">
-            <div className="notes-editor__title-stack">
-              <h3>{t("shell.workspace.recall")}</h3>
-              <p className="muted notes-editor__meta">
-                {t("recall.results.description")}
-              </p>
-            </div>
-          </header>
+          <PageHeader
+            className="recall-surface__header"
+            description={t("recall.results.description")}
+            title={t("shell.workspace.recall")}
+          />
 
           {savedMessage !== null ? (
             <p className="recall-feedback" role="status">

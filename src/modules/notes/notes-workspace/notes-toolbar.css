@@ -23,26 +23,6 @@
   background: var(--color-shell-panel);
 }
 
-.notes-workspace__header-copy {
-  display: grid;
-  gap: 0.45rem;
-  min-width: 0;
-}
-
-.notes-workspace__identity {
-  display: grid;
-  gap: 0.35rem;
-}
-
-.notes-workspace__identity h1,
-.notes-workspace__identity p {
-  margin: 0;
-}
-
-.notes-workspace__identity h1 {
-  font-size: clamp(1.65rem, 2.2vw, 2rem);
-}
-
 .notes-workspace__quick-actions {
   display: flex;
   align-items: center;

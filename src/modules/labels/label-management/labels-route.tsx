@@ -12,6 +12,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { Button } from "../../../design-system/button";
+import { PageHeader } from "../../../design-system/page-header";
 import { formatCount } from "../../../lib/format-count";
 import { isModifiedKeyShortcut } from "../../../lib/keyboard";
 import { useResolvedProtectedSession } from "../../access/session/use-resolved-protected-session";
@@ -815,49 +816,51 @@ function LabelsPage() {
 
   return (
     <section className="labels-page" aria-labelledby="labels-route-heading">
-      <header className="labels-management-header">
-        <div className="labels-management-header__copy recall-surface__header">
-          <div className="notes-editor__title-stack">
-            <h3 id="labels-route-heading">{t("labels.heading")}</h3>
-            <p className="muted notes-editor__meta">{t("labels.subtitle")}</p>
-          </div>
-          {hasLabels ? (
-            <section
-              aria-label={t("labels.summary.label")}
-              className="labels-management-header__summary"
+      <PageHeader
+        actions={
+          <>
+            <Button
+              onClick={(event) => openEmptyCreateDrawer(event.currentTarget)}
+              type="button"
+              variant="primary"
             >
-              <div className="labels-management-header__summary-metrics">
-                <span>{summaryLabelsText}</span>
-                <span aria-hidden="true">·</span>
-                <span>{summaryTopLevelText}</span>
-                <span aria-hidden="true">·</span>
-                <span>{summaryRelationshipsText}</span>
-                <span aria-hidden="true">·</span>
-                <span>{summaryUnusedText}</span>
-              </div>
-              <p className="labels-management-header__rules-note">
-                {t("labels.rules")}
-              </p>
-            </section>
-          ) : null}
-        </div>
-
-        <div className="labels-management-header__actions">
-          <Button
-            onClick={(event) => openEmptyCreateDrawer(event.currentTarget)}
-            type="button"
-            variant="primary"
+              {t("labels.action.newLabel")}
+            </Button>
+            <FocusSessionStartControl
+              activeFocusSession={activeFocusSession}
+              focus={focus}
+              persistentFocus={persistentFocus}
+              userId={currentUserId}
+            />
+          </>
+        }
+        actionsClassName="labels-management-header__actions"
+        className="labels-management-header"
+        copyClassName="labels-management-header__copy recall-surface__header"
+        description={t("labels.subtitle")}
+        headingProps={{ id: "labels-route-heading" }}
+        title={t("labels.heading")}
+      >
+        {hasLabels ? (
+          <section
+            aria-label={t("labels.summary.label")}
+            className="labels-management-header__summary"
           >
-            {t("labels.action.newLabel")}
-          </Button>
-          <FocusSessionStartControl
-            activeFocusSession={activeFocusSession}
-            focus={focus}
-            persistentFocus={persistentFocus}
-            userId={currentUserId}
-          />
-        </div>
-      </header>
+            <div className="labels-management-header__summary-metrics">
+              <span>{summaryLabelsText}</span>
+              <span aria-hidden="true">·</span>
+              <span>{summaryTopLevelText}</span>
+              <span aria-hidden="true">·</span>
+              <span>{summaryRelationshipsText}</span>
+              <span aria-hidden="true">·</span>
+              <span>{summaryUnusedText}</span>
+            </div>
+            <p className="labels-management-header__rules-note">
+              {t("labels.rules")}
+            </p>
+          </section>
+        ) : null}
+      </PageHeader>
 
       {feedbackMessage !== null ? (
         <p

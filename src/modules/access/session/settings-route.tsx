@@ -6,6 +6,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { PageHeader } from "../../../design-system/page-header";
 import { type AppTranslationKey, useAppTranslation } from "../../language";
 import {
   defaultUserTimeZone,
@@ -184,14 +185,15 @@ function SettingsPage() {
 
   return (
     <section className="settings-layout" aria-labelledby="settings-heading">
-      <header className="settings-page-header recall-surface__header">
-        <div className="notes-editor__title-stack">
-          <h3 aria-label={t("settings.heading.aria")} id="settings-heading">
-            {t("settings.heading")}
-          </h3>
-          <p className="muted notes-editor__meta">{t("settings.subtitle")}</p>
-        </div>
-      </header>
+      <PageHeader
+        className="settings-page-header recall-surface__header"
+        description={t("settings.subtitle")}
+        headingProps={{
+          "aria-label": t("settings.heading.aria"),
+          id: "settings-heading",
+        }}
+        title={t("settings.heading")}
+      />
 
       <div className="settings-main-grid">
         <article className="settings-panel settings-panel--form">

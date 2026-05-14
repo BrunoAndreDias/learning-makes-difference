@@ -7,12 +7,78 @@
   scroll-padding-bottom: 1rem;
 }
 
+.study-notes-workspace__page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.study-notes-workspace .notes-list-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.study-notes-list-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  margin: 0;
+  color: var(--color-content-strong);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 750;
+  letter-spacing: 0;
+  line-height: 1.1;
+}
+
+.study-notes-list-heading__count {
+  min-width: 1.45rem;
+  min-height: 1.25rem;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.study-notes-list-new {
+  flex: 0 0 auto;
+  min-height: 2rem;
+  padding-inline: 0.65rem;
+  font-size: 0.78rem;
+  line-height: 1.15;
+}
+
+.study-notes-list-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+  gap: 0.4rem;
+  min-width: 0;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.study-notes-list-actions .notes-action {
+  width: 100%;
+  min-width: 0;
+  min-height: 2rem;
+  padding-inline: 0.5rem;
+  font-size: 0.78rem;
+  line-height: 1.15;
+  white-space: normal;
+}
+
 .study-notes-editor .notes-editor__header {
-  flex-wrap: wrap;
+  display: block;
 }
 
 .study-notes-editor .notes-editor__title-stack {
   gap: 0;
+  width: 100%;
 }
 
 .study-notes-editor__fields {
@@ -61,7 +127,7 @@
 }
 
 .study-notes-filter {
-  margin-bottom: 0.9rem;
+  margin: 0;
 }
 
 .study-notes-filter select {
@@ -97,6 +163,12 @@
 
 @media (max-width: 860px) {
   .study-notes-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 25rem) {
+  .study-notes-list-actions {
     grid-template-columns: minmax(0, 1fr);
   }
 }

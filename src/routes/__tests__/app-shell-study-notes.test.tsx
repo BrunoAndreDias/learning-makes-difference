@@ -87,13 +87,71 @@ describe("authenticated Study Notes workspace", () => {
       studyNotesContext,
     });
 
+    const pageHeading = await screen.findByRole("heading", {
+      level: 1,
+      name: "Study Notes",
+    });
+    expect(pageHeading).toHaveClass("page-header__title");
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
-    ).toBeInTheDocument();
+      screen.queryByText("Workspace", {
+        selector: ".study-notes-workspace *",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Practice targets with reference explanations underneath.",
+      ),
+    ).toHaveClass("page-header__description");
+    expect(
+      screen.queryByRole("navigation", { name: "Breadcrumb" }),
+    ).not.toBeInTheDocument();
 
     const catalog = screen.getByRole("complementary", {
       name: "Study Notes catalog",
     });
+    const catalogHeading = within(catalog).getByRole("heading", { level: 2 });
+    expect(catalogHeading).toHaveTextContent("Study Notes");
+    expect(
+      within(catalog).getByText("1", {
+        selector: ".study-notes-list-heading__count",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(catalog).queryByText("Study Notes", {
+        selector: ".section-label",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(catalog).queryByText("1 Study Notes"),
+    ).not.toBeInTheDocument();
+    const newStudyNoteButton = within(catalog).getByRole("button", {
+      name: "New Study Note",
+    });
+    expect(newStudyNoteButton).toHaveTextContent("New");
+    expect(newStudyNoteButton.closest(".notes-list-panel__header")).not.toBe(
+      null,
+    );
+    const studyNoteActions = within(catalog).getByRole("group", {
+      name: "Study Note actions",
+    });
+    expect(
+      within(studyNoteActions).getByRole("button", { name: "Save" }),
+    ).toBeDisabled();
+    expect(
+      within(studyNoteActions).getByRole("button", {
+        name: "Delete Study Note",
+      }),
+    ).toHaveTextContent("Delete");
+    expect(
+      within(studyNoteActions).queryByRole("button", {
+        name: "New Study Note",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(catalog).queryByRole("button", {
+        name: "Add Study Note from this explanation",
+      }),
+    ).not.toBeInTheDocument();
     expect(
       within(catalog).getByRole("navigation", { name: "Study Notes list" }),
     ).toBeInTheDocument();
@@ -103,6 +161,19 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.getByRole("button", { name: "Start Focus" })).toHaveClass(
       "notes-action-primary",
     );
+
+    const editor = screen.getByRole("form", {
+      name: "Study Note editor surface",
+    });
+    expect(editor).toHaveAttribute("id", "study-note-editor-form");
+    const promptHeader = editor.querySelector(".notes-editor__header");
+    expect(promptHeader).toBeInstanceOf(HTMLElement);
+    expect(
+      within(promptHeader as HTMLElement).getByLabelText("Prompt"),
+    ).toBeInTheDocument();
+    expect(
+      within(promptHeader as HTMLElement).queryByRole("button"),
+    ).not.toBeInTheDocument();
 
     expect(screen.getByLabelText("Prompt")).toHaveValue("Retrieval practice");
     expect(screen.getByLabelText("Expected answer")).toHaveValue(
@@ -226,10 +297,13 @@ describe("authenticated Study Notes workspace", () => {
     );
     expect(screen.getByPlaceholderText("Expected answer")).toHaveValue("");
     expect(screen.getByPlaceholderText("Explanation")).toHaveValue("");
+    const saveButton = screen.getByRole("button", { name: "Save" });
+    expect(saveButton).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText("Prompt"), {
       target: { value: "What should I recall first?" },
     });
+    expect(saveButton).toBeEnabled();
     fireEvent.change(screen.getByLabelText("Expected answer"), {
       target: { value: "Recall before reading." },
     });
@@ -245,9 +319,10 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.change(screen.getByLabelText("Explanation"), {
       target: { value: "Edited source body." },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(saveButton);
 
     expect(await screen.findByRole("status")).toHaveTextContent("Saved");
+    await waitFor(() => expect(saveButton).toBeDisabled());
     expect(screen.getByLabelText("Prompt")).toHaveValue(
       "What should I recall first?",
     );
@@ -477,16 +552,19 @@ describe("authenticated Study Notes workspace", () => {
     ]);
   });
 
-  it("adds Study Notes from a shared source, saves shared edits without confirmation, and confirms last-link deletion", async () => {
+  it("saves shared source edits without confirmation and confirms last-link deletion", async () => {
     const studyNotesContext = createAppStudyNotesContext({
       keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
     });
     const userId = "user-jordan";
 
-    studyNotesContext.createStudyNote(userId, {
+    const firstStudyNote = studyNotesContext.createStudyNote(userId, {
       sourceBody: "One source can support several practice targets.",
       sourceTitle: "Shared practice source",
+    });
+    studyNotesContext.createStudyNoteFromSource(userId, {
+      sourceNoteId: firstStudyNote.sourceNoteId,
     });
 
     renderRoute("/study-notes", {
@@ -501,14 +579,8 @@ describe("authenticated Study Notes workspace", () => {
       studyNotesContext,
     });
 
-    fireEvent.click(
-      await screen.findByRole("button", {
-        name: "Add Study Note from this explanation",
-      }),
-    );
-
     expect(
-      screen.getAllByRole("button", { name: "Shared practice source" }),
+      await screen.findAllByRole("button", { name: "Shared practice source" }),
     ).toHaveLength(2);
     const initialSharedSourceMessage =
       "Editing this explanation updates 2 sibling Study Notes: Shared practice source and Shared practice source.";
@@ -537,7 +609,10 @@ describe("authenticated Study Notes workspace", () => {
     const catalog = screen.getByRole("complementary", {
       name: "Study Notes catalog",
     });
-    expect(within(catalog).getAllByRole("button")).toHaveLength(1);
+    const studyNotesList = within(catalog).getByRole("navigation", {
+      name: "Study Notes list",
+    });
+    expect(within(studyNotesList).getAllByRole("button")).toHaveLength(1);
     expect(
       screen.queryByText(
         /^Editing this explanation updates \d+ sibling Study Notes:/,
@@ -552,13 +627,15 @@ describe("authenticated Study Notes workspace", () => {
     expect(confirmSpy).toHaveBeenCalledWith(
       "Delete this last Study Note and its reference explanation?",
     );
-    expect(within(catalog).getAllByRole("button")).toHaveLength(1);
+    expect(within(studyNotesList).getAllByRole("button")).toHaveLength(1);
 
     confirmSpy.mockReturnValueOnce(true);
     fireEvent.click(screen.getByRole("button", { name: "Delete Study Note" }));
 
     expect(confirmSpy).toHaveBeenCalledTimes(2);
-    expect(within(catalog).queryByRole("button")).not.toBeInTheDocument();
+    expect(
+      within(studyNotesList).queryByRole("button"),
+    ).not.toBeInTheDocument();
 
     confirmSpy.mockRestore();
   });

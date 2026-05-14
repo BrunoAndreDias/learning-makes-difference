@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import { Button } from "../../design-system/button";
+import { PageHeader } from "../../design-system/page-header";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { type AppTranslationKey, useAppTranslation } from "../language";
 import { listNotesForUser } from "../notes";
@@ -143,14 +144,16 @@ function FocusPage() {
       aria-labelledby="focus-workspace-heading"
       className="focus-workspace"
     >
-      <header className="focus-workspace__page-header recall-surface__header">
-        <div className="notes-editor__title-stack">
-          <h3 id="focus-workspace-heading" ref={headingRef} tabIndex={-1}>
-            {t("focus.heading")}
-          </h3>
-          <p className="muted notes-editor__meta">{t("focus.description")}</p>
-        </div>
-      </header>
+      <PageHeader
+        className="focus-workspace__page-header recall-surface__header"
+        description={t("focus.description")}
+        headingProps={{
+          id: "focus-workspace-heading",
+          ref: headingRef,
+          tabIndex: -1,
+        }}
+        title={t("focus.heading")}
+      />
 
       <section className="focus-session-workspace">
         <ActiveFocusSessionPanel

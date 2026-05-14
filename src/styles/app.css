@@ -1,6 +1,7 @@
 @import "../design-system/global.css";
 @import "../design-system/floating-textarea/floating-textarea.css";
 @import "../design-system/list-card/list-card.css";
+@import "../design-system/page-header/page-header.css";
 @import "../design-system/shared-actions.css";
 @import "../modules/workspace-shell/workspace-shell.css";
 @import "../modules/workspace-shell/app-shell/workspace-sidebar.css";
@@ -316,27 +317,6 @@ h3 {
 .workspace-breadcrumb a:hover,
 .recall-breadcrumb a:hover {
   color: var(--color-content-strong);
-}
-
-.notes-workspace__identity h1,
-.recall-surface__header h3,
-.focus-workspace__page-header h3 {
-  color: var(--color-content-strong);
-  font-family: var(--font-body);
-  font-size: clamp(1.65rem, 2.2vw, 1.9rem);
-  font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: 0;
-}
-
-.notes-workspace__identity p,
-.recall-surface__header .notes-editor__meta,
-.focus-workspace__page-header .notes-editor__meta {
-  color: var(--color-content-muted);
-  font-family: var(--font-body);
-  font-size: 0.95rem;
-  font-weight: 400;
-  line-height: 1.45;
 }
 
 .nav-list,
