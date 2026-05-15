@@ -14,6 +14,11 @@ export type RecallTodayQueueItem = {
   studyNote: AppStudyNote;
 };
 
+type RankedRecallTodayQueueItem = RecallTodayQueueItem & {
+  originalIndex: number;
+  priority: number;
+};
+
 const recallTodayReasonPriority: Record<RecallTodayReason, number> = {
   "needs-practice": 0,
   "not-recalled": 1,
@@ -129,46 +134,37 @@ export function buildRecallTodayQueue(input: {
   const scheduleByStudyNoteId = new Map(
     input.recallSchedules.map((schedule) => [schedule.studyNoteId, schedule]),
   );
+  const rankedQueue: RankedRecallTodayQueueItem[] = [];
 
-  return input.studyNotes
-    .map((studyNote, originalIndex) => {
-      if (!getStudyNoteReadiness(studyNote).recallable) {
-        return null;
-      }
+  input.studyNotes.forEach((studyNote, originalIndex) => {
+    if (!getStudyNoteReadiness(studyNote).recallable) {
+      return;
+    }
 
-      const reasons = getRecallTodayReasons({
-        history: historyByStudyNoteId.get(studyNote.id) ?? null,
-        now: input.now,
-        schedule: scheduleByStudyNoteId.get(studyNote.id) ?? null,
-        userTimeZone: input.userTimeZone,
-      });
+    const reasons = getRecallTodayReasons({
+      history: historyByStudyNoteId.get(studyNote.id) ?? null,
+      now: input.now,
+      schedule: scheduleByStudyNoteId.get(studyNote.id) ?? null,
+      userTimeZone: input.userTimeZone,
+    });
 
-      if (reasons.length === 0) {
-        return null;
-      }
+    if (reasons.length === 0) {
+      return;
+    }
 
-      return {
-        item: {
-          reasons,
-          studyNote,
-        },
-        originalIndex,
-        priority: getQueuePriority(reasons),
-      };
-    })
-    .filter(
-      (
-        item,
-      ): item is {
-        item: RecallTodayQueueItem;
-        originalIndex: number;
-        priority: number;
-      } => item !== null,
-    )
+    rankedQueue.push({
+      originalIndex,
+      priority: getQueuePriority(reasons),
+      reasons,
+      studyNote,
+    });
+  });
+
+  return rankedQueue
     .sort(
       (left, right) =>
         left.priority - right.priority ||
         left.originalIndex - right.originalIndex,
     )
-    .map((entry) => entry.item);
+    .map(({ reasons, studyNote }) => ({ reasons, studyNote }));
 }

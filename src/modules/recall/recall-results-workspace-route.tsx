@@ -14,7 +14,7 @@ import { formatCount } from "../../lib/format-count";
 import { defaultUserTimeZone } from "../access/session/session-contract";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import type { AppLabel } from "../labels/label-management/labels";
-import { useAppTranslation } from "../language";
+import { type AppTranslationKey, useAppTranslation } from "../language";
 import { listNotesForUser } from "../notes";
 import { listStudyNotesForUser } from "../study-notes";
 import { toStudyNoteRecallHistories } from "../study-notes/learning-state";
@@ -32,7 +32,11 @@ import type {
 import { listRecallResultLabels } from "./recall-result-labels";
 import { projectSessionReview } from "./recall-session-review";
 import { searchRecallSessionResults } from "./recall-session-search";
-import { buildRecallTodayQueue, type RecallTodayReason } from "./recall-today";
+import {
+  buildRecallTodayQueue,
+  type RecallTodayQueueItem,
+  type RecallTodayReason,
+} from "./recall-today";
 
 const recallResultsSearchSchema = z.object({});
 const recallSessionSavedMessageKey = "learning-makes-difference:recall-saved";
@@ -382,33 +386,37 @@ function RecallResultsWorkspacePage() {
       return;
     }
 
-    const input = {
-      mode: "FlashCard" as const,
-      studyNoteIds: recallTodayQueue.map((item) => item.studyNote.id),
-      userId,
-    };
+    const studyNoteIds = recallTodayQueue.map((item) => item.studyNote.id);
 
     if (persistentRecallContext === undefined) {
-      recallContext.startFlashCardSession(input);
+      recallContext.startFlashCardSession({
+        mode: "FlashCard",
+        studyNoteIds,
+        userId,
+      });
     } else {
-      await persistentRecallContext.startFlashCardSession(userId, input);
+      await persistentRecallContext.startFlashCardSession(userId, {
+        mode: "FlashCard",
+        studyNoteIds,
+      });
     }
 
     await navigate({ to: "/recall/session" });
   }
 
-  if (
+  const hasNoRecallContent =
     notes.length === 0 &&
     studyNotes.length === 0 &&
-    sessionResults.length === 0
-  ) {
+    sessionResults.length === 0;
+  const shouldShowRecallToday =
+    recallTodayQueue.length > 0 ||
+    (studyNotes.length > 0 && sessionResults.length === 0);
+
+  if (hasNoRecallContent) {
     return <NoNotesRecallState />;
   }
 
-  if (
-    recallTodayQueue.length > 0 ||
-    (studyNotes.length > 0 && sessionResults.length === 0)
-  ) {
+  if (shouldShowRecallToday) {
     return (
       <RecallTodayPage
         onStartRecallToday={startRecallToday}
@@ -479,7 +487,9 @@ function RecallResultsWorkspacePage() {
   );
 }
 
-function getRecallTodayReasonLabel(reason: RecallTodayReason) {
+function getRecallTodayReasonLabel(
+  reason: RecallTodayReason,
+): AppTranslationKey {
   switch (reason) {
     case "needs-practice":
       return "recall.today.reason.needsPractice";
@@ -490,13 +500,12 @@ function getRecallTodayReasonLabel(reason: RecallTodayReason) {
   }
 }
 
-function RecallTodayPage({
-  onStartRecallToday,
-  queue,
-}: {
+type RecallTodayPageProps = {
   onStartRecallToday: () => void;
-  queue: ReturnType<typeof buildRecallTodayQueue>;
-}) {
+  queue: readonly RecallTodayQueueItem[];
+};
+
+function RecallTodayPage({ onStartRecallToday, queue }: RecallTodayPageProps) {
   const { t } = useAppTranslation();
 
   return (

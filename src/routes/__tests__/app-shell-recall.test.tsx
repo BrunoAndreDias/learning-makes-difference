@@ -881,7 +881,7 @@ describe("authenticated recall workspace", () => {
       sourceBody: "Needs practice source.",
       sourceTitle: "Needs practice source",
     });
-    const notRecalled = createStudyNoteSnapshot(contexts, {
+    createStudyNoteSnapshot(contexts, {
       expectedAnswer: "Not recalled answer.",
       labelIds: [],
       prompt: "Not recalled prompt",
