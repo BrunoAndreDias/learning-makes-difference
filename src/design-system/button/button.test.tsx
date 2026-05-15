@@ -65,6 +65,20 @@ describe("Button", () => {
     ).toBe(true);
   });
 
+  it("renders compact controls through the shared size class", () => {
+    render(
+      <Button size="compact" type="button">
+        New
+      </Button>,
+    );
+
+    expect(
+      screen
+        .getByRole("button", { name: "New" })
+        .classList.contains("notes-action-compact"),
+    ).toBe(true);
+  });
+
   it("renders action-styled links through the button module seam", async () => {
     renderButtonLink();
 

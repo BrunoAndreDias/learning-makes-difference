@@ -1,17 +1,16 @@
 :root {
   --action-control-height: 2.5rem;
-  --action-control-padding-inline: 0.75rem;
-  --action-control-gap: 0.5rem;
-  --action-control-radius: 0.5rem;
+  --action-control-height-compact: 2rem;
+  --action-control-padding-inline: var(--space-3);
+  --action-control-padding-inline-compact: var(--space-2);
+  --action-control-gap: var(--space-2);
+  --action-control-radius: var(--radius-sm);
   --action-control-font-size: 0.875rem;
-  --action-control-font-weight: 500;
+  --action-control-font-size-compact: 0.8125rem;
+  --action-control-font-weight: 650;
   --action-icon-size: 2.5rem;
+  --action-icon-size-compact: 2rem;
   --workspace-header-action-width: 10.75rem;
-}
-
-.notes-action:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
 }
 
 .notes-icon-button,
@@ -35,12 +34,27 @@
   cursor: pointer;
   transition:
     background-color var(--motion-fast),
-    border-color var(--motion-fast);
+    border-color var(--motion-fast),
+    box-shadow var(--motion-fast),
+    color var(--motion-fast);
 }
 
-.notes-icon-button:hover,
-.notes-action:hover {
+.notes-icon-button:hover:not(:disabled),
+.notes-action:hover:not(:disabled) {
+  border-color: color-mix(
+    in srgb,
+    var(--color-content-border) 72%,
+    var(--color-content-border-soft)
+  );
   background: var(--color-shell-inset);
+  box-shadow: 0 1px 2px
+    color-mix(in srgb, var(--color-content-strong) 8%, transparent);
+}
+
+.notes-action-compact {
+  min-height: var(--action-control-height-compact);
+  padding-inline: var(--action-control-padding-inline-compact);
+  font-size: var(--action-control-font-size-compact);
 }
 
 .notes-action-secondary {
@@ -49,7 +63,7 @@
   color: var(--color-content-strong);
 }
 
-.notes-action-secondary:hover {
+.notes-action-secondary:hover:not(:disabled) {
   background: var(--color-shell-inset);
 }
 
@@ -57,22 +71,52 @@
   background: var(--color-primary);
   border-color: var(--color-primary);
   color: var(--color-primary-foreground);
+  box-shadow: 0 1px 2px
+    color-mix(in srgb, var(--color-primary) 22%, transparent);
 }
 
-.notes-action-primary:hover {
+.notes-action-primary:hover:not(:disabled) {
   background: var(--color-primary-hover);
   border-color: var(--color-primary-hover);
+  box-shadow: 0 2px 6px
+    color-mix(in srgb, var(--color-primary) 22%, transparent);
 }
 
 .notes-action-danger {
-  border-color: var(--color-danger);
-  background: var(--color-danger);
-  color: var(--color-danger-foreground);
+  border-color: color-mix(
+    in srgb,
+    var(--color-danger) 28%,
+    var(--color-content-border-soft)
+  );
+  background: var(--color-danger-soft);
+  color: var(--color-danger-soft-foreground);
 }
 
-.notes-action-danger:hover {
-  border-color: var(--color-danger-hover);
-  background: var(--color-danger-hover);
+.notes-action-danger:hover:not(:disabled) {
+  border-color: color-mix(
+    in srgb,
+    var(--color-danger) 44%,
+    var(--color-content-border-soft)
+  );
+  background: color-mix(
+    in srgb,
+    var(--color-danger-soft) 72%,
+    var(--color-shell-panel)
+  );
+  color: var(--color-danger-soft-foreground);
+}
+
+.notes-action:disabled,
+.notes-icon-button:disabled {
+  border-color: var(--color-content-border-soft);
+  background: color-mix(
+    in srgb,
+    var(--color-shell-inset) 72%,
+    var(--color-shell-panel)
+  );
+  box-shadow: none;
+  color: var(--color-content-muted);
+  cursor: not-allowed;
 }
 
 .focus-config-form .notes-action {
@@ -84,25 +128,25 @@
 }
 
 .app-sidebar__workspace-header .notes-action {
-  min-height: 2rem;
-  padding-inline: 0.55rem;
-  border-radius: 0.45rem;
-  font-size: 0.78rem;
+  min-height: var(--action-control-height-compact);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--action-control-font-size-compact);
 }
 
 .notes-catalog-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.45rem;
-  min-height: 2.5rem;
-  padding-inline: 0.75rem;
+  gap: var(--action-control-gap);
+  min-height: var(--action-control-height);
+  padding-inline: var(--action-control-padding-inline);
   border: 1px solid var(--color-content-border-soft);
-  border-radius: 0.5rem;
+  border-radius: var(--action-control-radius);
   background: var(--color-shell-panel);
   color: var(--color-content-strong);
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: var(--action-control-font-size);
+  font-weight: var(--action-control-font-weight);
   white-space: nowrap;
   cursor: pointer;
   transition:
@@ -138,4 +182,8 @@
   width: var(--action-icon-size);
   padding: 0;
   color: var(--color-content-muted);
+}
+
+.notes-icon-button.notes-action-compact {
+  width: var(--action-icon-size-compact);
 }

@@ -2,12 +2,12 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
-  gap: 0.7rem;
+  gap: var(--space-2);
   width: 100%;
-  min-height: 3.7rem;
-  padding: 0.62rem 0.7rem;
+  min-height: 3.75rem;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-content-border-soft);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   background: var(--color-shell-panel);
   color: var(--color-content-default);
   text-align: left;
@@ -21,14 +21,16 @@
 .list-card:hover {
   border-color: color-mix(
     in srgb,
-    var(--color-primary-soft-border) 45%,
+    var(--color-primary-soft-border) 40%,
     var(--color-content-border-soft)
   );
   background: color-mix(
     in srgb,
-    var(--color-primary-soft) 28%,
+    var(--color-primary-soft) 22%,
     var(--color-shell-panel)
   );
+  box-shadow: 0 1px 2px
+    color-mix(in srgb, var(--color-content-strong) 6%, transparent);
 }
 
 .list-card:focus-visible {
@@ -38,21 +40,21 @@
 .list-card[data-selected="true"] {
   border-color: color-mix(
     in srgb,
-    var(--color-primary-soft-border) 62%,
+    var(--color-primary-soft-border) 64%,
     var(--color-content-border-soft)
   );
   background: color-mix(
     in srgb,
-    var(--color-primary-soft) 42%,
+    var(--color-primary-soft) 34%,
     var(--color-shell-panel)
   );
   box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--color-primary-soft-border) 36%, transparent);
+    color-mix(in srgb, var(--color-primary-soft-border) 28%, transparent);
 }
 
 .list-card__content {
   display: grid;
-  gap: 0.18rem;
+  gap: var(--space-1);
   min-width: 0;
 }
 
@@ -66,7 +68,7 @@
 
 .list-card__description {
   display: grid;
-  gap: 0.1rem;
+  gap: var(--space-1);
   color: var(--color-content-muted);
   font-size: 0.78rem;
   line-height: 1.35;
@@ -84,14 +86,14 @@
   justify-content: center;
   max-width: min(10rem, 38vw);
   min-height: 1.45rem;
-  padding: 0.2rem 0.5rem;
+  padding: var(--space-1) var(--space-2);
   overflow: hidden;
   border: 1px solid var(--color-content-border-soft);
-  border-radius: 0.4rem;
+  border-radius: var(--radius-sm);
   background: var(--color-shell-inset);
   color: var(--color-content-default);
   font-size: 0.72rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;

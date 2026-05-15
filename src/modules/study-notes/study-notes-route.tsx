@@ -567,6 +567,7 @@ function StudyNotesWorkspace() {
               aria-label="New Study Note"
               className="study-notes-list-new"
               onClick={() => void handleNewStudyNote()}
+              size="compact"
               type="button"
             >
               New
@@ -577,6 +578,7 @@ function StudyNotesWorkspace() {
             <Button
               disabled={!hasDraftChanges}
               onClick={() => void saveDraft()}
+              size="compact"
               type="button"
               variant="primary"
             >
@@ -586,6 +588,7 @@ function StudyNotesWorkspace() {
               aria-label="Delete Study Note"
               disabled={selectedStudyNote === null}
               onClick={() => void handleDeleteStudyNote()}
+              size="compact"
               type="button"
               variant="danger"
             >
