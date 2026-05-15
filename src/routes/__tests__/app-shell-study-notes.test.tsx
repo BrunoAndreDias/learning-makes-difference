@@ -199,12 +199,16 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.getByLabelText("Explanation")).toHaveValue(
       "Testing retrieval strengthens durable recall.",
     );
-    expect(screen.getByPlaceholderText("Prompt")).toHaveAccessibleName(
-      "Prompt",
-    );
-    expect(screen.getByPlaceholderText("Expected answer")).toHaveAccessibleName(
-      "Expected answer",
-    );
+    expect(
+      screen.getByPlaceholderText(
+        "Why does this work? How would I use it? What example proves it?",
+      ),
+    ).toHaveAccessibleName("Prompt");
+    expect(
+      screen.getByPlaceholderText(
+        "Explain the reason, steps, limits, and one example or non-example.",
+      ),
+    ).toHaveAccessibleName("Expected answer");
     expect(screen.getByPlaceholderText("Metaphor")).toHaveAccessibleName(
       "Metaphor",
     );
@@ -299,7 +303,11 @@ describe("authenticated Study Notes workspace", () => {
     await waitFor(() =>
       expect(screen.getByLabelText("Prompt")).toHaveValue("New Study Note"),
     );
-    expect(screen.getByPlaceholderText("Expected answer")).toHaveValue("");
+    expect(
+      screen.getByPlaceholderText(
+        "Explain the reason, steps, limits, and one example or non-example.",
+      ),
+    ).toHaveValue("");
     expect(screen.getByPlaceholderText("Explanation")).toHaveValue("");
     const saveButton = screen.getByRole("button", { name: "Save" });
     expect(saveButton).toBeDisabled();
@@ -345,6 +353,74 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.getByLabelText("Explanation")).toHaveValue(
       "Edited source body.",
     );
+  });
+
+  it("guides self-explanation and worked examples without requiring memory aids", async () => {
+    const studyNotesContext = createAppStudyNotesContext({
+      keyPrefix: `test-study-notes-guidance-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-study-guidance";
+
+    renderRoute("/study-notes", {
+      session: {
+        user: {
+          displayName: "Jordan Guidance",
+          email: "jordan.guidance@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+      studyNotesContext,
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "New Study Note" }),
+    );
+
+    expect(
+      screen.getByText(
+        "Ask why, how, when it works, when it does not, or what a worked example shows.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(
+        "Why does this work? How would I use it? What example proves it?",
+      ),
+    ).toHaveAccessibleName("Prompt");
+    expect(
+      screen.getByPlaceholderText(
+        "Explain the reason, steps, limits, and one example or non-example.",
+      ),
+    ).toHaveAccessibleName("Expected answer");
+    expect(
+      screen.getByText(
+        "Optional. Add one only when it would make this answer easier to recall.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Worked examples belong here as source material."),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Prompt"), {
+      target: { value: "Why does retrieval before review improve memory?" },
+    });
+    fireEvent.change(screen.getByLabelText("Expected answer"), {
+      target: {
+        value:
+          "It forces a retrieval attempt, exposes gaps, and makes feedback more useful.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Saved");
+    expect(studyNotesContext.getSnapshot()[0]).toMatchObject({
+      acronyms: [],
+      expectedAnswer:
+        "It forces a retrieval attempt, exposes gaps, and makes feedback more useful.",
+      metaphors: [],
+      prompt: "Why does retrieval before review improve memory?",
+    });
   });
 
   it("saves incomplete Study Notes with completion copy and blocks blank prompts", async () => {

@@ -71,8 +71,15 @@
 }
 
 .study-notes-editor .notes-editor__title-stack {
-  gap: 0;
+  gap: var(--space-2);
   width: 100%;
+}
+
+.study-notes-editor__guidance {
+  margin: 0;
+  max-width: 42rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
 }
 
 .study-notes-editor__fields {

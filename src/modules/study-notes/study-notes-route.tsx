@@ -673,10 +673,14 @@ function StudyNotesWorkspace() {
                         prompt: event.target.value,
                       }))
                     }
-                    placeholder="Prompt"
+                    placeholder="Why does this work? How would I use it? What example proves it?"
                     value={draft.prompt}
                   />
                 </label>
+                <p className="muted study-notes-editor__guidance">
+                  Ask why, how, when it works, when it does not, or what a
+                  worked example shows.
+                </p>
               </div>
             </div>
 
@@ -689,6 +693,7 @@ function StudyNotesWorkspace() {
                     expectedAnswer: event.target.value,
                   }))
                 }
+                placeholder="Explain the reason, steps, limits, and one example or non-example."
                 rows={9}
                 value={draft.expectedAnswer}
               />
@@ -731,6 +736,10 @@ function StudyNotesWorkspace() {
               >
                 <div>
                   <p className="section-label">Memory aids</p>
+                  <p className="muted study-notes-editor__guidance">
+                    Optional. Add one only when it would make this answer easier
+                    to recall.
+                  </p>
                 </div>
                 <FloatingTextarea
                   label="Metaphor"
@@ -763,6 +772,9 @@ function StudyNotesWorkspace() {
                 <div>
                   <p className="study-notes-editor__group-label">
                     Reference explanation
+                  </p>
+                  <p className="muted study-notes-editor__guidance">
+                    Worked examples belong here as source material.
                   </p>
                   {sharedSourceEditMessage === null ? null : (
                     <p className="muted study-notes-editor__shared-source">
