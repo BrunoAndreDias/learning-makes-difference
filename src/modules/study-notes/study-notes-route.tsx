@@ -144,6 +144,17 @@ const learningStateDateFormatter = new Intl.DateTimeFormat("en", {
 });
 
 const STUDY_NOTE_EDITOR_FORM_ID = "study-note-editor-form";
+const STUDY_NOTE_GUIDANCE_COPY = {
+  expectedAnswerPlaceholder:
+    "Explain the reason, steps, limits, and one example or non-example.",
+  memoryAids:
+    "Optional. Add one only when it would make this answer easier to recall.",
+  prompt:
+    "Ask why, how, when it works, when it does not, or what a worked example shows.",
+  promptPlaceholder:
+    "Why does this work? How would I use it? What example proves it?",
+  referenceExplanation: "Worked examples belong here as source material.",
+} as const;
 
 function formatLastRecalledLabel(lastRecalledAt: string | null) {
   if (lastRecalledAt === null) {
@@ -685,10 +696,13 @@ function StudyNotesWorkspace() {
                         prompt: event.target.value,
                       }))
                     }
-                    placeholder="Prompt"
+                    placeholder={STUDY_NOTE_GUIDANCE_COPY.promptPlaceholder}
                     value={draft.prompt}
                   />
                 </label>
+                <p className="muted study-notes-editor__guidance">
+                  {STUDY_NOTE_GUIDANCE_COPY.prompt}
+                </p>
               </div>
             </div>
 
@@ -701,6 +715,7 @@ function StudyNotesWorkspace() {
                     expectedAnswer: event.target.value,
                   }))
                 }
+                placeholder={STUDY_NOTE_GUIDANCE_COPY.expectedAnswerPlaceholder}
                 rows={9}
                 value={draft.expectedAnswer}
               />
@@ -743,6 +758,9 @@ function StudyNotesWorkspace() {
               >
                 <div>
                   <p className="section-label">Memory aids</p>
+                  <p className="muted study-notes-editor__guidance">
+                    {STUDY_NOTE_GUIDANCE_COPY.memoryAids}
+                  </p>
                 </div>
                 <FloatingTextarea
                   label="Metaphor"
@@ -775,6 +793,9 @@ function StudyNotesWorkspace() {
                 <div>
                   <p className="study-notes-editor__group-label">
                     Reference explanation
+                  </p>
+                  <p className="muted study-notes-editor__guidance">
+                    {STUDY_NOTE_GUIDANCE_COPY.referenceExplanation}
                   </p>
                   {sharedSourceEditMessage === null ? null : (
                     <p className="muted study-notes-editor__shared-source">
