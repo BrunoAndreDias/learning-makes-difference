@@ -57,6 +57,12 @@ type FocusSessionPanelDetails = {
   timerLabel: string;
 };
 
+type FocusLearningLoopSupportCopy = {
+  actionLabelKey: AppTranslationKey;
+  summaryKey: AppTranslationKey;
+  titleKey: AppTranslationKey;
+};
+
 const DEFAULT_BREAK_MINUTES = "5";
 const DEFAULT_FOCUS_MINUTES = "25";
 const DEFAULT_PLANNED_FOCUS_INTERVALS = "4";
@@ -77,6 +83,21 @@ const focusAnalyticsMetricLabelKeys = {
 } as const satisfies Record<
   FocusWeeklyAnalyticsMetric["id"],
   AppTranslationKey
+>;
+const focusLearningLoopSupportCopyByActionId = {
+  "practice-repair": {
+    actionLabelKey: "focus.support.practiceRepairAction",
+    summaryKey: "focus.support.practiceRepairSummary",
+    titleKey: "focus.support.practiceRepairTitle",
+  },
+  "recall-today": {
+    actionLabelKey: "focus.support.recallTodayAction",
+    summaryKey: "focus.support.recallTodaySummary",
+    titleKey: "recall.today.title",
+  },
+} as const satisfies Record<
+  FocusLearningLoopSupportSuggestion["actionId"],
+  FocusLearningLoopSupportCopy
 >;
 
 export const Route = createFileRoute("/_protected/focus")({
@@ -159,6 +180,7 @@ function FocusPage() {
           studyNotes: userStudyNotes,
           userTimeZone,
         });
+  const hasLearningLoopSupport = learningLoopSupportSuggestions.length > 0;
   const weeklyAnalytics = deriveFocusWeeklyAnalytics({
     focusRecords: records,
     notes: userNotes,
@@ -176,7 +198,11 @@ function FocusPage() {
   return (
     <section
       aria-labelledby="focus-workspace-heading"
-      className="focus-workspace"
+      className={
+        hasLearningLoopSupport
+          ? "focus-workspace focus-workspace--has-support"
+          : "focus-workspace"
+      }
     >
       <PageHeader
         className="focus-workspace__page-header recall-surface__header"
@@ -204,11 +230,11 @@ function FocusPage() {
         />
       </section>
 
-      {learningLoopSupportSuggestions.length === 0 ? null : (
+      {hasLearningLoopSupport ? (
         <FocusLearningLoopSupport
           suggestions={learningLoopSupportSuggestions}
         />
-      )}
+      ) : null}
 
       <section
         aria-label={translatedWeeklyAnalytics.heading}
@@ -257,24 +283,29 @@ function FocusLearningLoopSupport({
         </div>
       </div>
       <div className="focus-learning-loop-support">
-        {suggestions.map((suggestion) => (
-          <article
-            className="focus-learning-loop-support__item"
-            key={suggestion.actionId}
-          >
-            <div className="focus-learning-loop-support__copy">
-              <h4>
-                {getFocusLearningLoopSupportTitle(suggestion.actionId, t)}
-              </h4>
-              <p>
-                {getFocusLearningLoopSupportSummary(suggestion.actionId, t)}
-              </p>
-            </div>
-            <ButtonLink size="compact" to={suggestion.href} variant="secondary">
-              {getFocusLearningLoopSupportActionLabel(suggestion.actionId, t)}
-            </ButtonLink>
-          </article>
-        ))}
+        {suggestions.map((suggestion) => {
+          const copyKeys =
+            focusLearningLoopSupportCopyByActionId[suggestion.actionId];
+
+          return (
+            <article
+              className="focus-learning-loop-support__item"
+              key={suggestion.actionId}
+            >
+              <div className="focus-learning-loop-support__copy">
+                <h4>{t(copyKeys.titleKey)}</h4>
+                <p>{t(copyKeys.summaryKey)}</p>
+              </div>
+              <ButtonLink
+                size="compact"
+                to={suggestion.href}
+                variant="secondary"
+              >
+                {t(copyKeys.actionLabelKey)}
+              </ButtonLink>
+            </article>
+          );
+        })}
       </div>
     </section>
   );
@@ -721,40 +752,4 @@ function getFocusSessionStartInput(
       values.plannedFocusIntervals,
     ),
   };
-}
-
-function getFocusLearningLoopSupportTitle(
-  actionId: FocusLearningLoopSupportSuggestion["actionId"],
-  t: AppTranslate,
-) {
-  switch (actionId) {
-    case "practice-repair":
-      return t("focus.support.practiceRepairTitle");
-    case "recall-today":
-      return t("recall.today.title");
-  }
-}
-
-function getFocusLearningLoopSupportSummary(
-  actionId: FocusLearningLoopSupportSuggestion["actionId"],
-  t: AppTranslate,
-) {
-  switch (actionId) {
-    case "practice-repair":
-      return t("focus.support.practiceRepairSummary");
-    case "recall-today":
-      return t("focus.support.recallTodaySummary");
-  }
-}
-
-function getFocusLearningLoopSupportActionLabel(
-  actionId: FocusLearningLoopSupportSuggestion["actionId"],
-  t: AppTranslate,
-) {
-  switch (actionId) {
-    case "practice-repair":
-      return t("focus.support.practiceRepairAction");
-    case "recall-today":
-      return t("focus.support.recallTodayAction");
-  }
 }

@@ -16,7 +16,7 @@ type DeterministicRecallTestContexts = ReturnType<
   typeof createDeterministicRecallTestContexts
 >;
 
-function createStudyNoteSnapshot(
+function createRecallableStudyNote(
   contexts: DeterministicRecallTestContexts,
   input: {
     expectedAnswer: string;
@@ -76,7 +76,7 @@ describe("authenticated app shell", () => {
   it("surfaces Practice Repair and Recall Today from actual recall facts on Focus", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-focus-learning-loop-support";
-    const studyNote = createStudyNoteSnapshot(contexts, {
+    const studyNote = createRecallableStudyNote(contexts, {
       expectedAnswer: "Expected answer for repair.",
       prompt: "Why is this Study Note still weak?",
       sourceBody: "Source explanation that still needs better recall support.",

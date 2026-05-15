@@ -8,28 +8,45 @@ import {
 } from "../study-notes";
 import { getStudyNotePracticeRepair } from "../study-notes/practice-repair";
 
-export type FocusLearningLoopSupportSuggestion = {
-  actionId: "practice-repair" | "recall-today";
-  href: "/recall" | "/study-notes";
-};
+export type FocusLearningLoopSupportSuggestion =
+  | {
+      actionId: "practice-repair";
+      href: "/study-notes";
+    }
+  | {
+      actionId: "recall-today";
+      href: "/recall";
+    };
 
-export function getFocusLearningLoopSupportSuggestions(input: {
+type FocusLearningLoopSupportInput = {
   attemptsByNote: readonly FlashCardRecallAttemptsByNote[];
   now: string;
   recallSchedules: readonly RecallSchedule[];
   studyNotes: readonly AppStudyNote[];
   userTimeZone: UserTimeZonePreference;
-}): FocusLearningLoopSupportSuggestion[] {
+};
+
+export function getFocusLearningLoopSupportSuggestions(
+  input: FocusLearningLoopSupportInput,
+): FocusLearningLoopSupportSuggestion[] {
   const histories = toStudyNoteRecallHistories(input.attemptsByNote);
+  const learningStates = deriveStudyNoteLearningStates({
+    histories,
+    now: input.now,
+    recallSchedules: input.recallSchedules,
+    studyNotes: input.studyNotes,
+  });
+  const recallTodayQueue = buildRecallTodayQueue({
+    histories,
+    now: input.now,
+    recallSchedules: input.recallSchedules,
+    studyNotes: input.studyNotes,
+    userTimeZone: input.userTimeZone,
+  });
   const suggestions: FocusLearningLoopSupportSuggestion[] = [];
 
   if (
-    deriveStudyNoteLearningStates({
-      histories,
-      now: input.now,
-      recallSchedules: input.recallSchedules,
-      studyNotes: input.studyNotes,
-    }).some(
+    learningStates.some(
       (learningState) => getStudyNotePracticeRepair(learningState) !== null,
     )
   ) {
@@ -39,15 +56,7 @@ export function getFocusLearningLoopSupportSuggestions(input: {
     });
   }
 
-  if (
-    buildRecallTodayQueue({
-      histories,
-      now: input.now,
-      recallSchedules: input.recallSchedules,
-      studyNotes: input.studyNotes,
-      userTimeZone: input.userTimeZone,
-    }).length > 0
-  ) {
+  if (recallTodayQueue.length > 0) {
     suggestions.push({
       actionId: "recall-today",
       href: "/recall",

@@ -60,6 +60,10 @@
   font-family: var(--font-body);
 }
 
+.focus-workspace--has-support {
+  grid-template-rows: auto minmax(0, 1.08fr) auto minmax(0, 0.92fr);
+}
+
 .app-frame[data-workspace="focus"] {
   grid-template-rows: auto minmax(0, 1fr);
   height: 100vh;
@@ -264,20 +268,15 @@
   padding: 1rem;
 }
 
-.focus-card--analytics {
-  gap: 1rem;
-  border-color: var(--color-content-border-soft);
-  background: var(--color-shell-panel);
-}
-
-.focus-card--setup {
-  border-color: var(--color-content-border-soft);
-  background: var(--color-shell-panel);
-}
-
+.focus-card--analytics,
+.focus-card--setup,
 .focus-card--support {
   border-color: var(--color-content-border-soft);
   background: var(--color-shell-panel);
+}
+
+.focus-card--analytics {
+  gap: 1rem;
 }
 
 .focus-card__header {
@@ -554,6 +553,10 @@
     grid-template-rows: auto auto auto;
     height: auto;
     min-height: 100%;
+  }
+
+  .focus-workspace--has-support {
+    grid-template-rows: auto auto auto auto;
   }
 
   .focus-session-workspace {
