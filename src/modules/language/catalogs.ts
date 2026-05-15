@@ -86,7 +86,7 @@ const englishTranslations = {
   "focus.analytics.sectionLabel": "Weekly analytics",
   "focus.analytics.vsLastWeek": "{{value}} vs last week",
   "focus.description":
-    "Run a Pomodoro session to stay focused and make steady progress.",
+    "Run a Pomodoro session to support attention and recovery. Learning evidence comes from Study Notes and recall, not focus minutes alone.",
   "focus.form.breakMinutes": "Break minutes",
   "focus.form.focusMinutes": "Focus minutes",
   "focus.form.plannedIntervals": "Planned intervals",
@@ -115,6 +115,15 @@ const englishTranslations = {
   "focus.panel.intervals": "Intervals",
   "focus.panel.open": "Open",
   "focus.panel.session": "Focus session",
+  "focus.support.practiceRepairAction": "Open Study Notes",
+  "focus.support.practiceRepairSummary":
+    "Weak recall evidence exists for at least one Study Note.",
+  "focus.support.practiceRepairTitle": "Practice Repair",
+  "focus.support.recallTodayAction": "Open Recall Today",
+  "focus.support.recallTodaySummary":
+    "Recommended recall work exists in Recall Today.",
+  "focus.support.regionLabel": "Learning Loop support",
+  "focus.support.sectionLabel": "Learning Loop support",
   "focus.status.break": "Break",
   "focus.status.awaitingNext": "Ready for next focus",
   "focus.status.inProgress": "In progress",
@@ -488,7 +497,7 @@ const portugueseTranslations = {
   "focus.analytics.sectionLabel": "Analise semanal",
   "focus.analytics.vsLastWeek": "{{value}} face a semana passada",
   "focus.description":
-    "Execute uma sessao Pomodoro para manter o foco e progredir de forma consistente.",
+    "Execute uma sessao Pomodoro para apoiar a atencao e a recuperacao. A evidencia de aprendizagem vem de Study Notes e da recordacao, nao apenas dos minutos de foco.",
   "focus.form.breakMinutes": "Minutos de pausa",
   "focus.form.focusMinutes": "Minutos de foco",
   "focus.form.plannedIntervals": "Intervalos planeados",
@@ -518,6 +527,15 @@ const portugueseTranslations = {
   "focus.panel.intervals": "Intervalos",
   "focus.panel.open": "Aberto",
   "focus.panel.session": "Sessao de foco",
+  "focus.support.practiceRepairAction": "Abrir Study Notes",
+  "focus.support.practiceRepairSummary":
+    "Existe evidencia de recordacao fraca em pelo menos uma Study Note.",
+  "focus.support.practiceRepairTitle": "Practice Repair",
+  "focus.support.recallTodayAction": "Abrir Recall Today",
+  "focus.support.recallTodaySummary":
+    "Existe trabalho de recordacao recomendado em Recall Today.",
+  "focus.support.regionLabel": "Apoio ao ciclo de aprendizagem",
+  "focus.support.sectionLabel": "Apoio ao ciclo de aprendizagem",
   "focus.status.break": "Pausa",
   "focus.status.awaitingNext": "Pronto para o proximo foco",
   "focus.status.inProgress": "Em curso",
@@ -899,7 +917,7 @@ const spanishTranslations = {
   "focus.analytics.sectionLabel": "Analitica semanal",
   "focus.analytics.vsLastWeek": "{{value}} frente a la semana pasada",
   "focus.description":
-    "Ejecuta una sesion Pomodoro para mantener la concentracion y avanzar de forma constante.",
+    "Ejecuta una sesion Pomodoro para apoyar la atencion y la recuperacion. La evidencia de aprendizaje viene de Study Notes y del repaso, no solo de los minutos de concentracion.",
   "focus.form.breakMinutes": "Minutos de descanso",
   "focus.form.focusMinutes": "Minutos de concentracion",
   "focus.form.plannedIntervals": "Intervalos planificados",
@@ -929,6 +947,15 @@ const spanishTranslations = {
   "focus.panel.intervals": "Intervalos",
   "focus.panel.open": "Abierto",
   "focus.panel.session": "Sesion de concentracion",
+  "focus.support.practiceRepairAction": "Abrir Study Notes",
+  "focus.support.practiceRepairSummary":
+    "Existe evidencia de repaso debil en al menos una Study Note.",
+  "focus.support.practiceRepairTitle": "Practice Repair",
+  "focus.support.recallTodayAction": "Abrir Recall Today",
+  "focus.support.recallTodaySummary":
+    "Existe trabajo de repaso recomendado en Recall Today.",
+  "focus.support.regionLabel": "Apoyo al ciclo de aprendizaje",
+  "focus.support.sectionLabel": "Apoyo al ciclo de aprendizaje",
   "focus.status.break": "Descanso",
   "focus.status.awaitingNext": "Lista para la proxima concentracion",
   "focus.status.inProgress": "En curso",

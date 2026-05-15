@@ -8,11 +8,13 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { Button } from "../../design-system/button";
+import { Button, ButtonLink } from "../../design-system/button";
 import { PageHeader } from "../../design-system/page-header";
+import { defaultUserTimeZone } from "../access/session/session-contract";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { type AppTranslationKey, useAppTranslation } from "../language";
 import { listNotesForUser } from "../notes";
+import { listStudyNotesForUser } from "../study-notes";
 import {
   type AppFocusContext,
   AppFocusError,
@@ -24,6 +26,8 @@ import {
   type FocusWeeklyAnalytics,
   type FocusWeeklyAnalyticsMetric,
 } from "./focus-weekly-analytics";
+import type { FocusLearningLoopSupportSuggestion } from "./learning-loop-support";
+import { getFocusLearningLoopSupportSuggestions } from "./learning-loop-support";
 import type { AppPersistentFocusContext } from "./persistent-focus";
 
 type AppTranslate = ReturnType<typeof useAppTranslation>["t"];
@@ -90,6 +94,12 @@ function FocusPage() {
   const notes = Route.useRouteContext({
     select: (context) => context.notes,
   });
+  const studyNotes = Route.useRouteContext({
+    select: (context) => context.studyNotes,
+  });
+  const persistentStudyNotes = Route.useRouteContext({
+    select: (context) => context.persistentStudyNotes,
+  });
   const recall = Route.useRouteContext({
     select: (context) => context.recall,
   });
@@ -106,10 +116,21 @@ function FocusPage() {
     notes.getSnapshot,
     notes.getSnapshot,
   );
+  const studyNotesStore = persistentStudyNotes ?? studyNotes;
+  const studyNotesSnapshot = useSyncExternalStore(
+    studyNotesStore.subscribe,
+    studyNotesStore.getSnapshot,
+    studyNotesStore.getSnapshot,
+  );
   useSyncExternalStore(
     recall.subscribe,
     recall.getSessionResultsSnapshot,
     recall.getSessionResultsSnapshot,
+  );
+  const recallSchedules = useSyncExternalStore(
+    recall.subscribe,
+    recall.getRecallSchedulesSnapshot,
+    recall.getRecallSchedulesSnapshot,
   );
   const userId = sessionSnapshot.user?.id ?? null;
   const activeSession =
@@ -123,8 +144,21 @@ function FocusPage() {
           (left, right) => Date.parse(right.endedAt) - Date.parse(left.endedAt),
         );
   const userNotes = listNotesForUser(notesSnapshot, userId);
+  const userStudyNotes = listStudyNotesForUser(studyNotesSnapshot, userId);
+  const userTimeZone =
+    sessionSnapshot.user?.userTimeZone ?? defaultUserTimeZone;
   const sessionResults =
     userId === null ? [] : recall.listSessionResults({ userId });
+  const learningLoopSupportSuggestions =
+    userId === null
+      ? []
+      : getFocusLearningLoopSupportSuggestions({
+          attemptsByNote: recall.listAttemptsByNote({ userId }),
+          now: new Date().toISOString(),
+          recallSchedules,
+          studyNotes: userStudyNotes,
+          userTimeZone,
+        });
   const weeklyAnalytics = deriveFocusWeeklyAnalytics({
     focusRecords: records,
     notes: userNotes,
@@ -170,6 +204,12 @@ function FocusPage() {
         />
       </section>
 
+      {learningLoopSupportSuggestions.length === 0 ? null : (
+        <FocusLearningLoopSupport
+          suggestions={learningLoopSupportSuggestions}
+        />
+      )}
+
       <section
         aria-label={translatedWeeklyAnalytics.heading}
         className="focus-card focus-card--analytics"
@@ -192,6 +232,50 @@ function FocusPage() {
           ))}
         </dl>
       </section>
+    </section>
+  );
+}
+
+function FocusLearningLoopSupport({
+  suggestions,
+}: Readonly<{
+  suggestions: readonly FocusLearningLoopSupportSuggestion[];
+}>) {
+  const { t } = useAppTranslation();
+
+  return (
+    <section
+      aria-label={t("focus.support.regionLabel")}
+      className="focus-card focus-card--support"
+    >
+      <div className="focus-card__header">
+        <div>
+          <p className="section-label">{t("focus.support.sectionLabel")}</p>
+          <strong className="focus-card-title">
+            {t("focus.support.sectionLabel")}
+          </strong>
+        </div>
+      </div>
+      <div className="focus-learning-loop-support">
+        {suggestions.map((suggestion) => (
+          <article
+            className="focus-learning-loop-support__item"
+            key={suggestion.actionId}
+          >
+            <div className="focus-learning-loop-support__copy">
+              <h4>
+                {getFocusLearningLoopSupportTitle(suggestion.actionId, t)}
+              </h4>
+              <p>
+                {getFocusLearningLoopSupportSummary(suggestion.actionId, t)}
+              </p>
+            </div>
+            <ButtonLink size="compact" to={suggestion.href} variant="secondary">
+              {getFocusLearningLoopSupportActionLabel(suggestion.actionId, t)}
+            </ButtonLink>
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
@@ -637,4 +721,40 @@ function getFocusSessionStartInput(
       values.plannedFocusIntervals,
     ),
   };
+}
+
+function getFocusLearningLoopSupportTitle(
+  actionId: FocusLearningLoopSupportSuggestion["actionId"],
+  t: AppTranslate,
+) {
+  switch (actionId) {
+    case "practice-repair":
+      return t("focus.support.practiceRepairTitle");
+    case "recall-today":
+      return t("recall.today.title");
+  }
+}
+
+function getFocusLearningLoopSupportSummary(
+  actionId: FocusLearningLoopSupportSuggestion["actionId"],
+  t: AppTranslate,
+) {
+  switch (actionId) {
+    case "practice-repair":
+      return t("focus.support.practiceRepairSummary");
+    case "recall-today":
+      return t("focus.support.recallTodaySummary");
+  }
+}
+
+function getFocusLearningLoopSupportActionLabel(
+  actionId: FocusLearningLoopSupportSuggestion["actionId"],
+  t: AppTranslate,
+) {
+  switch (actionId) {
+    case "practice-repair":
+      return t("focus.support.practiceRepairAction");
+    case "recall-today":
+      return t("focus.support.recallTodayAction");
+  }
 }
