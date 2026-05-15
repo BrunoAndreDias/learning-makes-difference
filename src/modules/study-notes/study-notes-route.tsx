@@ -242,6 +242,19 @@ function formatSharedSourceEditMessage(prompts: readonly string[]) {
   )}.`;
 }
 
+function filterStudyNotesBySelectedLabel(
+  studyNotes: readonly AppStudyNote[],
+  selectedLabelId: string,
+) {
+  if (selectedLabelId === "") {
+    return studyNotes;
+  }
+
+  return studyNotes.filter((studyNote) =>
+    studyNote.labelIds.includes(selectedLabelId),
+  );
+}
+
 function StudyNotesWorkspace() {
   const navigate = useNavigate();
   const studyNotesContext = useRouteContext({
@@ -307,12 +320,7 @@ function StudyNotesWorkspace() {
     [studyNotesSnapshot, userId],
   );
   const studyNotes = useMemo(
-    () =>
-      selectedLabelId === ""
-        ? allStudyNotes
-        : allStudyNotes.filter((studyNote) =>
-            studyNote.labelIds.includes(selectedLabelId),
-          ),
+    () => filterStudyNotesBySelectedLabel(allStudyNotes, selectedLabelId),
     [allStudyNotes, selectedLabelId],
   );
   const recallHistories = useMemo(
@@ -526,19 +534,10 @@ function StudyNotesWorkspace() {
     setSaveStatus(null);
 
     try {
-      if (persistentRecallContext === undefined) {
-        recallContext.startFlashCardSession({
-          mode: "FlashCard",
-          studyNoteIds: [...interleavedRecallRecommendation.studyNoteIds],
-          userId,
-        });
-      } else {
-        await persistentRecallContext.startFlashCardSession(userId, {
-          mode: "FlashCard",
-          studyNoteIds: [...interleavedRecallRecommendation.studyNoteIds],
-        });
-      }
-
+      await startFlashCardRecallForStudyNotes({
+        studyNoteIds: interleavedRecallRecommendation.studyNoteIds,
+        userId,
+      });
       await navigate({ to: "/recall/session" });
     } catch (error) {
       if (error instanceof AppRecallError) {
@@ -548,6 +547,27 @@ function StudyNotesWorkspace() {
 
       throw error;
     }
+  }
+
+  async function startFlashCardRecallForStudyNotes(input: {
+    studyNoteIds: readonly string[];
+    userId: string;
+  }) {
+    const studyNoteIds = [...input.studyNoteIds];
+
+    if (persistentRecallContext === undefined) {
+      recallContext.startFlashCardSession({
+        mode: "FlashCard",
+        studyNoteIds,
+        userId: input.userId,
+      });
+      return;
+    }
+
+    await persistentRecallContext.startFlashCardSession(input.userId, {
+      mode: "FlashCard",
+      studyNoteIds,
+    });
   }
 
   async function saveDraft() {

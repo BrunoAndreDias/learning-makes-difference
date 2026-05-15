@@ -98,6 +98,26 @@ function createStudyNoteSnapshot(
   });
 }
 
+function createSiblingStudyNoteSnapshot(
+  contexts: DeterministicRecallTestContexts,
+  input: StudyNoteSnapshotInput & {
+    sourceNoteId: string;
+    userId: string;
+  },
+) {
+  const studyNote = contexts.studyNotesContext.createStudyNoteFromSource(
+    input.userId,
+    {
+      sourceNoteId: input.sourceNoteId,
+    },
+  );
+
+  return updateStudyNoteSnapshot(contexts, {
+    ...input,
+    studyNoteId: studyNote.id,
+  });
+}
+
 function completeStudyNoteRecall(
   contexts: DeterministicRecallTestContexts,
   input: {
@@ -1043,55 +1063,35 @@ describe("authenticated Study Notes workspace", () => {
   it("starts Interleaved Recall from a successful related Study Note recommendation", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-interleaved-recall";
-    const anchorBase = contexts.studyNotesContext.createStudyNote(userId, {
+    const sharedSourceInput = {
       sourceBody: "Shared source for interleaving.",
       sourceTitle: "Interleaved source",
-    });
-    const anchor = updateStudyNoteSnapshot(contexts, {
+    } satisfies Pick<StudyNoteSnapshotInput, "sourceBody" | "sourceTitle">;
+    const anchor = createStudyNoteSnapshot(contexts, {
+      ...sharedSourceInput,
       expectedAnswer: "Anchor expected answer.",
       prompt: "Anchor prompt",
-      sourceBody: "Shared source for interleaving.",
-      sourceTitle: "Interleaved source",
-      studyNoteId: anchorBase.id,
       userId,
     });
-    const siblingOne = updateStudyNoteSnapshot(contexts, {
+    const siblingOne = createSiblingStudyNoteSnapshot(contexts, {
+      ...sharedSourceInput,
       expectedAnswer: "Sibling expected answer 1.",
       prompt: "Sibling prompt 1",
-      sourceBody: "Shared source for interleaving.",
-      sourceTitle: "Interleaved source",
-      studyNoteId: contexts.studyNotesContext.createStudyNoteFromSource(
-        userId,
-        {
-          sourceNoteId: anchorBase.sourceNoteId,
-        },
-      ).id,
+      sourceNoteId: anchor.sourceNoteId,
       userId,
     });
-    const siblingTwo = updateStudyNoteSnapshot(contexts, {
+    const siblingTwo = createSiblingStudyNoteSnapshot(contexts, {
+      ...sharedSourceInput,
       expectedAnswer: "Sibling expected answer 2.",
       prompt: "Sibling prompt 2",
-      sourceBody: "Shared source for interleaving.",
-      sourceTitle: "Interleaved source",
-      studyNoteId: contexts.studyNotesContext.createStudyNoteFromSource(
-        userId,
-        {
-          sourceNoteId: anchorBase.sourceNoteId,
-        },
-      ).id,
+      sourceNoteId: anchor.sourceNoteId,
       userId,
     });
-    const siblingThree = updateStudyNoteSnapshot(contexts, {
+    const siblingThree = createSiblingStudyNoteSnapshot(contexts, {
+      ...sharedSourceInput,
       expectedAnswer: "Sibling expected answer 3.",
       prompt: "Sibling prompt 3",
-      sourceBody: "Shared source for interleaving.",
-      sourceTitle: "Interleaved source",
-      studyNoteId: contexts.studyNotesContext.createStudyNoteFromSource(
-        userId,
-        {
-          sourceNoteId: anchorBase.sourceNoteId,
-        },
-      ).id,
+      sourceNoteId: anchor.sourceNoteId,
       userId,
     });
 

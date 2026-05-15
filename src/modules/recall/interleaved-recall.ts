@@ -1,7 +1,9 @@
 import { type AppStudyNote, getStudyNoteReadiness } from "../study-notes";
 import type { StudyNoteRecallHistory } from "../study-notes/learning-state";
 
-const minimumInterleavedRecallStudyNotes = 4;
+const MINIMUM_INTERLEAVED_RECALL_STUDY_NOTES = 4;
+
+type RecallHistoryRating = StudyNoteRecallHistory["attempts"][number]["rating"];
 
 export type InterleavedRecallRecommendation = {
   actionLabel: string;
@@ -10,9 +12,7 @@ export type InterleavedRecallRecommendation = {
   title: string;
 };
 
-function isSuccessfulRecallAttempt(
-  rating: StudyNoteRecallHistory["attempts"][number]["rating"],
-) {
+function isSuccessfulRecallAttempt(rating: RecallHistoryRating) {
   return rating === "good" || rating === "easy";
 }
 
@@ -38,7 +38,7 @@ function getTrailingSuccessfulRecallCount(
   return successfulRecallCount;
 }
 
-function isInterleavedRecallEligible(input: {
+function isStudyNoteEligibleForInterleavedRecall(input: {
   history: StudyNoteRecallHistory | null;
   studyNote: AppStudyNote;
 }) {
@@ -48,7 +48,7 @@ function isInterleavedRecallEligible(input: {
   );
 }
 
-function sharesInterleavedRecallGroup(
+function isStudyNoteInInterleavedRecallGroup(
   anchorStudyNote: AppStudyNote,
   candidateStudyNote: AppStudyNote,
 ) {
@@ -64,6 +64,24 @@ function sharesInterleavedRecallGroup(
 
   return candidateStudyNote.labelIds.some((labelId) =>
     anchorLabelIds.has(labelId),
+  );
+}
+
+function getEligibleStudyNotesInInterleavedRecallGroup(input: {
+  historyByStudyNoteId: ReadonlyMap<string, StudyNoteRecallHistory>;
+  selectedStudyNote: AppStudyNote;
+  studyNotes: readonly AppStudyNote[];
+}) {
+  return input.studyNotes.filter(
+    (candidateStudyNote) =>
+      isStudyNoteInInterleavedRecallGroup(
+        input.selectedStudyNote,
+        candidateStudyNote,
+      ) &&
+      isStudyNoteEligibleForInterleavedRecall({
+        history: input.historyByStudyNoteId.get(candidateStudyNote.id) ?? null,
+        studyNote: candidateStudyNote,
+      }),
   );
 }
 
@@ -83,7 +101,7 @@ export function getInterleavedRecallRecommendation(input: {
   );
 
   if (
-    !isInterleavedRecallEligible({
+    !isStudyNoteEligibleForInterleavedRecall({
       history: historyByStudyNoteId.get(selectedStudyNote.id) ?? null,
       studyNote: selectedStudyNote,
     })
@@ -91,28 +109,30 @@ export function getInterleavedRecallRecommendation(input: {
     return null;
   }
 
-  const relatedEligibleStudyNotes = input.studyNotes.filter(
-    (candidateStudyNote) =>
-      sharesInterleavedRecallGroup(selectedStudyNote, candidateStudyNote) &&
-      isInterleavedRecallEligible({
-        history: historyByStudyNoteId.get(candidateStudyNote.id) ?? null,
-        studyNote: candidateStudyNote,
-      }),
-  );
+  const eligibleStudyNotesInGroup =
+    getEligibleStudyNotesInInterleavedRecallGroup({
+      historyByStudyNoteId,
+      selectedStudyNote,
+      studyNotes: input.studyNotes,
+    });
 
-  if (relatedEligibleStudyNotes.length < minimumInterleavedRecallStudyNotes) {
+  if (
+    eligibleStudyNotesInGroup.length < MINIMUM_INTERLEAVED_RECALL_STUDY_NOTES
+  ) {
     return null;
   }
 
+  const recommendedStudyNoteIds = [
+    selectedStudyNote.id,
+    ...eligibleStudyNotesInGroup
+      .filter((studyNote) => studyNote.id !== selectedStudyNote.id)
+      .map((studyNote) => studyNote.id),
+  ];
+
   return {
     actionLabel: "Start Interleaved Recall",
-    studyNoteIds: [
-      selectedStudyNote.id,
-      ...relatedEligibleStudyNotes
-        .filter((studyNote) => studyNote.id !== selectedStudyNote.id)
-        .map((studyNote) => studyNote.id),
-    ],
-    summary: `At least two recent Good or Easy recalls make this Study Note eligible for mixed practice with ${relatedEligibleStudyNotes.length} related Study Notes.`,
+    studyNoteIds: recommendedStudyNoteIds,
+    summary: `At least two recent Good or Easy recalls make this Study Note eligible for mixed practice with ${eligibleStudyNotesInGroup.length} related Study Notes.`,
     title: "Interleaved Recall",
   };
 }

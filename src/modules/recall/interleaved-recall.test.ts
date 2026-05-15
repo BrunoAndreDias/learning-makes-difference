@@ -31,6 +31,17 @@ function buildStudyNote(
   };
 }
 
+function buildStudyNoteFromSource(
+  overrides: Partial<AppStudyNote> & Pick<AppStudyNote, "id" | "prompt">,
+  source: AppStudyNote["source"],
+) {
+  return buildStudyNote({
+    ...overrides,
+    source,
+    sourceNoteId: source.id,
+  });
+}
+
 function buildHistory(
   studyNoteId: string,
   ratings: readonly StudyNoteRecallHistory["attempts"][number]["rating"][],
@@ -57,28 +68,20 @@ describe("Interleaved Recall recommendations", () => {
       labelIds: [labelId],
       prompt: "Related prompt 1",
     });
-    const relatedBySourceA = buildStudyNote({
-      id: "study-note-related-2",
-      prompt: "Related prompt 2",
-      source: {
-        body: anchor.source.body,
-        id: anchor.source.id,
-        title: anchor.source.title,
-        updatedAt: anchor.source.updatedAt,
+    const relatedBySourceA = buildStudyNoteFromSource(
+      {
+        id: "study-note-related-2",
+        prompt: "Related prompt 2",
       },
-      sourceNoteId: anchor.sourceNoteId,
-    });
-    const relatedBySourceB = buildStudyNote({
-      id: "study-note-related-3",
-      prompt: "Related prompt 3",
-      source: {
-        body: anchor.source.body,
-        id: anchor.source.id,
-        title: anchor.source.title,
-        updatedAt: anchor.source.updatedAt,
+      anchor.source,
+    );
+    const relatedBySourceB = buildStudyNoteFromSource(
+      {
+        id: "study-note-related-3",
+        prompt: "Related prompt 3",
       },
-      sourceNoteId: anchor.sourceNoteId,
-    });
+      anchor.source,
+    );
     const unrelated = buildStudyNote({
       id: "study-note-unrelated",
       prompt: "Unrelated prompt",
@@ -165,24 +168,27 @@ describe("Interleaved Recall recommendations", () => {
       },
       sourceNoteId: "source-sibling-group",
     });
-    const siblingOne = buildStudyNote({
-      id: "study-note-sibling-1",
-      prompt: "Sibling source prompt 1",
-      source: anchor.source,
-      sourceNoteId: anchor.sourceNoteId,
-    });
-    const siblingTwo = buildStudyNote({
-      id: "study-note-sibling-2",
-      prompt: "Sibling source prompt 2",
-      source: anchor.source,
-      sourceNoteId: anchor.sourceNoteId,
-    });
-    const siblingThree = buildStudyNote({
-      id: "study-note-sibling-3",
-      prompt: "Sibling source prompt 3",
-      source: anchor.source,
-      sourceNoteId: anchor.sourceNoteId,
-    });
+    const siblingOne = buildStudyNoteFromSource(
+      {
+        id: "study-note-sibling-1",
+        prompt: "Sibling source prompt 1",
+      },
+      anchor.source,
+    );
+    const siblingTwo = buildStudyNoteFromSource(
+      {
+        id: "study-note-sibling-2",
+        prompt: "Sibling source prompt 2",
+      },
+      anchor.source,
+    );
+    const siblingThree = buildStudyNoteFromSource(
+      {
+        id: "study-note-sibling-3",
+        prompt: "Sibling source prompt 3",
+      },
+      anchor.source,
+    );
 
     const recommendation = getInterleavedRecallRecommendation({
       histories: [
