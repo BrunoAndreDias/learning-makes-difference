@@ -124,14 +124,17 @@ describe("authenticated app shell", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("redirects unauthenticated protected navigation into the public login area", async () => {
-    const { router } = renderRoute("/settings", { session: { user: null } });
+  it.each([
+    "/insights",
+    "/settings",
+  ] as const)("redirects unauthenticated %s navigation into the public login area", async (pathname) => {
+    const { router } = renderRoute(pathname, { session: { user: null } });
 
     expect(
       await screen.findByRole("heading", { name: "Welcome back" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/login");
-    expect(router.state.location.search.redirect).toBe("/settings");
+    expect(router.state.location.search.redirect).toBe(pathname);
   });
 
   it("redirects to login when persisted session restoration fails", async () => {

@@ -1,6 +1,7 @@
 import type { UserTimeZonePreference } from "../access/session/session-contract";
 import { type AppStudyNote, getStudyNoteReadiness } from "../study-notes";
 import type { StudyNoteRecallHistory } from "../study-notes/learning-state";
+import { getLocalDateKey } from "./local-date";
 import type { RecallSelfRating } from "./recall";
 import type { RecallSchedule } from "./recall-schedule";
 
@@ -25,34 +26,6 @@ const recallTodayReasonPriority: Record<RecallTodayReason, number> = {
   "due-for-recall": 2,
 };
 
-function getLocalDateKey(timestamp: string, userTimeZone: string) {
-  const date = new Date(timestamp);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  try {
-    const parts = new Intl.DateTimeFormat("en", {
-      day: "2-digit",
-      month: "2-digit",
-      timeZone: userTimeZone,
-      year: "numeric",
-    }).formatToParts(date);
-    const year = parts.find((part) => part.type === "year")?.value;
-    const month = parts.find((part) => part.type === "month")?.value;
-    const day = parts.find((part) => part.type === "day")?.value;
-
-    if (year === undefined || month === undefined || day === undefined) {
-      return null;
-    }
-
-    return `${year}-${month}-${day}`;
-  } catch {
-    return null;
-  }
-}
-
 function isScheduleDueToday(input: {
   now: string;
   schedule: RecallSchedule | null;
@@ -62,11 +35,14 @@ function isScheduleDueToday(input: {
     return false;
   }
 
-  const nextRecallDateKey = getLocalDateKey(
-    input.schedule.nextRecallAt,
-    input.userTimeZone,
-  );
-  const todayDateKey = getLocalDateKey(input.now, input.userTimeZone);
+  const nextRecallDateKey = getLocalDateKey({
+    timestamp: input.schedule.nextRecallAt,
+    userTimeZone: input.userTimeZone,
+  });
+  const todayDateKey = getLocalDateKey({
+    timestamp: input.now,
+    userTimeZone: input.userTimeZone,
+  });
 
   if (nextRecallDateKey === null || todayDateKey === null) {
     return false;

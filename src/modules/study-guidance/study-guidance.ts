@@ -117,6 +117,18 @@ function selectRecommendedStudyNote(input: {
   return interleavingReadyStudyNote ?? input.studyNotes[0] ?? null;
 }
 
+function formatRecommendationSummary(input: {
+  action: string;
+  nextRecall: string;
+  prompt: string;
+  scoreLabel: string | null;
+}) {
+  const scoreCopy =
+    input.scoreLabel === null ? "" : ` Last score: ${input.scoreLabel}.`;
+
+  return `${input.prompt} ${input.action}.${scoreCopy} Next recall: ${input.nextRecall}.`;
+}
+
 function formatTopicRecommendation(input: {
   interleavingReadyStudyNoteIds: ReadonlySet<string>;
   learningState: StudyNoteLearningState | null;
@@ -144,33 +156,47 @@ function formatTopicRecommendation(input: {
   if (input.learningState?.needsPractice) {
     return {
       nextRecall,
-      summary:
-        scoreLabel === null
-          ? `${prompt} needs practice. Next recall: ${nextRecall}.`
-          : `${prompt} needs practice. Last score: ${scoreLabel}. Next recall: ${nextRecall}.`,
+      summary: formatRecommendationSummary({
+        action: "needs practice",
+        nextRecall,
+        prompt,
+        scoreLabel,
+      }),
     };
   }
 
   if (input.recallTodayStudyNoteIds.has(input.recommendedStudyNote.id)) {
     return {
       nextRecall,
-      summary:
-        scoreLabel === null
-          ? `${prompt} is ready for Recall Today. Next recall: ${nextRecall}.`
-          : `${prompt} is ready for Recall Today. Last score: ${scoreLabel}. Next recall: ${nextRecall}.`,
+      summary: formatRecommendationSummary({
+        action: "is ready for Recall Today",
+        nextRecall,
+        prompt,
+        scoreLabel,
+      }),
     };
   }
 
   if (input.interleavingReadyStudyNoteIds.has(input.recommendedStudyNote.id)) {
     return {
       nextRecall,
-      summary: `${prompt} is interleaving ready after repeated Good or Easy recalls. Next recall: ${nextRecall}.`,
+      summary: formatRecommendationSummary({
+        action: "is interleaving ready after repeated Good or Easy recalls",
+        nextRecall,
+        prompt,
+        scoreLabel: null,
+      }),
     };
   }
 
   return {
     nextRecall,
-    summary: `${prompt} is the next Study Note to reinforce. Next recall: ${nextRecall}.`,
+    summary: formatRecommendationSummary({
+      action: "is the next Study Note to reinforce",
+      nextRecall,
+      prompt,
+      scoreLabel: null,
+    }),
   };
 }
 
@@ -279,6 +305,15 @@ export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
         recallTodayStudyNoteIds,
         studyNotes: topicDraft.studyNotes,
       });
+      const recommendedStudyNoteId = recommendedStudyNote?.id ?? null;
+      const recommendedLearningState =
+        recommendedStudyNoteId === null
+          ? null
+          : (learningStateByStudyNoteId.get(recommendedStudyNoteId) ?? null);
+      const recommendedRecallSchedule =
+        recommendedStudyNoteId === null
+          ? null
+          : (recallScheduleByStudyNoteId.get(recommendedStudyNoteId) ?? null);
 
       return {
         id: topicDraft.id,
@@ -287,17 +322,9 @@ export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
         notRecalledYetCount,
         recommendation: formatTopicRecommendation({
           interleavingReadyStudyNoteIds,
-          learningState:
-            recommendedStudyNote === null
-              ? null
-              : (learningStateByStudyNoteId.get(recommendedStudyNote.id) ??
-                null),
+          learningState: recommendedLearningState,
           now: input.now,
-          recallSchedule:
-            recommendedStudyNote === null
-              ? null
-              : (recallScheduleByStudyNoteId.get(recommendedStudyNote.id) ??
-                null),
+          recallSchedule: recommendedRecallSchedule,
           recommendedStudyNote,
           recallTodayStudyNoteIds,
           userTimeZone: input.userTimeZone,

@@ -3,10 +3,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { ButtonLink } from "../../design-system/button";
 import { PageHeader } from "../../design-system/page-header";
-import {
-  defaultUserTimeZone,
-  type UserTimeZonePreference,
-} from "../access/session/session-contract";
+import { defaultUserTimeZone } from "../access/session/session-contract";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import type { AppLabel } from "../labels/label-management/labels";
 import type { FlashCardRecallAttemptsByNote } from "../recall";
@@ -54,10 +51,8 @@ function StudyGuidanceWorkspace() {
     recallContext.getRecallSchedulesSnapshot,
     recallContext.getRecallSchedulesSnapshot,
   );
-  const attemptsByNote = useMemo<readonly FlashCardRecallAttemptsByNote[]>(
-    () => (userId === null ? [] : recallContext.listAttemptsByNote({ userId })),
-    [recallContext, userId],
-  );
+  const attemptsByNote: readonly FlashCardRecallAttemptsByNote[] =
+    userId === null ? [] : recallContext.listAttemptsByNote({ userId });
   const studyNotes = useMemo(
     () => listStudyNotesForUser(studyNotesSnapshot, userId),
     [studyNotesSnapshot, userId],
@@ -86,7 +81,7 @@ function StudyGuidanceWorkspace() {
         now: new Date().toISOString(),
         recallSchedules,
         studyNotes,
-        userTimeZone: userTimeZone as UserTimeZonePreference,
+        userTimeZone,
       }),
     [attemptsByNote, labels, recallSchedules, studyNotes, userTimeZone],
   );

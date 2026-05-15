@@ -1,4 +1,5 @@
 import type { UserTimeZonePreference } from "../access/session/session-contract";
+import { formatLocalMonthDay, getLocalDateKey } from "./local-date";
 import type { RecallSelfRating } from "./recall";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -92,52 +93,6 @@ export function isRecallScheduleDue(
   return nextRecallAt <= nowTimestamp;
 }
 
-function getLocalDateKey(timestamp: string, userTimeZone: string) {
-  const date = new Date(timestamp);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  try {
-    const parts = new Intl.DateTimeFormat("en", {
-      day: "2-digit",
-      month: "2-digit",
-      timeZone: userTimeZone,
-      year: "numeric",
-    }).formatToParts(date);
-    const year = parts.find((part) => part.type === "year")?.value;
-    const month = parts.find((part) => part.type === "month")?.value;
-    const day = parts.find((part) => part.type === "day")?.value;
-
-    if (year === undefined || month === undefined || day === undefined) {
-      return null;
-    }
-
-    return `${year}-${month}-${day}`;
-  } catch {
-    return null;
-  }
-}
-
-function formatLocalDate(timestamp: string, userTimeZone: string) {
-  const date = new Date(timestamp);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  try {
-    return new Intl.DateTimeFormat("en", {
-      day: "numeric",
-      month: "short",
-      timeZone: userTimeZone,
-    }).format(date);
-  } catch {
-    return null;
-  }
-}
-
 export function formatNextRecallTiming(input: {
   now: string;
   schedule: RecallSchedule | null;
@@ -147,11 +102,14 @@ export function formatNextRecallTiming(input: {
     return "Recall today";
   }
 
-  const nextRecallDateKey = getLocalDateKey(
-    input.schedule.nextRecallAt,
-    input.userTimeZone,
-  );
-  const todayDateKey = getLocalDateKey(input.now, input.userTimeZone);
+  const nextRecallDateKey = getLocalDateKey({
+    timestamp: input.schedule.nextRecallAt,
+    userTimeZone: input.userTimeZone,
+  });
+  const todayDateKey = getLocalDateKey({
+    timestamp: input.now,
+    userTimeZone: input.userTimeZone,
+  });
 
   if (nextRecallDateKey === null || todayDateKey === null) {
     return null;
@@ -161,19 +119,19 @@ export function formatNextRecallTiming(input: {
     return "Recall today";
   }
 
-  const tomorrowDateKey = getLocalDateKey(
-    new Date(new Date(input.now).getTime() + DAY_MS).toISOString(),
-    input.userTimeZone,
-  );
+  const tomorrowDateKey = getLocalDateKey({
+    timestamp: new Date(new Date(input.now).getTime() + DAY_MS).toISOString(),
+    userTimeZone: input.userTimeZone,
+  });
 
   if (tomorrowDateKey !== null && nextRecallDateKey === tomorrowDateKey) {
     return "Next recall tomorrow";
   }
 
-  const formattedDate = formatLocalDate(
-    input.schedule.nextRecallAt,
-    input.userTimeZone,
-  );
+  const formattedDate = formatLocalMonthDay({
+    timestamp: input.schedule.nextRecallAt,
+    userTimeZone: input.userTimeZone,
+  });
 
   return formattedDate === null ? null : `Next recall ${formattedDate}`;
 }

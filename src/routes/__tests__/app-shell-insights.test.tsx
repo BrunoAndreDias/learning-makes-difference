@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   createDeterministicRecallTestContexts,
@@ -11,6 +11,10 @@ import {
 type DeterministicRecallTestContexts = ReturnType<
   typeof createDeterministicRecallTestContexts
 >;
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function createRecallableStudyNote(
   contexts: DeterministicRecallTestContexts,
@@ -73,6 +77,60 @@ function completeStudyNoteRecall(
 }
 
 describe("authenticated Study Guidance workspace", () => {
+  it("refreshes factual guidance when recall evidence changes", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-study-guidance-refresh";
+    const biology = contexts.labelsContext.createLabel({
+      name: "Biology",
+      userId,
+    });
+    const photosynthesis = createRecallableStudyNote(contexts, {
+      expectedAnswer:
+        "Photosynthesis converts light, carbon dioxide, and water into glucose.",
+      labelIds: [biology.id],
+      prompt: "Photosynthesis inputs and output",
+      sourceBody: "Biology source explanation.",
+      sourceTitle: "Biology source",
+      userId,
+    });
+
+    vi.setSystemTime(new Date("2026-05-15T12:00:00.000Z"));
+
+    renderRoute("/insights", {
+      ...contexts,
+      session: {
+        user: {
+          displayName: "Jordan Guidance",
+          email: "jordan.guidance@example.com",
+          id: userId,
+          userLanguage: "en",
+          userTimeZone: "America/New_York",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByText(
+        "Photosynthesis inputs and output is ready for Recall Today. Next recall: Recall today.",
+      ),
+    ).toBeInTheDocument();
+
+    completeStudyNoteRecall(contexts, {
+      rating: "hard",
+      studyNoteId: photosynthesis.id,
+      timestamp: "2026-05-15T12:05:00.000Z",
+      userId,
+    });
+
+    expect(
+      await screen.findByText(
+        /Photosynthesis inputs and output needs practice\. Last score: Hard\./,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("shows factual guidance from Study Notes and Labels without mastery or passive-progress rewards", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
 
