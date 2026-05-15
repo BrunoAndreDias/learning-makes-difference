@@ -1,15 +1,23 @@
-import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  useNavigate,
+  useRouteContext,
+} from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { z } from "zod";
 
-import { ButtonLink } from "../../design-system/button";
+import { Button, ButtonLink } from "../../design-system/button";
 import { ListCard } from "../../design-system/list-card";
 import { PageHeader } from "../../design-system/page-header";
 import { formatCount } from "../../lib/format-count";
+import { defaultUserTimeZone } from "../access/session/session-contract";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import type { AppLabel } from "../labels/label-management/labels";
 import { useAppTranslation } from "../language";
 import { listNotesForUser } from "../notes";
+import { listStudyNotesForUser } from "../study-notes";
+import { toStudyNoteRecallHistories } from "../study-notes/learning-state";
 import {
   getRecallModeTranslationKey,
   getRecallRatingTranslationKey,
@@ -24,6 +32,7 @@ import type {
 import { listRecallResultLabels } from "./recall-result-labels";
 import { projectSessionReview } from "./recall-session-review";
 import { searchRecallSessionResults } from "./recall-session-search";
+import { buildRecallTodayQueue, type RecallTodayReason } from "./recall-today";
 
 const recallResultsSearchSchema = z.object({});
 const recallSessionSavedMessageKey = "learning-makes-difference:recall-saved";
@@ -244,9 +253,14 @@ function subscribeToReviewStatsLayout(callback: () => void) {
 
 function RecallResultsWorkspacePage() {
   const { t } = useAppTranslation();
+  const navigate = useNavigate();
   const recallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.recall,
+  });
+  const persistentRecallContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.persistentRecall,
   });
   const { sessionSnapshot } = useResolvedProtectedSession("/_protected");
   const labelsContext = useRouteContext({
@@ -257,22 +271,56 @@ function RecallResultsWorkspacePage() {
     from: "/_protected",
     select: (context) => context.notes,
   });
+  const studyNotesContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.studyNotes,
+  });
+  const persistentStudyNotesContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.persistentStudyNotes,
+  });
   useSyncExternalStore(
     recallContext.subscribe,
     recallContext.getSessionResultsSnapshot,
     recallContext.getSessionResultsSnapshot,
+  );
+  const recallSchedules = useSyncExternalStore(
+    recallContext.subscribe,
+    recallContext.getRecallSchedulesSnapshot,
+    recallContext.getRecallSchedulesSnapshot,
   );
   const notesSnapshot = useSyncExternalStore(
     notesContext.subscribe,
     notesContext.getSnapshot,
     notesContext.getSnapshot,
   );
+  const studyNotesStore = persistentStudyNotesContext ?? studyNotesContext;
+  const studyNotesSnapshot = useSyncExternalStore(
+    studyNotesStore.subscribe,
+    studyNotesStore.getSnapshot,
+    studyNotesStore.getSnapshot,
+  );
   const userId = sessionSnapshot.user?.id ?? null;
   const notes = listNotesForUser(notesSnapshot, userId);
+  const studyNotes = listStudyNotesForUser(studyNotesSnapshot, userId);
+  const userTimeZone =
+    sessionSnapshot.user?.userTimeZone ?? defaultUserTimeZone;
   const currentLabels =
     userId === null ? [] : labelsContext.getLabelsForUser(userId);
   const sessionResults =
     userId === null ? [] : recallContext.listSessionResults({ userId });
+  const recallTodayQueue =
+    userId === null
+      ? []
+      : buildRecallTodayQueue({
+          histories: toStudyNoteRecallHistories(
+            recallContext.listAttemptsByNote({ userId }),
+          ),
+          now: new Date().toISOString(),
+          recallSchedules,
+          studyNotes,
+          userTimeZone,
+        });
   const availableLabels = listRecallResultLabels({
     currentLabels,
     sessionResults,
@@ -329,8 +377,44 @@ function RecallResultsWorkspacePage() {
     }
   }, [availableLabels, selectedLabelId]);
 
-  if (notes.length === 0 && sessionResults.length === 0) {
+  async function startRecallToday() {
+    if (userId === null || recallTodayQueue.length === 0) {
+      return;
+    }
+
+    const input = {
+      mode: "FlashCard" as const,
+      studyNoteIds: recallTodayQueue.map((item) => item.studyNote.id),
+      userId,
+    };
+
+    if (persistentRecallContext === undefined) {
+      recallContext.startFlashCardSession(input);
+    } else {
+      await persistentRecallContext.startFlashCardSession(userId, input);
+    }
+
+    await navigate({ to: "/recall/session" });
+  }
+
+  if (
+    notes.length === 0 &&
+    studyNotes.length === 0 &&
+    sessionResults.length === 0
+  ) {
     return <NoNotesRecallState />;
+  }
+
+  if (
+    recallTodayQueue.length > 0 ||
+    (studyNotes.length > 0 && sessionResults.length === 0)
+  ) {
+    return (
+      <RecallTodayPage
+        onStartRecallToday={startRecallToday}
+        queue={recallTodayQueue}
+      />
+    );
   }
 
   const selectedResult =
@@ -389,6 +473,106 @@ function RecallResultsWorkspacePage() {
             onExpandedQuestionKeyChange={setExpandedQuestionKey}
             result={selectedResult}
           />
+        </div>
+      </article>
+    </section>
+  );
+}
+
+function getRecallTodayReasonLabel(reason: RecallTodayReason) {
+  switch (reason) {
+    case "needs-practice":
+      return "recall.today.reason.needsPractice";
+    case "not-recalled":
+      return "recall.today.reason.notRecalled";
+    case "due-for-recall":
+      return "recall.today.reason.dueForRecall";
+  }
+}
+
+function RecallTodayPage({
+  onStartRecallToday,
+  queue,
+}: {
+  onStartRecallToday: () => void;
+  queue: ReturnType<typeof buildRecallTodayQueue>;
+}) {
+  const { t } = useAppTranslation();
+
+  return (
+    <section
+      aria-label={t("shell.workspace.recall")}
+      className="recall-workspace"
+    >
+      <article className="recall-surface recall-results-surface">
+        <div className="recall-results-top">
+          <PageHeader
+            className="recall-surface__header"
+            description={t("recall.today.description")}
+            title={t("recall.today.title")}
+          />
+        </div>
+
+        <div className="recall-selection-layout recall-selection-layout--picker">
+          <section
+            aria-label={t("recall.today.title")}
+            className="recall-panel recall-note-picker"
+          >
+            {queue.length === 0 ? (
+              <div className="recall-results-empty" role="status">
+                <h4>{t("recall.today.emptyTitle")}</h4>
+                <p className="muted">{t("recall.today.emptyBody")}</p>
+              </div>
+            ) : (
+              <ol
+                aria-label={t("recall.today.queue")}
+                className="recall-note-picker__list"
+              >
+                {queue.map((item) => (
+                  <li key={item.studyNote.id}>
+                    <div className="recall-note-row recall-select-note-row">
+                      <span className="recall-select-note-row__main">
+                        <span className="recall-select-note-row__content">
+                          <strong>{item.studyNote.prompt}</strong>
+                          <span>{item.studyNote.expectedAnswer}</span>
+                          <span className="recall-select-note-row__labels">
+                            {item.reasons.map((reason) => (
+                              <span
+                                className="recall-select-note-row__label"
+                                key={reason}
+                              >
+                                {t(getRecallTodayReasonLabel(reason))}
+                              </span>
+                            ))}
+                          </span>
+                        </span>
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+
+          <aside
+            aria-label={t("recall.today.actions")}
+            className="recall-panel recall-session-setup recall-select-session-setup"
+          >
+            <p className="section-label">{t("recall.today.recommended")}</p>
+            <p className="muted">{t("recall.today.helper")}</p>
+            {queue.length > 0 ? (
+              <Button
+                onClick={onStartRecallToday}
+                type="button"
+                variant="primary"
+              >
+                {t("recall.today.start")}
+              </Button>
+            ) : null}
+            <ButtonLink to="/recall/select">
+              {t("recall.today.manualSelection")}
+            </ButtonLink>
+          </aside>
         </div>
       </article>
     </section>
