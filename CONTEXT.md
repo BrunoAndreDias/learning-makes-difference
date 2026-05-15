@@ -31,6 +31,8 @@ The default Study Note may start with the source Note title as its prompt when a
 A Study Note owns its own title or prompt, which may be more specific than the source Note title.
 A Study Note owns its own expected answer or reference focus so recall can target a precise answer inside broader source material.
 In v1, Study Notes are untyped; templates may help create prompts and expected answers later, but they do not define stored Study Note types.
+In v1, self-explanation should be encouraged through prompt guidance and templates, not required as a separate Study Note field.
+Worked examples may guide source Notes and Study Note templates, but they do not become a stored Study Note type in v1.
 A Study Note cannot be saved without a prompt.
 A saved Study Note may be incomplete while editing, but it is recallable only when it has a non-empty expected answer.
 A Study Note with a non-empty expected answer is recallable even if its source Note body is empty.
@@ -43,17 +45,22 @@ _Avoid_: Card, flashcard, quiz item
 One optional support description that maps a Study Note's recall target onto something familiar. A Study Note can have at most one Metaphor description in v1; a Metaphor cannot exist without its Study Note.
 Needing several Metaphors is usually a sign that the Study Note is too broad and should be split into separate Study Notes.
 In v1, a Metaphor is support material only; it is not automatically turned into a practiced Study Note.
+Metaphors should not be encouraged for every Study Note by default; suggest them only when a Study Note is abstract, stubborn, or repeatedly Needs practice.
 _Avoid_: Analogy (use Metaphor), description
 
 **Acronym**:
 A memory-aid support description created by the user, attached to a Study Note. A Study Note can have at most one Acronym description in v1; an Acronym cannot exist without its Study Note.
 Needing several Acronyms is usually a sign that the Study Note is too broad and should be split into separate Study Notes.
 In v1, an Acronym is support material only; it is not automatically turned into a practiced Study Note.
+Acronyms should not be encouraged for every Study Note by default; suggest them only when they help a specific recall problem.
 _Avoid_: Abbreviation, term definition
 
 **Learning Loop**:
 The core study cycle where the User captures knowledge as Notes, extracts Study Notes, and reinforces those Study Notes through RecallSessions.
 The core Learning Loop must work without AI: the User can manually create Study Notes, expected answers, recall, self-rate, and see what needs practice.
+By default, the app should encourage the Core Learning Loop: create an atomic Study Note, attempt recall before reveal, compare and correct gaps, self-rate, schedule future recall, and surface Needs practice.
+The Core Learning Loop is not a broad checklist of study techniques; supporting techniques should enter only when they strengthen this loop.
+AI is optional support for the Learning Loop, not a default study technique or requirement.
 _Avoid_: Content workflow, study menu
 
 **Learning State**:
@@ -64,6 +71,7 @@ If a Study Note has not been recalled yet, its Learning State is "Not recalled y
 User-facing UI uses "Needs practice" for low-performing Study Notes rather than "Weak".
 In v1, "Needs practice" is derived from recall evidence rather than stored as a durable Study Note status.
 In v1, Learning State avoids harsh or broad labels such as "Weak", "Ready for review", or "Recently easy"; it prefers recall facts and soft action-oriented copy.
+In v1, Learning State avoids mastery percentages because they imply false precision.
 Learning State does not itself name due states; scheduled recall belongs to **Due for Recall**.
 In v1, Learning State uses recall language in user-facing copy, such as "Last recalled"; it avoids "review" language.
 In v1, Learning State does not include Metaphor or Acronym counts; memory aids remain Study Note support material, not recall evidence.
@@ -73,21 +81,53 @@ Every saved Study Note has a Learning State; a saved Study Note with no recall e
 Learning State uses simple compact language in Study Notes list rows, such as "Not recalled yet" or "Last score: Good".
 In v1, Learning State appears as compact Study Notes list metadata only, not as a selected-Study Note inspector panel.
 In v1, Learning State does not include an action; recall actions belong to the Recall Section flow.
+Passive study activity such as rereading, highlighting, watching videos, or copying notes is not Learning State evidence unless it produces or reinforces Study Notes through recall evidence or correction.
 _Avoid_: Report card, spaced-repetition engine, analytics widget, card state
+
+**Practice Repair**:
+A lightweight follow-up flow after weak recall evidence that helps the User improve a Study Note before or alongside future recall.
+Practice Repair may suggest editing the expected answer, splitting a broad Study Note, adding a Metaphor or Acronym, creating a sibling Study Note, or recalling the Study Note again soon through Recall Today.
+In v1, Practice Repair is not a first-class error log or mistake taxonomy.
+_Avoid_: Error log, remediation system, weakness workflow
 
 **Due for Recall**:
 A per-Study Note scheduling state meaning the Study Note's recall due date is today or earlier in the User's User Time Zone.
 Incomplete Study Notes are not Due for Recall.
-In v1, Due for Recall is derived from existing recall evidence rather than separately assigned by the User.
-A future scheduler may assign per-Study Note recall dates when scheduled recall behavior exists.
-Use "Recall Today" for user-facing UI copy when presenting the set of Study Notes that are Due for Recall.
+In v1, Due for Recall is assigned by the Study Note's Recall Schedule rather than inferred only from the latest recall score.
+The User does not manually assign Due for Recall; the app updates it from recall evidence.
 _Avoid_: Review Today, ready for review, due review, due card
+
+**Recall Schedule**:
+A per-Study Note spaced-recall plan that determines when the Study Note should next be recalled.
+In v1, the app manages Recall Schedules internally from RecallSession evidence while the User sees simple recall timing copy such as Recall Today or next recall date.
+In v1, the Recall Schedule should behave like a simple spaced-repetition scheduler: forgotten or hard recall keeps the Study Note close, while good or easy recall pushes the next recall further away.
+The Recall Schedule may use an internal spaced-repetition algorithm, but the domain language should not expose algorithm names such as SM-2 to the User.
+_Avoid_: Spaced-repetition engine, SM-2 card state, review interval
+
+**Recall Today**:
+A user-facing prioritized recall queue for recallable Study Notes the app recommends now.
+Recall Today may include both Study Notes that are Due for Recall and Study Notes that Need practice, but those remain separate domain signals.
+By default, Recall Today prioritizes Needs practice first, then recallable Study Notes with no recall evidence, then Study Notes that are Due for Recall by schedule.
+_Avoid_: Review Today, due review queue, weak notes queue
+
+**Interleaved Recall**:
+A RecallSession recommendation that mixes related Study Notes after the User has enough successful recall evidence to benefit from strategy discrimination.
+Interleaved Recall should not be automatic for brand-new or struggling Study Notes.
+By default, a Study Note becomes eligible for automatic Interleaved Recall after two successful recall attempts, where successful means self-rated Good or Easy.
+Automatic Interleaved Recall should wait until there are at least four eligible related Study Notes, usually connected by the same Label or sibling source concepts.
+If a Study Note is later rated Forgot or Hard, it returns to Needs practice before automatic Interleaved Recall.
+_Avoid_: Random quiz, mixed review, shuffle mode
 
 **Study Layer**:
 The app-based transformation of source study material into Notes, Study Notes, memory aids, RecallSessions, and FocusSessions.
 In the exam-support pilot, the Study Layer is used alongside external exam material rather than replacing it.
 The future product direction is for the app to become the User's primary study workspace when the User trusts it enough for long-term study.
 _Avoid_: Source notes, exam notebook
+
+**Source Import**:
+A future workflow that brings external study material, such as content from another notes platform, into the Study Layer as source material for Notes and Study Notes.
+Source Import does not make external pages the practiced object; RecallSessions, Recall Schedules, Learning State, and Needs practice remain attached to Study Notes.
+_Avoid_: Note sync, Notion recall, external deck
 
 **Persistent Study Data**:
 Authenticated study data that remains available to the same User across browsers, devices, sign-outs, and app restarts.
@@ -142,6 +182,7 @@ In `FlashCard`, a SessionResult may also show the self-rating distribution as su
 
 **FocusSession**:
 A user-initiated block of focused study time that can run while the user is taking Notes, reviewing Notes, or doing a RecallSession.
+A FocusSession supports attention and recovery, but Focus time is not recall evidence or proof of learning by itself.
 _Avoid_: Pomodoro session, timer, recall timer
 
 **FocusMethod**:
@@ -221,6 +262,12 @@ In v1, Study Intensity is profile context only; it does not affect FocusSession 
 In v1, Settings is the only place where the User sets or changes Study Intensity.
 _Avoid_: Difficulty, RecallMode, FocusMethod, streak target
 
+**Study Guidance**:
+The app's contextual recommendation for what the User should do next in the Learning Loop.
+In v1, Study Guidance should adapt from local Study Note and Label evidence rather than a broad beginner, intermediate, or advanced User profile.
+In v1, daily Study Guidance should center on Recall Today and Practice Repair; a full weekly planning or weekly review feature is deferred.
+_Avoid_: Learner level, study persona, difficulty profile
+
 **BYOK** (Bring Your Own Key):
 The current premium access model. A User supplies their own AI provider API key; the app uses it for AiAssisted and AiGraded RecallModes. Future model: per-use credits. BYOK key persistence is deferred until AiAssisted or AiGraded is in scope.
 
@@ -247,6 +294,8 @@ _Avoid_: Product menu, notes page, Notes Workspace
 
 **Recall Section**:
 The primary authenticated section that acts as the base entry point for recall capabilities, including starting RecallSessions and reviewing SessionResults.
+In v1, the Recall Section should open on Recall Today by default when the User has recommended recall work.
+The User may still enter Recall Selection Mode to search, filter, and manually select Study Notes for a RecallSession.
 _Avoid_: Recall dashboard, Recall home, Practice (possible future user-facing label), Recall history, quiz area
 
 **Focus Section**:
@@ -254,6 +303,7 @@ The authenticated workspace section for running FocusSessions, reviewing FocusRe
 In v1, the Focus Section shows the active FocusSession when present, supported Pomodoro timing configuration, completed FocusRecords newest first, completed FocusInterval time, BreakInterval count and duration as secondary detail, touched FocusTargets, and basic cross-study analytics derived only from existing Notes, Recall SessionResults, and FocusRecords.
 In v1, FocusSession timing controls in the Focus Section are visible but disabled while a FocusSession is active; timing changes apply only when no FocusSession is running.
 In v1, the Focus Section setup can be reset to the standard 25/5 Pomodoro setup with 4 planned FocusIntervals.
+Focus should suggest Learning Loop actions only when relevant, such as creating Study Notes from touched material, starting Recall Today, or repairing Needs practice.
 In v1, the primary navigation label for the Focus Section is "Focus".
 In v1, the Focus Section route is `/focus`.
 _Avoid_: Timer page, Pomodoro page, focus history
@@ -301,8 +351,14 @@ _Avoid_: Product menu, sidebar navigation
 - The **Learning Loop** is centered on **Notes**, **Study Notes**, and **RecallSessions**; **Metaphors** and **Acronyms** support Study Notes but are not standalone workspace destinations.
 - The core **Learning Loop** does not require AI.
 - A **Learning State** belongs to exactly one **Study Note**
-- A saved **Study Note** may be **Due for Recall** based on its per-Study Note recall schedule
+- Passive study activity can support the **Study Layer**, but it is not learning progress unless it produces or reinforces **Study Notes** or recall evidence.
+- **Practice Repair** follows weak recall evidence and helps the User improve or split Study Notes without introducing a full error-log concept in v1.
+- A saved **Study Note** has one **Recall Schedule**
+- A saved **Study Note** may be **Due for Recall** based on its **Recall Schedule**
+- **Recall Today** may include both **Due for Recall** Study Notes and Study Notes with **Needs practice** evidence, while preserving those as separate signals.
+- **Interleaved Recall** uses related eligible **Study Notes** and should wait for successful recall evidence before becoming automatic.
 - The **Study Layer** turns external source material into **Notes**, **Study Notes**, **Metaphors**, **Acronyms**, **RecallSessions**, and **FocusSessions**.
+- A future **Source Import** may bring external study material into the **Study Layer**, but the practiced memory unit remains the **Study Note**.
 - During the exam-support pilot, the **Study Layer** must not be the only place where irreplaceable exam material exists.
 - The exam-support pilot starts with no pre-seeded **Notes**, **Study Notes**, **Labels**, **RecallSessions**, **SessionResults**, **FocusSessions**, or **FocusRecords** for Test Participants.
 - The long-term product direction is for the **Study Layer** to become the **User**'s primary study workspace.
@@ -316,6 +372,7 @@ _Avoid_: Product menu, sidebar navigation
 - Searching for a **Note** includes its own title and body plus the titles/content of **Metaphors** and **Acronyms** attached to its Study Notes, but the search result is still the **Note**.
 - Searching/filtering Notes for a **RecallSession** includes the Note title/body and the titles/content of **Metaphors** and **Acronyms** attached to its Study Notes, but the RecallSession target is a **Study Note** extracted from the owning **Note**.
 - A **RecallSession** targets one or more **Study Notes** selected by the **User**
+- The **Recall Section** opens on **Recall Today** by default when recommended recall work exists.
 - **Study Notes** are the durable recall targets used by **RecallSessions**
 - In **RecallSessions**, answer reveal shows the Study Note expected answer before the source **Note**
 - In v1, a **User** can have at most one active **RecallSession** at a time.
@@ -327,6 +384,7 @@ _Avoid_: Product menu, sidebar navigation
 - A **Question** belongs to exactly one **RecallSession** and one **Study Note**
 - A **Question** stores the user's answer and a score (self-rated or AI-graded depending on RecallMode)
 - A **FocusSession** is separate from a **RecallSession** and may overlap with Note-taking, Note review, or a **RecallSession**
+- A **FocusSession** supports the **Learning Loop**, but Focus time is not learning evidence unless it includes recall or StudyActivity that produces or reinforces Study Notes.
 - A **FocusSession** is available across the authenticated workspace rather than belonging to a single workspace screen
 - A **User** can have at most one active **FocusSession** at a time
 - A **FocusSession** has exactly one **FocusMethod**
@@ -364,6 +422,8 @@ _Avoid_: Product menu, sidebar navigation
 - A **User** may have zero or one **Study Intensity**.
 - **Study Intensity** is User profile context only and does not change **FocusSession** timing, **RecallMode**, scheduling, analytics, or notifications.
 - **Study Intensity** is set or changed only in Settings.
+- **Study Guidance** adapts from local **Study Note** and **Label** evidence, not from a broad learner-level setting.
+- In v1, **Study Guidance** does not include a full weekly planning workspace.
 - A **FocusTarget** may refer to a **Label**, a **RecallSession**, or unlabeled Study Note work
 - In v1, **FocusTargets** are captured automatically from the User's observed study activity during the **FocusSession**
 - In v1, the app stores the resulting **FocusTargets** for a **FocusSession** rather than a full **StudyActivity** event log.
@@ -699,9 +759,16 @@ _Avoid_: Product menu, sidebar navigation
 ## Flagged ambiguities
 
 - "trained" was used while discussing **Learning State** — resolved: use "recalled" when referring to a **Study Note** being attempted in a **RecallSession**.
+- "techniques the app should encourage by default" could have meant a broad study-technique menu — resolved: default encouragement means the **Core Learning Loop**, with supporting techniques introduced only when they strengthen recall, correction, spacing, or practice.
 - "Weak" was considered for low-performing Study Notes — resolved: use **Needs practice** in user-facing UI.
+- Mastery percentages could have represented learning progress — resolved for v1: avoid mastery percentages and use factual recall signals such as Not recalled yet, Recall Today, Needs practice, Last score, next recall date, and Interleaved Recall eligibility.
 - "AI" could have been required for Study Note generation or grading — resolved: the core **Learning Loop** works without AI.
-- "Review Today" was used for scheduled recall work — resolved: use **Due for Recall** as the domain concept and "Recall Today" as possible UI copy.
+- AI could have been treated as a default encouraged study technique — resolved: AI is optional support for creating prompts, questions, grading, or Practice Repair, but the core **Learning Loop** remains manual and evidence-based.
+- "Review Today" was used for scheduled recall work — resolved: use **Due for Recall** as the scheduling state and **Recall Today** as the user-facing prioritized recall queue.
+- **Recall Today** could have been limited to only Study Notes that are **Due for Recall** — resolved: it may also include **Needs practice** Study Notes, with Needs practice first, while keeping the underlying signals separate.
+- **Due for Recall** could have been inferred only from latest recall evidence — resolved: in v1 it is assigned by a per-Study Note **Recall Schedule** updated from recall evidence.
+- "SM-2" could have leaked an implementation algorithm into product language — resolved: use **Recall Schedule** as the domain term and keep algorithm names internal.
+- Full SM-2 could have been implemented exactly for v1 — resolved: use a simplified SM-2-shaped scheduler so the app gets spaced repetition while keeping the schedule explainable and testable.
 - "RecallCard" was considered for spaced recall — resolved: use **Study Note** as the durable recall target; multiple independent schedules under one source concept become multiple Study Notes tied to the same **Note**.
 - "Study Item" was considered for the trainable recall unit — resolved: use **Study Note** because Users are studying Notes rather than managing abstract items.
 - "Study Note" could have meant an implementation-only card detached from Notes — resolved: a **Study Note** is a first-class recall target that belongs to exactly one **Note**.
@@ -709,6 +776,8 @@ _Avoid_: Product menu, sidebar navigation
 - "Default Study Note answer" could have started blank — resolved: copy the full source **Note** body initially so recall works immediately.
 - "Study Note title" could have been forced to mirror the source **Note** title — resolved: each **Study Note** owns its own title or prompt.
 - "Study Note answer" could have been only the whole source **Note** body — resolved: each **Study Note** owns an expected answer or reference focus inside the source material.
+- Self-explanation could have required a separate field on every **Study Note** — resolved for v1: keep only prompt and expected answer required, and encourage why/how/example/non-example/limits through guidance and templates.
+- Worked examples could have required a stored **Study Note** type — resolved for v1: treat them as source material guidance and optional template behavior while keeping Study Notes untyped.
 - "Source Note edit" could have silently rewritten existing **Study Notes** — resolved: source changes do not automatically mutate Study Note prompts or expected answers.
 - "Study Note deletion" could have cascaded to the source **Note** — resolved: deleting a **Study Note** deletes only that Study Note.
 - "Last Study Note deletion" could have left hidden orphan source material or blocked the User — resolved: require explicit confirmation to delete both the Study Note and source Note.
@@ -729,6 +798,8 @@ _Avoid_: Product menu, sidebar navigation
 - "Unlabeled Notes" were previously excluded from recall — resolved for v1: Study Notes remain recallable without Labels.
 - "Saved recall set" could have introduced a new grouping concept — resolved for v1: Recall Study Note selection is temporary and not reusable.
 - "Recall" could have meant only an action started from Study Notes — resolved for v1: the **Recall Section** is a primary Learning Loop section beside the **Study Notes Workspace**.
+- The **Recall Section** could have required the User to manually select Study Notes for every **RecallSession** — resolved: it opens on **Recall Today** by default when recommended recall work exists, while **Recall Selection Mode** remains available.
+- Automatic mixed recall could have started immediately for all **Study Notes** — resolved: **Interleaved Recall** waits for two Good/Easy recall attempts per Study Note and a related pool of at least four eligible Study Notes.
 - "Start Recall" in the **Study Notes Workspace** could have meant Study Notes owns recall setup or passes selected Study Notes into Recall — resolved for v1: it only opens the **Recall Section** without preselection.
 - "Recall" may be less familiar than "Practice" to general users — resolved for v1: keep "Recall" as the navigation label and revisit after user feedback.
 - "Selecting Notes" could mean opening source material for editing or choosing practice material for recall — resolved: in the **Study Notes Workspace**, selection opens a Study Note for editing; in **Recall Selection Mode**, selection toggles Study Notes into the temporary RecallSession target set.
@@ -742,6 +813,7 @@ _Avoid_: Product menu, sidebar navigation
 - "Anonymous language" could have stayed English until login — resolved for v1: anonymous pages use detected **User Language**, while authenticated pages use stored **User Language**.
 - "Recall Dashboard" or "Recall Home" could have named the default `/recall` screen — resolved: use **Recall Section** only; its default surface is the Results master-detail workspace.
 - "Exam notes" could have meant the app is already the primary source of truth for exam material — resolved: for the exam-support pilot, the app is a **Study Layer** over material that remains available elsewhere, while the long-term direction is to become the **User**'s primary study workspace.
+- "notes from other platforms" could have meant external pages become recall targets — resolved: future **Source Import** may bring external material into the **Study Layer**, but **Study Notes** remain the practiced memory unit.
 - "Breadcrumb" could have acted like primary navigation — resolved: the **Workspace Breadcrumb** indicates position inside the current workspace section, not product sections.
 - "History" could have stayed a separate product destination, compatibility route, or UI label — resolved for v1: remove `/history`; completed recall work is reviewed as **SessionResults** inside the **Recall Section**, with UI copy using "Results".
 - "Result details" could have treated stored source **Notes** and stored **Questions** as equal primary review objects — resolved for v1: **Questions** are primary in SessionResult review; Study Notes and source Notes are supporting context.
@@ -794,6 +866,12 @@ _Avoid_: Product menu, sidebar navigation
 - "Study time" could have mixed focus and breaks equally — resolved: completed **FocusInterval** time is the primary analytic metric.
 - "Automatic focus classification" could have covered all study time everywhere — resolved: in v1, only in-app **StudyActivity** creates automatic **FocusTargets**.
 - "Recall time" could have been added on top of focus time — resolved: recall is nested study activity inside a **FocusSession**, not double-counted extra time.
+- Focus time could have been treated as proof of learning — resolved: **FocusSessions** support attention and recovery, while learning evidence comes from recall and StudyActivity that produces or reinforces Study Notes.
+- Passive work such as rereading, highlighting, videos, or copying notes could have been rewarded as learning progress — resolved: it may support source material preparation, but progress comes from Study Note creation, recall evidence, correction, Recall Schedule movement, and Needs practice repair.
+- Weak recall could have created a full error-log workflow immediately — resolved for v1: use lightweight **Practice Repair** suggestions tied to **Needs practice** before introducing first-class error logs.
+- **Metaphors** and **Acronyms** could have been encouraged for every **Study Note** by default — resolved: they remain optional memory aids suggested only when useful for a specific recall problem.
+- Beginner/intermediate/advanced could have been a User-level setting — resolved for v1: use local **Study Note** and **Label** evidence to drive **Study Guidance** instead.
+- Weekly planning could have been part of the default product loop — resolved for v1: defer a full weekly planning feature and center default guidance on **Recall Today** and **Practice Repair**.
 - "Pause" could have meant freezing a **FocusInterval** — resolved: in v1, it means an intentional **BreakInterval** only, and pausing a running **FocusInterval** is not supported.
 - "Focus timer placement" could have been scoped to Notes or Recall only — resolved: **FocusSessions** are available across the authenticated workspace.
 - "Focus Section" could have meant only completed **FocusRecords** — resolved: the **Focus Section** also owns the full-page active **FocusSession** experience, while the **Focus Dock** stays as the compact cross-workspace control.

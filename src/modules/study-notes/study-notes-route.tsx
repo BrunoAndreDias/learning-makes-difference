@@ -167,7 +167,7 @@ type StudyNoteLearningLabels = {
 };
 
 type StudyNoteListDescriptionLine = {
-  id: "due" | "last-recalled" | "practice" | "source";
+  id: "due" | "last-recalled" | "practice";
   text: string;
 };
 
@@ -183,14 +183,9 @@ function getStudyNoteLearningLabels(
 }
 
 function getStudyNoteListDescriptionLines(
-  studyNote: AppStudyNote,
   learningLabels: StudyNoteLearningLabels | null,
 ): StudyNoteListDescriptionLine[] {
   const lines: StudyNoteListDescriptionLine[] = [
-    {
-      id: "source",
-      text: studyNote.source.displayName ?? studyNote.source.title,
-    },
     { id: "last-recalled", text: learningLabels?.lastRecalled ?? "" },
     { id: "due", text: learningLabels?.due ?? "" },
     { id: "practice", text: learningLabels?.practice ?? "" },
@@ -597,18 +592,20 @@ function StudyNotesWorkspace() {
           </fieldset>
           <label className="notes-form__field study-notes-filter">
             <span>Filter by label</span>
-            <select
-              aria-label="Filter Study Notes by label"
-              onChange={(event) => setSelectedLabelId(event.target.value)}
-              value={selectedLabelId}
-            >
-              <option value="">All</option>
-              {availableLabels.map((label) => (
-                <option key={label.id} value={label.id}>
-                  {label.name}
-                </option>
-              ))}
-            </select>
+            <span className="study-notes-filter__select-shell">
+              <select
+                aria-label="Filter Study Notes by label"
+                onChange={(event) => setSelectedLabelId(event.target.value)}
+                value={selectedLabelId}
+              >
+                <option value="">All</option>
+                {availableLabels.map((label) => (
+                  <option key={label.id} value={label.id}>
+                    {label.name}
+                  </option>
+                ))}
+              </select>
+            </span>
           </label>
           <nav aria-label="Study Notes list" className="notes-list">
             {studyNotes.length === 0 ? (
@@ -625,10 +622,8 @@ function StudyNotesWorkspace() {
                     learningState === undefined
                       ? null
                       : getStudyNoteLearningLabels(learningState);
-                  const descriptionLines = getStudyNoteListDescriptionLines(
-                    studyNote,
-                    learningLabels,
-                  );
+                  const descriptionLines =
+                    getStudyNoteListDescriptionLines(learningLabels);
 
                   return (
                     <li key={studyNote.id}>

@@ -71,8 +71,9 @@ describe("authenticated Study Notes workspace", () => {
     studyNotesContext.createStudyNote(userId, {
       acronyms: [{ description: "RP means Retrieval Practice." }],
       metaphors: [{ description: "A trail gets clearer with each walk." }],
+      prompt: "Retrieval practice",
       sourceBody: "Testing retrieval strengthens durable recall.",
-      sourceTitle: "Retrieval practice",
+      sourceTitle: "Retrieval practice source",
     });
 
     renderRoute("/study-notes", {
@@ -158,6 +159,9 @@ describe("authenticated Study Notes workspace", () => {
     expect(
       within(catalog).getByRole("button", { name: "Retrieval practice" }),
     ).toHaveAttribute("aria-current", "page");
+    expect(
+      within(catalog).getByRole("button", { name: "Retrieval practice" }),
+    ).not.toHaveTextContent("Retrieval practice source");
     expect(screen.getByRole("button", { name: "Start Focus" })).toHaveClass(
       "notes-action-primary",
     );
@@ -191,7 +195,7 @@ describe("authenticated Study Notes workspace", () => {
     expect(noteTitleField.closest("label")).toHaveClass(
       "study-notes-editor__source-title",
     );
-    expect(noteTitleField).toHaveValue("Retrieval practice");
+    expect(noteTitleField).toHaveValue("Retrieval practice source");
     expect(screen.getByLabelText("Explanation")).toHaveValue(
       "Testing retrieval strengthens durable recall.",
     );
@@ -434,7 +438,7 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.queryByText("Memory hooks")).toBeNull();
   });
 
-  it("keeps blank source Note titles blank while showing the oldest Study Note prompt as the source display name", async () => {
+  it("keeps blank source Note titles blank while using the Study Note prompt in the catalog", async () => {
     const studyNotesContext = createAppStudyNotesContext({
       keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
