@@ -1,11 +1,10 @@
 import type {
   FlashCardRecallAttemptsByNote,
+  RecallSchedule,
   RecallSelfRating,
 } from "../recall";
 import { getStudyNoteReadiness } from "./study-note-readiness";
 import type { AppStudyNote } from "./study-notes";
-
-const DUE_RECALL_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type StudyNoteRecallHistoryAttempt = {
   completedAt: string;
@@ -74,27 +73,19 @@ function isNeedsPractice(rating: RecallSelfRating | null): boolean {
   return rating === "forgot" || rating === "hard";
 }
 
-function isDueForRecall(input: {
-  lastRecalledAt: string | null;
-  latestScore: RecallSelfRating | null;
-  now: string;
-}): boolean {
-  if (input.lastRecalledAt === null) {
+function isDueForRecall(schedule: RecallSchedule | null, now: string): boolean {
+  if (schedule === null) {
     return true;
   }
 
-  if (isNeedsPractice(input.latestScore)) {
-    return true;
-  }
+  const recalledAt = new Date(schedule.nextRecallAt).getTime();
+  const nowTimestamp = new Date(now).getTime();
 
-  const recalledAt = new Date(input.lastRecalledAt).getTime();
-  const now = new Date(input.now).getTime();
-
-  if (Number.isNaN(recalledAt) || Number.isNaN(now)) {
+  if (Number.isNaN(recalledAt) || Number.isNaN(nowTimestamp)) {
     return false;
   }
 
-  return now - recalledAt >= DUE_RECALL_WINDOW_MS;
+  return recalledAt <= nowTimestamp;
 }
 
 function getLatestStudyNoteRecallAttempt(
@@ -122,6 +113,7 @@ function getValidAttemptCompletedAt(
 function deriveStudyNoteLearningState(input: {
   history: StudyNoteRecallHistory | null;
   now: string;
+  recallSchedule: RecallSchedule | null;
   studyNote: AppStudyNote;
 }): StudyNoteLearningState {
   const readiness = getStudyNoteReadiness(input.studyNote);
@@ -141,11 +133,7 @@ function deriveStudyNoteLearningState(input: {
   const latestScore = latestAttempt?.rating ?? null;
 
   return {
-    dueForRecall: isDueForRecall({
-      lastRecalledAt,
-      latestScore,
-      now: input.now,
-    }),
+    dueForRecall: isDueForRecall(input.recallSchedule, input.now),
     lastRecalledAt,
     latestScore,
     needsPractice: isNeedsPractice(latestScore),
@@ -156,16 +144,24 @@ function deriveStudyNoteLearningState(input: {
 export function deriveStudyNoteLearningStates(input: {
   histories: readonly StudyNoteRecallHistory[];
   now: string;
+  recallSchedules?: readonly RecallSchedule[];
   studyNotes: readonly AppStudyNote[];
 }): StudyNoteLearningState[] {
   const historyByStudyNoteId = new Map(
     input.histories.map((history) => [history.studyNoteId, history]),
+  );
+  const recallScheduleByStudyNoteId = new Map(
+    (input.recallSchedules ?? []).map((schedule) => [
+      schedule.studyNoteId,
+      schedule,
+    ]),
   );
 
   return input.studyNotes.map((studyNote) =>
     deriveStudyNoteLearningState({
       history: historyByStudyNoteId.get(studyNote.id) ?? null,
       now: input.now,
+      recallSchedule: recallScheduleByStudyNoteId.get(studyNote.id) ?? null,
       studyNote,
     }),
   );

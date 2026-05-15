@@ -829,7 +829,7 @@ describe("authenticated Study Notes workspace", () => {
 
     expect(updatedFirstRow).toHaveTextContent("Last score: Hard");
     expect(updatedFirstRow).toHaveTextContent("Needs practice");
-    expect(updatedFirstRow).toHaveTextContent("Due for Recall");
+    expect(updatedFirstRow).not.toHaveTextContent("Due for Recall");
     expect(updatedFirstRow).not.toHaveTextContent("Weak");
     expect(unchangedSecondRow).toHaveTextContent("Not recalled yet");
     expect(unchangedSecondRow).toHaveTextContent("Due for Recall");

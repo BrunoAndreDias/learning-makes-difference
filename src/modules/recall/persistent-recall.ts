@@ -15,6 +15,7 @@ import {
   type SessionResult,
   summarizeAttempts,
 } from "./recall";
+import type { RecallSchedule } from "./recall-schedule";
 
 type PersistentRecallListener = () => void;
 
@@ -23,6 +24,10 @@ type StoredRecallSession = RecallSession & {
 };
 
 type StoredSessionResult = SessionResult & {
+  userId: string;
+};
+
+type StoredRecallSchedule = RecallSchedule & {
   userId: string;
 };
 
@@ -47,6 +52,7 @@ type UpdateAttemptTextInput = UpdateRecallSessionInput & {
 export type AppPersistentRecallService = {
   endRecallSession: (input: UpdateRecallSessionInput) => Promise<RecallSession>;
   getActiveSession: () => Promise<RecallSession | null>;
+  listRecallSchedules?: () => Promise<RecallSchedule[]>;
   listSessionResults: () => Promise<SessionResult[]>;
   rateFlashCardAnswer: (
     input: AnswerQuestionInput,
@@ -71,6 +77,7 @@ export type AppPersistentRecallContext = {
     input: UpdateRecallSessionInput,
   ) => Promise<RecallSession>;
   getSessionResultsSnapshot: () => readonly SessionResult[];
+  getRecallSchedulesSnapshot: () => readonly RecallSchedule[];
   getSnapshot: () => AppRecallSnapshot;
   rateFlashCardAnswer: (
     userId: string | null,
@@ -187,6 +194,24 @@ function stripUserId(sessionResults: readonly StoredSessionResult[]) {
   );
 }
 
+function toStoredRecallSchedules(
+  recallSchedules: readonly RecallSchedule[],
+  userId: string,
+): StoredRecallSchedule[] {
+  return recallSchedules.map((schedule) => ({
+    ...schedule,
+    userId,
+  }));
+}
+
+function stripRecallScheduleUserId(
+  recallSchedules: readonly StoredRecallSchedule[],
+) {
+  return recallSchedules.map(({ userId: _userId, ...recallSchedule }) => ({
+    ...recallSchedule,
+  }));
+}
+
 function listFilteredSessionResults(input: {
   labelId?: string;
   sessionResults: readonly StoredSessionResult[];
@@ -222,7 +247,9 @@ export function createPersistentRecallContext(
   const listeners = new Set<PersistentRecallListener>();
   let snapshot: StoredRecallSession | null = null;
   let sessionResults: StoredSessionResult[] = [];
+  let recallSchedules: StoredRecallSchedule[] = [];
   let sessionResultsSnapshot: SessionResult[] = [];
+  let recallSchedulesSnapshot: RecallSchedule[] = [];
 
   function notifyListeners() {
     for (const listener of listeners) {
@@ -232,17 +259,28 @@ export function createPersistentRecallContext(
 
   function writeState(input: {
     activeSession: StoredRecallSession | null;
+    recallSchedules?: StoredRecallSchedule[];
     sessionResults: StoredSessionResult[];
   }) {
     snapshot = input.activeSession;
     sessionResults = input.sessionResults;
+    recallSchedules = input.recallSchedules ?? recallSchedules;
     sessionResultsSnapshot = stripUserId(input.sessionResults);
+    recallSchedulesSnapshot = stripRecallScheduleUserId(recallSchedules);
     notifyListeners();
 
     return {
       activeSession: snapshot,
+      recallSchedules: recallSchedulesSnapshot,
       sessionResults: sessionResultsSnapshot,
     };
+  }
+
+  async function listServiceRecallSchedules(userId: string) {
+    return toStoredRecallSchedules(
+      (await requireService().listRecallSchedules?.()) ?? [],
+      userId,
+    );
   }
 
   function requireService(): AppPersistentRecallService {
@@ -302,6 +340,7 @@ export function createPersistentRecallContext(
       return cloneSessionResult(result);
     },
     getSessionResultsSnapshot: () => sessionResultsSnapshot,
+    getRecallSchedulesSnapshot: () => recallSchedulesSnapshot,
     getSnapshot: () => snapshot,
     listAttemptsByNote: ({ labelId, userId }) => {
       const currentNoteTitlesById = new Map(
@@ -487,6 +526,9 @@ export function createPersistentRecallContext(
     getSessionResultsSnapshot() {
       return sessionResultsSnapshot;
     },
+    getRecallSchedulesSnapshot() {
+      return recallSchedulesSnapshot;
+    },
     getSnapshot() {
       return snapshot;
     },
@@ -505,9 +547,12 @@ export function createPersistentRecallContext(
       }
 
       const nextResults = await requireService().listSessionResults();
+      const nextRecallSchedules =
+        await listServiceRecallSchedules(validatedUserId);
 
       writeState({
         activeSession: null,
+        recallSchedules: nextRecallSchedules,
         sessionResults: toStoredSessionResults(nextResults, validatedUserId),
       });
       await emitStudyActivity(
@@ -521,17 +566,21 @@ export function createPersistentRecallContext(
       if (userId === null) {
         return writeState({
           activeSession: null,
+          recallSchedules: [],
           sessionResults: [],
         });
       }
 
-      const [activeSession, nextResults] = await Promise.all([
-        requireService().getActiveSession(),
-        requireService().listSessionResults(),
-      ]);
+      const [activeSession, nextResults, nextRecallSchedules] =
+        await Promise.all([
+          requireService().getActiveSession(),
+          requireService().listSessionResults(),
+          listServiceRecallSchedules(userId),
+        ]);
 
       return writeState({
         activeSession: toStoredRecallSession(activeSession, userId),
+        recallSchedules: nextRecallSchedules,
         sessionResults: toStoredSessionResults(nextResults, userId),
       });
     },

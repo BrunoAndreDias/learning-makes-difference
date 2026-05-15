@@ -267,6 +267,11 @@ function StudyNotesWorkspace() {
     recallContext.getSessionResultsSnapshot,
     recallContext.getSessionResultsSnapshot,
   );
+  const recallSchedulesSnapshot = useSyncExternalStore(
+    recallContext.subscribe,
+    recallContext.getRecallSchedulesSnapshot,
+    recallContext.getRecallSchedulesSnapshot,
+  );
   useSyncExternalStore(
     focusContext.subscribe,
     focusContext.getSnapshot,
@@ -293,9 +298,16 @@ function StudyNotesWorkspace() {
                 recallContext.listAttemptsByNote({ userId }),
               ),
         now: new Date().toISOString(),
+        recallSchedules: recallSchedulesSnapshot,
         studyNotes,
       }),
-    [recallContext, recallResultsSnapshot, studyNotes, userId],
+    [
+      recallContext,
+      recallResultsSnapshot,
+      recallSchedulesSnapshot,
+      studyNotes,
+      userId,
+    ],
   );
   const learningStateByStudyNoteId = useMemo(
     () =>

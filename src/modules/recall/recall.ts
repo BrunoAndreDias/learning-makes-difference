@@ -7,6 +7,11 @@ import {
   getStudyNoteReadiness,
   listStudyNotesForUser,
 } from "../study-notes";
+import {
+  createInitialRecallSchedule,
+  getUpdatedRecallSchedule,
+  type RecallSchedule,
+} from "./recall-schedule";
 
 export type RecallMode = "AiAssisted" | "AiGraded" | "FlashCard";
 
@@ -92,6 +97,10 @@ type StoredRecallSession = RecallSession & {
 };
 
 type StoredSessionResult = SessionResult & {
+  userId: string;
+};
+
+type StoredRecallSchedule = RecallSchedule & {
   userId: string;
 };
 
@@ -231,6 +240,7 @@ function getRecallSelfRatingScore(rating: RecallSelfRating): number {
 export type AppRecallContext = {
   answerQuestion: (input: AnswerQuestionInput) => RecallSession | null;
   endRecallSession: (input: UpdateRecallSessionInput) => RecallSession;
+  getRecallSchedulesSnapshot: () => readonly RecallSchedule[];
   getSessionResult: (input: GetSessionResultInput) => SessionResult;
   getSessionResultsSnapshot: () => readonly SessionResult[];
   getSnapshot: () => AppRecallSnapshot;
@@ -270,6 +280,10 @@ function getRecallStorageKey(prefix: string) {
 
 function getSessionResultsStorageKey(prefix: string) {
   return `${prefix}:session-results`;
+}
+
+function getRecallSchedulesStorageKey(prefix: string) {
+  return `${prefix}:recall-schedules`;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -379,6 +393,24 @@ function isRecallQuestion(question: unknown): question is StoredRecallQuestion {
     (!("score" in candidate) ||
       candidate.score === null ||
       typeof candidate.score === "number")
+  );
+}
+
+function isStoredRecallSchedule(
+  schedule: unknown,
+): schedule is StoredRecallSchedule {
+  const candidate = asRecord(schedule);
+
+  return (
+    candidate !== null &&
+    typeof candidate.userId === "string" &&
+    typeof candidate.studyNoteId === "string" &&
+    typeof candidate.nextRecallAt === "string" &&
+    (candidate.lastRecalledAt === null ||
+      typeof candidate.lastRecalledAt === "string") &&
+    typeof candidate.intervalDays === "number" &&
+    typeof candidate.ease === "number" &&
+    typeof candidate.repetitionCount === "number"
   );
 }
 
@@ -640,6 +672,32 @@ function parseStoredSessionResults(
   } catch {
     return [];
   }
+}
+
+function parseStoredRecallSchedules(
+  value: string | null,
+): StoredRecallSchedule[] {
+  if (value === null) {
+    return [];
+  }
+
+  try {
+    const parsedValue = JSON.parse(value);
+
+    return Array.isArray(parsedValue)
+      ? parsedValue.filter(isStoredRecallSchedule)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function stripRecallScheduleUserIds(
+  schedules: readonly StoredRecallSchedule[],
+): RecallSchedule[] {
+  return schedules.map(({ userId: _userId, ...schedule }) => ({
+    ...schedule,
+  }));
 }
 
 function defaultShuffleNotes(
@@ -946,7 +1004,11 @@ export function createAppRecallContext(
   let sessionResults = parseStoredSessionResults(
     storage?.getItem(getSessionResultsStorageKey(keyPrefix)) ?? null,
   );
+  let recallSchedules = parseStoredRecallSchedules(
+    storage?.getItem(getRecallSchedulesStorageKey(keyPrefix)) ?? null,
+  );
   let sessionResultsSnapshot = sessionResults.map(cloneSessionResult);
+  let recallSchedulesSnapshot = stripRecallScheduleUserIds(recallSchedules);
 
   function notifyListeners() {
     for (const listener of listeners) {
@@ -968,6 +1030,54 @@ export function createAppRecallContext(
       JSON.stringify(sessionResults),
     );
     notifyListeners();
+  }
+
+  function writeRecallSchedules(nextRecallSchedules: StoredRecallSchedule[]) {
+    recallSchedules = nextRecallSchedules;
+    recallSchedulesSnapshot = stripRecallScheduleUserIds(recallSchedules);
+    storage?.setItem(
+      getRecallSchedulesStorageKey(keyPrefix),
+      JSON.stringify(recallSchedules),
+    );
+    notifyListeners();
+  }
+
+  function updateRecallSchedule(input: {
+    rating: RecallSelfRating;
+    studyNoteId: string;
+    userId: string;
+  }) {
+    const now = new Date().toISOString();
+    const existingSchedule =
+      recallSchedules.find(
+        (schedule) =>
+          schedule.userId === input.userId &&
+          schedule.studyNoteId === input.studyNoteId,
+      ) ??
+      ({
+        ...createInitialRecallSchedule({
+          now,
+          studyNoteId: input.studyNoteId,
+        }),
+        userId: input.userId,
+      } satisfies StoredRecallSchedule);
+    const nextSchedule = {
+      ...getUpdatedRecallSchedule({
+        now,
+        rating: input.rating,
+        schedule: existingSchedule,
+      }),
+      userId: input.userId,
+    };
+
+    writeRecallSchedules([
+      ...recallSchedules.filter(
+        (schedule) =>
+          schedule.userId !== input.userId ||
+          schedule.studyNoteId !== input.studyNoteId,
+      ),
+      nextSchedule,
+    ]);
   }
 
   function emitStudyActivity(session: StoredRecallSession) {
@@ -1088,6 +1198,18 @@ export function createAppRecallContext(
         text: normalizeRecallAttemptText(activeSession.draftAnswer ?? ""),
       },
     ];
+
+    if (
+      currentNote.sourceNoteId !== undefined &&
+      (currentNote.expectedAnswer ?? "").trim().length > 0
+    ) {
+      updateRecallSchedule({
+        rating,
+        studyNoteId: currentNote.id,
+        userId,
+      });
+    }
+
     const currentQuestionIndex = activeSession.currentQuestionIndex + 1;
     const nextSession: StoredRecallSession = {
       ...activeSession,
@@ -1254,6 +1376,7 @@ export function createAppRecallContext(
 
       return cloneSessionResult(result);
     },
+    getRecallSchedulesSnapshot: () => recallSchedulesSnapshot,
     getSessionResultsSnapshot: () => sessionResultsSnapshot,
     getSnapshot: () => snapshot,
     listSessionResults: ({ labelId, userId }) => {

@@ -411,4 +411,89 @@ describe("createRecallService PostgreSQL integration", () => {
       }),
     ).resolves.toBeNull();
   });
+
+  it("persists Recall Schedule updates after FlashCard self-rating", async () => {
+    const database = await createPostgresIntegrationDatabase();
+    databases.add(database);
+
+    const db = drizzle(database.client, {
+      schema: {
+        ...authSchema,
+        ...labelsSchema,
+        ...notesSchema,
+        ...recallSchema,
+        ...studyNotesSchema,
+      },
+    });
+    await migrateDatabase(db, database.client);
+    await db.insert(usersTable).values({
+      id: "user-casey",
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      passwordHash: "hash",
+      userLanguage: "en",
+      createdAt: new Date("2026-05-15T08:00:00.000Z"),
+      updatedAt: new Date("2026-05-15T08:00:00.000Z"),
+    });
+    await db.insert(notesTable).values({
+      id: "source-note-schedule",
+      userId: "user-casey",
+      title: "Schedule source",
+      body: "",
+      labelIds: [],
+      createdAt: new Date("2026-05-15T08:00:00.000Z"),
+      updatedAt: new Date("2026-05-15T08:00:00.000Z"),
+    });
+    await db.insert(studyNotesTable).values({
+      id: "study-note-schedule",
+      sourceNoteId: "source-note-schedule",
+      prompt: "What should be scheduled?",
+      expectedAnswer: "The Study Note recall target.",
+      createdAt: new Date("2026-05-15T08:05:00.000Z"),
+      updatedAt: new Date("2026-05-15T08:05:00.000Z"),
+    });
+
+    const service = createRecallService({
+      crypto: {
+        randomUUID: () =>
+          "session-schedule-db" as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      db,
+      now: () => new Date("2026-05-15T09:00:00.000Z"),
+      shuffleNotes: (notes) => [...notes],
+    });
+    const session = await service.startFlashCardSession({
+      studyNoteIds: ["study-note-schedule"],
+      userId: "user-casey",
+    });
+    await service.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId: "user-casey",
+    });
+    await service.rateFlashCardAnswer({
+      rating: "good",
+      sessionId: session.id,
+      userId: "user-casey",
+    });
+
+    const reloadedService = createRecallService({
+      db,
+      shuffleNotes: (notes) => [...notes],
+    });
+
+    await expect(
+      reloadedService.listRecallSchedules({
+        userId: "user-casey",
+      }),
+    ).resolves.toEqual([
+      {
+        ease: 2.5,
+        intervalDays: 3,
+        lastRecalledAt: "2026-05-15T09:00:00.000Z",
+        nextRecallAt: "2026-05-18T09:00:00.000Z",
+        repetitionCount: 1,
+        studyNoteId: "study-note-schedule",
+      },
+    ]);
+  });
 });

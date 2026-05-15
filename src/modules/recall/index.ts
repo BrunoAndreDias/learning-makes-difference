@@ -30,3 +30,9 @@ export {
   createAppRecallContext,
   summarizeAttempts,
 } from "./recall";
+export type { RecallSchedule } from "./recall-schedule";
+export {
+  createInitialRecallSchedule,
+  getUpdatedRecallSchedule,
+  isRecallScheduleDue,
+} from "./recall-schedule";

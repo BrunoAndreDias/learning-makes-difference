@@ -836,6 +836,78 @@ describe("recall session setup", () => {
     expect(session.questions).toHaveLength(1);
   });
 
+  it("updates and reloads Recall Schedules for rated Study Notes", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-15T09:00:00.000Z"));
+
+    try {
+      const storage = createMemoryStorage();
+      const studyNotes = createAppStudyNotesContext({
+        keyPrefix: "recall-schedule-study-notes",
+        storage,
+      });
+      const recall = createAppRecallContext({
+        crypto: {
+          randomUUID: () =>
+            "session-recall-schedule" as `${string}-${string}-${string}-${string}-${string}`,
+        },
+        keyPrefix: "recall-schedule-session",
+        notes: createAppNotesContext({
+          keyPrefix: "recall-schedule-source-notes",
+          storage,
+        }),
+        shuffleNotes: (sessionNotes) => [...sessionNotes],
+        storage,
+        studyNotes,
+      });
+      const userId = "owner";
+      const studyNote = studyNotes.createStudyNote(userId, {
+        expectedAnswer: "Scheduled answer.",
+        prompt: "What gets scheduled?",
+        sourceBody: "",
+        sourceTitle: "",
+      });
+
+      const session = recall.startFlashCardSession({
+        studyNoteIds: [studyNote.id],
+        userId,
+      });
+      recall.revealFlashCardAnswer({ sessionId: session.id, userId });
+      recall.rateFlashCardAnswer({
+        rating: "easy",
+        sessionId: session.id,
+        userId,
+      });
+
+      expect(recall.getRecallSchedulesSnapshot()).toEqual([
+        {
+          ease: 2.65,
+          intervalDays: 7,
+          lastRecalledAt: "2026-05-15T09:00:00.000Z",
+          nextRecallAt: "2026-05-22T09:00:00.000Z",
+          repetitionCount: 1,
+          studyNoteId: studyNote.id,
+        },
+      ]);
+
+      const reloadedRecall = createAppRecallContext({
+        keyPrefix: "recall-schedule-session",
+        notes: createAppNotesContext({
+          keyPrefix: "recall-schedule-source-notes",
+          storage,
+        }),
+        storage,
+        studyNotes,
+      });
+
+      expect(reloadedRecall.getRecallSchedulesSnapshot()).toEqual(
+        recall.getRecallSchedulesSnapshot(),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("does not start FlashCard sessions from incomplete Study Notes", () => {
     const storage = createMemoryStorage();
     const studyNotes = createAppStudyNotesContext({
