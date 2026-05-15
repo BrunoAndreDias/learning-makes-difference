@@ -7,7 +7,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { Button } from "../../design-system/button";
+import { Button, ButtonLink } from "../../design-system/button";
 import { FloatingTextarea } from "../../design-system/floating-textarea";
 import { ListCard } from "../../design-system/list-card";
 import { PageHeader } from "../../design-system/page-header";
@@ -34,6 +34,7 @@ import {
   toStudyNoteRecallHistories,
   type UpdateStudyNoteInput,
 } from ".";
+import { getStudyNotePracticeRepair } from "./practice-repair";
 
 export const Route = createFileRoute("/_protected/study-notes")({
   component: StudyNotesWorkspace,
@@ -347,6 +348,14 @@ function StudyNotesWorkspace() {
   const sharedSourceEditMessage = formatSharedSourceEditMessage(
     selectedSourceStudyNotes.map((studyNote) => studyNote.prompt),
   );
+  const selectedLearningState =
+    selectedStudyNote === null
+      ? null
+      : (learningStateByStudyNoteId.get(selectedStudyNote.id) ?? null);
+  const practiceRepair = useMemo(
+    () => getStudyNotePracticeRepair(selectedLearningState),
+    [selectedLearningState],
+  );
   const activeFocusSession =
     userId === null ? null : focusContext.getActiveSession({ userId });
   const [draft, setDraft] = useState<UpdateStudyNoteInput>(() =>
@@ -460,6 +469,27 @@ function StudyNotesWorkspace() {
         studyNotes.find((studyNote) => studyNote.id !== selectedStudyNote.id)
           ?.id ?? null,
       );
+    } catch (error) {
+      handleError(error);
+    }
+  }
+
+  async function handleCreateSiblingStudyNote() {
+    if (selectedStudyNote === null) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setSaveStatus(null);
+
+    try {
+      const createdStudyNote = await storeMutation.createStudyNoteFromSource(
+        userId,
+        {
+          sourceNoteId: selectedStudyNote.sourceNoteId,
+        },
+      );
+      setSelectedStudyNoteId(createdStudyNote.id);
     } catch (error) {
       handleError(error);
     }
@@ -719,6 +749,41 @@ function StudyNotesWorkspace() {
                 rows={9}
                 value={draft.expectedAnswer}
               />
+
+              {practiceRepair === null ? null : (
+                <section
+                  aria-label={practiceRepair.title}
+                  className="study-notes-practice-repair"
+                >
+                  <div className="study-notes-practice-repair__header">
+                    <p className="section-label">{practiceRepair.title}</p>
+                    <h2 className="study-notes-practice-repair__title">
+                      {practiceRepair.title}
+                    </h2>
+                    <p className="muted study-notes-editor__guidance">
+                      {practiceRepair.summary}
+                    </p>
+                  </div>
+                  <ul className="study-notes-practice-repair__list">
+                    {practiceRepair.suggestions.map((suggestion) => (
+                      <li key={suggestion.id}>{suggestion.text}</li>
+                    ))}
+                  </ul>
+                  <div className="study-notes-practice-repair__actions">
+                    <Button
+                      onClick={() => void handleCreateSiblingStudyNote()}
+                      size="compact"
+                      type="button"
+                      variant="secondary"
+                    >
+                      Create sibling Study Note
+                    </Button>
+                    <ButtonLink to="/recall" size="compact" variant="secondary">
+                      {practiceRepair.recallTodayActionLabel}
+                    </ButtonLink>
+                  </div>
+                </section>
+              )}
 
               <section
                 aria-label="Study Note labels"

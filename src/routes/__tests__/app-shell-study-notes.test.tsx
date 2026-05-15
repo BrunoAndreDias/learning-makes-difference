@@ -904,4 +904,197 @@ describe("authenticated Study Notes workspace", () => {
     expect(unchangedSecondRow).toHaveTextContent("Due for Recall");
     expect(unchangedSecondRow).not.toHaveTextContent("Last score: Hard");
   });
+
+  it("shows Practice Repair guidance for Study Notes with weak recall evidence", async () => {
+    const studyNotesContext = createAppStudyNotesContext({
+      keyPrefix: `test-study-notes-practice-repair-${Math.random()
+        .toString(36)
+        .slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-source-notes-practice-repair-${Math.random()
+        .toString(36)
+        .slice(2)}`,
+      storage: window.localStorage,
+    });
+    let sessionCounter = 0;
+    const recallContext = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `study-note-practice-repair-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: `test-recall-practice-repair-${Math.random()
+        .toString(36)
+        .slice(2)}`,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+      studyNotes: studyNotesContext,
+    });
+    const userId = "user-practice-repair";
+    const studyNote = studyNotesContext.createStudyNote(userId, {
+      sourceBody:
+        "Broad source context that still needs a clearer recall target.",
+      sourceTitle: "Repair source",
+    });
+    const updatedStudyNote = studyNotesContext.updateStudyNote(
+      userId,
+      studyNote.id,
+      {
+        acronyms: [],
+        expectedAnswer: "Clearer expected answer.",
+        labelIds: [],
+        metaphors: [],
+        prompt: "Why does this still feel shaky?",
+        sourceBody:
+          "Broad source context that still needs a clearer recall target.",
+        sourceTitle: "Repair source",
+      },
+    );
+
+    renderRoute("/study-notes", {
+      notesContext,
+      recallContext,
+      session: {
+        user: {
+          displayName: "Jordan Repair",
+          email: "jordan.repair@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+      studyNotesContext,
+    });
+
+    act(() => {
+      const session = recallContext.startFlashCardSession({
+        studyNoteIds: [updatedStudyNote.id],
+        userId,
+      });
+      recallContext.revealFlashCardAnswer({ sessionId: session.id, userId });
+      recallContext.rateFlashCardAnswer({
+        rating: "hard",
+        sessionId: session.id,
+        userId,
+      });
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 2,
+        name: "Practice Repair",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Tighten the expected answer so this recall target names the reason, steps, limits, or one example more precisely.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open Recall Today" }),
+    ).toHaveAttribute("href", "/recall");
+    expect(screen.queryByText("Error log")).not.toBeInTheDocument();
+  });
+
+  it("creates a sibling Study Note from Practice Repair on the same source", async () => {
+    const studyNotesContext = createAppStudyNotesContext({
+      keyPrefix: `test-study-notes-practice-repair-sibling-${Math.random()
+        .toString(36)
+        .slice(2)}`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      keyPrefix: `test-source-notes-practice-repair-sibling-${Math.random()
+        .toString(36)
+        .slice(2)}`,
+      storage: window.localStorage,
+    });
+    let sessionCounter = 0;
+    const recallContext = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `study-note-practice-repair-sibling-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: `test-recall-practice-repair-sibling-${Math.random()
+        .toString(36)
+        .slice(2)}`,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+      studyNotes: studyNotesContext,
+    });
+    const userId = "user-practice-repair-sibling";
+    const originalStudyNote = studyNotesContext.createStudyNote(userId, {
+      sourceBody: "Shared source body for sibling repair.",
+      sourceTitle: "Sibling repair source",
+    });
+    const updatedStudyNote = studyNotesContext.updateStudyNote(
+      userId,
+      originalStudyNote.id,
+      {
+        acronyms: [],
+        expectedAnswer: "Original expected answer.",
+        labelIds: [],
+        metaphors: [],
+        prompt: "Original prompt",
+        sourceBody: "Shared source body for sibling repair.",
+        sourceTitle: "Sibling repair source",
+      },
+    );
+
+    renderRoute("/study-notes", {
+      notesContext,
+      recallContext,
+      session: {
+        user: {
+          displayName: "Jordan Sibling Repair",
+          email: "jordan.sibling.repair@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+      studyNotesContext,
+    });
+
+    act(() => {
+      const session = recallContext.startFlashCardSession({
+        studyNoteIds: [updatedStudyNote.id],
+        userId,
+      });
+      recallContext.revealFlashCardAnswer({ sessionId: session.id, userId });
+      recallContext.rateFlashCardAnswer({
+        rating: "forgot",
+        sessionId: session.id,
+        userId,
+      });
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Create sibling Study Note",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Prompt")).toHaveValue(
+        "Sibling repair source",
+      ),
+    );
+
+    const allStudyNotes = studyNotesContext.getSnapshot();
+    expect(allStudyNotes).toHaveLength(2);
+    expect(
+      allStudyNotes.every(
+        (studyNote) =>
+          studyNote.sourceNoteId === originalStudyNote.sourceNoteId,
+      ),
+    ).toBe(true);
+
+    const promptField = screen.getByLabelText("Prompt");
+    expect(promptField).toHaveValue("Sibling repair source");
+    expect(screen.getByLabelText("Expected answer")).toHaveValue(
+      "Shared source body for sibling repair.",
+    );
+  });
 });
