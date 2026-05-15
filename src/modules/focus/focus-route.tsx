@@ -8,11 +8,13 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { Button } from "../../design-system/button";
+import { Button, ButtonLink } from "../../design-system/button";
 import { PageHeader } from "../../design-system/page-header";
+import { defaultUserTimeZone } from "../access/session/session-contract";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { type AppTranslationKey, useAppTranslation } from "../language";
 import { listNotesForUser } from "../notes";
+import { listStudyNotesForUser } from "../study-notes";
 import {
   type AppFocusContext,
   AppFocusError,
@@ -24,6 +26,8 @@ import {
   type FocusWeeklyAnalytics,
   type FocusWeeklyAnalyticsMetric,
 } from "./focus-weekly-analytics";
+import type { FocusLearningLoopSupportSuggestion } from "./learning-loop-support";
+import { getFocusLearningLoopSupportSuggestions } from "./learning-loop-support";
 import type { AppPersistentFocusContext } from "./persistent-focus";
 
 type AppTranslate = ReturnType<typeof useAppTranslation>["t"];
@@ -53,6 +57,12 @@ type FocusSessionPanelDetails = {
   timerLabel: string;
 };
 
+type FocusLearningLoopSupportCopy = {
+  actionLabelKey: AppTranslationKey;
+  summaryKey: AppTranslationKey;
+  titleKey: AppTranslationKey;
+};
+
 const DEFAULT_BREAK_MINUTES = "5";
 const DEFAULT_FOCUS_MINUTES = "25";
 const DEFAULT_PLANNED_FOCUS_INTERVALS = "4";
@@ -74,6 +84,21 @@ const focusAnalyticsMetricLabelKeys = {
   FocusWeeklyAnalyticsMetric["id"],
   AppTranslationKey
 >;
+const focusLearningLoopSupportCopyByActionId = {
+  "practice-repair": {
+    actionLabelKey: "focus.support.practiceRepairAction",
+    summaryKey: "focus.support.practiceRepairSummary",
+    titleKey: "focus.support.practiceRepairTitle",
+  },
+  "recall-today": {
+    actionLabelKey: "focus.support.recallTodayAction",
+    summaryKey: "focus.support.recallTodaySummary",
+    titleKey: "recall.today.title",
+  },
+} as const satisfies Record<
+  FocusLearningLoopSupportSuggestion["actionId"],
+  FocusLearningLoopSupportCopy
+>;
 
 export const Route = createFileRoute("/_protected/focus")({
   component: FocusPage,
@@ -89,6 +114,12 @@ function FocusPage() {
   });
   const notes = Route.useRouteContext({
     select: (context) => context.notes,
+  });
+  const studyNotes = Route.useRouteContext({
+    select: (context) => context.studyNotes,
+  });
+  const persistentStudyNotes = Route.useRouteContext({
+    select: (context) => context.persistentStudyNotes,
   });
   const recall = Route.useRouteContext({
     select: (context) => context.recall,
@@ -106,10 +137,21 @@ function FocusPage() {
     notes.getSnapshot,
     notes.getSnapshot,
   );
+  const studyNotesStore = persistentStudyNotes ?? studyNotes;
+  const studyNotesSnapshot = useSyncExternalStore(
+    studyNotesStore.subscribe,
+    studyNotesStore.getSnapshot,
+    studyNotesStore.getSnapshot,
+  );
   useSyncExternalStore(
     recall.subscribe,
     recall.getSessionResultsSnapshot,
     recall.getSessionResultsSnapshot,
+  );
+  const recallSchedules = useSyncExternalStore(
+    recall.subscribe,
+    recall.getRecallSchedulesSnapshot,
+    recall.getRecallSchedulesSnapshot,
   );
   const userId = sessionSnapshot.user?.id ?? null;
   const activeSession =
@@ -123,8 +165,22 @@ function FocusPage() {
           (left, right) => Date.parse(right.endedAt) - Date.parse(left.endedAt),
         );
   const userNotes = listNotesForUser(notesSnapshot, userId);
+  const userStudyNotes = listStudyNotesForUser(studyNotesSnapshot, userId);
+  const userTimeZone =
+    sessionSnapshot.user?.userTimeZone ?? defaultUserTimeZone;
   const sessionResults =
     userId === null ? [] : recall.listSessionResults({ userId });
+  const learningLoopSupportSuggestions =
+    userId === null
+      ? []
+      : getFocusLearningLoopSupportSuggestions({
+          attemptsByNote: recall.listAttemptsByNote({ userId }),
+          now: new Date().toISOString(),
+          recallSchedules,
+          studyNotes: userStudyNotes,
+          userTimeZone,
+        });
+  const hasLearningLoopSupport = learningLoopSupportSuggestions.length > 0;
   const weeklyAnalytics = deriveFocusWeeklyAnalytics({
     focusRecords: records,
     notes: userNotes,
@@ -142,7 +198,11 @@ function FocusPage() {
   return (
     <section
       aria-labelledby="focus-workspace-heading"
-      className="focus-workspace"
+      className={
+        hasLearningLoopSupport
+          ? "focus-workspace focus-workspace--has-support"
+          : "focus-workspace"
+      }
     >
       <PageHeader
         className="focus-workspace__page-header recall-surface__header"
@@ -170,6 +230,12 @@ function FocusPage() {
         />
       </section>
 
+      {hasLearningLoopSupport ? (
+        <FocusLearningLoopSupport
+          suggestions={learningLoopSupportSuggestions}
+        />
+      ) : null}
+
       <section
         aria-label={translatedWeeklyAnalytics.heading}
         className="focus-card focus-card--analytics"
@@ -192,6 +258,55 @@ function FocusPage() {
           ))}
         </dl>
       </section>
+    </section>
+  );
+}
+
+function FocusLearningLoopSupport({
+  suggestions,
+}: Readonly<{
+  suggestions: readonly FocusLearningLoopSupportSuggestion[];
+}>) {
+  const { t } = useAppTranslation();
+
+  return (
+    <section
+      aria-label={t("focus.support.regionLabel")}
+      className="focus-card focus-card--support"
+    >
+      <div className="focus-card__header">
+        <div>
+          <p className="section-label">{t("focus.support.sectionLabel")}</p>
+          <strong className="focus-card-title">
+            {t("focus.support.sectionLabel")}
+          </strong>
+        </div>
+      </div>
+      <div className="focus-learning-loop-support">
+        {suggestions.map((suggestion) => {
+          const copyKeys =
+            focusLearningLoopSupportCopyByActionId[suggestion.actionId];
+
+          return (
+            <article
+              className="focus-learning-loop-support__item"
+              key={suggestion.actionId}
+            >
+              <div className="focus-learning-loop-support__copy">
+                <h4>{t(copyKeys.titleKey)}</h4>
+                <p>{t(copyKeys.summaryKey)}</p>
+              </div>
+              <ButtonLink
+                size="compact"
+                to={suggestion.href}
+                variant="secondary"
+              >
+                {t(copyKeys.actionLabelKey)}
+              </ButtonLink>
+            </article>
+          );
+        })}
+      </div>
     </section>
   );
 }

@@ -60,6 +60,10 @@
   font-family: var(--font-body);
 }
 
+.focus-workspace--has-support {
+  grid-template-rows: auto minmax(0, 1.08fr) auto minmax(0, 0.92fr);
+}
+
 .app-frame[data-workspace="focus"] {
   grid-template-rows: auto minmax(0, 1fr);
   height: 100vh;
@@ -264,15 +268,15 @@
   padding: 1rem;
 }
 
-.focus-card--analytics {
-  gap: 1rem;
+.focus-card--analytics,
+.focus-card--setup,
+.focus-card--support {
   border-color: var(--color-content-border-soft);
   background: var(--color-shell-panel);
 }
 
-.focus-card--setup {
-  border-color: var(--color-content-border-soft);
-  background: var(--color-shell-panel);
+.focus-card--analytics {
+  gap: 1rem;
 }
 
 .focus-card__header {
@@ -443,6 +447,32 @@
   gap: 0.75rem;
 }
 
+.focus-learning-loop-support {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.focus-learning-loop-support__item {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+  justify-items: start;
+  padding: 0.9rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.65rem;
+  background: var(--color-shell-inset);
+}
+
+.focus-learning-loop-support__copy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.focus-learning-loop-support__copy p {
+  color: var(--color-content-muted);
+}
+
 .focus-setup-note {
   color: var(--color-content-muted);
   font-size: 0.875rem;
@@ -492,11 +522,17 @@
     gap: 0.55rem;
   }
 
+  .focus-learning-loop-support {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+    gap: 0.55rem;
+  }
+
   .focus-weekly-analytics {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
   }
 
   .focus-session-panel__stats div,
+  .focus-learning-loop-support__item,
   .focus-weekly-analytics div {
     padding: 0.65rem;
   }
@@ -519,6 +555,10 @@
     min-height: 100%;
   }
 
+  .focus-workspace--has-support {
+    grid-template-rows: auto auto auto auto;
+  }
+
   .focus-session-workspace {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -534,6 +574,7 @@
   }
 
   .focus-session-panel__stats,
+  .focus-learning-loop-support,
   .focus-weekly-analytics {
     grid-template-columns: minmax(0, 1fr);
   }

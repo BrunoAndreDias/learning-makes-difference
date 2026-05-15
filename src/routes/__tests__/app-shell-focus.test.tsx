@@ -1,17 +1,129 @@
 // @vitest-environment jsdom
 
-import { fireEvent, screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { AppSessionSnapshot } from "../../modules/access/session/session";
 import {
   createAppFocusContext,
   createCompletedRecallSession,
+  createDeterministicRecallTestContexts,
   createLearningLoopTestContexts,
   createRecallNote,
   renderRoute,
 } from "./app-shell-test-support";
 
+type DeterministicRecallTestContexts = ReturnType<
+  typeof createDeterministicRecallTestContexts
+>;
+
+function createRecallableStudyNote(
+  contexts: DeterministicRecallTestContexts,
+  input: {
+    expectedAnswer: string;
+    prompt: string;
+    sourceBody: string;
+    sourceTitle: string;
+    userId: string;
+  },
+) {
+  const studyNote = contexts.studyNotesContext.createStudyNote(input.userId, {
+    sourceBody: input.sourceBody,
+    sourceTitle: input.sourceTitle,
+  });
+
+  return contexts.studyNotesContext.updateStudyNote(
+    input.userId,
+    studyNote.id,
+    {
+      acronyms: [],
+      expectedAnswer: input.expectedAnswer,
+      labelIds: [],
+      metaphors: [],
+      prompt: input.prompt,
+      sourceBody: input.sourceBody,
+      sourceTitle: input.sourceTitle,
+    },
+  );
+}
+
+function completeStudyNoteRecall(
+  contexts: DeterministicRecallTestContexts,
+  input: {
+    rating: "easy" | "forgot" | "good" | "hard";
+    studyNoteId: string;
+    userId: string;
+  },
+) {
+  act(() => {
+    const session = contexts.recallContext.startFlashCardSession({
+      studyNoteIds: [input.studyNoteId],
+      userId: input.userId,
+    });
+
+    contexts.recallContext.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId: input.userId,
+    });
+    contexts.recallContext.rateFlashCardAnswer({
+      rating: input.rating,
+      sessionId: session.id,
+      userId: input.userId,
+    });
+  });
+}
+
 describe("authenticated app shell", () => {
+  it("surfaces Practice Repair and Recall Today from actual recall facts on Focus", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-focus-learning-loop-support";
+    const studyNote = createRecallableStudyNote(contexts, {
+      expectedAnswer: "Expected answer for repair.",
+      prompt: "Why is this Study Note still weak?",
+      sourceBody: "Source explanation that still needs better recall support.",
+      sourceTitle: "Practice repair source",
+      userId,
+    });
+
+    completeStudyNoteRecall(contexts, {
+      rating: "hard",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+
+    renderRoute("/focus", {
+      ...contexts,
+      session: {
+        user: {
+          displayName: "Casey Focus Support",
+          email: "casey.focus.support@example.com",
+          id: userId,
+          userLanguage: "en",
+          userTimeZone: "America/New_York",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Focus" }),
+    ).toBeInTheDocument();
+
+    const supportPanel = screen.getByRole("region", {
+      name: "Learning Loop support",
+    });
+    expect(
+      within(supportPanel).getByRole("heading", { name: "Practice Repair" }),
+    ).toBeInTheDocument();
+    expect(
+      within(supportPanel).getByRole("heading", { name: "Recall Today" }),
+    ).toBeInTheDocument();
+    expect(
+      within(supportPanel).getByRole("link", { name: "Open Study Notes" }),
+    ).toHaveAttribute("href", "/study-notes");
+    expect(
+      within(supportPanel).getByRole("link", { name: "Open Recall Today" }),
+    ).toHaveAttribute("href", "/recall");
+  });
+
   it("translates Focus chrome while preserving stored focus record data", async () => {
     vi.useFakeTimers();
 
@@ -66,7 +178,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Execute uma sessao Pomodoro para manter o foco e progredir de forma consistente.",
+        "Execute uma sessao Pomodoro para apoiar a atencao e a recuperacao. A evidencia de aprendizagem vem de Study Notes e da recordacao, nao apenas dos minutos de foco.",
       ),
     ).toBeInTheDocument();
 
@@ -295,7 +407,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Run a Pomodoro session to stay focused and make steady progress.",
+        "Run a Pomodoro session to support attention and recovery. Learning evidence comes from Study Notes and recall, not focus minutes alone.",
       ),
     ).toBeInTheDocument();
 
@@ -357,6 +469,9 @@ describe("authenticated app shell", () => {
       screen.queryByRole("table", { name: "Recent focus sessions" }),
     ).toBeNull();
     expect(screen.queryByText("Finish your first session")).toBeNull();
+    expect(
+      screen.queryByRole("region", { name: "Learning Loop support" }),
+    ).toBeNull();
     expect(
       screen.queryByRole("region", { name: "Recent focus targets" }),
     ).toBeNull();
