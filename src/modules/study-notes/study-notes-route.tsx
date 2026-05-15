@@ -1,4 +1,8 @@
-import { createFileRoute, useRouteContext } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  useNavigate,
+  useRouteContext,
+} from "@tanstack/react-router";
 import {
   type FormEvent,
   useEffect,
@@ -19,6 +23,8 @@ import "../notes/notes-workspace/notes-form-foundation.css";
 import "../notes/notes-workspace/notes-foundation.css";
 import "../notes/notes-workspace/notes-responsive.css";
 import "../notes/notes-workspace/notes-toolbar.css";
+import { AppRecallError } from "../recall";
+import { getInterleavedRecallRecommendation } from "../recall/interleaved-recall";
 import "./study-notes.css";
 import {
   type AppPersistentStudyNotesContext,
@@ -237,6 +243,7 @@ function formatSharedSourceEditMessage(prompts: readonly string[]) {
 }
 
 function StudyNotesWorkspace() {
+  const navigate = useNavigate();
   const studyNotesContext = useRouteContext({
     from: "/_protected/study-notes",
     select: (context) => context.studyNotes,
@@ -252,6 +259,10 @@ function StudyNotesWorkspace() {
   const recallContext = useRouteContext({
     from: "/_protected/study-notes",
     select: (context) => context.recall,
+  });
+  const persistentRecallContext = useRouteContext({
+    from: "/_protected/study-notes",
+    select: (context) => context.persistentRecall,
   });
   const focusContext = useRouteContext({
     from: "/_protected/study-notes",
@@ -291,35 +302,37 @@ function StudyNotesWorkspace() {
   );
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
   const [selectedLabelId, setSelectedLabelId] = useState("");
+  const allStudyNotes = useMemo(
+    () => listStudyNotesForUser(studyNotesSnapshot, userId),
+    [studyNotesSnapshot, userId],
+  );
   const studyNotes = useMemo(
     () =>
-      listStudyNotesForUser(
-        studyNotesSnapshot,
-        userId,
-        selectedLabelId === "" ? {} : { labelId: selectedLabelId },
-      ),
-    [selectedLabelId, studyNotesSnapshot, userId],
+      selectedLabelId === ""
+        ? allStudyNotes
+        : allStudyNotes.filter((studyNote) =>
+            studyNote.labelIds.includes(selectedLabelId),
+          ),
+    [allStudyNotes, selectedLabelId],
+  );
+  const recallHistories = useMemo(
+    () =>
+      userId === null || recallResultsSnapshot.length === 0
+        ? []
+        : toStudyNoteRecallHistories(
+            recallContext.listAttemptsByNote({ userId }),
+          ),
+    [recallContext, recallResultsSnapshot, userId],
   );
   const learningStates = useMemo(
     () =>
       deriveStudyNoteLearningStates({
-        histories:
-          userId === null || recallResultsSnapshot.length === 0
-            ? []
-            : toStudyNoteRecallHistories(
-                recallContext.listAttemptsByNote({ userId }),
-              ),
+        histories: recallHistories,
         now: new Date().toISOString(),
         recallSchedules: recallSchedulesSnapshot,
         studyNotes,
       }),
-    [
-      recallContext,
-      recallResultsSnapshot,
-      recallSchedulesSnapshot,
-      studyNotes,
-      userId,
-    ],
+    [recallHistories, recallSchedulesSnapshot, studyNotes],
   );
   const learningStateByStudyNoteId = useMemo(
     () =>
@@ -341,7 +354,7 @@ function StudyNotesWorkspace() {
   const selectedSourceStudyNotes =
     selectedStudyNote === null
       ? []
-      : studyNotes.filter(
+      : allStudyNotes.filter(
           (studyNote) =>
             studyNote.sourceNoteId === selectedStudyNote.sourceNoteId,
         );
@@ -355,6 +368,15 @@ function StudyNotesWorkspace() {
   const practiceRepair = useMemo(
     () => getStudyNotePracticeRepair(selectedLearningState),
     [selectedLearningState],
+  );
+  const interleavedRecallRecommendation = useMemo(
+    () =>
+      getInterleavedRecallRecommendation({
+        histories: recallHistories,
+        studyNote: selectedStudyNote,
+        studyNotes: allStudyNotes,
+      }),
+    [allStudyNotes, recallHistories, selectedStudyNote],
   );
   const activeFocusSession =
     userId === null ? null : focusContext.getActiveSession({ userId });
@@ -492,6 +514,39 @@ function StudyNotesWorkspace() {
       setSelectedStudyNoteId(createdStudyNote.id);
     } catch (error) {
       handleError(error);
+    }
+  }
+
+  async function handleStartInterleavedRecall() {
+    if (userId === null || interleavedRecallRecommendation === null) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setSaveStatus(null);
+
+    try {
+      if (persistentRecallContext === undefined) {
+        recallContext.startFlashCardSession({
+          mode: "FlashCard",
+          studyNoteIds: [...interleavedRecallRecommendation.studyNoteIds],
+          userId,
+        });
+      } else {
+        await persistentRecallContext.startFlashCardSession(userId, {
+          mode: "FlashCard",
+          studyNoteIds: [...interleavedRecallRecommendation.studyNoteIds],
+        });
+      }
+
+      await navigate({ to: "/recall/session" });
+    } catch (error) {
+      if (error instanceof AppRecallError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
     }
   }
 
@@ -781,6 +836,35 @@ function StudyNotesWorkspace() {
                     <ButtonLink to="/recall" size="compact" variant="secondary">
                       {practiceRepair.recallTodayActionLabel}
                     </ButtonLink>
+                  </div>
+                </section>
+              )}
+
+              {interleavedRecallRecommendation === null ? null : (
+                <section
+                  aria-label={interleavedRecallRecommendation.title}
+                  className="study-notes-interleaved-recall"
+                >
+                  <div className="study-notes-interleaved-recall__header">
+                    <p className="section-label">
+                      {interleavedRecallRecommendation.title}
+                    </p>
+                    <h2 className="study-notes-interleaved-recall__title">
+                      {interleavedRecallRecommendation.title}
+                    </h2>
+                    <p className="muted study-notes-editor__guidance">
+                      {interleavedRecallRecommendation.summary}
+                    </p>
+                  </div>
+                  <div className="study-notes-interleaved-recall__actions">
+                    <Button
+                      onClick={() => void handleStartInterleavedRecall()}
+                      size="compact"
+                      type="button"
+                      variant="secondary"
+                    >
+                      {interleavedRecallRecommendation.actionLabel}
+                    </Button>
                   </div>
                 </section>
               )}

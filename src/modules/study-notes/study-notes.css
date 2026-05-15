@@ -89,12 +89,16 @@
   padding-bottom: var(--space-3);
 }
 
-.study-notes-practice-repair {
+.study-notes-practice-repair,
+.study-notes-interleaved-recall {
   display: grid;
   gap: var(--space-3);
   padding: var(--space-4);
-  border: 1px solid var(--color-danger-soft-border);
   border-radius: var(--radius-md);
+}
+
+.study-notes-practice-repair {
+  border: 1px solid var(--color-danger-soft-border);
   background:
     linear-gradient(
       180deg,
@@ -105,12 +109,30 @@
   color: var(--color-danger-soft-foreground);
 }
 
-.study-notes-practice-repair__header {
+.study-notes-interleaved-recall {
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--color-primary-soft-border) 72%,
+      var(--color-content-border-soft)
+    );
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-primary-soft) 84%, white),
+      var(--color-primary-soft)
+    ),
+    var(--color-primary-soft);
+}
+
+.study-notes-practice-repair__header,
+.study-notes-interleaved-recall__header {
   display: grid;
   gap: var(--space-2);
 }
 
-.study-notes-practice-repair__title {
+.study-notes-practice-repair__title,
+.study-notes-interleaved-recall__title {
   margin: 0;
   color: inherit;
   font-size: 1rem;
@@ -124,7 +146,8 @@
   padding-left: 1.25rem;
 }
 
-.study-notes-practice-repair__actions {
+.study-notes-practice-repair__actions,
+.study-notes-interleaved-recall__actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);

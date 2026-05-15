@@ -1040,6 +1040,124 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.queryByText("Error log")).not.toBeInTheDocument();
   });
 
+  it("starts Interleaved Recall from a successful related Study Note recommendation", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-interleaved-recall";
+    const anchorBase = contexts.studyNotesContext.createStudyNote(userId, {
+      sourceBody: "Shared source for interleaving.",
+      sourceTitle: "Interleaved source",
+    });
+    const anchor = updateStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Anchor expected answer.",
+      prompt: "Anchor prompt",
+      sourceBody: "Shared source for interleaving.",
+      sourceTitle: "Interleaved source",
+      studyNoteId: anchorBase.id,
+      userId,
+    });
+    const siblingOne = updateStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Sibling expected answer 1.",
+      prompt: "Sibling prompt 1",
+      sourceBody: "Shared source for interleaving.",
+      sourceTitle: "Interleaved source",
+      studyNoteId: contexts.studyNotesContext.createStudyNoteFromSource(
+        userId,
+        {
+          sourceNoteId: anchorBase.sourceNoteId,
+        },
+      ).id,
+      userId,
+    });
+    const siblingTwo = updateStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Sibling expected answer 2.",
+      prompt: "Sibling prompt 2",
+      sourceBody: "Shared source for interleaving.",
+      sourceTitle: "Interleaved source",
+      studyNoteId: contexts.studyNotesContext.createStudyNoteFromSource(
+        userId,
+        {
+          sourceNoteId: anchorBase.sourceNoteId,
+        },
+      ).id,
+      userId,
+    });
+    const siblingThree = updateStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Sibling expected answer 3.",
+      prompt: "Sibling prompt 3",
+      sourceBody: "Shared source for interleaving.",
+      sourceTitle: "Interleaved source",
+      studyNoteId: contexts.studyNotesContext.createStudyNoteFromSource(
+        userId,
+        {
+          sourceNoteId: anchorBase.sourceNoteId,
+        },
+      ).id,
+      userId,
+    });
+
+    [anchor, siblingOne, siblingTwo, siblingThree].forEach((studyNote) => {
+      completeStudyNoteRecall(contexts, {
+        rating: "good",
+        studyNoteId: studyNote.id,
+        userId,
+      });
+      completeStudyNoteRecall(contexts, {
+        rating: "easy",
+        studyNoteId: studyNote.id,
+        userId,
+      });
+    });
+
+    const { router } = renderRoute("/study-notes", {
+      ...contexts,
+      session: {
+        user: {
+          displayName: "Jordan Interleaved",
+          email: "jordan.interleaved@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Anchor prompt",
+      }),
+    );
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 2,
+        name: "Interleaved Recall",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Start Interleaved Recall" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Recall session",
+      }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall/session");
+    expect(
+      contexts.recallContext.getSnapshot()?.notes.map((note) => note.title),
+    ).toEqual(
+      expect.arrayContaining([
+        "Anchor prompt",
+        "Sibling prompt 1",
+        "Sibling prompt 2",
+        "Sibling prompt 3",
+      ]),
+    );
+    expect(contexts.recallContext.getSnapshot()?.notes).toHaveLength(4);
+    expect(screen.queryByText("Anchor expected answer.")).toBeNull();
+  });
+
   it("creates a sibling Study Note from Practice Repair on the same source", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-practice-repair-sibling";
