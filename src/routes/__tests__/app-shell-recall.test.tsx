@@ -1117,6 +1117,86 @@ describe("authenticated recall workspace", () => {
     expect(router.state.location.pathname).toBe("/recall/session");
   });
 
+  it("starts selected Study Note recall through the persistent recall service", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const studyNote = contexts.studyNotesContext.createStudyNote(testUser.id, {
+      expectedAnswer: "Persistent expected answer.",
+      prompt: "Persistent selected Study Note",
+      sourceBody: "Persistent source context.",
+      sourceTitle: "Persistent source",
+    });
+    const startedSession = {
+      attempts: [],
+      createdAt: "2026-05-15T12:00:00.000Z",
+      currentIndex: 0,
+      currentQuestionIndex: 0,
+      draftAnswer: "",
+      id: "persistent-start-session",
+      isAnswerRevealed: false,
+      mode: "FlashCard" as const,
+      notes: [
+        {
+          acronyms: [],
+          body: studyNote.expectedAnswer,
+          createdAt: studyNote.createdAt,
+          id: studyNote.id,
+          labelIds: [],
+          metaphors: [],
+          title: studyNote.prompt,
+          updatedAt: studyNote.updatedAt,
+        },
+      ],
+      questions: [
+        {
+          isAnswerRevealed: false,
+          noteId: studyNote.id,
+          noteSnapshot: {
+            acronyms: [],
+            body: studyNote.expectedAnswer,
+            createdAt: studyNote.createdAt,
+            id: studyNote.id,
+            labelIds: [],
+            metaphors: [],
+            title: studyNote.prompt,
+            updatedAt: studyNote.updatedAt,
+          },
+          score: null,
+          selfRating: null,
+          typedAnswer: "",
+        },
+      ],
+    };
+    const startFlashCardSession = vi.fn(async () => startedSession);
+    const persistentRecallContext = createPersistentRecallContext({
+      service: createPersistentRecallService({
+        startFlashCardSession,
+      }),
+    });
+
+    const { router } = renderRoute("/recall/select", {
+      ...contexts,
+      persistentRecallContext,
+      recallContext: persistentRecallContext.readonlyContext,
+      session: createSession(),
+    });
+
+    await screen.findByRole("heading", {
+      level: 3,
+      name: "Select Study Notes",
+    });
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /Persistent selected Study Note/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
+
+    await screen.findByRole("heading", { level: 3, name: "Recall session" });
+    expect(startFlashCardSession).toHaveBeenCalledWith({
+      mode: "FlashCard",
+      studyNoteIds: [studyNote.id],
+    });
+    expect(router.state.location.pathname).toBe("/recall/session");
+  });
+
   it("keeps incomplete Study Notes out of Recall selection and starts only completed selections", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const incompleteStudyNote = contexts.studyNotesContext.createStudyNote(

@@ -276,7 +276,7 @@ describe("app study notes context", () => {
     });
   });
 
-  it("creates another Study Note from an existing source and shares source edits", () => {
+  it("copies source material into a new Study Note-owned source", () => {
     const studyNotes = createAppStudyNotesContext({
       crypto: createDeterministicCrypto(),
       keyPrefix: "study-notes-shared-source-test",
@@ -290,6 +290,8 @@ describe("app study notes context", () => {
     const secondStudyNote = studyNotes.createStudyNoteFromSource("user-casey", {
       sourceNoteId: firstStudyNote.sourceNoteId,
     });
+    expect(secondStudyNote.sourceNoteId).not.toBe(firstStudyNote.sourceNoteId);
+
     studyNotes.updateStudyNote("user-casey", secondStudyNote.id, {
       acronyms: [{ description: "SPA cues spacing." }],
       expectedAnswer: "Use spacing for durable access.",
@@ -312,7 +314,7 @@ describe("app study notes context", () => {
           body: "Edited shared source context.",
           title: "Edited practice source",
         },
-        sourceNoteId: firstStudyNote.sourceNoteId,
+        sourceNoteId: secondStudyNote.sourceNoteId,
       },
       {
         acronyms: [],
@@ -320,15 +322,100 @@ describe("app study notes context", () => {
         metaphors: [],
         prompt: "Practice source",
         source: {
-          body: "Edited shared source context.",
-          title: "Edited practice source",
+          body: "Broad source about spacing and retrieval.",
+          title: "Practice source",
         },
         sourceNoteId: firstStudyNote.sourceNoteId,
       },
     ]);
   });
 
-  it("keeps source Note titles optional and derives untitled source display names from the oldest linked Study Note prompt", () => {
+  it("detaches legacy shared source material when one Study Note is edited", () => {
+    const storage = createMemoryStorage();
+    storage.setItem(
+      "study-notes-legacy-detach-test:records",
+      JSON.stringify([
+        {
+          acronyms: [],
+          createdAt: "2025-01-01T00:00:00.000Z",
+          expectedAnswer: "Answer one",
+          id: "study-one",
+          labelIds: [],
+          metaphors: [],
+          prompt: "Prompt one",
+          source: {
+            body: "Original shared source.",
+            id: "source-shared",
+            title: "Shared source",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+          sourceNoteId: "source-shared",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+          userId: "user-casey",
+        },
+        {
+          acronyms: [],
+          createdAt: "2025-01-01T00:00:01.000Z",
+          expectedAnswer: "Answer two",
+          id: "study-two",
+          labelIds: [],
+          metaphors: [],
+          prompt: "Prompt two",
+          source: {
+            body: "Original shared source.",
+            id: "source-shared",
+            title: "Shared source",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+          sourceNoteId: "source-shared",
+          updatedAt: "2025-01-01T00:00:01.000Z",
+          userId: "user-casey",
+        },
+      ]),
+    );
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-legacy-detach-test",
+      storage,
+    });
+
+    studyNotes.updateStudyNote("user-casey", "study-one", {
+      acronyms: [],
+      expectedAnswer: "Answer one",
+      labelIds: [],
+      metaphors: [],
+      prompt: "Prompt one",
+      sourceBody: "Edited source for one.",
+      sourceTitle: "Edited source",
+    });
+
+    const listedStudyNotes = listStudyNotesForUser(
+      studyNotes.getSnapshot(),
+      "user-casey",
+    );
+    expect(listedStudyNotes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "study-one",
+          source: expect.objectContaining({
+            body: "Edited source for one.",
+            title: "Edited source",
+          }),
+          sourceNoteId: "id-1",
+        }),
+        expect.objectContaining({
+          id: "study-two",
+          source: expect.objectContaining({
+            body: "Original shared source.",
+            title: "Shared source",
+          }),
+          sourceNoteId: "source-shared",
+        }),
+      ]),
+    );
+  });
+
+  it("keeps source Note titles optional and derives copied source display names from each owning Study Note prompt", () => {
     const studyNotes = createAppStudyNotesContext({
       crypto: createDeterministicCrypto(),
       keyPrefix: "study-notes-untitled-source-test",
@@ -389,7 +476,7 @@ describe("app study notes context", () => {
         expect.objectContaining({
           prompt: "Newer prompt",
           source: expect.objectContaining({
-            displayName: "Renamed oldest prompt",
+            displayName: "Newer prompt",
             title: "",
           }),
         }),
@@ -406,7 +493,7 @@ describe("app study notes context", () => {
     );
   });
 
-  it("deletes shared Study Notes without orphaning the last source Note", () => {
+  it("requires deleting each Study Note-owned source Note", () => {
     const studyNotes = createAppStudyNotesContext({
       crypto: createDeterministicCrypto(),
       keyPrefix: "study-notes-delete-test",
@@ -420,8 +507,18 @@ describe("app study notes context", () => {
       sourceNoteId: firstStudyNote.sourceNoteId,
     });
 
+    expect(() =>
+      studyNotes.deleteStudyNote("user-casey", secondStudyNote.id, {
+        deleteSource: false,
+      }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: "invalid_input",
+      } satisfies Pick<AppStudyNotesError, "code">),
+    );
+
     studyNotes.deleteStudyNote("user-casey", secondStudyNote.id, {
-      deleteSource: false,
+      deleteSource: true,
     });
 
     expect(

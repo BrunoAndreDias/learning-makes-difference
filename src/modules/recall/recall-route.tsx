@@ -53,6 +53,15 @@ function RecallRouteShell() {
       };
     }
 
+    const activeSession = persistentRecallContext.readonlyContext.getSnapshot();
+
+    if (activeSession?.userId === userId) {
+      setIsReady(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     setIsReady(false);
     void persistentRecallContext
       .refresh(userId)

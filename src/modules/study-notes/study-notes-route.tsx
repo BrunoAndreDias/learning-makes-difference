@@ -4,7 +4,9 @@ import {
   useRouteContext,
 } from "@tanstack/react-router";
 import {
+  type ChangeEvent,
   type FormEvent,
+  type ReactNode,
   useEffect,
   useMemo,
   useState,
@@ -12,18 +14,20 @@ import {
 } from "react";
 
 import { Button, ButtonLink } from "../../design-system/button";
-import { FloatingTextarea } from "../../design-system/floating-textarea";
-import { ListCard } from "../../design-system/list-card";
-import { PageHeader } from "../../design-system/page-header";
+import { defaultUserTimeZone } from "../access/session/session-contract";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
-import { FocusSessionStartControl } from "../focus";
 import type { AppLabel } from "../labels/label-management/labels";
 import "../notes/notes-workspace/notes-editor-route.css";
 import "../notes/notes-workspace/notes-form-foundation.css";
 import "../notes/notes-workspace/notes-foundation.css";
 import "../notes/notes-workspace/notes-responsive.css";
 import "../notes/notes-workspace/notes-toolbar.css";
-import { AppRecallError } from "../recall";
+import {
+  AppRecallError,
+  formatNextRecallTiming,
+  type RecallSchedule,
+  type RecallSelfRating,
+} from "../recall";
 import { getInterleavedRecallRecommendation } from "../recall/interleaved-recall";
 import "./study-notes.css";
 import {
@@ -35,6 +39,7 @@ import {
   formatStudyNoteDueLabel,
   formatStudyNoteLearningStateCompactLabel,
   formatStudyNotePracticeSignalLabel,
+  getStudyNoteReadiness,
   listStudyNotesForUser,
   type StudyNoteLearningState,
   toStudyNoteRecallHistories,
@@ -126,6 +131,244 @@ function areStudyNoteDraftsEqual(
   );
 }
 
+function StudyNotesTextField({
+  label,
+  maxLength,
+  onChange,
+  optional = false,
+  placeholder,
+  value,
+}: Readonly<{
+  label: string;
+  maxLength: number;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  optional?: boolean;
+  placeholder?: string;
+  value: string;
+}>) {
+  return (
+    <label className="study-notes-field">
+      <span className="study-notes-field__label">
+        {label}
+        {optional ? <span aria-hidden="true"> (optional)</span> : null}
+      </span>
+      <input
+        aria-label={label}
+        maxLength={maxLength}
+        onChange={onChange}
+        placeholder={placeholder ?? label}
+        value={value}
+      />
+      <span className="study-notes-field__count">
+        {value.length}/{maxLength}
+      </span>
+    </label>
+  );
+}
+
+function StudyNotesTextarea({
+  label,
+  maxLength,
+  onChange,
+  optional = false,
+  placeholder,
+  rows,
+  value,
+}: Readonly<{
+  label: string;
+  maxLength: number;
+  onChange: (event: ChangeEvent<HTMLTextAreaElement>) => void;
+  optional?: boolean;
+  placeholder?: string;
+  rows: number;
+  value: string;
+}>) {
+  return (
+    <label className="study-notes-field">
+      <span className="study-notes-field__label">
+        {label}
+        {optional ? <span aria-hidden="true"> (optional)</span> : null}
+      </span>
+      <textarea
+        aria-label={label}
+        maxLength={maxLength}
+        onChange={onChange}
+        placeholder={placeholder ?? label}
+        rows={rows}
+        value={value}
+      />
+      <span className="study-notes-field__count">
+        {value.length}/{maxLength}
+      </span>
+    </label>
+  );
+}
+
+function StudyNoteFact({
+  icon,
+  label,
+  value,
+  valueClassName,
+}: Readonly<{
+  icon: ReactNode;
+  label: string;
+  value: ReactNode;
+  valueClassName?: string;
+}>) {
+  return (
+    <div className="study-notes-fact">
+      <dt>
+        <span aria-hidden="true" className="study-notes-fact__icon">
+          {icon}
+        </span>
+        <span>{label}</span>
+      </dt>
+      <dd
+        className={["study-notes-fact__value", valueClassName]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M8 5v14l11-7-11-7Z" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="6" />
+      <path d="m16 16 4 4" />
+    </svg>
+  );
+}
+
+function SlidersIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M4 7h7" />
+      <path d="M15 7h5" />
+      <path d="M13 5v4" />
+      <path d="M4 17h5" />
+      <path d="M13 17h7" />
+      <path d="M11 15v4" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="m7 10 5 5 5-5" />
+    </svg>
+  );
+}
+
+function StudyNoteDocumentIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M6 3h9l3 3v15H6V3Z" />
+      <path d="M14 3v4h4" />
+      <path d="M9 11h6" />
+      <path d="M9 15h5" />
+    </svg>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="m5 19 4.5-1 9-9a2.1 2.1 0 0 0-3-3l-9 9L5 19Z" />
+      <path d="m14 7 3 3" />
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M8 8h10v12H8V8Z" />
+      <path d="M6 16H4V4h10v2" />
+    </svg>
+  );
+}
+
+function MoreVerticalIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M12 6h.01" />
+      <path d="M12 12h.01" />
+      <path d="M12 18h.01" />
+    </svg>
+  );
+}
+
+function CalendarCheckIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M7 3v4" />
+      <path d="M17 3v4" />
+      <path d="M4 8h16" />
+      <path d="M5 5h14v15H5V5Z" />
+      <path d="m8 14 2 2 5-5" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 8v5l3 2" />
+    </svg>
+  );
+}
+
+function WarningIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M12 4 3 20h18L12 4Z" />
+      <path d="M12 9v5" />
+      <path d="M12 17h.01" />
+    </svg>
+  );
+}
+
+function TrendIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="m4 16 5-5 4 4 7-8" />
+      <path d="M15 7h5v5" />
+    </svg>
+  );
+}
+
+function TagIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M4 5h9l7 7-7 7H4V5Z" />
+      <path d="M9 12h.01" />
+    </svg>
+  );
+}
+
 function setLabelIdSelection(
   labelIds: readonly string[],
   labelId: string,
@@ -145,49 +388,244 @@ function createSingleSupportDescriptionDraft(description: string) {
 
   return [{ description }];
 }
-const learningStateDateFormatter = new Intl.DateTimeFormat("en", {
-  dateStyle: "medium",
-  timeZone: "UTC",
-});
-
 const STUDY_NOTE_EDITOR_FORM_ID = "study-note-editor-form";
 const STUDY_NOTE_GUIDANCE_COPY = {
+  acronymPlaceholder: "Initials that cue the answer.",
   expectedAnswerPlaceholder:
     "Explain the reason, steps, limits, and one example or non-example.",
-  memoryAids:
-    "Optional. Add one only when it would make this answer easier to recall.",
+  metaphorPlaceholder: "Compare it to something familiar.",
   prompt:
     "Ask why, how, when it works, when it does not, or what a worked example shows.",
   promptPlaceholder:
     "Why does this work? How would I use it? What example proves it?",
-  referenceExplanation: "Worked examples belong here as source material.",
 } as const;
-
-function formatLastRecalledLabel(lastRecalledAt: string | null) {
-  if (lastRecalledAt === null) {
-    return null;
-  }
-
-  const recalledAt = new Date(lastRecalledAt);
-
-  if (Number.isNaN(recalledAt.getTime())) {
-    return null;
-  }
-
-  return `Last recalled ${learningStateDateFormatter.format(recalledAt)}`;
-}
 
 type StudyNoteLearningLabels = {
   compact: string;
   due: string | null;
-  lastRecalled: string | null;
   practice: string | null;
 };
 
-type StudyNoteListDescriptionLine = {
-  id: "due" | "last-recalled" | "practice";
-  text: string;
+type StudyNoteStatusKind = "attention" | "complete" | "neutral" | "practice";
+type StudyNoteRecallInsightKind =
+  | "incomplete"
+  | "new"
+  | "on-track"
+  | "practice";
+type StudyNoteRecallInsight = {
+  description: string;
+  kind: StudyNoteRecallInsightKind;
+  lastResult: string;
+  nextRecall: string;
+  statusLabel: string;
+  suggestedAction: string;
 };
+type StudyNoteEditorTarget =
+  | {
+      studyNoteId: string;
+      type: "study-note";
+    }
+  | {
+      type: "new";
+    };
+
+const selectedStudyNoteDateFormatter = new Intl.DateTimeFormat("en", {
+  dateStyle: "medium",
+  timeZone: "UTC",
+});
+
+function getStudyNoteStatusKind(
+  learningState: StudyNoteLearningState | null,
+): StudyNoteStatusKind {
+  if (learningState === null || learningState.latestScore === null) {
+    return "attention";
+  }
+
+  if (learningState.needsPractice) {
+    return "practice";
+  }
+
+  if (learningState.dueForRecall) {
+    return "complete";
+  }
+
+  return "neutral";
+}
+
+function formatScoreResultLabel(rating: RecallSelfRating | null) {
+  switch (rating) {
+    case "easy":
+      return "Easy (5/5)";
+    case "forgot":
+      return "Forgot (1/5)";
+    case "good":
+      return "Good (4/5)";
+    case "hard":
+      return "Hard (2/5)";
+    case null:
+      return "—";
+  }
+}
+
+function formatRelativeUpdatedLabel(timestamp: string) {
+  const updatedAt = new Date(timestamp).getTime();
+
+  if (Number.isNaN(updatedAt)) {
+    return "";
+  }
+
+  const elapsedMs = Date.now() - updatedAt;
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  if (elapsedMs < 60 * 1000) {
+    return "Just now";
+  }
+
+  if (elapsedMs < dayMs) {
+    return "Today";
+  }
+
+  const days = Math.max(1, Math.round(elapsedMs / dayMs));
+
+  if (days === 1) {
+    return "1 day ago";
+  }
+
+  if (days <= 6) {
+    return `${days} days ago`;
+  }
+
+  return selectedStudyNoteDateFormatter.format(new Date(timestamp));
+}
+
+function getStudyNoteLabelNames(
+  labels: readonly AppLabel[],
+  labelIds: readonly string[],
+) {
+  const attachedLabels = getAttachedLabels(labels, labelIds);
+
+  if (attachedLabels.length === 0) {
+    return ["General"];
+  }
+
+  return attachedLabels.map((label) => label.name);
+}
+
+function getSupportDescriptionValue(
+  supportDescriptions: readonly { description: string }[],
+) {
+  return supportDescriptions[0]?.description ?? "";
+}
+
+function formatSelectedNextRecall(input: {
+  now: string;
+  schedule: RecallSchedule | null;
+  userTimeZone: string;
+}) {
+  const timing = formatNextRecallTiming({
+    now: input.now,
+    schedule: input.schedule,
+    userTimeZone: input.userTimeZone,
+  });
+
+  if (timing === null) {
+    return "On schedule";
+  }
+
+  if (timing === "Recall today") {
+    return "Today";
+  }
+
+  if (timing === "Next recall tomorrow") {
+    return "Tomorrow";
+  }
+
+  return timing.replace(/^Next recall /, "");
+}
+
+function hasDraftReferenceContent(draft: UpdateStudyNoteInput) {
+  return (
+    draft.sourceTitle.trim().length > 0 || draft.sourceBody.trim().length > 0
+  );
+}
+
+function hasDraftMemoryAidContent(draft: UpdateStudyNoteInput) {
+  return [...draft.metaphors, ...draft.acronyms].some(
+    (supportDescription) => supportDescription.description.trim().length > 0,
+  );
+}
+
+function getDraftStudyNoteReadiness(draft: UpdateStudyNoteInput) {
+  return getStudyNoteReadiness({
+    expectedAnswer: draft.expectedAnswer,
+    prompt: draft.prompt,
+  });
+}
+
+function getStudyNoteRecallInsight(input: {
+  draft: UpdateStudyNoteInput;
+  learningState: StudyNoteLearningState | null;
+  nextRecall: string;
+}): StudyNoteRecallInsight {
+  const readiness = getDraftStudyNoteReadiness(input.draft);
+
+  if (!readiness.recallable) {
+    return {
+      description: "Complete the note to enable recall.",
+      kind: "incomplete",
+      lastResult: "—",
+      nextRecall: "—",
+      statusLabel: "New",
+      suggestedAction: "Add expected answer",
+    };
+  }
+
+  if (input.learningState === null) {
+    return {
+      description: "Ready for recall after saving.",
+      kind: "new",
+      lastResult: "—",
+      nextRecall: "After saving",
+      statusLabel: "New",
+      suggestedAction: "Save to enable recall",
+    };
+  }
+
+  if (input.learningState.latestScore === null) {
+    return {
+      description: "Not enough recall data yet.",
+      kind: "new",
+      lastResult: "—",
+      nextRecall: input.nextRecall,
+      statusLabel: "New",
+      suggestedAction: input.learningState.dueForRecall
+        ? "Review this note"
+        : "Review when due",
+    };
+  }
+
+  if (input.learningState.needsPractice) {
+    return {
+      description: "This note needs more attention.",
+      kind: "practice",
+      lastResult: formatScoreResultLabel(input.learningState.latestScore),
+      nextRecall: input.nextRecall,
+      statusLabel: "Needs practice",
+      suggestedAction: "Review this note",
+    };
+  }
+
+  return {
+    description: "You're recalling this well. Keep it up.",
+    kind: "on-track",
+    lastResult: formatScoreResultLabel(input.learningState.latestScore),
+    nextRecall: input.nextRecall,
+    statusLabel: "On track",
+    suggestedAction: input.learningState.dueForRecall
+      ? "Review this note"
+      : "Keep it up",
+  };
+}
 
 function getStudyNoteLearningLabels(
   learningState: StudyNoteLearningState,
@@ -195,21 +633,8 @@ function getStudyNoteLearningLabels(
   return {
     compact: formatStudyNoteLearningStateCompactLabel(learningState),
     due: formatStudyNoteDueLabel(learningState),
-    lastRecalled: formatLastRecalledLabel(learningState.lastRecalledAt),
     practice: formatStudyNotePracticeSignalLabel(learningState),
   };
-}
-
-function getStudyNoteListDescriptionLines(
-  learningLabels: StudyNoteLearningLabels | null,
-): StudyNoteListDescriptionLine[] {
-  const lines: StudyNoteListDescriptionLine[] = [
-    { id: "last-recalled", text: learningLabels?.lastRecalled ?? "" },
-    { id: "due", text: learningLabels?.due ?? "" },
-    { id: "practice", text: learningLabels?.practice ?? "" },
-  ];
-
-  return lines.filter((line) => line.text !== "");
 }
 
 function getAttachedLabels(
@@ -219,27 +644,6 @@ function getAttachedLabels(
   const attachedLabelIds = new Set(labelIds);
 
   return labels.filter((label) => attachedLabelIds.has(label.id));
-}
-
-function formatPromptList(prompts: readonly string[]) {
-  if (prompts.length <= 1) {
-    return prompts[0] ?? "";
-  }
-
-  const leadingPrompts = prompts.slice(0, -1).join(", ");
-  const finalPrompt = prompts[prompts.length - 1];
-
-  return `${leadingPrompts} and ${finalPrompt}`;
-}
-
-function formatSharedSourceEditMessage(prompts: readonly string[]) {
-  if (prompts.length <= 1) {
-    return null;
-  }
-
-  return `Editing this explanation updates ${prompts.length} sibling Study Notes: ${formatPromptList(
-    prompts,
-  )}.`;
 }
 
 function filterStudyNotesBySelectedLabel(
@@ -289,6 +693,9 @@ function StudyNotesWorkspace() {
     "/_protected/study-notes",
   );
   const userId = sessionSnapshot.user?.id ?? null;
+  const now = new Date().toISOString();
+  const userTimeZone =
+    sessionSnapshot.user?.userTimeZone ?? defaultUserTimeZone;
   const studyNotesStore:
     | Pick<AppStudyNotesContext, "getSnapshot" | "subscribe">
     | Pick<AppPersistentStudyNotesContext, "getSnapshot" | "subscribe"> =
@@ -314,15 +721,41 @@ function StudyNotesWorkspace() {
     focusContext.getSnapshot,
   );
   const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedLabelId, setSelectedLabelId] = useState("");
   const allStudyNotes = useMemo(
     () => listStudyNotesForUser(studyNotesSnapshot, userId),
     [studyNotesSnapshot, userId],
   );
-  const studyNotes = useMemo(
+  const labelFilteredStudyNotes = useMemo(
     () => filterStudyNotesBySelectedLabel(allStudyNotes, selectedLabelId),
     [allStudyNotes, selectedLabelId],
   );
+  const studyNotes = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
+
+    if (normalizedQuery.length === 0) {
+      return labelFilteredStudyNotes;
+    }
+
+    return labelFilteredStudyNotes.filter((studyNote) => {
+      const labelNames = getStudyNoteLabelNames(
+        availableLabels,
+        studyNote.labelIds,
+      ).join(" ");
+      const searchableText = [
+        studyNote.prompt,
+        studyNote.expectedAnswer,
+        studyNote.source.title,
+        studyNote.source.body,
+        labelNames,
+      ]
+        .join(" ")
+        .toLocaleLowerCase();
+
+      return searchableText.includes(normalizedQuery);
+    });
+  }, [availableLabels, labelFilteredStudyNotes, searchQuery]);
   const recallHistories = useMemo(
     () =>
       userId === null || recallResultsSnapshot.length === 0
@@ -336,11 +769,21 @@ function StudyNotesWorkspace() {
     () =>
       deriveStudyNoteLearningStates({
         histories: recallHistories,
-        now: new Date().toISOString(),
+        now,
         recallSchedules: recallSchedulesSnapshot,
         studyNotes,
       }),
-    [recallHistories, recallSchedulesSnapshot, studyNotes],
+    [now, recallHistories, recallSchedulesSnapshot, studyNotes],
+  );
+  const recallScheduleByStudyNoteId = useMemo(
+    () =>
+      new Map(
+        recallSchedulesSnapshot.map((recallSchedule) => [
+          recallSchedule.studyNoteId,
+          recallSchedule,
+        ]),
+      ),
+    [recallSchedulesSnapshot],
   );
   const learningStateByStudyNoteId = useMemo(
     () =>
@@ -355,10 +798,14 @@ function StudyNotesWorkspace() {
   const [selectedStudyNoteId, setSelectedStudyNoteId] = useState<string | null>(
     studyNotes[0]?.id ?? null,
   );
-  const selectedStudyNote =
-    studyNotes.find((studyNote) => studyNote.id === selectedStudyNoteId) ??
-    studyNotes[0] ??
-    null;
+  const [isCreatingStudyNote, setCreatingStudyNote] = useState(false);
+  const selectedStudyNote = isCreatingStudyNote
+    ? null
+    : (studyNotes.find((studyNote) => studyNote.id === selectedStudyNoteId) ??
+      studyNotes[0] ??
+      null);
+  const selectedDisclosureKey =
+    selectedStudyNote?.id ?? (isCreatingStudyNote ? "new" : "empty");
   const selectedSourceStudyNotes =
     selectedStudyNote === null
       ? []
@@ -366,13 +813,14 @@ function StudyNotesWorkspace() {
           (studyNote) =>
             studyNote.sourceNoteId === selectedStudyNote.sourceNoteId,
         );
-  const sharedSourceEditMessage = formatSharedSourceEditMessage(
-    selectedSourceStudyNotes.map((studyNote) => studyNote.prompt),
-  );
   const selectedLearningState =
     selectedStudyNote === null
       ? null
       : (learningStateByStudyNoteId.get(selectedStudyNote.id) ?? null);
+  const selectedRecallSchedule =
+    selectedStudyNote === null
+      ? null
+      : (recallScheduleByStudyNoteId.get(selectedStudyNote.id) ?? null);
   const practiceRepair = useMemo(
     () => getStudyNotePracticeRepair(selectedLearningState),
     [selectedLearningState],
@@ -386,18 +834,30 @@ function StudyNotesWorkspace() {
       }),
     [allStudyNotes, recallHistories, selectedStudyNote],
   );
-  const activeFocusSession =
-    userId === null ? null : focusContext.getActiveSession({ userId });
   const [draft, setDraft] = useState<UpdateStudyNoteInput>(() =>
     createDraftFromStudyNote(selectedStudyNote),
   );
+  const selectedLabels = getAttachedLabels(availableLabels, draft.labelIds);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [isSaving, setSaving] = useState(false);
+  const [pendingEditorTarget, setPendingEditorTarget] =
+    useState<StudyNoteEditorTarget | null>(null);
+  const [isNewDiscardDialogOpen, setNewDiscardDialogOpen] = useState(false);
+  const [isReferenceOpenOverride, setReferenceOpenOverride] = useState<
+    boolean | null
+  >(null);
+  const [isMemoryAidsOpenOverride, setMemoryAidsOpenOverride] = useState<
+    boolean | null
+  >(null);
+  const [isLabelManagerOpen, setLabelManagerOpen] = useState(false);
   const storeMutation = persistentStudyNotesContext ?? studyNotesContext;
   const hasDraftChanges = !areStudyNoteDraftsEqual(
     draft,
     createDraftFromStudyNote(selectedStudyNote),
   );
+  const isSaveBarVisible =
+    hasDraftChanges || isSaving || pendingEditorTarget !== null;
 
   useEffect(() => {
     if (persistentStudyNotesContext === undefined) {
@@ -441,6 +901,10 @@ function StudyNotesWorkspace() {
   }, [availableLabels, selectedLabelId]);
 
   useEffect(() => {
+    if (isCreatingStudyNote) {
+      return;
+    }
+
     if (
       selectedStudyNoteId !== null &&
       studyNotes.some((studyNote) => studyNote.id === selectedStudyNoteId)
@@ -449,27 +913,127 @@ function StudyNotesWorkspace() {
     }
 
     setSelectedStudyNoteId(studyNotes[0]?.id ?? null);
-  }, [selectedStudyNoteId, studyNotes]);
+  }, [isCreatingStudyNote, selectedStudyNoteId, studyNotes]);
 
   useEffect(() => {
-    setDraft(createDraftFromStudyNote(selectedStudyNote));
+    const nextDraft = createDraftFromStudyNote(selectedStudyNote);
+
+    setDraft(nextDraft);
+    setPendingEditorTarget(null);
   }, [selectedStudyNote]);
 
-  async function handleNewStudyNote() {
+  useEffect(() => {
+    if (selectedDisclosureKey.length === 0) {
+      return;
+    }
+
+    setReferenceOpenOverride(null);
+    setMemoryAidsOpenOverride(null);
+    setLabelManagerOpen(false);
+  }, [selectedDisclosureKey]);
+
+  useEffect(() => {
+    if (saveStatus === null || hasDraftChanges || isSaving) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setSaveStatus(null), 1800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [hasDraftChanges, isSaving, saveStatus]);
+
+  function updateDraft(
+    updater: (current: UpdateStudyNoteInput) => UpdateStudyNoteInput,
+  ) {
+    setDraft(updater);
+    setErrorMessage(null);
+    setSaveStatus(null);
+    setNewDiscardDialogOpen(false);
+  }
+
+  function applyEditorTarget(target: StudyNoteEditorTarget) {
+    setErrorMessage(null);
+    setSaveStatus(null);
+    setPendingEditorTarget(null);
+    setNewDiscardDialogOpen(false);
+
+    if (target.type === "new") {
+      setDraft(createBlankDraft());
+      setCreatingStudyNote(true);
+      return;
+    }
+
+    setCreatingStudyNote(false);
+    setSelectedStudyNoteId(target.studyNoteId);
+  }
+
+  function requestEditorTarget(target: StudyNoteEditorTarget) {
+    if (
+      target.type === "study-note" &&
+      !isCreatingStudyNote &&
+      target.studyNoteId === selectedStudyNote?.id
+    ) {
+      return;
+    }
+
+    if (hasDraftChanges) {
+      setErrorMessage(null);
+      setSaveStatus(null);
+      setNewDiscardDialogOpen(false);
+      setPendingEditorTarget(target);
+      return;
+    }
+
+    applyEditorTarget(target);
+  }
+
+  function handleNewStudyNote() {
+    requestEditorTarget({ type: "new" });
+  }
+
+  function discardDraft() {
     setErrorMessage(null);
     setSaveStatus(null);
 
-    try {
-      const createdStudyNote = await storeMutation.createStudyNote(userId, {
-        expectedAnswer: "",
-        prompt: "New Study Note",
-        sourceBody: "",
-        sourceTitle: "",
-      });
-      setSelectedStudyNoteId(createdStudyNote.id);
-    } catch (error) {
-      handleError(error);
+    if (pendingEditorTarget !== null) {
+      applyEditorTarget(pendingEditorTarget);
+      return;
     }
+
+    if (selectedStudyNote === null && hasDraftChanges) {
+      setNewDiscardDialogOpen(true);
+      return;
+    }
+
+    setPendingEditorTarget(null);
+
+    if (selectedStudyNote === null) {
+      abandonNewDraft();
+      return;
+    }
+
+    const selectedDraft = createDraftFromStudyNote(selectedStudyNote);
+
+    setDraft(selectedDraft);
+  }
+
+  function abandonNewDraft() {
+    setErrorMessage(null);
+    setSaveStatus(null);
+    setPendingEditorTarget(null);
+    setNewDiscardDialogOpen(false);
+
+    if (selectedStudyNote === null) {
+      setCreatingStudyNote(false);
+      setDraft(createDraftFromStudyNote(selectedStudyNote));
+      return;
+    }
+  }
+
+  function stayOnCurrentDraft() {
+    setErrorMessage(null);
+    setPendingEditorTarget(null);
+    setNewDiscardDialogOpen(false);
   }
 
   async function handleDeleteStudyNote() {
@@ -495,6 +1059,7 @@ function StudyNotesWorkspace() {
       await storeMutation.deleteStudyNote(userId, selectedStudyNote.id, {
         deleteSource: !hasSiblingStudyNotes,
       });
+      setCreatingStudyNote(false);
       setSelectedStudyNoteId(
         studyNotes.find((studyNote) => studyNote.id !== selectedStudyNote.id)
           ?.id ?? null,
@@ -519,9 +1084,50 @@ function StudyNotesWorkspace() {
           sourceNoteId: selectedStudyNote.sourceNoteId,
         },
       );
+      setCreatingStudyNote(false);
       setSelectedStudyNoteId(createdStudyNote.id);
     } catch (error) {
       handleError(error);
+    }
+  }
+
+  async function handleStartRecallSession() {
+    if (userId === null) {
+      return;
+    }
+
+    const recallableStudyNoteIds = studyNotes
+      .filter((studyNote) => {
+        const learningState = learningStateByStudyNoteId.get(studyNote.id);
+
+        return (
+          getStudyNoteReadiness(studyNote).dueForRecallEligible &&
+          learningState?.dueForRecall === true
+        );
+      })
+      .map((studyNote) => studyNote.id);
+
+    if (recallableStudyNoteIds.length === 0) {
+      await navigate({ to: "/recall" });
+      return;
+    }
+
+    setErrorMessage(null);
+    setSaveStatus(null);
+
+    try {
+      await startFlashCardRecallForStudyNotes({
+        studyNoteIds: recallableStudyNoteIds,
+        userId,
+      });
+      await navigate({ to: "/recall/session" });
+    } catch (error) {
+      if (error instanceof AppRecallError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
     }
   }
 
@@ -570,13 +1176,14 @@ function StudyNotesWorkspace() {
     });
   }
 
-  async function saveDraft() {
+  async function saveDraft(): Promise<AppStudyNote | null> {
     if (!hasDraftChanges) {
-      return;
+      return selectedStudyNote;
     }
 
     setErrorMessage(null);
     setSaveStatus(null);
+    setSaving(true);
 
     try {
       let savedStudyNote: AppStudyNote;
@@ -594,6 +1201,7 @@ function StudyNotesWorkspace() {
           draft,
         );
         setSelectedStudyNoteId(updatedStudyNote.id);
+        setCreatingStudyNote(false);
         savedStudyNote = updatedStudyNote;
       } else {
         savedStudyNote = await storeMutation.updateStudyNote(
@@ -604,9 +1212,13 @@ function StudyNotesWorkspace() {
       }
 
       await captureFocusStudyNoteActivity(savedStudyNote);
-      setSaveStatus("Saved");
+      setSaveStatus("Saved just now");
+      return savedStudyNote;
     } catch (error) {
       handleError(error);
+      return null;
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -614,6 +1226,22 @@ function StudyNotesWorkspace() {
     event.preventDefault();
 
     await saveDraft();
+  }
+
+  async function saveDraftAndApplyPendingTarget() {
+    if (pendingEditorTarget === null) {
+      await saveDraft();
+      return;
+    }
+
+    const target = pendingEditorTarget;
+    const savedStudyNote = await saveDraft();
+
+    if (savedStudyNote === null) {
+      return;
+    }
+
+    applyEditorTarget(target);
   }
 
   async function captureFocusStudyNoteActivity(studyNote: AppStudyNote) {
@@ -653,88 +1281,125 @@ function StudyNotesWorkspace() {
     field: "acronyms" | "metaphors",
     description: string,
   ) {
-    setDraft((current) => ({
+    updateDraft((current) => ({
       ...current,
       [field]: createSingleSupportDescriptionDraft(description),
     }));
   }
 
+  const selectedNextRecall = formatSelectedNextRecall({
+    now,
+    schedule: selectedRecallSchedule,
+    userTimeZone,
+  });
+  const selectedRecallInsight = getStudyNoteRecallInsight({
+    draft,
+    learningState: selectedLearningState,
+    nextRecall: selectedNextRecall,
+  });
+  const referenceHasContent = hasDraftReferenceContent(draft);
+  const referenceDisclosureDefaultOpen = referenceHasContent;
+  const isReferenceOpen =
+    isReferenceOpenOverride ?? referenceDisclosureDefaultOpen;
+  const memoryAidsHasContent = hasDraftMemoryAidContent(draft);
+  const isMemoryAidsOpen = isMemoryAidsOpenOverride ?? memoryAidsHasContent;
+  const saveBarStatusText = isSaving
+    ? "Saving changes..."
+    : pendingEditorTarget === null
+      ? (saveStatus ?? "You have unsaved changes.")
+      : pendingEditorTarget.type === "new"
+        ? "Save or discard changes before starting a new Study Note"
+        : "Save or discard changes before switching Study Notes";
+  const saveBarPrimaryAction =
+    pendingEditorTarget === null
+      ? "Save changes"
+      : pendingEditorTarget.type === "new"
+        ? "Save and start new"
+        : "Save and switch";
+  const saveBarDiscardAction =
+    pendingEditorTarget === null
+      ? "Discard changes"
+      : pendingEditorTarget.type === "new"
+        ? "Discard and start new"
+        : "Discard and switch";
+  const visibleSelectedLabels =
+    selectedLabels.length === 0
+      ? [{ id: "general", name: "General" }]
+      : selectedLabels;
+
   return (
     <section className="notes-workspace study-notes-workspace">
-      <PageHeader
-        actions={
-          <FocusSessionStartControl
-            activeFocusSession={activeFocusSession}
-            focus={focusContext}
-            persistentFocus={persistentFocusContext}
-            userId={userId}
-          />
-        }
-        actionsClassName="notes-workspace__quick-actions"
-        className="notes-workspace__page-header study-notes-workspace__page-header"
-        description="Practice targets with reference explanations underneath."
-        headingLevel={1}
-        title="Study Notes"
-      />
+      <header className="study-notes-hero">
+        <div className="study-notes-hero__copy">
+          <h1 className="page-header__title">Study Notes</h1>
+          <p className="page-header__description">
+            Your study notes and their recall schedules. Factual recall timing
+            is tracked automatically.
+          </p>
+        </div>
+        <div className="study-notes-hero__actions">
+          <Button
+            className="study-notes-start-recall"
+            onClick={() => void handleStartRecallSession()}
+            type="button"
+            variant="primary"
+          >
+            <PlayIcon />
+            <span>Start Recall Session</span>
+          </Button>
+          <Button
+            aria-label="New Study Note"
+            className="study-notes-new-note"
+            onClick={handleNewStudyNote}
+            type="button"
+            variant="secondary"
+          >
+            <PlusIcon />
+            <span>New Study Note</span>
+          </Button>
+        </div>
+      </header>
 
-      <div className="notes-layout study-notes-layout">
+      <div
+        className="notes-layout study-notes-layout"
+        data-save-bar-visible={isSaveBarVisible ? "true" : "false"}
+      >
         <aside aria-label="Study Notes catalog" className="notes-list-panel">
-          <div className="notes-list-panel__header">
-            <h2 className="study-notes-list-heading">
-              <span>Study Notes</span>
-              <span className="tag study-notes-list-heading__count">
-                {studyNotes.length}
-              </span>
-            </h2>
-            <Button
-              aria-label="New Study Note"
-              className="study-notes-list-new"
-              onClick={() => void handleNewStudyNote()}
-              size="compact"
-              type="button"
-            >
-              New
-            </Button>
-          </div>
-          <fieldset className="study-notes-list-actions">
-            <legend className="sr-only">Study Note actions</legend>
-            <Button
-              disabled={!hasDraftChanges}
-              onClick={() => void saveDraft()}
-              size="compact"
-              type="button"
-              variant="primary"
-            >
-              Save
-            </Button>
-            <Button
-              aria-label="Delete Study Note"
-              disabled={selectedStudyNote === null}
-              onClick={() => void handleDeleteStudyNote()}
-              size="compact"
-              type="button"
-              variant="danger"
-            >
-              Delete
-            </Button>
-          </fieldset>
-          <label className="notes-form__field study-notes-filter">
-            <span>Filter by label</span>
-            <span className="study-notes-filter__select-shell">
+          <div className="study-notes-catalog-tools">
+            <label className="study-notes-search">
+              <span className="sr-only">Search notes</span>
+              <SearchIcon />
+              <input
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search notes"
+                type="search"
+                value={searchQuery}
+              />
+            </label>
+            <label className="study-notes-filter">
+              <span className="sr-only">Filter by label</span>
+              <SlidersIcon />
               <select
                 aria-label="Filter Study Notes by label"
                 onChange={(event) => setSelectedLabelId(event.target.value)}
                 value={selectedLabelId}
               >
-                <option value="">All</option>
+                <option value="">All labels</option>
                 {availableLabels.map((label) => (
                   <option key={label.id} value={label.id}>
                     {label.name}
                   </option>
                 ))}
               </select>
-            </span>
-          </label>
+            </label>
+          </div>
+          <div className="study-notes-catalog-meta">
+            <span>{studyNotes.length} notes</span>
+            <button className="study-notes-sort" type="button">
+              Recently updated
+              <ChevronDownIcon />
+            </button>
+          </div>
           <nav aria-label="Study Notes list" className="notes-list">
             {studyNotes.length === 0 ? (
               <p className="muted notes-list__empty">
@@ -750,29 +1415,67 @@ function StudyNotesWorkspace() {
                     learningState === undefined
                       ? null
                       : getStudyNoteLearningLabels(learningState);
-                  const descriptionLines =
-                    getStudyNoteListDescriptionLines(learningLabels);
+                  const labelNames = getStudyNoteLabelNames(
+                    availableLabels,
+                    studyNote.labelIds,
+                  );
+                  const schedule =
+                    recallScheduleByStudyNoteId.get(studyNote.id) ?? null;
+                  const timingLabel = formatNextRecallTiming({
+                    now,
+                    schedule,
+                    userTimeZone,
+                  });
+                  const rowStatus =
+                    learningLabels?.practice ??
+                    (learningLabels?.due
+                      ? timingLabel
+                      : learningLabels?.compact) ??
+                    "Study Note";
+                  const statusKind = getStudyNoteStatusKind(
+                    learningState ?? null,
+                  );
 
                   return (
                     <li key={studyNote.id}>
-                      <ListCard
+                      <button
                         aria-label={studyNote.prompt}
                         aria-current={
                           studyNote.id === selectedStudyNote?.id
                             ? "page"
                             : undefined
                         }
-                        chip={learningLabels?.compact ?? "Study Note"}
-                        description={descriptionLines.map((line) => (
-                          <span key={line.id}>{line.text}</span>
-                        ))}
-                        onClick={() => {
-                          setSelectedStudyNoteId(studyNote.id);
-                          setSaveStatus(null);
-                        }}
-                        selected={studyNote.id === selectedStudyNote?.id}
-                        title={studyNote.prompt}
-                      />
+                        className="study-note-row"
+                        data-selected={
+                          studyNote.id === selectedStudyNote?.id
+                            ? "true"
+                            : undefined
+                        }
+                        data-status-kind={statusKind}
+                        onClick={() =>
+                          requestEditorTarget({
+                            studyNoteId: studyNote.id,
+                            type: "study-note",
+                          })
+                        }
+                        type="button"
+                      >
+                        <span className="study-note-row__icon">
+                          <StudyNoteDocumentIcon />
+                        </span>
+                        <span className="study-note-row__content">
+                          <strong>{studyNote.prompt}</strong>
+                          <span>{labelNames.slice(0, 2).join(" · ")}</span>
+                          {rowStatus === null ? null : (
+                            <span className="study-note-row__status">
+                              {rowStatus}
+                            </span>
+                          )}
+                        </span>
+                        <span className="study-note-row__updated">
+                          {formatRelativeUpdatedLabel(studyNote.updatedAt)}
+                        </span>
+                      </button>
                     </li>
                   );
                 })}
@@ -783,47 +1486,195 @@ function StudyNotesWorkspace() {
 
         <form
           aria-label="Study Note editor surface"
+          aria-busy={isSaving ? "true" : undefined}
           className="notes-editor study-notes-editor"
+          data-save-bar-visible={isSaveBarVisible ? "true" : "false"}
           id={STUDY_NOTE_EDITOR_FORM_ID}
           onSubmit={(event) => void handleSubmit(event)}
         >
           <fieldset className="notes-editor__study-surface">
             <legend className="sr-only">Study Note</legend>
-            <div className="notes-editor__header">
-              <div className="notes-editor__title-stack">
-                <label className="notes-title-editor">
-                  <span className="sr-only">Prompt</span>
-                  <input
-                    aria-label="Prompt"
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        prompt: event.target.value,
-                      }))
-                    }
-                    placeholder={STUDY_NOTE_GUIDANCE_COPY.promptPlaceholder}
-                    value={draft.prompt}
-                  />
-                </label>
-                <p className="muted study-notes-editor__guidance">
-                  {STUDY_NOTE_GUIDANCE_COPY.prompt}
-                </p>
+            <div className="study-notes-editor__masthead">
+              <div className="study-notes-editor__title">
+                <span className="study-notes-editor__title-icon">
+                  <StudyNoteDocumentIcon />
+                </span>
+                <h2>{draft.prompt.trim() || "New Study Note"}</h2>
+              </div>
+              <div className="study-notes-editor__toolbar">
+                <Button
+                  aria-label="Edit Study Note"
+                  iconOnly
+                  size="compact"
+                  type="button"
+                >
+                  <EditIcon />
+                </Button>
+                <Button
+                  aria-label="Add Study Note from this explanation"
+                  disabled={selectedStudyNote === null}
+                  iconOnly
+                  onClick={() => void handleCreateSiblingStudyNote()}
+                  size="compact"
+                  type="button"
+                >
+                  <CopyIcon />
+                </Button>
+                <Button
+                  aria-label="Delete Study Note"
+                  disabled={selectedStudyNote === null}
+                  iconOnly
+                  onClick={() => void handleDeleteStudyNote()}
+                  size="compact"
+                  type="button"
+                  variant="danger"
+                >
+                  <MoreVerticalIcon />
+                  <span className="sr-only">Delete</span>
+                </Button>
               </div>
             </div>
 
+            <div className="study-notes-editor__label-row">
+              <div className="study-notes-editor__chips">
+                {visibleSelectedLabels.map((label) => (
+                  <span className="study-notes-chip" key={label.id}>
+                    {label.name}
+                  </span>
+                ))}
+              </div>
+              <Button
+                aria-expanded={isLabelManagerOpen}
+                className="study-notes-label-manager-toggle"
+                onClick={() => setLabelManagerOpen((value) => !value)}
+                size="compact"
+                type="button"
+                variant="secondary"
+              >
+                <TagIcon />
+                <span>Manage labels</span>
+              </Button>
+            </div>
+
+            <section
+              aria-label="Study Note labels"
+              className="study-notes-label-manager"
+              data-open={isLabelManagerOpen ? "true" : "false"}
+            >
+              {availableLabels.length === 0 ? (
+                isLabelManagerOpen ? (
+                  <p className="muted">No Labels yet.</p>
+                ) : null
+              ) : (
+                <div className="study-notes-labels">
+                  {availableLabels.map((label) => (
+                    <label key={label.id} className="study-notes-label">
+                      <input
+                        checked={draft.labelIds.includes(label.id)}
+                        onChange={(event) =>
+                          updateDraft((current) => ({
+                            ...current,
+                            labelIds: setLabelIdSelection(
+                              current.labelIds,
+                              label.id,
+                              event.target.checked,
+                            ),
+                          }))
+                        }
+                        tabIndex={isLabelManagerOpen ? undefined : -1}
+                        type="checkbox"
+                      />
+                      <span>{label.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </section>
+
             <div className="study-notes-editor__fields">
-              <FloatingTextarea
-                label="Expected answer"
+              <StudyNotesTextField
+                label="Prompt"
+                maxLength={500}
                 onChange={(event) =>
-                  setDraft((current) => ({
+                  updateDraft((current) => ({
+                    ...current,
+                    prompt: event.target.value,
+                  }))
+                }
+                placeholder={STUDY_NOTE_GUIDANCE_COPY.promptPlaceholder}
+                value={draft.prompt}
+              />
+
+              <StudyNotesTextarea
+                label="Expected answer"
+                maxLength={1000}
+                onChange={(event) =>
+                  updateDraft((current) => ({
                     ...current,
                     expectedAnswer: event.target.value,
                   }))
                 }
                 placeholder={STUDY_NOTE_GUIDANCE_COPY.expectedAnswerPlaceholder}
-                rows={9}
+                rows={4}
                 value={draft.expectedAnswer}
               />
+
+              <section
+                aria-label="Memory aids"
+                className="study-notes-editor__memory-aids study-notes-editor__info-section"
+              >
+                <details
+                  className="study-notes-editor__disclosure"
+                  key={`memory-aids-${selectedDisclosureKey}`}
+                  onToggle={(event) =>
+                    setMemoryAidsOpenOverride(event.currentTarget.open)
+                  }
+                  open={isMemoryAidsOpen}
+                >
+                  <summary className="study-notes-editor__disclosure-summary">
+                    <span>
+                      <span className="study-notes-editor__group-label">
+                        Memory aids
+                      </span>
+                      <span className="study-notes-editor__summary-copy">
+                        {memoryAidsHasContent
+                          ? "Support content available"
+                          : "Optional recall support"}
+                      </span>
+                    </span>
+                    <ChevronDownIcon />
+                  </summary>
+                  <div className="study-notes-editor__disclosure-body">
+                    <StudyNotesTextarea
+                      label="Metaphor"
+                      maxLength={500}
+                      onChange={(event) => {
+                        updateDraftSupportDescription(
+                          "metaphors",
+                          event.target.value,
+                        );
+                      }}
+                      optional
+                      placeholder={STUDY_NOTE_GUIDANCE_COPY.metaphorPlaceholder}
+                      rows={2}
+                      value={getSupportDescriptionValue(draft.metaphors)}
+                    />
+                    <StudyNotesTextField
+                      label="Acronym"
+                      maxLength={200}
+                      onChange={(event) => {
+                        updateDraftSupportDescription(
+                          "acronyms",
+                          event.target.value,
+                        );
+                      }}
+                      optional
+                      placeholder={STUDY_NOTE_GUIDANCE_COPY.acronymPlaceholder}
+                      value={getSupportDescriptionValue(draft.acronyms)}
+                    />
+                  </div>
+                </details>
+              </section>
 
               {practiceRepair === null ? null : (
                 <section
@@ -831,17 +1682,33 @@ function StudyNotesWorkspace() {
                   className="study-notes-practice-repair"
                 >
                   <div className="study-notes-practice-repair__header">
-                    <p className="section-label">{practiceRepair.title}</p>
-                    <h2 className="study-notes-practice-repair__title">
-                      {practiceRepair.title}
-                    </h2>
+                    <div className="study-notes-practice-repair__title-row">
+                      <h2 className="study-notes-practice-repair__title">
+                        {practiceRepair.title}
+                      </h2>
+                      <span className="study-notes-practice-repair__signal">
+                        Needs repair
+                      </span>
+                    </div>
                     <p className="muted study-notes-editor__guidance">
                       {practiceRepair.summary}
                     </p>
                   </div>
-                  <ul className="study-notes-practice-repair__list">
+                  <ul
+                    aria-label="Practice Repair checklist"
+                    className="study-notes-practice-repair__list"
+                  >
                     {practiceRepair.suggestions.map((suggestion) => (
-                      <li key={suggestion.id}>{suggestion.text}</li>
+                      <li
+                        className="study-notes-practice-repair__item"
+                        key={suggestion.id}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="study-notes-practice-repair__marker"
+                        />
+                        <span>{suggestion.text}</span>
+                      </li>
                     ))}
                   </ul>
                   <div className="study-notes-practice-repair__actions">
@@ -851,10 +1718,12 @@ function StudyNotesWorkspace() {
                       type="button"
                       variant="secondary"
                     >
-                      Create sibling Study Note
+                      <CopyIcon />
+                      <span>Create sibling Study Note</span>
                     </Button>
                     <ButtonLink to="/recall" size="compact" variant="secondary">
-                      {practiceRepair.recallTodayActionLabel}
+                      <CalendarCheckIcon />
+                      <span>{practiceRepair.recallTodayActionLabel}</span>
                     </ButtonLink>
                   </div>
                 </section>
@@ -890,126 +1759,200 @@ function StudyNotesWorkspace() {
               )}
 
               <section
-                aria-label="Study Note labels"
-                className="study-notes-editor__label-section"
+                aria-label="Recall insights"
+                className="study-notes-summary-card study-notes-recall-insights"
+                data-insight-kind={selectedRecallInsight.kind}
               >
-                <p className="study-notes-editor__group-label">Labels</p>
-                {availableLabels.length === 0 ? (
-                  <p className="muted">No Labels yet.</p>
-                ) : (
-                  <div className="study-notes-labels">
-                    {availableLabels.map((label) => (
-                      <label key={label.id} className="study-notes-label">
-                        <input
-                          checked={draft.labelIds.includes(label.id)}
-                          onChange={(event) =>
-                            setDraft((current) => ({
-                              ...current,
-                              labelIds: setLabelIdSelection(
-                                current.labelIds,
-                                label.id,
-                                event.target.checked,
-                              ),
-                            }))
-                          }
-                          type="checkbox"
-                        />
-                        <span>{label.name}</span>
-                      </label>
-                    ))}
+                <div className="study-notes-summary-card__header">
+                  <span className="study-notes-summary-card__icon">
+                    <TrendIcon />
+                  </span>
+                  <div>
+                    <h3>{selectedRecallInsight.statusLabel}</h3>
+                    <p>{selectedRecallInsight.description}</p>
                   </div>
-                )}
-              </section>
-
-              <section
-                aria-label="Memory aid support descriptions"
-                className="study-notes-editor__memory-aids"
-              >
-                <div>
-                  <p className="section-label">Memory aids</p>
-                  <p className="muted study-notes-editor__guidance">
-                    {STUDY_NOTE_GUIDANCE_COPY.memoryAids}
-                  </p>
                 </div>
-                <FloatingTextarea
-                  label="Metaphor"
-                  onChange={(event) => {
-                    updateDraftSupportDescription(
-                      "metaphors",
-                      event.target.value,
-                    );
-                  }}
-                  rows={3}
-                  value={draft.metaphors[0]?.description ?? ""}
-                />
-                <FloatingTextarea
-                  label="Acronym"
-                  onChange={(event) => {
-                    updateDraftSupportDescription(
-                      "acronyms",
-                      event.target.value,
-                    );
-                  }}
-                  rows={3}
-                  value={draft.acronyms[0]?.description ?? ""}
-                />
+                <dl className="study-notes-summary-card__facts">
+                  <StudyNoteFact
+                    icon={<ClockIcon />}
+                    label="Next recall"
+                    value={selectedRecallInsight.nextRecall}
+                  />
+                  <StudyNoteFact
+                    icon={<CalendarCheckIcon />}
+                    label="Last result"
+                    value={selectedRecallInsight.lastResult}
+                  />
+                  <StudyNoteFact
+                    icon={<StudyNoteDocumentIcon />}
+                    label="Suggested action"
+                    value={selectedRecallInsight.suggestedAction}
+                  />
+                </dl>
               </section>
 
               <section
                 aria-label="Reference explanation"
-                className="study-notes-editor__source"
+                className="study-notes-editor__source study-notes-editor__info-section"
               >
-                <div>
-                  <p className="study-notes-editor__group-label">
-                    Reference explanation
-                  </p>
-                  <p className="muted study-notes-editor__guidance">
-                    {STUDY_NOTE_GUIDANCE_COPY.referenceExplanation}
-                  </p>
-                  {sharedSourceEditMessage === null ? null : (
-                    <p className="muted study-notes-editor__shared-source">
-                      {sharedSourceEditMessage}
-                    </p>
-                  )}
-                </div>
-                <FloatingTextarea
-                  containerClassName="study-notes-editor__source-title"
-                  label="Note title"
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      sourceTitle: event.target.value,
-                    }))
+                <details
+                  className="study-notes-editor__disclosure"
+                  key={`reference-${selectedDisclosureKey}`}
+                  onToggle={(event) =>
+                    setReferenceOpenOverride(event.currentTarget.open)
                   }
-                  rows={1}
-                  value={draft.sourceTitle}
-                />
-                <FloatingTextarea
-                  label="Explanation"
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      sourceBody: event.target.value,
-                    }))
-                  }
-                  rows={8}
-                  value={draft.sourceBody}
-                />
+                  open={isReferenceOpen}
+                >
+                  <summary className="study-notes-editor__disclosure-summary">
+                    <span>
+                      <span className="study-notes-editor__group-label">
+                        Reference explanation
+                      </span>
+                      <span className="study-notes-editor__summary-copy">
+                        {referenceHasContent
+                          ? "Source material available"
+                          : "Secondary source material"}
+                      </span>
+                    </span>
+                    <ChevronDownIcon />
+                  </summary>
+                  <div className="study-notes-editor__disclosure-body">
+                    <StudyNotesTextarea
+                      label="Note title"
+                      maxLength={200}
+                      onChange={(event) =>
+                        updateDraft((current) => ({
+                          ...current,
+                          sourceTitle: event.target.value,
+                        }))
+                      }
+                      rows={1}
+                      value={draft.sourceTitle}
+                    />
+                    <StudyNotesTextarea
+                      label="Explanation"
+                      maxLength={1000}
+                      onChange={(event) =>
+                        updateDraft((current) => ({
+                          ...current,
+                          sourceBody: event.target.value,
+                        }))
+                      }
+                      rows={6}
+                      value={draft.sourceBody}
+                    />
+                  </div>
+                </details>
               </section>
             </div>
           </fieldset>
 
-          {errorMessage === null ? null : (
+          {errorMessage === null || isSaveBarVisible ? null : (
             <p className="form-error" role="alert">
               {errorMessage}
             </p>
           )}
-          {saveStatus === null ? null : (
-            <p className="muted" role="status">
+          {saveStatus === null || isSaveBarVisible ? null : (
+            <p className="sr-only" aria-live="polite" role="status">
               {saveStatus}
             </p>
           )}
         </form>
+
+        {isSaveBarVisible ? (
+          <section
+            aria-label="Unsaved Study Note changes"
+            className="study-notes-save-bar"
+          >
+            <div className="study-notes-save-bar__message">
+              <span className="study-notes-save-bar__icon">
+                <WarningIcon />
+              </span>
+              <p
+                aria-live={
+                  isSaving || saveStatus !== null ? "polite" : undefined
+                }
+                role={isSaving || saveStatus !== null ? "status" : undefined}
+              >
+                {saveBarStatusText}
+              </p>
+              {errorMessage === null ? null : (
+                <p className="study-notes-save-bar__error" role="alert">
+                  {errorMessage}
+                </p>
+              )}
+            </div>
+            <div className="study-notes-save-bar__actions">
+              {pendingEditorTarget === null ? null : (
+                <Button
+                  disabled={isSaving}
+                  onClick={stayOnCurrentDraft}
+                  size="compact"
+                  type="button"
+                >
+                  Stay
+                </Button>
+              )}
+              {hasDraftChanges || pendingEditorTarget !== null ? (
+                <>
+                  <Button
+                    disabled={isSaving}
+                    onClick={discardDraft}
+                    size="compact"
+                    type="button"
+                    variant={
+                      pendingEditorTarget === null ? "secondary" : "danger"
+                    }
+                  >
+                    {saveBarDiscardAction}
+                  </Button>
+                  <Button
+                    disabled={isSaving}
+                    onClick={() => void saveDraftAndApplyPendingTarget()}
+                    size="compact"
+                    type="button"
+                    variant="primary"
+                  >
+                    {isSaving ? "Saving..." : saveBarPrimaryAction}
+                  </Button>
+                </>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
+
+        {isNewDiscardDialogOpen ? (
+          <div className="study-notes-discard-dialog-backdrop">
+            <section
+              aria-labelledby="study-notes-discard-dialog-title"
+              aria-modal="true"
+              className="study-notes-discard-dialog"
+              role="dialog"
+            >
+              <h2 id="study-notes-discard-dialog-title">
+                Discard this new Study Note?
+              </h2>
+              <p>This note has not been saved yet.</p>
+              <p>Your changes will be lost.</p>
+              <div className="study-notes-discard-dialog__actions">
+                <Button
+                  onClick={() => setNewDiscardDialogOpen(false)}
+                  type="button"
+                  variant="secondary"
+                >
+                  Keep editing
+                </Button>
+                <Button
+                  onClick={abandonNewDraft}
+                  type="button"
+                  variant="danger"
+                >
+                  Discard draft
+                </Button>
+              </div>
+            </section>
+          </div>
+        ) : null}
       </div>
     </section>
   );

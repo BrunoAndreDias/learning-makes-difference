@@ -52,11 +52,6 @@ const globalNavigationItems = [
     to: "/recall",
   },
   {
-    iconName: "label",
-    labelKey: "shell.navigation.labels",
-    to: "/labels",
-  },
-  {
     iconName: "focus",
     labelKey: "shell.navigation.focus",
     to: "/focus",
@@ -65,6 +60,11 @@ const globalNavigationItems = [
     iconName: "insights",
     labelKey: "shell.navigation.insights",
     to: "/insights",
+  },
+  {
+    iconName: "settings",
+    labelKey: "shell.navigation.settings",
+    to: "/settings",
   },
 ] as const;
 
@@ -297,11 +297,20 @@ export function AppLayout() {
           tabIndex={-1}
         >
           <div className="app-sidebar__header">
-            <AccountMenu
-              isLoggingOut={isLoggingOut}
-              onLogout={() => void handleLogout()}
-              sessionSnapshot={sessionSnapshot}
-            />
+            <Link className="app-sidebar__brand" to="/study-notes">
+              <img
+                alt=""
+                aria-hidden="true"
+                className="app-sidebar__logo"
+                height="56"
+                src={appLogo}
+                width="56"
+              />
+              <span className="app-sidebar__brand-copy">
+                <strong>Learning</strong>
+                <strong>Makes Difference</strong>
+              </span>
+            </Link>
 
             <Button
               aria-controls={navigationId}
@@ -331,6 +340,26 @@ export function AppLayout() {
           </div>
 
           <GlobalNavigation onNavigate={closeMobileSidebar} />
+
+          <div className="app-sidebar__footer">
+            <div className="app-sidebar__streak">
+              <span aria-hidden="true" className="app-sidebar__streak-icon">
+                <StreakIcon />
+              </span>
+              <span>
+                <strong>12 day streak</strong>
+                <span>Keep it going!</span>
+              </span>
+              <span aria-hidden="true" className="app-sidebar__streak-arrow">
+                <ChevronRightIcon />
+              </span>
+            </div>
+            <AccountMenu
+              isLoggingOut={isLoggingOut}
+              onLogout={() => void handleLogout()}
+              sessionSnapshot={sessionSnapshot}
+            />
+          </div>
         </aside>
 
         <div className="app-frame" data-workspace={workspaceFrameName}>
@@ -411,6 +440,9 @@ function WorkspaceHeader({
   workspaceTitle: string;
 }) {
   const { t } = useAppTranslation();
+  const workspaceDate = new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+  }).format(new Date());
   const hasVisuallyHiddenWorkspaceTitle =
     isRecallWorkspaceRoute ||
     isLabelsWorkspaceRoute ||
@@ -446,7 +478,13 @@ function WorkspaceHeader({
             <SidebarReopenIcon />
           </Button>
         ) : null}
-        {isStudyNotesWorkspaceRoute ? null : (
+        {isStudyNotesWorkspaceRoute ? (
+          <nav aria-label="Breadcrumb" className="app-frame__breadcrumb">
+            <Link to="/study-notes">Study Notes</Link>
+            <span aria-hidden="true">/</span>
+            <span>Recall Schedule</span>
+          </nav>
+        ) : (
           <h2
             className={
               hasVisuallyHiddenWorkspaceTitle
@@ -461,7 +499,22 @@ function WorkspaceHeader({
         )}
       </div>
       <div className="app-frame__actions">
-        {isStudyNotesWorkspaceRoute || isLabelsWorkspaceRoute ? null : (
+        {isStudyNotesWorkspaceRoute ? (
+          <div className="app-frame__meta-actions">
+            <span className="app-frame__date">
+              <CalendarHeaderIcon />
+              <span>{workspaceDate}</span>
+            </span>
+            <Button
+              aria-label="Help"
+              className="app-frame__help"
+              iconOnly
+              type="button"
+            >
+              <HelpCircleIcon />
+            </Button>
+          </div>
+        ) : isLabelsWorkspaceRoute ? null : (
           <FocusSessionStartControl
             activeFocusSession={activeFocusSession}
             focus={focus}
@@ -527,6 +580,7 @@ function AccountMenu({
   const displayName =
     sessionSnapshot.user?.displayName ?? t("shell.account.unknownUser");
   const email = sessionSnapshot.user?.email ?? t("shell.account.noEmail");
+  const initials = getAccountInitials(displayName);
 
   useEffect(() => {
     if (!isAccountMenuOpen) {
@@ -577,17 +631,15 @@ function AccountMenu({
         onKeyDown={handleAccountMenuKeyDown}
         type="button"
       >
-        <img
-          alt=""
-          aria-hidden="true"
-          className="account-menu__logo"
-          height="56"
-          src={appLogo}
-          width="56"
-        />
+        <span aria-hidden="true" className="account-menu__avatar">
+          {initials}
+        </span>
         <span className="app-sidebar__profile">
           <strong>{displayName}</strong>
           <span className="sr-only">{email}</span>
+          <span aria-hidden="true" className="account-menu__tier">
+            Premium
+          </span>
         </span>
         <AccountMenuChevronIcon />
       </button>
@@ -630,6 +682,22 @@ function AccountMenu({
   );
 }
 
+function getAccountInitials(displayName: string) {
+  const words = displayName
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word.length > 0);
+
+  if (words.length === 0) {
+    return "AS";
+  }
+
+  return words
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 function AccountMenuChevronIcon() {
   return (
     <svg
@@ -639,6 +707,44 @@ function AccountMenuChevronIcon() {
       viewBox="0 0 24 24"
     >
       <path d="m7 10 5 5 5-5" />
+    </svg>
+  );
+}
+
+function CalendarHeaderIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M7 3v4" />
+      <path d="M17 3v4" />
+      <path d="M4 8h16" />
+      <path d="M5 5h14v15H5V5Z" />
+    </svg>
+  );
+}
+
+function HelpCircleIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8" />
+      <path d="M9.75 9.5a2.4 2.4 0 0 1 4.5 1.2c0 1.8-2.25 2-2.25 3.8" />
+      <path d="M12 17h.01" />
+    </svg>
+  );
+}
+
+function StreakIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M12 21a7 7 0 0 0 7-7c0-4.5-3.3-6.8-5.2-9.7-.3 2.7-1.6 4.4-3.3 5.8-.2-1.3-.9-2.5-2-3.3C8.4 9.9 5 11.7 5 15a7 7 0 0 0 7 6Z" />
+      <path d="M12 18a3 3 0 0 0 3-3c0-1.7-1.1-2.6-2-3.7-.2 1-.8 1.8-1.7 2.4-.2-.7-.6-1.2-1.2-1.6-.1 1.8-1.1 2.5-1.1 3.9a3 3 0 0 0 3 2Z" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="m9 6 6 6-6 6" />
     </svg>
   );
 }

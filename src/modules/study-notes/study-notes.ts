@@ -527,6 +527,14 @@ export function createAppStudyNotesContext(
       }
 
       const timestamp = new Date().toISOString();
+      const sourceNoteId = cryptoProvider.randomUUID();
+      const prompt = getStudyNoteSourceDisplayName({
+        linkedStudyNotes: snapshot.filter(
+          (studyNote) =>
+            studyNote.sourceNoteId === sourceStudyNote.sourceNoteId,
+        ),
+        sourceTitle: sourceStudyNote.source.title,
+      });
       const studyNote: AppStoredStudyNote = {
         acronyms: [],
         createdAt: timestamp,
@@ -534,15 +542,14 @@ export function createAppStudyNotesContext(
         id: cryptoProvider.randomUUID(),
         labelIds: [],
         metaphors: [],
-        prompt: getStudyNoteSourceDisplayName({
-          linkedStudyNotes: snapshot.filter(
-            (studyNote) =>
-              studyNote.sourceNoteId === sourceStudyNote.sourceNoteId,
-          ),
-          sourceTitle: sourceStudyNote.source.title,
-        }),
-        source: { ...sourceStudyNote.source },
-        sourceNoteId: sourceStudyNote.sourceNoteId,
+        prompt,
+        source: {
+          body: sourceStudyNote.source.body,
+          id: sourceNoteId,
+          title: sourceStudyNote.source.title,
+          updatedAt: timestamp,
+        },
+        sourceNoteId,
         updatedAt: timestamp,
         userId: validatedUserId,
       };
@@ -618,9 +625,18 @@ export function createAppStudyNotesContext(
         userId: validatedUserId,
       });
       const metaphors = validateMetaphors(input.metaphors);
+      const shouldDetachSource = snapshot.some(
+        (studyNote) =>
+          studyNote.userId === validatedUserId &&
+          studyNote.sourceNoteId === existingStudyNote.sourceNoteId &&
+          studyNote.id !== existingStudyNote.id,
+      );
+      const sourceNoteId = shouldDetachSource
+        ? cryptoProvider.randomUUID()
+        : existingStudyNote.sourceNoteId;
       const updatedSource = {
-        ...existingStudyNote.source,
         body: validateOptionalText(input.sourceBody),
+        id: sourceNoteId,
         title: validateOptionalText(input.sourceTitle),
         updatedAt: timestamp,
       };
@@ -632,21 +648,13 @@ export function createAppStudyNotesContext(
         metaphors,
         prompt: validateRequiredText(input.prompt, "Prompt"),
         source: updatedSource,
+        sourceNoteId,
         updatedAt: timestamp,
       };
 
       writeSnapshot([
         updatedStudyNote,
-        ...snapshot
-          .filter((studyNote) => studyNote.id !== studyNoteId)
-          .map((studyNote) =>
-            studyNote.sourceNoteId === existingStudyNote.sourceNoteId
-              ? {
-                  ...studyNote,
-                  source: updatedSource,
-                }
-              : studyNote,
-          ),
+        ...snapshot.filter((studyNote) => studyNote.id !== studyNoteId),
       ]);
 
       return toPublicStudyNote(updatedStudyNote, [

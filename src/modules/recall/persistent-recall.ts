@@ -250,6 +250,7 @@ export function createPersistentRecallContext(
   let recallSchedules: StoredRecallSchedule[] = [];
   let sessionResultsSnapshot: SessionResult[] = [];
   let recallSchedulesSnapshot: RecallSchedule[] = [];
+  let mutationRevision = 0;
 
   function notifyListeners() {
     for (const listener of listeners) {
@@ -257,11 +258,18 @@ export function createPersistentRecallContext(
     }
   }
 
-  function writeState(input: {
-    activeSession: StoredRecallSession | null;
-    recallSchedules?: StoredRecallSchedule[];
-    sessionResults: StoredSessionResult[];
-  }) {
+  function writeState(
+    input: {
+      activeSession: StoredRecallSession | null;
+      recallSchedules?: StoredRecallSchedule[];
+      sessionResults: StoredSessionResult[];
+    },
+    options: { countAsMutation?: boolean } = {},
+  ) {
+    if (options.countAsMutation !== false) {
+      mutationRevision += 1;
+    }
+
     snapshot = input.activeSession;
     sessionResults = input.sessionResults;
     recallSchedules = input.recallSchedules ?? recallSchedules;
@@ -572,6 +580,7 @@ export function createPersistentRecallContext(
         });
       }
 
+      const refreshStartedAtRevision = mutationRevision;
       const [activeSession, nextResults, nextRecallSchedules] =
         await Promise.all([
           requireService().getActiveSession(),
@@ -579,11 +588,24 @@ export function createPersistentRecallContext(
           listServiceRecallSchedules(userId),
         ]);
 
-      return writeState({
-        activeSession: toStoredRecallSession(activeSession, userId),
-        recallSchedules: nextRecallSchedules,
-        sessionResults: toStoredSessionResults(nextResults, userId),
-      });
+      if (mutationRevision !== refreshStartedAtRevision) {
+        return {
+          activeSession: snapshot,
+          recallSchedules: recallSchedulesSnapshot,
+          sessionResults: sessionResultsSnapshot,
+        };
+      }
+
+      return writeState(
+        {
+          activeSession: toStoredRecallSession(activeSession, userId),
+          recallSchedules: nextRecallSchedules,
+          sessionResults: toStoredSessionResults(nextResults, userId),
+        },
+        {
+          countAsMutation: false,
+        },
+      );
     },
     async revealFlashCardAnswer(userId, input) {
       const validatedUserId = requireUserId(userId);

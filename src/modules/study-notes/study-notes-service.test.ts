@@ -288,7 +288,7 @@ describe("createStudyNotesService", () => {
     ]);
   });
 
-  it("persists blank source Note titles and returns live display names from the oldest linked Study Note prompt", async () => {
+  it("persists blank source Note titles and returns display names from each owning Study Note prompt", async () => {
     const { db, studyNotes } = await createStudyNotesHarness();
 
     const firstStudyNote = await studyNotes.createStudyNote({
@@ -365,21 +365,25 @@ describe("createStudyNotesService", () => {
         {
           prompt: "Newer prompt",
           source: {
-            displayName: "Renamed oldest prompt",
+            displayName: "Newer prompt",
             title: "",
           },
         },
       ],
-      [
-        {
+      expect.arrayContaining([
+        expect.objectContaining({
           id: firstStudyNote.sourceNoteId,
           title: "",
-        },
-      ],
+        }),
+        expect.objectContaining({
+          id: secondStudyNote.sourceNoteId,
+          title: "",
+        }),
+      ]),
     ]);
   });
 
-  it("creates shared-source Study Notes and deletes the source only after last-link confirmation", async () => {
+  it("creates sibling Study Notes with copied source material and independent source deletion", async () => {
     const { db, studyNotes } = await createStudyNotesHarness();
     const firstStudyNote = await studyNotes.createStudyNote({
       input: {
@@ -401,33 +405,13 @@ describe("createStudyNotesService", () => {
       labelIds: [],
       metaphors: [],
       prompt: "Shared source",
-      sourceNoteId: firstStudyNote.sourceNoteId,
     });
-
-    await studyNotes.deleteStudyNote({
-      input: {
-        deleteSource: false,
-        studyNoteId: secondStudyNote.id,
-      },
-      userId: "user-casey",
-    });
-
-    await expect(
-      studyNotes.deleteStudyNote({
-        input: {
-          deleteSource: false,
-          studyNoteId: firstStudyNote.id,
-        },
-        userId: "user-casey",
-      }),
-    ).rejects.toMatchObject({
-      code: "invalid_input",
-    });
+    expect(secondStudyNote.sourceNoteId).not.toBe(firstStudyNote.sourceNoteId);
 
     await studyNotes.deleteStudyNote({
       input: {
         deleteSource: true,
-        studyNoteId: firstStudyNote.id,
+        studyNoteId: secondStudyNote.id,
       },
       userId: "user-casey",
     });
@@ -437,7 +421,19 @@ describe("createStudyNotesService", () => {
         studyNotes.listStudyNotes({ userId: "user-casey" }),
         db.select().from(notesTable),
       ]),
-    ).resolves.toEqual([[], []]);
+    ).resolves.toMatchObject([
+      [
+        {
+          id: firstStudyNote.id,
+          sourceNoteId: firstStudyNote.sourceNoteId,
+        },
+      ],
+      [
+        {
+          id: firstStudyNote.sourceNoteId,
+        },
+      ],
+    ]);
   });
 
   it("assigns Labels to Study Notes independently from the source Note and protects label ownership", async () => {
@@ -575,7 +571,7 @@ describe("createStudyNotesService", () => {
     ).rejects.toThrow("Study Notes can only be assigned");
   });
 
-  it("keeps memory aids owned by each Study Note across shared sources, clearing, and account boundaries", async () => {
+  it("keeps memory aids and source material owned by each Study Note across legacy shared sources", async () => {
     const { db, studyNotes } = await createStudyNotesHarness({
       now: () => TEST_UPDATED_AT,
       users: [
@@ -650,18 +646,19 @@ describe("createStudyNotesService", () => {
       userId: "user-casey",
     });
 
-    await expect(
-      studyNotes
-        .listStudyNotes({ userId: "user-casey" })
-        .then((listedStudyNotes) => [...listedStudyNotes].sort(byId)),
-    ).resolves.toMatchObject([
+    const listedStudyNotes = [
+      ...(await studyNotes.listStudyNotes({ userId: "user-casey" })),
+    ].sort(byId);
+    expect(listedStudyNotes[0]?.sourceNoteId).not.toBe(
+      listedStudyNotes[1]?.sourceNoteId,
+    );
+    expect(listedStudyNotes).toMatchObject([
       {
         acronyms: [{ description: "ONE keeps the first target distinct." }],
         id: "study-one",
         metaphors: [
           { description: "First support description belongs to study one." },
         ],
-        sourceNoteId: "source-shared",
       },
       {
         acronyms: [{ description: "TWO keeps the second target distinct." }],
@@ -669,7 +666,6 @@ describe("createStudyNotesService", () => {
         metaphors: [
           { description: "Second support description belongs to study two." },
         ],
-        sourceNoteId: "source-shared",
       },
     ]);
 

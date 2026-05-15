@@ -15,19 +15,19 @@ describe("Study Note Practice Repair", () => {
     expect(practiceRepair).toEqual({
       recallTodayActionLabel: "Open Recall Today",
       summary:
-        "Latest recall was Hard. Repair this Study Note before or alongside Recall Today.",
+        "Latest recall: Hard. Repair before the next attempt or alongside Recall Today.",
       suggestions: [
         {
           id: "edit-expected-answer",
-          text: "Tighten the expected answer so this recall target names the reason, steps, limits, or one example more precisely.",
+          text: "Tighten the expected answer: name the reason, steps, limit, or one example.",
         },
         {
           id: "split-or-sibling",
-          text: "If this prompt is doing too much, split it into smaller Study Notes or create a sibling Study Note from this explanation.",
+          text: "If the prompt is doing too much, split it or create a sibling Study Note from the explanation.",
         },
         {
           id: "optional-memory-aids",
-          text: "Add a Metaphor or Acronym only if it solves this specific recall problem.",
+          text: "Use a Metaphor or Acronym only when it solves this recall problem.",
         },
       ],
       title: "Practice Repair",

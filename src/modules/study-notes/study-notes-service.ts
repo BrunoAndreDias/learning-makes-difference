@@ -465,6 +465,7 @@ export function createStudyNotesService({
       }
 
       const timestamp = now();
+      const sourceNoteId = crypto.randomUUID();
       const studyNoteId = crypto.randomUUID();
       const linkedStudyNotes = await db
         .select(studyNoteSelectFields)
@@ -476,13 +477,24 @@ export function createStudyNotesService({
         sourceTitle: source.title,
       });
 
-      await db.insert(studyNotesTable).values({
-        createdAt: timestamp,
-        expectedAnswer: source.body,
-        id: studyNoteId,
-        prompt,
-        sourceNoteId: source.id,
-        updatedAt: timestamp,
+      await db.transaction(async (tx) => {
+        await tx.insert(notesTable).values({
+          body: source.body,
+          createdAt: timestamp,
+          id: sourceNoteId,
+          labelIds: [],
+          title: source.title,
+          updatedAt: timestamp,
+          userId,
+        });
+        await tx.insert(studyNotesTable).values({
+          createdAt: timestamp,
+          expectedAnswer: source.body,
+          id: studyNoteId,
+          prompt,
+          sourceNoteId,
+          updatedAt: timestamp,
+        });
       });
 
       return toAppStudyNote({
@@ -495,15 +507,12 @@ export function createStudyNotesService({
         prompt,
         sourceBody: source.body,
         sourceDisplayName: getSourceDisplayNameFromRows({
-          linkedStudyNotes: [
-            ...linkedStudyNotes,
-            { createdAt: timestamp, prompt },
-          ],
+          linkedStudyNotes: [{ createdAt: timestamp, prompt }],
           sourceTitle: source.title,
         }),
-        sourceNoteId: source.id,
+        sourceNoteId,
         sourceTitle: source.title,
-        sourceUpdatedAt: source.updatedAt,
+        sourceUpdatedAt: timestamp,
         updatedAt: timestamp,
       });
     },
@@ -620,29 +629,55 @@ export function createStudyNotesService({
       const prompt = validateRequiredText(input.prompt, "Prompt");
       const sourceTitle = validateOptionalText(input.sourceTitle);
       const sourceBody = validateOptionalText(input.sourceBody);
+      const sourceStudyNotes = await db
+        .select({ id: studyNotesTable.id })
+        .from(studyNotesTable)
+        .where(
+          eq(studyNotesTable.sourceNoteId, existingStudyNote.sourceNoteId),
+        );
+      const shouldDetachSource = sourceStudyNotes.some(
+        (studyNote) => studyNote.id !== existingStudyNote.id,
+      );
+      const sourceNoteId = shouldDetachSource
+        ? crypto.randomUUID()
+        : existingStudyNote.sourceNoteId;
 
       await db.transaction(async (tx) => {
+        if (shouldDetachSource) {
+          await tx.insert(notesTable).values({
+            body: sourceBody,
+            createdAt: timestamp,
+            id: sourceNoteId,
+            labelIds: [],
+            title: sourceTitle,
+            updatedAt: timestamp,
+            userId,
+          });
+        }
         await tx
           .update(studyNotesTable)
           .set({
             expectedAnswer,
             prompt,
+            sourceNoteId,
             updatedAt: timestamp,
           })
           .where(eq(studyNotesTable.id, existingStudyNote.id));
-        await tx
-          .update(notesTable)
-          .set({
-            body: sourceBody,
-            title: sourceTitle,
-            updatedAt: timestamp,
-          })
-          .where(
-            and(
-              eq(notesTable.id, existingStudyNote.sourceNoteId),
-              eq(notesTable.userId, userId),
-            ),
-          );
+        if (!shouldDetachSource) {
+          await tx
+            .update(notesTable)
+            .set({
+              body: sourceBody,
+              title: sourceTitle,
+              updatedAt: timestamp,
+            })
+            .where(
+              and(
+                eq(notesTable.id, existingStudyNote.sourceNoteId),
+                eq(notesTable.userId, userId),
+              ),
+            );
+        }
         await tx
           .delete(studyNoteLabelsTable)
           .where(eq(studyNoteLabelsTable.studyNoteId, existingStudyNote.id));

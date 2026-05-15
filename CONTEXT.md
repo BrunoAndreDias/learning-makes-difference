@@ -79,8 +79,9 @@ Unsaved draft Notes do not have visible Learning State list metadata because the
 Incomplete Study Notes do not show normal Learning State copy; they show completion-oriented copy such as "Add expected answer" until they become recallable.
 Every saved Study Note has a Learning State; a saved Study Note with no recall evidence has the Learning State "Not recalled yet".
 Learning State uses simple compact language in Study Notes list rows, such as "Not recalled yet" or "Last score: Good".
-In v1, Learning State appears as compact Study Notes list metadata only, not as a selected-Study Note inspector panel.
-In v1, Learning State does not include an action; recall actions belong to the Recall Section flow.
+In v1, Learning State should not appear as a standalone selected-Study Note inspector panel.
+When the Study Note editor needs to show recall-facing guidance, Learning State may be presented together with Recall Schedule as compact recall insight copy without merging the underlying signals.
+In v1, Learning State does not own recall actions; actions in editor guidance should still be framed as Recall Today or Study Note repair paths.
 Passive study activity such as rereading, highlighting, watching videos, or copying notes is not Learning State evidence unless it produces or reinforces Study Notes through recall evidence or correction.
 _Avoid_: Report card, spaced-repetition engine, analytics widget, card state
 
@@ -288,6 +289,8 @@ The Study Notes Workspace has a Study Notes list, not a separate source Notes li
 New Study Note is the primary creation action; it creates a new supporting source Note by default.
 Add Study Note from this source is the explicit action for creating another Study Note tied to an existing source Note.
 The Study Note editor shows Study Note fields first and the source Note title/body below them, visible by default.
+The Study Note editor may show compact recall insight copy that combines Learning State and Recall Schedule for the User while keeping those concepts separate in the domain model.
+The Study Notes Workspace protects unsaved Study Note edits before replacing the selected Study Note or abandoning a new Study Note draft.
 When a selected Study Note shares its source Note with other Study Notes, the editor should make that shared source context clear before the User edits it.
 Shared source Note editing should not require confirmation; confirmation is reserved for destructive actions such as deleting the last Study Note and its source Note.
 _Avoid_: Product menu, notes page, Notes Workspace
