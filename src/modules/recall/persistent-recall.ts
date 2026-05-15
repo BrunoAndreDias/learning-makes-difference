@@ -52,7 +52,7 @@ type UpdateAttemptTextInput = UpdateRecallSessionInput & {
 export type AppPersistentRecallService = {
   endRecallSession: (input: UpdateRecallSessionInput) => Promise<RecallSession>;
   getActiveSession: () => Promise<RecallSession | null>;
-  listRecallSchedules?: () => Promise<RecallSchedule[]>;
+  listRecallSchedules: () => Promise<RecallSchedule[]>;
   listSessionResults: () => Promise<SessionResult[]>;
   rateFlashCardAnswer: (
     input: AnswerQuestionInput,
@@ -204,7 +204,7 @@ function toStoredRecallSchedules(
   }));
 }
 
-function stripRecallScheduleUserId(
+function stripRecallScheduleUserIds(
   recallSchedules: readonly StoredRecallSchedule[],
 ) {
   return recallSchedules.map(({ userId: _userId, ...recallSchedule }) => ({
@@ -266,7 +266,7 @@ export function createPersistentRecallContext(
     sessionResults = input.sessionResults;
     recallSchedules = input.recallSchedules ?? recallSchedules;
     sessionResultsSnapshot = stripUserId(input.sessionResults);
-    recallSchedulesSnapshot = stripRecallScheduleUserId(recallSchedules);
+    recallSchedulesSnapshot = stripRecallScheduleUserIds(recallSchedules);
     notifyListeners();
 
     return {
@@ -278,7 +278,7 @@ export function createPersistentRecallContext(
 
   async function listServiceRecallSchedules(userId: string) {
     return toStoredRecallSchedules(
-      (await requireService().listRecallSchedules?.()) ?? [],
+      await requireService().listRecallSchedules(),
       userId,
     );
   }
@@ -535,10 +535,13 @@ export function createPersistentRecallContext(
     async rateFlashCardAnswer(userId, input) {
       const validatedUserId = requireUserId(userId);
       const nextSession = await requireService().rateFlashCardAnswer(input);
+      const nextRecallSchedules =
+        await listServiceRecallSchedules(validatedUserId);
 
       if (nextSession !== null) {
         writeState({
           activeSession: toStoredRecallSession(nextSession, validatedUserId),
+          recallSchedules: nextRecallSchedules,
           sessionResults,
         });
         await emitStudyActivity(validatedUserId, nextSession);
@@ -547,8 +550,6 @@ export function createPersistentRecallContext(
       }
 
       const nextResults = await requireService().listSessionResults();
-      const nextRecallSchedules =
-        await listServiceRecallSchedules(validatedUserId);
 
       writeState({
         activeSession: null,

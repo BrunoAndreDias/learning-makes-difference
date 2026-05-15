@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import type { PgDatabase } from "drizzle-orm/pg-core/db";
 import type { PgQueryResultHKT } from "drizzle-orm/pg-core/session";
 
@@ -80,6 +80,15 @@ type CreateRecallServiceOptions = {
 type MemoryStorage = Pick<Storage, "getItem" | "setItem">;
 
 const SERVICE_STORAGE_KEY_PREFIX = "persistent-recall-service";
+
+const recallScheduleSelection = {
+  ease: recallSchedulesTable.ease,
+  intervalDays: recallSchedulesTable.intervalDays,
+  lastRecalledAt: recallSchedulesTable.lastRecalledAt,
+  nextRecallAt: recallSchedulesTable.nextRecallAt,
+  repetitionCount: recallSchedulesTable.repetitionCount,
+  studyNoteId: recallSchedulesTable.studyNoteId,
+};
 
 function createMemoryStorage(
   values: Record<string, string | null>,
@@ -192,6 +201,42 @@ function getRecallSchedulesStorageKey(prefix: string) {
   return `${prefix}:recall-schedules`;
 }
 
+function toRecallSchedule(row: {
+  ease: number;
+  intervalDays: number;
+  lastRecalledAt: Date | null;
+  nextRecallAt: Date;
+  repetitionCount: number;
+  studyNoteId: string;
+}): RecallSchedule {
+  return {
+    ease: row.ease,
+    intervalDays: row.intervalDays,
+    lastRecalledAt: row.lastRecalledAt?.toISOString() ?? null,
+    nextRecallAt: row.nextRecallAt.toISOString(),
+    repetitionCount: row.repetitionCount,
+    studyNoteId: row.studyNoteId,
+  };
+}
+
+function toStoredRecallSchedule(input: {
+  schedule: RecallSchedule;
+  userId: string;
+}) {
+  return {
+    ease: input.schedule.ease,
+    intervalDays: input.schedule.intervalDays,
+    lastRecalledAt:
+      input.schedule.lastRecalledAt === null
+        ? null
+        : new Date(input.schedule.lastRecalledAt),
+    nextRecallAt: new Date(input.schedule.nextRecallAt),
+    repetitionCount: input.schedule.repetitionCount,
+    studyNoteId: input.schedule.studyNoteId,
+    userId: input.userId,
+  };
+}
+
 async function readStoredActiveSession(
   db: RecallDatabase<Record<string, unknown>>,
   userId: string,
@@ -233,26 +278,12 @@ async function readStoredRecallSchedules(
   userId: string,
 ): Promise<RecallSchedule[]> {
   const rows = await db
-    .select({
-      ease: recallSchedulesTable.ease,
-      intervalDays: recallSchedulesTable.intervalDays,
-      lastRecalledAt: recallSchedulesTable.lastRecalledAt,
-      nextRecallAt: recallSchedulesTable.nextRecallAt,
-      repetitionCount: recallSchedulesTable.repetitionCount,
-      studyNoteId: recallSchedulesTable.studyNoteId,
-    })
+    .select(recallScheduleSelection)
     .from(recallSchedulesTable)
     .where(eq(recallSchedulesTable.userId, userId))
     .orderBy(recallSchedulesTable.studyNoteId);
 
-  return rows.map((row) => ({
-    ease: row.ease,
-    intervalDays: row.intervalDays,
-    lastRecalledAt: row.lastRecalledAt?.toISOString() ?? null,
-    nextRecallAt: row.nextRecallAt.toISOString(),
-    repetitionCount: row.repetitionCount,
-    studyNoteId: row.studyNoteId,
-  }));
+  return rows.map(toRecallSchedule);
 }
 
 async function readStoredRecallSchedule(input: {
@@ -263,16 +294,14 @@ async function readStoredRecallSchedule(input: {
   const row =
     (
       await input.db
-        .select({
-          ease: recallSchedulesTable.ease,
-          intervalDays: recallSchedulesTable.intervalDays,
-          lastRecalledAt: recallSchedulesTable.lastRecalledAt,
-          nextRecallAt: recallSchedulesTable.nextRecallAt,
-          repetitionCount: recallSchedulesTable.repetitionCount,
-          studyNoteId: recallSchedulesTable.studyNoteId,
-        })
+        .select(recallScheduleSelection)
         .from(recallSchedulesTable)
-        .where(eq(recallSchedulesTable.studyNoteId, input.studyNoteId))
+        .where(
+          and(
+            eq(recallSchedulesTable.studyNoteId, input.studyNoteId),
+            eq(recallSchedulesTable.userId, input.userId),
+          ),
+        )
         .limit(1)
     )[0] ?? null;
 
@@ -280,14 +309,7 @@ async function readStoredRecallSchedule(input: {
     return null;
   }
 
-  return {
-    ease: row.ease,
-    intervalDays: row.intervalDays,
-    lastRecalledAt: row.lastRecalledAt?.toISOString() ?? null,
-    nextRecallAt: row.nextRecallAt.toISOString(),
-    repetitionCount: row.repetitionCount,
-    studyNoteId: row.studyNoteId,
-  };
+  return toRecallSchedule(row);
 }
 
 async function upsertStoredRecallSchedule(input: {
@@ -295,31 +317,19 @@ async function upsertStoredRecallSchedule(input: {
   schedule: RecallSchedule;
   userId: string;
 }) {
+  const storedSchedule = toStoredRecallSchedule(input);
+
   await input.db
     .insert(recallSchedulesTable)
-    .values({
-      ease: input.schedule.ease,
-      intervalDays: input.schedule.intervalDays,
-      lastRecalledAt:
-        input.schedule.lastRecalledAt === null
-          ? null
-          : new Date(input.schedule.lastRecalledAt),
-      nextRecallAt: new Date(input.schedule.nextRecallAt),
-      repetitionCount: input.schedule.repetitionCount,
-      studyNoteId: input.schedule.studyNoteId,
-      userId: input.userId,
-    })
+    .values(storedSchedule)
     .onConflictDoUpdate({
       set: {
-        ease: input.schedule.ease,
-        intervalDays: input.schedule.intervalDays,
-        lastRecalledAt:
-          input.schedule.lastRecalledAt === null
-            ? null
-            : new Date(input.schedule.lastRecalledAt),
-        nextRecallAt: new Date(input.schedule.nextRecallAt),
-        repetitionCount: input.schedule.repetitionCount,
-        userId: input.userId,
+        ease: storedSchedule.ease,
+        intervalDays: storedSchedule.intervalDays,
+        lastRecalledAt: storedSchedule.lastRecalledAt,
+        nextRecallAt: storedSchedule.nextRecallAt,
+        repetitionCount: storedSchedule.repetitionCount,
+        userId: storedSchedule.userId,
       },
       target: recallSchedulesTable.studyNoteId,
     });

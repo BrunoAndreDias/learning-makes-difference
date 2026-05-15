@@ -4,6 +4,7 @@ import {
   createPersistentRecallContext,
 } from "./persistent-recall";
 import type { RecallQuestion, RecallSession, SessionResult } from "./recall";
+import type { RecallSchedule } from "./recall-schedule";
 
 function createQuestion(
   override: Partial<RecallQuestion> & Pick<RecallQuestion, "noteId">,
@@ -90,6 +91,19 @@ function createResult(
   };
 }
 
+function createSchedule(
+  override: Partial<RecallSchedule> & Pick<RecallSchedule, "studyNoteId">,
+): RecallSchedule {
+  return {
+    ease: 2.5,
+    intervalDays: 0,
+    lastRecalledAt: null,
+    nextRecallAt: "2026-05-02T12:00:00.000Z",
+    repetitionCount: 0,
+    ...override,
+  };
+}
+
 describe("createPersistentRecallContext", () => {
   it("refreshes and mutates the in-memory recall snapshot from the async recall service", async () => {
     let activeSession: RecallSession | null = createSession({
@@ -146,6 +160,15 @@ describe("createPersistentRecallContext", () => {
         id: "result-1",
       }),
     ];
+    let recallSchedules: RecallSchedule[] = [
+      createSchedule({
+        intervalDays: 1,
+        lastRecalledAt: "2026-05-01T12:00:00.000Z",
+        nextRecallAt: "2026-05-02T12:00:00.000Z",
+        repetitionCount: 1,
+        studyNoteId: "note-2",
+      }),
+    ];
 
     const service: AppPersistentRecallService = {
       endRecallSession: vi.fn(async () => {
@@ -170,6 +193,7 @@ describe("createPersistentRecallContext", () => {
         return endedSession;
       }),
       getActiveSession: vi.fn(async () => activeSession),
+      listRecallSchedules: vi.fn(async () => recallSchedules),
       listSessionResults: vi.fn(async () => sessionResults),
       rateFlashCardAnswer: vi.fn(async ({ rating }) => {
         if (activeSession === null) {
@@ -203,6 +227,15 @@ describe("createPersistentRecallContext", () => {
         } satisfies RecallSession;
 
         activeSession = null;
+        recallSchedules = [
+          createSchedule({
+            intervalDays: 3,
+            lastRecalledAt: "2026-05-02T12:30:00.000Z",
+            nextRecallAt: "2026-05-05T12:30:00.000Z",
+            repetitionCount: 2,
+            studyNoteId: "note-2",
+          }),
+        ];
         sessionResults = [
           createResult({
             attempts: ratedSession.attempts,
@@ -281,6 +314,7 @@ describe("createPersistentRecallContext", () => {
           userId: "user-casey",
         },
         sessionResults: [{ id: "result-1" }],
+        recallSchedules: [{ studyNoteId: "note-2" }],
       },
     );
 
@@ -323,6 +357,13 @@ describe("createPersistentRecallContext", () => {
     });
 
     expect(persistentRecall.getSnapshot()).toBeNull();
+    expect(persistentRecall.getRecallSchedulesSnapshot()).toMatchObject([
+      {
+        intervalDays: 3,
+        nextRecallAt: "2026-05-05T12:30:00.000Z",
+        studyNoteId: "note-2",
+      },
+    ]);
     expect(persistentRecall.getSessionResultsSnapshot()).toMatchObject([
       {
         id: "session-2",

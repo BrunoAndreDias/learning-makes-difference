@@ -63,6 +63,7 @@ function createPersistentRecallService(
       throw new Error("not used");
     }),
     getActiveSession: vi.fn(async () => null),
+    listRecallSchedules: vi.fn(async () => []),
     listSessionResults: vi.fn(async () => []),
     rateFlashCardAnswer: vi.fn(async () => null),
     revealFlashCardAnswer: vi.fn(async () => {
@@ -444,6 +445,7 @@ describe("authenticated recall workspace", () => {
           throw new Error("not used");
         }),
         getActiveSession: refreshSpy,
+        listRecallSchedules: vi.fn(async () => []),
         listSessionResults: vi.fn(async () => []),
         rateFlashCardAnswer: vi.fn(async () => null),
         revealFlashCardAnswer: vi.fn(async () => {

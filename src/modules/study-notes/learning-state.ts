@@ -1,8 +1,11 @@
 import type {
   FlashCardRecallAttemptsByNote,
-  RecallSchedule,
   RecallSelfRating,
-} from "../recall";
+} from "../recall/recall";
+import {
+  isRecallScheduleDue,
+  type RecallSchedule,
+} from "../recall/recall-schedule";
 import { getStudyNoteReadiness } from "./study-note-readiness";
 import type { AppStudyNote } from "./study-notes";
 
@@ -78,14 +81,7 @@ function isDueForRecall(schedule: RecallSchedule | null, now: string): boolean {
     return true;
   }
 
-  const recalledAt = new Date(schedule.nextRecallAt).getTime();
-  const nowTimestamp = new Date(now).getTime();
-
-  if (Number.isNaN(recalledAt) || Number.isNaN(nowTimestamp)) {
-    return false;
-  }
-
-  return recalledAt <= nowTimestamp;
+  return isRecallScheduleDue(schedule, now);
 }
 
 function getLatestStudyNoteRecallAttempt(

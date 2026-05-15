@@ -11,6 +11,7 @@ import {
   type RecallSession,
   type SessionResult,
 } from "./recall";
+import type { RecallSchedule } from "./recall-schedule";
 
 const SESSION_COOKIE_NAME = "learning-makes-difference-session";
 
@@ -123,6 +124,22 @@ const listSessionResultsServerFn = createServerFn({
   });
 });
 
+const listRecallSchedulesServerFn = createServerFn({
+  method: "GET",
+}).handler(async () => {
+  const userId = await getOptionalRequestUserId();
+
+  if (userId === null) {
+    return [];
+  }
+
+  const recall = await createRequestRecallService();
+
+  return recall.listRecallSchedules({
+    userId,
+  });
+});
+
 const startFlashCardSessionServerFn = createServerFn({
   method: "POST",
 })
@@ -227,6 +244,8 @@ export function createServerRecallService(): AppPersistentRecallService {
     endRecallSession: (input): Promise<RecallSession> =>
       endFlashCardSessionServerFn({ data: input }),
     getActiveSession: () => getActiveSessionServerFn(),
+    listRecallSchedules: (): Promise<RecallSchedule[]> =>
+      listRecallSchedulesServerFn(),
     listSessionResults: (): Promise<SessionResult[]> =>
       listSessionResultsServerFn(),
     rateFlashCardAnswer: (input) =>
