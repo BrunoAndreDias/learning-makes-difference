@@ -183,6 +183,29 @@ function completeMultiQuestionRecall(input: {
   });
 }
 
+function completeStudyNoteRecallAt(input: {
+  rating: RecallSelfRating;
+  recallContext: DeterministicRecallTestContexts["recallContext"];
+  studyNoteId: string;
+  timestamp: string;
+}) {
+  vi.setSystemTime(new Date(input.timestamp));
+  const session = input.recallContext.startFlashCardSession({
+    studyNoteIds: [input.studyNoteId],
+    userId: testUser.id,
+  });
+
+  input.recallContext.revealFlashCardAnswer({
+    sessionId: session.id,
+    userId: testUser.id,
+  });
+  input.recallContext.rateFlashCardAnswer({
+    rating: input.rating,
+    sessionId: session.id,
+    userId: testUser.id,
+  });
+}
+
 type StudyNoteSnapshotInput = {
   expectedAnswer: string;
   labelIds: string[];
@@ -601,7 +624,7 @@ describe("authenticated recall workspace", () => {
       sourceTitle: "Edited ATP source note",
     });
     updateStudyNoteSnapshot(contexts, notReachedStudyNote.id, {
-      expectedAnswer: "Edited glucose answer.",
+      expectedAnswer: " ",
       labelIds: [],
       prompt: "Edited glucose prompt?",
       sourceBody: "Edited glucose source context.",
@@ -692,7 +715,7 @@ describe("authenticated recall workspace", () => {
     expect(
       await screen.findByRole("heading", {
         level: 3,
-        name: "Recall starts with Study Notes",
+        name: "Recall Today",
       }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
@@ -820,6 +843,116 @@ describe("authenticated recall workspace", () => {
       screen.getByRole("option", { name: "All modes" }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Showing/)).toBeNull();
+  });
+
+  it("explains empty Recall Today when Study Notes are not ready for recommended recall", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    contexts.studyNotesContext.createStudyNote(testUser.id, {
+      expectedAnswer: " ",
+      prompt: "Draft Study Note",
+      sourceBody: "Draft source.",
+      sourceTitle: "Draft source",
+    });
+
+    renderRoute("/recall", { ...contexts, session: createSession() });
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Recall Today" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Complete Study Notes with expected answers, then finish RecallSessions to create future Recall Today work.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Manual Recall Selection" }),
+    ).toHaveAttribute("href", "/recall/select");
+    expect(
+      screen.queryByRole("button", { name: "Start Recall Today" }),
+    ).toBeNull();
+  });
+
+  it("opens Recall Today by default and starts a FlashCard session from its queue", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const needsPractice = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Needs practice answer.",
+      labelIds: [],
+      prompt: "Needs practice prompt",
+      sourceBody: "Needs practice source.",
+      sourceTitle: "Needs practice source",
+    });
+    createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Not recalled answer.",
+      labelIds: [],
+      prompt: "Not recalled prompt",
+      sourceBody: "Not recalled source.",
+      sourceTitle: "Not recalled source",
+    });
+    const dueForRecall = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Due answer.",
+      labelIds: [],
+      prompt: "Due prompt",
+      sourceBody: "Due source.",
+      sourceTitle: "Due source",
+    });
+    createStudyNoteSnapshot(contexts, {
+      expectedAnswer: " ",
+      labelIds: [],
+      prompt: "Incomplete prompt",
+      sourceBody: "Incomplete source.",
+      sourceTitle: "Incomplete source",
+    });
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: needsPractice.id,
+      timestamp: "2026-05-14T09:00:00.000Z",
+    });
+    completeStudyNoteRecallAt({
+      rating: "good",
+      recallContext: contexts.recallContext,
+      studyNoteId: dueForRecall.id,
+      timestamp: "2026-05-11T09:00:00.000Z",
+    });
+    vi.setSystemTime(new Date("2026-05-15T10:00:00.000Z"));
+
+    const { router } = renderRoute("/recall", {
+      ...contexts,
+      session: {
+        user: {
+          ...testUser,
+          userTimeZone: "America/New_York",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Recall Today" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Manual Recall Selection" }),
+    ).toHaveAttribute("href", "/recall/select");
+
+    const queue = screen.getByRole("list", { name: "Recall Today queue" });
+    const items = within(queue).getAllByRole("listitem");
+    expect(items).toHaveLength(3);
+    expect(items[0]).toHaveTextContent("Needs practice prompt");
+    expect(items[0]).toHaveTextContent("Needs practice");
+    expect(items[0]).toHaveTextContent("Due for Recall");
+    expect(items[1]).toHaveTextContent("Not recalled prompt");
+    expect(items[1]).toHaveTextContent("Not recalled yet");
+    expect(items[2]).toHaveTextContent("Due prompt");
+    expect(items[2]).toHaveTextContent("Due for Recall");
+    expect(screen.queryByText("Incomplete prompt")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start Recall Today" }));
+
+    await screen.findByRole("heading", { level: 3, name: "Recall session" });
+    expect(router.state.location.pathname).toBe("/recall/session");
+    expect(screen.getAllByText("Needs practice prompt").length).toBeGreaterThan(
+      0,
+    );
   });
 
   it("selects the newest Result by default and changes selection without changing route", async () => {

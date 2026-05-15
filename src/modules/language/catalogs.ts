@@ -288,6 +288,21 @@ const englishTranslations = {
   "recall.results": "Recall results",
   "recall.results.description":
     "Review past results or start a new recall session.",
+  "recall.today.actions": "Recall Today actions",
+  "recall.today.description": "Practice recommended Study Notes first.",
+  "recall.today.emptyBody":
+    "Complete Study Notes with expected answers, then finish RecallSessions to create future Recall Today work.",
+  "recall.today.emptyTitle": "No Recall Today work",
+  "recall.today.helper":
+    "This queue puts Needs practice first, then new Study Notes, then Study Notes due by schedule.",
+  "recall.today.manualSelection": "Manual Recall Selection",
+  "recall.today.queue": "Recall Today queue",
+  "recall.today.reason.dueForRecall": "Due for Recall",
+  "recall.today.reason.needsPractice": "Needs practice",
+  "recall.today.reason.notRecalled": "Not recalled yet",
+  "recall.today.recommended": "Recommended recall",
+  "recall.today.start": "Start Recall Today",
+  "recall.today.title": "Recall Today",
   "recall.selection.addExpectedAnswer": "Add expected answer",
   "recall.selection.availableNotes": "Available Study Notes",
   "recall.selection.cancel": "Cancel",
@@ -680,6 +695,22 @@ const portugueseTranslations = {
   "recall.results": "Resultados de recordacao",
   "recall.results.description":
     "Reveja resultados anteriores ou inicie uma nova sessao de recordacao.",
+  "recall.today.actions": "Acoes de Recordar Hoje",
+  "recall.today.description":
+    "Pratique primeiro as notas de estudo recomendadas.",
+  "recall.today.emptyBody":
+    "Complete notas de estudo com respostas esperadas e depois termine sessoes de recordacao para criar trabalho futuro de Recordar Hoje.",
+  "recall.today.emptyTitle": "Sem trabalho para Recordar Hoje",
+  "recall.today.helper":
+    "Esta fila coloca Necessita pratica primeiro, depois notas de estudo novas e depois notas de estudo devidas pelo agendamento.",
+  "recall.today.manualSelection": "Selecao manual de recordacao",
+  "recall.today.queue": "Fila de Recordar Hoje",
+  "recall.today.reason.dueForRecall": "Devida para recordacao",
+  "recall.today.reason.needsPractice": "Necessita pratica",
+  "recall.today.reason.notRecalled": "Ainda nao recordada",
+  "recall.today.recommended": "Recordacao recomendada",
+  "recall.today.start": "Iniciar Recordar Hoje",
+  "recall.today.title": "Recordar Hoje",
   "recall.selection.addExpectedAnswer": "Adicione resposta esperada",
   "recall.selection.availableNotes": "Notas de estudo disponiveis",
   "recall.selection.cancel": "Cancelar",
@@ -1075,6 +1106,22 @@ const spanishTranslations = {
   "recall.results": "Resultados de repaso",
   "recall.results.description":
     "Revisa resultados anteriores o inicia una nueva sesion de repaso.",
+  "recall.today.actions": "Acciones de Repasar Hoy",
+  "recall.today.description":
+    "Practica primero las notas de estudio recomendadas.",
+  "recall.today.emptyBody":
+    "Completa notas de estudio con respuestas esperadas y luego termina sesiones de repaso para crear trabajo futuro de Repasar Hoy.",
+  "recall.today.emptyTitle": "Sin trabajo para Repasar Hoy",
+  "recall.today.helper":
+    "Esta cola pone Necesita practica primero, luego notas de estudio nuevas y luego notas de estudio pendientes por calendario.",
+  "recall.today.manualSelection": "Seleccion manual de repaso",
+  "recall.today.queue": "Cola de Repasar Hoy",
+  "recall.today.reason.dueForRecall": "Pendiente de repaso",
+  "recall.today.reason.needsPractice": "Necesita practica",
+  "recall.today.reason.notRecalled": "Aun no recordada",
+  "recall.today.recommended": "Repaso recomendado",
+  "recall.today.start": "Iniciar Repasar Hoy",
+  "recall.today.title": "Repasar Hoy",
   "recall.selection.addExpectedAnswer": "Anade respuesta esperada",
   "recall.selection.availableNotes": "Notas de estudio disponibles",
   "recall.selection.cancel": "Cancelar",
