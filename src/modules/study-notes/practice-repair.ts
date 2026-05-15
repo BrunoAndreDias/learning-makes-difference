@@ -1,4 +1,7 @@
-import type { StudyNoteLearningState } from "./learning-state";
+import {
+  formatStudyNoteLearningStateScoreLabel,
+  type StudyNoteLearningState,
+} from "./learning-state";
 
 export type StudyNotePracticeRepairSuggestion = {
   id: "edit-expected-answer" | "split-or-sibling" | "optional-memory-aids";
@@ -28,23 +31,6 @@ const practiceRepairSuggestions: readonly StudyNotePracticeRepairSuggestion[] =
     },
   ] as const;
 
-function formatRatingLabel(
-  latestScore: StudyNoteLearningState["latestScore"],
-): string | null {
-  switch (latestScore) {
-    case "forgot":
-      return "Forgot";
-    case "hard":
-      return "Hard";
-    case "good":
-      return "Good";
-    case "easy":
-      return "Easy";
-    case null:
-      return null;
-  }
-}
-
 export function getStudyNotePracticeRepair(
   learningState: StudyNoteLearningState | null,
 ): StudyNotePracticeRepair | null {
@@ -52,14 +38,17 @@ export function getStudyNotePracticeRepair(
     return null;
   }
 
-  const ratingLabel = formatRatingLabel(learningState.latestScore);
+  const ratingLabel = formatStudyNoteLearningStateScoreLabel(
+    learningState.latestScore,
+  );
+  const summary =
+    ratingLabel === null
+      ? "Latest recall needs repair before the next attempt."
+      : `Latest recall was ${ratingLabel}. Repair this Study Note before or alongside Recall Today.`;
 
   return {
     recallTodayActionLabel: "Open Recall Today",
-    summary:
-      ratingLabel === null
-        ? "Latest recall needs repair before the next attempt."
-        : `Latest recall was ${ratingLabel}. Repair this Study Note before or alongside Recall Today.`,
+    summary,
     suggestions: practiceRepairSuggestions,
     title: "Practice Repair",
   };

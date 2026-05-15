@@ -20,9 +20,16 @@ import {
   createReadonlyLabelsContext,
 } from "../../modules/labels/persistent-labels";
 import { createAppNotesContext } from "../../modules/notes";
-import { createAppRecallContext } from "../../modules/recall";
+import {
+  createAppRecallContext,
+  type RecallSelfRating,
+} from "../../modules/recall";
 import { createAppStudyNotesContext } from "../../modules/study-notes";
-import { renderRoute } from "./app-shell-test-support";
+import {
+  type AppSessionSnapshot,
+  createDeterministicRecallTestContexts,
+  renderRoute,
+} from "./app-shell-test-support";
 
 function createUnusedPersistentLabelMutation() {
   return async () => {
@@ -40,6 +47,92 @@ const studyNotePromptPlaceholder =
   "Why does this work? How would I use it? What example proves it?";
 const studyNoteReferenceExplanationGuidance =
   "Worked examples belong here as source material.";
+
+type DeterministicRecallTestContexts = ReturnType<
+  typeof createDeterministicRecallTestContexts
+>;
+
+type StudyNoteSnapshotInput = {
+  expectedAnswer: string;
+  prompt: string;
+  sourceBody: string;
+  sourceTitle: string;
+};
+
+function updateStudyNoteSnapshot(
+  contexts: DeterministicRecallTestContexts,
+  input: StudyNoteSnapshotInput & {
+    studyNoteId: string;
+    userId: string;
+  },
+) {
+  return contexts.studyNotesContext.updateStudyNote(
+    input.userId,
+    input.studyNoteId,
+    {
+      acronyms: [],
+      expectedAnswer: input.expectedAnswer,
+      labelIds: [],
+      metaphors: [],
+      prompt: input.prompt,
+      sourceBody: input.sourceBody,
+      sourceTitle: input.sourceTitle,
+    },
+  );
+}
+
+function createStudyNoteSnapshot(
+  contexts: DeterministicRecallTestContexts,
+  input: StudyNoteSnapshotInput & {
+    userId: string;
+  },
+) {
+  const studyNote = contexts.studyNotesContext.createStudyNote(input.userId, {
+    sourceBody: input.sourceBody,
+    sourceTitle: input.sourceTitle,
+  });
+
+  return updateStudyNoteSnapshot(contexts, {
+    ...input,
+    studyNoteId: studyNote.id,
+  });
+}
+
+function completeStudyNoteRecall(
+  contexts: DeterministicRecallTestContexts,
+  input: {
+    rating: RecallSelfRating;
+    studyNoteId: string;
+    userId: string;
+  },
+) {
+  act(() => {
+    const session = contexts.recallContext.startFlashCardSession({
+      studyNoteIds: [input.studyNoteId],
+      userId: input.userId,
+    });
+
+    contexts.recallContext.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId: input.userId,
+    });
+    contexts.recallContext.rateFlashCardAnswer({
+      rating: input.rating,
+      sessionId: session.id,
+      userId: input.userId,
+    });
+  });
+}
+
+function renderStudyNotesRouteForUser(
+  contexts: DeterministicRecallTestContexts,
+  user: NonNullable<AppSessionSnapshot["user"]>,
+) {
+  renderRoute("/study-notes", {
+    ...contexts,
+    session: { user },
+  });
+}
 
 function createTestPersistentLabelsService(
   initialLabels: readonly AppLabel[],
@@ -906,78 +999,28 @@ describe("authenticated Study Notes workspace", () => {
   });
 
   it("shows Practice Repair guidance for Study Notes with weak recall evidence", async () => {
-    const studyNotesContext = createAppStudyNotesContext({
-      keyPrefix: `test-study-notes-practice-repair-${Math.random()
-        .toString(36)
-        .slice(2)}`,
-      storage: window.localStorage,
-    });
-    const notesContext = createAppNotesContext({
-      keyPrefix: `test-source-notes-practice-repair-${Math.random()
-        .toString(36)
-        .slice(2)}`,
-      storage: window.localStorage,
-    });
-    let sessionCounter = 0;
-    const recallContext = createAppRecallContext({
-      crypto: {
-        randomUUID: () =>
-          `study-note-practice-repair-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
-      },
-      keyPrefix: `test-recall-practice-repair-${Math.random()
-        .toString(36)
-        .slice(2)}`,
-      notes: notesContext,
-      shuffleNotes: (sessionNotes) => [...sessionNotes],
-      storage: window.localStorage,
-      studyNotes: studyNotesContext,
-    });
+    const contexts = createDeterministicRecallTestContexts();
     const userId = "user-practice-repair";
-    const studyNote = studyNotesContext.createStudyNote(userId, {
+    const studyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Clearer expected answer.",
+      prompt: "Why does this still feel shaky?",
       sourceBody:
         "Broad source context that still needs a clearer recall target.",
       sourceTitle: "Repair source",
-    });
-    const updatedStudyNote = studyNotesContext.updateStudyNote(
       userId,
-      studyNote.id,
-      {
-        acronyms: [],
-        expectedAnswer: "Clearer expected answer.",
-        labelIds: [],
-        metaphors: [],
-        prompt: "Why does this still feel shaky?",
-        sourceBody:
-          "Broad source context that still needs a clearer recall target.",
-        sourceTitle: "Repair source",
-      },
-    );
-
-    renderRoute("/study-notes", {
-      notesContext,
-      recallContext,
-      session: {
-        user: {
-          displayName: "Jordan Repair",
-          email: "jordan.repair@example.com",
-          id: userId,
-          userLanguage: "en",
-        },
-      },
-      studyNotesContext,
     });
 
-    act(() => {
-      const session = recallContext.startFlashCardSession({
-        studyNoteIds: [updatedStudyNote.id],
-        userId,
-      });
-      recallContext.revealFlashCardAnswer({ sessionId: session.id, userId });
-      recallContext.rateFlashCardAnswer({
-        rating: "hard",
-        sessionId: session.id,
-        userId,
-      });
+    renderStudyNotesRouteForUser(contexts, {
+      displayName: "Jordan Repair",
+      email: "jordan.repair@example.com",
+      id: userId,
+      userLanguage: "en",
+    });
+
+    completeStudyNoteRecall(contexts, {
+      rating: "hard",
+      studyNoteId: studyNote.id,
+      userId,
     });
 
     expect(
@@ -998,76 +1041,35 @@ describe("authenticated Study Notes workspace", () => {
   });
 
   it("creates a sibling Study Note from Practice Repair on the same source", async () => {
-    const studyNotesContext = createAppStudyNotesContext({
-      keyPrefix: `test-study-notes-practice-repair-sibling-${Math.random()
-        .toString(36)
-        .slice(2)}`,
-      storage: window.localStorage,
-    });
-    const notesContext = createAppNotesContext({
-      keyPrefix: `test-source-notes-practice-repair-sibling-${Math.random()
-        .toString(36)
-        .slice(2)}`,
-      storage: window.localStorage,
-    });
-    let sessionCounter = 0;
-    const recallContext = createAppRecallContext({
-      crypto: {
-        randomUUID: () =>
-          `study-note-practice-repair-sibling-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
-      },
-      keyPrefix: `test-recall-practice-repair-sibling-${Math.random()
-        .toString(36)
-        .slice(2)}`,
-      notes: notesContext,
-      shuffleNotes: (sessionNotes) => [...sessionNotes],
-      storage: window.localStorage,
-      studyNotes: studyNotesContext,
-    });
+    const contexts = createDeterministicRecallTestContexts();
     const userId = "user-practice-repair-sibling";
-    const originalStudyNote = studyNotesContext.createStudyNote(userId, {
-      sourceBody: "Shared source body for sibling repair.",
-      sourceTitle: "Sibling repair source",
-    });
-    const updatedStudyNote = studyNotesContext.updateStudyNote(
+    const originalStudyNote = contexts.studyNotesContext.createStudyNote(
       userId,
-      originalStudyNote.id,
       {
-        acronyms: [],
-        expectedAnswer: "Original expected answer.",
-        labelIds: [],
-        metaphors: [],
-        prompt: "Original prompt",
         sourceBody: "Shared source body for sibling repair.",
         sourceTitle: "Sibling repair source",
       },
     );
-
-    renderRoute("/study-notes", {
-      notesContext,
-      recallContext,
-      session: {
-        user: {
-          displayName: "Jordan Sibling Repair",
-          email: "jordan.sibling.repair@example.com",
-          id: userId,
-          userLanguage: "en",
-        },
-      },
-      studyNotesContext,
+    const updatedStudyNote = updateStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Original expected answer.",
+      prompt: "Original prompt",
+      sourceBody: "Shared source body for sibling repair.",
+      sourceTitle: "Sibling repair source",
+      studyNoteId: originalStudyNote.id,
+      userId,
     });
 
-    act(() => {
-      const session = recallContext.startFlashCardSession({
-        studyNoteIds: [updatedStudyNote.id],
-        userId,
-      });
-      recallContext.revealFlashCardAnswer({ sessionId: session.id, userId });
-      recallContext.rateFlashCardAnswer({
-        rating: "forgot",
-        sessionId: session.id,
-        userId,
-      });
+    renderStudyNotesRouteForUser(contexts, {
+      displayName: "Jordan Sibling Repair",
+      email: "jordan.sibling.repair@example.com",
+      id: userId,
+      userLanguage: "en",
+    });
+
+    completeStudyNoteRecall(contexts, {
+      rating: "forgot",
+      studyNoteId: updatedStudyNote.id,
+      userId,
     });
 
     fireEvent.click(
@@ -1082,7 +1084,7 @@ describe("authenticated Study Notes workspace", () => {
       ),
     );
 
-    const allStudyNotes = studyNotesContext.getSnapshot();
+    const allStudyNotes = contexts.studyNotesContext.getSnapshot();
     expect(allStudyNotes).toHaveLength(2);
     expect(
       allStudyNotes.every(

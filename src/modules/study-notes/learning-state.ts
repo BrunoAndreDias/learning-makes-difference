@@ -27,7 +27,7 @@ export type StudyNoteLearningState = {
   studyNoteId: string;
 };
 
-function formatStudyNoteLearningStateScoreLabel(
+export function formatStudyNoteLearningStateScoreLabel(
   rating: RecallSelfRating | null,
 ): string | null {
   if (rating === null) {
