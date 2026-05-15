@@ -76,6 +76,11 @@ export default defineConfig({
                 },
                 {
                   type: "route",
+                  path: "/insights",
+                  file: "modules/study-guidance/study-guidance-route.tsx",
+                },
+                {
+                  type: "route",
                   path: "/recall",
                   file: "modules/recall/recall-route.tsx",
                   children: [

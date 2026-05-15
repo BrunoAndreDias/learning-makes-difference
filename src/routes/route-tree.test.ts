@@ -27,6 +27,9 @@ describe("route tree", () => {
     expect(generatedRouteTree).toContain("modules/recall/recall-route");
     expect(generatedRouteTree).toContain("modules/focus/focus-route");
     expect(generatedRouteTree).toContain(
+      "modules/study-guidance/study-guidance-route",
+    );
+    expect(generatedRouteTree).toContain(
       "modules/access/session/settings-route",
     );
 
@@ -51,6 +54,9 @@ describe("route tree", () => {
     );
     expect(generatedRouteTree).toContain(
       "'/focus': typeof modulesFocusFocusRouteRoute",
+    );
+    expect(generatedRouteTree).toContain(
+      "'/insights': typeof modulesStudyGuidanceStudyGuidanceRouteRoute",
     );
     expect(generatedRouteTree).not.toContain(
       "'/recall/results': typeof ProtectedRecallResultsRoute",

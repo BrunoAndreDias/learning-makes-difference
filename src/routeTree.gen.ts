@@ -17,6 +17,7 @@ import { Route as modulesAccessSessionSettingsRouteRouteImport } from './modules
 import { Route as modulesRecallRecallRouteRouteImport } from './modules/recall/recall-route'
 import { Route as modulesLabelsLabelManagementLabelsRouteRouteImport } from './modules/labels/label-management/labels-route'
 import { Route as modulesFocusFocusRouteRouteImport } from './modules/focus/focus-route'
+import { Route as modulesStudyGuidanceStudyGuidanceRouteRouteImport } from './modules/study-guidance/study-guidance-route'
 import { Route as modulesAccessSessionRegisterRouteRouteImport } from './modules/access/session/register-route'
 import { Route as modulesAccessSessionLoginRouteRouteImport } from './modules/access/session/login-route'
 import { Route as modulesAccessSessionForgotPasswordRouteRouteImport } from './modules/access/session/forgot-password-route'
@@ -69,6 +70,12 @@ const modulesFocusFocusRouteRoute = modulesFocusFocusRouteRouteImport.update({
   path: '/focus',
   getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
 } as any)
+const modulesStudyGuidanceStudyGuidanceRouteRoute =
+  modulesStudyGuidanceStudyGuidanceRouteRouteImport.update({
+    id: '/insights',
+    path: '/insights',
+    getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
+  } as any)
 const modulesAccessSessionRegisterRouteRoute =
   modulesAccessSessionRegisterRouteRouteImport.update({
     id: '/register',
@@ -118,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof modulesAccessSessionLoginRouteRoute
   '/register': typeof modulesAccessSessionRegisterRouteRoute
   '/focus': typeof modulesFocusFocusRouteRoute
+  '/insights': typeof modulesStudyGuidanceStudyGuidanceRouteRoute
   '/labels': typeof modulesLabelsLabelManagementLabelsRouteRoute
   '/recall': typeof modulesRecallRecallRouteRouteWithChildren
   '/settings': typeof modulesAccessSessionSettingsRouteRoute
@@ -132,6 +140,7 @@ export interface FileRoutesByTo {
   '/login': typeof modulesAccessSessionLoginRouteRoute
   '/register': typeof modulesAccessSessionRegisterRouteRoute
   '/focus': typeof modulesFocusFocusRouteRoute
+  '/insights': typeof modulesStudyGuidanceStudyGuidanceRouteRoute
   '/labels': typeof modulesLabelsLabelManagementLabelsRouteRoute
   '/settings': typeof modulesAccessSessionSettingsRouteRoute
   '/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
@@ -149,6 +158,7 @@ export interface FileRoutesById {
   '/_auth/login': typeof modulesAccessSessionLoginRouteRoute
   '/_auth/register': typeof modulesAccessSessionRegisterRouteRoute
   '/_protected/focus': typeof modulesFocusFocusRouteRoute
+  '/_protected/insights': typeof modulesStudyGuidanceStudyGuidanceRouteRoute
   '/_protected/labels': typeof modulesLabelsLabelManagementLabelsRouteRoute
   '/_protected/recall': typeof modulesRecallRecallRouteRouteWithChildren
   '/_protected/settings': typeof modulesAccessSessionSettingsRouteRoute
@@ -165,6 +175,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/focus'
+    | '/insights'
     | '/labels'
     | '/recall'
     | '/settings'
@@ -179,6 +190,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/focus'
+    | '/insights'
     | '/labels'
     | '/settings'
     | '/study-notes'
@@ -195,6 +207,7 @@ export interface FileRouteTypes {
     | '/_auth/login'
     | '/_auth/register'
     | '/_protected/focus'
+    | '/_protected/insights'
     | '/_protected/labels'
     | '/_protected/recall'
     | '/_protected/settings'
@@ -266,6 +279,13 @@ declare module '@tanstack/react-router' {
       path: '/focus'
       fullPath: '/focus'
       preLoaderRoute: typeof modulesFocusFocusRouteRouteImport
+      parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
+    }
+    '/_protected/insights': {
+      id: '/_protected/insights'
+      path: '/insights'
+      fullPath: '/insights'
+      preLoaderRoute: typeof modulesStudyGuidanceStudyGuidanceRouteRouteImport
       parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
     }
     '/_auth/register': {
@@ -362,6 +382,7 @@ const modulesRecallRecallRouteRouteWithChildren =
 
 interface modulesWorkspaceShellAppShellProtectedRouteRouteChildren {
   modulesFocusFocusRouteRoute: typeof modulesFocusFocusRouteRoute
+  modulesStudyGuidanceStudyGuidanceRouteRoute: typeof modulesStudyGuidanceStudyGuidanceRouteRoute
   modulesLabelsLabelManagementLabelsRouteRoute: typeof modulesLabelsLabelManagementLabelsRouteRoute
   modulesRecallRecallRouteRoute: typeof modulesRecallRecallRouteRouteWithChildren
   modulesAccessSessionSettingsRouteRoute: typeof modulesAccessSessionSettingsRouteRoute
@@ -371,6 +392,8 @@ interface modulesWorkspaceShellAppShellProtectedRouteRouteChildren {
 const modulesWorkspaceShellAppShellProtectedRouteRouteChildren: modulesWorkspaceShellAppShellProtectedRouteRouteChildren =
   {
     modulesFocusFocusRouteRoute: modulesFocusFocusRouteRoute,
+    modulesStudyGuidanceStudyGuidanceRouteRoute:
+      modulesStudyGuidanceStudyGuidanceRouteRoute,
     modulesLabelsLabelManagementLabelsRouteRoute:
       modulesLabelsLabelManagementLabelsRouteRoute,
     modulesRecallRecallRouteRoute: modulesRecallRecallRouteRouteWithChildren,

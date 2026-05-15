@@ -275,12 +275,16 @@ describe("authenticated app shell", () => {
       name: "Recall",
     });
     const focusLink = within(appSections).getByRole("link", { name: "Focus" });
+    const insightsLink = within(appSections).getByRole("link", {
+      name: "Insights",
+    });
 
     expect(within(appSections).getAllByRole("link")).toEqual([
       notesLink,
       recallLink,
       labelsLink,
       focusLink,
+      insightsLink,
     ]);
     expect(
       within(appSections).queryByRole("link", { name: "Recall history" }),

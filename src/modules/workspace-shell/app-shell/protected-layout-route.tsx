@@ -24,9 +24,16 @@ import { FocusSessionStartControl } from "../../focus";
 import { useAppTranslation } from "../../language";
 import { NotesWorkspaceProvider } from "../../notes";
 
-type NavigationIconName = "focus" | "label" | "note" | "recall" | "settings";
+type NavigationIconName =
+  | "focus"
+  | "insights"
+  | "label"
+  | "note"
+  | "recall"
+  | "settings";
 type WorkspaceFrameName =
   | "focus"
+  | "insights"
   | "labels"
   | "notes"
   | "recall"
@@ -54,6 +61,11 @@ const globalNavigationItems = [
     labelKey: "shell.navigation.focus",
     to: "/focus",
   },
+  {
+    iconName: "insights",
+    labelKey: "shell.navigation.insights",
+    to: "/insights",
+  },
 ] as const;
 
 function isWorkspacePath(pathname: string, workspacePath: string) {
@@ -71,6 +83,10 @@ function getWorkspaceTitleKey(pathname: string) {
 
   if (isFocusWorkspacePath(pathname)) {
     return "shell.workspace.focus";
+  }
+
+  if (isInsightsWorkspacePath(pathname)) {
+    return "shell.workspace.insights";
   }
 
   if (isSettingsWorkspacePath(pathname)) {
@@ -116,6 +132,10 @@ function isSettingsWorkspacePath(pathname: string) {
   return isWorkspacePath(pathname, "/settings");
 }
 
+function isInsightsWorkspacePath(pathname: string) {
+  return isWorkspacePath(pathname, "/insights");
+}
+
 function getWorkspaceFrameName(
   pathname: string,
 ): WorkspaceFrameName | undefined {
@@ -137,6 +157,10 @@ function getWorkspaceFrameName(
 
   if (isFocusWorkspacePath(pathname)) {
     return "focus";
+  }
+
+  if (isInsightsWorkspacePath(pathname)) {
+    return "insights";
   }
 
   if (isSettingsWorkspacePath(pathname)) {
@@ -182,6 +206,7 @@ export function AppLayout() {
   const isRecallWorkspaceRoute = isRecallWorkspacePath(location.pathname);
   const isLabelsWorkspaceRoute = isLabelsWorkspacePath(location.pathname);
   const isFocusWorkspaceRoute = isFocusWorkspacePath(location.pathname);
+  const isInsightsWorkspaceRoute = isInsightsWorkspacePath(location.pathname);
   const isSettingsWorkspaceRoute = isSettingsWorkspacePath(location.pathname);
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
   const sidebarToggleLabel = isSidebarCollapsed
@@ -318,6 +343,7 @@ export function AppLayout() {
             isRecallWorkspaceRoute={isRecallWorkspaceRoute}
             isLabelsWorkspaceRoute={isLabelsWorkspaceRoute}
             isFocusWorkspaceRoute={isFocusWorkspaceRoute}
+            isInsightsWorkspaceRoute={isInsightsWorkspaceRoute}
             isSettingsWorkspaceRoute={isSettingsWorkspaceRoute}
             isSidebarCollapsed={isSidebarCollapsed}
             isMobileSidebarOpen={isMobileSidebarOpen}
@@ -348,6 +374,7 @@ function WorkspaceHeader({
   isRecallWorkspaceRoute,
   isLabelsWorkspaceRoute,
   isFocusWorkspaceRoute,
+  isInsightsWorkspaceRoute,
   isSettingsWorkspaceRoute,
   isSidebarCollapsed,
   isMobileSidebarOpen,
@@ -371,6 +398,7 @@ function WorkspaceHeader({
   isRecallWorkspaceRoute: boolean;
   isLabelsWorkspaceRoute: boolean;
   isFocusWorkspaceRoute: boolean;
+  isInsightsWorkspaceRoute: boolean;
   isSettingsWorkspaceRoute: boolean;
   isSidebarCollapsed: boolean;
   isMobileSidebarOpen: boolean;
@@ -387,6 +415,7 @@ function WorkspaceHeader({
     isRecallWorkspaceRoute ||
     isLabelsWorkspaceRoute ||
     isFocusWorkspaceRoute ||
+    isInsightsWorkspaceRoute ||
     isSettingsWorkspaceRoute;
 
   return (
@@ -667,6 +696,15 @@ function NavigationIcon({
           <path d="M12 19v3" />
           <path d="M2 12h3" />
           <path d="M19 12h3" />
+        </svg>
+      );
+    case "insights":
+      return (
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M5 19V7" />
+          <path d="M11 19V11" />
+          <path d="M17 19V4" />
+          <path d="M3 19h18" />
         </svg>
       );
     case "recall":

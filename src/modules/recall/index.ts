@@ -33,6 +33,7 @@ export {
 export type { RecallSchedule } from "./recall-schedule";
 export {
   createInitialRecallSchedule,
+  formatNextRecallTiming,
   getUpdatedRecallSchedule,
   isRecallScheduleDue,
 } from "./recall-schedule";
