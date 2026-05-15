@@ -30,6 +30,17 @@ function createUnusedPersistentLabelMutation() {
   };
 }
 
+const studyNoteExpectedAnswerPlaceholder =
+  "Explain the reason, steps, limits, and one example or non-example.";
+const studyNoteMemoryAidsGuidance =
+  "Optional. Add one only when it would make this answer easier to recall.";
+const studyNotePromptGuidance =
+  "Ask why, how, when it works, when it does not, or what a worked example shows.";
+const studyNotePromptPlaceholder =
+  "Why does this work? How would I use it? What example proves it?";
+const studyNoteReferenceExplanationGuidance =
+  "Worked examples belong here as source material.";
+
 function createTestPersistentLabelsService(
   initialLabels: readonly AppLabel[],
 ): AppPersistentLabelsService {
@@ -200,14 +211,10 @@ describe("authenticated Study Notes workspace", () => {
       "Testing retrieval strengthens durable recall.",
     );
     expect(
-      screen.getByPlaceholderText(
-        "Why does this work? How would I use it? What example proves it?",
-      ),
+      screen.getByPlaceholderText(studyNotePromptPlaceholder),
     ).toHaveAccessibleName("Prompt");
     expect(
-      screen.getByPlaceholderText(
-        "Explain the reason, steps, limits, and one example or non-example.",
-      ),
+      screen.getByPlaceholderText(studyNoteExpectedAnswerPlaceholder),
     ).toHaveAccessibleName("Expected answer");
     expect(screen.getByPlaceholderText("Metaphor")).toHaveAccessibleName(
       "Metaphor",
@@ -304,9 +311,7 @@ describe("authenticated Study Notes workspace", () => {
       expect(screen.getByLabelText("Prompt")).toHaveValue("New Study Note"),
     );
     expect(
-      screen.getByPlaceholderText(
-        "Explain the reason, steps, limits, and one example or non-example.",
-      ),
+      screen.getByPlaceholderText(studyNoteExpectedAnswerPlaceholder),
     ).toHaveValue("");
     expect(screen.getByPlaceholderText("Explanation")).toHaveValue("");
     const saveButton = screen.getByRole("button", { name: "Save" });
@@ -378,28 +383,16 @@ describe("authenticated Study Notes workspace", () => {
       await screen.findByRole("button", { name: "New Study Note" }),
     );
 
+    expect(screen.getByText(studyNotePromptGuidance)).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Ask why, how, when it works, when it does not, or what a worked example shows.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByPlaceholderText(
-        "Why does this work? How would I use it? What example proves it?",
-      ),
+      screen.getByPlaceholderText(studyNotePromptPlaceholder),
     ).toHaveAccessibleName("Prompt");
     expect(
-      screen.getByPlaceholderText(
-        "Explain the reason, steps, limits, and one example or non-example.",
-      ),
+      screen.getByPlaceholderText(studyNoteExpectedAnswerPlaceholder),
     ).toHaveAccessibleName("Expected answer");
+    expect(screen.getByText(studyNoteMemoryAidsGuidance)).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Optional. Add one only when it would make this answer easier to recall.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Worked examples belong here as source material."),
+      screen.getByText(studyNoteReferenceExplanationGuidance),
     ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Prompt"), {
