@@ -11,7 +11,10 @@ import {
   type RecallSession,
   type SessionResult,
 } from "./recall";
-import { practiceRepairIntents } from "./recall-practice-repair";
+import {
+  practiceRepairIntents,
+  practiceRepairMemoryAidKinds,
+} from "./recall-practice-repair";
 import type { RecallSchedule } from "./recall-schedule";
 
 const SESSION_COOKIE_NAME = "learning-makes-difference-session";
@@ -70,7 +73,7 @@ const completeLinkedPracticeRepairEntryInputSchema = z.discriminatedUnion(
       intent: z.literal("add-memory-aid"),
       intentMetadata: z.object({
         memoryAidId: z.string().nullable(),
-        memoryAidKind: z.enum(["Metaphor", "Acronym"]).nullable(),
+        memoryAidKind: z.enum(practiceRepairMemoryAidKinds).nullable(),
       }),
       reference: practiceRepairEntryReferenceSchema,
     }),
@@ -329,22 +332,10 @@ const completeLinkedPracticeRepairEntryServerFn = createServerFn({
       createRequestRecallService(),
     ]);
 
-    switch (data.intent) {
-      case "create-sibling-study-note":
-        return recall.completeLinkedPracticeRepairEntry({
-          intent: data.intent,
-          intentMetadata: data.intentMetadata,
-          reference: data.reference,
-          userId,
-        });
-      case "add-memory-aid":
-        return recall.completeLinkedPracticeRepairEntry({
-          intent: data.intent,
-          intentMetadata: data.intentMetadata,
-          reference: data.reference,
-          userId,
-        });
-    }
+    return recall.completeLinkedPracticeRepairEntry({
+      ...data,
+      userId,
+    });
   });
 
 const dismissPracticeRepairEntryServerFn = createServerFn({

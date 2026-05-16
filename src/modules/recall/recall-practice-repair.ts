@@ -6,8 +6,8 @@ export const practiceRepairIntents = [
 ] as const;
 
 export type PracticeRepairIntent = (typeof practiceRepairIntents)[number];
-const practiceRepairMemoryAidKinds = ["Metaphor", "Acronym"] as const;
-type PracticeRepairMemoryAidKind =
+export const practiceRepairMemoryAidKinds = ["Metaphor", "Acronym"] as const;
+export type PracticeRepairMemoryAidKind =
   (typeof practiceRepairMemoryAidKinds)[number];
 
 export type PracticeRepairQuestionReference = {
@@ -41,6 +41,18 @@ export type PracticeRepairIntentMetadataByIntent = {
   "split-study-note": SplitStudyNotePracticeRepairMetadata;
   "tighten-expected-answer": TightenExpectedAnswerPracticeRepairMetadata;
 };
+
+export type PracticeRepairLinkedCompletionIntent =
+  | "add-memory-aid"
+  | "create-sibling-study-note";
+
+export type PracticeRepairLinkedCompletionInput = {
+  [Intent in PracticeRepairLinkedCompletionIntent]: {
+    intent: Intent;
+    intentMetadata: PracticeRepairIntentMetadataByIntent[Intent];
+    reference: PracticeRepairQuestionReference;
+  };
+}[PracticeRepairLinkedCompletionIntent];
 
 export type PracticeRepairIntentMetadata =
   PracticeRepairIntentMetadataByIntent[PracticeRepairIntent];

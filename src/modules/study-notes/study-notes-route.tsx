@@ -35,6 +35,8 @@ import { getInterleavedRecallRecommendation } from "../recall/interleaved-recall
 import {
   formatPracticeRepairIntentLabel,
   type PracticeRepairEntry,
+  type PracticeRepairLinkedCompletionInput,
+  type PracticeRepairMemoryAidKind,
   type PracticeRepairQuestionReference,
 } from "../recall/recall-practice-repair";
 import "./study-notes.css";
@@ -457,27 +459,10 @@ type ActivePracticeRepairEntryReader = {
     userId: string;
   }): PracticeRepairEntry[];
 };
-type PendingPracticeRepairLinkedAction = {
-  memoryAidKind: "Acronym" | "Metaphor";
+type PendingPracticeRepairMemoryAidAction = {
+  memoryAidKind: PracticeRepairMemoryAidKind;
   reference: PracticeRepairQuestionReference;
-  type: "add-memory-aid";
 } | null;
-type CompleteLinkedPracticeRepairRouteInput =
-  | {
-      intent: "add-memory-aid";
-      intentMetadata: {
-        memoryAidId: string | null;
-        memoryAidKind: "Acronym" | "Metaphor" | null;
-      };
-      reference: PracticeRepairQuestionReference;
-    }
-  | {
-      intent: "create-sibling-study-note";
-      intentMetadata: {
-        createdStudyNoteId: string | null;
-      };
-      reference: PracticeRepairQuestionReference;
-    };
 type ActivePracticeRepairEntryViewInput = {
   recallContext: ActivePracticeRepairEntryReader;
   sessionResults: readonly SessionResult[];
@@ -687,7 +672,7 @@ function getSupportDescriptionValue(
 }
 
 function getSupportDescriptionValueByKind(input: {
-  memoryAidKind: "Acronym" | "Metaphor";
+  memoryAidKind: PracticeRepairMemoryAidKind;
   studyNote: AppStudyNote;
 }) {
   return input.memoryAidKind === "Metaphor"
@@ -696,7 +681,7 @@ function getSupportDescriptionValueByKind(input: {
 }
 
 function getPracticeRepairMemoryAidReference(input: {
-  memoryAidKind: "Acronym" | "Metaphor";
+  memoryAidKind: PracticeRepairMemoryAidKind;
   studyNoteId: string;
 }) {
   return `${input.studyNoteId}:${input.memoryAidKind.toLowerCase()}`;
@@ -1078,9 +1063,9 @@ function StudyNotesWorkspace() {
   const [practiceRepairCorrectionDrafts, setPracticeRepairCorrectionDrafts] =
     useState<Record<string, string>>({});
   const [
-    pendingPracticeRepairLinkedAction,
-    setPendingPracticeRepairLinkedAction,
-  ] = useState<PendingPracticeRepairLinkedAction>(null);
+    pendingPracticeRepairMemoryAidAction,
+    setPendingPracticeRepairMemoryAidAction,
+  ] = useState<PendingPracticeRepairMemoryAidAction>(null);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [isSaving, setSaving] = useState(false);
   const [pendingEditorTarget, setPendingEditorTarget] =
@@ -1162,7 +1147,7 @@ function StudyNotesWorkspace() {
 
     setDraft(nextDraft);
     setPendingEditorTarget(null);
-    setPendingPracticeRepairLinkedAction(null);
+    setPendingPracticeRepairMemoryAidAction(null);
   }, [selectedStudyNote]);
 
   useEffect(() => {
@@ -1313,53 +1298,23 @@ function StudyNotesWorkspace() {
   }
 
   async function completeLinkedPracticeRepairEntry(
-    input: CompleteLinkedPracticeRepairRouteInput,
+    input: PracticeRepairLinkedCompletionInput,
   ) {
     await mutatePracticeRepairEntry({
       action: "linked-action",
       mutation: (validatedUserId) => {
         if (persistentRecallContext === undefined) {
-          switch (input.intent) {
-            case "create-sibling-study-note":
-              recallContext.completeLinkedPracticeRepairEntry({
-                intent: input.intent,
-                intentMetadata: input.intentMetadata,
-                reference: input.reference,
-                userId: validatedUserId,
-              });
-              return;
-            case "add-memory-aid":
-              recallContext.completeLinkedPracticeRepairEntry({
-                intent: input.intent,
-                intentMetadata: input.intentMetadata,
-                reference: input.reference,
-                userId: validatedUserId,
-              });
-              return;
-          }
+          recallContext.completeLinkedPracticeRepairEntry({
+            ...input,
+            userId: validatedUserId,
+          });
           return;
         }
 
-        switch (input.intent) {
-          case "create-sibling-study-note":
-            return persistentRecallContext.completeLinkedPracticeRepairEntry(
-              validatedUserId,
-              {
-                intent: input.intent,
-                intentMetadata: input.intentMetadata,
-                reference: input.reference,
-              },
-            );
-          case "add-memory-aid":
-            return persistentRecallContext.completeLinkedPracticeRepairEntry(
-              validatedUserId,
-              {
-                intent: input.intent,
-                intentMetadata: input.intentMetadata,
-                reference: input.reference,
-              },
-            );
-        }
+        return persistentRecallContext.completeLinkedPracticeRepairEntry(
+          validatedUserId,
+          input,
+        );
       },
       reference: input.reference,
       successMessage: "Practice Repair completed",
@@ -1407,16 +1362,15 @@ function StudyNotesWorkspace() {
   }
 
   function handleStartMemoryAidPracticeRepair(input: {
-    memoryAidKind: "Acronym" | "Metaphor";
+    memoryAidKind: PracticeRepairMemoryAidKind;
     reference: PracticeRepairQuestionReference;
   }) {
     setErrorMessage(null);
     setSaveStatus(null);
     setMemoryAidsOpenOverride(true);
-    setPendingPracticeRepairLinkedAction({
+    setPendingPracticeRepairMemoryAidAction({
       memoryAidKind: input.memoryAidKind,
       reference: input.reference,
-      type: "add-memory-aid",
     });
   }
 
@@ -1642,46 +1596,42 @@ function StudyNotesWorkspace() {
     });
   }
 
-  async function maybeCompletePendingPracticeRepairLinkedAction(
+  async function maybeCompletePendingPracticeRepairMemoryAidAction(
     savedStudyNote: AppStudyNote,
   ) {
     if (
-      pendingPracticeRepairLinkedAction === null ||
+      pendingPracticeRepairMemoryAidAction === null ||
       savedStudyNote.id !==
-        pendingPracticeRepairLinkedAction.reference.studyNoteId
+        pendingPracticeRepairMemoryAidAction.reference.studyNoteId
     ) {
       return false;
     }
 
-    switch (pendingPracticeRepairLinkedAction.type) {
-      case "add-memory-aid": {
-        const description = getSupportDescriptionValueByKind({
-          memoryAidKind: pendingPracticeRepairLinkedAction.memoryAidKind,
-          studyNote: savedStudyNote,
-        }).trim();
+    const description = getSupportDescriptionValueByKind({
+      memoryAidKind: pendingPracticeRepairMemoryAidAction.memoryAidKind,
+      studyNote: savedStudyNote,
+    }).trim();
 
-        if (description.length === 0) {
-          setSaveStatus(
-            `Saved. Add a ${pendingPracticeRepairLinkedAction.memoryAidKind} to complete Practice Repair.`,
-          );
-          return true;
-        }
-
-        await completeLinkedPracticeRepairEntry({
-          intent: "add-memory-aid",
-          intentMetadata: {
-            memoryAidId: getPracticeRepairMemoryAidReference({
-              memoryAidKind: pendingPracticeRepairLinkedAction.memoryAidKind,
-              studyNoteId: savedStudyNote.id,
-            }),
-            memoryAidKind: pendingPracticeRepairLinkedAction.memoryAidKind,
-          },
-          reference: pendingPracticeRepairLinkedAction.reference,
-        });
-        setPendingPracticeRepairLinkedAction(null);
-        return true;
-      }
+    if (description.length === 0) {
+      setSaveStatus(
+        `Saved. Add a ${pendingPracticeRepairMemoryAidAction.memoryAidKind} to complete Practice Repair.`,
+      );
+      return true;
     }
+
+    await completeLinkedPracticeRepairEntry({
+      intent: "add-memory-aid",
+      intentMetadata: {
+        memoryAidId: getPracticeRepairMemoryAidReference({
+          memoryAidKind: pendingPracticeRepairMemoryAidAction.memoryAidKind,
+          studyNoteId: savedStudyNote.id,
+        }),
+        memoryAidKind: pendingPracticeRepairMemoryAidAction.memoryAidKind,
+      },
+      reference: pendingPracticeRepairMemoryAidAction.reference,
+    });
+    setPendingPracticeRepairMemoryAidAction(null);
+    return true;
   }
 
   async function saveDraft(): Promise<AppStudyNote | null> {
@@ -1722,7 +1672,9 @@ function StudyNotesWorkspace() {
       await captureFocusStudyNoteActivity(savedStudyNote);
 
       if (
-        !(await maybeCompletePendingPracticeRepairLinkedAction(savedStudyNote))
+        !(await maybeCompletePendingPracticeRepairMemoryAidAction(
+          savedStudyNote,
+        ))
       ) {
         setSaveStatus("Saved just now");
       }

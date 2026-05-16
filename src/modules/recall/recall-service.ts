@@ -20,9 +20,8 @@ import {
   type SessionResult,
 } from "./recall";
 import type {
-  AddMemoryAidPracticeRepairMetadata,
-  CreateSiblingStudyNotePracticeRepairMetadata,
   PracticeRepairEntryConfirmation,
+  PracticeRepairLinkedCompletionInput,
   PracticeRepairQuestionReference,
 } from "./recall-practice-repair";
 import {
@@ -90,17 +89,10 @@ type UpdatePracticeRepairEntryCorrectionInput =
     correction: string;
   };
 
-type CompleteLinkedPracticeRepairEntryInput = PracticeRepairEntryMutationInput &
-  (
-    | {
-        intent: "add-memory-aid";
-        intentMetadata: AddMemoryAidPracticeRepairMetadata;
-      }
-    | {
-        intent: "create-sibling-study-note";
-        intentMetadata: CreateSiblingStudyNotePracticeRepairMetadata;
-      }
-  );
+type CompleteLinkedPracticeRepairEntryInput =
+  PracticeRepairLinkedCompletionInput & {
+    userId: string;
+  };
 
 type CreateRecallServiceOptions = {
   crypto?: RecallCrypto;

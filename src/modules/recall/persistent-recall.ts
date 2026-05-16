@@ -16,13 +16,12 @@ import {
   summarizeAttempts,
 } from "./recall";
 import {
-  type AddMemoryAidPracticeRepairMetadata,
-  type CreateSiblingStudyNotePracticeRepairMetadata,
   clonePracticeRepairEntry as clonePracticeRepairEntryValue,
   listActivePracticeRepairEntriesForStudyNote as listActivePracticeRepairEntriesForStudyNoteValue,
   listPracticeRepairEntriesForQuestion as listPracticeRepairEntriesForQuestionValue,
   type PracticeRepairEntry,
   type PracticeRepairEntryConfirmation,
+  type PracticeRepairLinkedCompletionInput,
   type PracticeRepairQuestionReference,
 } from "./recall-practice-repair";
 import type { RecallSchedule } from "./recall-schedule";
@@ -70,17 +69,8 @@ type UpdatePracticeRepairEntryCorrectionInput =
     correction: string;
   };
 
-type CompleteLinkedPracticeRepairEntryInput = PracticeRepairEntryMutationInput &
-  (
-    | {
-        intent: "add-memory-aid";
-        intentMetadata: AddMemoryAidPracticeRepairMetadata;
-      }
-    | {
-        intent: "create-sibling-study-note";
-        intentMetadata: CreateSiblingStudyNotePracticeRepairMetadata;
-      }
-  );
+type CompleteLinkedPracticeRepairEntryInput =
+  PracticeRepairLinkedCompletionInput;
 
 export type AppPersistentRecallService = {
   completePracticeRepairEntry: (

@@ -8,8 +8,6 @@ import {
   listStudyNotesForUser,
 } from "../study-notes";
 import {
-  type AddMemoryAidPracticeRepairMetadata,
-  type CreateSiblingStudyNotePracticeRepairMetadata,
   clonePracticeRepairEntry as clonePracticeRepairEntryValue,
   createPracticeRepairIntentMetadata,
   getPracticeRepairEntryLifecycleState,
@@ -21,6 +19,7 @@ import {
   listPracticeRepairEntriesForQuestion as listPracticeRepairEntriesForQuestionValue,
   type PracticeRepairEntry,
   type PracticeRepairEntryConfirmation,
+  type PracticeRepairLinkedCompletionInput,
   type PracticeRepairQuestionReference,
 } from "./recall-practice-repair";
 import {
@@ -208,17 +207,10 @@ type UpdatePracticeRepairEntryCorrectionInput =
     correction: string;
   };
 
-type CompleteLinkedPracticeRepairEntryInput = PracticeRepairEntryMutationInput &
-  (
-    | {
-        intent: "add-memory-aid";
-        intentMetadata: AddMemoryAidPracticeRepairMetadata;
-      }
-    | {
-        intent: "create-sibling-study-note";
-        intentMetadata: CreateSiblingStudyNotePracticeRepairMetadata;
-      }
-  );
+type CompleteLinkedPracticeRepairEntryInput =
+  PracticeRepairLinkedCompletionInput & {
+    userId: string;
+  };
 
 type CreateAppRecallContextOptions = {
   crypto?: RecallCrypto;
@@ -1584,6 +1576,33 @@ export function createAppRecallContext(
     });
   }
 
+  function createCompletedPracticeRepairEntry(
+    entry: PracticeRepairEntry,
+    intentMetadata = entry.intentMetadata,
+  ): PracticeRepairEntry {
+    return {
+      ...entry,
+      intentMetadata,
+      lifecycle: {
+        ...entry.lifecycle,
+        completedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  function requireLinkedCompletionReference(
+    value: string | null,
+    message: string,
+  ): string {
+    const reference = value?.trim() ?? "";
+
+    if (reference.length === 0) {
+      throw new AppRecallError("invalid_input", message);
+    }
+
+    return reference;
+  }
+
   function completePracticeRepairEntry(
     input: PracticeRepairEntryMutationInput,
   ): SessionResult {
@@ -1591,13 +1610,7 @@ export function createAppRecallContext(
       onHistoricalMessage:
         "Only active Practice Repair entries can be completed.",
       reference: input.reference,
-      updateEntry: (entry) => ({
-        ...entry,
-        lifecycle: {
-          ...entry.lifecycle,
-          completedAt: new Date().toISOString(),
-        },
-      }),
+      updateEntry: createCompletedPracticeRepairEntry,
       userId: input.userId,
     });
   }
@@ -1619,51 +1632,32 @@ export function createAppRecallContext(
 
         switch (input.intent) {
           case "create-sibling-study-note": {
-            const createdStudyNoteId =
-              input.intentMetadata.createdStudyNoteId?.trim() ?? "";
+            const createdStudyNoteId = requireLinkedCompletionReference(
+              input.intentMetadata.createdStudyNoteId,
+              "Create sibling Study Note requires the created Study Note reference.",
+            );
 
-            if (createdStudyNoteId.length === 0) {
-              throw new AppRecallError(
-                "invalid_input",
-                "Create sibling Study Note requires the created Study Note reference.",
-              );
-            }
-
-            return {
-              ...entry,
-              intentMetadata: {
-                createdStudyNoteId,
-              },
-              lifecycle: {
-                ...entry.lifecycle,
-                completedAt: new Date().toISOString(),
-              },
-            };
+            return createCompletedPracticeRepairEntry(entry, {
+              createdStudyNoteId,
+            });
           }
           case "add-memory-aid": {
-            const memoryAidId = input.intentMetadata.memoryAidId?.trim() ?? "";
+            const memoryAidId = requireLinkedCompletionReference(
+              input.intentMetadata.memoryAidId,
+              "Add memory aid requires the created aid kind and reference.",
+            );
 
-            if (
-              memoryAidId.length === 0 ||
-              input.intentMetadata.memoryAidKind === null
-            ) {
+            if (input.intentMetadata.memoryAidKind === null) {
               throw new AppRecallError(
                 "invalid_input",
                 "Add memory aid requires the created aid kind and reference.",
               );
             }
 
-            return {
-              ...entry,
-              intentMetadata: {
-                memoryAidId,
-                memoryAidKind: input.intentMetadata.memoryAidKind,
-              },
-              lifecycle: {
-                ...entry.lifecycle,
-                completedAt: new Date().toISOString(),
-              },
-            };
+            return createCompletedPracticeRepairEntry(entry, {
+              memoryAidId,
+              memoryAidKind: input.intentMetadata.memoryAidKind,
+            });
           }
         }
       },
