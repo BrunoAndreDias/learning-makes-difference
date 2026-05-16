@@ -17,6 +17,8 @@ import {
 } from "./recall";
 import {
   clonePracticeRepairEntry as clonePracticeRepairEntryValue,
+  listActivePracticeRepairEntriesForStudyNote as listActivePracticeRepairEntriesForStudyNoteValue,
+  listPracticeRepairEntriesForQuestion as listPracticeRepairEntriesForQuestionValue,
   type PracticeRepairEntry,
   type PracticeRepairEntryConfirmation,
 } from "./recall-practice-repair";
@@ -380,6 +382,18 @@ export function createPersistentRecallContext(
     getSessionResultsSnapshot: () => sessionResultsSnapshot,
     getRecallSchedulesSnapshot: () => recallSchedulesSnapshot,
     getSnapshot: () => snapshot,
+    listActivePracticeRepairEntriesForStudyNote: ({ studyNoteId, userId }) => {
+      return listActivePracticeRepairEntriesForStudyNoteValue({
+        results: listFilteredSessionResults({ sessionResults, userId }),
+        studyNoteId,
+      });
+    },
+    listPracticeRepairEntriesForQuestion: ({ reference, userId }) => {
+      return listPracticeRepairEntriesForQuestionValue({
+        reference,
+        results: listFilteredSessionResults({ sessionResults, userId }),
+      });
+    },
     listAttemptsByNote: ({ labelId, userId }) => {
       const currentNoteTitlesById = new Map(
         options.notes === undefined

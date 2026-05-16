@@ -45,11 +45,22 @@ export type PracticeRepairIntentMetadataByIntent = {
 export type PracticeRepairIntentMetadata =
   PracticeRepairIntentMetadataByIntent[PracticeRepairIntent];
 
+export type PracticeRepairEntryLifecycle = {
+  completedAt?: string | null;
+  dismissedAt?: string | null;
+  followUpSatisfiedAt?: string | null;
+  studyNoteDeletedAt?: string | null;
+  supersededAt?: string | null;
+};
+
+export type PracticeRepairEntryLifecycleState = "active" | "historical";
+
 export type PracticeRepairEntry = {
   confirmedAt: string;
   correction: string;
   intent: PracticeRepairIntent;
   intentMetadata: PracticeRepairIntentMetadata;
+  lifecycle?: PracticeRepairEntryLifecycle;
   nextPracticeIdea?: string;
   reference: PracticeRepairQuestionReference;
 };
@@ -76,10 +87,26 @@ export type PracticeRepairDraft = {
   suggestions: readonly string[];
 };
 
+type PracticeRepairResultQuestionLike = {
+  practiceRepairEntry?: PracticeRepairEntry;
+};
+
+type PracticeRepairResultLike = {
+  questions: readonly PracticeRepairResultQuestionLike[];
+};
+
 const practiceRepairSuggestions = [
   "Tighten the expected answer so the next recall target is specific.",
   "Split a broad Study Note or create a sibling from the same source explanation.",
   "Add a Metaphor or Acronym only if it solves this recall problem.",
+] as const;
+
+const terminalPracticeRepairLifecycleFactKeys = [
+  "completedAt",
+  "dismissedAt",
+  "followUpSatisfiedAt",
+  "studyNoteDeletedAt",
+  "supersededAt",
 ] as const;
 
 export function isPracticeRepairIntent(
@@ -112,6 +139,20 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
 }
 
+export function isPracticeRepairEntryLifecycle(
+  value: unknown,
+): value is PracticeRepairEntryLifecycle {
+  const candidate = asPracticeRepairMetadataRecord(value);
+
+  if (candidate === null) {
+    return false;
+  }
+
+  return terminalPracticeRepairLifecycleFactKeys.every((key) => {
+    return !(key in candidate) || isNullableString(candidate[key]);
+  });
+}
+
 export function createPracticeRepairIntentMetadata(
   intent: PracticeRepairIntent,
 ): PracticeRepairIntentMetadata {
@@ -135,6 +176,22 @@ export function createPracticeRepairIntentMetadata(
         memoryAidKind: null,
       };
   }
+}
+
+function clonePracticeRepairEntryLifecycle(
+  lifecycle: PracticeRepairEntryLifecycle | undefined,
+): PracticeRepairEntryLifecycle | undefined {
+  if (lifecycle === undefined) {
+    return undefined;
+  }
+
+  return {
+    completedAt: lifecycle.completedAt,
+    dismissedAt: lifecycle.dismissedAt,
+    followUpSatisfiedAt: lifecycle.followUpSatisfiedAt,
+    studyNoteDeletedAt: lifecycle.studyNoteDeletedAt,
+    supersededAt: lifecycle.supersededAt,
+  };
 }
 
 function clonePracticeRepairIntentMetadata(
@@ -183,6 +240,7 @@ export function clonePracticeRepairEntry(
       entry.intent,
       entry.intentMetadata,
     ),
+    lifecycle: clonePracticeRepairEntryLifecycle(entry.lifecycle),
     reference: {
       ...entry.reference,
     },
@@ -254,6 +312,111 @@ export function getQuestionPracticeRepairDraft(
         : "Hard recall suggests this Study Note needs one concrete repair before the next attempt.",
     suggestions: practiceRepairSuggestions,
   };
+}
+
+function hasTerminalPracticeRepairLifecycleFact(
+  lifecycle: PracticeRepairEntryLifecycle | undefined,
+): boolean {
+  if (lifecycle === undefined) {
+    return false;
+  }
+
+  return terminalPracticeRepairLifecycleFactKeys.some((key) => {
+    const fact = lifecycle[key];
+
+    return typeof fact === "string" && fact.length > 0;
+  });
+}
+
+export function getPracticeRepairEntryLifecycleState(
+  entry: Pick<PracticeRepairEntry, "lifecycle">,
+): PracticeRepairEntryLifecycleState {
+  return hasTerminalPracticeRepairLifecycleFact(entry.lifecycle)
+    ? "historical"
+    : "active";
+}
+
+function comparePracticeRepairEntries(
+  left: PracticeRepairEntry,
+  right: PracticeRepairEntry,
+): number {
+  return (
+    right.confirmedAt.localeCompare(left.confirmedAt) ||
+    right.reference.sessionResultId.localeCompare(
+      left.reference.sessionResultId,
+    ) ||
+    right.reference.questionIndex - left.reference.questionIndex
+  );
+}
+
+function isMatchingPracticeRepairQuestionReference(input: {
+  candidate: PracticeRepairQuestionReference;
+  reference: PracticeRepairQuestionReference;
+}): boolean {
+  if (
+    input.candidate.sessionResultId !== input.reference.sessionResultId ||
+    input.candidate.studyNoteId !== input.reference.studyNoteId
+  ) {
+    return false;
+  }
+
+  if (
+    input.candidate.questionResultId !== undefined &&
+    input.reference.questionResultId !== undefined &&
+    input.candidate.questionResultId === input.reference.questionResultId
+  ) {
+    return true;
+  }
+
+  return input.candidate.questionIndex === input.reference.questionIndex;
+}
+
+export function listActivePracticeRepairEntriesForStudyNote(input: {
+  results: readonly PracticeRepairResultLike[];
+  studyNoteId: string;
+}): PracticeRepairEntry[] {
+  const entries: PracticeRepairEntry[] = [];
+
+  for (const result of input.results) {
+    for (const question of result.questions) {
+      const entry = question.practiceRepairEntry;
+
+      if (
+        entry !== undefined &&
+        entry.reference.studyNoteId === input.studyNoteId &&
+        getPracticeRepairEntryLifecycleState(entry) === "active"
+      ) {
+        entries.push(clonePracticeRepairEntry(entry));
+      }
+    }
+  }
+
+  return entries.sort(comparePracticeRepairEntries);
+}
+
+export function listPracticeRepairEntriesForQuestion(input: {
+  reference: PracticeRepairQuestionReference;
+  results: readonly PracticeRepairResultLike[];
+}): PracticeRepairEntry[] {
+  const entries: PracticeRepairEntry[] = [];
+
+  for (const result of input.results) {
+    for (const question of result.questions) {
+      const entry = question.practiceRepairEntry;
+
+      if (
+        entry !== undefined &&
+        isMatchingPracticeRepairQuestionReference({
+          candidate: entry.reference,
+          reference: input.reference,
+        })
+      ) {
+        entries.push(clonePracticeRepairEntry(entry));
+      }
+    }
+  }
+
+  return entries.sort(comparePracticeRepairEntries);
 }
 
 export function formatPracticeRepairIntentLabel(

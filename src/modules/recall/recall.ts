@@ -11,8 +11,11 @@ import {
   clonePracticeRepairEntry as clonePracticeRepairEntryValue,
   createPracticeRepairIntentMetadata,
   isPracticeRepairEligibleQuestion,
+  isPracticeRepairEntryLifecycle,
   isPracticeRepairIntent,
   isPracticeRepairIntentMetadata,
+  listActivePracticeRepairEntriesForStudyNote as listActivePracticeRepairEntriesForStudyNoteValue,
+  listPracticeRepairEntriesForQuestion as listPracticeRepairEntriesForQuestionValue,
   type PracticeRepairEntry,
   type PracticeRepairEntryConfirmation,
   type PracticeRepairQuestionReference,
@@ -152,6 +155,16 @@ type ListSessionResultsInput = {
 
 type ListAttemptsByNoteInput = ListSessionResultsInput;
 
+type ListActivePracticeRepairEntriesForStudyNoteInput = {
+  studyNoteId: string;
+  userId: string;
+};
+
+type ListPracticeRepairEntriesForQuestionInput = {
+  reference: PracticeRepairQuestionReference;
+  userId: string;
+};
+
 export type FlashCardRecallAttemptHistoryEntry = {
   bodySnapshot: string;
   completedAt: string;
@@ -263,6 +276,12 @@ export type AppRecallContext = {
   getSessionResult: (input: GetSessionResultInput) => SessionResult;
   getSessionResultsSnapshot: () => readonly SessionResult[];
   getSnapshot: () => AppRecallSnapshot;
+  listActivePracticeRepairEntriesForStudyNote: (
+    input: ListActivePracticeRepairEntriesForStudyNoteInput,
+  ) => PracticeRepairEntry[];
+  listPracticeRepairEntriesForQuestion: (
+    input: ListPracticeRepairEntriesForQuestionInput,
+  ) => PracticeRepairEntry[];
   listSessionResults: (input: ListSessionResultsInput) => SessionResult[];
   listAttemptsByNote: (
     input: ListAttemptsByNoteInput,
@@ -853,6 +872,8 @@ function isPracticeRepairEntry(value: unknown): value is PracticeRepairEntry {
       candidate.intent,
       candidate.intentMetadata,
     ) &&
+    (!("lifecycle" in candidate) ||
+      isPracticeRepairEntryLifecycle(candidate.lifecycle)) &&
     (!("nextPracticeIdea" in candidate) ||
       typeof candidate.nextPracticeIdea === "string") &&
     isPracticeRepairQuestionReference(candidate.reference)
@@ -1575,6 +1596,18 @@ export function createAppRecallContext(
     getRecallSchedulesSnapshot: () => recallSchedulesSnapshot,
     getSessionResultsSnapshot: () => sessionResultsSnapshot,
     getSnapshot: () => snapshot,
+    listActivePracticeRepairEntriesForStudyNote: ({ studyNoteId, userId }) => {
+      return listActivePracticeRepairEntriesForStudyNoteValue({
+        results: listFilteredSessionResults({ sessionResults, userId }),
+        studyNoteId,
+      });
+    },
+    listPracticeRepairEntriesForQuestion: ({ reference, userId }) => {
+      return listPracticeRepairEntriesForQuestionValue({
+        reference,
+        results: listFilteredSessionResults({ sessionResults, userId }),
+      });
+    },
     listSessionResults: ({ labelId, userId }) => {
       return listFilteredSessionResults({ labelId, sessionResults, userId })
         .sort((left, right) => {

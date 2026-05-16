@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAppNotesContext } from "../notes";
 import { createAppStudyNotesContext } from "../study-notes";
 import { AppRecallError, createAppRecallContext } from "./recall";
-import type { PracticeRepairIntent } from "./recall-practice-repair";
+import {
+  getPracticeRepairEntryLifecycleState,
+  type PracticeRepairIntent,
+} from "./recall-practice-repair";
 
 function createMemoryStorage() {
   const values = new Map<string, string>();
@@ -223,6 +226,144 @@ describe("confirmed Practice Repair entries", () => {
         "invalid_input",
         "Practice Repair intent is required.",
       ),
+    );
+  });
+
+  it("lists active entries by Study Note and keeps Results-context lookups for historical entries", () => {
+    const storage = createMemoryStorage();
+    const userId = "user-practice-repair";
+    const notes = createAppNotesContext({
+      keyPrefix: "practice-repair-entry-query-notes",
+      storage,
+    });
+    const studyNotes = createAppStudyNotesContext({
+      keyPrefix: "practice-repair-entry-query-study-notes",
+      storage,
+    });
+    let sessionCounter = 0;
+    const recallStorageKeyPrefix = "practice-repair-entry-query-recall";
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `practice-repair-query-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: recallStorageKeyPrefix,
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+    const studyNote = studyNotes.createStudyNote(userId, {
+      expectedAnswer: "ATP stores transferable energy.",
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+    const firstResult = createWeakStudyNoteResult({
+      recall,
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const firstUpdatedResult = recall.confirmPracticeRepairEntry({
+      correction: "State ATP explicitly.",
+      intent: "tighten-expected-answer",
+      reference: {
+        questionIndex: 0,
+        questionResultId: `${firstResult.id}-question-0`,
+        sessionResultId: firstResult.id,
+        studyNoteId: studyNote.id,
+      },
+      userId,
+    });
+    const secondResult = createWeakStudyNoteResult({
+      rating: "forgot",
+      recall,
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const secondUpdatedResult = recall.confirmPracticeRepairEntry({
+      correction: "Split the transport detail into a sibling Study Note.",
+      intent: "create-sibling-study-note",
+      reference: {
+        questionIndex: 0,
+        questionResultId: `${secondResult.id}-question-0`,
+        sessionResultId: secondResult.id,
+        studyNoteId: studyNote.id,
+      },
+      userId,
+    });
+    const storedSessionResults = JSON.parse(
+      storage.getItem(`${recallStorageKeyPrefix}:session-results`) ?? "[]",
+    ) as Array<{
+      id: string;
+      questions: Array<{
+        practiceRepairEntry?: {
+          lifecycle?: Record<string, string>;
+        };
+      }>;
+    }>;
+    const firstStoredResult = storedSessionResults.find(
+      (result) => result.id === firstUpdatedResult.id,
+    );
+
+    expect(firstStoredResult?.questions[0]?.practiceRepairEntry).toBeDefined();
+
+    if (firstStoredResult?.questions[0]?.practiceRepairEntry === undefined) {
+      throw new Error("Expected the first stored Practice Repair Entry.");
+    }
+
+    firstStoredResult.questions[0].practiceRepairEntry.lifecycle = {
+      completedAt: "2026-05-16T16:00:00.000Z",
+    };
+    storage.setItem(
+      `${recallStorageKeyPrefix}:session-results`,
+      JSON.stringify(storedSessionResults),
+    );
+
+    const reloadedRecall = createAppRecallContext({
+      keyPrefix: recallStorageKeyPrefix,
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+    const activeEntries =
+      reloadedRecall.listActivePracticeRepairEntriesForStudyNote({
+        studyNoteId: studyNote.id,
+        userId,
+      });
+    const historicalEntries =
+      reloadedRecall.listPracticeRepairEntriesForQuestion({
+        reference: firstUpdatedResult.questions[0]?.practiceRepairEntry
+          ?.reference ?? {
+          questionIndex: 0,
+          questionResultId: `${firstResult.id}-question-0`,
+          sessionResultId: firstResult.id,
+          studyNoteId: studyNote.id,
+        },
+        userId,
+      });
+
+    expect(activeEntries).toMatchObject([
+      {
+        correction: "Split the transport detail into a sibling Study Note.",
+        intent: "create-sibling-study-note",
+        reference:
+          secondUpdatedResult.questions[0]?.practiceRepairEntry?.reference,
+      },
+    ]);
+    expect(activeEntries).toHaveLength(1);
+    expect(historicalEntries).toMatchObject([
+      {
+        correction: "State ATP explicitly.",
+        intent: "tighten-expected-answer",
+      },
+    ]);
+    expect(getPracticeRepairEntryLifecycleState(activeEntries[0]!)).toBe(
+      "active",
+    );
+    expect(getPracticeRepairEntryLifecycleState(historicalEntries[0]!)).toBe(
+      "historical",
     );
   });
 });
