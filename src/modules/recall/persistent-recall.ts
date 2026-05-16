@@ -16,8 +16,8 @@ import {
   summarizeAttempts,
 } from "./recall";
 import type {
-  PracticeRepairIntent,
-  PracticeRepairQuestionReference,
+  PracticeRepairEntry,
+  PracticeRepairEntryConfirmation,
 } from "./recall-practice-repair";
 import type { RecallSchedule } from "./recall-schedule";
 
@@ -53,11 +53,7 @@ type UpdateAttemptTextInput = UpdateRecallSessionInput & {
   text: string;
 };
 
-type ConfirmPracticeRepairEntryInput = {
-  correction: string;
-  intent: PracticeRepairIntent;
-  reference: PracticeRepairQuestionReference;
-};
+type ConfirmPracticeRepairEntryInput = PracticeRepairEntryConfirmation;
 
 export type AppPersistentRecallService = {
   confirmPracticeRepairEntry: (
@@ -156,10 +152,26 @@ function cloneNoteSnapshot(note: RecallNoteSnapshot): RecallNoteSnapshot {
   };
 }
 
+function clonePracticeRepairEntry(
+  entry: PracticeRepairEntry | undefined,
+): PracticeRepairEntry | undefined {
+  if (entry === undefined) {
+    return undefined;
+  }
+
+  return {
+    ...entry,
+    reference: {
+      ...entry.reference,
+    },
+  };
+}
+
 function cloneQuestion(question: RecallQuestion): RecallQuestion {
   return {
     ...question,
     noteSnapshot: cloneNoteSnapshot(question.noteSnapshot),
+    practiceRepairEntry: clonePracticeRepairEntry(question.practiceRepairEntry),
   };
 }
 

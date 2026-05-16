@@ -21,6 +21,12 @@ export type PracticeRepairEntry = {
   reference: PracticeRepairQuestionReference;
 };
 
+export type PracticeRepairEntryConfirmation = {
+  correction: string;
+  intent: PracticeRepairIntent;
+  reference: PracticeRepairQuestionReference;
+};
+
 type PracticeRepairQuestionLike = {
   noteId: string;
   noteSnapshot: {
@@ -51,20 +57,28 @@ export function isPracticeRepairIntent(
   );
 }
 
-export function isWeakPracticeRepairRating(
+function isWeakPracticeRepairRating(
   rating: PracticeRepairQuestionLike["selfRating"],
 ): rating is "forgot" | "hard" {
   return rating === "forgot" || rating === "hard";
+}
+
+export function isPracticeRepairEligibleQuestion(
+  question: PracticeRepairQuestionLike,
+): boolean {
+  return (
+    isWeakPracticeRepairRating(question.selfRating) &&
+    question.noteSnapshot.sourceNoteId !== undefined &&
+    question.noteSnapshot.expectedAnswer?.trim().length !== 0
+  );
 }
 
 export function getQuestionPracticeRepairDraft(
   question: PracticeRepairQuestionLike,
 ): PracticeRepairDraft | null {
   if (
-    !isWeakPracticeRepairRating(question.selfRating) ||
-    question.practiceRepairEntry !== undefined ||
-    question.noteSnapshot.sourceNoteId === undefined ||
-    question.noteSnapshot.expectedAnswer?.trim().length === 0
+    !isPracticeRepairEligibleQuestion(question) ||
+    question.practiceRepairEntry !== undefined
   ) {
     return null;
   }

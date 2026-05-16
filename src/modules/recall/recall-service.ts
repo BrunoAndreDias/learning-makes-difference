@@ -19,10 +19,7 @@ import {
   type RecallSession,
   type SessionResult,
 } from "./recall";
-import type {
-  PracticeRepairIntent,
-  PracticeRepairQuestionReference,
-} from "./recall-practice-repair";
+import type { PracticeRepairEntryConfirmation } from "./recall-practice-repair";
 import {
   createInitialRecallSchedule,
   getUpdatedRecallSchedule,
@@ -74,10 +71,7 @@ type UpdateAttemptTextInput = UpdateRecallSessionInput & {
   text: string;
 };
 
-type ConfirmPracticeRepairEntryInput = {
-  correction: string;
-  intent: PracticeRepairIntent;
-  reference: PracticeRepairQuestionReference;
+type ConfirmPracticeRepairEntryInput = PracticeRepairEntryConfirmation & {
   userId: string;
 };
 

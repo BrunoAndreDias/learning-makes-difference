@@ -8,10 +8,10 @@ import {
   listStudyNotesForUser,
 } from "../study-notes";
 import {
+  isPracticeRepairEligibleQuestion,
   isPracticeRepairIntent,
-  isWeakPracticeRepairRating,
   type PracticeRepairEntry,
-  type PracticeRepairIntent,
+  type PracticeRepairEntryConfirmation,
   type PracticeRepairQuestionReference,
 } from "./recall-practice-repair";
 import {
@@ -175,10 +175,7 @@ type UpdateAttemptTextInput = UpdateRecallSessionInput & {
   text: string;
 };
 
-type ConfirmPracticeRepairEntryInput = {
-  correction: string;
-  intent: PracticeRepairIntent;
-  reference: PracticeRepairQuestionReference;
+type ConfirmPracticeRepairEntryInput = PracticeRepairEntryConfirmation & {
   userId: string;
 };
 
@@ -1290,11 +1287,7 @@ export function createAppRecallContext(
 
     const question = result.questions[questionIndex];
 
-    if (
-      !isWeakPracticeRepairRating(question.selfRating) ||
-      question.noteSnapshot.sourceNoteId === undefined ||
-      question.noteSnapshot.expectedAnswer?.trim().length === 0
-    ) {
+    if (!isPracticeRepairEligibleQuestion(question)) {
       throw new AppRecallError(
         "invalid_input",
         "Practice Repair is only available for weak Study Note questions.",

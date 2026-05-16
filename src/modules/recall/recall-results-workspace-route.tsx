@@ -32,6 +32,7 @@ import type {
 import {
   formatPracticeRepairIntentLabel,
   getQuestionPracticeRepairDraft,
+  type PracticeRepairEntryConfirmation,
   type PracticeRepairIntent,
   practiceRepairIntents,
 } from "./recall-practice-repair";
@@ -64,16 +65,7 @@ type RecallWorkspaceView = "results" | "today";
 type ExpandedQuestionKey = string | null;
 type ExpandedQuestionKeyChange = (questionKey: ExpandedQuestionKey) => void;
 type QuestionReferenceNoteSnapshot = Pick<RecallNoteSnapshot, "body" | "title">;
-type ConfirmPracticeRepairInput = {
-  correction: string;
-  intent: PracticeRepairIntent;
-  reference: {
-    questionIndex: number;
-    questionResultId?: string;
-    sessionResultId: string;
-    studyNoteId: string;
-  };
-};
+type ConfirmPracticeRepairInput = PracticeRepairEntryConfirmation;
 
 export const Route = createFileRoute("/_protected/recall/")({
   validateSearch: recallResultsSearchSchema,
@@ -274,6 +266,25 @@ function subscribeToReviewStatsLayout(callback: () => void) {
   };
 }
 
+function getRecallWorkspaceView(input: {
+  canShowRecallToday: boolean;
+  searchView: RecallWorkspaceView | undefined;
+}): RecallWorkspaceView {
+  if (input.searchView === "results") {
+    return "results";
+  }
+
+  if (input.searchView === "today" && !input.canShowRecallToday) {
+    return "results";
+  }
+
+  if (input.searchView === "today" || input.canShowRecallToday) {
+    return "today";
+  }
+
+  return "results";
+}
+
 function RecallResultsWorkspacePage() {
   const { t } = useAppTranslation();
   const navigate = useNavigate();
@@ -434,16 +445,10 @@ function RecallResultsWorkspacePage() {
   const canShowRecallToday =
     recallTodayQueue.length > 0 ||
     (studyNotes.length > 0 && sessionResults.length === 0);
-  const workspaceView: RecallWorkspaceView =
-    search.view === "results"
-      ? "results"
-      : search.view === "today"
-        ? canShowRecallToday
-          ? "today"
-          : "results"
-        : canShowRecallToday
-          ? "today"
-          : "results";
+  const workspaceView = getRecallWorkspaceView({
+    canShowRecallToday,
+    searchView: search.view,
+  });
 
   async function confirmPracticeRepairEntry(input: ConfirmPracticeRepairInput) {
     if (userId === null) {
@@ -452,19 +457,13 @@ function RecallResultsWorkspacePage() {
 
     if (persistentRecallContext === undefined) {
       recallContext.confirmPracticeRepairEntry({
-        correction: input.correction,
-        intent: input.intent,
-        reference: input.reference,
+        ...input,
         userId,
       });
       return;
     }
 
-    await persistentRecallContext.confirmPracticeRepairEntry(userId, {
-      correction: input.correction,
-      intent: input.intent,
-      reference: input.reference,
-    });
+    await persistentRecallContext.confirmPracticeRepairEntry(userId, input);
   }
 
   if (hasNoRecallContent) {
@@ -1865,38 +1864,6 @@ function QuestionReviewDetail({
 }) {
   const { t } = useAppTranslation();
   const referenceNoteSnapshot = getQuestionReferenceNoteSnapshot(question);
-  const practiceRepairDraft = getQuestionPracticeRepairDraft(question);
-  const [practiceRepairIntent, setPracticeRepairIntent] = useState<
-    PracticeRepairIntent | ""
-  >("");
-  const [practiceRepairCorrection, setPracticeRepairCorrection] = useState("");
-  const [isSavingPracticeRepair, setIsSavingPracticeRepair] = useState(false);
-
-  async function handleConfirmPracticeRepair() {
-    if (
-      practiceRepairIntent === "" ||
-      practiceRepairCorrection.trim().length === 0
-    ) {
-      return;
-    }
-
-    setIsSavingPracticeRepair(true);
-
-    try {
-      await onConfirmPracticeRepairEntry({
-        correction: practiceRepairCorrection,
-        intent: practiceRepairIntent,
-        reference: {
-          questionIndex,
-          questionResultId: question.questionResultId,
-          sessionResultId: resultId,
-          studyNoteId: question.noteId,
-        },
-      });
-    } finally {
-      setIsSavingPracticeRepair(false);
-    }
-  }
 
   return (
     <div className="recall-selected-result__question-detail" id={detailId}>
@@ -1940,81 +1907,137 @@ function QuestionReviewDetail({
           {referenceNoteSnapshot.body}
         </p>
       </div>
-      {question.practiceRepairEntry !== undefined ? (
-        <div className="recall-selected-result__question-detail-block">
-          <h5>Confirmed Practice Repair</h5>
-          <p className="recall-selected-result__question-detail-label">
-            Intent
-          </p>
-          <p className="recall-selected-result__question-detail-copy">
-            {formatPracticeRepairIntentLabel(
-              question.practiceRepairEntry.intent,
-            )}
-          </p>
-          <p className="recall-selected-result__question-detail-label">
-            Correction
-          </p>
-          <p className="recall-selected-result__question-detail-copy">
-            {question.practiceRepairEntry.correction}
-          </p>
-        </div>
-      ) : practiceRepairDraft !== null ? (
-        <div className="recall-selected-result__question-detail-block">
-          <h5>Draft Practice Repair</h5>
-          <p className="recall-selected-result__question-detail-copy">
-            {practiceRepairDraft.summary}
-          </p>
-          <ul className="recall-selected-result__question-detail-copy">
-            {practiceRepairDraft.suggestions.map((suggestion) => (
-              <li key={suggestion}>{suggestion}</li>
-            ))}
-          </ul>
-          <label className="recall-field">
-            <span>Practice Repair intent</span>
-            <select
-              aria-label="Practice Repair intent"
-              onChange={(event) =>
-                setPracticeRepairIntent(
-                  event.target.value as PracticeRepairIntent | "",
-                )
-              }
-              value={practiceRepairIntent}
-            >
-              <option value="">Choose one intent</option>
-              {practiceRepairIntents.map((intent) => (
-                <option key={intent} value={intent}>
-                  {formatPracticeRepairIntentLabel(intent)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="recall-field">
-            <span>Correction</span>
-            <textarea
-              aria-label="Correction"
-              onChange={(event) =>
-                setPracticeRepairCorrection(event.target.value)
-              }
-              rows={3}
-              value={practiceRepairCorrection}
-            />
-          </label>
-          <Button
-            disabled={
-              isSavingPracticeRepair ||
-              practiceRepairIntent === "" ||
-              practiceRepairCorrection.trim().length === 0
-            }
-            onClick={() => {
-              void handleConfirmPracticeRepair();
-            }}
-            type="button"
-            variant="primary"
-          >
-            Confirm Practice Repair
-          </Button>
-        </div>
-      ) : null}
+      <QuestionPracticeRepairPanel
+        onConfirmPracticeRepairEntry={onConfirmPracticeRepairEntry}
+        question={question}
+        questionIndex={questionIndex}
+        resultId={resultId}
+      />
+    </div>
+  );
+}
+
+function QuestionPracticeRepairPanel({
+  onConfirmPracticeRepairEntry,
+  question,
+  questionIndex,
+  resultId,
+}: {
+  onConfirmPracticeRepairEntry: (
+    input: ConfirmPracticeRepairInput,
+  ) => Promise<void>;
+  question: RecallQuestion;
+  questionIndex: number;
+  resultId: string;
+}) {
+  const practiceRepairDraft = getQuestionPracticeRepairDraft(question);
+  const [practiceRepairIntent, setPracticeRepairIntent] = useState<
+    PracticeRepairIntent | ""
+  >("");
+  const [practiceRepairCorrection, setPracticeRepairCorrection] = useState("");
+  const [isSavingPracticeRepair, setIsSavingPracticeRepair] = useState(false);
+
+  async function handleConfirmPracticeRepair() {
+    if (
+      practiceRepairIntent === "" ||
+      practiceRepairCorrection.trim().length === 0
+    ) {
+      return;
+    }
+
+    setIsSavingPracticeRepair(true);
+
+    try {
+      await onConfirmPracticeRepairEntry({
+        correction: practiceRepairCorrection,
+        intent: practiceRepairIntent,
+        reference: {
+          questionIndex,
+          questionResultId: question.questionResultId,
+          sessionResultId: resultId,
+          studyNoteId: question.noteId,
+        },
+      });
+    } finally {
+      setIsSavingPracticeRepair(false);
+    }
+  }
+
+  if (question.practiceRepairEntry !== undefined) {
+    return (
+      <div className="recall-selected-result__question-detail-block">
+        <h5>Confirmed Practice Repair</h5>
+        <p className="recall-selected-result__question-detail-label">Intent</p>
+        <p className="recall-selected-result__question-detail-copy">
+          {formatPracticeRepairIntentLabel(question.practiceRepairEntry.intent)}
+        </p>
+        <p className="recall-selected-result__question-detail-label">
+          Correction
+        </p>
+        <p className="recall-selected-result__question-detail-copy">
+          {question.practiceRepairEntry.correction}
+        </p>
+      </div>
+    );
+  }
+
+  if (practiceRepairDraft === null) {
+    return null;
+  }
+
+  return (
+    <div className="recall-selected-result__question-detail-block">
+      <h5>Draft Practice Repair</h5>
+      <p className="recall-selected-result__question-detail-copy">
+        {practiceRepairDraft.summary}
+      </p>
+      <ul className="recall-selected-result__question-detail-copy">
+        {practiceRepairDraft.suggestions.map((suggestion) => (
+          <li key={suggestion}>{suggestion}</li>
+        ))}
+      </ul>
+      <label className="recall-field">
+        <span>Practice Repair intent</span>
+        <select
+          aria-label="Practice Repair intent"
+          onChange={(event) =>
+            setPracticeRepairIntent(
+              event.target.value as PracticeRepairIntent | "",
+            )
+          }
+          value={practiceRepairIntent}
+        >
+          <option value="">Choose one intent</option>
+          {practiceRepairIntents.map((intent) => (
+            <option key={intent} value={intent}>
+              {formatPracticeRepairIntentLabel(intent)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="recall-field">
+        <span>Correction</span>
+        <textarea
+          aria-label="Correction"
+          onChange={(event) => setPracticeRepairCorrection(event.target.value)}
+          rows={3}
+          value={practiceRepairCorrection}
+        />
+      </label>
+      <Button
+        disabled={
+          isSavingPracticeRepair ||
+          practiceRepairIntent === "" ||
+          practiceRepairCorrection.trim().length === 0
+        }
+        onClick={() => {
+          void handleConfirmPracticeRepair();
+        }}
+        type="button"
+        variant="primary"
+      >
+        Confirm Practice Repair
+      </Button>
     </div>
   );
 }
