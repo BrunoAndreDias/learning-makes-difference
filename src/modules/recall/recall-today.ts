@@ -11,6 +11,7 @@ export type RecallTodayReason =
   | "not-recalled";
 
 export type RecallTodayQueueItem = {
+  lastRating: RecallSelfRating | null;
   reasons: RecallTodayReason[];
   studyNote: AppStudyNote;
 };
@@ -117,8 +118,10 @@ export function buildRecallTodayQueue(input: {
       return;
     }
 
+    const history = historyByStudyNoteId.get(studyNote.id) ?? null;
+    const latestRating = getLatestRating(history);
     const reasons = getRecallTodayReasons({
-      history: historyByStudyNoteId.get(studyNote.id) ?? null,
+      history,
       now: input.now,
       schedule: scheduleByStudyNoteId.get(studyNote.id) ?? null,
       userTimeZone: input.userTimeZone,
@@ -129,6 +132,7 @@ export function buildRecallTodayQueue(input: {
     }
 
     rankedQueue.push({
+      lastRating: latestRating,
       originalIndex,
       priority: getQueuePriority(reasons),
       reasons,
@@ -142,5 +146,9 @@ export function buildRecallTodayQueue(input: {
         left.priority - right.priority ||
         left.originalIndex - right.originalIndex,
     )
-    .map(({ reasons, studyNote }) => ({ reasons, studyNote }));
+    .map(({ lastRating, reasons, studyNote }) => ({
+      lastRating,
+      reasons,
+      studyNote,
+    }));
 }

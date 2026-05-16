@@ -2,14 +2,14 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--lmd-content-gap);
   min-width: 0;
 }
 
 .page-header__copy {
   display: grid;
   justify-items: start;
-  gap: 0.35rem;
+  gap: var(--lmd-label-gap);
   min-width: 0;
 }
 
@@ -21,9 +21,9 @@
   margin: 0;
   color: var(--color-content-strong);
   font-family: var(--font-body);
-  font-size: clamp(1.65rem, 2.2vw, 1.9rem);
+  font-size: var(--lmd-page-title-size);
   font-weight: 700;
-  line-height: 1.15;
+  line-height: var(--lmd-page-title-line-height);
   letter-spacing: 0;
 }
 
@@ -31,13 +31,13 @@
   margin: 0;
   color: var(--color-content-muted);
   font-family: var(--font-body);
-  font-size: 0.95rem;
-  line-height: 1.45;
+  font-size: var(--lmd-body-size);
+  line-height: var(--lmd-body-line-height);
 }
 
 .page-header__content {
   display: grid;
-  gap: 0.45rem;
+  gap: var(--lmd-label-gap);
   min-width: 0;
 }
 
@@ -45,7 +45,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: flex-end;
-  gap: 0.75rem;
+  gap: var(--lmd-list-row-gap);
   flex-wrap: wrap;
   min-width: 0;
 }

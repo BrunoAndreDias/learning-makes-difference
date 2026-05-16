@@ -50,11 +50,11 @@
   display: grid;
   align-content: start;
   grid-template-rows: auto minmax(0, 1.08fr) minmax(0, 0.92fr);
-  gap: clamp(0.75rem, 1.35vw, 1.15rem);
+  gap: var(--lmd-section-gap);
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: 1.25rem;
+  padding: var(--lmd-page-padding-y) var(--lmd-page-padding-x);
   background: var(--color-shell-panel);
   color: var(--color-content-default);
   font-family: var(--font-body);
@@ -79,13 +79,13 @@
 .focus-session-panel,
 .focus-card {
   border: 1px solid var(--color-content-border-soft);
-  border-radius: 0.75rem;
+  border-radius: var(--lmd-card-radius);
   background: var(--color-shell-panel);
   box-shadow: var(--shadow-card);
 }
 
 .focus-session-panel {
-  padding: clamp(1rem, 2.4vw, 1.5rem);
+  padding: var(--lmd-card-padding);
 }
 
 .app-frame[data-workspace="focus"] .app-frame__workspace-header {
@@ -108,7 +108,7 @@
 
 .focus-card-title {
   display: block;
-  font-size: 1rem;
+  font-size: var(--lmd-card-title-size);
   font-weight: 700;
 }
 
@@ -120,7 +120,7 @@
 .focus-session-workspace {
   display: grid;
   grid-template-columns: minmax(24rem, 1.45fr) minmax(17rem, 0.85fr);
-  gap: clamp(0.75rem, 1.35vw, 1.15rem);
+  gap: var(--lmd-content-gap);
   align-items: stretch;
   min-height: 0;
 }
@@ -128,7 +128,7 @@
 .focus-session-panel {
   display: grid;
   align-content: start;
-  gap: clamp(0.7rem, 1.2vw, 1rem);
+  gap: var(--lmd-card-gap);
   min-width: 0;
   min-height: 0;
   border-color: var(--focus-accent-border);
@@ -139,7 +139,7 @@
   display: flex;
   align-items: start;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--lmd-card-gap);
 }
 
 .focus-session-panel__status {
@@ -195,7 +195,7 @@
 .focus-session-panel__stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: var(--lmd-list-row-gap);
   margin: 0;
 }
 
@@ -207,7 +207,7 @@
   gap: 0.2rem;
   min-width: 0;
   position: relative;
-  padding: 0.85rem;
+  padding: var(--lmd-card-padding-compact);
   border: 1px solid var(--color-content-border-soft);
   border-radius: 0.65rem;
   background: var(--color-shell-inset);

@@ -185,7 +185,7 @@ describe("page style normalization", () => {
     expect(focusShellWorkspaceHeaderStyle).toContain("position: absolute;");
     expect(focusShellWorkspaceHeaderStyle).toContain("inset: 0 0 auto 0;");
     expect(focusShellWorkspaceHeaderStyle).toContain(
-      "padding: 1rem clamp(1rem, 3vw, 1.9rem);",
+      "padding: var(--lmd-page-padding-y) var(--lmd-page-padding-x);",
     );
     expect(focusShellActionsStyle).toContain("pointer-events: auto;");
     expect(sharedShellActionsStyle).toContain("margin-left: auto;");
@@ -259,8 +259,12 @@ describe("page style normalization", () => {
     expect(pageHeaderDescriptionStyle).toContain(
       "font-family: var(--font-body);",
     );
-    expect(pageHeaderDescriptionStyle).toContain("font-size: 0.95rem;");
-    expect(pageHeaderDescriptionStyle).toContain("line-height: 1.45;");
+    expect(pageHeaderDescriptionStyle).toContain(
+      "font-size: var(--lmd-body-size);",
+    );
+    expect(pageHeaderDescriptionStyle).toContain(
+      "line-height: var(--lmd-body-line-height);",
+    );
   });
 
   it("keeps Recall state accents aligned with the shared page palette", () => {
@@ -380,7 +384,9 @@ describe("page style normalization", () => {
       ".notes-action",
     ).join("\n");
 
-    expect(sharedActionsCss).toContain("--action-control-height: 2.5rem;");
+    expect(sharedActionsCss).toContain(
+      "--action-control-height: var(--lmd-button-height-md);",
+    );
     expect(sharedActionsCss).toContain(
       "--workspace-header-action-width: 10.75rem;",
     );

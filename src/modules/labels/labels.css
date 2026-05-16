@@ -1,10 +1,10 @@
 .labels-page {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--lmd-section-gap);
   min-height: 0;
   height: 100%;
-  padding: 1.15rem 2rem 2rem;
+  padding: var(--lmd-page-padding-y) var(--lmd-page-padding-x);
   background: var(--color-shell-panel);
   color: var(--color-content-default);
   font-family: var(--font-body);
@@ -29,19 +29,19 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--lmd-content-gap);
 }
 
 .labels-management-header__copy {
   display: grid;
-  gap: 0.45rem;
+  gap: var(--lmd-label-gap);
   min-width: 0;
 }
 
 .labels-management-header__summary {
   display: grid;
-  gap: 0.55rem;
-  margin-top: 0.45rem;
+  gap: var(--lmd-label-gap);
+  margin-top: var(--lmd-label-gap);
 }
 
 .labels-management-header__summary-metrics {
@@ -58,7 +58,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: flex-end;
-  gap: 0.75rem;
+  gap: var(--lmd-list-row-gap);
   flex-wrap: wrap;
   padding-top: 0.1rem;
 }
@@ -73,7 +73,7 @@
 .labels-toolbar {
   display: grid;
   grid-template-columns: minmax(18rem, 39rem) 8.5rem;
-  gap: 1rem;
+  gap: var(--lmd-content-gap);
   align-items: center;
   margin-top: 0.1rem;
 }
@@ -102,11 +102,11 @@
   grid-template-rows: minmax(0, auto);
   flex: 0 1 auto;
   min-height: 0;
-  max-height: calc(100dvh - 18rem);
+  max-height: calc(100dvh - 15rem);
   padding: 0;
   overflow: visible;
   border-color: var(--color-content-border-soft);
-  border-radius: 0.8rem;
+  border-radius: var(--lmd-card-radius);
   background: var(--color-shell-panel);
   box-shadow: var(--shadow-chrome);
 }
@@ -135,10 +135,10 @@
 
 .labels-table th,
 .labels-table td {
-  height: 4.25rem;
-  padding: 0 1.75rem;
+  height: var(--lmd-list-row-height);
+  padding: 0 var(--lmd-card-padding);
   color: var(--color-content-strong);
-  font-size: 1rem;
+  font-size: var(--lmd-body-size);
   text-align: left;
   vertical-align: middle;
 }
@@ -147,10 +147,10 @@
   position: sticky;
   top: 0;
   z-index: 3;
-  height: 3.45rem;
+  height: var(--lmd-header-height);
   background: var(--color-shell-inset);
   color: var(--color-content-muted);
-  font-size: 0.84rem;
+  font-size: var(--lmd-meta-size);
   font-weight: 500;
   border-bottom: 1px solid var(--color-content-border-soft);
 }
@@ -314,13 +314,13 @@
   align-items: center;
   justify-content: center;
   min-width: 2.72rem;
-  min-height: 1.55rem;
-  padding: 0 0.72rem;
+  min-height: var(--lmd-chip-height);
+  padding: 0 var(--lmd-chip-padding-x);
   border: 1px solid var(--color-content-border-soft);
   border-radius: 999px;
   background: var(--color-shell-inset);
   color: var(--color-content-strong);
-  font-size: 0.88rem;
+  font-size: var(--lmd-chip-font-size);
   font-weight: 500;
   line-height: 1;
 }
@@ -493,7 +493,7 @@
 
 .labels-field {
   display: grid;
-  gap: 0.55rem;
+  gap: var(--lmd-label-gap);
 }
 
 .labels-field span,
@@ -508,13 +508,13 @@
 .labels-field select,
 .labels-toolbar__search input {
   width: 100%;
-  min-height: 2.95rem;
-  padding: 0.72rem 1rem;
+  min-height: var(--lmd-input-height);
+  padding: var(--lmd-list-row-padding-y) var(--lmd-list-row-padding-x);
   border: 1px solid var(--color-content-border-soft);
   border-radius: 0.68rem;
   background: var(--color-shell-panel);
   color: var(--color-content-strong);
-  font-size: 1rem;
+  font-size: var(--lmd-body-size);
   transition:
     border-color var(--motion-fast),
     box-shadow var(--motion-fast),
@@ -581,16 +581,16 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 1.72rem 1.72rem 1.35rem;
+  gap: var(--lmd-card-gap);
+  padding: var(--lmd-card-padding);
   border-bottom: 1px solid var(--color-content-border-soft);
 }
 
 .labels-create-drawer__header h4 {
   margin: 0;
   color: var(--color-content-strong);
-  font-size: 1.62rem;
-  line-height: 1.1;
+  font-size: var(--lmd-section-title-size);
+  line-height: var(--lmd-section-title-line-height);
   letter-spacing: 0;
 }
 
@@ -609,9 +609,9 @@
 .labels-create-drawer__body {
   display: grid;
   align-content: start;
-  gap: 1.45rem;
+  gap: var(--lmd-panel-gap);
   min-height: 0;
-  padding: 1.45rem 1.72rem 2rem;
+  padding: var(--lmd-card-padding);
   overflow-y: auto;
 }
 

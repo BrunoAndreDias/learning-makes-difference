@@ -311,6 +311,9 @@ function RecallResultsWorkspacePage() {
     sessionSnapshot.user?.userTimeZone ?? defaultUserTimeZone;
   const currentLabels =
     userId === null ? [] : labelsContext.getLabelsForUser(userId);
+  const currentLabelsById = new Map(
+    currentLabels.map((label) => [label.id, label] as const),
+  );
   const sessionResults =
     userId === null ? [] : recallContext.listSessionResults({ userId });
   const recallTodayQueue =
@@ -419,6 +422,7 @@ function RecallResultsWorkspacePage() {
   if (shouldShowRecallToday) {
     return (
       <RecallTodayPage
+        labelsById={currentLabelsById}
         onStartRecallToday={startRecallToday}
         queue={recallTodayQueue}
       />
@@ -487,104 +491,440 @@ function RecallResultsWorkspacePage() {
   );
 }
 
-function getRecallTodayReasonLabel(
-  reason: RecallTodayReason,
-): AppTranslationKey {
-  switch (reason) {
-    case "needs-practice":
-      return "recall.today.reason.needsPractice";
-    case "not-recalled":
-      return "recall.today.reason.notRecalled";
-    case "due-for-recall":
-      return "recall.today.reason.dueForRecall";
-  }
-}
-
 type RecallTodayPageProps = {
+  labelsById: ReadonlyMap<string, AppLabel>;
   onStartRecallToday: () => void;
   queue: readonly RecallTodayQueueItem[];
 };
 
-function RecallTodayPage({ onStartRecallToday, queue }: RecallTodayPageProps) {
+type RecallTodaySectionConfig = {
+  badge: string;
+  helperKey: AppTranslationKey;
+  reason: RecallTodayReason;
+  titleKey: AppTranslationKey;
+  tone: "due" | "new" | "practice";
+};
+
+const recallTodaySections = [
+  {
+    badge: "1",
+    helperKey: "recall.today.section.focusFirst",
+    reason: "needs-practice",
+    titleKey: "recall.today.reason.needsPractice",
+    tone: "practice",
+  },
+  {
+    badge: "2",
+    helperKey: "recall.today.section.newlyRecallable",
+    reason: "not-recalled",
+    titleKey: "recall.today.reason.notRecalled",
+    tone: "new",
+  },
+  {
+    badge: "3",
+    helperKey: "recall.today.section.scheduledToday",
+    reason: "due-for-recall",
+    titleKey: "recall.today.reason.dueForRecall",
+    tone: "due",
+  },
+] as const satisfies readonly RecallTodaySectionConfig[];
+
+function getPrimaryRecallTodayReason(item: RecallTodayQueueItem) {
+  return (
+    recallTodaySections.find((section) => item.reasons.includes(section.reason))
+      ?.reason ?? "due-for-recall"
+  );
+}
+
+function getRecallTodayItemsByReason(
+  queue: readonly RecallTodayQueueItem[],
+  reason: RecallTodayReason,
+) {
+  return queue.filter((item) => getPrimaryRecallTodayReason(item) === reason);
+}
+
+function getRecallTodayReasonText(
+  item: RecallTodayQueueItem,
+  t: ReturnType<typeof useAppTranslation>["t"],
+) {
+  if (item.lastRating === null) {
+    return t("recall.today.reason.new");
+  }
+
+  return t(getRecallRatingTranslationKey(item.lastRating));
+}
+
+function getRecallTodayLastScoreText(
+  item: RecallTodayQueueItem,
+  t: ReturnType<typeof useAppTranslation>["t"],
+) {
+  if (item.lastRating === null) {
+    return t("recall.today.lastScore.notAttempted");
+  }
+
+  return t(getRecallRatingTranslationKey(item.lastRating));
+}
+
+function getRecallRatingDotCount(rating: RecallSelfRating | null) {
+  switch (rating) {
+    case "forgot":
+      return 1;
+    case "hard":
+      return 2;
+    case "good":
+      return 3;
+    case "easy":
+      return 4;
+    case null:
+      return 0;
+  }
+}
+
+function getStudyNoteMetaLine(
+  item: RecallTodayQueueItem,
+  labelsById: ReadonlyMap<string, AppLabel>,
+) {
+  const labelNames = item.studyNote.labelIds
+    .map((labelId) => labelsById.get(labelId)?.name)
+    .filter((labelName): labelName is string => labelName !== undefined);
+  const sourceTitle = item.studyNote.source.title.trim();
+
+  if (labelNames.length > 0 && sourceTitle.length > 0) {
+    return `${labelNames.slice(0, 1).join(", ")} · ${sourceTitle}`;
+  }
+
+  if (labelNames.length > 0) {
+    return labelNames.slice(0, 2).join(", ");
+  }
+
+  return sourceTitle;
+}
+
+function RecallTodayPage({
+  labelsById,
+  onStartRecallToday,
+  queue,
+}: RecallTodayPageProps) {
   const { t } = useAppTranslation();
+  const workspaceDate = new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+  }).format(new Date());
+  const queueByReason = new Map(
+    recallTodaySections.map((section) => [
+      section.reason,
+      getRecallTodayItemsByReason(queue, section.reason),
+    ]),
+  );
 
   return (
     <section
       aria-label={t("shell.workspace.recall")}
       className="recall-workspace"
     >
-      <article className="recall-surface recall-results-surface">
-        <div className="recall-results-top">
+      <article className="recall-surface recall-today-surface">
+        <div className="recall-today-chrome">
+          <nav
+            aria-label={t("recall.breadcrumb")}
+            className="recall-breadcrumb"
+          >
+            <Link to="/recall">{t("shell.workspace.recall")}</Link>
+            <span aria-hidden="true">/</span>
+            <span>{t("recall.today.title")}</span>
+          </nav>
+          <div className="recall-today-chrome__meta">
+            <span className="recall-today-chrome__date">
+              <CalendarHeaderIcon />
+              <span>{workspaceDate}</span>
+            </span>
+            <Button
+              aria-label="Help"
+              className="recall-today-chrome__help"
+              iconOnly
+              type="button"
+            >
+              <HelpCircleIcon />
+            </Button>
+          </div>
+        </div>
+
+        <div className="recall-today-top">
           <PageHeader
-            className="recall-surface__header"
+            actions={
+              <div className="recall-today-actions">
+                {queue.length > 0 ? (
+                  <Button
+                    className="recall-today-actions__start"
+                    onClick={onStartRecallToday}
+                    type="button"
+                    variant="primary"
+                  >
+                    <PlayIcon />
+                    {t("recall.today.start")}
+                  </Button>
+                ) : null}
+                <ButtonLink
+                  className="recall-today-actions__manual"
+                  to="/recall/select"
+                >
+                  <ListIcon />
+                  {t("recall.today.manualSelection")}
+                </ButtonLink>
+              </div>
+            }
+            actionsClassName="recall-today-hero__actions"
+            className="recall-surface__header recall-today-hero"
             description={t("recall.today.description")}
+            headingLevel={1}
             title={t("recall.today.title")}
           />
         </div>
 
-        <div className="recall-selection-layout recall-selection-layout--picker">
-          <section
-            aria-label={t("recall.today.title")}
-            className="recall-panel recall-note-picker"
-          >
+        <RecallTodaySummary queue={queue} queueByReason={queueByReason} />
+
+        <div className="recall-today-layout">
+          <div className="recall-today-queue">
             {queue.length === 0 ? (
               <div className="recall-results-empty" role="status">
                 <h4>{t("recall.today.emptyTitle")}</h4>
                 <p className="muted">{t("recall.today.emptyBody")}</p>
               </div>
             ) : (
-              <ol
-                aria-label={t("recall.today.queue")}
-                className="recall-note-picker__list"
-              >
-                {queue.map((item) => (
-                  <li key={item.studyNote.id}>
-                    <div className="recall-note-row recall-select-note-row">
-                      <span className="recall-select-note-row__main">
-                        <span className="recall-select-note-row__content">
-                          <strong>{item.studyNote.prompt}</strong>
-                          <span>{item.studyNote.expectedAnswer}</span>
-                          <span className="recall-select-note-row__labels">
-                            {item.reasons.map((reason) => (
-                              <span
-                                className="recall-select-note-row__label"
-                                key={reason}
-                              >
-                                {t(getRecallTodayReasonLabel(reason))}
-                              </span>
-                            ))}
-                          </span>
-                        </span>
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ol>
+              recallTodaySections.map((section) => (
+                <RecallTodaySection
+                  items={queueByReason.get(section.reason) ?? []}
+                  key={section.reason}
+                  labelsById={labelsById}
+                  section={section}
+                />
+              ))
             )}
-          </section>
+          </div>
 
-          <aside
-            aria-label={t("recall.today.actions")}
-            className="recall-panel recall-session-setup recall-select-session-setup"
-          >
-            <p className="section-label">{t("recall.today.recommended")}</p>
-            <p className="muted">{t("recall.today.helper")}</p>
-            {queue.length > 0 ? (
-              <Button
-                onClick={onStartRecallToday}
-                type="button"
-                variant="primary"
-              >
-                {t("recall.today.start")}
-              </Button>
-            ) : null}
-            <ButtonLink to="/recall/select">
-              {t("recall.today.manualSelection")}
-            </ButtonLink>
-          </aside>
+          <RecallTodayHowPanel />
         </div>
       </article>
     </section>
+  );
+}
+
+function RecallTodaySummary({
+  queue,
+  queueByReason,
+}: {
+  queue: readonly RecallTodayQueueItem[];
+  queueByReason: ReadonlyMap<
+    RecallTodayReason,
+    readonly RecallTodayQueueItem[]
+  >;
+}) {
+  const { t } = useAppTranslation();
+  const summaryItems = [
+    {
+      count: queue.length,
+      icon: <CalendarQueueIcon />,
+      label: t("recall.today.metric.total"),
+      tone: "total",
+    },
+    {
+      count: queueByReason.get("needs-practice")?.length ?? 0,
+      icon: <WarningIcon />,
+      label: t("recall.today.reason.needsPractice"),
+      tone: "practice",
+    },
+    {
+      count: queueByReason.get("not-recalled")?.length ?? 0,
+      icon: <ClockIcon />,
+      label: t("recall.today.reason.notRecalled"),
+      tone: "new",
+    },
+    {
+      count: queueByReason.get("due-for-recall")?.length ?? 0,
+      icon: <CheckIcon />,
+      label: t("recall.today.reason.dueForRecall"),
+      tone: "due",
+    },
+  ] as const;
+
+  return (
+    <ul aria-label={t("recall.today.summary")} className="recall-today-summary">
+      {summaryItems.map((item) => (
+        <li
+          className="recall-today-summary__item"
+          data-tone={item.tone}
+          key={item.label}
+        >
+          <span aria-hidden="true" className="recall-today-summary__icon">
+            {item.icon}
+          </span>
+          <span className="recall-today-summary__copy">
+            <span>{item.label}</span>
+            <strong>{item.count}</strong>
+            <span>{formatCount(item.count, "note").replace(/^\d+\s/, "")}</span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function RecallTodaySection({
+  items,
+  labelsById,
+  section,
+}: {
+  items: readonly RecallTodayQueueItem[];
+  labelsById: ReadonlyMap<string, AppLabel>;
+  section: RecallTodaySectionConfig;
+}) {
+  const { t } = useAppTranslation();
+
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <section
+      aria-label={t(section.titleKey)}
+      className="recall-today-section"
+      data-tone={section.tone}
+    >
+      <header className="recall-today-section__header">
+        <div className="recall-today-section__title">
+          <span className="recall-today-section__badge">{section.badge}</span>
+          <h2>{t(section.titleKey)}</h2>
+          <span className="recall-today-section__count">{items.length}</span>
+        </div>
+        <div className="recall-today-section__helper">
+          <span>{t(section.helperKey)}</span>
+          <InfoIcon />
+        </div>
+      </header>
+
+      <ul className="recall-today-section__rows">
+        {items.map((item) => (
+          <RecallTodayQueueRow
+            item={item}
+            key={item.studyNote.id}
+            labelsById={labelsById}
+            tone={section.tone}
+          />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function RecallTodayQueueRow({
+  item,
+  labelsById,
+  tone,
+}: {
+  item: RecallTodayQueueItem;
+  labelsById: ReadonlyMap<string, AppLabel>;
+  tone: RecallTodaySectionConfig["tone"];
+}) {
+  const { t } = useAppTranslation();
+  const dotCount = getRecallRatingDotCount(item.lastRating);
+  const metaLine = getStudyNoteMetaLine(item, labelsById);
+  const reasonText = getRecallTodayReasonText(item, t);
+  const lastScoreText = getRecallTodayLastScoreText(item, t);
+
+  return (
+    <li className="recall-today-row" data-tone={tone}>
+      <span aria-hidden="true" className="recall-today-row__note-icon">
+        <NoteIcon />
+      </span>
+      <div className="recall-today-row__main">
+        <h3>{item.studyNote.prompt}</h3>
+        {metaLine.length > 0 ? <p>{metaLine}</p> : null}
+      </div>
+      <div className="recall-today-row__score">
+        <span>{t("recall.today.lastScore")}</span>
+        <strong>{lastScoreText}</strong>
+        <RatingDots activeCount={dotCount} tone={tone} />
+      </div>
+      <div className="recall-today-row__reason">
+        <span>{t("recall.today.reason")}</span>
+        <strong>{reasonText}</strong>
+      </div>
+      <div className="recall-today-row__next">
+        <span>{t("recall.today.nextRecall")}</span>
+        <strong>{t("recall.today.nextRecall.today")}</strong>
+      </div>
+      <ChevronRightIcon />
+    </li>
+  );
+}
+
+const ratingDotKeys = ["dot-1", "dot-2", "dot-3", "dot-4"] as const;
+
+function RatingDots({
+  activeCount,
+  tone,
+}: {
+  activeCount: number;
+  tone: RecallTodaySectionConfig["tone"];
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className="recall-today-rating-dots"
+      data-tone={tone}
+    >
+      {ratingDotKeys.map((dotKey, index) => (
+        <span data-active={index < activeCount} key={dotKey} />
+      ))}
+    </span>
+  );
+}
+
+function RecallTodayHowPanel() {
+  const { t } = useAppTranslation();
+  const steps = [
+    {
+      bodyKey: "recall.today.how.hidden.body",
+      icon: <HiddenAnswerIcon />,
+      titleKey: "recall.today.how.hidden.title",
+    },
+    {
+      bodyKey: "recall.today.how.rate.body",
+      icon: <RatingScaleIcon />,
+      titleKey: "recall.today.how.rate.title",
+    },
+    {
+      bodyKey: "recall.today.how.schedule.body",
+      icon: <CalendarQueueIcon />,
+      titleKey: "recall.today.how.schedule.title",
+    },
+  ] as const;
+
+  return (
+    <aside
+      aria-label={t("recall.today.how.title")}
+      className="recall-today-how"
+    >
+      <div aria-hidden="true" className="recall-today-how__lock">
+        <LockIcon />
+      </div>
+      <h2>{t("recall.today.how.title")}</h2>
+      <div className="recall-today-how__steps">
+        {steps.map((step) => (
+          <section className="recall-today-how__step" key={step.titleKey}>
+            <span aria-hidden="true" className="recall-today-how__step-icon">
+              {step.icon}
+            </span>
+            <div>
+              <h3>{t(step.titleKey)}</h3>
+              <p>{t(step.bodyKey)}</p>
+            </div>
+          </section>
+        ))}
+      </div>
+      <p className="recall-today-how__tip">
+        <LightbulbIcon />
+        <span>{t("recall.today.how.tip")}</span>
+      </p>
+    </aside>
   );
 }
 
@@ -799,6 +1139,322 @@ function CalendarIcon() {
     >
       <path
         d="M8 2v4M16 2v4M3 10h18M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="currentColor"
+      height="17"
+      viewBox="0 0 24 24"
+      width="17"
+    >
+      <path d="M8 5.6v12.8a1 1 0 0 0 1.55.84l9.6-6.4a1 1 0 0 0 0-1.68l-9.6-6.4A1 1 0 0 0 8 5.6Z" />
+    </svg>
+  );
+}
+
+function ListIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="18"
+      viewBox="0 0 24 24"
+      width="18"
+    >
+      <path
+        d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+function CalendarQueueIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="20"
+      viewBox="0 0 24 24"
+      width="20"
+    >
+      <path
+        d="M7 3v3M17 3v3M4.5 9h15M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="m8.5 14 2 2 4.5-4.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function CalendarHeaderIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="18"
+      viewBox="0 0 24 24"
+      width="18"
+    >
+      <path
+        d="M7 3v4M17 3v4M4 8h16M5 5h14v15H5V5Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function HelpCircleIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="20"
+      viewBox="0 0 24 24"
+      width="20"
+    >
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M9.8 9a2.3 2.3 0 1 1 3.6 1.9c-.9.6-1.4 1.1-1.4 2.1"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <circle cx="12" cy="16.6" fill="currentColor" r="1" />
+    </svg>
+  );
+}
+
+function WarningIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="20"
+      viewBox="0 0 24 24"
+      width="20"
+    >
+      <path d="M12 4 3.5 19h17L12 4Z" fill="currentColor" opacity="0.2" />
+      <path
+        d="M12 8.5v4.7M12 16.8h.01M12 4 3.5 19h17L12 4Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="20"
+      viewBox="0 0 24 24"
+      width="20"
+    >
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M12 7.5V12l3.2 2"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="20"
+      viewBox="0 0 24 24"
+      width="20"
+    >
+      <path
+        d="m6 12.5 4 4L18 8"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="15"
+      viewBox="0 0 24 24"
+      width="15"
+    >
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M12 10.5v5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+      <circle cx="12" cy="7.5" fill="currentColor" r="1" />
+    </svg>
+  );
+}
+
+function NoteIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="19"
+      viewBox="0 0 24 24"
+      width="19"
+    >
+      <path
+        d="M7 3.5h7l3 3v14H7v-17Z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+      <path d="M14 3.5v4h4" stroke="currentColor" strokeLinejoin="round" />
+      <path
+        d="M9.5 11.5h5M9.5 15h5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.7"
+      />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="18"
+      viewBox="0 0 24 24"
+      width="18"
+    >
+      <path
+        d="m9 6 6 6-6 6"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.9"
+      />
+    </svg>
+  );
+}
+
+function HiddenAnswerIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="22"
+      viewBox="0 0 24 24"
+      width="22"
+    >
+      <path
+        d="M3 12s3-5 9-5 9 5 9 5a12.2 12.2 0 0 1-3.2 3.4M14.1 14.2A3 3 0 0 1 9.8 9.9M4 4l16 16"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function RatingScaleIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="24"
+      viewBox="0 0 54 18"
+      width="54"
+    >
+      <circle cx="8" cy="9" fill="currentColor" opacity="0.36" r="4" />
+      <circle cx="21" cy="9" fill="currentColor" opacity="0.5" r="4" />
+      <circle cx="34" cy="9" fill="currentColor" opacity="0.72" r="4" />
+      <circle cx="47" cy="9" fill="currentColor" r="4" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="28"
+      viewBox="0 0 24 24"
+      width="28"
+    >
+      <rect
+        height="9"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        width="13"
+        x="5.5"
+        y="10"
+      />
+      <path
+        d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function LightbulbIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="30"
+      viewBox="0 0 24 24"
+      width="30"
+    >
+      <path
+        d="M9 18h6M10 21h4M8 14.5a6 6 0 1 1 8 0c-.9.7-1.2 1.4-1.2 2.5H9.2c0-1.1-.3-1.8-1.2-2.5Z"
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"

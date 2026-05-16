@@ -57,7 +57,9 @@ describe("PageHeader", () => {
     expect(titleRule).toContain("letter-spacing: 0;");
     expect(descriptionRule).toContain("color: var(--color-content-muted);");
     expect(descriptionRule).toContain("font-family: var(--font-body);");
-    expect(descriptionRule).toContain("font-size: 0.95rem;");
-    expect(descriptionRule).toContain("line-height: 1.45;");
+    expect(descriptionRule).toContain("font-size: var(--lmd-body-size);");
+    expect(descriptionRule).toContain(
+      "line-height: var(--lmd-body-line-height);",
+    );
   });
 });

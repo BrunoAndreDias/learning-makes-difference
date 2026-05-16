@@ -2,10 +2,10 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
-  gap: var(--space-2);
+  gap: var(--lmd-list-row-gap);
   width: 100%;
-  min-height: 3.75rem;
-  padding: var(--space-2) var(--space-3);
+  min-height: var(--lmd-list-row-height-compact);
+  padding: var(--lmd-list-row-padding-y) var(--lmd-list-row-padding-x);
   border: 1px solid var(--color-content-border-soft);
   border-radius: var(--radius-sm);
   background: var(--color-shell-panel);
@@ -54,24 +54,24 @@
 
 .list-card__content {
   display: grid;
-  gap: var(--space-1);
+  gap: var(--lmd-label-gap);
   min-width: 0;
 }
 
 .list-card__title {
   color: var(--color-content-strong);
-  font-size: 0.84rem;
+  font-size: var(--lmd-body-size);
   font-weight: 750;
-  line-height: 1.2;
+  line-height: var(--lmd-body-line-height);
   overflow-wrap: anywhere;
 }
 
 .list-card__description {
   display: grid;
-  gap: var(--space-1);
+  gap: var(--lmd-label-gap);
   color: var(--color-content-muted);
-  font-size: 0.78rem;
-  line-height: 1.35;
+  font-size: var(--lmd-meta-size);
+  line-height: var(--lmd-meta-line-height);
   overflow-wrap: anywhere;
 }
 
@@ -85,14 +85,14 @@
   align-items: center;
   justify-content: center;
   max-width: min(10rem, 38vw);
-  min-height: 1.45rem;
-  padding: var(--space-1) var(--space-2);
+  min-height: var(--lmd-chip-height);
+  padding: 0 var(--lmd-chip-padding-x);
   overflow: hidden;
   border: 1px solid var(--color-content-border-soft);
   border-radius: var(--radius-sm);
   background: var(--color-shell-inset);
   color: var(--color-content-default);
-  font-size: 0.72rem;
+  font-size: var(--lmd-chip-font-size);
   font-weight: 700;
   line-height: 1;
   text-overflow: ellipsis;

@@ -514,7 +514,7 @@ function WorkspaceHeader({
               <HelpCircleIcon />
             </Button>
           </div>
-        ) : isLabelsWorkspaceRoute ? null : (
+        ) : isRecallWorkspaceRoute || isLabelsWorkspaceRoute ? null : (
           <FocusSessionStartControl
             activeFocusSession={activeFocusSession}
             focus={focus}

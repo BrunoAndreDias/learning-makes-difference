@@ -714,14 +714,14 @@ describe("authenticated recall workspace", () => {
 
     expect(
       await screen.findByRole("heading", {
-        level: 3,
+        level: 1,
         name: "Recall Today",
       }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
     expect(
-      screen.queryByRole("navigation", { name: "Breadcrumb" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("navigation", { name: "Breadcrumb" }),
+    ).toHaveTextContent(/Recall\s*\/\s*Recall Today/);
   });
 
   it("uses the route-hydrated session to load Recall setup notes immediately", async () => {
@@ -857,7 +857,7 @@ describe("authenticated recall workspace", () => {
     renderRoute("/recall", { ...contexts, session: createSession() });
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Recall Today" }),
+      await screen.findByRole("heading", { level: 1, name: "Recall Today" }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -865,10 +865,10 @@ describe("authenticated recall workspace", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Manual Recall Selection" }),
+      screen.getByRole("link", { name: "Manual selection" }),
     ).toHaveAttribute("href", "/recall/select");
     expect(
-      screen.queryByRole("button", { name: "Start Recall Today" }),
+      screen.queryByRole("button", { name: "Start Recall Session" }),
     ).toBeNull();
   });
 
@@ -928,25 +928,71 @@ describe("authenticated recall workspace", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Recall Today" }),
+      await screen.findByRole("heading", { level: 1, name: "Recall Today" }),
     ).toBeInTheDocument();
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
     expect(
-      screen.getByRole("link", { name: "Manual Recall Selection" }),
+      within(breadcrumb).getByRole("link", { name: "Recall" }),
+    ).toHaveAttribute("href", "/recall");
+    expect(within(breadcrumb).getByText("Recall Today")).toBeInTheDocument();
+    expect(screen.getByText("May 15, 2026")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Manual selection" }),
     ).toHaveAttribute("href", "/recall/select");
 
-    const queue = screen.getByRole("list", { name: "Recall Today queue" });
-    const items = within(queue).getAllByRole("listitem");
+    const summary = screen.getByRole("list", { name: "Recall Today summary" });
+    expect(within(summary).getByText("Recall today")).toBeInTheDocument();
+    expect(within(summary).getByText("3")).toBeInTheDocument();
+    expect(within(summary).getByText("Needs practice")).toBeInTheDocument();
+    expect(within(summary).getByText("Not recalled yet")).toBeInTheDocument();
+    expect(within(summary).getByText("Due for recall")).toBeInTheDocument();
+
+    const needsPracticeSection = screen.getByRole("region", {
+      name: "Needs practice",
+    });
+    expect(needsPracticeSection).toHaveTextContent("Focus first");
+    expect(needsPracticeSection).toHaveTextContent("Needs practice prompt");
+    expect(needsPracticeSection).toHaveTextContent("Last score");
+    expect(needsPracticeSection).toHaveTextContent("Hard");
+    expect(needsPracticeSection).toHaveTextContent("Next recall");
+    expect(needsPracticeSection).toHaveTextContent("Today");
+
+    const notRecalledSection = screen.getByRole("region", {
+      name: "Not recalled yet",
+    });
+    expect(notRecalledSection).toHaveTextContent("Newly recallable");
+    expect(notRecalledSection).toHaveTextContent("Not recalled prompt");
+    expect(notRecalledSection).toHaveTextContent("Not attempted");
+    expect(notRecalledSection).toHaveTextContent("New");
+
+    const dueForRecallSection = screen.getByRole("region", {
+      name: "Due for recall",
+    });
+    expect(dueForRecallSection).toHaveTextContent("Scheduled for today");
+    expect(dueForRecallSection).toHaveTextContent("Due prompt");
+    expect(dueForRecallSection).toHaveTextContent("Good");
+
+    const helpPanel = screen.getByRole("complementary", {
+      name: "How Recall Works",
+    });
+    expect(helpPanel).toHaveTextContent("Answer is hidden");
+    expect(helpPanel).toHaveTextContent("Self-rate your recall");
+    expect(helpPanel).toHaveTextContent("We schedule the rest");
+
+    const items = [
+      within(needsPracticeSection).getByRole("listitem"),
+      within(notRecalledSection).getByRole("listitem"),
+      within(dueForRecallSection).getByRole("listitem"),
+    ];
     expect(items).toHaveLength(3);
     expect(items[0]).toHaveTextContent("Needs practice prompt");
-    expect(items[0]).toHaveTextContent("Needs practice");
-    expect(items[0]).toHaveTextContent("Due for Recall");
     expect(items[1]).toHaveTextContent("Not recalled prompt");
-    expect(items[1]).toHaveTextContent("Not recalled yet");
     expect(items[2]).toHaveTextContent("Due prompt");
-    expect(items[2]).toHaveTextContent("Due for Recall");
     expect(screen.queryByText("Incomplete prompt")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Start Recall Today" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Start Recall Session" }),
+    );
 
     await screen.findByRole("heading", { level: 3, name: "Recall session" });
     expect(router.state.location.pathname).toBe("/recall/session");

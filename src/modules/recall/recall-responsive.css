@@ -26,18 +26,96 @@
 }
 
 @media (max-width: 720px) {
+  .recall-today-chrome {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-left: 4.25rem;
+  }
+
+  .recall-today-chrome .recall-breadcrumb {
+    gap: 0.6rem;
+    font-size: 0.85rem;
+  }
+
+  .recall-today-chrome__date span {
+    display: none;
+  }
+
+  .recall-today-hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .recall-selection-toolbar,
   .recall-workspace__toolbar {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .recall-today-actions,
   .recall-toolbar__actions,
   .recall-selection-controls {
     justify-content: flex-start;
   }
 
+  .recall-today-summary,
+  .recall-today-layout,
   .recall-selection-layout {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .recall-today-summary {
+    gap: 0;
+    padding: 0;
+  }
+
+  .recall-today-summary__item {
+    padding: 0.85rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-content-border-soft);
+  }
+
+  .recall-today-summary__item:last-child {
+    border-bottom: 0;
+  }
+
+  .recall-today-section__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .recall-today-row {
+    grid-template-columns: 2.6rem minmax(0, 1fr) 1.5rem;
+    grid-template-areas:
+      "icon main chevron"
+      ". score chevron"
+      ". reason chevron"
+      ". next chevron";
+    align-items: start;
+  }
+
+  .recall-today-row__note-icon {
+    grid-area: icon;
+  }
+
+  .recall-today-row__main {
+    grid-area: main;
+  }
+
+  .recall-today-row__score {
+    grid-area: score;
+  }
+
+  .recall-today-row__reason {
+    grid-area: reason;
+  }
+
+  .recall-today-row__next {
+    grid-area: next;
+  }
+
+  .recall-today-row > svg {
+    grid-area: chevron;
+    align-self: center;
   }
 
   .recall-results-workspace,

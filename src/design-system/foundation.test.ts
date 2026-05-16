@@ -327,7 +327,9 @@ describe("foundationTokens", () => {
     );
 
     expect(workspaceShellCss).toContain("align-items: flex-start;");
-    expect(workspaceShellCss).toContain("padding-block: 0.875rem;");
+    expect(workspaceShellCss).toContain(
+      "padding-block: var(--lmd-list-row-padding-y);",
+    );
     expect(workspaceShellCss).toContain("transform: translateY(0.1875rem);");
     expect(notesResponsiveCss).toContain("align-items: start;");
   });
@@ -379,7 +381,7 @@ describe("foundationTokens", () => {
     expect(notesEditorCss).toContain(".notes-editor__layout");
     expect(notesEditorCss).toContain("align-content: start;");
     expect(notesEditorCss).toContain(
-      "padding: 0 var(--notes-workspace-inline-end) 1.5rem\n" +
+      "padding: 0 var(--notes-workspace-inline-end) var(--lmd-page-padding-y)\n" +
         "    var(--notes-workspace-inline-start);",
     );
     expect(notesEditorCss).toContain(

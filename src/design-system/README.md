@@ -24,6 +24,25 @@ Use the fixed spacing scale from `src/design-system/tokens.ts` and the matching 
 | `spacing[7]` | `--space-7` | `3rem` |
 | `spacing[8]` | `--space-8` | `4rem` |
 
+## Desktop Density
+
+Use the desktop density tokens from `src/styles/design-tokens/densityTokens.ts` and their `--lmd-*` CSS variables from `global.css` when sizing authenticated desktop workspace surfaces. These tokens are for compact desktop rhythm, not a visual redesign.
+
+Prefer density variables for page padding, header height, sidebar width and nav rows, cards, panels, list rows, form controls, buttons, chips, icons, and common type sizes. Keep the fixed spacing scale for generic small composition where density does not define a more specific token.
+
+Do not use `transform: scale()` to make pages fit. Compact the actual dimensions with density tokens, and prefer internal scrolling for bounded lists or panels instead of letting the full page grow indefinitely.
+
+Key CSS variables:
+
+| Area | Variables |
+| --- | --- |
+| Page | `--lmd-page-padding-x`, `--lmd-page-padding-y`, `--lmd-header-height`, `--lmd-content-gap`, `--lmd-section-gap` |
+| Sidebar | `--lmd-sidebar-width`, `--lmd-sidebar-padding-x`, `--lmd-sidebar-padding-y`, `--lmd-sidebar-nav-item-height`, `--lmd-sidebar-nav-item-gap` |
+| Surfaces | `--lmd-card-padding`, `--lmd-card-padding-compact`, `--lmd-card-gap`, `--lmd-card-radius`, `--lmd-panel-padding`, `--lmd-panel-gap` |
+| Lists and Forms | `--lmd-list-row-height`, `--lmd-list-row-height-compact`, `--lmd-list-row-padding-x`, `--lmd-list-row-padding-y`, `--lmd-input-height`, `--lmd-textarea-min-height` |
+| Controls | `--lmd-button-height-sm`, `--lmd-button-height-md`, `--lmd-button-height-lg`, `--lmd-chip-height`, `--lmd-icon-circle-md` |
+| Type | `--lmd-page-title-size`, `--lmd-section-title-size`, `--lmd-card-title-size`, `--lmd-body-size`, `--lmd-meta-size` |
+
 ## Buttons
 
 Use `Button` and `ButtonLink` from `src/design-system/button`. Use `size="compact"` for dense toolbars, list panels, and inline catalog actions; use the default regular size for primary page actions and forms.

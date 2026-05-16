@@ -68,7 +68,9 @@ describe("ListCard", () => {
     )?.[0];
 
     expect(descriptionRule).toContain("display: grid;");
-    expect(descriptionRule).toContain("line-height: 1.35;");
+    expect(descriptionRule).toContain(
+      "line-height: var(--lmd-meta-line-height);",
+    );
     expect(descriptionRule).toContain("overflow-wrap: anywhere;");
     expect(descriptionRule).not.toContain("white-space: nowrap;");
     expect(descriptionRule).not.toContain("line-clamp");

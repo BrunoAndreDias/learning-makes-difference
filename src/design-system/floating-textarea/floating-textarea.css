@@ -7,16 +7,19 @@
 
 .floating-textarea__control {
   width: 100%;
-  min-height: var(--floating-textarea-min-height, 8rem);
-  padding: 1.55rem 0.875rem 0.75rem;
+  min-height: var(
+    --floating-textarea-min-height,
+    var(--lmd-textarea-min-height)
+  );
+  padding: 1.45rem 0.875rem 0.7rem;
   border: 1px solid var(--color-content-border-soft);
   border-radius: var(--radius-md);
   background: var(--color-shell-panel);
   color: var(--color-content-strong);
   font: inherit;
-  font-size: 0.9375rem;
+  font-size: var(--lmd-body-size);
   font-weight: 400;
-  line-height: 1.5;
+  line-height: var(--lmd-body-line-height);
   letter-spacing: 0;
   resize: vertical;
   text-transform: none;
@@ -45,7 +48,7 @@
   right: 0.875rem;
   overflow: hidden;
   color: var(--color-content-muted);
-  font-size: 0.9375rem;
+  font-size: var(--lmd-body-size);
   font-weight: 400;
   letter-spacing: 0;
   line-height: 1.2;
@@ -76,7 +79,7 @@
     var(--color-shell-panel)
   );
   color: var(--color-content-muted);
-  font-size: 0.72rem;
+  font-size: var(--lmd-meta-size);
   font-weight: 700;
   letter-spacing: 0.08em;
   transform: translate(-0.25rem, -50%);
