@@ -15,11 +15,11 @@ import {
   type SessionResult,
   summarizeAttempts,
 } from "./recall";
-import type {
-  PracticeRepairEntry,
-  PracticeRepairEntryConfirmation,
+import {
+  clonePracticeRepairEntry as clonePracticeRepairEntryValue,
+  type PracticeRepairEntry,
+  type PracticeRepairEntryConfirmation,
 } from "./recall-practice-repair";
-import { clonePracticeRepairIntentMetadata } from "./recall-practice-repair";
 import type { RecallSchedule } from "./recall-schedule";
 
 type PersistentRecallListener = () => void;
@@ -160,16 +160,7 @@ function clonePracticeRepairEntry(
     return undefined;
   }
 
-  return {
-    ...entry,
-    intentMetadata: clonePracticeRepairIntentMetadata(
-      entry.intent,
-      entry.intentMetadata,
-    ),
-    reference: {
-      ...entry.reference,
-    },
-  };
+  return clonePracticeRepairEntryValue(entry);
 }
 
 function cloneQuestion(question: RecallQuestion): RecallQuestion {

@@ -100,6 +100,18 @@ function isPracticeRepairMemoryAidKind(
   );
 }
 
+function asPracticeRepairMetadataRecord(
+  value: unknown,
+): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
 export function createPracticeRepairIntentMetadata(
   intent: PracticeRepairIntent,
 ): PracticeRepairIntentMetadata {
@@ -125,7 +137,7 @@ export function createPracticeRepairIntentMetadata(
   }
 }
 
-export function clonePracticeRepairIntentMetadata(
+function clonePracticeRepairIntentMetadata(
   intent: PracticeRepairIntent,
   metadata: PracticeRepairIntentMetadata,
 ): PracticeRepairIntentMetadata {
@@ -162,14 +174,26 @@ export function clonePracticeRepairIntentMetadata(
   }
 }
 
+export function clonePracticeRepairEntry(
+  entry: PracticeRepairEntry,
+): PracticeRepairEntry {
+  return {
+    ...entry,
+    intentMetadata: clonePracticeRepairIntentMetadata(
+      entry.intent,
+      entry.intentMetadata,
+    ),
+    reference: {
+      ...entry.reference,
+    },
+  };
+}
+
 export function isPracticeRepairIntentMetadata(
   intent: PracticeRepairIntent,
   value: unknown,
 ): value is PracticeRepairIntentMetadata {
-  const candidate =
-    typeof value === "object" && value !== null
-      ? (value as Record<string, unknown>)
-      : null;
+  const candidate = asPracticeRepairMetadataRecord(value);
 
   if (candidate === null) {
     return false;
@@ -177,33 +201,20 @@ export function isPracticeRepairIntentMetadata(
 
   switch (intent) {
     case "tighten-expected-answer":
-      return (
-        "updatedExpectedAnswer" in candidate &&
-        (candidate.updatedExpectedAnswer === null ||
-          typeof candidate.updatedExpectedAnswer === "string")
-      );
+      return isNullableString(candidate.updatedExpectedAnswer);
     case "split-study-note":
       return (
         Array.isArray(candidate.createdStudyNoteIds) &&
         candidate.createdStudyNoteIds.every(
           (value) => typeof value === "string",
         ) &&
-        "narrowedOriginalStudyNoteAt" in candidate &&
-        (candidate.narrowedOriginalStudyNoteAt === null ||
-          typeof candidate.narrowedOriginalStudyNoteAt === "string")
+        isNullableString(candidate.narrowedOriginalStudyNoteAt)
       );
     case "create-sibling-study-note":
-      return (
-        "createdStudyNoteId" in candidate &&
-        (candidate.createdStudyNoteId === null ||
-          typeof candidate.createdStudyNoteId === "string")
-      );
+      return isNullableString(candidate.createdStudyNoteId);
     case "add-memory-aid":
       return (
-        "memoryAidId" in candidate &&
-        (candidate.memoryAidId === null ||
-          typeof candidate.memoryAidId === "string") &&
-        "memoryAidKind" in candidate &&
+        isNullableString(candidate.memoryAidId) &&
         (candidate.memoryAidKind === null ||
           isPracticeRepairMemoryAidKind(candidate.memoryAidKind))
       );

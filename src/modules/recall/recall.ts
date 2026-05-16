@@ -8,7 +8,7 @@ import {
   listStudyNotesForUser,
 } from "../study-notes";
 import {
-  clonePracticeRepairIntentMetadata,
+  clonePracticeRepairEntry as clonePracticeRepairEntryValue,
   createPracticeRepairIntentMetadata,
   isPracticeRepairEligibleQuestion,
   isPracticeRepairIntent,
@@ -765,16 +765,7 @@ function clonePracticeRepairEntry(
     return undefined;
   }
 
-  return {
-    ...entry,
-    intentMetadata: clonePracticeRepairIntentMetadata(
-      entry.intent,
-      entry.intentMetadata,
-    ),
-    reference: {
-      ...entry.reference,
-    },
-  };
+  return clonePracticeRepairEntryValue(entry);
 }
 
 function cloneRecallQuestion(question: RecallQuestion): RecallQuestion {

@@ -265,6 +265,7 @@ const confirmPracticeRepairEntryServerFn = createServerFn({
     return recall.confirmPracticeRepairEntry({
       correction: data.correction,
       intent: data.intent,
+      nextPracticeIdea: data.nextPracticeIdea,
       reference: data.reference,
       userId,
     });
