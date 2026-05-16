@@ -86,10 +86,69 @@ Passive study activity such as rereading, highlighting, watching videos, or copy
 _Avoid_: Report card, spaced-repetition engine, analytics widget, card state
 
 **Practice Repair**:
-A lightweight follow-up flow after weak recall evidence that helps the User improve a Study Note before or alongside future recall.
+A lightweight first-class repair flow after weak recall evidence that helps the User improve a Study Note before or alongside future recall.
 Practice Repair may suggest editing the expected answer, splitting a broad Study Note, adding a Metaphor or Acronym, creating a sibling Study Note, or recalling the Study Note again soon through Recall Today.
-In v1, Practice Repair is not a first-class error log or mistake taxonomy.
+In v1, Practice Repair may persist queryable Practice Repair Entries so mistakes can become future practice.
+In v1, Practice Repair is not a full error log or mistake taxonomy.
 _Avoid_: Error log, remediation system, weakness workflow
+
+**Practice Repair Entry**:
+A persisted, queryable record of what the User plans to change after weak recall evidence.
+In v1, every Practice Repair Entry has a Practice Repair Intent and a free-text correction.
+In v1, a Practice Repair Entry may capture an optional next-practice idea without forcing a fixed mistake type.
+In v1, Practice Repair Entries are created from Results review only, based on weak recall evidence from stored Questions.
+Results review may show draft Practice Repair suggestions for Forgot or Hard Questions, but draft suggestions are not persisted Practice Repair Entries.
+The User must explicitly confirm the Practice Repair Intent and correction before a draft suggestion becomes a persisted Practice Repair Entry.
+The Study Note editor may display active Practice Repair Entries and offer linked repair actions or completion, but it does not create new Practice Repair Entries without recall evidence.
+A Practice Repair Entry belongs to exactly one durable Study Note.
+In v1, every Practice Repair Entry references the SessionResult and stored Question that prompted it.
+Going forward, a Practice Repair Entry references a stored Question by stable questionResultId together with the SessionResult and Study Note.
+Question index references are legacy fallback only for older SessionResults without stable stored Question identifiers.
+Practice Repair Entries rely on SessionResult snapshots for historical recall context rather than duplicating those snapshots.
+Optional historical references are reserved for future non-Results creation paths.
+When its Study Note is deleted, a Practice Repair Entry becomes a read-only historical repair record.
+Practice Repair Entries for deleted Study Notes are removed from active planning and Recall Today, and remain accessible only through Results review or other historical context.
+A Study Note may have multiple historical Practice Repair Entries.
+In v1, a Study Note has at most one active Practice Repair Entry for the same Practice Repair Intent.
+When the User confirms a draft Practice Repair suggestion with the same Practice Repair Intent as an existing active Practice Repair Entry for the same Study Note, the new Practice Repair Entry becomes active and the old active entry is superseded by it.
+Supersession preserves repeated weak-recall history while keeping one active Practice Repair Entry per Study Note and Practice Repair Intent.
+Distinct Practice Repair Intents may have active Practice Repair Entries for the same Study Note at the same time.
+A Practice Repair Entry is active while its Practice Repair Intent remains unresolved or its Practice Follow-up is pending.
+A Practice Repair Entry becomes historical when completed, dismissed, superseded, or satisfied by follow-up evidence, as applicable.
+A Practice Repair Entry's free-text correction is editable while the entry is active and read-only once the entry becomes historical.
+A Practice Repair Entry tied to a deleted Study Note is read-only even if its previous lifecycle facts were unresolved.
+A Practice Repair Entry is completed only when the User marks the repair complete or performs the matching linked repair action from that entry.
+Arbitrary edits to a Study Note, expected answer, memory aid, or sibling Study Note do not complete a Practice Repair Entry by inference.
+Lifecycle facts such as completion, dismissal, supersession, and follow-up satisfaction are the source of truth for whether a Practice Repair Entry is active or historical.
+Any stored lifecycle status is only a query or uniqueness-enforcement projection of those lifecycle facts.
+Practice Repair Entries are future-practice evidence, not recall evidence; they do not change Learning State or Recall Schedule by themselves.
+A confirmed Practice Repair Entry creates a Practice Follow-up by default.
+When the Practice Repair Intent requires content repair, the Practice Follow-up becomes actionable only after that repair is completed.
+A Practice Follow-up may be explicitly dismissed or waived to avoid unnecessary pending follow-up work.
+_Avoid_: Error log entry, mistake record, remediation ticket
+
+**Practice Repair Intent**:
+The structured action the User plans to take when repairing a Study Note after weak recall evidence.
+In v1, Practice Repair Intent describes content repair only: tightening the expected answer, splitting a Study Note, adding a memory aid, or creating a sibling Study Note.
+The `split-study-note` intent uses a lightweight split flow that creates one or more sibling Study Notes from the same source Note and requires narrowing the original Study Note.
+Completing a `split-study-note` Practice Repair Entry requires at least one sibling Study Note from the same source Note and explicit narrowing of the original Study Note through the split flow.
+Additional split targets may be added later without blocking completion of the original `split-study-note` Practice Repair Entry.
+The `split-study-note` intent remains distinct from `create-sibling-study-note`, which creates another Study Note from the same source without requiring the original Study Note to be narrowed.
+The `add-memory-aid` intent stays broad; the User chooses Metaphor or Acronym during the linked repair action.
+Completing an `add-memory-aid` Practice Repair Entry requires creating either a Metaphor or Acronym through the linked repair action and recording which aid type and aid reference satisfied it.
+Practicing again is not a Practice Repair Intent; it is modeled separately as a Practice Follow-up action attached to a Practice Repair Entry.
+Practice Repair Intent does not classify the mistake type.
+_Avoid_: Error type, mistake category, diagnosis
+
+**Practice Follow-up**:
+An action attached to a Practice Repair Entry that asks the User to test the repaired Study Note again.
+In v1, every confirmed Practice Repair Entry creates a Practice Follow-up by default unless the User explicitly dismisses or waives it.
+When the attached Practice Repair Entry still has unresolved content repair, the Practice Follow-up is not actionable yet.
+When a Practice Follow-up becomes actionable, it enters Recall Today as an explicit recall reason and remains visible in Study Note and Results contexts.
+In v1, a Practice Follow-up stays pending until any later attempted RecallSession Question for the same Study Note satisfies it, regardless of rating.
+The later Question rating remains separate evidence for Learning State; Forgot or Hard keeps Needs practice active and may create a new Practice Repair Entry or Practice Follow-up rather than keeping the original follow-up pending.
+Practice Follow-up completion is not modeled through Practice Repair Entry status transitions.
+_Avoid_: Repair status, practice status, workflow step
 
 **Due for Recall**:
 A per-Study Note scheduling state meaning the Study Note's recall due date is today or earlier in the User's User Time Zone.
@@ -107,8 +166,10 @@ _Avoid_: Spaced-repetition engine, SM-2 card state, review interval
 
 **Recall Today**:
 A user-facing prioritized recall queue for recallable Study Notes the app recommends now.
-Recall Today may include both Study Notes that are Due for Recall and Study Notes that Need practice, but those remain separate domain signals.
-By default, Recall Today prioritizes Needs practice first, then recallable Study Notes with no recall evidence, then Study Notes that are Due for Recall by schedule.
+Recall Today may include Study Notes with Needs practice evidence, actionable Practice Follow-ups, or Due for Recall schedules, but those remain separate domain signals.
+By default, Recall Today prioritizes Needs practice and actionable Practice Follow-ups first, then recallable Study Notes with no recall evidence, then Study Notes that are Due for Recall by schedule.
+When Recall Today includes a Study Note because of an actionable Practice Follow-up, it shows that as an explicit recall reason.
+When a Study Note has both Needs practice evidence and an actionable Practice Follow-up, Recall Today shows one high-priority row, uses Practice Follow-up as the primary displayed reason, and shows Needs practice as supporting context.
 _Avoid_: Review Today, due review queue, weak notes queue
 
 **Interleaved Recall**:
@@ -162,6 +223,7 @@ _Avoid_: Mode, difficulty, tier
 
 **Question**:
 A prompt generated for a Study Note during a RecallSession. Can be open-ended or multiple choice. Stores the user's answer and a score. Belongs to exactly one RecallSession and one Study Note.
+Going forward, each stored Question in a SessionResult has a stable questionResultId for historical references such as Practice Repair Entries.
 In `FlashCard`, the meaningful learner-facing judgment is the user self-rating; any numeric score is only a derived internal projection of that self-rating, not a separate grade.
 In `AiGraded`, the score is the AI-generated system score for v1. User overrides are out of scope for now, but can be added later as a separate final score without changing the meaning of the Question itself.
 For multiple-choice Questions, distractors should be context-bound and plausible within the selected study area rather than arbitrary invented wrong answers.
@@ -356,9 +418,36 @@ _Avoid_: Product menu, sidebar navigation
 - A **Learning State** belongs to exactly one **Study Note**
 - Passive study activity can support the **Study Layer**, but it is not learning progress unless it produces or reinforces **Study Notes** or recall evidence.
 - **Practice Repair** follows weak recall evidence and helps the User improve or split Study Notes without introducing a full error-log concept in v1.
+- **Practice Repair** may persist **Practice Repair Entries** for future practice planning.
+- **Practice Repair Entries** are queryable future-practice evidence, not recall evidence by themselves.
+- In v1, **Practice Repair Entries** are created from Results review only, based on weak recall evidence from stored **Questions**.
+- Results review may show draft **Practice Repair** suggestions for Forgot or Hard **Questions**, but persistence requires explicit User confirmation of the **Practice Repair Intent** and correction.
+- A **Practice Repair Entry** has exactly one **Practice Repair Intent** and one free-text correction.
+- The `split-study-note` **Practice Repair Intent** creates one or more sibling **Study Notes** from the same source **Note** and requires narrowing the original **Study Note**.
+- Completing a `split-study-note` **Practice Repair Entry** requires at least one sibling **Study Note** from the same source **Note** and explicit narrowing of the original **Study Note** through the split flow.
+- The `create-sibling-study-note` **Practice Repair Intent** creates another **Study Note** from the same source **Note** without requiring the original **Study Note** to be narrowed.
+- The `add-memory-aid` **Practice Repair Intent** is satisfied by creating either a **Metaphor** or **Acronym** through the linked repair action and recording which aid satisfied it.
+- A **Practice Repair Entry** belongs to exactly one **Study Note**.
+- In v1, every **Practice Repair Entry** references the **SessionResult** and stored **Question** that prompted it.
+- Going forward, **Practice Repair Entries** reference stored **Questions** by stable questionResultId; question index references are legacy fallback only.
+- **Practice Repair Entries** rely on **SessionResult** snapshots for historical recall context rather than duplicating those snapshots.
+- When a **Study Note** is deleted, its **Practice Repair Entries** become read-only historical repair records and are removed from active planning and **Recall Today**.
+- A **Study Note** may have multiple historical **Practice Repair Entries**, but at most one active **Practice Repair Entry** per **Practice Repair Intent**.
+- Confirming a same-intent draft **Practice Repair** suggestion supersedes the existing active **Practice Repair Entry** and makes the new **Practice Repair Entry** active.
+- Distinct **Practice Repair Intents** may have active **Practice Repair Entries** for the same **Study Note** at the same time.
+- A **Practice Repair Entry** is active while its **Practice Repair Intent** remains unresolved or its **Practice Follow-up** is pending.
+- A **Practice Repair Entry** becomes historical when completed, dismissed, superseded, or satisfied by follow-up evidence, as applicable.
+- A **Practice Repair Entry** correction is editable while active and read-only once historical, including deleted-Study Note history.
+- A **Practice Repair Entry** is completed only by explicit User completion or by the User performing the matching linked repair action from that entry.
+- Arbitrary edits do not complete **Practice Repair Entries** by inference.
+- Lifecycle facts are the source of truth for whether a **Practice Repair Entry** is active or historical; any stored lifecycle status is only a projection.
+- A confirmed **Practice Repair Entry** creates a **Practice Follow-up** by default unless the User explicitly dismisses or waives it.
+- A **Practice Follow-up** becomes actionable only after required content repair is completed, and later **RecallSession** evidence can satisfy it.
 - A saved **Study Note** has one **Recall Schedule**
 - A saved **Study Note** may be **Due for Recall** based on its **Recall Schedule**
-- **Recall Today** may include both **Due for Recall** Study Notes and Study Notes with **Needs practice** evidence, while preserving those as separate signals.
+- **Recall Today** may include **Due for Recall** Study Notes, Study Notes with **Needs practice** evidence, and Study Notes with actionable **Practice Follow-ups**, while preserving those as separate signals.
+- **Recall Today** shows actionable **Practice Follow-ups** as an explicit recall reason.
+- When both signals apply, **Recall Today** shows one high-priority Study Note row with **Practice Follow-up** as the primary displayed reason and **Needs practice** as supporting context.
 - **Interleaved Recall** uses related eligible **Study Notes** and should wait for successful recall evidence before becoming automatic.
 - The **Study Layer** turns external source material into **Notes**, **Study Notes**, **Metaphors**, **Acronyms**, **RecallSessions**, and **FocusSessions**.
 - A future **Source Import** may bring external study material into the **Study Layer**, but the practiced memory unit remains the **Study Note**.
@@ -447,11 +536,11 @@ _Avoid_: Product menu, sidebar navigation
 - Analytics primarily measure completed **FocusInterval** time; **BreakIntervals** are stored for secondary analysis
 - A **RecallSession** that happens during a **FocusSession** counts as study activity inside that **FocusSession**, not as separate extra time on top of it
 - In v1, analytics record which **FocusTargets** appeared in a **FocusSession**, but do not assign exact minutes to each target
-- A **User** owns all their **Notes**, **Study Notes**, **Labels**, **Metaphors**, **Acronyms**, **RecallSessions**, and **FocusSessions**
+- A **User** owns all their **Notes**, **Study Notes**, **Labels**, **Metaphors**, **Acronyms**, **RecallSessions**, **Practice Repair Entries**, and **FocusSessions**
 - A **Session** belongs to exactly one **User**.
 - During the v1 exam-support pilot, creating a **User** requires the **Pilot Registration Code**.
 - All relationships are ownership-local to a single **User**. A **Study Note** can only be assigned to **Labels** owned by the same **User**, and a **RecallSession** can only target Study Notes extracted from Notes owned by that User.
-- In v1, deleting active **Notes**, **Study Notes**, **Labels**, **Metaphors**, and **Acronyms** is a hard delete. Historical study records remain available only through the snapshots stored in **SessionResult**.
+- In v1, deleting active **Notes**, **Study Notes**, **Labels**, **Metaphors**, and **Acronyms** is a hard delete. Historical recall records remain available through the snapshots stored in **SessionResult**; historical **Practice Repair Entries** for deleted **Study Notes** remain available only through Results review or other historical context.
 - In v1, authenticated study work happens through the **Study Notes Workspace** and the **Recall Section** rather than a generic product-menu sidebar.
 - In v1, active **FocusSessions**, **FocusRecords**, and focus analytics are surfaced in the **Focus Section**, separate from the **Study Notes Workspace** and **Recall Section**
 - In v1, **Focus Section** analytics may include cross-study metrics, but only when derived from existing **Notes**, **SessionResults**, and **FocusRecords** rather than a separate analytics event log
@@ -470,8 +559,12 @@ _Avoid_: Product menu, sidebar navigation
 - The "Focus" sidebar navigation item opens the **Focus Section** for active FocusSessions, completed FocusRecords, and focus analytics, while the "Focus now" **Focus Dock** provides compact active FocusSession controls elsewhere
 - The **Study Notes Workspace** owns Study Note search/filter, Study Note selection, Study Note editing, source Note editing, and source Note creation through the New Study Note flow.
 - The **Study Notes Workspace** supports adding another **Study Note** from an existing source **Note** when the User splits a source into multiple recall targets.
+- A linked split repair flow in the **Study Notes Workspace** creates one or more sibling **Study Notes** from the same source **Note** and requires narrowing the original **Study Note**.
+- The linked split repair flow can complete after one sibling **Study Note** is created and the original **Study Note** is narrowed; additional split targets can be added later.
 - The **Study Notes Workspace** allows editing a shared source **Note** from any linked **Study Note**, with clear copy that the source is shared.
 - The **Study Note** editor shows Study Note prompt, expected answer, Labels, Metaphors, and Acronyms before the source **Note** title/body.
+- The **Study Note** editor may show active **Practice Repair Entries** for the selected **Study Note** and provide linked repair actions or explicit completion.
+- The **Study Note** editor does not create **Practice Repair Entries** without recall evidence in v1.
 - The source **Note** title/body is visible by default in the Study Note editor.
 - The **Recall Section** owns starting **RecallSessions** and reviewing **SessionResults**.
 - The **Study Notes Workspace** may provide a lightweight "Start Recall" entry point for convenience, but it only opens the **Recall Section**; Study Note selection happens inside Recall.
@@ -489,6 +582,8 @@ _Avoid_: Product menu, sidebar navigation
 - In `FlashCard`, a **SessionResult** list item shows the session's average self-rating percentage, rendered compactly as the percentage value alone in the row.
 - The selected **SessionResult** detail shows the stored Study Note and source Note snapshots used in that RecallSession.
 - The selected **SessionResult** detail centers stored **Questions** and their answers/scores as the primary review content.
+- Results review is the only v1 creation surface for **Practice Repair Entries**.
+- Results review may show draft **Practice Repair** suggestions for Forgot or Hard **Questions**, but it persists a **Practice Repair Entry** only after the User confirms the **Practice Repair Intent** and correction.
 - The selected **SessionResult** detail surface is presented as **Session review** in user-facing heading copy.
 - In this version, stored Study Notes and source Notes inside a selected **SessionResult** are shown as summary context only; nested Note selection inside Results is deferred.
 - In v1, when a selected **SessionResult** has exactly one targeted **Study Note** and one stored **Question** for that same Study Note, the stored Study Note and source Note are reduced to compact summary metadata instead of a separate context section.
@@ -871,7 +966,7 @@ _Avoid_: Product menu, sidebar navigation
 - "Recall time" could have been added on top of focus time — resolved: recall is nested study activity inside a **FocusSession**, not double-counted extra time.
 - Focus time could have been treated as proof of learning — resolved: **FocusSessions** support attention and recovery, while learning evidence comes from recall and StudyActivity that produces or reinforces Study Notes.
 - Passive work such as rereading, highlighting, videos, or copying notes could have been rewarded as learning progress — resolved: it may support source material preparation, but progress comes from Study Note creation, recall evidence, correction, Recall Schedule movement, and Needs practice repair.
-- Weak recall could have created a full error-log workflow immediately — resolved for v1: use lightweight **Practice Repair** suggestions tied to **Needs practice** before introducing first-class error logs.
+- Weak recall could have created a full error-log workflow immediately — resolved for v1: use lightweight first-class **Practice Repair** and persisted **Practice Repair Entries** tied to **Needs practice** before introducing full error logs or mistake taxonomy.
 - **Metaphors** and **Acronyms** could have been encouraged for every **Study Note** by default — resolved: they remain optional memory aids suggested only when useful for a specific recall problem.
 - Beginner/intermediate/advanced could have been a User-level setting — resolved for v1: use local **Study Note** and **Label** evidence to drive **Study Guidance** instead.
 - Weekly planning could have been part of the default product loop — resolved for v1: defer a full weekly planning feature and center default guidance on **Recall Today** and **Practice Repair**.
