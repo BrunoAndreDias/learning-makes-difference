@@ -686,6 +686,201 @@ describe("confirmed Practice Repair entries", () => {
     });
   });
 
+  it("keeps split-study-note active until sibling creation and original narrowing are both recorded", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-16T16:20:00.000Z"));
+
+    const storage = createMemoryStorage();
+    const userId = "user-practice-repair-linked-split";
+    const notes = createAppNotesContext({
+      keyPrefix: "practice-repair-entry-linked-split-notes",
+      storage,
+    });
+    const studyNotes = createAppStudyNotesContext({
+      keyPrefix: "practice-repair-entry-linked-split-study-notes",
+      storage,
+    });
+    let sessionCounter = 0;
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `practice-repair-linked-split-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "practice-repair-entry-linked-split-recall",
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+    const studyNote = studyNotes.createStudyNote(userId, {
+      expectedAnswer: "ATP stores transferable energy.",
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+    const splitResult = recall.confirmPracticeRepairEntry({
+      correction: "Narrow the original and break out the transport detail.",
+      intent: "split-study-note",
+      reference: createPracticeRepairReference({
+        result: createWeakStudyNoteResult({
+          rating: "forgot",
+          recall,
+          studyNoteId: studyNote.id,
+          userId,
+        }),
+        studyNoteId: studyNote.id,
+      }),
+      userId,
+    });
+    const reference = getConfirmedPracticeRepairReference(splitResult);
+
+    vi.setSystemTime(new Date("2026-05-16T16:25:00.000Z"));
+
+    expect(
+      recall.completeLinkedPracticeRepairEntry({
+        intent: "split-study-note",
+        intentMetadata: {
+          createdStudyNoteIds: ["study-note-sibling-2"],
+          narrowedOriginalStudyNoteAt: null,
+        },
+        reference,
+        userId,
+      }).questions[0]?.practiceRepairEntry,
+    ).toMatchObject({
+      intentMetadata: {
+        createdStudyNoteIds: ["study-note-sibling-2"],
+        narrowedOriginalStudyNoteAt: null,
+      },
+      lifecycle: undefined,
+    });
+    expect(
+      recall.listActivePracticeRepairEntriesForStudyNote({
+        studyNoteId: studyNote.id,
+        userId,
+      }),
+    ).toHaveLength(1);
+
+    vi.setSystemTime(new Date("2026-05-16T16:30:00.000Z"));
+
+    expect(
+      recall.completeLinkedPracticeRepairEntry({
+        intent: "split-study-note",
+        intentMetadata: {
+          createdStudyNoteIds: [],
+          narrowedOriginalStudyNoteAt: "2026-05-16T16:30:00.000Z",
+        },
+        reference,
+        userId,
+      }).questions[0]?.practiceRepairEntry,
+    ).toMatchObject({
+      intentMetadata: {
+        createdStudyNoteIds: ["study-note-sibling-2"],
+        narrowedOriginalStudyNoteAt: "2026-05-16T16:30:00.000Z",
+      },
+      lifecycle: {
+        completedAt: "2026-05-16T16:30:00.000Z",
+      },
+    });
+  });
+
+  it("keeps split-study-note active when the original is narrowed before any sibling is created", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-16T16:20:00.000Z"));
+
+    const storage = createMemoryStorage();
+    const userId = "user-practice-repair-linked-split-missing-sibling";
+    const notes = createAppNotesContext({
+      keyPrefix: "practice-repair-entry-linked-split-missing-sibling-notes",
+      storage,
+    });
+    const studyNotes = createAppStudyNotesContext({
+      keyPrefix:
+        "practice-repair-entry-linked-split-missing-sibling-study-notes",
+      storage,
+    });
+    let sessionCounter = 0;
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `practice-repair-linked-split-missing-sibling-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "practice-repair-entry-linked-split-missing-sibling-recall",
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+    const studyNote = studyNotes.createStudyNote(userId, {
+      expectedAnswer: "ATP stores transferable energy.",
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+    const splitResult = recall.confirmPracticeRepairEntry({
+      correction: "Narrow the original and break out the transport detail.",
+      intent: "split-study-note",
+      reference: createPracticeRepairReference({
+        result: createWeakStudyNoteResult({
+          rating: "forgot",
+          recall,
+          studyNoteId: studyNote.id,
+          userId,
+        }),
+        studyNoteId: studyNote.id,
+      }),
+      userId,
+    });
+    const reference = getConfirmedPracticeRepairReference(splitResult);
+
+    vi.setSystemTime(new Date("2026-05-16T16:25:00.000Z"));
+
+    expect(
+      recall.completeLinkedPracticeRepairEntry({
+        intent: "split-study-note",
+        intentMetadata: {
+          createdStudyNoteIds: [],
+          narrowedOriginalStudyNoteAt: "2026-05-16T16:25:00.000Z",
+        },
+        reference,
+        userId,
+      }).questions[0]?.practiceRepairEntry,
+    ).toMatchObject({
+      intentMetadata: {
+        createdStudyNoteIds: [],
+        narrowedOriginalStudyNoteAt: "2026-05-16T16:25:00.000Z",
+      },
+      lifecycle: undefined,
+    });
+    expect(
+      recall.listActivePracticeRepairEntriesForStudyNote({
+        studyNoteId: studyNote.id,
+        userId,
+      }),
+    ).toHaveLength(1);
+
+    vi.setSystemTime(new Date("2026-05-16T16:30:00.000Z"));
+
+    expect(
+      recall.completeLinkedPracticeRepairEntry({
+        intent: "split-study-note",
+        intentMetadata: {
+          createdStudyNoteIds: ["study-note-sibling-2"],
+          narrowedOriginalStudyNoteAt: null,
+        },
+        reference,
+        userId,
+      }).questions[0]?.practiceRepairEntry,
+    ).toMatchObject({
+      intentMetadata: {
+        createdStudyNoteIds: ["study-note-sibling-2"],
+        narrowedOriginalStudyNoteAt: "2026-05-16T16:25:00.000Z",
+      },
+      lifecycle: {
+        completedAt: "2026-05-16T16:30:00.000Z",
+      },
+    });
+  });
+
   it("rejects linked completion evidence when the action does not match the active intent", () => {
     const storage = createMemoryStorage();
     const userId = "user-practice-repair-linked-action-mismatch";

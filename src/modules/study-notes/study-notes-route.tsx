@@ -38,6 +38,7 @@ import {
   type PracticeRepairLinkedCompletionInput,
   type PracticeRepairMemoryAidKind,
   type PracticeRepairQuestionReference,
+  type SplitStudyNotePracticeRepairMetadata,
 } from "../recall/recall-practice-repair";
 import "./study-notes.css";
 import {
@@ -138,6 +139,19 @@ function areStudyNoteDraftsEqual(
       normalizeSupportDescriptionsForComparison(left.acronyms),
       normalizeSupportDescriptionsForComparison(right.acronyms),
     )
+  );
+}
+
+function didSplitStudyNoteDraftChange(input: {
+  draft: UpdateStudyNoteInput;
+  studyNote: AppStudyNote;
+}) {
+  return (
+    input.draft.prompt.trim() !== input.studyNote.prompt.trim() ||
+    input.draft.expectedAnswer.trim() !==
+      input.studyNote.expectedAnswer.trim() ||
+    input.draft.sourceBody.trim() !== input.studyNote.source.body.trim() ||
+    input.draft.sourceTitle.trim() !== input.studyNote.source.title.trim()
   );
 }
 
@@ -650,6 +664,12 @@ function getActivePracticeRepairEntryViews({
         sessionResults,
       }),
     }));
+}
+
+function getSplitStudyNotePracticeRepairMetadata(
+  entry: PracticeRepairEntry,
+): SplitStudyNotePracticeRepairMetadata {
+  return entry.intentMetadata as SplitStudyNotePracticeRepairMetadata;
 }
 
 function getStudyNoteLabelNames(
@@ -1299,6 +1319,7 @@ function StudyNotesWorkspace() {
 
   async function completeLinkedPracticeRepairEntry(
     input: PracticeRepairLinkedCompletionInput,
+    successMessage = "Practice Repair completed",
   ) {
     await mutatePracticeRepairEntry({
       action: "linked-action",
@@ -1317,7 +1338,7 @@ function StudyNotesWorkspace() {
         );
       },
       reference: input.reference,
-      successMessage: "Practice Repair completed",
+      successMessage,
     });
   }
 
@@ -1351,6 +1372,50 @@ function StudyNotesWorkspace() {
 
       setCreatingStudyNote(false);
       setSelectedStudyNoteId(createdStudyNote.id);
+    } catch (error) {
+      if (error instanceof AppRecallError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      handleError(error);
+    }
+  }
+
+  async function handleSplitStudyNote(entry: PracticeRepairEntry) {
+    if (selectedStudyNote === null) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setSaveStatus(null);
+
+    try {
+      const createdStudyNote = await storeMutation.createStudyNoteFromSource(
+        userId,
+        {
+          sourceNoteId: selectedStudyNote.sourceNoteId,
+        },
+      );
+      const splitMetadata = getSplitStudyNotePracticeRepairMetadata(entry);
+
+      await completeLinkedPracticeRepairEntry(
+        {
+          intent: "split-study-note",
+          intentMetadata: {
+            createdStudyNoteIds: [
+              ...splitMetadata.createdStudyNoteIds,
+              createdStudyNote.id,
+            ],
+            narrowedOriginalStudyNoteAt:
+              splitMetadata.narrowedOriginalStudyNoteAt,
+          },
+          reference: entry.reference,
+        },
+        splitMetadata.narrowedOriginalStudyNoteAt === null
+          ? "Split target created. Narrow the original Study Note and save changes to complete Practice Repair."
+          : "Practice Repair completed",
+      );
     } catch (error) {
       if (error instanceof AppRecallError) {
         setErrorMessage(error.message);
@@ -1634,6 +1699,38 @@ function StudyNotesWorkspace() {
     return true;
   }
 
+  async function maybeRecordSplitStudyNoteNarrowing(input: {
+    entry: PracticeRepairEntry | null;
+    savedStudyNote: AppStudyNote;
+    shouldRecordNarrowing: boolean;
+  }) {
+    if (
+      input.entry === null ||
+      !input.shouldRecordNarrowing ||
+      input.savedStudyNote.id !== input.entry.reference.studyNoteId
+    ) {
+      return false;
+    }
+
+    const splitMetadata = getSplitStudyNotePracticeRepairMetadata(input.entry);
+
+    await completeLinkedPracticeRepairEntry(
+      {
+        intent: "split-study-note",
+        intentMetadata: {
+          createdStudyNoteIds: splitMetadata.createdStudyNoteIds,
+          narrowedOriginalStudyNoteAt: input.savedStudyNote.updatedAt,
+        },
+        reference: input.entry.reference,
+      },
+      splitMetadata.createdStudyNoteIds.length === 0
+        ? "Original narrowed. Create a split target to complete Practice Repair."
+        : "Practice Repair completed",
+    );
+
+    return true;
+  }
+
   async function saveDraft(): Promise<AppStudyNote | null> {
     if (!hasDraftChanges) {
       return selectedStudyNote;
@@ -1644,6 +1741,19 @@ function StudyNotesWorkspace() {
     setSaving(true);
 
     try {
+      const activeSplitPracticeRepairEntry =
+        selectedStudyNote === null
+          ? null
+          : (activePracticeRepairEntries.find(
+              ({ entry }) => entry.intent === "split-study-note",
+            )?.entry ?? null);
+      const shouldRecordSplitStudyNoteNarrowing =
+        selectedStudyNote !== null &&
+        activeSplitPracticeRepairEntry !== null &&
+        didSplitStudyNoteDraftChange({
+          draft,
+          studyNote: selectedStudyNote,
+        });
       let savedStudyNote: AppStudyNote;
 
       if (selectedStudyNote === null) {
@@ -1672,9 +1782,16 @@ function StudyNotesWorkspace() {
       await captureFocusStudyNoteActivity(savedStudyNote);
 
       if (
-        !(await maybeCompletePendingPracticeRepairMemoryAidAction(
-          savedStudyNote,
-        ))
+        !(
+          (await maybeRecordSplitStudyNoteNarrowing({
+            entry: activeSplitPracticeRepairEntry,
+            savedStudyNote,
+            shouldRecordNarrowing: shouldRecordSplitStudyNoteNarrowing,
+          })) ||
+          (await maybeCompletePendingPracticeRepairMemoryAidAction(
+            savedStudyNote,
+          ))
+        )
       ) {
         setSaveStatus("Saved just now");
       }
@@ -2215,6 +2332,18 @@ function StudyNotesWorkspace() {
                             </div>
                           )}
                           <div className="study-notes-practice-repair__actions">
+                            {entry.intent === "split-study-note" ? (
+                              <Button
+                                disabled={isMutationPending}
+                                onClick={() => void handleSplitStudyNote(entry)}
+                                size="compact"
+                                type="button"
+                                variant="secondary"
+                              >
+                                <CopyIcon />
+                                <span>Split Study Note</span>
+                              </Button>
+                            ) : null}
                             {entry.intent === "create-sibling-study-note" ? (
                               <Button
                                 disabled={isMutationPending}

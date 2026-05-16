@@ -1921,6 +1921,126 @@ describe("authenticated Study Notes workspace", () => {
     });
   });
 
+  it("keeps split-study-note active until the original Study Note is narrowed, then completes it with sibling evidence", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-practice-repair-active-split";
+    const studyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Original expected answer.",
+      prompt: "Original prompt",
+      sourceBody: "Shared source body for split repair.",
+      sourceTitle: "Split repair source",
+      userId,
+    });
+
+    completeStudyNoteRecall(contexts, {
+      rating: "forgot",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const confirmedResult = confirmStudyNotePracticeRepair(contexts, {
+      correction: "Split out the transport detail and narrow the original.",
+      intent: "split-study-note",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const confirmedReference =
+      getConfirmedPracticeRepairReference(confirmedResult);
+
+    renderStudyNotesRouteForUser(contexts, {
+      displayName: "Jordan Active Split Repair",
+      email: "jordan.active.split.repair@example.com",
+      id: userId,
+      userLanguage: "en",
+    });
+
+    const activePracticeRepair = await screen.findByRole("region", {
+      name: "Active Practice Repair",
+    });
+    const activeEntry = within(activePracticeRepair).getByRole("article", {
+      name: "Split Study Note",
+    });
+
+    fireEvent.click(
+      within(activeEntry).getByRole("button", {
+        name: "Split Study Note",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(contexts.studyNotesContext.getSnapshot()).toHaveLength(2),
+    );
+    expect(screen.getByLabelText("Prompt")).toHaveValue("Original prompt");
+    expect(screen.getByLabelText("Expected answer")).toHaveValue(
+      "Original expected answer.",
+    );
+    expect(
+      screen.getByRole("article", { name: "Split Study Note" }),
+    ).toBeInTheDocument();
+
+    const createdSibling = contexts.studyNotesContext
+      .getSnapshot()
+      .find((note) => note.id !== studyNote.id);
+
+    expect(createdSibling?.sourceNoteId).toBe(studyNote.sourceNoteId);
+
+    fireEvent.change(screen.getByLabelText("Prompt"), {
+      target: {
+        value: "What stores transferable energy for cell work?",
+      },
+    });
+    fireEvent.change(screen.getByLabelText("Expected answer"), {
+      target: {
+        value: "ATP stores transferable energy for cell work.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("article", { name: "Split Study Note" }),
+      ).toBeNull(),
+    );
+
+    expect(
+      contexts.recallContext.listPracticeRepairEntriesForQuestion({
+        reference: confirmedReference,
+        userId,
+      })[0],
+    ).toMatchObject({
+      intentMetadata: {
+        createdStudyNoteIds: [createdSibling?.id],
+        narrowedOriginalStudyNoteAt: expect.any(String),
+      },
+      lifecycle: {
+        completedAt: expect.any(String),
+      },
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create sibling Study Note" }),
+    );
+
+    await waitFor(() =>
+      expect(contexts.studyNotesContext.getSnapshot()).toHaveLength(3),
+    );
+    expect(
+      screen.queryByRole("article", { name: "Split Study Note" }),
+    ).toBeNull();
+    expect(
+      contexts.recallContext.listPracticeRepairEntriesForQuestion({
+        reference: confirmedReference,
+        userId,
+      })[0],
+    ).toMatchObject({
+      intentMetadata: {
+        createdStudyNoteIds: [createdSibling?.id],
+      },
+      lifecycle: {
+        completedAt: expect.any(String),
+      },
+    });
+  });
+
   it("completes an active add-memory-aid Practice Repair after the user chooses an Acronym and saves it", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-practice-repair-active-memory-aid";

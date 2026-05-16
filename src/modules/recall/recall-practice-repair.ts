@@ -44,6 +44,7 @@ export type PracticeRepairIntentMetadataByIntent = {
 
 export type PracticeRepairLinkedCompletionIntent =
   | "add-memory-aid"
+  | "split-study-note"
   | "create-sibling-study-note";
 
 export type PracticeRepairLinkedCompletionInput = {

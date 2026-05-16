@@ -63,6 +63,14 @@ const completeLinkedPracticeRepairEntryInputSchema = z.discriminatedUnion(
   "intent",
   [
     z.object({
+      intent: z.literal("split-study-note"),
+      intentMetadata: z.object({
+        createdStudyNoteIds: z.array(z.string()),
+        narrowedOriginalStudyNoteAt: z.string().nullable(),
+      }),
+      reference: practiceRepairEntryReferenceSchema,
+    }),
+    z.object({
       intent: z.literal("create-sibling-study-note"),
       intentMetadata: z.object({
         createdStudyNoteId: z.string().nullable(),

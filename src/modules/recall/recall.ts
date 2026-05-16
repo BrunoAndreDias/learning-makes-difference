@@ -21,6 +21,7 @@ import {
   type PracticeRepairEntryConfirmation,
   type PracticeRepairLinkedCompletionInput,
   type PracticeRepairQuestionReference,
+  type SplitStudyNotePracticeRepairMetadata,
 } from "./recall-practice-repair";
 import {
   createInitialRecallSchedule,
@@ -1603,6 +1604,16 @@ export function createAppRecallContext(
     return reference;
   }
 
+  function mergeLinkedCompletionReferences(input: {
+    additions: readonly string[];
+    existing: readonly string[];
+    message: string;
+  }): string[] {
+    return [...new Set([...input.existing, ...input.additions])].map(
+      (reference) => requireLinkedCompletionReference(reference, input.message),
+    );
+  }
+
   function completePracticeRepairEntry(
     input: PracticeRepairEntryMutationInput,
   ): SessionResult {
@@ -1631,6 +1642,35 @@ export function createAppRecallContext(
         }
 
         switch (input.intent) {
+          case "split-study-note": {
+            const existingMetadata =
+              entry.intentMetadata as SplitStudyNotePracticeRepairMetadata;
+            const createdStudyNoteIds = mergeLinkedCompletionReferences({
+              additions: input.intentMetadata.createdStudyNoteIds,
+              existing: existingMetadata.createdStudyNoteIds,
+              message:
+                "Split Study Note requires created sibling Study Note references.",
+            });
+            const narrowedOriginalStudyNoteAt =
+              input.intentMetadata.narrowedOriginalStudyNoteAt === null
+                ? existingMetadata.narrowedOriginalStudyNoteAt
+                : requireLinkedCompletionReference(
+                    input.intentMetadata.narrowedOriginalStudyNoteAt,
+                    "Split Study Note requires the original Study Note narrowing timestamp.",
+                  );
+            const nextMetadata: SplitStudyNotePracticeRepairMetadata = {
+              createdStudyNoteIds,
+              narrowedOriginalStudyNoteAt,
+            };
+
+            return createdStudyNoteIds.length > 0 &&
+              narrowedOriginalStudyNoteAt !== null
+              ? createCompletedPracticeRepairEntry(entry, nextMetadata)
+              : {
+                  ...entry,
+                  intentMetadata: nextMetadata,
+                };
+          }
           case "create-sibling-study-note": {
             const createdStudyNoteId = requireLinkedCompletionReference(
               input.intentMetadata.createdStudyNoteId,
