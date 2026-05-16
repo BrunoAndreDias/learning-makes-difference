@@ -2,10 +2,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createAppNotesContext } from "../notes";
 import { createAppStudyNotesContext } from "../study-notes";
-import { AppRecallError, createAppRecallContext } from "./recall";
+import {
+  AppRecallError,
+  createAppRecallContext,
+  type SessionResult,
+} from "./recall";
 import {
   getPracticeRepairEntryLifecycleState,
+  type PracticeRepairEntryLifecycle,
   type PracticeRepairIntent,
+  type PracticeRepairQuestionReference,
 } from "./recall-practice-repair";
 
 function createMemoryStorage() {
@@ -48,6 +54,72 @@ function createWeakStudyNoteResult(input: {
   return input.recall.listSessionResults({
     userId: input.userId,
   })[0];
+}
+
+function createPracticeRepairReference(input: {
+  result: SessionResult;
+  studyNoteId: string;
+}): PracticeRepairQuestionReference {
+  const questionResultId = input.result.questions[0]?.questionResultId;
+
+  if (questionResultId === undefined) {
+    throw new Error(
+      "Expected the weak Study Note result to have a question id.",
+    );
+  }
+
+  return {
+    questionIndex: 0,
+    questionResultId,
+    sessionResultId: input.result.id,
+    studyNoteId: input.studyNoteId,
+  };
+}
+
+function getConfirmedPracticeRepairReference(
+  result: SessionResult,
+): PracticeRepairQuestionReference {
+  const reference = result.questions[0]?.practiceRepairEntry?.reference;
+
+  if (reference === undefined) {
+    throw new Error("Expected a confirmed Practice Repair reference.");
+  }
+
+  return reference;
+}
+
+type StoredPracticeRepairResultForTest = {
+  id: string;
+  questions: Array<{
+    practiceRepairEntry?: {
+      lifecycle?: PracticeRepairEntryLifecycle;
+    };
+  }>;
+};
+
+function markStoredPracticeRepairEntryCompleted(input: {
+  completedAt: string;
+  resultId: string;
+  storage: ReturnType<typeof createMemoryStorage>;
+  storageKeyPrefix: string;
+}) {
+  const storageKey = `${input.storageKeyPrefix}:session-results`;
+  const storedSessionResults = JSON.parse(
+    input.storage.getItem(storageKey) ?? "[]",
+  ) as StoredPracticeRepairResultForTest[];
+  const storedResult = storedSessionResults.find(
+    (result) => result.id === input.resultId,
+  );
+  const storedEntry = storedResult?.questions[0]?.practiceRepairEntry;
+
+  if (storedEntry === undefined) {
+    throw new Error("Expected a stored Practice Repair Entry.");
+  }
+
+  storedEntry.lifecycle = {
+    completedAt: input.completedAt,
+  };
+  input.storage.setItem(storageKey, JSON.stringify(storedSessionResults));
 }
 
 afterEach(() => {
@@ -137,12 +209,10 @@ describe("confirmed Practice Repair entries", () => {
         correction: testCase.correction,
         intent: testCase.intent,
         nextPracticeIdea: testCase.nextPracticeIdea,
-        reference: {
-          questionIndex: 0,
-          questionResultId: `${result.id}-question-0`,
-          sessionResultId: result.id,
+        reference: createPracticeRepairReference({
+          result,
           studyNoteId: studyNote.id,
-        },
+        }),
         userId,
       });
       const entry = updatedResult.questions[0]?.practiceRepairEntry;
@@ -194,12 +264,10 @@ describe("confirmed Practice Repair entries", () => {
       studyNoteId: studyNote.id,
       userId,
     });
-    const reference = {
-      questionIndex: 0,
-      questionResultId: `${result.id}-question-0`,
-      sessionResultId: result.id,
+    const reference = createPracticeRepairReference({
+      result,
       studyNoteId: studyNote.id,
-    };
+    });
 
     expect(() =>
       recall.confirmPracticeRepairEntry({
@@ -267,12 +335,10 @@ describe("confirmed Practice Repair entries", () => {
     const firstUpdatedResult = recall.confirmPracticeRepairEntry({
       correction: "State ATP explicitly.",
       intent: "tighten-expected-answer",
-      reference: {
-        questionIndex: 0,
-        questionResultId: `${firstResult.id}-question-0`,
-        sessionResultId: firstResult.id,
+      reference: createPracticeRepairReference({
+        result: firstResult,
         studyNoteId: studyNote.id,
-      },
+      }),
       userId,
     });
     const secondResult = createWeakStudyNoteResult({
@@ -284,41 +350,18 @@ describe("confirmed Practice Repair entries", () => {
     const secondUpdatedResult = recall.confirmPracticeRepairEntry({
       correction: "Split the transport detail into a sibling Study Note.",
       intent: "create-sibling-study-note",
-      reference: {
-        questionIndex: 0,
-        questionResultId: `${secondResult.id}-question-0`,
-        sessionResultId: secondResult.id,
+      reference: createPracticeRepairReference({
+        result: secondResult,
         studyNoteId: studyNote.id,
-      },
+      }),
       userId,
     });
-    const storedSessionResults = JSON.parse(
-      storage.getItem(`${recallStorageKeyPrefix}:session-results`) ?? "[]",
-    ) as Array<{
-      id: string;
-      questions: Array<{
-        practiceRepairEntry?: {
-          lifecycle?: Record<string, string>;
-        };
-      }>;
-    }>;
-    const firstStoredResult = storedSessionResults.find(
-      (result) => result.id === firstUpdatedResult.id,
-    );
-
-    expect(firstStoredResult?.questions[0]?.practiceRepairEntry).toBeDefined();
-
-    if (firstStoredResult?.questions[0]?.practiceRepairEntry === undefined) {
-      throw new Error("Expected the first stored Practice Repair Entry.");
-    }
-
-    firstStoredResult.questions[0].practiceRepairEntry.lifecycle = {
+    markStoredPracticeRepairEntryCompleted({
       completedAt: "2026-05-16T16:00:00.000Z",
-    };
-    storage.setItem(
-      `${recallStorageKeyPrefix}:session-results`,
-      JSON.stringify(storedSessionResults),
-    );
+      resultId: firstUpdatedResult.id,
+      storage,
+      storageKeyPrefix: recallStorageKeyPrefix,
+    });
 
     const reloadedRecall = createAppRecallContext({
       keyPrefix: recallStorageKeyPrefix,
@@ -334,13 +377,7 @@ describe("confirmed Practice Repair entries", () => {
       });
     const historicalEntries =
       reloadedRecall.listPracticeRepairEntriesForQuestion({
-        reference: firstUpdatedResult.questions[0]?.practiceRepairEntry
-          ?.reference ?? {
-          questionIndex: 0,
-          questionResultId: `${firstResult.id}-question-0`,
-          sessionResultId: firstResult.id,
-          studyNoteId: studyNote.id,
-        },
+        reference: getConfirmedPracticeRepairReference(firstUpdatedResult),
         userId,
       });
 
@@ -359,10 +396,19 @@ describe("confirmed Practice Repair entries", () => {
         intent: "tighten-expected-answer",
       },
     ]);
-    expect(getPracticeRepairEntryLifecycleState(activeEntries[0]!)).toBe(
-      "active",
-    );
-    expect(getPracticeRepairEntryLifecycleState(historicalEntries[0]!)).toBe(
+    expect(historicalEntries).toHaveLength(1);
+
+    const activeEntry = activeEntries[0];
+    const historicalEntry = historicalEntries[0];
+
+    if (activeEntry === undefined || historicalEntry === undefined) {
+      throw new Error(
+        "Expected active and historical Practice Repair entries.",
+      );
+    }
+
+    expect(getPracticeRepairEntryLifecycleState(activeEntry)).toBe("active");
+    expect(getPracticeRepairEntryLifecycleState(historicalEntry)).toBe(
       "historical",
     );
   });

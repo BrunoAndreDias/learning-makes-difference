@@ -95,6 +95,8 @@ type PracticeRepairResultLike = {
   questions: readonly PracticeRepairResultQuestionLike[];
 };
 
+type PracticeRepairEntryPredicate = (entry: PracticeRepairEntry) => boolean;
+
 const practiceRepairSuggestions = [
   "Tighten the expected answer so the next recall target is specific.",
   "Split a broad Study Note or create a sibling from the same source explanation.",
@@ -107,7 +109,7 @@ const terminalPracticeRepairLifecycleFactKeys = [
   "followUpSatisfiedAt",
   "studyNoteDeletedAt",
   "supersededAt",
-] as const;
+] as const satisfies readonly (keyof PracticeRepairEntryLifecycle)[];
 
 export function isPracticeRepairIntent(
   value: unknown,
@@ -322,10 +324,14 @@ function hasTerminalPracticeRepairLifecycleFact(
   }
 
   return terminalPracticeRepairLifecycleFactKeys.some((key) => {
-    const fact = lifecycle[key];
-
-    return typeof fact === "string" && fact.length > 0;
+    return isTerminalPracticeRepairLifecycleFact(lifecycle[key]);
   });
+}
+
+function isTerminalPracticeRepairLifecycleFact(
+  fact: string | null | undefined,
+): boolean {
+  return typeof fact === "string" && fact.length > 0;
 }
 
 export function getPracticeRepairEntryLifecycleState(
@@ -353,70 +359,69 @@ function isMatchingPracticeRepairQuestionReference(input: {
   candidate: PracticeRepairQuestionReference;
   reference: PracticeRepairQuestionReference;
 }): boolean {
+  const { candidate, reference } = input;
+
   if (
-    input.candidate.sessionResultId !== input.reference.sessionResultId ||
-    input.candidate.studyNoteId !== input.reference.studyNoteId
+    candidate.sessionResultId !== reference.sessionResultId ||
+    candidate.studyNoteId !== reference.studyNoteId
   ) {
     return false;
   }
 
-  if (
-    input.candidate.questionResultId !== undefined &&
-    input.reference.questionResultId !== undefined &&
-    input.candidate.questionResultId === input.reference.questionResultId
-  ) {
-    return true;
+  const matchesQuestionResultId =
+    candidate.questionResultId !== undefined &&
+    reference.questionResultId !== undefined &&
+    candidate.questionResultId === reference.questionResultId;
+
+  return (
+    matchesQuestionResultId ||
+    candidate.questionIndex === reference.questionIndex
+  );
+}
+
+function listPracticeRepairEntries(input: {
+  matchesEntry: PracticeRepairEntryPredicate;
+  results: readonly PracticeRepairResultLike[];
+}): PracticeRepairEntry[] {
+  const entries: PracticeRepairEntry[] = [];
+
+  for (const result of input.results) {
+    for (const question of result.questions) {
+      const entry = question.practiceRepairEntry;
+
+      if (entry !== undefined && input.matchesEntry(entry)) {
+        entries.push(clonePracticeRepairEntry(entry));
+      }
+    }
   }
 
-  return input.candidate.questionIndex === input.reference.questionIndex;
+  return entries.sort(comparePracticeRepairEntries);
 }
 
 export function listActivePracticeRepairEntriesForStudyNote(input: {
   results: readonly PracticeRepairResultLike[];
   studyNoteId: string;
 }): PracticeRepairEntry[] {
-  const entries: PracticeRepairEntry[] = [];
-
-  for (const result of input.results) {
-    for (const question of result.questions) {
-      const entry = question.practiceRepairEntry;
-
-      if (
-        entry !== undefined &&
-        entry.reference.studyNoteId === input.studyNoteId &&
-        getPracticeRepairEntryLifecycleState(entry) === "active"
-      ) {
-        entries.push(clonePracticeRepairEntry(entry));
-      }
-    }
-  }
-
-  return entries.sort(comparePracticeRepairEntries);
+  return listPracticeRepairEntries({
+    matchesEntry: (entry) =>
+      entry.reference.studyNoteId === input.studyNoteId &&
+      getPracticeRepairEntryLifecycleState(entry) === "active",
+    results: input.results,
+  });
 }
 
 export function listPracticeRepairEntriesForQuestion(input: {
   reference: PracticeRepairQuestionReference;
   results: readonly PracticeRepairResultLike[];
 }): PracticeRepairEntry[] {
-  const entries: PracticeRepairEntry[] = [];
-
-  for (const result of input.results) {
-    for (const question of result.questions) {
-      const entry = question.practiceRepairEntry;
-
-      if (
-        entry !== undefined &&
-        isMatchingPracticeRepairQuestionReference({
-          candidate: entry.reference,
-          reference: input.reference,
-        })
-      ) {
-        entries.push(clonePracticeRepairEntry(entry));
-      }
-    }
-  }
-
-  return entries.sort(comparePracticeRepairEntries);
+  return listPracticeRepairEntries({
+    matchesEntry: (entry) =>
+      isMatchingPracticeRepairQuestionReference({
+        candidate: entry.reference,
+        reference: input.reference,
+      }),
+    results: input.results,
+  });
 }
 
 export function formatPracticeRepairIntentLabel(
