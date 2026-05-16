@@ -37,3 +37,5 @@ export {
   getUpdatedRecallSchedule,
   isRecallScheduleDue,
 } from "./recall-schedule";
+export type { SessionResultQuestionReference } from "./recall-session-review";
+export { resolveSessionResultQuestion } from "./recall-session-review";

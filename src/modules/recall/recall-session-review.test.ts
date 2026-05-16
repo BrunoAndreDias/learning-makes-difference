@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { FlashCardRecallNote, RecallQuestion } from "./recall";
-import { projectSessionReview } from "./recall-session-review";
+import {
+  projectSessionReview,
+  resolveSessionResultQuestion,
+} from "./recall-session-review";
 
 const testTimestamp = "2026-04-01T09:00:00.000Z";
 
@@ -25,6 +28,7 @@ function createNote(
 function createQuestion(
   note: FlashCardRecallNote,
   selfRating: RecallQuestion["selfRating"],
+  overrides: Partial<RecallQuestion> = {},
 ): RecallQuestion {
   return {
     isAnswerRevealed: selfRating !== null,
@@ -32,6 +36,7 @@ function createQuestion(
     noteSnapshot: note,
     selfRating,
     typedAnswer: "",
+    ...overrides,
   };
 }
 
@@ -73,5 +78,75 @@ describe("recall session review", () => {
         hard: 0,
       },
     });
+  });
+
+  it("resolves a stored question by questionResultId before legacy index fallback", () => {
+    const firstNote = createNote("study-note-1", "First note", "First body");
+    const secondNote = createNote("study-note-2", "Second note", "Second body");
+
+    const result = {
+      id: "result-1",
+      questions: [
+        createQuestion(firstNote, "good", {
+          questionResultId: "result-1-question-0",
+        }),
+        createQuestion(secondNote, "hard", {
+          questionResultId: "result-1-question-1",
+        }),
+      ],
+    };
+
+    expect(
+      resolveSessionResultQuestion({
+        reference: {
+          questionIndex: 0,
+          questionResultId: "result-1-question-1",
+          sessionResultId: "result-1",
+          studyNoteId: secondNote.id,
+        },
+        result,
+      }),
+    ).toMatchObject({
+      noteId: secondNote.id,
+      questionResultId: "result-1-question-1",
+      selfRating: "hard",
+    });
+  });
+
+  it("falls back to legacy question index and Study Note id when questionResultId is missing", () => {
+    const firstNote = createNote("study-note-1", "First note", "First body");
+    const secondNote = createNote("study-note-2", "Second note", "Second body");
+
+    const result = {
+      id: "legacy-result",
+      questions: [
+        createQuestion(firstNote, "good"),
+        createQuestion(secondNote, "forgot"),
+      ],
+    };
+
+    expect(
+      resolveSessionResultQuestion({
+        reference: {
+          questionIndex: 1,
+          sessionResultId: "legacy-result",
+          studyNoteId: secondNote.id,
+        },
+        result,
+      }),
+    ).toMatchObject({
+      noteId: secondNote.id,
+      selfRating: "forgot",
+    });
+    expect(
+      resolveSessionResultQuestion({
+        reference: {
+          questionIndex: 1,
+          sessionResultId: "legacy-result",
+          studyNoteId: firstNote.id,
+        },
+        result,
+      }),
+    ).toBeNull();
   });
 });

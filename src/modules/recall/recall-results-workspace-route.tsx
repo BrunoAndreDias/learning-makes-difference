@@ -213,7 +213,7 @@ function getInitialSavedMessage() {
 }
 
 function getQuestionKey(question: RecallQuestion, index: number) {
-  return `${question.noteId}-${index}`;
+  return question.questionResultId ?? `${question.noteId}-${index}`;
 }
 
 function getQuestionExpectedAnswer(question: RecallQuestion) {

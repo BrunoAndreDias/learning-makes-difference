@@ -55,6 +55,7 @@ export type RecallQuestion = {
   isAnswerRevealed: boolean;
   noteId: string;
   noteSnapshot: RecallNoteSnapshot;
+  questionResultId?: string;
   score?: number | null;
   selfRating: RecallSelfRating | null;
   typedAnswer?: string;
@@ -388,6 +389,8 @@ function isRecallQuestion(question: unknown): question is StoredRecallQuestion {
     typeof candidate.isAnswerRevealed === "boolean" &&
     typeof candidate.noteId === "string" &&
     isRecallNoteSnapshot(candidate.noteSnapshot) &&
+    (!("questionResultId" in candidate) ||
+      typeof candidate.questionResultId === "string") &&
     (candidate.selfRating === null ||
       isStoredRecallSelfRating(candidate.selfRating)) &&
     (!("score" in candidate) ||
@@ -740,6 +743,10 @@ function cloneRecallQuestion(question: RecallQuestion): RecallQuestion {
     ...question,
     noteSnapshot: cloneRecallNoteSnapshot(question.noteSnapshot),
   };
+}
+
+function getQuestionResultId(sessionId: string, questionIndex: number) {
+  return `${sessionId}-question-${questionIndex}`;
 }
 
 function normalizeStoredRecallQuestion(
@@ -1110,7 +1117,12 @@ export function createAppRecallContext(
   function toSessionResult(session: StoredRecallSession): StoredSessionResult {
     const questions = session.questions
       .filter((question) => question.selfRating !== null)
-      .map(cloneRecallQuestion);
+      .map((question, questionIndex) => ({
+        ...cloneRecallQuestion(question),
+        questionResultId:
+          question.questionResultId ??
+          getQuestionResultId(session.id, questionIndex),
+      }));
 
     return {
       attempts: [...session.attempts],

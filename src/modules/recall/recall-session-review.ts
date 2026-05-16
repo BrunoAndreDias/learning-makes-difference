@@ -21,10 +21,24 @@ export type SessionReviewProjection = {
   };
 };
 
+export type SessionResultQuestionReference = {
+  questionIndex: number;
+  questionResultId?: string;
+  sessionResultId: string;
+  studyNoteId: string;
+};
+
 function getAttemptedQuestions(
   questions: readonly RecallQuestion[],
 ): RecallQuestion[] {
   return questions.filter((question) => question.selfRating !== null);
+}
+
+function matchesReferencedStudyNote(
+  question: RecallQuestion | undefined,
+  studyNoteId: string,
+) {
+  return question?.noteId === studyNoteId;
 }
 
 function getNotReachedNotes(input: {
@@ -123,4 +137,32 @@ export function projectSessionReview(
       }),
     },
   };
+}
+
+export function resolveSessionResultQuestion(input: {
+  reference: SessionResultQuestionReference;
+  result: Pick<FlashCardSessionResult, "id" | "questions">;
+}): RecallQuestion | null {
+  if (input.result.id !== input.reference.sessionResultId) {
+    return null;
+  }
+
+  if (input.reference.questionResultId !== undefined) {
+    const matchedQuestion = input.result.questions.find((question) => {
+      return (
+        question.questionResultId === input.reference.questionResultId &&
+        question.noteId === input.reference.studyNoteId
+      );
+    });
+
+    if (matchedQuestion !== undefined) {
+      return matchedQuestion;
+    }
+  }
+
+  const legacyQuestion = input.result.questions[input.reference.questionIndex];
+
+  return matchesReferencedStudyNote(legacyQuestion, input.reference.studyNoteId)
+    ? legacyQuestion
+    : null;
 }
