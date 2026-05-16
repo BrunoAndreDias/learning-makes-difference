@@ -62,28 +62,39 @@ function completeRecallAt(input: {
 function createPersistentRecallService(
   overrides: Partial<AppPersistentRecallService>,
 ): AppPersistentRecallService {
-  return {
-    confirmPracticeRepairEntry: vi.fn(async () => {
-      throw new Error("not used");
-    }),
-    endRecallSession: vi.fn(async () => {
-      throw new Error("not used");
-    }),
-    getActiveSession: vi.fn(async () => null),
-    listRecallSchedules: vi.fn(async () => []),
-    listSessionResults: vi.fn(async () => []),
-    rateFlashCardAnswer: vi.fn(async () => null),
-    revealFlashCardAnswer: vi.fn(async () => {
-      throw new Error("not used");
-    }),
-    startFlashCardSession: vi.fn(async () => {
-      throw new Error("not used");
-    }),
-    updateFlashCardAttemptText: vi.fn(async () => {
-      throw new Error("not used");
-    }),
-    ...overrides,
-  };
+  return Object.assign(
+    {
+      completePracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      confirmPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      dismissPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      endRecallSession: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      getActiveSession: vi.fn(async () => null),
+      listRecallSchedules: vi.fn(async () => []),
+      listSessionResults: vi.fn(async () => []),
+      rateFlashCardAnswer: vi.fn(async () => null),
+      revealFlashCardAnswer: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      startFlashCardSession: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      updatePracticeRepairEntryCorrection: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      updateFlashCardAttemptText: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+    } satisfies AppPersistentRecallService,
+    overrides,
+  );
 }
 
 function createStoredRecallNote(
@@ -471,7 +482,13 @@ describe("authenticated recall workspace", () => {
     }));
     const persistentRecallContext = createPersistentRecallContext({
       service: {
+        completePracticeRepairEntry: vi.fn(async () => {
+          throw new Error("not used");
+        }),
         confirmPracticeRepairEntry: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        dismissPracticeRepairEntry: vi.fn(async () => {
           throw new Error("not used");
         }),
         endRecallSession: vi.fn(async () => {
@@ -485,6 +502,9 @@ describe("authenticated recall workspace", () => {
           throw new Error("not used");
         }),
         startFlashCardSession: vi.fn(async () => {
+          throw new Error("not used");
+        }),
+        updatePracticeRepairEntryCorrection: vi.fn(async () => {
           throw new Error("not used");
         }),
         updateFlashCardAttemptText: vi.fn(async () => {

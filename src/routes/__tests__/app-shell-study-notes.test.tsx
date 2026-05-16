@@ -23,6 +23,7 @@ import { createAppNotesContext } from "../../modules/notes";
 import {
   createAppRecallContext,
   type RecallSelfRating,
+  type SessionResult,
 } from "../../modules/recall";
 import { createAppStudyNotesContext } from "../../modules/study-notes";
 import {
@@ -149,6 +150,51 @@ function completeStudyNoteRecall(
       userId: input.userId,
     });
   });
+}
+
+function confirmStudyNotePracticeRepair(
+  contexts: DeterministicRecallTestContexts,
+  input: {
+    correction: string;
+    intent:
+      | "add-memory-aid"
+      | "create-sibling-study-note"
+      | "split-study-note"
+      | "tighten-expected-answer";
+    studyNoteId: string;
+    userId: string;
+  },
+): SessionResult {
+  const result = contexts.recallContext.listSessionResults({
+    userId: input.userId,
+  })[0];
+  const questionResultId = result?.questions[0]?.questionResultId;
+
+  if (result === undefined || questionResultId === undefined) {
+    throw new Error("Expected a stored weak-recall result with a question id.");
+  }
+
+  let updatedResult: SessionResult | null = null;
+
+  act(() => {
+    updatedResult = contexts.recallContext.confirmPracticeRepairEntry({
+      correction: input.correction,
+      intent: input.intent,
+      reference: {
+        questionIndex: 0,
+        questionResultId,
+        sessionResultId: result.id,
+        studyNoteId: input.studyNoteId,
+      },
+      userId: input.userId,
+    });
+  });
+
+  if (updatedResult === null) {
+    throw new Error("Expected a confirmed Practice Repair result.");
+  }
+
+  return updatedResult;
 }
 
 function renderStudyNotesRouteForUser(
@@ -1429,6 +1475,106 @@ describe("authenticated Study Notes workspace", () => {
       screen.getByRole("link", { name: "Open Recall Today" }),
     ).toHaveAttribute("href", "/recall");
     expect(screen.queryByText("Error log")).not.toBeInTheDocument();
+  });
+
+  it("shows active Practice Repair entries in the editor, lets the user edit the correction, and removes completed entries from active planning work", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-active-practice-repair";
+    const studyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Clearer expected answer.",
+      prompt: "Why does this still feel shaky?",
+      sourceBody:
+        "Broad source context that still needs a clearer recall target.",
+      sourceTitle: "Repair source",
+      userId,
+    });
+
+    completeStudyNoteRecall(contexts, {
+      rating: "hard",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const confirmedResult = confirmStudyNotePracticeRepair(contexts, {
+      correction: "State the specific molecule.",
+      intent: "tighten-expected-answer",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+
+    renderStudyNotesRouteForUser(contexts, {
+      displayName: "Jordan Active Repair",
+      email: "jordan.active.repair@example.com",
+      id: userId,
+      userLanguage: "en",
+    });
+
+    const activePracticeRepair = await screen.findByRole("region", {
+      name: "Active Practice Repair",
+    });
+    const activeEntry = within(activePracticeRepair).getByRole("article", {
+      name: "Tighten expected answer",
+    });
+
+    expect(within(activeEntry).getByLabelText("Correction")).toHaveValue(
+      "State the specific molecule.",
+    );
+
+    fireEvent.change(within(activeEntry).getByLabelText("Correction"), {
+      target: {
+        value: "State ATP and explain that it stores transferable energy.",
+      },
+    });
+    fireEvent.click(
+      within(activeEntry).getByRole("button", { name: "Save correction" }),
+    );
+
+    expect(
+      contexts.recallContext.listActivePracticeRepairEntriesForStudyNote({
+        studyNoteId: studyNote.id,
+        userId,
+      }),
+    ).toMatchObject([
+      {
+        correction: "State ATP and explain that it stores transferable energy.",
+        intent: "tighten-expected-answer",
+      },
+    ]);
+
+    fireEvent.click(
+      within(activeEntry).getByRole("button", { name: "Mark complete" }),
+    );
+
+    const confirmedReference =
+      confirmedResult.questions[0]?.practiceRepairEntry?.reference;
+
+    if (confirmedReference === undefined) {
+      throw new Error(
+        "Expected a confirmed Practice Repair reference in history.",
+      );
+    }
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("article", { name: "Tighten expected answer" }),
+      ).toBeNull(),
+    );
+    expect(
+      contexts.recallContext.listActivePracticeRepairEntriesForStudyNote({
+        studyNoteId: studyNote.id,
+        userId,
+      }),
+    ).toHaveLength(0);
+    expect(
+      contexts.recallContext.listPracticeRepairEntriesForQuestion({
+        reference: confirmedReference,
+        userId,
+      })[0],
+    ).toMatchObject({
+      correction: "State ATP and explain that it stores transferable energy.",
+      lifecycle: {
+        completedAt: expect.any(String),
+      },
+    });
   });
 
   it("starts Interleaved Recall from a successful related Study Note recommendation", async () => {

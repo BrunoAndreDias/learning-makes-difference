@@ -171,6 +171,9 @@ describe("createPersistentRecallContext", () => {
     ];
 
     const service: AppPersistentRecallService = {
+      completePracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
       confirmPracticeRepairEntry: vi.fn(
         async ({ correction, intent, reference }) => {
           const existingResult = sessionResults.find(
@@ -216,6 +219,9 @@ describe("createPersistentRecallContext", () => {
           return updatedResult;
         },
       ),
+      dismissPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
       endRecallSession: vi.fn(async () => {
         if (activeSession === null) {
           throw new Error("Missing session");
@@ -326,6 +332,9 @@ describe("createPersistentRecallContext", () => {
         });
 
         return activeSession;
+      }),
+      updatePracticeRepairEntryCorrection: vi.fn(async () => {
+        throw new Error("not used");
       }),
       updateFlashCardAttemptText: vi.fn(async ({ text }) => {
         if (activeSession === null) {
@@ -487,6 +496,9 @@ describe("createPersistentRecallContext", () => {
       }),
     ];
     const service: AppPersistentRecallService = {
+      completePracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
       confirmPracticeRepairEntry: vi.fn(
         async ({ correction, intent, reference }) => {
           const existingResult = sessionResults[0];
@@ -515,6 +527,9 @@ describe("createPersistentRecallContext", () => {
           return updatedResult;
         },
       ),
+      dismissPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
       endRecallSession: vi.fn(async () => {
         throw new Error("not used");
       }),
@@ -526,6 +541,9 @@ describe("createPersistentRecallContext", () => {
         throw new Error("not used");
       }),
       startFlashCardSession: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      updatePracticeRepairEntryCorrection: vi.fn(async () => {
         throw new Error("not used");
       }),
       updateFlashCardAttemptText: vi.fn(async () => {

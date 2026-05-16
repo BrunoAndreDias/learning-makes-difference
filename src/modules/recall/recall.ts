@@ -10,6 +10,7 @@ import {
 import {
   clonePracticeRepairEntry as clonePracticeRepairEntryValue,
   createPracticeRepairIntentMetadata,
+  getPracticeRepairEntryLifecycleState,
   isPracticeRepairEligibleQuestion,
   isPracticeRepairEntryLifecycle,
   isPracticeRepairIntent,
@@ -195,6 +196,16 @@ type ConfirmPracticeRepairEntryInput = PracticeRepairEntryConfirmation & {
   userId: string;
 };
 
+type PracticeRepairEntryMutationInput = {
+  reference: PracticeRepairQuestionReference;
+  userId: string;
+};
+
+type UpdatePracticeRepairEntryCorrectionInput =
+  PracticeRepairEntryMutationInput & {
+    correction: string;
+  };
+
 type CreateAppRecallContextOptions = {
   crypto?: RecallCrypto;
   getLabelsForUser?: (userId: string) => readonly AppLabel[];
@@ -268,8 +279,14 @@ function getRecallSelfRatingScore(rating: RecallSelfRating): number {
 
 export type AppRecallContext = {
   answerQuestion: (input: AnswerQuestionInput) => RecallSession | null;
+  completePracticeRepairEntry: (
+    input: PracticeRepairEntryMutationInput,
+  ) => SessionResult;
   confirmPracticeRepairEntry: (
     input: ConfirmPracticeRepairEntryInput,
+  ) => SessionResult;
+  dismissPracticeRepairEntry: (
+    input: PracticeRepairEntryMutationInput,
   ) => SessionResult;
   endRecallSession: (input: UpdateRecallSessionInput) => RecallSession;
   getRecallSchedulesSnapshot: () => readonly RecallSchedule[];
@@ -293,6 +310,9 @@ export type AppRecallContext = {
   rateFlashCardAnswer: (input: AnswerQuestionInput) => RecallSession | null;
   revealFlashCardAnswer: (input: UpdateRecallSessionInput) => RecallSession;
   startFlashCardSession: (input: StartRecallSessionInput) => RecallSession;
+  updatePracticeRepairEntryCorrection: (
+    input: UpdatePracticeRepairEntryCorrectionInput,
+  ) => SessionResult;
   updateAttemptText: (input: UpdateAttemptTextInput) => RecallSession;
   updateFlashCardAttemptText: (input: UpdateAttemptTextInput) => RecallSession;
   subscribe: (listener: RecallListener) => () => void;
@@ -1277,6 +1297,85 @@ export function createAppRecallContext(
     return activeSession;
   }
 
+  function getStoredPracticeRepairEntryTarget(input: {
+    reference: PracticeRepairQuestionReference;
+    userId: string;
+  }) {
+    const resultIndex = sessionResults.findIndex((candidate) => {
+      return (
+        candidate.userId === input.userId &&
+        candidate.id === input.reference.sessionResultId
+      );
+    });
+
+    if (resultIndex < 0) {
+      throw new AppRecallError("not_found", "Session result not found.");
+    }
+
+    const result = sessionResults[resultIndex];
+    const questionIndex = getSessionResultQuestionIndex({
+      reference: input.reference,
+      result,
+    });
+
+    if (questionIndex === null) {
+      throw new AppRecallError("not_found", "Question result not found.");
+    }
+
+    return {
+      question: result.questions[questionIndex],
+      questionIndex,
+      result,
+      resultIndex,
+    };
+  }
+
+  function updatePracticeRepairEntryForReference(input: {
+    onHistoricalMessage: string;
+    reference: PracticeRepairQuestionReference;
+    updateEntry: (entry: PracticeRepairEntry) => PracticeRepairEntry;
+    userId: string;
+  }): SessionResult {
+    const { question, questionIndex, result, resultIndex } =
+      getStoredPracticeRepairEntryTarget({
+        reference: input.reference,
+        userId: input.userId,
+      });
+    const practiceRepairEntry = question.practiceRepairEntry;
+
+    if (practiceRepairEntry === undefined) {
+      throw new AppRecallError("not_found", "Practice Repair entry not found.");
+    }
+
+    if (
+      getPracticeRepairEntryLifecycleState(practiceRepairEntry) !== "active"
+    ) {
+      throw new AppRecallError("invalid_input", input.onHistoricalMessage);
+    }
+
+    const nextResult: StoredSessionResult = {
+      ...cloneSessionResult(result),
+      questions: result.questions.map((candidateQuestion, candidateIndex) =>
+        candidateIndex === questionIndex
+          ? {
+              ...cloneRecallQuestion(candidateQuestion),
+              practiceRepairEntry: input.updateEntry(
+                clonePracticeRepairEntryValue(practiceRepairEntry),
+              ),
+            }
+          : cloneRecallQuestion(candidateQuestion),
+      ),
+    };
+
+    writeSessionResults(
+      sessionResults.map((candidate, candidateIndex) =>
+        candidateIndex === resultIndex ? nextResult : candidate,
+      ),
+    );
+
+    return cloneSessionResult(nextResult);
+  }
+
   function confirmPracticeRepairEntry(
     input: ConfirmPracticeRepairEntryInput,
   ): SessionResult {
@@ -1327,8 +1426,9 @@ export function createAppRecallContext(
       );
     }
 
+    const confirmedAt = new Date().toISOString();
     const practiceRepairEntry: PracticeRepairEntry = {
-      confirmedAt: new Date().toISOString(),
+      confirmedAt,
       correction,
       intent: input.intent,
       intentMetadata: createPracticeRepairIntentMetadata(input.intent),
@@ -1355,12 +1455,111 @@ export function createAppRecallContext(
     };
 
     writeSessionResults(
-      sessionResults.map((candidate, candidateIndex) =>
-        candidateIndex === resultIndex ? nextResult : candidate,
-      ),
+      sessionResults.map((candidate, candidateIndex) => {
+        if (candidate.userId !== input.userId) {
+          return candidate;
+        }
+
+        const nextCandidate =
+          candidateIndex === resultIndex
+            ? nextResult
+            : cloneSessionResult(candidate);
+
+        return {
+          ...nextCandidate,
+          questions: nextCandidate.questions.map(
+            (candidateQuestion, candidateQuestionIndex) => {
+              const candidateEntry = candidateQuestion.practiceRepairEntry;
+
+              if (
+                candidateEntry === undefined ||
+                candidateEntry.intent !== input.intent ||
+                candidateEntry.reference.studyNoteId !==
+                  input.reference.studyNoteId ||
+                getPracticeRepairEntryLifecycleState(candidateEntry) !==
+                  "active" ||
+                (candidateIndex === resultIndex &&
+                  candidateQuestionIndex === questionIndex)
+              ) {
+                return candidateQuestion;
+              }
+
+              return {
+                ...cloneRecallQuestion(candidateQuestion),
+                practiceRepairEntry: {
+                  ...clonePracticeRepairEntryValue(candidateEntry),
+                  lifecycle: {
+                    ...candidateEntry.lifecycle,
+                    supersededAt: confirmedAt,
+                  },
+                },
+              };
+            },
+          ),
+        };
+      }),
     );
 
     return cloneSessionResult(nextResult);
+  }
+
+  function updatePracticeRepairEntryCorrection(
+    input: UpdatePracticeRepairEntryCorrectionInput,
+  ): SessionResult {
+    const correction = input.correction.trim();
+
+    if (correction.length === 0) {
+      throw new AppRecallError(
+        "invalid_input",
+        "Practice Repair correction is required.",
+      );
+    }
+
+    return updatePracticeRepairEntryForReference({
+      onHistoricalMessage: "Only active Practice Repair entries can be edited.",
+      reference: input.reference,
+      updateEntry: (entry) => ({
+        ...entry,
+        correction,
+      }),
+      userId: input.userId,
+    });
+  }
+
+  function completePracticeRepairEntry(
+    input: PracticeRepairEntryMutationInput,
+  ): SessionResult {
+    return updatePracticeRepairEntryForReference({
+      onHistoricalMessage:
+        "Only active Practice Repair entries can be completed.",
+      reference: input.reference,
+      updateEntry: (entry) => ({
+        ...entry,
+        lifecycle: {
+          ...entry.lifecycle,
+          completedAt: new Date().toISOString(),
+        },
+      }),
+      userId: input.userId,
+    });
+  }
+
+  function dismissPracticeRepairEntry(
+    input: PracticeRepairEntryMutationInput,
+  ): SessionResult {
+    return updatePracticeRepairEntryForReference({
+      onHistoricalMessage:
+        "Only active Practice Repair entries can be dismissed.",
+      reference: input.reference,
+      updateEntry: (entry) => ({
+        ...entry,
+        lifecycle: {
+          ...entry.lifecycle,
+          dismissedAt: new Date().toISOString(),
+        },
+      }),
+      userId: input.userId,
+    });
   }
 
   function revealAnswer({ sessionId, userId }: UpdateRecallSessionInput) {
@@ -1579,7 +1778,9 @@ export function createAppRecallContext(
 
   return {
     answerQuestion,
+    completePracticeRepairEntry,
     confirmPracticeRepairEntry,
+    dismissPracticeRepairEntry,
     endRecallSession,
     endFlashCardSession: endRecallSession,
     getSessionResult: ({ sessionResultId, userId }) => {
@@ -1730,6 +1931,7 @@ export function createAppRecallContext(
     skipFlashCardQuestion,
     startFlashCardSession: startRecallSession,
     startRecallSession,
+    updatePracticeRepairEntryCorrection,
     updateAttemptText,
     updateFlashCardAttemptText: updateAttemptText,
     subscribe: (listener) => {

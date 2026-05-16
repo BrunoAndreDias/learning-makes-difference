@@ -297,6 +297,291 @@ describe("confirmed Practice Repair entries", () => {
     );
   });
 
+  it("supersedes an older active same-intent entry when a new draft is confirmed for the same Study Note", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-16T15:00:00.000Z"));
+
+    const storage = createMemoryStorage();
+    const userId = "user-practice-repair";
+    const notes = createAppNotesContext({
+      keyPrefix: "practice-repair-entry-supersede-notes",
+      storage,
+    });
+    const studyNotes = createAppStudyNotesContext({
+      keyPrefix: "practice-repair-entry-supersede-study-notes",
+      storage,
+    });
+    let sessionCounter = 0;
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `practice-repair-supersede-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "practice-repair-entry-supersede-recall",
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+    const studyNote = studyNotes.createStudyNote(userId, {
+      expectedAnswer: "ATP stores transferable energy.",
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+    const firstResult = createWeakStudyNoteResult({
+      recall,
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const firstUpdatedResult = recall.confirmPracticeRepairEntry({
+      correction: "State ATP explicitly.",
+      intent: "tighten-expected-answer",
+      reference: createPracticeRepairReference({
+        result: firstResult,
+        studyNoteId: studyNote.id,
+      }),
+      userId,
+    });
+
+    vi.setSystemTime(new Date("2026-05-16T15:10:00.000Z"));
+
+    const secondResult = createWeakStudyNoteResult({
+      rating: "forgot",
+      recall,
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const secondUpdatedResult = recall.confirmPracticeRepairEntry({
+      correction: "State ATP and explain the energy transfer role.",
+      intent: "tighten-expected-answer",
+      reference: createPracticeRepairReference({
+        result: secondResult,
+        studyNoteId: studyNote.id,
+      }),
+      userId,
+    });
+
+    expect(
+      recall.listActivePracticeRepairEntriesForStudyNote({
+        studyNoteId: studyNote.id,
+        userId,
+      }),
+    ).toMatchObject([
+      {
+        correction: "State ATP and explain the energy transfer role.",
+        intent: "tighten-expected-answer",
+        reference:
+          secondUpdatedResult.questions[0]?.practiceRepairEntry?.reference,
+      },
+    ]);
+    expect(
+      recall.listPracticeRepairEntriesForQuestion({
+        reference: getConfirmedPracticeRepairReference(firstUpdatedResult),
+        userId,
+      }),
+    ).toMatchObject([
+      {
+        correction: "State ATP explicitly.",
+        intent: "tighten-expected-answer",
+        lifecycle: {
+          supersededAt: "2026-05-16T15:10:00.000Z",
+        },
+      },
+    ]);
+    expect(
+      getPracticeRepairEntryLifecycleState(
+        recall.listPracticeRepairEntriesForQuestion({
+          reference: getConfirmedPracticeRepairReference(firstUpdatedResult),
+          userId,
+        })[0] ?? {
+          lifecycle: undefined,
+        },
+      ),
+    ).toBe("historical");
+  });
+
+  it("updates active correction text and rejects correction edits after the entry becomes historical", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-16T15:30:00.000Z"));
+
+    const storage = createMemoryStorage();
+    const userId = "user-practice-repair";
+    const notes = createAppNotesContext({
+      keyPrefix: "practice-repair-entry-edit-notes",
+      storage,
+    });
+    const studyNotes = createAppStudyNotesContext({
+      keyPrefix: "practice-repair-entry-edit-study-notes",
+      storage,
+    });
+    let sessionCounter = 0;
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `practice-repair-edit-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "practice-repair-entry-edit-recall",
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+    const studyNote = studyNotes.createStudyNote(userId, {
+      expectedAnswer: "ATP stores transferable energy.",
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+    const result = createWeakStudyNoteResult({
+      recall,
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const confirmedResult = recall.confirmPracticeRepairEntry({
+      correction: "State ATP explicitly.",
+      intent: "tighten-expected-answer",
+      reference: createPracticeRepairReference({
+        result,
+        studyNoteId: studyNote.id,
+      }),
+      userId,
+    });
+    const reference = getConfirmedPracticeRepairReference(confirmedResult);
+
+    expect(
+      recall.updatePracticeRepairEntryCorrection({
+        correction: "  State ATP and explain its energy transfer role.  ",
+        reference,
+        userId,
+      }).questions[0]?.practiceRepairEntry,
+    ).toMatchObject({
+      correction: "State ATP and explain its energy transfer role.",
+    });
+
+    vi.setSystemTime(new Date("2026-05-16T15:35:00.000Z"));
+
+    recall.completePracticeRepairEntry({
+      reference,
+      userId,
+    });
+
+    expect(() =>
+      recall.updatePracticeRepairEntryCorrection({
+        correction: "This should fail after completion.",
+        reference,
+        userId,
+      }),
+    ).toThrowError(
+      new AppRecallError(
+        "invalid_input",
+        "Only active Practice Repair entries can be edited.",
+      ),
+    );
+  });
+
+  it("explicitly completes or dismisses active Practice Repair entries and removes them from active planning work", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-16T16:00:00.000Z"));
+
+    const storage = createMemoryStorage();
+    const userId = "user-practice-repair";
+    const notes = createAppNotesContext({
+      keyPrefix: "practice-repair-entry-actions-notes",
+      storage,
+    });
+    const studyNotes = createAppStudyNotesContext({
+      keyPrefix: "practice-repair-entry-actions-study-notes",
+      storage,
+    });
+    let sessionCounter = 0;
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `practice-repair-actions-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "practice-repair-entry-actions-recall",
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+    const studyNote = studyNotes.createStudyNote(userId, {
+      expectedAnswer: "ATP stores transferable energy.",
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+    const completedResult = recall.confirmPracticeRepairEntry({
+      correction: "State ATP explicitly.",
+      intent: "tighten-expected-answer",
+      reference: createPracticeRepairReference({
+        result: createWeakStudyNoteResult({
+          recall,
+          studyNoteId: studyNote.id,
+          userId,
+        }),
+        studyNoteId: studyNote.id,
+      }),
+      userId,
+    });
+
+    vi.setSystemTime(new Date("2026-05-16T16:05:00.000Z"));
+
+    expect(
+      recall.completePracticeRepairEntry({
+        reference: getConfirmedPracticeRepairReference(completedResult),
+        userId,
+      }).questions[0]?.practiceRepairEntry,
+    ).toMatchObject({
+      lifecycle: {
+        completedAt: "2026-05-16T16:05:00.000Z",
+      },
+    });
+    expect(
+      recall.listActivePracticeRepairEntriesForStudyNote({
+        studyNoteId: studyNote.id,
+        userId,
+      }),
+    ).toHaveLength(0);
+
+    vi.setSystemTime(new Date("2026-05-16T16:10:00.000Z"));
+
+    const dismissedResult = recall.confirmPracticeRepairEntry({
+      correction: "Create a sibling Study Note for the transport detail.",
+      intent: "create-sibling-study-note",
+      reference: createPracticeRepairReference({
+        result: createWeakStudyNoteResult({
+          rating: "forgot",
+          recall,
+          studyNoteId: studyNote.id,
+          userId,
+        }),
+        studyNoteId: studyNote.id,
+      }),
+      userId,
+    });
+
+    vi.setSystemTime(new Date("2026-05-16T16:15:00.000Z"));
+
+    expect(
+      recall.dismissPracticeRepairEntry({
+        reference: getConfirmedPracticeRepairReference(dismissedResult),
+        userId,
+      }).questions[0]?.practiceRepairEntry,
+    ).toMatchObject({
+      lifecycle: {
+        dismissedAt: "2026-05-16T16:15:00.000Z",
+      },
+    });
+    expect(
+      recall.listActivePracticeRepairEntriesForStudyNote({
+        studyNoteId: studyNote.id,
+        userId,
+      }),
+    ).toHaveLength(0);
+  });
+
   it("lists active entries by Study Note and keeps Results-context lookups for historical entries", () => {
     const storage = createMemoryStorage();
     const userId = "user-practice-repair";

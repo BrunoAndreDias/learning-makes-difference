@@ -29,6 +29,10 @@ import {
   type RecallSelfRating,
 } from "../recall";
 import { getInterleavedRecallRecommendation } from "../recall/interleaved-recall";
+import {
+  formatPracticeRepairIntentLabel,
+  type PracticeRepairQuestionReference,
+} from "../recall/recall-practice-repair";
 import "./study-notes.css";
 import {
   type AppPersistentStudyNotesContext,
@@ -498,6 +502,13 @@ function formatRelativeUpdatedLabel(timestamp: string) {
   return selectedStudyNoteDateFormatter.format(new Date(timestamp));
 }
 
+function getPracticeRepairEntryKey(reference: PracticeRepairQuestionReference) {
+  return [
+    reference.sessionResultId,
+    reference.questionResultId ?? reference.questionIndex.toString(),
+  ].join(":");
+}
+
 function getStudyNoteLabelNames(
   labels: readonly AppLabel[],
   labelIds: readonly string[],
@@ -821,6 +832,24 @@ function StudyNotesWorkspace() {
     selectedStudyNote === null
       ? null
       : (recallScheduleByStudyNoteId.get(selectedStudyNote.id) ?? null);
+  const selectedPracticeRepairStudyNoteId = selectedStudyNote?.id ?? null;
+  const activePracticeRepairEntries = useMemo(
+    () =>
+      selectedPracticeRepairStudyNoteId === null ||
+      userId === null ||
+      recallResultsSnapshot.length === 0
+        ? []
+        : recallContext.listActivePracticeRepairEntriesForStudyNote({
+            studyNoteId: selectedPracticeRepairStudyNoteId,
+            userId,
+          }),
+    [
+      recallContext,
+      recallResultsSnapshot,
+      selectedPracticeRepairStudyNoteId,
+      userId,
+    ],
+  );
   const practiceRepair = useMemo(
     () => getStudyNotePracticeRepair(selectedLearningState),
     [selectedLearningState],
@@ -839,6 +868,11 @@ function StudyNotesWorkspace() {
   );
   const selectedLabels = getAttachedLabels(availableLabels, draft.labelIds);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [practiceRepairMutationKey, setPracticeRepairMutationKey] = useState<
+    string | null
+  >(null);
+  const [practiceRepairCorrectionDrafts, setPracticeRepairCorrectionDrafts] =
+    useState<Record<string, string>>({});
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [isSaving, setSaving] = useState(false);
   const [pendingEditorTarget, setPendingEditorTarget] =
@@ -1088,6 +1122,131 @@ function StudyNotesWorkspace() {
       setSelectedStudyNoteId(createdStudyNote.id);
     } catch (error) {
       handleError(error);
+    }
+  }
+
+  async function updatePracticeRepairEntryCorrection(input: {
+    correction: string;
+    reference: PracticeRepairQuestionReference;
+  }) {
+    if (userId === null) {
+      return;
+    }
+
+    const correction = input.correction.trim();
+    const entryKey = getPracticeRepairEntryKey(input.reference);
+
+    setErrorMessage(null);
+    setSaveStatus(null);
+    setPracticeRepairMutationKey(`edit:${entryKey}`);
+
+    try {
+      if (persistentRecallContext === undefined) {
+        recallContext.updatePracticeRepairEntryCorrection({
+          correction,
+          reference: input.reference,
+          userId,
+        });
+      } else {
+        await persistentRecallContext.updatePracticeRepairEntryCorrection(
+          userId,
+          {
+            correction,
+            reference: input.reference,
+          },
+        );
+      }
+
+      setPracticeRepairCorrectionDrafts((current) => ({
+        ...current,
+        [entryKey]: correction,
+      }));
+      setSaveStatus("Practice Repair updated");
+    } catch (error) {
+      if (error instanceof AppRecallError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    } finally {
+      setPracticeRepairMutationKey(null);
+    }
+  }
+
+  async function completePracticeRepairEntry(
+    reference: PracticeRepairQuestionReference,
+  ) {
+    if (userId === null) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setSaveStatus(null);
+    setPracticeRepairMutationKey(
+      `complete:${getPracticeRepairEntryKey(reference)}`,
+    );
+
+    try {
+      if (persistentRecallContext === undefined) {
+        recallContext.completePracticeRepairEntry({
+          reference,
+          userId,
+        });
+      } else {
+        await persistentRecallContext.completePracticeRepairEntry(userId, {
+          reference,
+        });
+      }
+
+      setSaveStatus("Practice Repair completed");
+    } catch (error) {
+      if (error instanceof AppRecallError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    } finally {
+      setPracticeRepairMutationKey(null);
+    }
+  }
+
+  async function dismissPracticeRepairEntry(
+    reference: PracticeRepairQuestionReference,
+  ) {
+    if (userId === null) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setSaveStatus(null);
+    setPracticeRepairMutationKey(
+      `dismiss:${getPracticeRepairEntryKey(reference)}`,
+    );
+
+    try {
+      if (persistentRecallContext === undefined) {
+        recallContext.dismissPracticeRepairEntry({
+          reference,
+          userId,
+        });
+      } else {
+        await persistentRecallContext.dismissPracticeRepairEntry(userId, {
+          reference,
+        });
+      }
+
+      setSaveStatus("Practice Repair dismissed");
+    } catch (error) {
+      if (error instanceof AppRecallError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    } finally {
+      setPracticeRepairMutationKey(null);
     }
   }
 
@@ -1675,6 +1834,129 @@ function StudyNotesWorkspace() {
                   </div>
                 </details>
               </section>
+
+              {activePracticeRepairEntries.length === 0 ? null : (
+                <section
+                  aria-label="Active Practice Repair"
+                  className="study-notes-practice-repair study-notes-practice-repair--active"
+                >
+                  <div className="study-notes-practice-repair__header">
+                    <div className="study-notes-practice-repair__title-row">
+                      <h2 className="study-notes-practice-repair__title">
+                        Active Practice Repair
+                      </h2>
+                      <span className="study-notes-practice-repair__signal">
+                        Active
+                      </span>
+                    </div>
+                    <p className="muted study-notes-editor__guidance">
+                      Edit the correction while this entry is active. Mark it
+                      complete or dismiss it explicitly when the repair no
+                      longer belongs in active planning work.
+                    </p>
+                  </div>
+                  <div className="study-notes-practice-repair__entries">
+                    {activePracticeRepairEntries.map((entry) => {
+                      const entryKey = getPracticeRepairEntryKey(
+                        entry.reference,
+                      );
+                      const correctionDraft =
+                        practiceRepairCorrectionDrafts[entryKey] ??
+                        entry.correction;
+                      const isMutationPending =
+                        practiceRepairMutationKey === `edit:${entryKey}` ||
+                        practiceRepairMutationKey === `complete:${entryKey}` ||
+                        practiceRepairMutationKey === `dismiss:${entryKey}`;
+
+                      return (
+                        <article
+                          aria-label={formatPracticeRepairIntentLabel(
+                            entry.intent,
+                          )}
+                          className="study-notes-practice-repair-entry"
+                          key={entryKey}
+                        >
+                          <div className="study-notes-practice-repair-entry__header">
+                            <div className="study-notes-practice-repair-entry__title-group">
+                              <h3 className="study-notes-practice-repair-entry__title">
+                                {formatPracticeRepairIntentLabel(entry.intent)}
+                              </h3>
+                              <p className="study-notes-practice-repair-entry__meta">
+                                Confirmed{" "}
+                                {formatRelativeUpdatedLabel(entry.confirmedAt)}
+                              </p>
+                            </div>
+                          </div>
+                          <StudyNotesTextarea
+                            label="Correction"
+                            maxLength={1000}
+                            onChange={(event) =>
+                              setPracticeRepairCorrectionDrafts((current) => ({
+                                ...current,
+                                [entryKey]: event.target.value,
+                              }))
+                            }
+                            rows={3}
+                            value={correctionDraft}
+                          />
+                          {entry.nextPracticeIdea === undefined ? null : (
+                            <div className="study-notes-practice-repair-entry__next-practice">
+                              <span className="study-notes-editor__group-label">
+                                Next-practice idea
+                              </span>
+                              <p>{entry.nextPracticeIdea}</p>
+                            </div>
+                          )}
+                          <div className="study-notes-practice-repair__actions">
+                            <Button
+                              disabled={
+                                isMutationPending ||
+                                correctionDraft.trim().length === 0 ||
+                                correctionDraft.trim() === entry.correction
+                              }
+                              onClick={() =>
+                                void updatePracticeRepairEntryCorrection({
+                                  correction: correctionDraft,
+                                  reference: entry.reference,
+                                })
+                              }
+                              size="compact"
+                              type="button"
+                              variant="secondary"
+                            >
+                              Save correction
+                            </Button>
+                            <Button
+                              disabled={isMutationPending}
+                              onClick={() =>
+                                void completePracticeRepairEntry(
+                                  entry.reference,
+                                )
+                              }
+                              size="compact"
+                              type="button"
+                              variant="secondary"
+                            >
+                              Mark complete
+                            </Button>
+                            <Button
+                              disabled={isMutationPending}
+                              onClick={() =>
+                                void dismissPracticeRepairEntry(entry.reference)
+                              }
+                              size="compact"
+                              type="button"
+                              variant="danger"
+                            >
+                              Dismiss
+                            </Button>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
 
               {practiceRepair === null ? null : (
                 <section

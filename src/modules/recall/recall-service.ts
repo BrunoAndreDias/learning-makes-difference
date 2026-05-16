@@ -19,7 +19,10 @@ import {
   type RecallSession,
   type SessionResult,
 } from "./recall";
-import type { PracticeRepairEntryConfirmation } from "./recall-practice-repair";
+import type {
+  PracticeRepairEntryConfirmation,
+  PracticeRepairQuestionReference,
+} from "./recall-practice-repair";
 import {
   createInitialRecallSchedule,
   getUpdatedRecallSchedule,
@@ -74,6 +77,16 @@ type UpdateAttemptTextInput = UpdateRecallSessionInput & {
 type ConfirmPracticeRepairEntryInput = PracticeRepairEntryConfirmation & {
   userId: string;
 };
+
+type PracticeRepairEntryMutationInput = {
+  reference: PracticeRepairQuestionReference;
+  userId: string;
+};
+
+type UpdatePracticeRepairEntryCorrectionInput =
+  PracticeRepairEntryMutationInput & {
+    correction: string;
+  };
 
 type CreateRecallServiceOptions = {
   crypto?: RecallCrypto;
@@ -546,6 +559,17 @@ export function createRecallService({
   shuffleNotes,
 }: CreateRecallServiceOptions) {
   return {
+    async completePracticeRepairEntry(
+      input: PracticeRepairEntryMutationInput,
+    ): Promise<SessionResult> {
+      return mutatePersistentRecall({
+        crypto,
+        db,
+        mutate: (recall) => recall.completePracticeRepairEntry(input),
+        shuffleNotes,
+        userId: input.userId,
+      });
+    },
     async confirmPracticeRepairEntry(
       input: ConfirmPracticeRepairEntryInput,
     ): Promise<SessionResult> {
@@ -553,6 +577,17 @@ export function createRecallService({
         crypto,
         db,
         mutate: (recall) => recall.confirmPracticeRepairEntry(input),
+        shuffleNotes,
+        userId: input.userId,
+      });
+    },
+    async dismissPracticeRepairEntry(
+      input: PracticeRepairEntryMutationInput,
+    ): Promise<SessionResult> {
+      return mutatePersistentRecall({
+        crypto,
+        db,
+        mutate: (recall) => recall.dismissPracticeRepairEntry(input),
         shuffleNotes,
         userId: input.userId,
       });
@@ -626,6 +661,17 @@ export function createRecallService({
         crypto,
         db,
         mutate: (recall) => recall.startFlashCardSession(input),
+        shuffleNotes,
+        userId: input.userId,
+      });
+    },
+    async updatePracticeRepairEntryCorrection(
+      input: UpdatePracticeRepairEntryCorrectionInput,
+    ): Promise<SessionResult> {
+      return mutatePersistentRecall({
+        crypto,
+        db,
+        mutate: (recall) => recall.updatePracticeRepairEntryCorrection(input),
         shuffleNotes,
         userId: input.userId,
       });

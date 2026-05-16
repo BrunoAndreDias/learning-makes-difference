@@ -21,6 +21,7 @@ import {
   listPracticeRepairEntriesForQuestion as listPracticeRepairEntriesForQuestionValue,
   type PracticeRepairEntry,
   type PracticeRepairEntryConfirmation,
+  type PracticeRepairQuestionReference,
 } from "./recall-practice-repair";
 import type { RecallSchedule } from "./recall-schedule";
 
@@ -58,9 +59,24 @@ type UpdateAttemptTextInput = UpdateRecallSessionInput & {
 
 type ConfirmPracticeRepairEntryInput = PracticeRepairEntryConfirmation;
 
+type PracticeRepairEntryMutationInput = {
+  reference: PracticeRepairQuestionReference;
+};
+
+type UpdatePracticeRepairEntryCorrectionInput =
+  PracticeRepairEntryMutationInput & {
+    correction: string;
+  };
+
 export type AppPersistentRecallService = {
+  completePracticeRepairEntry: (
+    input: PracticeRepairEntryMutationInput,
+  ) => Promise<SessionResult>;
   confirmPracticeRepairEntry: (
     input: ConfirmPracticeRepairEntryInput,
+  ) => Promise<SessionResult>;
+  dismissPracticeRepairEntry: (
+    input: PracticeRepairEntryMutationInput,
   ) => Promise<SessionResult>;
   endRecallSession: (input: UpdateRecallSessionInput) => Promise<RecallSession>;
   getActiveSession: () => Promise<RecallSession | null>;
@@ -78,15 +94,26 @@ export type AppPersistentRecallService = {
   startFlashCardSession: (
     input: StartRecallSessionInput,
   ) => Promise<RecallSession>;
+  updatePracticeRepairEntryCorrection: (
+    input: UpdatePracticeRepairEntryCorrectionInput,
+  ) => Promise<SessionResult>;
   updateFlashCardAttemptText: (
     input: UpdateAttemptTextInput,
   ) => Promise<RecallSession>;
 };
 
 export type AppPersistentRecallContext = {
+  completePracticeRepairEntry: (
+    userId: string | null,
+    input: PracticeRepairEntryMutationInput,
+  ) => Promise<SessionResult>;
   confirmPracticeRepairEntry: (
     userId: string | null,
     input: ConfirmPracticeRepairEntryInput,
+  ) => Promise<SessionResult>;
+  dismissPracticeRepairEntry: (
+    userId: string | null,
+    input: PracticeRepairEntryMutationInput,
   ) => Promise<SessionResult>;
   endFlashCardSession: (
     userId: string | null,
@@ -117,6 +144,10 @@ export type AppPersistentRecallContext = {
     input: StartRecallSessionInput,
   ) => Promise<RecallSession>;
   subscribe: (listener: PersistentRecallListener) => () => void;
+  updatePracticeRepairEntryCorrection: (
+    userId: string | null,
+    input: UpdatePracticeRepairEntryCorrectionInput,
+  ) => Promise<SessionResult>;
   updateFlashCardAttemptText: (
     userId: string | null,
     input: UpdateAttemptTextInput,
@@ -326,6 +357,26 @@ export function createPersistentRecallContext(
     return service;
   }
 
+  function writeUpdatedSessionResult(
+    updatedResult: SessionResult,
+    validatedUserId: string,
+  ) {
+    writeState({
+      activeSession: snapshot,
+      sessionResults: toStoredSessionResults(
+        [
+          updatedResult,
+          ...sessionResultsSnapshot.filter(
+            (result) => result.id !== updatedResult.id,
+          ),
+        ],
+        validatedUserId,
+      ),
+    });
+
+    return cloneSessionResult(updatedResult);
+  }
+
   async function emitStudyActivity(
     userId: string | null,
     recallSession:
@@ -353,9 +404,19 @@ export function createPersistentRecallContext(
         "Readonly recall context cannot answer questions. Use persistentRecall instead.",
       );
     },
+    completePracticeRepairEntry: () => {
+      throw new Error(
+        "Readonly recall context cannot complete Practice Repair. Use persistentRecall instead.",
+      );
+    },
     confirmPracticeRepairEntry: () => {
       throw new Error(
         "Readonly recall context cannot confirm Practice Repair. Use persistentRecall instead.",
+      );
+    },
+    dismissPracticeRepairEntry: () => {
+      throw new Error(
+        "Readonly recall context cannot dismiss Practice Repair. Use persistentRecall instead.",
       );
     },
     endFlashCardSession: () => {
@@ -541,6 +602,11 @@ export function createPersistentRecallContext(
         "Readonly recall context cannot start sessions. Use persistentRecall instead.",
       );
     },
+    updatePracticeRepairEntryCorrection: () => {
+      throw new Error(
+        "Readonly recall context cannot edit Practice Repair. Use persistentRecall instead.",
+      );
+    },
     subscribe(listener) {
       listeners.add(listener);
 
@@ -561,25 +627,26 @@ export function createPersistentRecallContext(
   };
 
   return {
+    async completePracticeRepairEntry(userId, input) {
+      const validatedUserId = requireUserId(userId);
+      const updatedResult =
+        await requireService().completePracticeRepairEntry(input);
+
+      return writeUpdatedSessionResult(updatedResult, validatedUserId);
+    },
     async confirmPracticeRepairEntry(userId, input) {
       const validatedUserId = requireUserId(userId);
       const updatedResult =
         await requireService().confirmPracticeRepairEntry(input);
 
-      writeState({
-        activeSession: snapshot,
-        sessionResults: toStoredSessionResults(
-          [
-            updatedResult,
-            ...sessionResultsSnapshot.filter(
-              (result) => result.id !== updatedResult.id,
-            ),
-          ],
-          validatedUserId,
-        ),
-      });
+      return writeUpdatedSessionResult(updatedResult, validatedUserId);
+    },
+    async dismissPracticeRepairEntry(userId, input) {
+      const validatedUserId = requireUserId(userId);
+      const updatedResult =
+        await requireService().dismissPracticeRepairEntry(input);
 
-      return cloneSessionResult(updatedResult);
+      return writeUpdatedSessionResult(updatedResult, validatedUserId);
     },
     async endFlashCardSession(userId, input) {
       const validatedUserId = requireUserId(userId);
@@ -730,6 +797,13 @@ export function createPersistentRecallContext(
       return () => {
         listeners.delete(listener);
       };
+    },
+    async updatePracticeRepairEntryCorrection(userId, input) {
+      const validatedUserId = requireUserId(userId);
+      const updatedResult =
+        await requireService().updatePracticeRepairEntryCorrection(input);
+
+      return writeUpdatedSessionResult(updatedResult, validatedUserId);
     },
     async updateFlashCardAttemptText(userId, input) {
       const validatedUserId = requireUserId(userId);
