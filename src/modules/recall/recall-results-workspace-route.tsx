@@ -42,6 +42,7 @@ import { projectSessionReview } from "./recall-session-review";
 import { searchRecallSessionResults } from "./recall-session-search";
 import {
   buildRecallTodayQueue,
+  getPrimaryRecallTodayReason,
   type RecallTodayQueueItem,
   type RecallTodayReason,
 } from "./recall-today";
@@ -591,13 +592,6 @@ const recallTodaySections = [
     tone: "due",
   },
 ] as const satisfies readonly RecallTodaySectionConfig[];
-
-function getPrimaryRecallTodayReason(item: RecallTodayQueueItem) {
-  return (
-    recallTodaySections.find((section) => item.reasons.includes(section.reason))
-      ?.reason ?? "due-for-recall"
-  );
-}
 
 function getRecallTodayItemsByReason(
   queue: readonly RecallTodayQueueItem[],

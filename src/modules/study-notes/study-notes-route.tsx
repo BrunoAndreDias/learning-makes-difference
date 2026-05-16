@@ -471,8 +471,6 @@ type PracticeRepairEntryView = {
   entry: PracticeRepairEntry;
   origin: PracticeRepairOriginSnapshot | null;
 };
-type ActivePracticeRepairEntryView = PracticeRepairEntryView;
-type ActionablePracticeFollowUpEntryView = PracticeRepairEntryView;
 type ActivePracticeRepairEntryReader = {
   listActivePracticeRepairEntriesForStudyNote(input: {
     studyNoteId: string;
@@ -655,7 +653,7 @@ function getActivePracticeRepairEntryViews({
   sessionResults,
   studyNoteId,
   userId,
-}: ActivePracticeRepairEntryViewInput): ActivePracticeRepairEntryView[] {
+}: ActivePracticeRepairEntryViewInput): PracticeRepairEntryView[] {
   if (studyNoteId === null || userId === null || sessionResults.length === 0) {
     return [];
   }
@@ -677,7 +675,7 @@ function getActivePracticeRepairEntryViews({
 function getActionablePracticeFollowUpEntryViews({
   sessionResults,
   studyNoteId,
-}: PracticeRepairEntryViewInput): ActionablePracticeFollowUpEntryView[] {
+}: PracticeRepairEntryViewInput): PracticeRepairEntryView[] {
   if (studyNoteId === null || sessionResults.length === 0) {
     return [];
   }
@@ -730,7 +728,7 @@ function getPracticeRepairMemoryAidReference(input: {
 }
 
 function findSplitStudyNotePracticeRepairEntry(
-  entries: readonly ActivePracticeRepairEntryView[],
+  entries: readonly PracticeRepairEntryView[],
 ): SplitStudyNotePracticeRepairEntry | null {
   for (const { entry } of entries) {
     if (isPracticeRepairEntryForIntent(entry, "split-study-note")) {
@@ -931,6 +929,103 @@ function PracticeRepairOriginDetails({
   );
 }
 
+function getPracticeFollowUpCompletedAt(entry: PracticeRepairEntry) {
+  return entry.lifecycle?.completedAt ?? entry.confirmedAt;
+}
+
+function PracticeFollowUpSection({
+  entries,
+  onCreateSiblingStudyNote,
+}: Readonly<{
+  entries: readonly PracticeRepairEntryView[];
+  onCreateSiblingStudyNote: () => void;
+}>) {
+  if (entries.length === 0) {
+    return null;
+  }
+
+  return (
+    <section
+      aria-label="Practice Follow-up"
+      className="study-notes-practice-repair"
+    >
+      <div className="study-notes-practice-repair__header">
+        <div className="study-notes-practice-repair__title-row">
+          <h2 className="study-notes-practice-repair__title">
+            Practice Follow-up
+          </h2>
+          <span className="study-notes-practice-repair__signal">
+            Recall Today
+          </span>
+        </div>
+        <p className="muted study-notes-editor__guidance">
+          This repair is complete. Retry the Study Note from Recall Today while
+          the correction is still fresh.
+        </p>
+      </div>
+      <div className="study-notes-practice-repair__entries">
+        {entries.map(({ entry, origin }) => {
+          const intentLabel = formatPracticeRepairIntentLabel(entry.intent);
+
+          return (
+            <article
+              aria-label={`${intentLabel} Practice Follow-up`}
+              className="study-notes-practice-repair-entry"
+              key={getPracticeRepairEntryKey(entry.reference)}
+            >
+              <div className="study-notes-practice-repair-entry__header">
+                <div className="study-notes-practice-repair-entry__title-group">
+                  <h3 className="study-notes-practice-repair-entry__title">
+                    {intentLabel}
+                  </h3>
+                  <p className="study-notes-practice-repair-entry__meta">
+                    Repair completed{" "}
+                    {formatRelativeUpdatedLabel(
+                      getPracticeFollowUpCompletedAt(entry),
+                    )}
+                  </p>
+                </div>
+              </div>
+              <PracticeRepairOriginDetails origin={origin} />
+              <div className="study-notes-practice-repair-entry__next-practice">
+                <span className="study-notes-editor__group-label">
+                  Correction
+                </span>
+                <p>{entry.correction}</p>
+              </div>
+              {entry.nextPracticeIdea === undefined ? null : (
+                <div className="study-notes-practice-repair-entry__next-practice">
+                  <span className="study-notes-editor__group-label">
+                    Next-practice idea
+                  </span>
+                  <p>{entry.nextPracticeIdea}</p>
+                </div>
+              )}
+              <div className="study-notes-practice-repair__actions">
+                {entry.intent === "split-study-note" ? (
+                  <Button
+                    onClick={onCreateSiblingStudyNote}
+                    size="compact"
+                    type="button"
+                    variant="secondary"
+                  >
+                    <CopyIcon />
+                    <span>Create sibling Study Note</span>
+                  </Button>
+                ) : null}
+                <ButtonLink size="compact" to="/recall" variant="secondary">
+                  <CalendarCheckIcon />
+                  <span>Open Recall Today</span>
+                </ButtonLink>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function StudyNotesWorkspace() {
   const navigate = useNavigate();
   const studyNotesContext = useRouteContext({
@@ -1094,7 +1189,7 @@ function StudyNotesWorkspace() {
       ? null
       : (recallScheduleByStudyNoteId.get(selectedStudyNote.id) ?? null);
   const selectedPracticeRepairStudyNoteId = selectedStudyNote?.id ?? null;
-  const activePracticeRepairEntries = useMemo<ActivePracticeRepairEntryView[]>(
+  const activePracticeRepairEntries = useMemo<PracticeRepairEntryView[]>(
     () =>
       getActivePracticeRepairEntryViews({
         recallContext,
@@ -1109,9 +1204,7 @@ function StudyNotesWorkspace() {
       userId,
     ],
   );
-  const actionablePracticeFollowUps = useMemo<
-    ActionablePracticeFollowUpEntryView[]
-  >(
+  const actionablePracticeFollowUps = useMemo<PracticeRepairEntryView[]>(
     () =>
       getActionablePracticeFollowUpEntryViews({
         sessionResults: recallResultsSnapshot,
@@ -2497,89 +2590,12 @@ function StudyNotesWorkspace() {
                 </section>
               )}
 
-              {actionablePracticeFollowUps.length === 0 ? null : (
-                <section
-                  aria-label="Practice Follow-up"
-                  className="study-notes-practice-repair"
-                >
-                  <div className="study-notes-practice-repair__header">
-                    <div className="study-notes-practice-repair__title-row">
-                      <h2 className="study-notes-practice-repair__title">
-                        Practice Follow-up
-                      </h2>
-                      <span className="study-notes-practice-repair__signal">
-                        Recall Today
-                      </span>
-                    </div>
-                    <p className="muted study-notes-editor__guidance">
-                      This repair is complete. Retry the Study Note from Recall
-                      Today while the correction is still fresh.
-                    </p>
-                  </div>
-                  <div className="study-notes-practice-repair__entries">
-                    {actionablePracticeFollowUps.map(({ entry, origin }) => (
-                      <article
-                        aria-label={`${formatPracticeRepairIntentLabel(entry.intent)} Practice Follow-up`}
-                        className="study-notes-practice-repair-entry"
-                        key={getPracticeRepairEntryKey(entry.reference)}
-                      >
-                        <div className="study-notes-practice-repair-entry__header">
-                          <div className="study-notes-practice-repair-entry__title-group">
-                            <h3 className="study-notes-practice-repair-entry__title">
-                              {formatPracticeRepairIntentLabel(entry.intent)}
-                            </h3>
-                            <p className="study-notes-practice-repair-entry__meta">
-                              Repair completed{" "}
-                              {formatRelativeUpdatedLabel(
-                                entry.lifecycle?.completedAt ??
-                                  entry.confirmedAt,
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                        <PracticeRepairOriginDetails origin={origin} />
-                        <div className="study-notes-practice-repair-entry__next-practice">
-                          <span className="study-notes-editor__group-label">
-                            Correction
-                          </span>
-                          <p>{entry.correction}</p>
-                        </div>
-                        {entry.nextPracticeIdea === undefined ? null : (
-                          <div className="study-notes-practice-repair-entry__next-practice">
-                            <span className="study-notes-editor__group-label">
-                              Next-practice idea
-                            </span>
-                            <p>{entry.nextPracticeIdea}</p>
-                          </div>
-                        )}
-                        <div className="study-notes-practice-repair__actions">
-                          {entry.intent === "split-study-note" ? (
-                            <Button
-                              onClick={() =>
-                                void handleCreateSiblingStudyNote()
-                              }
-                              size="compact"
-                              type="button"
-                              variant="secondary"
-                            >
-                              <CopyIcon />
-                              <span>Create sibling Study Note</span>
-                            </Button>
-                          ) : null}
-                          <ButtonLink
-                            size="compact"
-                            to="/recall"
-                            variant="secondary"
-                          >
-                            <CalendarCheckIcon />
-                            <span>Open Recall Today</span>
-                          </ButtonLink>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </section>
-              )}
+              <PracticeFollowUpSection
+                entries={actionablePracticeFollowUps}
+                onCreateSiblingStudyNote={() =>
+                  void handleCreateSiblingStudyNote()
+                }
+              />
 
               {practiceRepair === null ? null : (
                 <section

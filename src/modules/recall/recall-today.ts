@@ -34,6 +34,28 @@ const recallTodayReasonPriority: Record<RecallTodayReason, number> = {
   "due-for-recall": 3,
 };
 
+function getRecallTodayReasonPriority(reason: RecallTodayReason) {
+  return recallTodayReasonPriority[reason];
+}
+
+export function getPrimaryRecallTodayReason(item: {
+  reasons: readonly RecallTodayReason[];
+}): RecallTodayReason {
+  let primaryReason: RecallTodayReason | null = null;
+
+  for (const reason of item.reasons) {
+    if (
+      primaryReason === null ||
+      getRecallTodayReasonPriority(reason) <
+        getRecallTodayReasonPriority(primaryReason)
+    ) {
+      primaryReason = reason;
+    }
+  }
+
+  return primaryReason ?? "due-for-recall";
+}
+
 function isScheduleDueToday(input: {
   now: string;
   schedule: RecallSchedule | null;
@@ -105,9 +127,7 @@ function getRecallTodayReasons(input: {
 }
 
 function getQueuePriority(reasons: readonly RecallTodayReason[]) {
-  return Math.min(
-    ...reasons.map((reason) => recallTodayReasonPriority[reason]),
-  );
+  return getRecallTodayReasonPriority(getPrimaryRecallTodayReason({ reasons }));
 }
 
 export function buildRecallTodayQueue(input: {
