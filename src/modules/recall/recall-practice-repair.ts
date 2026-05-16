@@ -144,6 +144,13 @@ const terminalPracticeRepairLifecycleFactKeys = [
   "supersededAt",
 ] as const satisfies readonly (keyof PracticeRepairEntryLifecycle)[];
 
+const practiceFollowUpSatisfactionRatings = [
+  "easy",
+  "forgot",
+  "good",
+  "hard",
+] as const satisfies readonly PracticeFollowUpSatisfaction["rating"][];
+
 export function isPracticeRepairIntent(
   value: unknown,
 ): value is PracticeRepairIntent {
@@ -183,6 +190,13 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
 }
 
+function hasOptionalStringProperty(
+  candidate: Record<string, unknown>,
+  key: string,
+): boolean {
+  return candidate[key] === undefined || typeof candidate[key] === "string";
+}
+
 function isPracticeRepairQuestionReference(
   value: unknown,
 ): value is PracticeRepairQuestionReference {
@@ -193,8 +207,18 @@ function isPracticeRepairQuestionReference(
     typeof candidate.questionIndex === "number" &&
     typeof candidate.sessionResultId === "string" &&
     typeof candidate.studyNoteId === "string" &&
-    (!("questionResultId" in candidate) ||
-      typeof candidate.questionResultId === "string")
+    hasOptionalStringProperty(candidate, "questionResultId")
+  );
+}
+
+function isPracticeFollowUpSatisfactionRating(
+  value: unknown,
+): value is PracticeFollowUpSatisfaction["rating"] {
+  return (
+    typeof value === "string" &&
+    practiceFollowUpSatisfactionRatings.includes(
+      value as PracticeFollowUpSatisfaction["rating"],
+    )
   );
 }
 
@@ -206,15 +230,12 @@ function isPracticeFollowUpSatisfaction(
   return (
     candidate !== null &&
     isPracticeRepairQuestionReference(candidate.questionReference) &&
-    (candidate.rating === "forgot" ||
-      candidate.rating === "hard" ||
-      candidate.rating === "good" ||
-      candidate.rating === "easy") &&
+    isPracticeFollowUpSatisfactionRating(candidate.rating) &&
     typeof candidate.satisfiedAt === "string"
   );
 }
 
-export function isPracticeRepairEntryLifecycle(
+function isPracticeRepairEntryLifecycle(
   value: unknown,
 ): value is PracticeRepairEntryLifecycle {
   const candidate = asPracticeRepairMetadataRecord(value);
@@ -224,7 +245,7 @@ export function isPracticeRepairEntryLifecycle(
   }
 
   return terminalPracticeRepairLifecycleFactKeys.every((key) => {
-    return !(key in candidate) || isNullableString(candidate[key]);
+    return candidate[key] === undefined || isNullableString(candidate[key]);
   });
 }
 
@@ -341,7 +362,23 @@ export function clonePracticeRepairEntry(
   };
 }
 
-export function isPracticeRepairIntentMetadata(
+export function satisfyPracticeRepairEntryFollowUp(input: {
+  entry: PracticeRepairEntry;
+  satisfaction: PracticeFollowUpSatisfaction;
+}): PracticeRepairEntry {
+  const entry = clonePracticeRepairEntry(input.entry);
+
+  return {
+    ...entry,
+    followUpSatisfaction: clonePracticeFollowUpSatisfaction(input.satisfaction),
+    lifecycle: {
+      ...entry.lifecycle,
+      followUpSatisfiedAt: input.satisfaction.satisfiedAt,
+    },
+  };
+}
+
+function isPracticeRepairIntentMetadata(
   intent: PracticeRepairIntent,
   value: unknown,
 ): value is PracticeRepairIntentMetadata {
@@ -373,24 +410,25 @@ export function isPracticeRepairIntentMetadata(
   }
 }
 
-function isPracticeRepairEntry(value: unknown): value is PracticeRepairEntry {
+export function isPracticeRepairEntry(
+  value: unknown,
+): value is PracticeRepairEntry {
   const candidate = asPracticeRepairMetadataRecord(value);
 
   return (
     candidate !== null &&
     typeof candidate.confirmedAt === "string" &&
     typeof candidate.correction === "string" &&
-    (!("followUpSatisfaction" in candidate) ||
+    (candidate.followUpSatisfaction === undefined ||
       isPracticeFollowUpSatisfaction(candidate.followUpSatisfaction)) &&
     isPracticeRepairIntent(candidate.intent) &&
     isPracticeRepairIntentMetadata(
       candidate.intent,
       candidate.intentMetadata,
     ) &&
-    (!("lifecycle" in candidate) ||
+    (candidate.lifecycle === undefined ||
       isPracticeRepairEntryLifecycle(candidate.lifecycle)) &&
-    (!("nextPracticeIdea" in candidate) ||
-      typeof candidate.nextPracticeIdea === "string") &&
+    hasOptionalStringProperty(candidate, "nextPracticeIdea") &&
     isPracticeRepairQuestionReference(candidate.reference)
   );
 }
