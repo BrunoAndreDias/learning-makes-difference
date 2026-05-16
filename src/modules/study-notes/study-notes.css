@@ -1095,7 +1095,7 @@
 
 .study-notes-practice-repair-entry__origin-list > div {
   display: grid;
-  gap: 0.2rem;
+  gap: var(--space-1);
 }
 
 .study-notes-practice-repair-entry__origin-list dt,

@@ -447,6 +447,18 @@ type ActivePracticeRepairEntryView = {
   entry: PracticeRepairEntry;
   origin: PracticeRepairOriginSnapshot | null;
 };
+type ActivePracticeRepairEntryReader = {
+  listActivePracticeRepairEntriesForStudyNote(input: {
+    studyNoteId: string;
+    userId: string;
+  }): PracticeRepairEntry[];
+};
+type ActivePracticeRepairEntryViewInput = {
+  recallContext: ActivePracticeRepairEntryReader;
+  sessionResults: readonly SessionResult[];
+  studyNoteId: string | null;
+  userId: string | null;
+};
 
 const practiceRepairMutationActions = [
   "edit",
@@ -603,6 +615,30 @@ function getPracticeRepairOriginSnapshot(input: {
     ratingLabel: formatScoreResultLabel(question.selfRating),
     sourceTitle: getPracticeRepairOriginSourceTitle(question),
   };
+}
+
+function getActivePracticeRepairEntryViews({
+  recallContext,
+  sessionResults,
+  studyNoteId,
+  userId,
+}: ActivePracticeRepairEntryViewInput): ActivePracticeRepairEntryView[] {
+  if (studyNoteId === null || userId === null || sessionResults.length === 0) {
+    return [];
+  }
+
+  return recallContext
+    .listActivePracticeRepairEntriesForStudyNote({
+      studyNoteId,
+      userId,
+    })
+    .map((entry) => ({
+      entry,
+      origin: getPracticeRepairOriginSnapshot({
+        entry,
+        sessionResults,
+      }),
+    }));
 }
 
 function getStudyNoteLabelNames(
@@ -763,6 +799,38 @@ function filterStudyNotesBySelectedLabel(
 
   return studyNotes.filter((studyNote) =>
     studyNote.labelIds.includes(selectedLabelId),
+  );
+}
+
+function PracticeRepairOriginDetails({
+  origin,
+}: Readonly<{
+  origin: PracticeRepairOriginSnapshot | null;
+}>) {
+  return (
+    <div className="study-notes-practice-repair-entry__origin">
+      <span className="study-notes-editor__group-label">Results origin</span>
+      {origin === null ? (
+        <p className="study-notes-practice-repair-entry__origin-fallback">
+          Results snapshot unavailable.
+        </p>
+      ) : (
+        <dl className="study-notes-practice-repair-entry__origin-list">
+          <div>
+            <dt>Weak recall</dt>
+            <dd>{origin.ratingLabel}</dd>
+          </div>
+          <div>
+            <dt>Prompt snapshot</dt>
+            <dd>{origin.prompt}</dd>
+          </div>
+          <div>
+            <dt>Source snapshot</dt>
+            <dd>{origin.sourceTitle}</dd>
+          </div>
+        </dl>
+      )}
+    </div>
   );
 }
 
@@ -931,22 +999,12 @@ function StudyNotesWorkspace() {
   const selectedPracticeRepairStudyNoteId = selectedStudyNote?.id ?? null;
   const activePracticeRepairEntries = useMemo<ActivePracticeRepairEntryView[]>(
     () =>
-      selectedPracticeRepairStudyNoteId === null ||
-      userId === null ||
-      recallResultsSnapshot.length === 0
-        ? []
-        : recallContext
-            .listActivePracticeRepairEntriesForStudyNote({
-              studyNoteId: selectedPracticeRepairStudyNoteId,
-              userId,
-            })
-            .map((entry) => ({
-              entry,
-              origin: getPracticeRepairOriginSnapshot({
-                entry,
-                sessionResults: recallResultsSnapshot,
-              }),
-            })),
+      getActivePracticeRepairEntryViews({
+        recallContext,
+        sessionResults: recallResultsSnapshot,
+        studyNoteId: selectedPracticeRepairStudyNoteId,
+        userId,
+      }),
     [
       recallContext,
       recallResultsSnapshot,
@@ -2002,31 +2060,7 @@ function StudyNotesWorkspace() {
                               </p>
                             </div>
                           </div>
-                          <div className="study-notes-practice-repair-entry__origin">
-                            <span className="study-notes-editor__group-label">
-                              Results origin
-                            </span>
-                            {origin === null ? (
-                              <p className="study-notes-practice-repair-entry__origin-fallback">
-                                Results snapshot unavailable.
-                              </p>
-                            ) : (
-                              <dl className="study-notes-practice-repair-entry__origin-list">
-                                <div>
-                                  <dt>Weak recall</dt>
-                                  <dd>{origin.ratingLabel}</dd>
-                                </div>
-                                <div>
-                                  <dt>Prompt snapshot</dt>
-                                  <dd>{origin.prompt}</dd>
-                                </div>
-                                <div>
-                                  <dt>Source snapshot</dt>
-                                  <dd>{origin.sourceTitle}</dd>
-                                </div>
-                              </dl>
-                            )}
-                          </div>
+                          <PracticeRepairOriginDetails origin={origin} />
                           <StudyNotesTextarea
                             label="Correction"
                             maxLength={1000}

@@ -197,6 +197,18 @@ function confirmStudyNotePracticeRepair(
   return updatedResult;
 }
 
+function getConfirmedPracticeRepairReference(result: SessionResult) {
+  const reference = result.questions[0]?.practiceRepairEntry?.reference;
+
+  if (reference === undefined) {
+    throw new Error(
+      "Expected a confirmed Practice Repair reference in history.",
+    );
+  }
+
+  return reference;
+}
+
 function renderStudyNotesRouteForUser(
   contexts: DeterministicRecallTestContexts,
   user: NonNullable<AppSessionSnapshot["user"]>,
@@ -1500,6 +1512,8 @@ describe("authenticated Study Notes workspace", () => {
       studyNoteId: studyNote.id,
       userId,
     });
+    const confirmedReference =
+      getConfirmedPracticeRepairReference(confirmedResult);
 
     renderStudyNotesRouteForUser(contexts, {
       displayName: "Jordan Active Repair",
@@ -1543,15 +1557,6 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.click(
       within(activeEntry).getByRole("button", { name: "Mark complete" }),
     );
-
-    const confirmedReference =
-      confirmedResult.questions[0]?.practiceRepairEntry?.reference;
-
-    if (confirmedReference === undefined) {
-      throw new Error(
-        "Expected a confirmed Practice Repair reference in history.",
-      );
-    }
 
     await waitFor(() =>
       expect(
@@ -1600,6 +1605,8 @@ describe("authenticated Study Notes workspace", () => {
       studyNoteId: studyNote.id,
       userId,
     });
+    const confirmedReference =
+      getConfirmedPracticeRepairReference(confirmedResult);
 
     updateStudyNoteSnapshot(contexts, {
       expectedAnswer: "Live expected answer changed later.",
@@ -1645,15 +1652,6 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.click(
       within(activeEntry).getByRole("button", { name: "Dismiss" }),
     );
-
-    const confirmedReference =
-      confirmedResult.questions[0]?.practiceRepairEntry?.reference;
-
-    if (confirmedReference === undefined) {
-      throw new Error(
-        "Expected a confirmed Practice Repair reference in history.",
-      );
-    }
 
     await waitFor(() =>
       expect(
