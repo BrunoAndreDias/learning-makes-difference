@@ -12,6 +12,7 @@ import {
   createPracticeRepairIntentMetadata,
   getPracticeRepairEntryLifecycleState,
   isPracticeRepairEligibleQuestion,
+  isPracticeRepairEntryForIntent,
   isPracticeRepairEntryLifecycle,
   isPracticeRepairIntent,
   isPracticeRepairIntentMetadata,
@@ -19,7 +20,9 @@ import {
   listPracticeRepairEntriesForQuestion as listPracticeRepairEntriesForQuestionValue,
   type PracticeRepairEntry,
   type PracticeRepairEntryConfirmation,
+  type PracticeRepairEntryForIntent,
   type PracticeRepairLinkedCompletionInput,
+  type PracticeRepairLinkedCompletionIntent,
   type PracticeRepairQuestionReference,
   type SplitStudyNotePracticeRepairMetadata,
 } from "./recall-practice-repair";
@@ -1614,6 +1617,22 @@ export function createAppRecallContext(
     );
   }
 
+  function assertLinkedCompletionEntryIntent<
+    Intent extends PracticeRepairLinkedCompletionIntent,
+  >(
+    entry: PracticeRepairEntry,
+    intent: Intent,
+  ): asserts entry is PracticeRepairEntryForIntent<Intent> {
+    if (isPracticeRepairEntryForIntent(entry, intent)) {
+      return;
+    }
+
+    throw new AppRecallError(
+      "invalid_input",
+      "This linked action does not match the active Practice Repair intent.",
+    );
+  }
+
   function completePracticeRepairEntry(
     input: PracticeRepairEntryMutationInput,
   ): SessionResult {
@@ -1634,17 +1653,11 @@ export function createAppRecallContext(
         "Only active Practice Repair entries can be completed.",
       reference: input.reference,
       updateEntry: (entry) => {
-        if (entry.intent !== input.intent) {
-          throw new AppRecallError(
-            "invalid_input",
-            "This linked action does not match the active Practice Repair intent.",
-          );
-        }
-
         switch (input.intent) {
           case "split-study-note": {
-            const existingMetadata =
-              entry.intentMetadata as SplitStudyNotePracticeRepairMetadata;
+            assertLinkedCompletionEntryIntent(entry, "split-study-note");
+
+            const existingMetadata = entry.intentMetadata;
             const createdStudyNoteIds = mergeLinkedCompletionReferences({
               additions: input.intentMetadata.createdStudyNoteIds,
               existing: existingMetadata.createdStudyNoteIds,
@@ -1672,6 +1685,11 @@ export function createAppRecallContext(
                 };
           }
           case "create-sibling-study-note": {
+            assertLinkedCompletionEntryIntent(
+              entry,
+              "create-sibling-study-note",
+            );
+
             const createdStudyNoteId = requireLinkedCompletionReference(
               input.intentMetadata.createdStudyNoteId,
               "Create sibling Study Note requires the created Study Note reference.",
@@ -1682,6 +1700,8 @@ export function createAppRecallContext(
             });
           }
           case "add-memory-aid": {
+            assertLinkedCompletionEntryIntent(entry, "add-memory-aid");
+
             const memoryAidId = requireLinkedCompletionReference(
               input.intentMetadata.memoryAidId,
               "Add memory aid requires the created aid kind and reference.",

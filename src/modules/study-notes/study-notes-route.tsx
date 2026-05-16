@@ -34,11 +34,12 @@ import {
 import { getInterleavedRecallRecommendation } from "../recall/interleaved-recall";
 import {
   formatPracticeRepairIntentLabel,
+  isPracticeRepairEntryForIntent,
   type PracticeRepairEntry,
+  type PracticeRepairEntryForIntent,
   type PracticeRepairLinkedCompletionInput,
   type PracticeRepairMemoryAidKind,
   type PracticeRepairQuestionReference,
-  type SplitStudyNotePracticeRepairMetadata,
 } from "../recall/recall-practice-repair";
 import "./study-notes.css";
 import {
@@ -458,6 +459,8 @@ type PracticeRepairMutationAction =
   | "dismiss"
   | "edit"
   | "linked-action";
+type SplitStudyNotePracticeRepairEntry =
+  PracticeRepairEntryForIntent<"split-study-note">;
 type PracticeRepairOriginSnapshot = {
   prompt: string;
   ratingLabel: string;
@@ -666,12 +669,6 @@ function getActivePracticeRepairEntryViews({
     }));
 }
 
-function getSplitStudyNotePracticeRepairMetadata(
-  entry: PracticeRepairEntry,
-): SplitStudyNotePracticeRepairMetadata {
-  return entry.intentMetadata as SplitStudyNotePracticeRepairMetadata;
-}
-
 function getStudyNoteLabelNames(
   labels: readonly AppLabel[],
   labelIds: readonly string[],
@@ -705,6 +702,34 @@ function getPracticeRepairMemoryAidReference(input: {
   studyNoteId: string;
 }) {
   return `${input.studyNoteId}:${input.memoryAidKind.toLowerCase()}`;
+}
+
+function findSplitStudyNotePracticeRepairEntry(
+  entries: readonly ActivePracticeRepairEntryView[],
+): SplitStudyNotePracticeRepairEntry | null {
+  for (const { entry } of entries) {
+    if (isPracticeRepairEntryForIntent(entry, "split-study-note")) {
+      return entry;
+    }
+  }
+
+  return null;
+}
+
+function formatSplitTargetCreatedStatus(
+  entry: SplitStudyNotePracticeRepairEntry,
+) {
+  return entry.intentMetadata.narrowedOriginalStudyNoteAt === null
+    ? "Split target created. Narrow the original Study Note and save changes to complete Practice Repair."
+    : "Practice Repair completed";
+}
+
+function formatOriginalNarrowedStatus(
+  entry: SplitStudyNotePracticeRepairEntry,
+) {
+  return entry.intentMetadata.createdStudyNoteIds.length === 0
+    ? "Original narrowed. Create a split target to complete Practice Repair."
+    : "Practice Repair completed";
 }
 
 function formatSelectedNextRecall(input: {
@@ -1382,7 +1407,9 @@ function StudyNotesWorkspace() {
     }
   }
 
-  async function handleSplitStudyNote(entry: PracticeRepairEntry) {
+  async function handleSplitStudyNote(
+    entry: SplitStudyNotePracticeRepairEntry,
+  ) {
     if (selectedStudyNote === null) {
       return;
     }
@@ -1397,24 +1424,17 @@ function StudyNotesWorkspace() {
           sourceNoteId: selectedStudyNote.sourceNoteId,
         },
       );
-      const splitMetadata = getSplitStudyNotePracticeRepairMetadata(entry);
 
       await completeLinkedPracticeRepairEntry(
         {
           intent: "split-study-note",
           intentMetadata: {
-            createdStudyNoteIds: [
-              ...splitMetadata.createdStudyNoteIds,
-              createdStudyNote.id,
-            ],
-            narrowedOriginalStudyNoteAt:
-              splitMetadata.narrowedOriginalStudyNoteAt,
+            createdStudyNoteIds: [createdStudyNote.id],
+            narrowedOriginalStudyNoteAt: null,
           },
           reference: entry.reference,
         },
-        splitMetadata.narrowedOriginalStudyNoteAt === null
-          ? "Split target created. Narrow the original Study Note and save changes to complete Practice Repair."
-          : "Practice Repair completed",
+        formatSplitTargetCreatedStatus(entry),
       );
     } catch (error) {
       if (error instanceof AppRecallError) {
@@ -1700,7 +1720,7 @@ function StudyNotesWorkspace() {
   }
 
   async function maybeRecordSplitStudyNoteNarrowing(input: {
-    entry: PracticeRepairEntry | null;
+    entry: SplitStudyNotePracticeRepairEntry | null;
     savedStudyNote: AppStudyNote;
     shouldRecordNarrowing: boolean;
   }) {
@@ -1712,20 +1732,16 @@ function StudyNotesWorkspace() {
       return false;
     }
 
-    const splitMetadata = getSplitStudyNotePracticeRepairMetadata(input.entry);
-
     await completeLinkedPracticeRepairEntry(
       {
         intent: "split-study-note",
         intentMetadata: {
-          createdStudyNoteIds: splitMetadata.createdStudyNoteIds,
+          createdStudyNoteIds: [],
           narrowedOriginalStudyNoteAt: input.savedStudyNote.updatedAt,
         },
         reference: input.entry.reference,
       },
-      splitMetadata.createdStudyNoteIds.length === 0
-        ? "Original narrowed. Create a split target to complete Practice Repair."
-        : "Practice Repair completed",
+      formatOriginalNarrowedStatus(input.entry),
     );
 
     return true;
@@ -1744,9 +1760,7 @@ function StudyNotesWorkspace() {
       const activeSplitPracticeRepairEntry =
         selectedStudyNote === null
           ? null
-          : (activePracticeRepairEntries.find(
-              ({ entry }) => entry.intent === "split-study-note",
-            )?.entry ?? null);
+          : findSplitStudyNotePracticeRepairEntry(activePracticeRepairEntries);
       const shouldRecordSplitStudyNoteNarrowing =
         selectedStudyNote !== null &&
         activeSplitPracticeRepairEntry !== null &&
@@ -2332,7 +2346,10 @@ function StudyNotesWorkspace() {
                             </div>
                           )}
                           <div className="study-notes-practice-repair__actions">
-                            {entry.intent === "split-study-note" ? (
+                            {isPracticeRepairEntryForIntent(
+                              entry,
+                              "split-study-note",
+                            ) ? (
                               <Button
                                 disabled={isMutationPending}
                                 onClick={() => void handleSplitStudyNote(entry)}

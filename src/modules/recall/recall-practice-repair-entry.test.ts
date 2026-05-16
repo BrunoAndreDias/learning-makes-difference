@@ -88,6 +88,59 @@ function getConfirmedPracticeRepairReference(
   return reference;
 }
 
+function createConfirmedSplitPracticeRepairEntry(input: {
+  keyPrefix: string;
+  userId: string;
+}) {
+  const storage = createMemoryStorage();
+  const notes = createAppNotesContext({
+    keyPrefix: `${input.keyPrefix}-notes`,
+    storage,
+  });
+  const studyNotes = createAppStudyNotesContext({
+    keyPrefix: `${input.keyPrefix}-study-notes`,
+    storage,
+  });
+  let sessionCounter = 0;
+  const recall = createAppRecallContext({
+    crypto: {
+      randomUUID: () =>
+        `${input.keyPrefix}-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+    },
+    keyPrefix: `${input.keyPrefix}-recall`,
+    notes,
+    shuffleNotes: (sessionNotes) => [...sessionNotes],
+    storage,
+    studyNotes,
+  });
+  const studyNote = studyNotes.createStudyNote(input.userId, {
+    expectedAnswer: "ATP stores transferable energy.",
+    prompt: "What stores transferable energy?",
+    sourceBody: "Cell respiration source context.",
+    sourceTitle: "Cell respiration source",
+  });
+  const splitResult = recall.confirmPracticeRepairEntry({
+    correction: "Narrow the original and break out the transport detail.",
+    intent: "split-study-note",
+    reference: createPracticeRepairReference({
+      result: createWeakStudyNoteResult({
+        rating: "forgot",
+        recall,
+        studyNoteId: studyNote.id,
+        userId: input.userId,
+      }),
+      studyNoteId: studyNote.id,
+    }),
+    userId: input.userId,
+  });
+
+  return {
+    recall,
+    reference: getConfirmedPracticeRepairReference(splitResult),
+    studyNote,
+  };
+}
+
 type StoredPracticeRepairResultForTest = {
   id: string;
   questions: Array<{
@@ -690,49 +743,12 @@ describe("confirmed Practice Repair entries", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-16T16:20:00.000Z"));
 
-    const storage = createMemoryStorage();
     const userId = "user-practice-repair-linked-split";
-    const notes = createAppNotesContext({
-      keyPrefix: "practice-repair-entry-linked-split-notes",
-      storage,
-    });
-    const studyNotes = createAppStudyNotesContext({
-      keyPrefix: "practice-repair-entry-linked-split-study-notes",
-      storage,
-    });
-    let sessionCounter = 0;
-    const recall = createAppRecallContext({
-      crypto: {
-        randomUUID: () =>
-          `practice-repair-linked-split-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
-      },
-      keyPrefix: "practice-repair-entry-linked-split-recall",
-      notes,
-      shuffleNotes: (sessionNotes) => [...sessionNotes],
-      storage,
-      studyNotes,
-    });
-    const studyNote = studyNotes.createStudyNote(userId, {
-      expectedAnswer: "ATP stores transferable energy.",
-      prompt: "What stores transferable energy?",
-      sourceBody: "Cell respiration source context.",
-      sourceTitle: "Cell respiration source",
-    });
-    const splitResult = recall.confirmPracticeRepairEntry({
-      correction: "Narrow the original and break out the transport detail.",
-      intent: "split-study-note",
-      reference: createPracticeRepairReference({
-        result: createWeakStudyNoteResult({
-          rating: "forgot",
-          recall,
-          studyNoteId: studyNote.id,
-          userId,
-        }),
-        studyNoteId: studyNote.id,
-      }),
-      userId,
-    });
-    const reference = getConfirmedPracticeRepairReference(splitResult);
+    const { recall, reference, studyNote } =
+      createConfirmedSplitPracticeRepairEntry({
+        keyPrefix: "practice-repair-entry-linked-split",
+        userId,
+      });
 
     vi.setSystemTime(new Date("2026-05-16T16:25:00.000Z"));
 
@@ -787,50 +803,12 @@ describe("confirmed Practice Repair entries", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-16T16:20:00.000Z"));
 
-    const storage = createMemoryStorage();
     const userId = "user-practice-repair-linked-split-missing-sibling";
-    const notes = createAppNotesContext({
-      keyPrefix: "practice-repair-entry-linked-split-missing-sibling-notes",
-      storage,
-    });
-    const studyNotes = createAppStudyNotesContext({
-      keyPrefix:
-        "practice-repair-entry-linked-split-missing-sibling-study-notes",
-      storage,
-    });
-    let sessionCounter = 0;
-    const recall = createAppRecallContext({
-      crypto: {
-        randomUUID: () =>
-          `practice-repair-linked-split-missing-sibling-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
-      },
-      keyPrefix: "practice-repair-entry-linked-split-missing-sibling-recall",
-      notes,
-      shuffleNotes: (sessionNotes) => [...sessionNotes],
-      storage,
-      studyNotes,
-    });
-    const studyNote = studyNotes.createStudyNote(userId, {
-      expectedAnswer: "ATP stores transferable energy.",
-      prompt: "What stores transferable energy?",
-      sourceBody: "Cell respiration source context.",
-      sourceTitle: "Cell respiration source",
-    });
-    const splitResult = recall.confirmPracticeRepairEntry({
-      correction: "Narrow the original and break out the transport detail.",
-      intent: "split-study-note",
-      reference: createPracticeRepairReference({
-        result: createWeakStudyNoteResult({
-          rating: "forgot",
-          recall,
-          studyNoteId: studyNote.id,
-          userId,
-        }),
-        studyNoteId: studyNote.id,
-      }),
-      userId,
-    });
-    const reference = getConfirmedPracticeRepairReference(splitResult);
+    const { recall, reference, studyNote } =
+      createConfirmedSplitPracticeRepairEntry({
+        keyPrefix: "practice-repair-entry-linked-split-missing-sibling",
+        userId,
+      });
 
     vi.setSystemTime(new Date("2026-05-16T16:25:00.000Z"));
 

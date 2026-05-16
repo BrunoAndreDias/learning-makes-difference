@@ -78,6 +78,12 @@ export type PracticeRepairEntry = {
   reference: PracticeRepairQuestionReference;
 };
 
+export type PracticeRepairEntryForIntent<Intent extends PracticeRepairIntent> =
+  Omit<PracticeRepairEntry, "intent" | "intentMetadata"> & {
+    intent: Intent;
+    intentMetadata: PracticeRepairIntentMetadataByIntent[Intent];
+  };
+
 export type PracticeRepairEntryConfirmation = {
   correction: string;
   intent: PracticeRepairIntent;
@@ -131,6 +137,15 @@ export function isPracticeRepairIntent(
     typeof value === "string" &&
     practiceRepairIntents.includes(value as PracticeRepairIntent)
   );
+}
+
+export function isPracticeRepairEntryForIntent<
+  Intent extends PracticeRepairIntent,
+>(
+  entry: PracticeRepairEntry,
+  intent: Intent,
+): entry is PracticeRepairEntryForIntent<Intent> {
+  return entry.intent === intent;
 }
 
 function isPracticeRepairMemoryAidKind(
