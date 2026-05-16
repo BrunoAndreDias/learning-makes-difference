@@ -483,6 +483,146 @@ describe("createRecallService PostgreSQL integration", () => {
     ]);
   });
 
+  it("persists later recall satisfaction for completed Practice Follow-ups across service reloads", async () => {
+    const database = await createPostgresIntegrationDatabase();
+    databases.add(database);
+
+    const db = drizzle(database.client, {
+      schema: {
+        ...authSchema,
+        ...labelsSchema,
+        ...notesSchema,
+        ...recallSchema,
+        ...studyNotesSchema,
+      },
+    });
+    await migrateDatabase(db, database.client);
+    await db.insert(usersTable).values({
+      id: "user-casey",
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      passwordHash: "hash",
+      userLanguage: "en",
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+    await db.insert(notesTable).values({
+      id: "source-note-practice-follow-up",
+      userId: "user-casey",
+      title: "Cell respiration source",
+      body: "ATP helps transfer energy in cells.",
+      labelIds: [],
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+    await db.insert(studyNotesTable).values({
+      id: "study-note-practice-follow-up",
+      sourceNoteId: "source-note-practice-follow-up",
+      prompt: "What stores transferable energy?",
+      expectedAnswer: "ATP stores transferable energy.",
+      createdAt: new Date("2026-05-02T12:05:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:05:00.000Z"),
+    });
+
+    let sessionCounter = 0;
+    const service = createRecallService({
+      crypto: {
+        randomUUID: () =>
+          `practice-follow-up-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      db,
+      shuffleNotes: (notes) => [...notes],
+    });
+
+    await service.startFlashCardSession({
+      studyNoteIds: ["study-note-practice-follow-up"],
+      userId: "user-casey",
+    });
+    await service.revealFlashCardAnswer({
+      sessionId: "practice-follow-up-session-1",
+      userId: "user-casey",
+    });
+    await expect(
+      service.rateFlashCardAnswer({
+        rating: "hard",
+        sessionId: "practice-follow-up-session-1",
+        userId: "user-casey",
+      }),
+    ).resolves.toBeNull();
+    await service.confirmPracticeRepairEntry({
+      correction: "State ATP and explain that it stores transferable energy.",
+      intent: "tighten-expected-answer",
+      reference: {
+        questionIndex: 0,
+        questionResultId: "practice-follow-up-session-1-question-0",
+        sessionResultId: "practice-follow-up-session-1",
+        studyNoteId: "study-note-practice-follow-up",
+      },
+      userId: "user-casey",
+    });
+    await service.completePracticeRepairEntry({
+      reference: {
+        questionIndex: 0,
+        questionResultId: "practice-follow-up-session-1-question-0",
+        sessionResultId: "practice-follow-up-session-1",
+        studyNoteId: "study-note-practice-follow-up",
+      },
+      userId: "user-casey",
+    });
+
+    await service.startFlashCardSession({
+      studyNoteIds: ["study-note-practice-follow-up"],
+      userId: "user-casey",
+    });
+    await service.revealFlashCardAnswer({
+      sessionId: "practice-follow-up-session-2",
+      userId: "user-casey",
+    });
+    await expect(
+      service.rateFlashCardAnswer({
+        rating: "good",
+        sessionId: "practice-follow-up-session-2",
+        userId: "user-casey",
+      }),
+    ).resolves.toBeNull();
+
+    const reloadedService = createRecallService({
+      db,
+      shuffleNotes: (notes) => [...notes],
+    });
+    const reloadedResults = await reloadedService.listSessionResults({
+      userId: "user-casey",
+    });
+    const originalResult = reloadedResults.find(
+      (result) => result.id === "practice-follow-up-session-1",
+    );
+
+    expect(originalResult).toMatchObject({
+      id: "practice-follow-up-session-1",
+      questions: [
+        {
+          noteId: "study-note-practice-follow-up",
+          practiceRepairEntry: {
+            followUpSatisfaction: {
+              questionReference: {
+                questionIndex: 0,
+                questionResultId: "practice-follow-up-session-2-question-0",
+                sessionResultId: "practice-follow-up-session-2",
+                studyNoteId: "study-note-practice-follow-up",
+              },
+              rating: "good",
+              satisfiedAt: expect.any(String),
+            },
+            lifecycle: {
+              completedAt: expect.any(String),
+              followUpSatisfiedAt: expect.any(String),
+            },
+          },
+        },
+      ],
+    });
+  });
+
   it("rejects persistent FlashCard sessions from incomplete Study Note IDs", async () => {
     const database = await createPostgresIntegrationDatabase();
     databases.add(database);

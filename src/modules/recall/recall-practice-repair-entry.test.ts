@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createAppNotesContext } from "../notes";
-import { createAppStudyNotesContext } from "../study-notes";
+import {
+  createAppStudyNotesContext,
+  toStudyNoteRecallHistories,
+} from "../study-notes";
 import {
   AppRecallError,
   createAppRecallContext,
@@ -13,6 +16,7 @@ import {
   type PracticeRepairIntent,
   type PracticeRepairQuestionReference,
 } from "./recall-practice-repair";
+import { buildRecallTodayQueue } from "./recall-today";
 
 function createMemoryStorage() {
   const values = new Map<string, string>();
@@ -173,6 +177,30 @@ function markStoredPracticeRepairEntryCompleted(input: {
     completedAt: input.completedAt,
   };
   input.storage.setItem(storageKey, JSON.stringify(storedSessionResults));
+}
+
+function buildRecallTodayQueueFromRecallContext(input: {
+  now: string;
+  recall: ReturnType<typeof createAppRecallContext>;
+  studyNotes: ReturnType<typeof createAppStudyNotesContext>;
+  userId: string;
+}) {
+  return buildRecallTodayQueue({
+    histories: toStudyNoteRecallHistories(
+      input.recall.listAttemptsByNote({
+        userId: input.userId,
+      }),
+    ),
+    now: input.now,
+    recallSchedules: input.recall.getRecallSchedulesSnapshot(),
+    sessionResults: input.recall.listSessionResults({
+      userId: input.userId,
+    }),
+    studyNotes: input.studyNotes
+      .getSnapshot()
+      .filter((studyNote) => studyNote.userId === input.userId),
+    userTimeZone: "America/New_York",
+  });
 }
 
 afterEach(() => {
@@ -633,6 +661,366 @@ describe("confirmed Practice Repair entries", () => {
         userId,
       }),
     ).toHaveLength(0);
+  });
+
+  it("satisfies later same-Study-Note Practice Follow-ups and removes them from Recall Today", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-16T16:00:00.000Z"));
+
+    const storage = createMemoryStorage();
+    const userId = "user-practice-follow-up-satisfaction";
+    const notes = createAppNotesContext({
+      keyPrefix: "practice-follow-up-satisfaction-notes",
+      storage,
+    });
+    const studyNotes = createAppStudyNotesContext({
+      keyPrefix: "practice-follow-up-satisfaction-study-notes",
+      storage,
+    });
+    let sessionCounter = 0;
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `practice-follow-up-satisfaction-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "practice-follow-up-satisfaction-recall",
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+    const studyNote = studyNotes.createStudyNote(userId, {
+      expectedAnswer: "ATP stores transferable energy.",
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+    const confirmedResult = recall.confirmPracticeRepairEntry({
+      correction: "State ATP explicitly.",
+      intent: "tighten-expected-answer",
+      reference: createPracticeRepairReference({
+        result: createWeakStudyNoteResult({
+          recall,
+          studyNoteId: studyNote.id,
+          userId,
+        }),
+        studyNoteId: studyNote.id,
+      }),
+      userId,
+    });
+    const originalReference =
+      getConfirmedPracticeRepairReference(confirmedResult);
+
+    vi.setSystemTime(new Date("2026-05-16T16:05:00.000Z"));
+
+    recall.completePracticeRepairEntry({
+      reference: originalReference,
+      userId,
+    });
+
+    vi.setSystemTime(new Date("2026-05-16T16:10:00.000Z"));
+
+    const laterSession = recall.startFlashCardSession({
+      studyNoteIds: [studyNote.id],
+      userId,
+    });
+
+    recall.revealFlashCardAnswer({
+      sessionId: laterSession.id,
+      userId,
+    });
+    recall.rateFlashCardAnswer({
+      rating: "good",
+      sessionId: laterSession.id,
+      userId,
+    });
+
+    const originalEntry = recall.listPracticeRepairEntriesForQuestion({
+      reference: originalReference,
+      userId,
+    })[0];
+
+    expect(originalEntry).toMatchObject({
+      lifecycle: {
+        completedAt: "2026-05-16T16:05:00.000Z",
+        followUpSatisfiedAt: "2026-05-16T16:10:00.000Z",
+      },
+      followUpSatisfaction: {
+        questionReference: {
+          questionIndex: 0,
+          questionResultId:
+            "practice-follow-up-satisfaction-session-2-question-0",
+          sessionResultId: "practice-follow-up-satisfaction-session-2",
+          studyNoteId: studyNote.id,
+        },
+        rating: "good",
+        satisfiedAt: "2026-05-16T16:10:00.000Z",
+      },
+    });
+
+    const queue = buildRecallTodayQueueFromRecallContext({
+      now: "2026-05-16T16:10:00.000Z",
+      recall,
+      studyNotes,
+      userId,
+    });
+
+    expect(queue).toEqual([]);
+  });
+
+  it("does not satisfy a Practice Follow-up when later recall attempts target another Study Note", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-16T16:00:00.000Z"));
+
+    const storage = createMemoryStorage();
+    const userId = "user-practice-follow-up-other-study-note";
+    const notes = createAppNotesContext({
+      keyPrefix: "practice-follow-up-other-study-note-notes",
+      storage,
+    });
+    const studyNotes = createAppStudyNotesContext({
+      keyPrefix: "practice-follow-up-other-study-note-study-notes",
+      storage,
+    });
+    let sessionCounter = 0;
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `practice-follow-up-other-study-note-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "practice-follow-up-other-study-note-recall",
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+    const originalStudyNote = studyNotes.createStudyNote(userId, {
+      expectedAnswer: "ATP stores transferable energy.",
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+    const laterStudyNote = studyNotes.createStudyNote(userId, {
+      expectedAnswer: "Mitochondria generate ATP.",
+      prompt: "What organelle generates ATP?",
+      sourceBody: "Cell organelles source context.",
+      sourceTitle: "Cell organelles source",
+    });
+    const confirmedResult = recall.confirmPracticeRepairEntry({
+      correction: "State ATP explicitly.",
+      intent: "tighten-expected-answer",
+      reference: createPracticeRepairReference({
+        result: createWeakStudyNoteResult({
+          recall,
+          studyNoteId: originalStudyNote.id,
+          userId,
+        }),
+        studyNoteId: originalStudyNote.id,
+      }),
+      userId,
+    });
+    const originalReference =
+      getConfirmedPracticeRepairReference(confirmedResult);
+
+    vi.setSystemTime(new Date("2026-05-16T16:05:00.000Z"));
+
+    recall.completePracticeRepairEntry({
+      reference: originalReference,
+      userId,
+    });
+
+    vi.setSystemTime(new Date("2026-05-16T16:10:00.000Z"));
+
+    const laterSession = recall.startFlashCardSession({
+      studyNoteIds: [laterStudyNote.id],
+      userId,
+    });
+
+    recall.revealFlashCardAnswer({
+      sessionId: laterSession.id,
+      userId,
+    });
+    recall.rateFlashCardAnswer({
+      rating: "good",
+      sessionId: laterSession.id,
+      userId,
+    });
+
+    const originalEntry = recall.listPracticeRepairEntriesForQuestion({
+      reference: originalReference,
+      userId,
+    })[0];
+
+    expect(originalEntry).toMatchObject({
+      lifecycle: {
+        completedAt: "2026-05-16T16:05:00.000Z",
+      },
+    });
+    expect(originalEntry?.followUpSatisfaction).toBeUndefined();
+
+    const queue = buildRecallTodayQueueFromRecallContext({
+      now: "2026-05-16T16:10:00.000Z",
+      recall,
+      studyNotes,
+      userId,
+    });
+
+    expect(
+      queue.find((item) => item.studyNote.id === originalStudyNote.id),
+    ).toMatchObject({
+      reasons: ["practice-follow-up", "needs-practice"],
+      studyNote: {
+        id: originalStudyNote.id,
+      },
+    });
+  });
+
+  it("satisfies the original Practice Follow-up after later Hard recall and allows a new repair path", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-16T16:00:00.000Z"));
+
+    const storage = createMemoryStorage();
+    const userId = "user-practice-follow-up-hard-recall";
+    const notes = createAppNotesContext({
+      keyPrefix: "practice-follow-up-hard-recall-notes",
+      storage,
+    });
+    const studyNotes = createAppStudyNotesContext({
+      keyPrefix: "practice-follow-up-hard-recall-study-notes",
+      storage,
+    });
+    let sessionCounter = 0;
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `practice-follow-up-hard-recall-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "practice-follow-up-hard-recall-recall",
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+    const studyNote = studyNotes.createStudyNote(userId, {
+      expectedAnswer: "ATP stores transferable energy.",
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+    const confirmedResult = recall.confirmPracticeRepairEntry({
+      correction: "State ATP explicitly.",
+      intent: "tighten-expected-answer",
+      reference: createPracticeRepairReference({
+        result: createWeakStudyNoteResult({
+          recall,
+          studyNoteId: studyNote.id,
+          userId,
+        }),
+        studyNoteId: studyNote.id,
+      }),
+      userId,
+    });
+    const originalReference =
+      getConfirmedPracticeRepairReference(confirmedResult);
+
+    vi.setSystemTime(new Date("2026-05-16T16:05:00.000Z"));
+
+    recall.completePracticeRepairEntry({
+      reference: originalReference,
+      userId,
+    });
+
+    vi.setSystemTime(new Date("2026-05-16T16:10:00.000Z"));
+
+    const laterSession = recall.startFlashCardSession({
+      studyNoteIds: [studyNote.id],
+      userId,
+    });
+
+    recall.revealFlashCardAnswer({
+      sessionId: laterSession.id,
+      userId,
+    });
+    recall.rateFlashCardAnswer({
+      rating: "hard",
+      sessionId: laterSession.id,
+      userId,
+    });
+
+    const originalEntry = recall.listPracticeRepairEntriesForQuestion({
+      reference: originalReference,
+      userId,
+    })[0];
+    const laterResult = recall.listSessionResults({
+      userId,
+    })[0];
+    const laterQuestionResultId = laterResult?.questions[0]?.questionResultId;
+
+    expect(originalEntry).toMatchObject({
+      lifecycle: {
+        completedAt: "2026-05-16T16:05:00.000Z",
+        followUpSatisfiedAt: "2026-05-16T16:10:00.000Z",
+      },
+      followUpSatisfaction: {
+        rating: "hard",
+      },
+    });
+    expect(laterQuestionResultId).toBe(
+      "practice-follow-up-hard-recall-session-2-question-0",
+    );
+
+    const queue = buildRecallTodayQueueFromRecallContext({
+      now: "2026-05-16T16:10:00.000Z",
+      recall,
+      studyNotes,
+      userId,
+    });
+
+    expect(
+      queue.find((item) => item.studyNote.id === studyNote.id),
+    ).toMatchObject({
+      reasons: ["needs-practice"],
+      studyNote: {
+        id: studyNote.id,
+      },
+    });
+
+    if (laterResult === undefined || laterQuestionResultId === undefined) {
+      throw new Error("Expected the later hard-recall result to exist.");
+    }
+
+    const replacementRepair = recall.confirmPracticeRepairEntry({
+      correction: "Clarify ATP as the cell's transferable energy store.",
+      intent: "tighten-expected-answer",
+      reference: {
+        questionIndex: 0,
+        questionResultId: laterQuestionResultId,
+        sessionResultId: laterResult.id,
+        studyNoteId: studyNote.id,
+      },
+      userId,
+    });
+
+    expect(replacementRepair.questions[0]?.practiceRepairEntry).toMatchObject({
+      correction: "Clarify ATP as the cell's transferable energy store.",
+      reference: {
+        questionResultId: laterQuestionResultId,
+        sessionResultId: laterResult.id,
+      },
+    });
+    expect(
+      recall.listPracticeRepairEntriesForQuestion({
+        reference: originalReference,
+        userId,
+      })[0],
+    ).toMatchObject({
+      followUpSatisfaction: {
+        rating: "hard",
+      },
+      lifecycle: {
+        followUpSatisfiedAt: "2026-05-16T16:10:00.000Z",
+      },
+    });
   });
 
   it("records linked completion evidence for sibling creation and memory aids", () => {

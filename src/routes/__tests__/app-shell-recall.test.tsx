@@ -1392,6 +1392,69 @@ describe("authenticated recall workspace", () => {
     );
   });
 
+  it("removes satisfied Practice Follow-ups from Recall Today after later same-Study-Note recall", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const practiceFollowUp = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "ATP stores transferable energy for cells.",
+        prompt: "What stores transferable energy?",
+        sourceBody: "Cell respiration source context.",
+        sourceTitle: "Cell respiration source",
+      },
+    );
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: practiceFollowUp.id,
+      timestamp: "2026-05-14T09:00:00.000Z",
+    });
+
+    const confirmedRepair = confirmStudyNotePracticeRepair({
+      contexts,
+      correction: "State ATP and explain that it stores transferable energy.",
+      intent: "tighten-expected-answer",
+      studyNoteId: practiceFollowUp.id,
+    });
+
+    contexts.recallContext.completePracticeRepairEntry({
+      reference: getConfirmedPracticeRepairReference(confirmedRepair),
+      userId: testUser.id,
+    });
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: practiceFollowUp.id,
+      timestamp: "2026-05-15T09:00:00.000Z",
+    });
+    vi.setSystemTime(new Date("2026-05-15T10:00:00.000Z"));
+
+    renderRoute("/recall", {
+      ...contexts,
+      session: {
+        user: {
+          ...testUser,
+          userTimeZone: "America/New_York",
+        },
+      },
+    });
+
+    const needsPracticeSection = await screen.findByRole("region", {
+      name: "Needs practice",
+    });
+    expect(needsPracticeSection).toHaveTextContent(
+      "What stores transferable energy?",
+    );
+
+    expect(
+      screen.queryByRole("region", {
+        name: "Practice Follow-up",
+      }),
+    ).toBeNull();
+  });
+
   it("keeps completed Practice Follow-ups visible in Results context", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const practiceFollowUp = contexts.studyNotesContext.createStudyNote(

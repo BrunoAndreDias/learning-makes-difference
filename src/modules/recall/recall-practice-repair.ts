@@ -17,6 +17,12 @@ export type PracticeRepairQuestionReference = {
   studyNoteId: string;
 };
 
+export type PracticeFollowUpSatisfaction = {
+  questionReference: PracticeRepairQuestionReference;
+  rating: "easy" | "forgot" | "good" | "hard";
+  satisfiedAt: string;
+};
+
 export type TightenExpectedAnswerPracticeRepairMetadata = {
   updatedExpectedAnswer: string | null;
 };
@@ -78,6 +84,7 @@ export type PracticeFollowUpState =
 export type PracticeRepairEntry = {
   confirmedAt: string;
   correction: string;
+  followUpSatisfaction?: PracticeFollowUpSatisfaction;
   intent: PracticeRepairIntent;
   intentMetadata: PracticeRepairIntentMetadata;
   lifecycle?: PracticeRepairEntryLifecycle;
@@ -176,6 +183,37 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
 }
 
+function isPracticeRepairQuestionReference(
+  value: unknown,
+): value is PracticeRepairQuestionReference {
+  const candidate = asPracticeRepairMetadataRecord(value);
+
+  return (
+    candidate !== null &&
+    typeof candidate.questionIndex === "number" &&
+    typeof candidate.sessionResultId === "string" &&
+    typeof candidate.studyNoteId === "string" &&
+    (!("questionResultId" in candidate) ||
+      typeof candidate.questionResultId === "string")
+  );
+}
+
+function isPracticeFollowUpSatisfaction(
+  value: unknown,
+): value is PracticeFollowUpSatisfaction {
+  const candidate = asPracticeRepairMetadataRecord(value);
+
+  return (
+    candidate !== null &&
+    isPracticeRepairQuestionReference(candidate.questionReference) &&
+    (candidate.rating === "forgot" ||
+      candidate.rating === "hard" ||
+      candidate.rating === "good" ||
+      candidate.rating === "easy") &&
+    typeof candidate.satisfiedAt === "string"
+  );
+}
+
 export function isPracticeRepairEntryLifecycle(
   value: unknown,
 ): value is PracticeRepairEntryLifecycle {
@@ -231,6 +269,22 @@ function clonePracticeRepairEntryLifecycle(
   };
 }
 
+function clonePracticeFollowUpSatisfaction(
+  satisfaction: PracticeFollowUpSatisfaction | undefined,
+): PracticeFollowUpSatisfaction | undefined {
+  if (satisfaction === undefined) {
+    return undefined;
+  }
+
+  return {
+    questionReference: {
+      ...satisfaction.questionReference,
+    },
+    rating: satisfaction.rating,
+    satisfiedAt: satisfaction.satisfiedAt,
+  };
+}
+
 function clonePracticeRepairIntentMetadata(
   intent: PracticeRepairIntent,
   metadata: PracticeRepairIntentMetadata,
@@ -273,6 +327,9 @@ export function clonePracticeRepairEntry(
 ): PracticeRepairEntry {
   return {
     ...entry,
+    followUpSatisfaction: clonePracticeFollowUpSatisfaction(
+      entry.followUpSatisfaction,
+    ),
     intentMetadata: clonePracticeRepairIntentMetadata(
       entry.intent,
       entry.intentMetadata,
@@ -314,6 +371,28 @@ export function isPracticeRepairIntentMetadata(
           isPracticeRepairMemoryAidKind(candidate.memoryAidKind))
       );
   }
+}
+
+function isPracticeRepairEntry(value: unknown): value is PracticeRepairEntry {
+  const candidate = asPracticeRepairMetadataRecord(value);
+
+  return (
+    candidate !== null &&
+    typeof candidate.confirmedAt === "string" &&
+    typeof candidate.correction === "string" &&
+    (!("followUpSatisfaction" in candidate) ||
+      isPracticeFollowUpSatisfaction(candidate.followUpSatisfaction)) &&
+    isPracticeRepairIntent(candidate.intent) &&
+    isPracticeRepairIntentMetadata(
+      candidate.intent,
+      candidate.intentMetadata,
+    ) &&
+    (!("lifecycle" in candidate) ||
+      isPracticeRepairEntryLifecycle(candidate.lifecycle)) &&
+    (!("nextPracticeIdea" in candidate) ||
+      typeof candidate.nextPracticeIdea === "string") &&
+    isPracticeRepairQuestionReference(candidate.reference)
+  );
 }
 
 function isWeakPracticeRepairRating(

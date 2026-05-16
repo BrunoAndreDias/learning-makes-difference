@@ -11,6 +11,7 @@ import {
   clonePracticeRepairEntry as clonePracticeRepairEntryValue,
   createPracticeRepairIntentMetadata,
   getPracticeRepairEntryLifecycleState,
+  isActionablePracticeFollowUp,
   isPracticeRepairEligibleQuestion,
   isPracticeRepairEntryForIntent,
   isPracticeRepairEntryLifecycle,
@@ -18,6 +19,7 @@ import {
   isPracticeRepairIntentMetadata,
   listActivePracticeRepairEntriesForStudyNote as listActivePracticeRepairEntriesForStudyNoteValue,
   listPracticeRepairEntriesForQuestion as listPracticeRepairEntriesForQuestionValue,
+  type PracticeFollowUpSatisfaction,
   type PracticeRepairEntry,
   type PracticeRepairEntryConfirmation,
   type PracticeRepairEntryForIntent,
@@ -820,6 +822,18 @@ function clonePracticeRepairEntry(
   return clonePracticeRepairEntryValue(entry);
 }
 
+function clonePracticeFollowUpSatisfaction(
+  satisfaction: PracticeFollowUpSatisfaction,
+): PracticeFollowUpSatisfaction {
+  return {
+    questionReference: {
+      ...satisfaction.questionReference,
+    },
+    rating: satisfaction.rating,
+    satisfiedAt: satisfaction.satisfiedAt,
+  };
+}
+
 function cloneRecallQuestion(question: RecallQuestion): RecallQuestion {
   return {
     ...question,
@@ -1391,17 +1405,123 @@ export function createAppRecallContext(
     };
   }
 
+  function isAttemptedStudyNoteQuestion(
+    question: StoredSessionResult["questions"][number],
+  ): question is StoredSessionResult["questions"][number] & {
+    selfRating: RecallSelfRating;
+  } {
+    return (
+      question.selfRating !== null &&
+      question.noteSnapshot.sourceNoteId !== undefined &&
+      (question.noteSnapshot.expectedAnswer ?? "").trim().length > 0
+    );
+  }
+
+  function getPracticeFollowUpSatisfactionsByStudyNoteId(
+    result: StoredSessionResult,
+  ) {
+    const satisfactions = new Map<string, PracticeFollowUpSatisfaction>();
+
+    result.questions.forEach((question, questionIndex) => {
+      if (!isAttemptedStudyNoteQuestion(question)) {
+        return;
+      }
+
+      satisfactions.set(question.noteId, {
+        questionReference: {
+          questionIndex,
+          questionResultId: question.questionResultId,
+          sessionResultId: result.id,
+          studyNoteId: question.noteId,
+        },
+        rating: question.selfRating,
+        satisfiedAt: result.completedAt,
+      });
+    });
+
+    return satisfactions;
+  }
+
+  function satisfyActionablePracticeFollowUpsFromResult(input: {
+    nextResult: StoredSessionResult;
+    sessionResults: readonly StoredSessionResult[];
+    userId: string;
+  }): StoredSessionResult[] {
+    const satisfactionsByStudyNoteId =
+      getPracticeFollowUpSatisfactionsByStudyNoteId(input.nextResult);
+
+    if (satisfactionsByStudyNoteId.size === 0) {
+      return [...input.sessionResults];
+    }
+
+    return input.sessionResults.map((candidate) => {
+      if (candidate.userId !== input.userId) {
+        return candidate;
+      }
+
+      let didUpdateCandidate = false;
+      const nextCandidate = cloneSessionResult(candidate);
+      const nextQuestions = nextCandidate.questions.map((question) => {
+        const practiceRepairEntry = question.practiceRepairEntry;
+
+        if (
+          practiceRepairEntry === undefined ||
+          !isActionablePracticeFollowUp(practiceRepairEntry)
+        ) {
+          return question;
+        }
+
+        const followUpSatisfaction = satisfactionsByStudyNoteId.get(
+          practiceRepairEntry.reference.studyNoteId,
+        );
+
+        if (followUpSatisfaction === undefined) {
+          return question;
+        }
+
+        didUpdateCandidate = true;
+
+        return {
+          ...question,
+          practiceRepairEntry: {
+            ...clonePracticeRepairEntryValue(practiceRepairEntry),
+            followUpSatisfaction:
+              clonePracticeFollowUpSatisfaction(followUpSatisfaction),
+            lifecycle: {
+              ...practiceRepairEntry.lifecycle,
+              followUpSatisfiedAt: followUpSatisfaction.satisfiedAt,
+            },
+          },
+        };
+      });
+
+      return didUpdateCandidate
+        ? {
+            ...nextCandidate,
+            questions: nextQuestions,
+          }
+        : candidate;
+    });
+  }
+
   function persistSessionResult(session: StoredRecallSession) {
     if (session.attempts.length === 0) {
       return;
     }
 
     const nextResult = toSessionResult(session);
-
-    writeSessionResults([
+    const nextSessionResults = [
       ...sessionResults.filter((result) => result.id !== nextResult.id),
       nextResult,
-    ]);
+    ];
+
+    writeSessionResults(
+      satisfyActionablePracticeFollowUpsFromResult({
+        nextResult,
+        sessionResults: nextSessionResults,
+        userId: session.userId,
+      }),
+    );
   }
 
   function endRecallSession({ sessionId, userId }: UpdateRecallSessionInput) {
