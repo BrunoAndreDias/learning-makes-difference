@@ -174,6 +174,9 @@ describe("createPersistentRecallContext", () => {
       completePracticeRepairEntry: vi.fn(async () => {
         throw new Error("not used");
       }),
+      completeLinkedPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
       confirmPracticeRepairEntry: vi.fn(
         async ({ correction, intent, reference }) => {
           const existingResult = sessionResults.find(
@@ -497,6 +500,9 @@ describe("createPersistentRecallContext", () => {
     ];
     const service: AppPersistentRecallService = {
       completePracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      completeLinkedPracticeRepairEntry: vi.fn(async () => {
         throw new Error("not used");
       }),
       confirmPracticeRepairEntry: vi.fn(

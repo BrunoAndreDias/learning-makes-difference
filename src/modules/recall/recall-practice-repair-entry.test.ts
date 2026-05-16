@@ -582,6 +582,166 @@ describe("confirmed Practice Repair entries", () => {
     ).toHaveLength(0);
   });
 
+  it("records linked completion evidence for sibling creation and memory aids", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-16T16:20:00.000Z"));
+
+    const storage = createMemoryStorage();
+    const userId = "user-practice-repair-linked-actions";
+    const notes = createAppNotesContext({
+      keyPrefix: "practice-repair-entry-linked-actions-notes",
+      storage,
+    });
+    const studyNotes = createAppStudyNotesContext({
+      keyPrefix: "practice-repair-entry-linked-actions-study-notes",
+      storage,
+    });
+    let sessionCounter = 0;
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `practice-repair-linked-actions-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "practice-repair-entry-linked-actions-recall",
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+    const studyNote = studyNotes.createStudyNote(userId, {
+      expectedAnswer: "ATP stores transferable energy.",
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+    const siblingResult = recall.confirmPracticeRepairEntry({
+      correction: "Create a sibling Study Note for the transport detail.",
+      intent: "create-sibling-study-note",
+      reference: createPracticeRepairReference({
+        result: createWeakStudyNoteResult({
+          rating: "forgot",
+          recall,
+          studyNoteId: studyNote.id,
+          userId,
+        }),
+        studyNoteId: studyNote.id,
+      }),
+      userId,
+    });
+
+    vi.setSystemTime(new Date("2026-05-16T16:25:00.000Z"));
+
+    expect(
+      recall.completeLinkedPracticeRepairEntry({
+        intent: "create-sibling-study-note",
+        intentMetadata: {
+          createdStudyNoteId: "study-note-sibling-2",
+        },
+        reference: getConfirmedPracticeRepairReference(siblingResult),
+        userId,
+      }).questions[0]?.practiceRepairEntry,
+    ).toMatchObject({
+      intentMetadata: {
+        createdStudyNoteId: "study-note-sibling-2",
+      },
+      lifecycle: {
+        completedAt: "2026-05-16T16:25:00.000Z",
+      },
+    });
+
+    const memoryAidResult = recall.confirmPracticeRepairEntry({
+      correction: "Add a memory hook for ATP.",
+      intent: "add-memory-aid",
+      reference: createPracticeRepairReference({
+        result: createWeakStudyNoteResult({
+          recall,
+          studyNoteId: studyNote.id,
+          userId,
+        }),
+        studyNoteId: studyNote.id,
+      }),
+      userId,
+    });
+
+    vi.setSystemTime(new Date("2026-05-16T16:30:00.000Z"));
+
+    expect(
+      recall.completeLinkedPracticeRepairEntry({
+        intent: "add-memory-aid",
+        intentMetadata: {
+          memoryAidId: `${studyNote.id}:acronym`,
+          memoryAidKind: "Acronym",
+        },
+        reference: getConfirmedPracticeRepairReference(memoryAidResult),
+        userId,
+      }).questions[0]?.practiceRepairEntry,
+    ).toMatchObject({
+      intentMetadata: {
+        memoryAidId: `${studyNote.id}:acronym`,
+        memoryAidKind: "Acronym",
+      },
+      lifecycle: {
+        completedAt: "2026-05-16T16:30:00.000Z",
+      },
+    });
+  });
+
+  it("rejects linked completion evidence when the action does not match the active intent", () => {
+    const storage = createMemoryStorage();
+    const userId = "user-practice-repair-linked-action-mismatch";
+    const notes = createAppNotesContext({
+      keyPrefix: "practice-repair-entry-linked-action-mismatch-notes",
+      storage,
+    });
+    const studyNotes = createAppStudyNotesContext({
+      keyPrefix: "practice-repair-entry-linked-action-mismatch-study-notes",
+      storage,
+    });
+    const recall = createAppRecallContext({
+      keyPrefix: "practice-repair-entry-linked-action-mismatch-recall",
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+    const studyNote = studyNotes.createStudyNote(userId, {
+      expectedAnswer: "ATP stores transferable energy.",
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+    const confirmedResult = recall.confirmPracticeRepairEntry({
+      correction: "Create a sibling Study Note for the transport detail.",
+      intent: "create-sibling-study-note",
+      reference: createPracticeRepairReference({
+        result: createWeakStudyNoteResult({
+          recall,
+          studyNoteId: studyNote.id,
+          userId,
+        }),
+        studyNoteId: studyNote.id,
+      }),
+      userId,
+    });
+
+    expect(() =>
+      recall.completeLinkedPracticeRepairEntry({
+        intent: "add-memory-aid",
+        intentMetadata: {
+          memoryAidId: `${studyNote.id}:acronym`,
+          memoryAidKind: "Acronym",
+        },
+        reference: getConfirmedPracticeRepairReference(confirmedResult),
+        userId,
+      }),
+    ).toThrowError(
+      new AppRecallError(
+        "invalid_input",
+        "This linked action does not match the active Practice Repair intent.",
+      ),
+    );
+  });
+
   it("lists active entries by Study Note and keeps Results-context lookups for historical entries", () => {
     const storage = createMemoryStorage();
     const userId = "user-practice-repair";

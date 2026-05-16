@@ -383,7 +383,7 @@ describe("createStudyNotesService", () => {
     ]);
   });
 
-  it("creates sibling Study Notes with copied source material and independent source deletion", async () => {
+  it("creates sibling Study Notes with shared source material and independent deletion until the last source Note", async () => {
     const { db, studyNotes } = await createStudyNotesHarness();
     const firstStudyNote = await studyNotes.createStudyNote({
       input: {
@@ -406,11 +406,11 @@ describe("createStudyNotesService", () => {
       metaphors: [],
       prompt: "Shared source",
     });
-    expect(secondStudyNote.sourceNoteId).not.toBe(firstStudyNote.sourceNoteId);
+    expect(secondStudyNote.sourceNoteId).toBe(firstStudyNote.sourceNoteId);
 
     await studyNotes.deleteStudyNote({
       input: {
-        deleteSource: true,
+        deleteSource: false,
         studyNoteId: secondStudyNote.id,
       },
       userId: "user-casey",

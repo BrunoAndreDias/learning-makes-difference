@@ -16,6 +16,8 @@ import {
   summarizeAttempts,
 } from "./recall";
 import {
+  type AddMemoryAidPracticeRepairMetadata,
+  type CreateSiblingStudyNotePracticeRepairMetadata,
   clonePracticeRepairEntry as clonePracticeRepairEntryValue,
   listActivePracticeRepairEntriesForStudyNote as listActivePracticeRepairEntriesForStudyNoteValue,
   listPracticeRepairEntriesForQuestion as listPracticeRepairEntriesForQuestionValue,
@@ -68,9 +70,24 @@ type UpdatePracticeRepairEntryCorrectionInput =
     correction: string;
   };
 
+type CompleteLinkedPracticeRepairEntryInput = PracticeRepairEntryMutationInput &
+  (
+    | {
+        intent: "add-memory-aid";
+        intentMetadata: AddMemoryAidPracticeRepairMetadata;
+      }
+    | {
+        intent: "create-sibling-study-note";
+        intentMetadata: CreateSiblingStudyNotePracticeRepairMetadata;
+      }
+  );
+
 export type AppPersistentRecallService = {
   completePracticeRepairEntry: (
     input: PracticeRepairEntryMutationInput,
+  ) => Promise<SessionResult>;
+  completeLinkedPracticeRepairEntry: (
+    input: CompleteLinkedPracticeRepairEntryInput,
   ) => Promise<SessionResult>;
   confirmPracticeRepairEntry: (
     input: ConfirmPracticeRepairEntryInput,
@@ -106,6 +123,10 @@ export type AppPersistentRecallContext = {
   completePracticeRepairEntry: (
     userId: string | null,
     input: PracticeRepairEntryMutationInput,
+  ) => Promise<SessionResult>;
+  completeLinkedPracticeRepairEntry: (
+    userId: string | null,
+    input: CompleteLinkedPracticeRepairEntryInput,
   ) => Promise<SessionResult>;
   confirmPracticeRepairEntry: (
     userId: string | null,
@@ -409,6 +430,11 @@ export function createPersistentRecallContext(
         "Readonly recall context cannot complete Practice Repair. Use persistentRecall instead.",
       );
     },
+    completeLinkedPracticeRepairEntry: () => {
+      throw new Error(
+        "Readonly recall context cannot complete Practice Repair. Use persistentRecall instead.",
+      );
+    },
     confirmPracticeRepairEntry: () => {
       throw new Error(
         "Readonly recall context cannot confirm Practice Repair. Use persistentRecall instead.",
@@ -631,6 +657,13 @@ export function createPersistentRecallContext(
       const validatedUserId = requireUserId(userId);
       const updatedResult =
         await requireService().completePracticeRepairEntry(input);
+
+      return writeUpdatedSessionResult(updatedResult, validatedUserId);
+    },
+    async completeLinkedPracticeRepairEntry(userId, input) {
+      const validatedUserId = requireUserId(userId);
+      const updatedResult =
+        await requireService().completeLinkedPracticeRepairEntry(input);
 
       return writeUpdatedSessionResult(updatedResult, validatedUserId);
     },

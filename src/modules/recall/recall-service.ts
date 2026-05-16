@@ -20,6 +20,8 @@ import {
   type SessionResult,
 } from "./recall";
 import type {
+  AddMemoryAidPracticeRepairMetadata,
+  CreateSiblingStudyNotePracticeRepairMetadata,
   PracticeRepairEntryConfirmation,
   PracticeRepairQuestionReference,
 } from "./recall-practice-repair";
@@ -87,6 +89,18 @@ type UpdatePracticeRepairEntryCorrectionInput =
   PracticeRepairEntryMutationInput & {
     correction: string;
   };
+
+type CompleteLinkedPracticeRepairEntryInput = PracticeRepairEntryMutationInput &
+  (
+    | {
+        intent: "add-memory-aid";
+        intentMetadata: AddMemoryAidPracticeRepairMetadata;
+      }
+    | {
+        intent: "create-sibling-study-note";
+        intentMetadata: CreateSiblingStudyNotePracticeRepairMetadata;
+      }
+  );
 
 type CreateRecallServiceOptions = {
   crypto?: RecallCrypto;
@@ -566,6 +580,17 @@ export function createRecallService({
         crypto,
         db,
         mutate: (recall) => recall.completePracticeRepairEntry(input),
+        shuffleNotes,
+        userId: input.userId,
+      });
+    },
+    async completeLinkedPracticeRepairEntry(
+      input: CompleteLinkedPracticeRepairEntryInput,
+    ): Promise<SessionResult> {
+      return mutatePersistentRecall({
+        crypto,
+        db,
+        mutate: (recall) => recall.completeLinkedPracticeRepairEntry(input),
         shuffleNotes,
         userId: input.userId,
       });

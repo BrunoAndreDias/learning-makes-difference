@@ -61,6 +61,9 @@ function _createPersistentRecallService(
       completePracticeRepairEntry: vi.fn(async () => {
         throw new Error("not used");
       }),
+      completeLinkedPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
       confirmPracticeRepairEntry: vi.fn(async () => {
         throw new Error("not used");
       }),

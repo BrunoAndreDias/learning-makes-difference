@@ -437,7 +437,11 @@ type StudyNoteEditorTarget =
       type: "new";
     };
 
-type PracticeRepairMutationAction = "complete" | "dismiss" | "edit";
+type PracticeRepairMutationAction =
+  | "complete"
+  | "dismiss"
+  | "edit"
+  | "linked-action";
 type PracticeRepairOriginSnapshot = {
   prompt: string;
   ratingLabel: string;
@@ -453,6 +457,27 @@ type ActivePracticeRepairEntryReader = {
     userId: string;
   }): PracticeRepairEntry[];
 };
+type PendingPracticeRepairLinkedAction = {
+  memoryAidKind: "Acronym" | "Metaphor";
+  reference: PracticeRepairQuestionReference;
+  type: "add-memory-aid";
+} | null;
+type CompleteLinkedPracticeRepairRouteInput =
+  | {
+      intent: "add-memory-aid";
+      intentMetadata: {
+        memoryAidId: string | null;
+        memoryAidKind: "Acronym" | "Metaphor" | null;
+      };
+      reference: PracticeRepairQuestionReference;
+    }
+  | {
+      intent: "create-sibling-study-note";
+      intentMetadata: {
+        createdStudyNoteId: string | null;
+      };
+      reference: PracticeRepairQuestionReference;
+    };
 type ActivePracticeRepairEntryViewInput = {
   recallContext: ActivePracticeRepairEntryReader;
   sessionResults: readonly SessionResult[];
@@ -462,6 +487,7 @@ type ActivePracticeRepairEntryViewInput = {
 
 const practiceRepairMutationActions = [
   "edit",
+  "linked-action",
   "complete",
   "dismiss",
 ] as const satisfies readonly PracticeRepairMutationAction[];
@@ -658,6 +684,22 @@ function getSupportDescriptionValue(
   supportDescriptions: readonly { description: string }[],
 ) {
   return supportDescriptions[0]?.description ?? "";
+}
+
+function getSupportDescriptionValueByKind(input: {
+  memoryAidKind: "Acronym" | "Metaphor";
+  studyNote: AppStudyNote;
+}) {
+  return input.memoryAidKind === "Metaphor"
+    ? getSupportDescriptionValue(input.studyNote.metaphors)
+    : getSupportDescriptionValue(input.studyNote.acronyms);
+}
+
+function getPracticeRepairMemoryAidReference(input: {
+  memoryAidKind: "Acronym" | "Metaphor";
+  studyNoteId: string;
+}) {
+  return `${input.studyNoteId}:${input.memoryAidKind.toLowerCase()}`;
 }
 
 function formatSelectedNextRecall(input: {
@@ -1035,6 +1077,10 @@ function StudyNotesWorkspace() {
   >(null);
   const [practiceRepairCorrectionDrafts, setPracticeRepairCorrectionDrafts] =
     useState<Record<string, string>>({});
+  const [
+    pendingPracticeRepairLinkedAction,
+    setPendingPracticeRepairLinkedAction,
+  ] = useState<PendingPracticeRepairLinkedAction>(null);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [isSaving, setSaving] = useState(false);
   const [pendingEditorTarget, setPendingEditorTarget] =
@@ -1116,6 +1162,7 @@ function StudyNotesWorkspace() {
 
     setDraft(nextDraft);
     setPendingEditorTarget(null);
+    setPendingPracticeRepairLinkedAction(null);
   }, [selectedStudyNote]);
 
   useEffect(() => {
@@ -1265,7 +1312,63 @@ function StudyNotesWorkspace() {
     }
   }
 
-  async function handleCreateSiblingStudyNote() {
+  async function completeLinkedPracticeRepairEntry(
+    input: CompleteLinkedPracticeRepairRouteInput,
+  ) {
+    await mutatePracticeRepairEntry({
+      action: "linked-action",
+      mutation: (validatedUserId) => {
+        if (persistentRecallContext === undefined) {
+          switch (input.intent) {
+            case "create-sibling-study-note":
+              recallContext.completeLinkedPracticeRepairEntry({
+                intent: input.intent,
+                intentMetadata: input.intentMetadata,
+                reference: input.reference,
+                userId: validatedUserId,
+              });
+              return;
+            case "add-memory-aid":
+              recallContext.completeLinkedPracticeRepairEntry({
+                intent: input.intent,
+                intentMetadata: input.intentMetadata,
+                reference: input.reference,
+                userId: validatedUserId,
+              });
+              return;
+          }
+          return;
+        }
+
+        switch (input.intent) {
+          case "create-sibling-study-note":
+            return persistentRecallContext.completeLinkedPracticeRepairEntry(
+              validatedUserId,
+              {
+                intent: input.intent,
+                intentMetadata: input.intentMetadata,
+                reference: input.reference,
+              },
+            );
+          case "add-memory-aid":
+            return persistentRecallContext.completeLinkedPracticeRepairEntry(
+              validatedUserId,
+              {
+                intent: input.intent,
+                intentMetadata: input.intentMetadata,
+                reference: input.reference,
+              },
+            );
+        }
+      },
+      reference: input.reference,
+      successMessage: "Practice Repair completed",
+    });
+  }
+
+  async function handleCreateSiblingStudyNote(input?: {
+    practiceRepairReference?: PracticeRepairQuestionReference;
+  }) {
     if (selectedStudyNote === null) {
       return;
     }
@@ -1280,11 +1383,41 @@ function StudyNotesWorkspace() {
           sourceNoteId: selectedStudyNote.sourceNoteId,
         },
       );
+
+      if (input?.practiceRepairReference !== undefined) {
+        await completeLinkedPracticeRepairEntry({
+          intent: "create-sibling-study-note",
+          intentMetadata: {
+            createdStudyNoteId: createdStudyNote.id,
+          },
+          reference: input.practiceRepairReference,
+        });
+      }
+
       setCreatingStudyNote(false);
       setSelectedStudyNoteId(createdStudyNote.id);
     } catch (error) {
+      if (error instanceof AppRecallError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
       handleError(error);
     }
+  }
+
+  function handleStartMemoryAidPracticeRepair(input: {
+    memoryAidKind: "Acronym" | "Metaphor";
+    reference: PracticeRepairQuestionReference;
+  }) {
+    setErrorMessage(null);
+    setSaveStatus(null);
+    setMemoryAidsOpenOverride(true);
+    setPendingPracticeRepairLinkedAction({
+      memoryAidKind: input.memoryAidKind,
+      reference: input.reference,
+      type: "add-memory-aid",
+    });
   }
 
   async function mutatePracticeRepairEntry(input: {
@@ -1509,6 +1642,48 @@ function StudyNotesWorkspace() {
     });
   }
 
+  async function maybeCompletePendingPracticeRepairLinkedAction(
+    savedStudyNote: AppStudyNote,
+  ) {
+    if (
+      pendingPracticeRepairLinkedAction === null ||
+      savedStudyNote.id !==
+        pendingPracticeRepairLinkedAction.reference.studyNoteId
+    ) {
+      return false;
+    }
+
+    switch (pendingPracticeRepairLinkedAction.type) {
+      case "add-memory-aid": {
+        const description = getSupportDescriptionValueByKind({
+          memoryAidKind: pendingPracticeRepairLinkedAction.memoryAidKind,
+          studyNote: savedStudyNote,
+        }).trim();
+
+        if (description.length === 0) {
+          setSaveStatus(
+            `Saved. Add a ${pendingPracticeRepairLinkedAction.memoryAidKind} to complete Practice Repair.`,
+          );
+          return true;
+        }
+
+        await completeLinkedPracticeRepairEntry({
+          intent: "add-memory-aid",
+          intentMetadata: {
+            memoryAidId: getPracticeRepairMemoryAidReference({
+              memoryAidKind: pendingPracticeRepairLinkedAction.memoryAidKind,
+              studyNoteId: savedStudyNote.id,
+            }),
+            memoryAidKind: pendingPracticeRepairLinkedAction.memoryAidKind,
+          },
+          reference: pendingPracticeRepairLinkedAction.reference,
+        });
+        setPendingPracticeRepairLinkedAction(null);
+        return true;
+      }
+    }
+  }
+
   async function saveDraft(): Promise<AppStudyNote | null> {
     if (!hasDraftChanges) {
       return selectedStudyNote;
@@ -1545,7 +1720,13 @@ function StudyNotesWorkspace() {
       }
 
       await captureFocusStudyNoteActivity(savedStudyNote);
-      setSaveStatus("Saved just now");
+
+      if (
+        !(await maybeCompletePendingPracticeRepairLinkedAction(savedStudyNote))
+      ) {
+        setSaveStatus("Saved just now");
+      }
+
       return savedStudyNote;
     } catch (error) {
       handleError(error);
@@ -2082,6 +2263,54 @@ function StudyNotesWorkspace() {
                             </div>
                           )}
                           <div className="study-notes-practice-repair__actions">
+                            {entry.intent === "create-sibling-study-note" ? (
+                              <Button
+                                disabled={isMutationPending}
+                                onClick={() =>
+                                  void handleCreateSiblingStudyNote({
+                                    practiceRepairReference: entry.reference,
+                                  })
+                                }
+                                size="compact"
+                                type="button"
+                                variant="secondary"
+                              >
+                                <CopyIcon />
+                                <span>Create sibling Study Note</span>
+                              </Button>
+                            ) : null}
+                            {entry.intent === "add-memory-aid" ? (
+                              <>
+                                <Button
+                                  disabled={isMutationPending}
+                                  onClick={() =>
+                                    handleStartMemoryAidPracticeRepair({
+                                      memoryAidKind: "Metaphor",
+                                      reference: entry.reference,
+                                    })
+                                  }
+                                  size="compact"
+                                  type="button"
+                                  variant="secondary"
+                                >
+                                  <span>Add Metaphor</span>
+                                </Button>
+                                <Button
+                                  disabled={isMutationPending}
+                                  onClick={() =>
+                                    handleStartMemoryAidPracticeRepair({
+                                      memoryAidKind: "Acronym",
+                                      reference: entry.reference,
+                                    })
+                                  }
+                                  size="compact"
+                                  type="button"
+                                  variant="secondary"
+                                >
+                                  <span>Add Acronym</span>
+                                </Button>
+                              </>
+                            ) : null}
                             <Button
                               disabled={
                                 isMutationPending ||

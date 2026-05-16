@@ -1782,7 +1782,7 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.queryByText("Anchor expected answer.")).toBeNull();
   });
 
-  it("creates a sibling Study Note from Practice Repair with copied source material", async () => {
+  it("creates a sibling Study Note from Practice Repair with the same source material", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-practice-repair-sibling";
     const originalStudyNote = contexts.studyNotesContext.createStudyNote(
@@ -1832,12 +1832,168 @@ describe("authenticated Study Notes workspace", () => {
       (studyNote) => studyNote.sourceNoteId,
     );
     expect(sourceNoteIds).toContain(originalStudyNote.sourceNoteId);
-    expect(new Set(sourceNoteIds).size).toBe(2);
+    expect(new Set(sourceNoteIds)).toEqual(
+      new Set([originalStudyNote.sourceNoteId]),
+    );
 
     const promptField = screen.getByLabelText("Prompt");
     expect(promptField).toHaveValue("Sibling repair source");
     expect(screen.getByLabelText("Expected answer")).toHaveValue(
       "Shared source body for sibling repair.",
     );
+  });
+
+  it("completes an active create-sibling Practice Repair from the entry action and records the created sibling", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-practice-repair-active-sibling";
+    const studyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Original expected answer.",
+      prompt: "Original prompt",
+      sourceBody: "Shared source body for sibling repair.",
+      sourceTitle: "Sibling repair source",
+      userId,
+    });
+
+    completeStudyNoteRecall(contexts, {
+      rating: "forgot",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const confirmedResult = confirmStudyNotePracticeRepair(contexts, {
+      correction: "Create a sibling Study Note for the transport detail.",
+      intent: "create-sibling-study-note",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const confirmedReference =
+      getConfirmedPracticeRepairReference(confirmedResult);
+
+    renderStudyNotesRouteForUser(contexts, {
+      displayName: "Jordan Active Sibling Repair",
+      email: "jordan.active.sibling.repair@example.com",
+      id: userId,
+      userLanguage: "en",
+    });
+
+    const activePracticeRepair = await screen.findByRole("region", {
+      name: "Active Practice Repair",
+    });
+    const activeEntry = within(activePracticeRepair).getByRole("article", {
+      name: "Create sibling Study Note",
+    });
+
+    fireEvent.click(
+      within(activeEntry).getByRole("button", {
+        name: "Create sibling Study Note",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("article", { name: "Create sibling Study Note" }),
+      ).toBeNull(),
+    );
+    expect(await screen.findByLabelText("Prompt")).toHaveValue(
+      "Sibling repair source",
+    );
+    expect(screen.getByLabelText("Expected answer")).toHaveValue(
+      "Shared source body for sibling repair.",
+    );
+
+    const allStudyNotes = contexts.studyNotesContext.getSnapshot();
+    expect(allStudyNotes).toHaveLength(2);
+    expect(new Set(allStudyNotes.map((note) => note.sourceNoteId))).toEqual(
+      new Set([studyNote.sourceNoteId]),
+    );
+
+    expect(
+      contexts.recallContext.listPracticeRepairEntriesForQuestion({
+        reference: confirmedReference,
+        userId,
+      })[0],
+    ).toMatchObject({
+      intentMetadata: {
+        createdStudyNoteId: expect.any(String),
+      },
+      lifecycle: {
+        completedAt: expect.any(String),
+      },
+    });
+  });
+
+  it("completes an active add-memory-aid Practice Repair after the user chooses an Acronym and saves it", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-practice-repair-active-memory-aid";
+    const studyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Original expected answer.",
+      prompt: "Original prompt",
+      sourceBody: "Shared source body for memory-aid repair.",
+      sourceTitle: "Memory-aid repair source",
+      userId,
+    });
+
+    completeStudyNoteRecall(contexts, {
+      rating: "hard",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const confirmedResult = confirmStudyNotePracticeRepair(contexts, {
+      correction: "Add an acronym for the transport steps.",
+      intent: "add-memory-aid",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const confirmedReference =
+      getConfirmedPracticeRepairReference(confirmedResult);
+
+    renderStudyNotesRouteForUser(contexts, {
+      displayName: "Jordan Active Memory Aid Repair",
+      email: "jordan.active.memory.aid.repair@example.com",
+      id: userId,
+      userLanguage: "en",
+    });
+
+    const activePracticeRepair = await screen.findByRole("region", {
+      name: "Active Practice Repair",
+    });
+    const activeEntry = within(activePracticeRepair).getByRole("article", {
+      name: "Add memory aid",
+    });
+
+    fireEvent.click(
+      within(activeEntry).getByRole("button", {
+        name: "Add Acronym",
+      }),
+    );
+    fireEvent.change(screen.getByLabelText("Acronym"), {
+      target: {
+        value: "ATP keeps the transfer pathway in order.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("article", { name: "Add memory aid" }),
+      ).toBeNull(),
+    );
+    expect(screen.getByLabelText("Acronym")).toHaveValue(
+      "ATP keeps the transfer pathway in order.",
+    );
+
+    expect(
+      contexts.recallContext.listPracticeRepairEntriesForQuestion({
+        reference: confirmedReference,
+        userId,
+      })[0],
+    ).toMatchObject({
+      intentMetadata: {
+        memoryAidId: expect.any(String),
+        memoryAidKind: "Acronym",
+      },
+      lifecycle: {
+        completedAt: expect.any(String),
+      },
+    });
   });
 });

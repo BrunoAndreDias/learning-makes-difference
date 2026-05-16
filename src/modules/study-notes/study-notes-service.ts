@@ -465,7 +465,6 @@ export function createStudyNotesService({
       }
 
       const timestamp = now();
-      const sourceNoteId = crypto.randomUUID();
       const studyNoteId = crypto.randomUUID();
       const linkedStudyNotes = await db
         .select(studyNoteSelectFields)
@@ -478,21 +477,12 @@ export function createStudyNotesService({
       });
 
       await db.transaction(async (tx) => {
-        await tx.insert(notesTable).values({
-          body: source.body,
-          createdAt: timestamp,
-          id: sourceNoteId,
-          labelIds: [],
-          title: source.title,
-          updatedAt: timestamp,
-          userId,
-        });
         await tx.insert(studyNotesTable).values({
           createdAt: timestamp,
           expectedAnswer: source.body,
           id: studyNoteId,
           prompt,
-          sourceNoteId,
+          sourceNoteId: source.id,
           updatedAt: timestamp,
         });
       });
@@ -507,12 +497,15 @@ export function createStudyNotesService({
         prompt,
         sourceBody: source.body,
         sourceDisplayName: getSourceDisplayNameFromRows({
-          linkedStudyNotes: [{ createdAt: timestamp, prompt }],
+          linkedStudyNotes: [
+            ...linkedStudyNotes,
+            { createdAt: timestamp, prompt },
+          ],
           sourceTitle: source.title,
         }),
-        sourceNoteId,
+        sourceNoteId: source.id,
         sourceTitle: source.title,
-        sourceUpdatedAt: timestamp,
+        sourceUpdatedAt: source.updatedAt,
         updatedAt: timestamp,
       });
     },

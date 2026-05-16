@@ -8,6 +8,8 @@ import {
   listStudyNotesForUser,
 } from "../study-notes";
 import {
+  type AddMemoryAidPracticeRepairMetadata,
+  type CreateSiblingStudyNotePracticeRepairMetadata,
   clonePracticeRepairEntry as clonePracticeRepairEntryValue,
   createPracticeRepairIntentMetadata,
   getPracticeRepairEntryLifecycleState,
@@ -206,6 +208,18 @@ type UpdatePracticeRepairEntryCorrectionInput =
     correction: string;
   };
 
+type CompleteLinkedPracticeRepairEntryInput = PracticeRepairEntryMutationInput &
+  (
+    | {
+        intent: "add-memory-aid";
+        intentMetadata: AddMemoryAidPracticeRepairMetadata;
+      }
+    | {
+        intent: "create-sibling-study-note";
+        intentMetadata: CreateSiblingStudyNotePracticeRepairMetadata;
+      }
+  );
+
 type CreateAppRecallContextOptions = {
   crypto?: RecallCrypto;
   getLabelsForUser?: (userId: string) => readonly AppLabel[];
@@ -281,6 +295,9 @@ export type AppRecallContext = {
   answerQuestion: (input: AnswerQuestionInput) => RecallSession | null;
   completePracticeRepairEntry: (
     input: PracticeRepairEntryMutationInput,
+  ) => SessionResult;
+  completeLinkedPracticeRepairEntry: (
+    input: CompleteLinkedPracticeRepairEntryInput,
   ) => SessionResult;
   confirmPracticeRepairEntry: (
     input: ConfirmPracticeRepairEntryInput,
@@ -1585,6 +1602,75 @@ export function createAppRecallContext(
     });
   }
 
+  function completeLinkedPracticeRepairEntry(
+    input: CompleteLinkedPracticeRepairEntryInput,
+  ): SessionResult {
+    return updatePracticeRepairEntryForReference({
+      onHistoricalMessage:
+        "Only active Practice Repair entries can be completed.",
+      reference: input.reference,
+      updateEntry: (entry) => {
+        if (entry.intent !== input.intent) {
+          throw new AppRecallError(
+            "invalid_input",
+            "This linked action does not match the active Practice Repair intent.",
+          );
+        }
+
+        switch (input.intent) {
+          case "create-sibling-study-note": {
+            const createdStudyNoteId =
+              input.intentMetadata.createdStudyNoteId?.trim() ?? "";
+
+            if (createdStudyNoteId.length === 0) {
+              throw new AppRecallError(
+                "invalid_input",
+                "Create sibling Study Note requires the created Study Note reference.",
+              );
+            }
+
+            return {
+              ...entry,
+              intentMetadata: {
+                createdStudyNoteId,
+              },
+              lifecycle: {
+                ...entry.lifecycle,
+                completedAt: new Date().toISOString(),
+              },
+            };
+          }
+          case "add-memory-aid": {
+            const memoryAidId = input.intentMetadata.memoryAidId?.trim() ?? "";
+
+            if (
+              memoryAidId.length === 0 ||
+              input.intentMetadata.memoryAidKind === null
+            ) {
+              throw new AppRecallError(
+                "invalid_input",
+                "Add memory aid requires the created aid kind and reference.",
+              );
+            }
+
+            return {
+              ...entry,
+              intentMetadata: {
+                memoryAidId,
+                memoryAidKind: input.intentMetadata.memoryAidKind,
+              },
+              lifecycle: {
+                ...entry.lifecycle,
+                completedAt: new Date().toISOString(),
+              },
+            };
+          }
+        }
+      },
+      userId: input.userId,
+    });
+  }
+
   function dismissPracticeRepairEntry(
     input: PracticeRepairEntryMutationInput,
   ): SessionResult {
@@ -1820,6 +1906,7 @@ export function createAppRecallContext(
   return {
     answerQuestion,
     completePracticeRepairEntry,
+    completeLinkedPracticeRepairEntry,
     confirmPracticeRepairEntry,
     dismissPracticeRepairEntry,
     endRecallSession,

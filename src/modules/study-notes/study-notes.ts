@@ -527,7 +527,6 @@ export function createAppStudyNotesContext(
       }
 
       const timestamp = new Date().toISOString();
-      const sourceNoteId = cryptoProvider.randomUUID();
       const prompt = getStudyNoteSourceDisplayName({
         linkedStudyNotes: snapshot.filter(
           (studyNote) =>
@@ -545,11 +544,11 @@ export function createAppStudyNotesContext(
         prompt,
         source: {
           body: sourceStudyNote.source.body,
-          id: sourceNoteId,
+          id: sourceStudyNote.source.id,
           title: sourceStudyNote.source.title,
-          updatedAt: timestamp,
+          updatedAt: sourceStudyNote.source.updatedAt,
         },
-        sourceNoteId,
+        sourceNoteId: sourceStudyNote.sourceNoteId,
         updatedAt: timestamp,
         userId: validatedUserId,
       };

@@ -276,7 +276,7 @@ describe("app study notes context", () => {
     });
   });
 
-  it("copies source material into a new Study Note-owned source", () => {
+  it("shares source material across sibling Study Notes until one is edited", () => {
     const studyNotes = createAppStudyNotesContext({
       crypto: createDeterministicCrypto(),
       keyPrefix: "study-notes-shared-source-test",
@@ -290,17 +290,25 @@ describe("app study notes context", () => {
     const secondStudyNote = studyNotes.createStudyNoteFromSource("user-casey", {
       sourceNoteId: firstStudyNote.sourceNoteId,
     });
-    expect(secondStudyNote.sourceNoteId).not.toBe(firstStudyNote.sourceNoteId);
+    expect(secondStudyNote.sourceNoteId).toBe(firstStudyNote.sourceNoteId);
 
-    studyNotes.updateStudyNote("user-casey", secondStudyNote.id, {
-      acronyms: [{ description: "SPA cues spacing." }],
-      expectedAnswer: "Use spacing for durable access.",
-      labelIds: [],
-      metaphors: [{ description: "Spacing is a path worn in over time." }],
-      prompt: "How does spacing help?",
-      sourceBody: "Edited shared source context.",
-      sourceTitle: "Edited practice source",
-    });
+    const updatedSecondStudyNote = studyNotes.updateStudyNote(
+      "user-casey",
+      secondStudyNote.id,
+      {
+        acronyms: [{ description: "SPA cues spacing." }],
+        expectedAnswer: "Use spacing for durable access.",
+        labelIds: [],
+        metaphors: [{ description: "Spacing is a path worn in over time." }],
+        prompt: "How does spacing help?",
+        sourceBody: "Edited shared source context.",
+        sourceTitle: "Edited practice source",
+      },
+    );
+
+    expect(updatedSecondStudyNote.sourceNoteId).not.toBe(
+      firstStudyNote.sourceNoteId,
+    );
 
     expect(
       listStudyNotesForUser(studyNotes.getSnapshot(), "user-casey"),
@@ -314,7 +322,7 @@ describe("app study notes context", () => {
           body: "Edited shared source context.",
           title: "Edited practice source",
         },
-        sourceNoteId: secondStudyNote.sourceNoteId,
+        sourceNoteId: updatedSecondStudyNote.sourceNoteId,
       },
       {
         acronyms: [],
@@ -493,7 +501,7 @@ describe("app study notes context", () => {
     );
   });
 
-  it("requires deleting each Study Note-owned source Note", () => {
+  it("allows deleting a sibling without deleting the shared source but still protects the last source Note", () => {
     const studyNotes = createAppStudyNotesContext({
       crypto: createDeterministicCrypto(),
       keyPrefix: "study-notes-delete-test",
@@ -507,18 +515,8 @@ describe("app study notes context", () => {
       sourceNoteId: firstStudyNote.sourceNoteId,
     });
 
-    expect(() =>
-      studyNotes.deleteStudyNote("user-casey", secondStudyNote.id, {
-        deleteSource: false,
-      }),
-    ).toThrowError(
-      expect.objectContaining({
-        code: "invalid_input",
-      } satisfies Pick<AppStudyNotesError, "code">),
-    );
-
     studyNotes.deleteStudyNote("user-casey", secondStudyNote.id, {
-      deleteSource: true,
+      deleteSource: false,
     });
 
     expect(

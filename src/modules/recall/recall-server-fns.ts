@@ -56,6 +56,27 @@ const updatePracticeRepairEntryCorrectionInputSchema = z.object({
   reference: practiceRepairEntryReferenceSchema,
 });
 
+const completeLinkedPracticeRepairEntryInputSchema = z.discriminatedUnion(
+  "intent",
+  [
+    z.object({
+      intent: z.literal("create-sibling-study-note"),
+      intentMetadata: z.object({
+        createdStudyNoteId: z.string().nullable(),
+      }),
+      reference: practiceRepairEntryReferenceSchema,
+    }),
+    z.object({
+      intent: z.literal("add-memory-aid"),
+      intentMetadata: z.object({
+        memoryAidId: z.string().nullable(),
+        memoryAidKind: z.enum(["Metaphor", "Acronym"]).nullable(),
+      }),
+      reference: practiceRepairEntryReferenceSchema,
+    }),
+  ],
+);
+
 async function createRequestAuthService() {
   const [{ createAuthService }, { loadAppEnv }, { getAuthDb }] =
     await Promise.all([
@@ -298,6 +319,34 @@ const completePracticeRepairEntryServerFn = createServerFn({
     });
   });
 
+const completeLinkedPracticeRepairEntryServerFn = createServerFn({
+  method: "POST",
+})
+  .inputValidator(completeLinkedPracticeRepairEntryInputSchema)
+  .handler(async ({ data }) => {
+    const [userId, recall] = await Promise.all([
+      requireRequestUserId(),
+      createRequestRecallService(),
+    ]);
+
+    switch (data.intent) {
+      case "create-sibling-study-note":
+        return recall.completeLinkedPracticeRepairEntry({
+          intent: data.intent,
+          intentMetadata: data.intentMetadata,
+          reference: data.reference,
+          userId,
+        });
+      case "add-memory-aid":
+        return recall.completeLinkedPracticeRepairEntry({
+          intent: data.intent,
+          intentMetadata: data.intentMetadata,
+          reference: data.reference,
+          userId,
+        });
+    }
+  });
+
 const dismissPracticeRepairEntryServerFn = createServerFn({
   method: "POST",
 })
@@ -337,6 +386,10 @@ export function createServerRecallService(): AppPersistentRecallService {
       input: z.infer<typeof practiceRepairEntryMutationInputSchema>,
     ): Promise<SessionResult> =>
       completePracticeRepairEntryServerFn({ data: input }),
+    completeLinkedPracticeRepairEntry: (
+      input: z.infer<typeof completeLinkedPracticeRepairEntryInputSchema>,
+    ): Promise<SessionResult> =>
+      completeLinkedPracticeRepairEntryServerFn({ data: input }),
     confirmPracticeRepairEntry: (
       input: z.infer<typeof confirmPracticeRepairEntryInputSchema>,
     ): Promise<SessionResult> =>
