@@ -929,6 +929,109 @@ function getSessionResultQuestionIndex(input: {
   return input.reference.questionIndex;
 }
 
+function replacePracticeRepairEntryInSessionResult(input: {
+  practiceRepairEntry: PracticeRepairEntry;
+  questionIndex: number;
+  result: StoredSessionResult;
+}): StoredSessionResult {
+  const nextResult = cloneSessionResult(input.result);
+
+  return {
+    ...nextResult,
+    questions: nextResult.questions.map((question, candidateQuestionIndex) =>
+      candidateQuestionIndex === input.questionIndex
+        ? {
+            ...question,
+            practiceRepairEntry: clonePracticeRepairEntryValue(
+              input.practiceRepairEntry,
+            ),
+          }
+        : question,
+    ),
+  };
+}
+
+function shouldSupersedeActivePracticeRepairEntry(input: {
+  entry: PracticeRepairEntry;
+  intent: PracticeRepairEntry["intent"];
+  isConfirmedEntry: boolean;
+  studyNoteId: string;
+}) {
+  return (
+    input.entry.intent === input.intent &&
+    input.entry.reference.studyNoteId === input.studyNoteId &&
+    getPracticeRepairEntryLifecycleState(input.entry) === "active" &&
+    !input.isConfirmedEntry
+  );
+}
+
+function supersedePracticeRepairEntry(
+  entry: PracticeRepairEntry,
+  supersededAt: string,
+): PracticeRepairEntry {
+  return {
+    ...clonePracticeRepairEntryValue(entry),
+    lifecycle: {
+      ...entry.lifecycle,
+      supersededAt,
+    },
+  };
+}
+
+function supersedeMatchingPracticeRepairEntries(input: {
+  confirmedAt: string;
+  intent: PracticeRepairEntry["intent"];
+  nextResult: StoredSessionResult;
+  questionIndex: number;
+  resultIndex: number;
+  sessionResults: readonly StoredSessionResult[];
+  studyNoteId: string;
+  userId: string;
+}): StoredSessionResult[] {
+  return input.sessionResults.map((candidate, candidateIndex) => {
+    if (candidate.userId !== input.userId) {
+      return candidate;
+    }
+
+    const nextCandidate =
+      candidateIndex === input.resultIndex
+        ? input.nextResult
+        : cloneSessionResult(candidate);
+
+    return {
+      ...nextCandidate,
+      questions: nextCandidate.questions.map(
+        (candidateQuestion, candidateQuestionIndex) => {
+          const candidateEntry = candidateQuestion.practiceRepairEntry;
+          const isConfirmedEntry =
+            candidateIndex === input.resultIndex &&
+            candidateQuestionIndex === input.questionIndex;
+
+          if (
+            candidateEntry === undefined ||
+            !shouldSupersedeActivePracticeRepairEntry({
+              entry: candidateEntry,
+              intent: input.intent,
+              isConfirmedEntry,
+              studyNoteId: input.studyNoteId,
+            })
+          ) {
+            return candidateQuestion;
+          }
+
+          return {
+            ...cloneRecallQuestion(candidateQuestion),
+            practiceRepairEntry: supersedePracticeRepairEntry(
+              candidateEntry,
+              input.confirmedAt,
+            ),
+          };
+        },
+      ),
+    };
+  });
+}
+
 function getRecallLabelSnapshots(input: {
   labelIds: readonly string[];
   labelsById: ReadonlyMap<string, AppLabel>;
@@ -1353,19 +1456,13 @@ export function createAppRecallContext(
       throw new AppRecallError("invalid_input", input.onHistoricalMessage);
     }
 
-    const nextResult: StoredSessionResult = {
-      ...cloneSessionResult(result),
-      questions: result.questions.map((candidateQuestion, candidateIndex) =>
-        candidateIndex === questionIndex
-          ? {
-              ...cloneRecallQuestion(candidateQuestion),
-              practiceRepairEntry: input.updateEntry(
-                clonePracticeRepairEntryValue(practiceRepairEntry),
-              ),
-            }
-          : cloneRecallQuestion(candidateQuestion),
+    const nextResult = replacePracticeRepairEntryInSessionResult({
+      practiceRepairEntry: input.updateEntry(
+        clonePracticeRepairEntryValue(practiceRepairEntry),
       ),
-    };
+      questionIndex,
+      result,
+    });
 
     writeSessionResults(
       sessionResults.map((candidate, candidateIndex) =>
@@ -1396,28 +1493,11 @@ export function createAppRecallContext(
       );
     }
 
-    const resultIndex = sessionResults.findIndex((candidate) => {
-      return (
-        candidate.userId === input.userId &&
-        candidate.id === input.reference.sessionResultId
-      );
-    });
-
-    if (resultIndex < 0) {
-      throw new AppRecallError("not_found", "Session result not found.");
-    }
-
-    const result = sessionResults[resultIndex];
-    const questionIndex = getSessionResultQuestionIndex({
-      reference: input.reference,
-      result,
-    });
-
-    if (questionIndex === null) {
-      throw new AppRecallError("not_found", "Question result not found.");
-    }
-
-    const question = result.questions[questionIndex];
+    const { question, questionIndex, result, resultIndex } =
+      getStoredPracticeRepairEntryTarget({
+        reference: input.reference,
+        userId: input.userId,
+      });
 
     if (!isPracticeRepairEligibleQuestion(question)) {
       throw new AppRecallError(
@@ -1442,61 +1522,22 @@ export function createAppRecallContext(
           question.questionResultId ?? input.reference.questionResultId,
       },
     };
-    const nextResult: StoredSessionResult = {
-      ...result,
-      questions: result.questions.map((candidateQuestion, candidateIndex) =>
-        candidateIndex === questionIndex
-          ? {
-              ...cloneRecallQuestion(candidateQuestion),
-              practiceRepairEntry,
-            }
-          : cloneRecallQuestion(candidateQuestion),
-      ),
-    };
+    const nextResult = replacePracticeRepairEntryInSessionResult({
+      practiceRepairEntry,
+      questionIndex,
+      result,
+    });
 
     writeSessionResults(
-      sessionResults.map((candidate, candidateIndex) => {
-        if (candidate.userId !== input.userId) {
-          return candidate;
-        }
-
-        const nextCandidate =
-          candidateIndex === resultIndex
-            ? nextResult
-            : cloneSessionResult(candidate);
-
-        return {
-          ...nextCandidate,
-          questions: nextCandidate.questions.map(
-            (candidateQuestion, candidateQuestionIndex) => {
-              const candidateEntry = candidateQuestion.practiceRepairEntry;
-
-              if (
-                candidateEntry === undefined ||
-                candidateEntry.intent !== input.intent ||
-                candidateEntry.reference.studyNoteId !==
-                  input.reference.studyNoteId ||
-                getPracticeRepairEntryLifecycleState(candidateEntry) !==
-                  "active" ||
-                (candidateIndex === resultIndex &&
-                  candidateQuestionIndex === questionIndex)
-              ) {
-                return candidateQuestion;
-              }
-
-              return {
-                ...cloneRecallQuestion(candidateQuestion),
-                practiceRepairEntry: {
-                  ...clonePracticeRepairEntryValue(candidateEntry),
-                  lifecycle: {
-                    ...candidateEntry.lifecycle,
-                    supersededAt: confirmedAt,
-                  },
-                },
-              };
-            },
-          ),
-        };
+      supersedeMatchingPracticeRepairEntries({
+        confirmedAt,
+        intent: input.intent,
+        nextResult,
+        questionIndex,
+        resultIndex,
+        sessionResults,
+        studyNoteId: input.reference.studyNoteId,
+        userId: input.userId,
       }),
     );
 

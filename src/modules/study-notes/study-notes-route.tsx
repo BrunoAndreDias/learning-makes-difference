@@ -433,6 +433,14 @@ type StudyNoteEditorTarget =
       type: "new";
     };
 
+type PracticeRepairMutationAction = "complete" | "dismiss" | "edit";
+
+const practiceRepairMutationActions = [
+  "edit",
+  "complete",
+  "dismiss",
+] as const satisfies readonly PracticeRepairMutationAction[];
+
 const selectedStudyNoteDateFormatter = new Intl.DateTimeFormat("en", {
   dateStyle: "medium",
   timeZone: "UTC",
@@ -507,6 +515,13 @@ function getPracticeRepairEntryKey(reference: PracticeRepairQuestionReference) {
     reference.sessionResultId,
     reference.questionResultId ?? reference.questionIndex.toString(),
   ].join(":");
+}
+
+function getPracticeRepairMutationKey(
+  action: PracticeRepairMutationAction,
+  reference: PracticeRepairQuestionReference,
+) {
+  return `${action}:${getPracticeRepairEntryKey(reference)}`;
 }
 
 function getStudyNoteLabelNames(
@@ -1125,129 +1140,141 @@ function StudyNotesWorkspace() {
     }
   }
 
-  async function updatePracticeRepairEntryCorrection(input: {
-    correction: string;
+  async function mutatePracticeRepairEntry(input: {
+    action: PracticeRepairMutationAction;
+    mutation: (validatedUserId: string) => Promise<unknown> | undefined;
+    onSuccess?: () => void;
     reference: PracticeRepairQuestionReference;
+    successMessage: string;
   }) {
     if (userId === null) {
       return;
     }
 
+    setErrorMessage(null);
+    setSaveStatus(null);
+    setPracticeRepairMutationKey(
+      getPracticeRepairMutationKey(input.action, input.reference),
+    );
+
+    try {
+      const mutationResult = input.mutation(userId);
+
+      if (mutationResult !== undefined) {
+        await mutationResult;
+      }
+
+      input.onSuccess?.();
+      setSaveStatus(input.successMessage);
+    } catch (error) {
+      if (error instanceof AppRecallError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    } finally {
+      setPracticeRepairMutationKey(null);
+    }
+  }
+
+  async function updatePracticeRepairEntryCorrection(input: {
+    correction: string;
+    reference: PracticeRepairQuestionReference;
+  }) {
     const correction = input.correction.trim();
     const entryKey = getPracticeRepairEntryKey(input.reference);
 
-    setErrorMessage(null);
-    setSaveStatus(null);
-    setPracticeRepairMutationKey(`edit:${entryKey}`);
+    await mutatePracticeRepairEntry({
+      action: "edit",
+      mutation: (validatedUserId) => {
+        if (persistentRecallContext === undefined) {
+          recallContext.updatePracticeRepairEntryCorrection({
+            correction,
+            reference: input.reference,
+            userId: validatedUserId,
+          });
+          return;
+        }
 
-    try {
-      if (persistentRecallContext === undefined) {
-        recallContext.updatePracticeRepairEntryCorrection({
-          correction,
-          reference: input.reference,
-          userId,
-        });
-      } else {
-        await persistentRecallContext.updatePracticeRepairEntryCorrection(
-          userId,
+        return persistentRecallContext.updatePracticeRepairEntryCorrection(
+          validatedUserId,
           {
             correction,
             reference: input.reference,
           },
         );
-      }
-
-      setPracticeRepairCorrectionDrafts((current) => ({
-        ...current,
-        [entryKey]: correction,
-      }));
-      setSaveStatus("Practice Repair updated");
-    } catch (error) {
-      if (error instanceof AppRecallError) {
-        setErrorMessage(error.message);
-        return;
-      }
-
-      throw error;
-    } finally {
-      setPracticeRepairMutationKey(null);
-    }
+      },
+      onSuccess: () =>
+        setPracticeRepairCorrectionDrafts((current) => ({
+          ...current,
+          [entryKey]: correction,
+        })),
+      reference: input.reference,
+      successMessage: "Practice Repair updated",
+    });
   }
 
   async function completePracticeRepairEntry(
     reference: PracticeRepairQuestionReference,
   ) {
-    if (userId === null) {
-      return;
-    }
+    await mutatePracticeRepairEntry({
+      action: "complete",
+      mutation: (validatedUserId) => {
+        if (persistentRecallContext === undefined) {
+          recallContext.completePracticeRepairEntry({
+            reference,
+            userId: validatedUserId,
+          });
+          return;
+        }
 
-    setErrorMessage(null);
-    setSaveStatus(null);
-    setPracticeRepairMutationKey(
-      `complete:${getPracticeRepairEntryKey(reference)}`,
-    );
-
-    try {
-      if (persistentRecallContext === undefined) {
-        recallContext.completePracticeRepairEntry({
-          reference,
-          userId,
-        });
-      } else {
-        await persistentRecallContext.completePracticeRepairEntry(userId, {
-          reference,
-        });
-      }
-
-      setSaveStatus("Practice Repair completed");
-    } catch (error) {
-      if (error instanceof AppRecallError) {
-        setErrorMessage(error.message);
-        return;
-      }
-
-      throw error;
-    } finally {
-      setPracticeRepairMutationKey(null);
-    }
+        return persistentRecallContext.completePracticeRepairEntry(
+          validatedUserId,
+          {
+            reference,
+          },
+        );
+      },
+      reference,
+      successMessage: "Practice Repair completed",
+    });
   }
 
   async function dismissPracticeRepairEntry(
     reference: PracticeRepairQuestionReference,
   ) {
-    if (userId === null) {
-      return;
-    }
+    await mutatePracticeRepairEntry({
+      action: "dismiss",
+      mutation: (validatedUserId) => {
+        if (persistentRecallContext === undefined) {
+          recallContext.dismissPracticeRepairEntry({
+            reference,
+            userId: validatedUserId,
+          });
+          return;
+        }
 
-    setErrorMessage(null);
-    setSaveStatus(null);
-    setPracticeRepairMutationKey(
-      `dismiss:${getPracticeRepairEntryKey(reference)}`,
+        return persistentRecallContext.dismissPracticeRepairEntry(
+          validatedUserId,
+          {
+            reference,
+          },
+        );
+      },
+      reference,
+      successMessage: "Practice Repair dismissed",
+    });
+  }
+
+  function isPracticeRepairMutationPending(
+    reference: PracticeRepairQuestionReference,
+  ) {
+    return practiceRepairMutationActions.some(
+      (action) =>
+        practiceRepairMutationKey ===
+        getPracticeRepairMutationKey(action, reference),
     );
-
-    try {
-      if (persistentRecallContext === undefined) {
-        recallContext.dismissPracticeRepairEntry({
-          reference,
-          userId,
-        });
-      } else {
-        await persistentRecallContext.dismissPracticeRepairEntry(userId, {
-          reference,
-        });
-      }
-
-      setSaveStatus("Practice Repair dismissed");
-    } catch (error) {
-      if (error instanceof AppRecallError) {
-        setErrorMessage(error.message);
-        return;
-      }
-
-      throw error;
-    } finally {
-      setPracticeRepairMutationKey(null);
-    }
   }
 
   async function handleStartRecallSession() {
@@ -1863,10 +1890,9 @@ function StudyNotesWorkspace() {
                       const correctionDraft =
                         practiceRepairCorrectionDrafts[entryKey] ??
                         entry.correction;
-                      const isMutationPending =
-                        practiceRepairMutationKey === `edit:${entryKey}` ||
-                        practiceRepairMutationKey === `complete:${entryKey}` ||
-                        practiceRepairMutationKey === `dismiss:${entryKey}`;
+                      const isMutationPending = isPracticeRepairMutationPending(
+                        entry.reference,
+                      );
 
                       return (
                         <article
