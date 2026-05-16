@@ -227,6 +227,48 @@ function completeStudyNoteRecallAt(input: {
   });
 }
 
+function confirmStudyNotePracticeRepair(input: {
+  correction: string;
+  contexts: DeterministicRecallTestContexts;
+  intent:
+    | "add-memory-aid"
+    | "create-sibling-study-note"
+    | "split-study-note"
+    | "tighten-expected-answer";
+  studyNoteId: string;
+}) {
+  const result = input.contexts.recallContext.listSessionResults({
+    userId: testUser.id,
+  })[0];
+  const questionResultId = result?.questions[0]?.questionResultId;
+
+  if (result === undefined || questionResultId === undefined) {
+    throw new Error("Expected a stored weak-recall result with a question id.");
+  }
+
+  return input.contexts.recallContext.confirmPracticeRepairEntry({
+    correction: input.correction,
+    intent: input.intent,
+    reference: {
+      questionIndex: 0,
+      questionResultId,
+      sessionResultId: result.id,
+      studyNoteId: input.studyNoteId,
+    },
+    userId: testUser.id,
+  });
+}
+
+function getConfirmedPracticeRepairReference(result: SessionResult) {
+  const reference = result.questions[0]?.practiceRepairEntry?.reference;
+
+  if (reference === undefined) {
+    throw new Error("Expected a confirmed Practice Repair reference.");
+  }
+
+  return reference;
+}
+
 type StudyNoteSnapshotInput = {
   expectedAnswer: string;
   labelIds: string[];
@@ -1261,6 +1303,144 @@ describe("authenticated recall workspace", () => {
     expect(screen.getAllByText("Needs practice prompt").length).toBeGreaterThan(
       0,
     );
+  });
+
+  it("shows actionable Practice Follow-ups as the primary Recall Today reason with Needs practice as supporting context", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const practiceFollowUp = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "ATP stores transferable energy for cells.",
+        prompt: "What stores transferable energy?",
+        sourceBody: "Cell respiration source context.",
+        sourceTitle: "Cell respiration source",
+      },
+    );
+    const needsPracticeOnly = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "Mitochondria generate ATP.",
+        prompt: "What organelle generates ATP?",
+        sourceBody: "Cell organelles source context.",
+        sourceTitle: "Cell organelles source",
+      },
+    );
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: practiceFollowUp.id,
+      timestamp: "2026-05-14T09:00:00.000Z",
+    });
+
+    const confirmedRepair = confirmStudyNotePracticeRepair({
+      contexts,
+      correction: "State ATP and explain that it stores transferable energy.",
+      intent: "tighten-expected-answer",
+      studyNoteId: practiceFollowUp.id,
+    });
+
+    contexts.recallContext.completePracticeRepairEntry({
+      reference: getConfirmedPracticeRepairReference(confirmedRepair),
+      userId: testUser.id,
+    });
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: needsPracticeOnly.id,
+      timestamp: "2026-05-14T10:00:00.000Z",
+    });
+    vi.setSystemTime(new Date("2026-05-15T10:00:00.000Z"));
+
+    renderRoute("/recall", {
+      ...contexts,
+      session: {
+        user: {
+          ...testUser,
+          userTimeZone: "America/New_York",
+        },
+      },
+    });
+
+    const summary = await screen.findByRole("list", {
+      name: "Recall Today summary",
+    });
+    expect(within(summary).getByText("Practice Follow-up")).toBeInTheDocument();
+
+    const practiceFollowUpSection = screen.getByRole("region", {
+      name: "Practice Follow-up",
+    });
+    expect(practiceFollowUpSection).toHaveTextContent("Retry after repair");
+    expect(practiceFollowUpSection).toHaveTextContent(
+      "What stores transferable energy?",
+    );
+    expect(practiceFollowUpSection).toHaveTextContent("Practice Follow-up");
+    expect(practiceFollowUpSection).toHaveTextContent(
+      "State ATP and explain that it stores transferable energy.",
+    );
+    expect(practiceFollowUpSection).toHaveTextContent("Needs practice");
+
+    const needsPracticeSection = screen.getByRole("region", {
+      name: "Needs practice",
+    });
+    expect(needsPracticeSection).toHaveTextContent(
+      "What organelle generates ATP?",
+    );
+    expect(needsPracticeSection).not.toHaveTextContent(
+      "What stores transferable energy?",
+    );
+  });
+
+  it("keeps completed Practice Follow-ups visible in Results context", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const practiceFollowUp = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "ATP stores transferable energy for cells.",
+        prompt: "What stores transferable energy?",
+        sourceBody: "Cell respiration source context.",
+        sourceTitle: "Cell respiration source",
+      },
+    );
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: practiceFollowUp.id,
+      timestamp: "2026-05-14T09:00:00.000Z",
+    });
+
+    const confirmedRepair = confirmStudyNotePracticeRepair({
+      contexts,
+      correction: "State ATP and explain that it stores transferable energy.",
+      intent: "tighten-expected-answer",
+      studyNoteId: practiceFollowUp.id,
+    });
+
+    contexts.recallContext.completePracticeRepairEntry({
+      reference: getConfirmedPracticeRepairReference(confirmedRepair),
+      userId: testUser.id,
+    });
+
+    renderRoute("/recall?view=results", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    const selectedResult = await screen.findByRole("region", {
+      name: "Selected result",
+    });
+
+    fireEvent.click(
+      within(selectedResult).getByRole("button", {
+        name: /What stores transferable energy\?/i,
+      }),
+    );
+
+    expect(
+      within(selectedResult).getByText("Actionable in Recall Today"),
+    ).toBeInTheDocument();
   });
 
   it("selects the newest Result by default and changes selection without changing route", async () => {

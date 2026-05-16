@@ -177,6 +177,7 @@ function FocusPage() {
           attemptsByNote: recall.listAttemptsByNote({ userId }),
           now: new Date().toISOString(),
           recallSchedules,
+          sessionResults,
           studyNotes: userStudyNotes,
           userTimeZone,
         });

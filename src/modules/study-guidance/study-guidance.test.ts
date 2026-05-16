@@ -151,6 +151,7 @@ describe("Study Guidance", () => {
           }),
         ),
       ],
+      sessionResults: [],
       studyNotes: [weakBiology, freshBiology, ...chemistryStudyNotes],
       userTimeZone: "America/New_York",
     });

@@ -32,6 +32,7 @@ import type {
 import {
   formatPracticeRepairIntentLabel,
   getQuestionPracticeRepairDraft,
+  isActionablePracticeFollowUp,
   type PracticeRepairEntryConfirmation,
   type PracticeRepairIntent,
   practiceRepairIntents,
@@ -356,6 +357,7 @@ function RecallResultsWorkspacePage() {
           ),
           now: new Date().toISOString(),
           recallSchedules,
+          sessionResults,
           studyNotes,
           userTimeZone,
         });
@@ -562,20 +564,27 @@ type RecallTodaySectionConfig = {
 const recallTodaySections = [
   {
     badge: "1",
+    helperKey: "recall.today.section.retryAfterRepair",
+    reason: "practice-follow-up",
+    titleKey: "recall.today.reason.practiceFollowUp",
+    tone: "practice",
+  },
+  {
+    badge: "2",
     helperKey: "recall.today.section.focusFirst",
     reason: "needs-practice",
     titleKey: "recall.today.reason.needsPractice",
     tone: "practice",
   },
   {
-    badge: "2",
+    badge: "3",
     helperKey: "recall.today.section.newlyRecallable",
     reason: "not-recalled",
     titleKey: "recall.today.reason.notRecalled",
     tone: "new",
   },
   {
-    badge: "3",
+    badge: "4",
     helperKey: "recall.today.section.scheduledToday",
     reason: "due-for-recall",
     titleKey: "recall.today.reason.dueForRecall",
@@ -601,11 +610,29 @@ function getRecallTodayReasonText(
   item: RecallTodayQueueItem,
   t: ReturnType<typeof useAppTranslation>["t"],
 ) {
+  if (getPrimaryRecallTodayReason(item) === "practice-follow-up") {
+    return t("recall.today.reason.practiceFollowUp");
+  }
+
   if (item.lastRating === null) {
     return t("recall.today.reason.new");
   }
 
   return t(getRecallRatingTranslationKey(item.lastRating));
+}
+
+function getRecallTodaySupportingReasonText(
+  item: RecallTodayQueueItem,
+  t: ReturnType<typeof useAppTranslation>["t"],
+) {
+  if (
+    getPrimaryRecallTodayReason(item) === "practice-follow-up" &&
+    item.reasons.includes("needs-practice")
+  ) {
+    return t("recall.today.reason.supportingNeedsPractice");
+  }
+
+  return null;
 }
 
 function getRecallTodayLastScoreText(
@@ -652,6 +679,14 @@ function getStudyNoteMetaLine(
   }
 
   return sourceTitle;
+}
+
+function getRecallTodayFollowUpExplanation(item: RecallTodayQueueItem) {
+  if (item.practiceFollowUpEntry === null) {
+    return null;
+  }
+
+  return `${formatPracticeRepairIntentLabel(item.practiceFollowUpEntry.intent)}: ${item.practiceFollowUpEntry.correction}`;
 }
 
 function RecallTodayPage({
@@ -791,6 +826,12 @@ function RecallTodaySummary({
       tone: "total",
     },
     {
+      count: queueByReason.get("practice-follow-up")?.length ?? 0,
+      icon: <CheckIcon />,
+      label: t("recall.today.reason.practiceFollowUp"),
+      tone: "practice",
+    },
+    {
       count: queueByReason.get("needs-practice")?.length ?? 0,
       icon: <WarningIcon />,
       label: t("recall.today.reason.needsPractice"),
@@ -890,8 +931,10 @@ function RecallTodayQueueRow({
 }) {
   const { t } = useAppTranslation();
   const dotCount = getRecallRatingDotCount(item.lastRating);
+  const followUpExplanation = getRecallTodayFollowUpExplanation(item);
   const metaLine = getStudyNoteMetaLine(item, labelsById);
   const reasonText = getRecallTodayReasonText(item, t);
+  const supportingReasonText = getRecallTodaySupportingReasonText(item, t);
   const lastScoreText = getRecallTodayLastScoreText(item, t);
 
   return (
@@ -901,6 +944,7 @@ function RecallTodayQueueRow({
       </span>
       <div className="recall-today-row__main">
         <h3>{item.studyNote.prompt}</h3>
+        {followUpExplanation === null ? null : <p>{followUpExplanation}</p>}
         {metaLine.length > 0 ? <p>{metaLine}</p> : null}
       </div>
       <div className="recall-today-row__score">
@@ -911,6 +955,9 @@ function RecallTodayQueueRow({
       <div className="recall-today-row__reason">
         <span>{t("recall.today.reason")}</span>
         <strong>{reasonText}</strong>
+        {supportingReasonText === null ? null : (
+          <span>{supportingReasonText}</span>
+        )}
       </div>
       <div className="recall-today-row__next">
         <span>{t("recall.today.nextRecall")}</span>
@@ -1967,6 +2014,10 @@ function QuestionPracticeRepairPanel({
   }
 
   if (question.practiceRepairEntry !== undefined) {
+    const actionablePracticeFollowUp = isActionablePracticeFollowUp(
+      question.practiceRepairEntry,
+    );
+
     return (
       <div className="recall-selected-result__question-detail-block">
         <h5>Confirmed Practice Repair</h5>
@@ -1987,6 +2038,16 @@ function QuestionPracticeRepairPanel({
             </p>
             <p className="recall-selected-result__question-detail-copy">
               {question.practiceRepairEntry.nextPracticeIdea}
+            </p>
+          </>
+        ) : null}
+        {actionablePracticeFollowUp ? (
+          <>
+            <p className="recall-selected-result__question-detail-label">
+              Practice Follow-up
+            </p>
+            <p className="recall-selected-result__question-detail-copy">
+              Actionable in Recall Today
             </p>
           </>
         ) : null}

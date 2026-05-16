@@ -1489,7 +1489,7 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.queryByText("Error log")).not.toBeInTheDocument();
   });
 
-  it("shows active Practice Repair entries in the editor, lets the user edit the correction, and removes completed entries from active planning work", async () => {
+  it("shows active Practice Repair entries in the editor, lets the user edit the correction, and moves completed repairs into Practice Follow-up", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-active-practice-repair";
     const studyNote = createStudyNoteSnapshot(contexts, {
@@ -1560,7 +1560,7 @@ describe("authenticated Study Notes workspace", () => {
 
     await waitFor(() =>
       expect(
-        screen.queryByRole("article", { name: "Tighten expected answer" }),
+        screen.queryByRole("region", { name: "Active Practice Repair" }),
       ).toBeNull(),
     );
     expect(
@@ -1569,6 +1569,13 @@ describe("authenticated Study Notes workspace", () => {
         userId,
       }),
     ).toHaveLength(0);
+    const practiceFollowUp = screen.getByRole("region", {
+      name: "Practice Follow-up",
+    });
+    expect(practiceFollowUp).toHaveTextContent("Open Recall Today");
+    expect(practiceFollowUp).toHaveTextContent(
+      "State ATP and explain that it stores transferable energy.",
+    );
     expect(
       contexts.recallContext.listPracticeRepairEntriesForQuestion({
         reference: confirmedReference,

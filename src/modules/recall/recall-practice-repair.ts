@@ -67,6 +67,13 @@ export type PracticeRepairEntryLifecycle = {
 };
 
 export type PracticeRepairEntryLifecycleState = "active" | "historical";
+export type PracticeFollowUpState =
+  | "actionable"
+  | "dismissed"
+  | "pending"
+  | "satisfied"
+  | "study-note-deleted"
+  | "superseded";
 
 export type PracticeRepairEntry = {
   confirmedAt: string;
@@ -358,8 +365,17 @@ function hasTerminalPracticeRepairLifecycleFact(
 
 function isTerminalPracticeRepairLifecycleFact(
   fact: string | null | undefined,
-): boolean {
+): fact is string {
   return typeof fact === "string" && fact.length > 0;
+}
+
+function getLifecycleFact(
+  lifecycle: PracticeRepairEntryLifecycle | undefined,
+  key: keyof PracticeRepairEntryLifecycle,
+): string | null {
+  const value: string | null | undefined = lifecycle?.[key];
+
+  return isTerminalPracticeRepairLifecycleFact(value) ? value : null;
 }
 
 export function getPracticeRepairEntryLifecycleState(
@@ -368,6 +384,54 @@ export function getPracticeRepairEntryLifecycleState(
   return hasTerminalPracticeRepairLifecycleFact(entry.lifecycle)
     ? "historical"
     : "active";
+}
+
+function getPracticeFollowUpState(
+  entry: Pick<PracticeRepairEntry, "lifecycle">,
+): PracticeFollowUpState {
+  const lifecycle = entry.lifecycle;
+
+  if (getLifecycleFact(lifecycle, "studyNoteDeletedAt") !== null) {
+    return "study-note-deleted";
+  }
+
+  if (getLifecycleFact(lifecycle, "supersededAt") !== null) {
+    return "superseded";
+  }
+
+  if (getLifecycleFact(lifecycle, "dismissedAt") !== null) {
+    return "dismissed";
+  }
+
+  if (getLifecycleFact(lifecycle, "followUpSatisfiedAt") !== null) {
+    return "satisfied";
+  }
+
+  if (getLifecycleFact(lifecycle, "completedAt") !== null) {
+    return "actionable";
+  }
+
+  return "pending";
+}
+
+export function isActionablePracticeFollowUp(
+  entry: Pick<PracticeRepairEntry, "lifecycle">,
+): boolean {
+  return getPracticeFollowUpState(entry) === "actionable";
+}
+
+function getActionablePracticeFollowUpCompletedAt(
+  entry: Pick<PracticeRepairEntry, "lifecycle">,
+): string {
+  const completedAt = getLifecycleFact(entry.lifecycle, "completedAt");
+
+  if (completedAt === null) {
+    throw new Error(
+      "Expected actionable Practice Follow-up to have a completion timestamp.",
+    );
+  }
+
+  return completedAt;
 }
 
 function comparePracticeRepairEntries(
@@ -426,6 +490,17 @@ function listPracticeRepairEntries(input: {
   return entries.sort(comparePracticeRepairEntries);
 }
 
+function compareActionablePracticeFollowUps(
+  left: PracticeRepairEntry,
+  right: PracticeRepairEntry,
+): number {
+  return (
+    getActionablePracticeFollowUpCompletedAt(right).localeCompare(
+      getActionablePracticeFollowUpCompletedAt(left),
+    ) || comparePracticeRepairEntries(left, right)
+  );
+}
+
 export function listActivePracticeRepairEntriesForStudyNote(input: {
   results: readonly PracticeRepairResultLike[];
   studyNoteId: string;
@@ -450,6 +525,24 @@ export function listPracticeRepairEntriesForQuestion(input: {
       }),
     results: input.results,
   });
+}
+
+export function listActionablePracticeFollowUps(input: {
+  results: readonly PracticeRepairResultLike[];
+}): PracticeRepairEntry[] {
+  return listPracticeRepairEntries({
+    matchesEntry: (entry) => isActionablePracticeFollowUp(entry),
+    results: input.results,
+  }).sort(compareActionablePracticeFollowUps);
+}
+
+export function listActionablePracticeFollowUpsForStudyNote(input: {
+  results: readonly PracticeRepairResultLike[];
+  studyNoteId: string;
+}): PracticeRepairEntry[] {
+  return listActionablePracticeFollowUps({
+    results: input.results,
+  }).filter((entry) => entry.reference.studyNoteId === input.studyNoteId);
 }
 
 export function formatPracticeRepairIntentLabel(

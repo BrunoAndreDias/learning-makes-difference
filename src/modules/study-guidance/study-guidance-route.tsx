@@ -41,7 +41,7 @@ function StudyGuidanceWorkspace() {
     studyNotesStore.getSnapshot,
     studyNotesStore.getSnapshot,
   );
-  useSyncExternalStore(
+  const sessionResults = useSyncExternalStore(
     recallContext.subscribe,
     recallContext.getSessionResultsSnapshot,
     recallContext.getSessionResultsSnapshot,
@@ -80,10 +80,18 @@ function StudyGuidanceWorkspace() {
         labels,
         now: new Date().toISOString(),
         recallSchedules,
+        sessionResults,
         studyNotes,
         userTimeZone,
       }),
-    [attemptsByNote, labels, recallSchedules, studyNotes, userTimeZone],
+    [
+      attemptsByNote,
+      labels,
+      recallSchedules,
+      sessionResults,
+      studyNotes,
+      userTimeZone,
+    ],
   );
 
   return (

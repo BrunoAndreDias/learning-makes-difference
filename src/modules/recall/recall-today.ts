@@ -2,16 +2,22 @@ import type { UserTimeZonePreference } from "../access/session/session-contract"
 import { type AppStudyNote, getStudyNoteReadiness } from "../study-notes";
 import type { StudyNoteRecallHistory } from "../study-notes/learning-state";
 import { getLocalDateKey } from "./local-date";
-import type { RecallSelfRating } from "./recall";
+import type { RecallSelfRating, SessionResult } from "./recall";
+import {
+  listActionablePracticeFollowUps,
+  type PracticeRepairEntry,
+} from "./recall-practice-repair";
 import type { RecallSchedule } from "./recall-schedule";
 
 export type RecallTodayReason =
+  | "practice-follow-up"
   | "due-for-recall"
   | "needs-practice"
   | "not-recalled";
 
 export type RecallTodayQueueItem = {
   lastRating: RecallSelfRating | null;
+  practiceFollowUpEntry: PracticeRepairEntry | null;
   reasons: RecallTodayReason[];
   studyNote: AppStudyNote;
 };
@@ -22,9 +28,10 @@ type RankedRecallTodayQueueItem = RecallTodayQueueItem & {
 };
 
 const recallTodayReasonPriority: Record<RecallTodayReason, number> = {
-  "needs-practice": 0,
-  "not-recalled": 1,
-  "due-for-recall": 2,
+  "practice-follow-up": 0,
+  "needs-practice": 1,
+  "not-recalled": 2,
+  "due-for-recall": 3,
 };
 
 function isScheduleDueToday(input: {
@@ -65,11 +72,16 @@ function isNeedsPractice(rating: RecallSelfRating | null) {
 function getRecallTodayReasons(input: {
   history: StudyNoteRecallHistory | null;
   now: string;
+  practiceFollowUpEntry: PracticeRepairEntry | null;
   schedule: RecallSchedule | null;
   userTimeZone: UserTimeZonePreference;
 }): RecallTodayReason[] {
   const latestRating = getLatestRating(input.history);
   const reasons: RecallTodayReason[] = [];
+
+  if (input.practiceFollowUpEntry !== null) {
+    reasons.push("practice-follow-up");
+  }
 
   if (isNeedsPractice(latestRating)) {
     reasons.push("needs-practice");
@@ -102,16 +114,28 @@ export function buildRecallTodayQueue(input: {
   histories: readonly StudyNoteRecallHistory[];
   now: string;
   recallSchedules: readonly RecallSchedule[];
+  sessionResults: readonly SessionResult[];
   studyNotes: readonly AppStudyNote[];
   userTimeZone: UserTimeZonePreference;
 }): RecallTodayQueueItem[] {
   const historyByStudyNoteId = new Map(
     input.histories.map((history) => [history.studyNoteId, history]),
   );
+  const practiceFollowUpByStudyNoteId = new Map<string, PracticeRepairEntry>();
   const scheduleByStudyNoteId = new Map(
     input.recallSchedules.map((schedule) => [schedule.studyNoteId, schedule]),
   );
   const rankedQueue: RankedRecallTodayQueueItem[] = [];
+
+  for (const practiceFollowUpEntry of listActionablePracticeFollowUps({
+    results: input.sessionResults,
+  })) {
+    const studyNoteId = practiceFollowUpEntry.reference.studyNoteId;
+
+    if (!practiceFollowUpByStudyNoteId.has(studyNoteId)) {
+      practiceFollowUpByStudyNoteId.set(studyNoteId, practiceFollowUpEntry);
+    }
+  }
 
   input.studyNotes.forEach((studyNote, originalIndex) => {
     if (!getStudyNoteReadiness(studyNote).recallable) {
@@ -120,9 +144,12 @@ export function buildRecallTodayQueue(input: {
 
     const history = historyByStudyNoteId.get(studyNote.id) ?? null;
     const latestRating = getLatestRating(history);
+    const practiceFollowUpEntry =
+      practiceFollowUpByStudyNoteId.get(studyNote.id) ?? null;
     const reasons = getRecallTodayReasons({
       history,
       now: input.now,
+      practiceFollowUpEntry,
       schedule: scheduleByStudyNoteId.get(studyNote.id) ?? null,
       userTimeZone: input.userTimeZone,
     });
@@ -135,6 +162,7 @@ export function buildRecallTodayQueue(input: {
       lastRating: latestRating,
       originalIndex,
       priority: getQueuePriority(reasons),
+      practiceFollowUpEntry,
       reasons,
       studyNote,
     });
@@ -146,8 +174,9 @@ export function buildRecallTodayQueue(input: {
         left.priority - right.priority ||
         left.originalIndex - right.originalIndex,
     )
-    .map(({ lastRating, reasons, studyNote }) => ({
+    .map(({ lastRating, practiceFollowUpEntry, reasons, studyNote }) => ({
       lastRating,
+      practiceFollowUpEntry,
       reasons,
       studyNote,
     }));

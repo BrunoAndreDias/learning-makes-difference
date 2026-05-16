@@ -1,6 +1,10 @@
 import type { UserTimeZonePreference } from "../access/session/session-contract";
 import type { AppLabel } from "../labels/label-management/labels";
-import type { FlashCardRecallAttemptsByNote, RecallSchedule } from "../recall";
+import type {
+  FlashCardRecallAttemptsByNote,
+  RecallSchedule,
+  SessionResult,
+} from "../recall";
 import { getInterleavedRecallRecommendation } from "../recall/interleaved-recall";
 import { formatNextRecallTiming } from "../recall/recall-schedule";
 import { buildRecallTodayQueue } from "../recall/recall-today";
@@ -51,6 +55,7 @@ type StudyGuidanceInput = {
   labels: readonly AppLabel[];
   now: string;
   recallSchedules: readonly RecallSchedule[];
+  sessionResults: readonly SessionResult[];
   studyNotes: readonly AppStudyNote[];
   userTimeZone: UserTimeZonePreference;
 };
@@ -268,6 +273,7 @@ export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
     histories,
     now: input.now,
     recallSchedules: input.recallSchedules,
+    sessionResults: input.sessionResults,
     studyNotes: recallableStudyNotes,
     userTimeZone: input.userTimeZone,
   });

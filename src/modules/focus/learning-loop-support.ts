@@ -1,5 +1,9 @@
 import type { UserTimeZonePreference } from "../access/session/session-contract";
-import type { FlashCardRecallAttemptsByNote, RecallSchedule } from "../recall";
+import type {
+  FlashCardRecallAttemptsByNote,
+  RecallSchedule,
+  SessionResult,
+} from "../recall";
 import { buildRecallTodayQueue } from "../recall/recall-today";
 import {
   type AppStudyNote,
@@ -22,6 +26,7 @@ type FocusLearningLoopSupportInput = {
   attemptsByNote: readonly FlashCardRecallAttemptsByNote[];
   now: string;
   recallSchedules: readonly RecallSchedule[];
+  sessionResults: readonly SessionResult[];
   studyNotes: readonly AppStudyNote[];
   userTimeZone: UserTimeZonePreference;
 };
@@ -40,6 +45,7 @@ export function getFocusLearningLoopSupportSuggestions(
     histories,
     now: input.now,
     recallSchedules: input.recallSchedules,
+    sessionResults: input.sessionResults,
     studyNotes: input.studyNotes,
     userTimeZone: input.userTimeZone,
   });
