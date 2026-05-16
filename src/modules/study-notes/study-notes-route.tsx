@@ -25,12 +25,16 @@ import "../notes/notes-workspace/notes-toolbar.css";
 import {
   AppRecallError,
   formatNextRecallTiming,
+  type RecallQuestion,
   type RecallSchedule,
   type RecallSelfRating,
+  resolveSessionResultQuestion,
+  type SessionResult,
 } from "../recall";
 import { getInterleavedRecallRecommendation } from "../recall/interleaved-recall";
 import {
   formatPracticeRepairIntentLabel,
+  type PracticeRepairEntry,
   type PracticeRepairQuestionReference,
 } from "../recall/recall-practice-repair";
 import "./study-notes.css";
@@ -434,6 +438,15 @@ type StudyNoteEditorTarget =
     };
 
 type PracticeRepairMutationAction = "complete" | "dismiss" | "edit";
+type PracticeRepairOriginSnapshot = {
+  prompt: string;
+  ratingLabel: string;
+  sourceTitle: string;
+};
+type ActivePracticeRepairEntryView = {
+  entry: PracticeRepairEntry;
+  origin: PracticeRepairOriginSnapshot | null;
+};
 
 const practiceRepairMutationActions = [
   "edit",
@@ -522,6 +535,74 @@ function getPracticeRepairMutationKey(
   reference: PracticeRepairQuestionReference,
 ) {
   return `${action}:${getPracticeRepairEntryKey(reference)}`;
+}
+
+function getPracticeRepairOriginPrompt(question: RecallQuestion) {
+  const prompt = (
+    question.noteSnapshot.prompt ?? question.noteSnapshot.title
+  ).trim();
+
+  if (prompt.length > 0) {
+    return prompt;
+  }
+
+  return question.noteSnapshot.body;
+}
+
+function getPracticeRepairOriginSourceTitle(question: RecallQuestion) {
+  const displayName = question.noteSnapshot.source?.displayName?.trim();
+
+  if (displayName !== undefined && displayName.length > 0) {
+    return displayName;
+  }
+
+  const sourceTitle = question.noteSnapshot.source?.title.trim() ?? "";
+
+  if (sourceTitle.length > 0) {
+    return sourceTitle;
+  }
+
+  const prompt = question.noteSnapshot.prompt?.trim() ?? "";
+
+  if (prompt.length > 0) {
+    return prompt;
+  }
+
+  const noteTitle = question.noteSnapshot.title.trim();
+
+  if (noteTitle.length > 0) {
+    return noteTitle;
+  }
+
+  return "Untitled source";
+}
+
+function getPracticeRepairOriginSnapshot(input: {
+  entry: PracticeRepairEntry;
+  sessionResults: readonly SessionResult[];
+}): PracticeRepairOriginSnapshot | null {
+  const result = input.sessionResults.find(
+    (candidate) => candidate.id === input.entry.reference.sessionResultId,
+  );
+
+  if (result === undefined) {
+    return null;
+  }
+
+  const question = resolveSessionResultQuestion({
+    reference: input.entry.reference,
+    result,
+  });
+
+  if (question === null) {
+    return null;
+  }
+
+  return {
+    prompt: getPracticeRepairOriginPrompt(question),
+    ratingLabel: formatScoreResultLabel(question.selfRating),
+    sourceTitle: getPracticeRepairOriginSourceTitle(question),
+  };
 }
 
 function getStudyNoteLabelNames(
@@ -848,16 +929,24 @@ function StudyNotesWorkspace() {
       ? null
       : (recallScheduleByStudyNoteId.get(selectedStudyNote.id) ?? null);
   const selectedPracticeRepairStudyNoteId = selectedStudyNote?.id ?? null;
-  const activePracticeRepairEntries = useMemo(
+  const activePracticeRepairEntries = useMemo<ActivePracticeRepairEntryView[]>(
     () =>
       selectedPracticeRepairStudyNoteId === null ||
       userId === null ||
       recallResultsSnapshot.length === 0
         ? []
-        : recallContext.listActivePracticeRepairEntriesForStudyNote({
-            studyNoteId: selectedPracticeRepairStudyNoteId,
-            userId,
-          }),
+        : recallContext
+            .listActivePracticeRepairEntriesForStudyNote({
+              studyNoteId: selectedPracticeRepairStudyNoteId,
+              userId,
+            })
+            .map((entry) => ({
+              entry,
+              origin: getPracticeRepairOriginSnapshot({
+                entry,
+                sessionResults: recallResultsSnapshot,
+              }),
+            })),
     [
       recallContext,
       recallResultsSnapshot,
@@ -1883,7 +1972,7 @@ function StudyNotesWorkspace() {
                     </p>
                   </div>
                   <div className="study-notes-practice-repair__entries">
-                    {activePracticeRepairEntries.map((entry) => {
+                    {activePracticeRepairEntries.map(({ entry, origin }) => {
                       const entryKey = getPracticeRepairEntryKey(
                         entry.reference,
                       );
@@ -1912,6 +2001,31 @@ function StudyNotesWorkspace() {
                                 {formatRelativeUpdatedLabel(entry.confirmedAt)}
                               </p>
                             </div>
+                          </div>
+                          <div className="study-notes-practice-repair-entry__origin">
+                            <span className="study-notes-editor__group-label">
+                              Results origin
+                            </span>
+                            {origin === null ? (
+                              <p className="study-notes-practice-repair-entry__origin-fallback">
+                                Results snapshot unavailable.
+                              </p>
+                            ) : (
+                              <dl className="study-notes-practice-repair-entry__origin-list">
+                                <div>
+                                  <dt>Weak recall</dt>
+                                  <dd>{origin.ratingLabel}</dd>
+                                </div>
+                                <div>
+                                  <dt>Prompt snapshot</dt>
+                                  <dd>{origin.prompt}</dd>
+                                </div>
+                                <div>
+                                  <dt>Source snapshot</dt>
+                                  <dd>{origin.sourceTitle}</dd>
+                                </div>
+                              </dl>
+                            )}
                           </div>
                           <StudyNotesTextarea
                             label="Correction"

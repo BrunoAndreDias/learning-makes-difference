@@ -1577,6 +1577,107 @@ describe("authenticated Study Notes workspace", () => {
     });
   });
 
+  it("shows Results-origin snapshot context for active Practice Repair entries, keeps editor-side creation unavailable, and allows dismissal", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-active-practice-repair-origin";
+    const studyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Clearer expected answer.",
+      prompt: "Why does this still feel shaky?",
+      sourceBody:
+        "Broad source context that still needs a clearer recall target.",
+      sourceTitle: "Repair source",
+      userId,
+    });
+
+    completeStudyNoteRecall(contexts, {
+      rating: "hard",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const confirmedResult = confirmStudyNotePracticeRepair(contexts, {
+      correction: "State the specific molecule.",
+      intent: "tighten-expected-answer",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+
+    updateStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Live expected answer changed later.",
+      prompt: "Live prompt changed later.",
+      sourceBody: "Live source body changed later.",
+      sourceTitle: "Live source changed later.",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+
+    renderStudyNotesRouteForUser(contexts, {
+      displayName: "Jordan Origin Repair",
+      email: "jordan.origin.repair@example.com",
+      id: userId,
+      userLanguage: "en",
+    });
+
+    const activePracticeRepair = await screen.findByRole("region", {
+      name: "Active Practice Repair",
+    });
+    const activeEntry = within(activePracticeRepair).getByRole("article", {
+      name: "Tighten expected answer",
+    });
+
+    expect(within(activeEntry).getByText("Results origin")).toBeInTheDocument();
+    expect(
+      within(activeEntry).getByText("Why does this still feel shaky?"),
+    ).toBeInTheDocument();
+    expect(within(activeEntry).getByText("Repair source")).toBeInTheDocument();
+    expect(within(activeEntry).getByText("Hard (2/5)")).toBeInTheDocument();
+    expect(
+      within(activeEntry).queryByText("Live prompt changed later."),
+    ).toBeNull();
+    expect(
+      within(activeEntry).queryByText("Live source changed later."),
+    ).toBeNull();
+
+    expect(
+      screen.queryByRole("button", { name: "Confirm Practice Repair" }),
+    ).toBeNull();
+    expect(screen.queryByLabelText("Practice Repair intent")).toBeNull();
+
+    fireEvent.click(
+      within(activeEntry).getByRole("button", { name: "Dismiss" }),
+    );
+
+    const confirmedReference =
+      confirmedResult.questions[0]?.practiceRepairEntry?.reference;
+
+    if (confirmedReference === undefined) {
+      throw new Error(
+        "Expected a confirmed Practice Repair reference in history.",
+      );
+    }
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("article", { name: "Tighten expected answer" }),
+      ).toBeNull(),
+    );
+    expect(
+      contexts.recallContext.listActivePracticeRepairEntriesForStudyNote({
+        studyNoteId: studyNote.id,
+        userId,
+      }),
+    ).toHaveLength(0);
+    expect(
+      contexts.recallContext.listPracticeRepairEntriesForQuestion({
+        reference: confirmedReference,
+        userId,
+      })[0],
+    ).toMatchObject({
+      lifecycle: {
+        dismissedAt: expect.any(String),
+      },
+    });
+  });
+
   it("starts Interleaved Recall from a successful related Study Note recommendation", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-interleaved-recall";

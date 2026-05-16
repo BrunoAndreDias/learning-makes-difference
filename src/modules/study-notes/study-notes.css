@@ -1067,6 +1067,7 @@
 
 .study-notes-practice-repair-entry__header,
 .study-notes-practice-repair-entry__title-group,
+.study-notes-practice-repair-entry__origin,
 .study-notes-practice-repair-entry__next-practice {
   display: grid;
   gap: var(--space-1);
@@ -1084,6 +1085,36 @@
   color: var(--color-content-muted);
   font-size: 0.74rem;
   line-height: 1.35;
+}
+
+.study-notes-practice-repair-entry__origin-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.study-notes-practice-repair-entry__origin-list > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.study-notes-practice-repair-entry__origin-list dt,
+.study-notes-practice-repair-entry__origin-list dd {
+  margin: 0;
+}
+
+.study-notes-practice-repair-entry__origin-list dt {
+  color: var(--color-content-muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.study-notes-practice-repair-entry__origin-list dd,
+.study-notes-practice-repair-entry__origin-fallback {
+  margin: 0;
+  color: var(--color-content-default);
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 
 .study-notes-practice-repair-entry__next-practice p {
