@@ -69,7 +69,7 @@
     linear-gradient(
       135deg,
       color-mix(in srgb, var(--color-primary) 92%, white),
-      #1b6a44
+      var(--color-primary-hover)
     ),
     var(--color-primary);
   border-color: color-mix(in srgb, var(--color-primary) 88%, black);
@@ -732,9 +732,9 @@
 
 .study-notes-recall-insights[data-insight-kind="new"],
 .study-notes-recall-insights[data-insight-kind="incomplete"] {
-  --insight-color: #2563eb;
-  --insight-soft: #eff6ff;
-  --insight-border: #bfdbfe;
+  --insight-color: var(--color-primary);
+  --insight-soft: var(--color-primary-soft);
+  --insight-border: var(--color-primary-soft-border);
 }
 
 .study-notes-summary-card__header {
@@ -851,7 +851,7 @@
     color-mix(in srgb, var(--color-accent-strong) 52%, transparent),
     0 12px 28px -26px
     color-mix(in srgb, var(--color-content-strong) 36%, transparent),
-    inset 0 1px 0 rgb(255 255 255 / 58%);
+    inset 0 1px 0 color-mix(in srgb, white 58%, transparent);
   backdrop-filter: blur(12px);
 }
 
@@ -927,7 +927,7 @@
   display: grid;
   place-items: center;
   padding: var(--space-5);
-  background: rgb(23 35 30 / 18%);
+  background: color-mix(in srgb, var(--color-content-strong) 18%, transparent);
 }
 
 .study-notes-discard-dialog {

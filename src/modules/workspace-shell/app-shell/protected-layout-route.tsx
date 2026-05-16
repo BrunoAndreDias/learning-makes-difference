@@ -52,6 +52,11 @@ const globalNavigationItems = [
     to: "/recall",
   },
   {
+    iconName: "label",
+    labelKey: "shell.navigation.labels",
+    to: "/labels",
+  },
+  {
     iconName: "focus",
     labelKey: "shell.navigation.focus",
     to: "/focus",
@@ -60,11 +65,6 @@ const globalNavigationItems = [
     iconName: "insights",
     labelKey: "shell.navigation.insights",
     to: "/insights",
-  },
-  {
-    iconName: "settings",
-    labelKey: "shell.navigation.settings",
-    to: "/settings",
   },
 ] as const;
 
@@ -500,21 +500,29 @@ function WorkspaceHeader({
       </div>
       <div className="app-frame__actions">
         {isStudyNotesWorkspaceRoute ? (
-          <div className="app-frame__meta-actions">
-            <span className="app-frame__date">
-              <CalendarHeaderIcon />
-              <span>{workspaceDate}</span>
-            </span>
-            <Button
-              aria-label="Help"
-              className="app-frame__help"
-              iconOnly
-              type="button"
-            >
-              <HelpCircleIcon />
-            </Button>
-          </div>
-        ) : isRecallWorkspaceRoute || isLabelsWorkspaceRoute ? null : (
+          <>
+            <div className="app-frame__meta-actions">
+              <span className="app-frame__date">
+                <CalendarHeaderIcon />
+                <span>{workspaceDate}</span>
+              </span>
+              <Button
+                aria-label="Help"
+                className="app-frame__help"
+                iconOnly
+                type="button"
+              >
+                <HelpCircleIcon />
+              </Button>
+            </div>
+            <FocusSessionStartControl
+              activeFocusSession={activeFocusSession}
+              focus={focus}
+              persistentFocus={persistentFocus}
+              userId={userId}
+            />
+          </>
+        ) : isLabelsWorkspaceRoute ? null : (
           <FocusSessionStartControl
             activeFocusSession={activeFocusSession}
             focus={focus}

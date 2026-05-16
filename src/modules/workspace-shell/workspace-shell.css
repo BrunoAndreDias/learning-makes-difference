@@ -1067,13 +1067,18 @@
     linear-gradient(
       145deg,
       transparent 47%,
-      rgb(255 255 255 / 72%) 48% 52%,
+      color-mix(in srgb, white 72%, transparent) 48% 52%,
       transparent 53%
     ),
-    linear-gradient(90deg, #2f8a53 0 48%, #1f6b45 52% 100%);
+    linear-gradient(
+      90deg,
+      var(--color-success) 0 48%,
+      var(--color-secondary) 52% 100%
+    );
   clip-path: polygon(5% 15%, 48% 4%, 95% 15%, 95% 82%, 50% 98%, 5% 82%);
   content: "";
-  box-shadow: inset 0 -0.5rem 1rem rgb(23 35 30 / 18%);
+  box-shadow: inset 0 -0.5rem 1rem
+    color-mix(in srgb, var(--color-content-strong) 18%, transparent);
 }
 
 .app-sidebar__logo {

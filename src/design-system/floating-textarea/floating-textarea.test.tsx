@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { FloatingTextarea } from "./floating-textarea";
+import { FloatingTextarea } from ".";
 
 describe("FloatingTextarea", () => {
   it("renders a labelled textarea with the shared floating placeholder classes", () => {
