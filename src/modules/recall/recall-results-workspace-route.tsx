@@ -1935,6 +1935,8 @@ function QuestionPracticeRepairPanel({
     PracticeRepairIntent | ""
   >("");
   const [practiceRepairCorrection, setPracticeRepairCorrection] = useState("");
+  const [practiceRepairNextPracticeIdea, setPracticeRepairNextPracticeIdea] =
+    useState("");
   const [isSavingPracticeRepair, setIsSavingPracticeRepair] = useState(false);
 
   async function handleConfirmPracticeRepair() {
@@ -1951,6 +1953,7 @@ function QuestionPracticeRepairPanel({
       await onConfirmPracticeRepairEntry({
         correction: practiceRepairCorrection,
         intent: practiceRepairIntent,
+        nextPracticeIdea: practiceRepairNextPracticeIdea,
         reference: {
           questionIndex,
           questionResultId: question.questionResultId,
@@ -1977,6 +1980,16 @@ function QuestionPracticeRepairPanel({
         <p className="recall-selected-result__question-detail-copy">
           {question.practiceRepairEntry.correction}
         </p>
+        {question.practiceRepairEntry.nextPracticeIdea !== undefined ? (
+          <>
+            <p className="recall-selected-result__question-detail-label">
+              Next-practice idea
+            </p>
+            <p className="recall-selected-result__question-detail-copy">
+              {question.practiceRepairEntry.nextPracticeIdea}
+            </p>
+          </>
+        ) : null}
       </div>
     );
   }
@@ -2022,6 +2035,17 @@ function QuestionPracticeRepairPanel({
           onChange={(event) => setPracticeRepairCorrection(event.target.value)}
           rows={3}
           value={practiceRepairCorrection}
+        />
+      </label>
+      <label className="recall-field">
+        <span>Next-practice idea</span>
+        <textarea
+          aria-label="Next-practice idea"
+          onChange={(event) =>
+            setPracticeRepairNextPracticeIdea(event.target.value)
+          }
+          rows={2}
+          value={practiceRepairNextPracticeIdea}
         />
       </label>
       <Button

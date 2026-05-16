@@ -8,8 +8,11 @@ import {
   listStudyNotesForUser,
 } from "../study-notes";
 import {
+  clonePracticeRepairIntentMetadata,
+  createPracticeRepairIntentMetadata,
   isPracticeRepairEligibleQuestion,
   isPracticeRepairIntent,
+  isPracticeRepairIntentMetadata,
   type PracticeRepairEntry,
   type PracticeRepairEntryConfirmation,
   type PracticeRepairQuestionReference,
@@ -764,6 +767,10 @@ function clonePracticeRepairEntry(
 
   return {
     ...entry,
+    intentMetadata: clonePracticeRepairIntentMetadata(
+      entry.intent,
+      entry.intentMetadata,
+    ),
     reference: {
       ...entry.reference,
     },
@@ -851,6 +858,12 @@ function isPracticeRepairEntry(value: unknown): value is PracticeRepairEntry {
     typeof candidate.confirmedAt === "string" &&
     typeof candidate.correction === "string" &&
     isPracticeRepairIntent(candidate.intent) &&
+    isPracticeRepairIntentMetadata(
+      candidate.intent,
+      candidate.intentMetadata,
+    ) &&
+    (!("nextPracticeIdea" in candidate) ||
+      typeof candidate.nextPracticeIdea === "string") &&
     isPracticeRepairQuestionReference(candidate.reference)
   );
 }
@@ -1255,7 +1268,15 @@ export function createAppRecallContext(
   function confirmPracticeRepairEntry(
     input: ConfirmPracticeRepairEntryInput,
   ): SessionResult {
+    if (!isPracticeRepairIntent(input.intent)) {
+      throw new AppRecallError(
+        "invalid_input",
+        "Practice Repair intent is required.",
+      );
+    }
+
     const correction = input.correction.trim();
+    const nextPracticeIdea = input.nextPracticeIdea?.trim();
 
     if (correction.length === 0) {
       throw new AppRecallError(
@@ -1298,6 +1319,11 @@ export function createAppRecallContext(
       confirmedAt: new Date().toISOString(),
       correction,
       intent: input.intent,
+      intentMetadata: createPracticeRepairIntentMetadata(input.intent),
+      nextPracticeIdea:
+        nextPracticeIdea === undefined || nextPracticeIdea.length === 0
+          ? undefined
+          : nextPracticeIdea,
       reference: {
         ...input.reference,
         questionResultId:

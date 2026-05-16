@@ -79,6 +79,9 @@ describe("recall Practice Repair drafts", () => {
           confirmedAt: "2026-05-16T11:15:00.000Z",
           correction: "State ATP explicitly.",
           intent: "tighten-expected-answer",
+          intentMetadata: {
+            updatedExpectedAnswer: null,
+          },
           reference: {
             questionIndex: 0,
             questionResultId: "session-1-question-0",

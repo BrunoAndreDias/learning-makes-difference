@@ -36,6 +36,7 @@ const updateAttemptTextInputSchema = updateRecallSessionInputSchema.extend({
 const confirmPracticeRepairEntryInputSchema = z.object({
   correction: z.string(),
   intent: z.enum(practiceRepairIntents),
+  nextPracticeIdea: z.string().optional(),
   reference: z.object({
     questionIndex: z.number().int().nonnegative(),
     questionResultId: z.string().optional(),

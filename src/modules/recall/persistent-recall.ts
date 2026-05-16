@@ -19,6 +19,7 @@ import type {
   PracticeRepairEntry,
   PracticeRepairEntryConfirmation,
 } from "./recall-practice-repair";
+import { clonePracticeRepairIntentMetadata } from "./recall-practice-repair";
 import type { RecallSchedule } from "./recall-schedule";
 
 type PersistentRecallListener = () => void;
@@ -161,6 +162,10 @@ function clonePracticeRepairEntry(
 
   return {
     ...entry,
+    intentMetadata: clonePracticeRepairIntentMetadata(
+      entry.intent,
+      entry.intentMetadata,
+    ),
     reference: {
       ...entry.reference,
     },

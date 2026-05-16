@@ -768,6 +768,12 @@ describe("authenticated recall workspace", () => {
     fireEvent.change(within(firstSelectedResult).getByLabelText("Correction"), {
       target: { value: "Name the molecule and the energy role." },
     });
+    fireEvent.change(
+      within(firstSelectedResult).getByLabelText("Next-practice idea"),
+      {
+        target: { value: "Retry this one once without opening the source." },
+      },
+    );
 
     firstRender.unmount();
 
@@ -803,6 +809,9 @@ describe("authenticated recall workspace", () => {
     expect(
       within(reloadedSelectedResult).getByLabelText("Correction"),
     ).toHaveValue("");
+    expect(
+      within(reloadedSelectedResult).getByLabelText("Next-practice idea"),
+    ).toHaveValue("");
 
     fireEvent.change(
       within(reloadedSelectedResult).getByLabelText("Practice Repair intent"),
@@ -818,6 +827,14 @@ describe("authenticated recall workspace", () => {
         },
       },
     );
+    fireEvent.change(
+      within(reloadedSelectedResult).getByLabelText("Next-practice idea"),
+      {
+        target: {
+          value: "Retry tomorrow with the explanation hidden.",
+        },
+      },
+    );
     fireEvent.click(
       within(reloadedSelectedResult).getByRole("button", {
         name: "Confirm Practice Repair",
@@ -830,6 +847,10 @@ describe("authenticated recall workspace", () => {
     expect(savedQuestion?.practiceRepairEntry).toMatchObject({
       correction: "State ATP and explain that it stores transferable energy.",
       intent: "tighten-expected-answer",
+      intentMetadata: {
+        updatedExpectedAnswer: null,
+      },
+      nextPracticeIdea: "Retry tomorrow with the explanation hidden.",
       reference: {
         questionIndex: 0,
         sessionResultId:
@@ -881,6 +902,14 @@ describe("authenticated recall workspace", () => {
     expect(
       within(confirmedSelectedResult).getByText(
         "State ATP and explain that it stores transferable energy.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(confirmedSelectedResult).getByText("Next-practice idea"),
+    ).toBeInTheDocument();
+    expect(
+      within(confirmedSelectedResult).getByText(
+        "Retry tomorrow with the explanation hidden.",
       ),
     ).toBeInTheDocument();
     expect(

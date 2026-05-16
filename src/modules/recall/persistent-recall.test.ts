@@ -191,6 +191,9 @@ describe("createPersistentRecallContext", () => {
                       confirmedAt: "2026-05-02T12:15:00.000Z",
                       correction,
                       intent,
+                      intentMetadata: {
+                        updatedExpectedAnswer: null,
+                      },
                       reference: {
                         ...reference,
                         questionResultId:
@@ -497,6 +500,9 @@ describe("createPersistentRecallContext", () => {
                       confirmedAt: "2026-05-02T12:15:00.000Z",
                       correction,
                       intent,
+                      intentMetadata: {
+                        updatedExpectedAnswer: null,
+                      },
                       reference,
                     },
                   }
@@ -549,6 +555,9 @@ describe("createPersistentRecallContext", () => {
           practiceRepairEntry: {
             correction: "State ATP and its energy role.",
             intent: "tighten-expected-answer",
+            intentMetadata: {
+              updatedExpectedAnswer: null,
+            },
           },
         },
       ],
@@ -562,6 +571,9 @@ describe("createPersistentRecallContext", () => {
             practiceRepairEntry: {
               correction: "State ATP and its energy role.",
               intent: "tighten-expected-answer",
+              intentMetadata: {
+                updatedExpectedAnswer: null,
+              },
               reference: {
                 questionResultId: "result-weak-question-0",
               },

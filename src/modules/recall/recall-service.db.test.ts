@@ -436,6 +436,9 @@ describe("createRecallService PostgreSQL integration", () => {
             correction:
               "State ATP and explain that it stores transferable energy.",
             intent: "tighten-expected-answer",
+            intentMetadata: {
+              updatedExpectedAnswer: null,
+            },
             reference: {
               questionResultId: "session-practice-repair-question-0",
               sessionResultId: "session-practice-repair",
@@ -466,6 +469,9 @@ describe("createRecallService PostgreSQL integration", () => {
               correction:
                 "State ATP and explain that it stores transferable energy.",
               intent: "tighten-expected-answer",
+              intentMetadata: {
+                updatedExpectedAnswer: null,
+              },
               reference: {
                 questionResultId: "session-practice-repair-question-0",
               },
