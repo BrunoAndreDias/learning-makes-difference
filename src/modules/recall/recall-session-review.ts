@@ -34,13 +34,6 @@ function getAttemptedQuestions(
   return questions.filter((question) => question.selfRating !== null);
 }
 
-function matchesReferencedStudyNote(
-  question: RecallQuestion | undefined,
-  studyNoteId: string,
-) {
-  return question?.noteId === studyNoteId;
-}
-
 function getNotReachedNotes(input: {
   attemptedQuestions: readonly RecallQuestion[];
   notes: readonly FlashCardRecallNote[];
@@ -143,15 +136,17 @@ export function resolveSessionResultQuestion(input: {
   reference: SessionResultQuestionReference;
   result: Pick<FlashCardSessionResult, "id" | "questions">;
 }): RecallQuestion | null {
-  if (input.result.id !== input.reference.sessionResultId) {
+  const { reference, result } = input;
+
+  if (result.id !== reference.sessionResultId) {
     return null;
   }
 
-  if (input.reference.questionResultId !== undefined) {
-    const matchedQuestion = input.result.questions.find((question) => {
+  if (reference.questionResultId !== undefined) {
+    const matchedQuestion = result.questions.find((question) => {
       return (
-        question.questionResultId === input.reference.questionResultId &&
-        question.noteId === input.reference.studyNoteId
+        question.questionResultId === reference.questionResultId &&
+        question.noteId === reference.studyNoteId
       );
     });
 
@@ -160,9 +155,11 @@ export function resolveSessionResultQuestion(input: {
     }
   }
 
-  const legacyQuestion = input.result.questions[input.reference.questionIndex];
+  const legacyQuestion = result.questions[reference.questionIndex];
 
-  return matchesReferencedStudyNote(legacyQuestion, input.reference.studyNoteId)
-    ? legacyQuestion
-    : null;
+  if (legacyQuestion?.noteId !== reference.studyNoteId) {
+    return null;
+  }
+
+  return legacyQuestion;
 }

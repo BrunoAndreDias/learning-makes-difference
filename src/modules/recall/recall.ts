@@ -745,8 +745,11 @@ function cloneRecallQuestion(question: RecallQuestion): RecallQuestion {
   };
 }
 
-function getQuestionResultId(sessionId: string, questionIndex: number) {
-  return `${sessionId}-question-${questionIndex}`;
+function getQuestionResultId(
+  sessionId: string,
+  resultQuestionIndex: number,
+): string {
+  return `${sessionId}-question-${resultQuestionIndex}`;
 }
 
 function normalizeStoredRecallQuestion(
@@ -1117,11 +1120,11 @@ export function createAppRecallContext(
   function toSessionResult(session: StoredRecallSession): StoredSessionResult {
     const questions = session.questions
       .filter((question) => question.selfRating !== null)
-      .map((question, questionIndex) => ({
+      .map((question, resultQuestionIndex) => ({
         ...cloneRecallQuestion(question),
         questionResultId:
           question.questionResultId ??
-          getQuestionResultId(session.id, questionIndex),
+          getQuestionResultId(session.id, resultQuestionIndex),
       }));
 
     return {

@@ -1577,22 +1577,24 @@ describe("recall session setup", () => {
       userId,
     });
 
+    const expectedResult = {
+      id: session.id,
+      questions: [
+        {
+          noteId: firstNote.id,
+          questionResultId: `${session.id}-question-0`,
+          selfRating: "good",
+        },
+        {
+          noteId: secondNote.id,
+          questionResultId: `${session.id}-question-1`,
+          selfRating: "hard",
+        },
+      ],
+    };
+
     expect(recall.listSessionResults({ userId })).toMatchObject([
-      {
-        id: session.id,
-        questions: [
-          {
-            noteId: firstNote.id,
-            questionResultId: `${session.id}-question-0`,
-            selfRating: "good",
-          },
-          {
-            noteId: secondNote.id,
-            questionResultId: `${session.id}-question-1`,
-            selfRating: "hard",
-          },
-        ],
-      },
+      expectedResult,
     ]);
 
     const reloadedRecall = createAppRecallContext({
@@ -1602,21 +1604,7 @@ describe("recall session setup", () => {
     });
 
     expect(reloadedRecall.listSessionResults({ userId })).toMatchObject([
-      {
-        id: session.id,
-        questions: [
-          {
-            noteId: firstNote.id,
-            questionResultId: `${session.id}-question-0`,
-            selfRating: "good",
-          },
-          {
-            noteId: secondNote.id,
-            questionResultId: `${session.id}-question-1`,
-            selfRating: "hard",
-          },
-        ],
-      },
+      expectedResult,
     ]);
   });
 
