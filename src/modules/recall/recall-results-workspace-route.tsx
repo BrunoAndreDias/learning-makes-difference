@@ -29,6 +29,12 @@ import type {
   RecallQuestion,
   RecallSelfRating,
 } from "./recall";
+import {
+  formatPracticeRepairIntentLabel,
+  getQuestionPracticeRepairDraft,
+  type PracticeRepairIntent,
+  practiceRepairIntents,
+} from "./recall-practice-repair";
 import { listRecallResultLabels } from "./recall-result-labels";
 import { projectSessionReview } from "./recall-session-review";
 import { searchRecallSessionResults } from "./recall-session-search";
@@ -38,7 +44,9 @@ import {
   type RecallTodayReason,
 } from "./recall-today";
 
-const recallResultsSearchSchema = z.object({});
+const recallResultsSearchSchema = z.object({
+  view: z.enum(["results", "today"]).optional(),
+});
 const recallSessionSavedMessageKey = "learning-makes-difference:recall-saved";
 const recallModes = ["FlashCard", "AiAssisted", "AiGraded"] as const;
 const resultDateFormatter = new Intl.DateTimeFormat("en", {
@@ -52,9 +60,20 @@ const resultTimeFormatter = new Intl.DateTimeFormat("en", {
 const calmReviewStatsMinWidth = 960;
 
 type RecallTypeFilter = "all" | RecallMode;
+type RecallWorkspaceView = "results" | "today";
 type ExpandedQuestionKey = string | null;
 type ExpandedQuestionKeyChange = (questionKey: ExpandedQuestionKey) => void;
 type QuestionReferenceNoteSnapshot = Pick<RecallNoteSnapshot, "body" | "title">;
+type ConfirmPracticeRepairInput = {
+  correction: string;
+  intent: PracticeRepairIntent;
+  reference: {
+    questionIndex: number;
+    questionResultId?: string;
+    sessionResultId: string;
+    studyNoteId: string;
+  };
+};
 
 export const Route = createFileRoute("/_protected/recall/")({
   validateSearch: recallResultsSearchSchema,
@@ -258,6 +277,7 @@ function subscribeToReviewStatsLayout(callback: () => void) {
 function RecallResultsWorkspacePage() {
   const { t } = useAppTranslation();
   const navigate = useNavigate();
+  const search = Route.useSearch();
   const recallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.recall,
@@ -411,17 +431,50 @@ function RecallResultsWorkspacePage() {
     notes.length === 0 &&
     studyNotes.length === 0 &&
     sessionResults.length === 0;
-  const shouldShowRecallToday =
+  const canShowRecallToday =
     recallTodayQueue.length > 0 ||
     (studyNotes.length > 0 && sessionResults.length === 0);
+  const workspaceView: RecallWorkspaceView =
+    search.view === "results"
+      ? "results"
+      : search.view === "today"
+        ? canShowRecallToday
+          ? "today"
+          : "results"
+        : canShowRecallToday
+          ? "today"
+          : "results";
+
+  async function confirmPracticeRepairEntry(input: ConfirmPracticeRepairInput) {
+    if (userId === null) {
+      return;
+    }
+
+    if (persistentRecallContext === undefined) {
+      recallContext.confirmPracticeRepairEntry({
+        correction: input.correction,
+        intent: input.intent,
+        reference: input.reference,
+        userId,
+      });
+      return;
+    }
+
+    await persistentRecallContext.confirmPracticeRepairEntry(userId, {
+      correction: input.correction,
+      intent: input.intent,
+      reference: input.reference,
+    });
+  }
 
   if (hasNoRecallContent) {
     return <NoNotesRecallState />;
   }
 
-  if (shouldShowRecallToday) {
+  if (workspaceView === "today") {
     return (
       <RecallTodayPage
+        hasResults={sessionResults.length > 0}
         labelsById={currentLabelsById}
         onStartRecallToday={startRecallToday}
         queue={recallTodayQueue}
@@ -482,6 +535,7 @@ function RecallResultsWorkspacePage() {
           <ResultsDetailPanel
             expandedQuestionKey={expandedQuestionKey}
             hasAnyResults={sessionResults.length > 0}
+            onConfirmPracticeRepairEntry={confirmPracticeRepairEntry}
             onExpandedQuestionKeyChange={setExpandedQuestionKey}
             result={selectedResult}
           />
@@ -492,6 +546,7 @@ function RecallResultsWorkspacePage() {
 }
 
 type RecallTodayPageProps = {
+  hasResults: boolean;
   labelsById: ReadonlyMap<string, AppLabel>;
   onStartRecallToday: () => void;
   queue: readonly RecallTodayQueueItem[];
@@ -601,6 +656,7 @@ function getStudyNoteMetaLine(
 }
 
 function RecallTodayPage({
+  hasResults,
   labelsById,
   onStartRecallToday,
   queue,
@@ -669,6 +725,16 @@ function RecallTodayPage({
                   <ListIcon />
                   {t("recall.today.manualSelection")}
                 </ButtonLink>
+                {hasResults ? (
+                  <ButtonLink
+                    className="recall-today-actions__manual"
+                    search={{ view: "results" }}
+                    to="/recall"
+                  >
+                    <QuestionsIcon />
+                    <span>View Results</span>
+                  </ButtonLink>
+                ) : null}
               </div>
             }
             actionsClassName="recall-today-hero__actions"
@@ -1508,11 +1574,15 @@ function SearchIcon() {
 function ResultsDetailPanel({
   expandedQuestionKey,
   hasAnyResults,
+  onConfirmPracticeRepairEntry,
   onExpandedQuestionKeyChange,
   result,
 }: {
   expandedQuestionKey: ExpandedQuestionKey;
   hasAnyResults: boolean;
+  onConfirmPracticeRepairEntry: (
+    input: ConfirmPracticeRepairInput,
+  ) => Promise<void>;
   onExpandedQuestionKeyChange: ExpandedQuestionKeyChange;
   result: FlashCardSessionResult | null;
 }) {
@@ -1535,6 +1605,7 @@ function ResultsDetailPanel({
       ) : (
         <SelectedResultDetail
           expandedQuestionKey={expandedQuestionKey}
+          onConfirmPracticeRepairEntry={onConfirmPracticeRepairEntry}
           onExpandedQuestionKeyChange={onExpandedQuestionKeyChange}
           result={result}
         />
@@ -1545,10 +1616,14 @@ function ResultsDetailPanel({
 
 function SelectedResultDetail({
   expandedQuestionKey,
+  onConfirmPracticeRepairEntry,
   onExpandedQuestionKeyChange,
   result,
 }: {
   expandedQuestionKey: ExpandedQuestionKey;
+  onConfirmPracticeRepairEntry: (
+    input: ConfirmPracticeRepairInput,
+  ) => Promise<void>;
   onExpandedQuestionKeyChange: ExpandedQuestionKeyChange;
   result: FlashCardSessionResult;
 }) {
@@ -1673,9 +1748,11 @@ function SelectedResultDetail({
                   expandedQuestionKey={expandedQuestionKey}
                   index={index}
                   key={questionKey}
+                  onConfirmPracticeRepairEntry={onConfirmPracticeRepairEntry}
                   onExpandedQuestionKeyChange={onExpandedQuestionKeyChange}
                   question={question}
                   questionKey={questionKey}
+                  resultId={result.id}
                 />
               );
             })}
@@ -1689,15 +1766,21 @@ function SelectedResultDetail({
 function QuestionReviewRow({
   expandedQuestionKey,
   index,
+  onConfirmPracticeRepairEntry,
   onExpandedQuestionKeyChange,
   question,
   questionKey,
+  resultId,
 }: {
   expandedQuestionKey: ExpandedQuestionKey;
   index: number;
+  onConfirmPracticeRepairEntry: (
+    input: ConfirmPracticeRepairInput,
+  ) => Promise<void>;
   onExpandedQuestionKeyChange: ExpandedQuestionKeyChange;
   question: RecallQuestion;
   questionKey: string;
+  resultId: string;
 }) {
   const { t } = useAppTranslation();
   const detailId = getQuestionDetailId(index);
@@ -1748,7 +1831,10 @@ function QuestionReviewRow({
         {isExpanded ? (
           <QuestionReviewDetail
             detailId={detailId}
+            onConfirmPracticeRepairEntry={onConfirmPracticeRepairEntry}
             question={question}
+            questionIndex={index}
+            resultId={resultId}
             ratingLabel={ratingLabel}
             ratingTone={ratingTone}
           />
@@ -1760,17 +1846,57 @@ function QuestionReviewRow({
 
 function QuestionReviewDetail({
   detailId,
+  onConfirmPracticeRepairEntry,
   question,
+  questionIndex,
+  resultId,
   ratingLabel,
   ratingTone,
 }: {
   detailId: string;
+  onConfirmPracticeRepairEntry: (
+    input: ConfirmPracticeRepairInput,
+  ) => Promise<void>;
   question: RecallQuestion;
+  questionIndex: number;
+  resultId: string;
   ratingLabel: string;
   ratingTone: ReturnType<typeof getRatingTone>;
 }) {
   const { t } = useAppTranslation();
   const referenceNoteSnapshot = getQuestionReferenceNoteSnapshot(question);
+  const practiceRepairDraft = getQuestionPracticeRepairDraft(question);
+  const [practiceRepairIntent, setPracticeRepairIntent] = useState<
+    PracticeRepairIntent | ""
+  >("");
+  const [practiceRepairCorrection, setPracticeRepairCorrection] = useState("");
+  const [isSavingPracticeRepair, setIsSavingPracticeRepair] = useState(false);
+
+  async function handleConfirmPracticeRepair() {
+    if (
+      practiceRepairIntent === "" ||
+      practiceRepairCorrection.trim().length === 0
+    ) {
+      return;
+    }
+
+    setIsSavingPracticeRepair(true);
+
+    try {
+      await onConfirmPracticeRepairEntry({
+        correction: practiceRepairCorrection,
+        intent: practiceRepairIntent,
+        reference: {
+          questionIndex,
+          questionResultId: question.questionResultId,
+          sessionResultId: resultId,
+          studyNoteId: question.noteId,
+        },
+      });
+    } finally {
+      setIsSavingPracticeRepair(false);
+    }
+  }
 
   return (
     <div className="recall-selected-result__question-detail" id={detailId}>
@@ -1814,6 +1940,81 @@ function QuestionReviewDetail({
           {referenceNoteSnapshot.body}
         </p>
       </div>
+      {question.practiceRepairEntry !== undefined ? (
+        <div className="recall-selected-result__question-detail-block">
+          <h5>Confirmed Practice Repair</h5>
+          <p className="recall-selected-result__question-detail-label">
+            Intent
+          </p>
+          <p className="recall-selected-result__question-detail-copy">
+            {formatPracticeRepairIntentLabel(
+              question.practiceRepairEntry.intent,
+            )}
+          </p>
+          <p className="recall-selected-result__question-detail-label">
+            Correction
+          </p>
+          <p className="recall-selected-result__question-detail-copy">
+            {question.practiceRepairEntry.correction}
+          </p>
+        </div>
+      ) : practiceRepairDraft !== null ? (
+        <div className="recall-selected-result__question-detail-block">
+          <h5>Draft Practice Repair</h5>
+          <p className="recall-selected-result__question-detail-copy">
+            {practiceRepairDraft.summary}
+          </p>
+          <ul className="recall-selected-result__question-detail-copy">
+            {practiceRepairDraft.suggestions.map((suggestion) => (
+              <li key={suggestion}>{suggestion}</li>
+            ))}
+          </ul>
+          <label className="recall-field">
+            <span>Practice Repair intent</span>
+            <select
+              aria-label="Practice Repair intent"
+              onChange={(event) =>
+                setPracticeRepairIntent(
+                  event.target.value as PracticeRepairIntent | "",
+                )
+              }
+              value={practiceRepairIntent}
+            >
+              <option value="">Choose one intent</option>
+              {practiceRepairIntents.map((intent) => (
+                <option key={intent} value={intent}>
+                  {formatPracticeRepairIntentLabel(intent)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="recall-field">
+            <span>Correction</span>
+            <textarea
+              aria-label="Correction"
+              onChange={(event) =>
+                setPracticeRepairCorrection(event.target.value)
+              }
+              rows={3}
+              value={practiceRepairCorrection}
+            />
+          </label>
+          <Button
+            disabled={
+              isSavingPracticeRepair ||
+              practiceRepairIntent === "" ||
+              practiceRepairCorrection.trim().length === 0
+            }
+            onClick={() => {
+              void handleConfirmPracticeRepair();
+            }}
+            type="button"
+            variant="primary"
+          >
+            Confirm Practice Repair
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

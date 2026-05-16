@@ -15,6 +15,10 @@ import {
   type SessionResult,
   summarizeAttempts,
 } from "./recall";
+import type {
+  PracticeRepairIntent,
+  PracticeRepairQuestionReference,
+} from "./recall-practice-repair";
 import type { RecallSchedule } from "./recall-schedule";
 
 type PersistentRecallListener = () => void;
@@ -49,7 +53,16 @@ type UpdateAttemptTextInput = UpdateRecallSessionInput & {
   text: string;
 };
 
+type ConfirmPracticeRepairEntryInput = {
+  correction: string;
+  intent: PracticeRepairIntent;
+  reference: PracticeRepairQuestionReference;
+};
+
 export type AppPersistentRecallService = {
+  confirmPracticeRepairEntry: (
+    input: ConfirmPracticeRepairEntryInput,
+  ) => Promise<SessionResult>;
   endRecallSession: (input: UpdateRecallSessionInput) => Promise<RecallSession>;
   getActiveSession: () => Promise<RecallSession | null>;
   listRecallSchedules: () => Promise<RecallSchedule[]>;
@@ -72,6 +85,10 @@ export type AppPersistentRecallService = {
 };
 
 export type AppPersistentRecallContext = {
+  confirmPracticeRepairEntry: (
+    userId: string | null,
+    input: ConfirmPracticeRepairEntryInput,
+  ) => Promise<SessionResult>;
   endFlashCardSession: (
     userId: string | null,
     input: UpdateRecallSessionInput,
@@ -326,6 +343,11 @@ export function createPersistentRecallContext(
         "Readonly recall context cannot answer questions. Use persistentRecall instead.",
       );
     },
+    confirmPracticeRepairEntry: () => {
+      throw new Error(
+        "Readonly recall context cannot confirm Practice Repair. Use persistentRecall instead.",
+      );
+    },
     endFlashCardSession: () => {
       throw new Error(
         "Readonly recall context cannot end sessions. Use persistentRecall instead.",
@@ -517,6 +539,26 @@ export function createPersistentRecallContext(
   };
 
   return {
+    async confirmPracticeRepairEntry(userId, input) {
+      const validatedUserId = requireUserId(userId);
+      const updatedResult =
+        await requireService().confirmPracticeRepairEntry(input);
+
+      writeState({
+        activeSession: snapshot,
+        sessionResults: toStoredSessionResults(
+          [
+            updatedResult,
+            ...sessionResultsSnapshot.filter(
+              (result) => result.id !== updatedResult.id,
+            ),
+          ],
+          validatedUserId,
+        ),
+      });
+
+      return cloneSessionResult(updatedResult);
+    },
     async endFlashCardSession(userId, input) {
       const validatedUserId = requireUserId(userId);
       const [endedSession, nextResults] = await Promise.all([

@@ -171,6 +171,48 @@ describe("createPersistentRecallContext", () => {
     ];
 
     const service: AppPersistentRecallService = {
+      confirmPracticeRepairEntry: vi.fn(
+        async ({ correction, intent, reference }) => {
+          const existingResult = sessionResults.find(
+            (result) => result.id === reference.sessionResultId,
+          );
+
+          if (existingResult === undefined) {
+            throw new Error("Missing result");
+          }
+
+          const updatedResult = {
+            ...existingResult,
+            questions: existingResult.questions.map((question, index) =>
+              index === reference.questionIndex
+                ? {
+                    ...question,
+                    practiceRepairEntry: {
+                      confirmedAt: "2026-05-02T12:15:00.000Z",
+                      correction,
+                      intent,
+                      reference: {
+                        ...reference,
+                        questionResultId:
+                          question.questionResultId ??
+                          reference.questionResultId,
+                      },
+                    },
+                  }
+                : question,
+            ),
+          } satisfies SessionResult;
+
+          sessionResults = [
+            updatedResult,
+            ...sessionResults.filter(
+              (result) => result.id !== updatedResult.id,
+            ),
+          ];
+
+          return updatedResult;
+        },
+      ),
       endRecallSession: vi.fn(async () => {
         if (activeSession === null) {
           throw new Error("Missing session");
@@ -384,6 +426,148 @@ describe("createPersistentRecallContext", () => {
       },
       {
         id: "result-1",
+      },
+    ]);
+  });
+
+  it("confirms Practice Repair entries into the persisted results snapshot", async () => {
+    let sessionResults: SessionResult[] = [
+      createResult({
+        id: "result-weak",
+        notes: [
+          {
+            acronyms: [],
+            body: "ATP stores transferable energy.",
+            createdAt: "2026-05-02T12:00:00.000Z",
+            expectedAnswer: "ATP stores transferable energy.",
+            id: "study-note-1",
+            labelIds: [],
+            metaphors: [],
+            prompt: "What stores transferable energy?",
+            source: {
+              body: "Cell respiration source.",
+              id: "source-note-1",
+              title: "Cell respiration",
+              updatedAt: "2026-05-02T12:00:00.000Z",
+            },
+            sourceNoteId: "source-note-1",
+            title: "What stores transferable energy?",
+            updatedAt: "2026-05-02T12:00:00.000Z",
+          },
+        ],
+        questions: [
+          createQuestion({
+            noteId: "study-note-1",
+            noteSnapshot: {
+              acronyms: [],
+              body: "ATP stores transferable energy.",
+              createdAt: "2026-05-02T12:00:00.000Z",
+              expectedAnswer: "ATP stores transferable energy.",
+              id: "study-note-1",
+              labelIds: [],
+              metaphors: [],
+              prompt: "What stores transferable energy?",
+              source: {
+                body: "Cell respiration source.",
+                id: "source-note-1",
+                title: "Cell respiration",
+                updatedAt: "2026-05-02T12:00:00.000Z",
+              },
+              sourceNoteId: "source-note-1",
+              title: "What stores transferable energy?",
+              updatedAt: "2026-05-02T12:00:00.000Z",
+            },
+            questionResultId: "result-weak-question-0",
+            selfRating: "hard",
+          }),
+        ],
+      }),
+    ];
+    const service: AppPersistentRecallService = {
+      confirmPracticeRepairEntry: vi.fn(
+        async ({ correction, intent, reference }) => {
+          const existingResult = sessionResults[0];
+          const updatedResult = {
+            ...existingResult,
+            questions: existingResult.questions.map((question, index) =>
+              index === reference.questionIndex
+                ? {
+                    ...question,
+                    practiceRepairEntry: {
+                      confirmedAt: "2026-05-02T12:15:00.000Z",
+                      correction,
+                      intent,
+                      reference,
+                    },
+                  }
+                : question,
+            ),
+          } satisfies SessionResult;
+
+          sessionResults = [updatedResult];
+
+          return updatedResult;
+        },
+      ),
+      endRecallSession: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      getActiveSession: vi.fn(async () => null),
+      listRecallSchedules: vi.fn(async () => []),
+      listSessionResults: vi.fn(async () => sessionResults),
+      rateFlashCardAnswer: vi.fn(async () => null),
+      revealFlashCardAnswer: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      startFlashCardSession: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      updateFlashCardAttemptText: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+    };
+    const persistentRecall = createPersistentRecallContext({
+      service,
+    });
+
+    await persistentRecall.refresh("user-casey");
+    await expect(
+      persistentRecall.confirmPracticeRepairEntry("user-casey", {
+        correction: "State ATP and its energy role.",
+        intent: "tighten-expected-answer",
+        reference: {
+          questionIndex: 0,
+          questionResultId: "result-weak-question-0",
+          sessionResultId: "result-weak",
+          studyNoteId: "study-note-1",
+        },
+      }),
+    ).resolves.toMatchObject({
+      id: "result-weak",
+      questions: [
+        {
+          practiceRepairEntry: {
+            correction: "State ATP and its energy role.",
+            intent: "tighten-expected-answer",
+          },
+        },
+      ],
+    });
+
+    expect(persistentRecall.getSessionResultsSnapshot()).toMatchObject([
+      {
+        id: "result-weak",
+        questions: [
+          {
+            practiceRepairEntry: {
+              correction: "State ATP and its energy role.",
+              intent: "tighten-expected-answer",
+              reference: {
+                questionResultId: "result-weak-question-0",
+              },
+            },
+          },
+        ],
       },
     ]);
   });

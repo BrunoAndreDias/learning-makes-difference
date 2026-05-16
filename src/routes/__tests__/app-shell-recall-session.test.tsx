@@ -57,6 +57,9 @@ function _createPersistentRecallService(
   overrides: Partial<AppPersistentRecallService>,
 ): AppPersistentRecallService {
   return {
+    confirmPracticeRepairEntry: vi.fn(async () => {
+      throw new Error("not used");
+    }),
     endRecallSession: vi.fn(async () => {
       throw new Error("not used");
     }),

@@ -8,6 +8,13 @@ import {
   listStudyNotesForUser,
 } from "../study-notes";
 import {
+  isPracticeRepairIntent,
+  isWeakPracticeRepairRating,
+  type PracticeRepairEntry,
+  type PracticeRepairIntent,
+  type PracticeRepairQuestionReference,
+} from "./recall-practice-repair";
+import {
   createInitialRecallSchedule,
   getUpdatedRecallSchedule,
   type RecallSchedule,
@@ -55,6 +62,7 @@ export type RecallQuestion = {
   isAnswerRevealed: boolean;
   noteId: string;
   noteSnapshot: RecallNoteSnapshot;
+  practiceRepairEntry?: PracticeRepairEntry;
   questionResultId?: string;
   score?: number | null;
   selfRating: RecallSelfRating | null;
@@ -167,6 +175,13 @@ type UpdateAttemptTextInput = UpdateRecallSessionInput & {
   text: string;
 };
 
+type ConfirmPracticeRepairEntryInput = {
+  correction: string;
+  intent: PracticeRepairIntent;
+  reference: PracticeRepairQuestionReference;
+  userId: string;
+};
+
 type CreateAppRecallContextOptions = {
   crypto?: RecallCrypto;
   getLabelsForUser?: (userId: string) => readonly AppLabel[];
@@ -240,6 +255,9 @@ function getRecallSelfRatingScore(rating: RecallSelfRating): number {
 
 export type AppRecallContext = {
   answerQuestion: (input: AnswerQuestionInput) => RecallSession | null;
+  confirmPracticeRepairEntry: (
+    input: ConfirmPracticeRepairEntryInput,
+  ) => SessionResult;
   endRecallSession: (input: UpdateRecallSessionInput) => RecallSession;
   getRecallSchedulesSnapshot: () => readonly RecallSchedule[];
   getSessionResult: (input: GetSessionResultInput) => SessionResult;
@@ -391,6 +409,8 @@ function isRecallQuestion(question: unknown): question is StoredRecallQuestion {
     isRecallNoteSnapshot(candidate.noteSnapshot) &&
     (!("questionResultId" in candidate) ||
       typeof candidate.questionResultId === "string") &&
+    (!("practiceRepairEntry" in candidate) ||
+      isPracticeRepairEntry(candidate.practiceRepairEntry)) &&
     (candidate.selfRating === null ||
       isStoredRecallSelfRating(candidate.selfRating)) &&
     (!("score" in candidate) ||
@@ -738,10 +758,26 @@ function cloneRecallNoteSnapshots(
   return notes.map(cloneRecallNoteSnapshot);
 }
 
+function clonePracticeRepairEntry(
+  entry: PracticeRepairEntry | undefined,
+): PracticeRepairEntry | undefined {
+  if (entry === undefined) {
+    return undefined;
+  }
+
+  return {
+    ...entry,
+    reference: {
+      ...entry.reference,
+    },
+  };
+}
+
 function cloneRecallQuestion(question: RecallQuestion): RecallQuestion {
   return {
     ...question,
     noteSnapshot: cloneRecallNoteSnapshot(question.noteSnapshot),
+    practiceRepairEntry: clonePracticeRepairEntry(question.practiceRepairEntry),
   };
 }
 
@@ -763,6 +799,7 @@ function normalizeStoredRecallQuestion(
   return {
     ...question,
     noteSnapshot: cloneRecallNoteSnapshot(question.noteSnapshot),
+    practiceRepairEntry: clonePracticeRepairEntry(question.practiceRepairEntry),
     score:
       typeof question.score === "number"
         ? question.score
@@ -792,6 +829,62 @@ function cloneSessionResult(result: StoredSessionResult): StoredSessionResult {
     notes: cloneRecallNoteSnapshots(result.notes),
     questions: result.questions.map(cloneRecallQuestion),
   };
+}
+
+function isPracticeRepairQuestionReference(
+  value: unknown,
+): value is PracticeRepairQuestionReference {
+  const candidate = asRecord(value);
+
+  return (
+    candidate !== null &&
+    typeof candidate.questionIndex === "number" &&
+    typeof candidate.sessionResultId === "string" &&
+    typeof candidate.studyNoteId === "string" &&
+    (!("questionResultId" in candidate) ||
+      typeof candidate.questionResultId === "string")
+  );
+}
+
+function isPracticeRepairEntry(value: unknown): value is PracticeRepairEntry {
+  const candidate = asRecord(value);
+
+  return (
+    candidate !== null &&
+    typeof candidate.confirmedAt === "string" &&
+    typeof candidate.correction === "string" &&
+    isPracticeRepairIntent(candidate.intent) &&
+    isPracticeRepairQuestionReference(candidate.reference)
+  );
+}
+
+function getSessionResultQuestionIndex(input: {
+  reference: PracticeRepairQuestionReference;
+  result: StoredSessionResult;
+}) {
+  if (input.result.id !== input.reference.sessionResultId) {
+    return null;
+  }
+
+  if (input.reference.questionResultId !== undefined) {
+    const matchedQuestionIndex = input.result.questions.findIndex(
+      (question) =>
+        question.questionResultId === input.reference.questionResultId &&
+        question.noteId === input.reference.studyNoteId,
+    );
+
+    if (matchedQuestionIndex >= 0) {
+      return matchedQuestionIndex;
+    }
+  }
+
+  const legacyQuestion = input.result.questions[input.reference.questionIndex];
+
+  if (legacyQuestion?.noteId !== input.reference.studyNoteId) {
+    return null;
+  }
+
+  return input.reference.questionIndex;
 }
 
 function getRecallLabelSnapshots(input: {
@@ -1162,6 +1255,83 @@ export function createAppRecallContext(
     return activeSession;
   }
 
+  function confirmPracticeRepairEntry(
+    input: ConfirmPracticeRepairEntryInput,
+  ): SessionResult {
+    const correction = input.correction.trim();
+
+    if (correction.length === 0) {
+      throw new AppRecallError(
+        "invalid_input",
+        "Practice Repair correction is required.",
+      );
+    }
+
+    const resultIndex = sessionResults.findIndex((candidate) => {
+      return (
+        candidate.userId === input.userId &&
+        candidate.id === input.reference.sessionResultId
+      );
+    });
+
+    if (resultIndex < 0) {
+      throw new AppRecallError("not_found", "Session result not found.");
+    }
+
+    const result = sessionResults[resultIndex];
+    const questionIndex = getSessionResultQuestionIndex({
+      reference: input.reference,
+      result,
+    });
+
+    if (questionIndex === null) {
+      throw new AppRecallError("not_found", "Question result not found.");
+    }
+
+    const question = result.questions[questionIndex];
+
+    if (
+      !isWeakPracticeRepairRating(question.selfRating) ||
+      question.noteSnapshot.sourceNoteId === undefined ||
+      question.noteSnapshot.expectedAnswer?.trim().length === 0
+    ) {
+      throw new AppRecallError(
+        "invalid_input",
+        "Practice Repair is only available for weak Study Note questions.",
+      );
+    }
+
+    const practiceRepairEntry: PracticeRepairEntry = {
+      confirmedAt: new Date().toISOString(),
+      correction,
+      intent: input.intent,
+      reference: {
+        ...input.reference,
+        questionResultId:
+          question.questionResultId ?? input.reference.questionResultId,
+      },
+    };
+    const nextResult: StoredSessionResult = {
+      ...result,
+      questions: result.questions.map((candidateQuestion, candidateIndex) =>
+        candidateIndex === questionIndex
+          ? {
+              ...cloneRecallQuestion(candidateQuestion),
+              practiceRepairEntry,
+            }
+          : cloneRecallQuestion(candidateQuestion),
+      ),
+    };
+
+    writeSessionResults(
+      sessionResults.map((candidate, candidateIndex) =>
+        candidateIndex === resultIndex ? nextResult : candidate,
+      ),
+    );
+
+    return cloneSessionResult(nextResult);
+  }
+
   function revealAnswer({ sessionId, userId }: UpdateRecallSessionInput) {
     const activeSession = getActiveSessionForUser({ sessionId, userId });
 
@@ -1378,6 +1548,7 @@ export function createAppRecallContext(
 
   return {
     answerQuestion,
+    confirmPracticeRepairEntry,
     endRecallSession,
     endFlashCardSession: endRecallSession,
     getSessionResult: ({ sessionResultId, userId }) => {

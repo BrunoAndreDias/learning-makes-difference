@@ -19,6 +19,10 @@ import {
   type RecallSession,
   type SessionResult,
 } from "./recall";
+import type {
+  PracticeRepairIntent,
+  PracticeRepairQuestionReference,
+} from "./recall-practice-repair";
 import {
   createInitialRecallSchedule,
   getUpdatedRecallSchedule,
@@ -45,7 +49,7 @@ type StoredSessionResult = SessionResult & {
 
 type RecallCrypto = Pick<Crypto, "randomUUID">;
 type RecallNoteSnapshot = RecallSession["notes"][number];
-type RecallMutationResult = RecallSession | null;
+type RecallMutationResult = RecallSession | SessionResult | null;
 type MutableRecallContext = ReturnType<typeof createAppRecallContext>;
 type ShuffleNotes = (
   notes: readonly RecallNoteSnapshot[],
@@ -68,6 +72,13 @@ type AnswerQuestionInput = UpdateRecallSessionInput & {
 
 type UpdateAttemptTextInput = UpdateRecallSessionInput & {
   text: string;
+};
+
+type ConfirmPracticeRepairEntryInput = {
+  correction: string;
+  intent: PracticeRepairIntent;
+  reference: PracticeRepairQuestionReference;
+  userId: string;
 };
 
 type CreateRecallServiceOptions = {
@@ -541,6 +552,17 @@ export function createRecallService({
   shuffleNotes,
 }: CreateRecallServiceOptions) {
   return {
+    async confirmPracticeRepairEntry(
+      input: ConfirmPracticeRepairEntryInput,
+    ): Promise<SessionResult> {
+      return mutatePersistentRecall({
+        crypto,
+        db,
+        mutate: (recall) => recall.confirmPracticeRepairEntry(input),
+        shuffleNotes,
+        userId: input.userId,
+      });
+    },
     async endFlashCardSession(input: UpdateRecallSessionInput) {
       return mutatePersistentRecall({
         crypto,

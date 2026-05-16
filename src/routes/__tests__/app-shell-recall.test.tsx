@@ -2,14 +2,18 @@
 
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createAppLabelsContext } from "../../modules/labels/label-management/labels";
+import { createAppNotesContext } from "../../modules/notes";
 import {
   type AppPersistentRecallService,
+  createAppRecallContext,
   createPersistentRecallContext,
   type RecallNoteSnapshot,
   type RecallQuestion,
   type RecallSelfRating,
   type SessionResult,
 } from "../../modules/recall";
+import { createAppStudyNotesContext } from "../../modules/study-notes";
 import {
   createDeterministicRecallTestContexts,
   createRecallNote,
@@ -59,6 +63,9 @@ function createPersistentRecallService(
   overrides: Partial<AppPersistentRecallService>,
 ): AppPersistentRecallService {
   return {
+    confirmPracticeRepairEntry: vi.fn(async () => {
+      throw new Error("not used");
+    }),
     endRecallSession: vi.fn(async () => {
       throw new Error("not used");
     }),
@@ -464,6 +471,9 @@ describe("authenticated recall workspace", () => {
     }));
     const persistentRecallContext = createPersistentRecallContext({
       service: {
+        confirmPracticeRepairEntry: vi.fn(async () => {
+          throw new Error("not used");
+        }),
         endRecallSession: vi.fn(async () => {
           throw new Error("not used");
         }),
@@ -681,6 +691,203 @@ describe("authenticated recall workspace", () => {
     expect(screen.queryByText("Edited ATP prompt?")).toBeNull();
     expect(screen.queryByText("Edited ATP answer.")).toBeNull();
     expect(screen.queryByText("Edited ATP source context.")).toBeNull();
+  });
+
+  it("keeps weak-question Practice Repair drafts transient until confirmation and reloads confirmed entries from persisted results", async () => {
+    const storageKeyPrefix = `test-practice-repair-${Math.random()
+      .toString(36)
+      .slice(2)}`;
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `${storageKeyPrefix}-labels`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labelsContext.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: `${storageKeyPrefix}-notes`,
+      storage: window.localStorage,
+    });
+    const studyNotesContext = createAppStudyNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labelsContext.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: `${storageKeyPrefix}-study-notes`,
+      storage: window.localStorage,
+    });
+    const recallContext = createAppRecallContext({
+      getLabelsForUser: (userId) => labelsContext.getLabelsForUser(userId),
+      keyPrefix: `${storageKeyPrefix}-recall`,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+      studyNotes: studyNotesContext,
+    });
+    const weakStudyNote = studyNotesContext.createStudyNote(testUser.id, {
+      expectedAnswer: "ATP stores transferable energy for cells.",
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext,
+      studyNoteId: weakStudyNote.id,
+      timestamp: "2026-05-15T09:00:00.000Z",
+    });
+
+    const firstRender = renderRoute("/recall?view=results", {
+      labelsContext,
+      notesContext,
+      recallContext,
+      session: createSession(),
+      studyNotesContext,
+    });
+    const firstSelectedResult = await screen.findByRole("region", {
+      name: "Selected result",
+    });
+
+    fireEvent.click(
+      within(firstSelectedResult).getByRole("button", {
+        name: /What stores transferable energy\?/i,
+      }),
+    );
+
+    expect(
+      within(firstSelectedResult).getByRole("heading", {
+        level: 5,
+        name: "Draft Practice Repair",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(
+      within(firstSelectedResult).getByLabelText("Practice Repair intent"),
+      {
+        target: { value: "tighten-expected-answer" },
+      },
+    );
+    fireEvent.change(within(firstSelectedResult).getByLabelText("Correction"), {
+      target: { value: "Name the molecule and the energy role." },
+    });
+
+    firstRender.unmount();
+
+    const reloadedRecallContext = createAppRecallContext({
+      getLabelsForUser: (userId) => labelsContext.getLabelsForUser(userId),
+      keyPrefix: `${storageKeyPrefix}-recall`,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+      studyNotes: studyNotesContext,
+    });
+
+    const secondRender = renderRoute("/recall?view=results", {
+      labelsContext,
+      notesContext,
+      recallContext: reloadedRecallContext,
+      session: createSession(),
+      studyNotesContext,
+    });
+    const reloadedSelectedResult = await screen.findByRole("region", {
+      name: "Selected result",
+    });
+
+    fireEvent.click(
+      within(reloadedSelectedResult).getByRole("button", {
+        name: /What stores transferable energy\?/i,
+      }),
+    );
+
+    expect(
+      screen.queryByText("Name the molecule and the energy role."),
+    ).toBeNull();
+    expect(
+      within(reloadedSelectedResult).getByLabelText("Correction"),
+    ).toHaveValue("");
+
+    fireEvent.change(
+      within(reloadedSelectedResult).getByLabelText("Practice Repair intent"),
+      {
+        target: { value: "tighten-expected-answer" },
+      },
+    );
+    fireEvent.change(
+      within(reloadedSelectedResult).getByLabelText("Correction"),
+      {
+        target: {
+          value: "State ATP and explain that it stores transferable energy.",
+        },
+      },
+    );
+    fireEvent.click(
+      within(reloadedSelectedResult).getByRole("button", {
+        name: "Confirm Practice Repair",
+      }),
+    );
+
+    const savedQuestion = reloadedRecallContext.listSessionResults({
+      userId: testUser.id,
+    })[0]?.questions[0];
+    expect(savedQuestion?.practiceRepairEntry).toMatchObject({
+      correction: "State ATP and explain that it stores transferable energy.",
+      intent: "tighten-expected-answer",
+      reference: {
+        questionIndex: 0,
+        sessionResultId:
+          savedQuestion?.practiceRepairEntry?.reference.sessionResultId,
+        studyNoteId: weakStudyNote.id,
+      },
+    });
+    expect(savedQuestion?.practiceRepairEntry?.reference.questionResultId).toBe(
+      savedQuestion?.questionResultId,
+    );
+
+    secondRender.unmount();
+
+    const confirmedRecallContext = createAppRecallContext({
+      getLabelsForUser: (userId) => labelsContext.getLabelsForUser(userId),
+      keyPrefix: `${storageKeyPrefix}-recall`,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+      studyNotes: studyNotesContext,
+    });
+
+    renderRoute("/recall?view=results", {
+      labelsContext,
+      notesContext,
+      recallContext: confirmedRecallContext,
+      session: createSession(),
+      studyNotesContext,
+    });
+    const confirmedSelectedResult = await screen.findByRole("region", {
+      name: "Selected result",
+    });
+
+    fireEvent.click(
+      within(confirmedSelectedResult).getByRole("button", {
+        name: /What stores transferable energy\?/i,
+      }),
+    );
+
+    expect(
+      within(confirmedSelectedResult).getByRole("heading", {
+        level: 5,
+        name: "Confirmed Practice Repair",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(confirmedSelectedResult).getByText("Tighten expected answer"),
+    ).toBeInTheDocument();
+    expect(
+      within(confirmedSelectedResult).getByText(
+        "State ATP and explain that it stores transferable energy.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(confirmedSelectedResult).queryByRole("button", {
+        name: "Confirm Practice Repair",
+      }),
+    ).toBeNull();
   });
 
   it("links child Recall breadcrumbs back to the default Recall page", async () => {

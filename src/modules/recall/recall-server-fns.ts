@@ -11,6 +11,7 @@ import {
   type RecallSession,
   type SessionResult,
 } from "./recall";
+import { practiceRepairIntents } from "./recall-practice-repair";
 import type { RecallSchedule } from "./recall-schedule";
 
 const SESSION_COOKIE_NAME = "learning-makes-difference-session";
@@ -30,6 +31,17 @@ const answerQuestionInputSchema = updateRecallSessionInputSchema.extend({
 
 const updateAttemptTextInputSchema = updateRecallSessionInputSchema.extend({
   text: z.string(),
+});
+
+const confirmPracticeRepairEntryInputSchema = z.object({
+  correction: z.string(),
+  intent: z.enum(practiceRepairIntents),
+  reference: z.object({
+    questionIndex: z.number().int().nonnegative(),
+    questionResultId: z.string().optional(),
+    sessionResultId: z.string(),
+    studyNoteId: z.string(),
+  }),
 });
 
 async function createRequestAuthService() {
@@ -239,8 +251,30 @@ const endFlashCardSessionServerFn = createServerFn({
     });
   });
 
+const confirmPracticeRepairEntryServerFn = createServerFn({
+  method: "POST",
+})
+  .inputValidator(confirmPracticeRepairEntryInputSchema)
+  .handler(async ({ data }) => {
+    const [userId, recall] = await Promise.all([
+      requireRequestUserId(),
+      createRequestRecallService(),
+    ]);
+
+    return recall.confirmPracticeRepairEntry({
+      correction: data.correction,
+      intent: data.intent,
+      reference: data.reference,
+      userId,
+    });
+  });
+
 export function createServerRecallService(): AppPersistentRecallService {
   return {
+    confirmPracticeRepairEntry: (
+      input: z.infer<typeof confirmPracticeRepairEntryInputSchema>,
+    ): Promise<SessionResult> =>
+      confirmPracticeRepairEntryServerFn({ data: input }),
     endRecallSession: (input): Promise<RecallSession> =>
       endFlashCardSessionServerFn({ data: input }),
     getActiveSession: () => getActiveSessionServerFn(),
