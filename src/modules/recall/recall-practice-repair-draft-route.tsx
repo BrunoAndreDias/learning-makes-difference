@@ -32,6 +32,7 @@ import {
   formatPracticeRepairIntentLabel,
   getPracticeRepairEntryId,
   getQuestionPracticeRepairDraft,
+  type PracticeRepairDraft,
   type PracticeRepairIntent,
   type PracticeRepairQuestionReference,
 } from "./recall-practice-repair";
@@ -223,20 +224,40 @@ function RecallPracticeRepairDraftRoute() {
     return <Navigate to="/recall" />;
   }
 
-  const canOpenDraft =
-    workspace.question.practiceRepairEntry !== undefined ||
-    getQuestionPracticeRepairDraft(workspace.question) !== null;
+  if (workspace.question.practiceRepairEntry !== undefined) {
+    return (
+      <Navigate
+        params={{
+          practiceRepairEntryId: getPracticeRepairEntryId(
+            workspace.question.practiceRepairEntry,
+          ),
+        }}
+        to="/recall/repair/$practiceRepairEntryId"
+      />
+    );
+  }
 
-  if (!canOpenDraft) {
+  const practiceRepairDraft = getQuestionPracticeRepairDraft(
+    workspace.question,
+  );
+
+  if (practiceRepairDraft === null) {
     return <Navigate to="/recall" />;
   }
 
-  return <RecallPracticeRepairDraftPage workspace={workspace} />;
+  return (
+    <RecallPracticeRepairDraftPage
+      practiceRepairDraft={practiceRepairDraft}
+      workspace={workspace}
+    />
+  );
 }
 
 function RecallPracticeRepairDraftPage({
+  practiceRepairDraft,
   workspace,
 }: Readonly<{
+  practiceRepairDraft: PracticeRepairDraft;
   workspace: PracticeRepairDraftWorkspace;
 }>) {
   const navigate = useNavigate();
@@ -267,6 +288,10 @@ function RecallPracticeRepairDraftPage({
   const correctionRef = useRef<HTMLTextAreaElement | null>(null);
   const selectedCard =
     selectedIntent === null ? null : findDraftIntentCard(selectedIntent);
+  const selectedRepairDescription =
+    selectedCard === null
+      ? "Select one action above, then describe the concrete repair you plan to make."
+      : `Selected repair: ${formatPracticeRepairIntentLabel(selectedCard.intent)}.`;
 
   useEffect(() => {
     if (selectedIntent !== null) {
@@ -429,7 +454,7 @@ function RecallPracticeRepairDraftPage({
           >
             <div className="recall-practice-repair-draft__suggestions-copy">
               <h2>Suggested repairs</h2>
-              <p>Pick one small action to strengthen this Study Note.</p>
+              <p>{practiceRepairDraft.summary}</p>
             </div>
 
             <div className="recall-practice-repair-draft__suggestion-list">
@@ -445,23 +470,30 @@ function RecallPracticeRepairDraftPage({
               <PracticeRepairDraftStaticSuggestion card={recallAgainSoonCard} />
             </div>
 
-            {selectedCard === null ? null : (
-              <PracticeRepairDraftSelectionForm
-                correction={correction}
-                correctionRef={correctionRef}
-                errorMessage={errorMessage}
-                isSubmitting={isSubmitting}
-                onClearSelection={clearSelection}
-                onCorrectionChange={(nextCorrection) => {
-                  setCorrection(nextCorrection);
-                  setErrorMessage(null);
-                }}
-                onSubmit={(event) => {
-                  void handleConfirmPracticeRepair(event);
-                }}
-                selectedCard={selectedCard}
-              />
-            )}
+            <section className="recall-practice-repair-draft__confirmation">
+              <div className="recall-practice-repair-draft__confirmation-copy">
+                <h2>Choose one repair to confirm</h2>
+                <p>{selectedRepairDescription}</p>
+              </div>
+
+              {selectedCard === null ? null : (
+                <PracticeRepairDraftSelectionForm
+                  correction={correction}
+                  correctionRef={correctionRef}
+                  errorMessage={errorMessage}
+                  isSubmitting={isSubmitting}
+                  onClearSelection={clearSelection}
+                  onCorrectionChange={(nextCorrection) => {
+                    setCorrection(nextCorrection);
+                    setErrorMessage(null);
+                  }}
+                  onSubmit={(event) => {
+                    void handleConfirmPracticeRepair(event);
+                  }}
+                  selectedCard={selectedCard}
+                />
+              )}
+            </section>
           </aside>
         </div>
 

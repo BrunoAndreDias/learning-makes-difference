@@ -855,6 +855,11 @@
   gap: var(--space-4);
 }
 
+.recall-practice-repair-queue__section {
+  display: grid;
+  gap: var(--space-3);
+}
+
 .recall-practice-repair-queue__header {
   display: grid;
   gap: var(--space-2);
@@ -2390,6 +2395,11 @@
 
 .recall-practice-repair-draft__suggestion[data-selected="true"] {
   border-color: var(--color-primary-soft-border);
+  background: color-mix(
+    in srgb,
+    var(--color-primary-soft) 48%,
+    var(--color-shell-panel)
+  );
   box-shadow: 0 20px 34px -28px
     color-mix(in srgb, var(--color-primary) 30%, transparent);
 }
@@ -2443,6 +2453,27 @@
   color: var(--color-content-muted);
 }
 
+.recall-practice-repair-draft__confirmation {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.7rem;
+  background: var(--color-shell-panel);
+  box-shadow: 0 18px 32px -30px
+    color-mix(in srgb, var(--color-content-strong) 24%, transparent);
+}
+
+.recall-practice-repair-draft__confirmation-copy {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.recall-practice-repair-draft__confirmation-copy h2,
+.recall-practice-repair-draft__confirmation-copy p {
+  margin: 0;
+}
+
 .recall-practice-repair-draft__selection {
   display: grid;
   gap: var(--space-4);
@@ -2492,7 +2523,6 @@
 .recall-practice-repair-draft__selection-actions {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-
 .recall-practice-repair-draft__support {
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--color-content-border-soft);

@@ -107,7 +107,7 @@ export type PracticeRepairEntryConfirmation = {
 };
 
 type PracticeRepairQuestionLike = {
-  noteId: string;
+  noteId?: string;
   noteSnapshot: {
     expectedAnswer?: string;
     sourceNoteId?: string;
@@ -130,6 +130,7 @@ type PracticeRepairResultLike = {
 };
 
 export type PracticeRepairDisplayQuestionLike = {
+  noteId?: string;
   noteSnapshot: {
     body: string;
     expectedAnswer?: string;
@@ -138,8 +139,10 @@ export type PracticeRepairDisplayQuestionLike = {
       body: string;
       title: string;
     };
+    sourceNoteId?: string;
     title: string;
   };
+  questionResultId?: string;
   typedAnswer?: string;
 };
 
@@ -149,17 +152,48 @@ export type PracticeRepairQueueQuestionLike =
     selfRating: "easy" | "forgot" | "good" | "hard" | null;
   };
 
-export type PracticeRepairQueueResultLike = {
+export type PracticeRepairActiveQueueResultLike = {
   questions: readonly PracticeRepairQueueQuestionLike[];
 };
 
+export type PracticeRepairQueueResultLike =
+  PracticeRepairActiveQueueResultLike & {
+    completedAt: string;
+    id: string;
+  };
+
 export type PracticeRepairQueueItem<
-  Result extends PracticeRepairQueueResultLike = PracticeRepairQueueResultLike,
+  Result extends
+    PracticeRepairActiveQueueResultLike = PracticeRepairActiveQueueResultLike,
 > = {
   entry: PracticeRepairEntry;
   question: Result["questions"][number];
   result: Result;
 };
+
+type PracticeRepairQueueCandidateQuestion<
+  Result extends PracticeRepairQueueResultLike,
+> = Result["questions"][number] & {
+  noteId: string;
+  questionResultId: string;
+};
+
+export type PracticeRepairQueueCandidateItem<
+  Result extends PracticeRepairQueueResultLike = PracticeRepairQueueResultLike,
+> = {
+  draft: PracticeRepairDraft;
+  kind: "candidate";
+  question: PracticeRepairQueueCandidateQuestion<Result>;
+  result: Result;
+};
+
+export type PracticeRepairQueueListItem<
+  Result extends PracticeRepairQueueResultLike = PracticeRepairQueueResultLike,
+> =
+  | ({
+      kind: "active";
+    } & PracticeRepairQueueItem<Result>)
+  | PracticeRepairQueueCandidateItem<Result>;
 
 type PracticeRepairEntryPredicate = (entry: PracticeRepairEntry) => boolean;
 
@@ -682,6 +716,33 @@ function comparePracticeRepairQueueItems(
   return comparePracticeRepairEntries(left.entry, right.entry);
 }
 
+function comparePracticeRepairQueueCandidateItems(
+  left: PracticeRepairQueueCandidateItem,
+  right: PracticeRepairQueueCandidateItem,
+): number {
+  return (
+    right.result.completedAt.localeCompare(left.result.completedAt) ||
+    right.result.id.localeCompare(left.result.id) ||
+    right.question.questionResultId.localeCompare(
+      left.question.questionResultId,
+    ) ||
+    right.question.noteId.localeCompare(left.question.noteId)
+  );
+}
+
+function hasPracticeRepairQueueCandidateIdentity<
+  Question extends PracticeRepairQueueQuestionLike,
+>(
+  question: Question,
+): question is Question & {
+  noteId: string;
+  questionResultId: string;
+} {
+  return (
+    question.noteId !== undefined && question.questionResultId !== undefined
+  );
+}
+
 export function getPracticeRepairQuestionPrompt(
   question: PracticeRepairDisplayQuestionLike,
 ): string {
@@ -724,7 +785,7 @@ export function getPracticeRepairRecordedAnswer(
 }
 
 export function listActivePracticeRepairQueueItems<
-  Result extends PracticeRepairQueueResultLike,
+  Result extends PracticeRepairActiveQueueResultLike,
 >(input: { results: readonly Result[] }): PracticeRepairQueueItem<Result>[] {
   const queueItems: PracticeRepairQueueItem<Result>[] = [];
 
@@ -748,6 +809,69 @@ export function listActivePracticeRepairQueueItems<
   }
 
   return queueItems.sort(comparePracticeRepairQueueItems);
+}
+
+export function listPracticeRepairQueueItems<
+  Result extends PracticeRepairQueueResultLike,
+>(input: {
+  results: readonly Result[];
+}): PracticeRepairQueueListItem<Result>[] {
+  const activeItems = listActivePracticeRepairQueueItems(input);
+  const activeStudyNoteIds = new Set(
+    activeItems.map((item) => item.entry.reference.studyNoteId),
+  );
+  const candidateItemsByStudyNoteId = new Map<
+    string,
+    PracticeRepairQueueCandidateItem<Result>
+  >();
+  const sortedResults = [...input.results].sort((left, right) => {
+    return (
+      right.completedAt.localeCompare(left.completedAt) ||
+      right.id.localeCompare(left.id)
+    );
+  });
+
+  for (const result of sortedResults) {
+    for (const question of result.questions) {
+      if (!hasPracticeRepairQueueCandidateIdentity(question)) {
+        continue;
+      }
+
+      const studyNoteId = question.noteId;
+
+      if (
+        activeStudyNoteIds.has(studyNoteId) ||
+        candidateItemsByStudyNoteId.has(studyNoteId)
+      ) {
+        continue;
+      }
+
+      const draft = getQuestionPracticeRepairDraft(question);
+
+      if (draft === null) {
+        continue;
+      }
+
+      candidateItemsByStudyNoteId.set(studyNoteId, {
+        draft,
+        kind: "candidate",
+        question,
+        result,
+      });
+    }
+  }
+
+  const candidateItems = [...candidateItemsByStudyNoteId.values()].sort(
+    comparePracticeRepairQueueCandidateItems,
+  );
+
+  return [
+    ...activeItems.map((item) => ({
+      ...item,
+      kind: "active" as const,
+    })),
+    ...candidateItems,
+  ];
 }
 
 export function listActivePracticeRepairEntriesForStudyNote(input: {
