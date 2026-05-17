@@ -1,28 +1,32 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type {
   FlashCardRecallAttemptsByNote,
-  RecallGuidanceEntry,
   RecallSchedule,
-  SessionResult,
+  RecallSelfRating,
 } from "../recall";
-import { deriveRecallGuidance } from "../recall";
 import type { AppStudyNote } from "../study-notes";
 import { getFocusLearningLoopSupportSuggestions } from "./learning-loop-support";
 
-vi.mock("../recall", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../recall")>();
+type FocusLearningLoopSupportInput = Parameters<
+  typeof getFocusLearningLoopSupportSuggestions
+>[0];
 
-  return {
-    ...actual,
-    deriveRecallGuidance: vi.fn(),
-  };
-});
-
-const mockedDeriveRecallGuidance = vi.mocked(deriveRecallGuidance);
 const timestamp = "2026-05-17T09:00:00.000Z";
+const practiceRepairSuggestion = {
+  actionId: "practice-repair",
+  href: "/study-notes",
+} as const;
+const recallTodaySuggestion = {
+  actionId: "recall-today",
+  href: "/recall",
+} as const;
 
-function buildStudyNote(id: string): AppStudyNote {
+function buildStudyNote(
+  overrides: Partial<AppStudyNote> & Pick<AppStudyNote, "id" | "prompt">,
+): AppStudyNote {
+  const { id, prompt, ...rest } = overrides;
+
   return {
     acronyms: [],
     createdAt: timestamp,
@@ -30,7 +34,7 @@ function buildStudyNote(id: string): AppStudyNote {
     id,
     labelIds: [],
     metaphors: [],
-    prompt: `Prompt ${id}`,
+    prompt,
     source: {
       body: "Source body",
       id: `source-${id}`,
@@ -39,111 +43,113 @@ function buildStudyNote(id: string): AppStudyNote {
     },
     sourceNoteId: `source-${id}`,
     updatedAt: timestamp,
+    ...rest,
   };
 }
 
-function buildGuidanceEntry(
-  studyNoteId: string,
-  overrides: Partial<RecallGuidanceEntry>,
-): RecallGuidanceEntry {
-  return {
-    dueForRecall: false,
-    interleavingReady: false,
-    lastScore: null,
-    needsPractice: false,
-    nextRecall: "Next recall May 18",
-    notRecalledYet: false,
-    recallToday: false,
-    recallTodayReasons: [],
-    recommendation: {
-      kind: "reinforce",
-      nextRecall: "Next recall May 18",
-      summary: `Prompt ${studyNoteId} is the next Study Note to reinforce. Next recall: Next recall May 18.`,
+function buildAttempts(
+  studyNote: AppStudyNote,
+  rating: RecallSelfRating,
+): FlashCardRecallAttemptsByNote {
+  const attempts: FlashCardRecallAttemptsByNote["attempts"] = [
+    {
+      bodySnapshot: "Answer body",
+      completedAt: "2026-05-16T09:00:00.000Z",
+      rating,
+      sessionId: `session-${studyNote.id}`,
+      snapshotTitle: studyNote.prompt,
     },
-    studyNote: buildStudyNote(studyNoteId),
+  ];
+
+  return {
+    attempts,
+    currentTitle: null,
+    easy: rating === "easy" ? 1 : 0,
+    forgot: rating === "forgot" ? 1 : 0,
+    good: rating === "good" ? 1 : 0,
+    hard: rating === "hard" ? 1 : 0,
+    noteId: studyNote.id,
+    snapshotTitle: studyNote.prompt,
+    totalAttempts: attempts.length,
+  };
+}
+
+function buildSchedule(
+  studyNoteId: string,
+  overrides: Partial<RecallSchedule> = {},
+): RecallSchedule {
+  return {
+    ease: 2.5,
+    intervalDays: 7,
+    lastRecalledAt: "2026-05-16T09:00:00.000Z",
+    nextRecallAt: "2026-05-24T09:00:00.000Z",
+    repetitionCount: 1,
+    studyNoteId,
     ...overrides,
   };
 }
 
-const input: {
-  attemptsByNote: readonly FlashCardRecallAttemptsByNote[];
-  now: string;
-  recallSchedules: readonly RecallSchedule[];
-  sessionResults: readonly SessionResult[];
-  studyNotes: readonly AppStudyNote[];
-  userTimeZone: "America/New_York";
-} = {
-  attemptsByNote: [],
-  now: timestamp,
-  recallSchedules: [],
-  sessionResults: [],
-  studyNotes: [buildStudyNote("study-note-1"), buildStudyNote("study-note-2")],
-  userTimeZone: "America/New_York",
-};
+function buildInput(
+  overrides: Partial<FocusLearningLoopSupportInput>,
+): FocusLearningLoopSupportInput {
+  return {
+    attemptsByNote: [],
+    now: timestamp,
+    recallSchedules: [],
+    sessionResults: [],
+    studyNotes: [],
+    userTimeZone: "America/New_York",
+    ...overrides,
+  };
+}
 
 describe("focus learning loop support", () => {
-  afterEach(() => {
-    mockedDeriveRecallGuidance.mockReset();
+  it("returns no suggestions when every recallable note is already scheduled for later", () => {
+    const studyNote = buildStudyNote({
+      id: "scheduled-note",
+      prompt: "Scheduled note",
+    });
+
+    expect(
+      getFocusLearningLoopSupportSuggestions(
+        buildInput({
+          attemptsByNote: [buildAttempts(studyNote, "good")],
+          recallSchedules: [buildSchedule(studyNote.id)],
+          studyNotes: [studyNote],
+        }),
+      ),
+    ).toEqual([]);
   });
 
-  it("uses Recall Guidance and returns no suggestions when no support facts are present", () => {
-    mockedDeriveRecallGuidance.mockReturnValue([
-      buildGuidanceEntry("study-note-1", {}),
-    ]);
+  it("returns Recall Today when a study note has not been recalled yet", () => {
+    const studyNote = buildStudyNote({
+      id: "fresh-note",
+      prompt: "Fresh note",
+    });
 
-    expect(getFocusLearningLoopSupportSuggestions(input)).toEqual([]);
-    expect(mockedDeriveRecallGuidance).toHaveBeenCalledWith(input);
+    expect(
+      getFocusLearningLoopSupportSuggestions(
+        buildInput({
+          studyNotes: [studyNote],
+        }),
+      ),
+    ).toEqual([recallTodaySuggestion]);
   });
 
-  it("returns only Practice Repair when Recall Guidance reports needsPractice", () => {
-    mockedDeriveRecallGuidance.mockReturnValue([
-      buildGuidanceEntry("study-note-1", {
-        needsPractice: true,
-      }),
-    ]);
+  it("returns Practice Repair before Recall Today when a study note needs practice", () => {
+    const studyNote = buildStudyNote({
+      id: "needs-practice-note",
+      prompt: "Needs practice note",
+    });
 
-    expect(getFocusLearningLoopSupportSuggestions(input)).toEqual([
-      {
-        actionId: "practice-repair",
-        href: "/study-notes",
-      },
-    ]);
-  });
-
-  it("returns only Recall Today when Recall Guidance reports recallToday", () => {
-    mockedDeriveRecallGuidance.mockReturnValue([
-      buildGuidanceEntry("study-note-1", {
-        recallToday: true,
-      }),
-    ]);
-
-    expect(getFocusLearningLoopSupportSuggestions(input)).toEqual([
-      {
-        actionId: "recall-today",
-        href: "/recall",
-      },
-    ]);
-  });
-
-  it("returns both suggestions in the existing order when Recall Guidance reports both facts", () => {
-    mockedDeriveRecallGuidance.mockReturnValue([
-      buildGuidanceEntry("study-note-1", {
-        needsPractice: true,
-      }),
-      buildGuidanceEntry("study-note-2", {
-        recallToday: true,
-      }),
-    ]);
-
-    expect(getFocusLearningLoopSupportSuggestions(input)).toEqual([
-      {
-        actionId: "practice-repair",
-        href: "/study-notes",
-      },
-      {
-        actionId: "recall-today",
-        href: "/recall",
-      },
-    ]);
+    expect(
+      getFocusLearningLoopSupportSuggestions(
+        buildInput({
+          attemptsByNote: [buildAttempts(studyNote, "hard")],
+          recallSchedules: [buildSchedule(studyNote.id)],
+          studyNotes: [studyNote],
+        }),
+      ),
+    ).toEqual([practiceRepairSuggestion, recallTodaySuggestion]);
   });
 });

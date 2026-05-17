@@ -1,11 +1,4 @@
-import type { UserTimeZonePreference } from "../access/session/session-contract";
-import type {
-  FlashCardRecallAttemptsByNote,
-  RecallSchedule,
-  SessionResult,
-} from "../recall";
-import { deriveRecallGuidance } from "../recall";
-import type { AppStudyNote } from "../study-notes";
+import { deriveRecallGuidance, type RecallGuidanceInput } from "../recall";
 
 export type FocusLearningLoopSupportSuggestion =
   | {
@@ -17,36 +10,28 @@ export type FocusLearningLoopSupportSuggestion =
       href: "/recall";
     };
 
-type FocusLearningLoopSupportInput = {
-  attemptsByNote: readonly FlashCardRecallAttemptsByNote[];
-  now: string;
-  recallSchedules: readonly RecallSchedule[];
-  sessionResults: readonly SessionResult[];
-  studyNotes: readonly AppStudyNote[];
-  userTimeZone: UserTimeZonePreference;
-};
+type FocusLearningLoopSupportInput = RecallGuidanceInput;
 
 export function getFocusLearningLoopSupportSuggestions(
   input: FocusLearningLoopSupportInput,
 ): FocusLearningLoopSupportSuggestion[] {
-  const recallGuidance = deriveRecallGuidance({
-    attemptsByNote: input.attemptsByNote,
-    now: input.now,
-    recallSchedules: input.recallSchedules,
-    sessionResults: input.sessionResults,
-    studyNotes: input.studyNotes,
-    userTimeZone: input.userTimeZone,
-  });
+  const recallGuidance = deriveRecallGuidance(input);
   const suggestions: FocusLearningLoopSupportSuggestion[] = [];
+  const hasPracticeRepair = recallGuidance.some(
+    (guidanceEntry) => guidanceEntry.needsPractice,
+  );
+  const hasRecallToday = recallGuidance.some(
+    (guidanceEntry) => guidanceEntry.recallToday,
+  );
 
-  if (recallGuidance.some((guidanceEntry) => guidanceEntry.needsPractice)) {
+  if (hasPracticeRepair) {
     suggestions.push({
       actionId: "practice-repair",
       href: "/study-notes",
     });
   }
 
-  if (recallGuidance.some((guidanceEntry) => guidanceEntry.recallToday)) {
+  if (hasRecallToday) {
     suggestions.push({
       actionId: "recall-today",
       href: "/recall",
