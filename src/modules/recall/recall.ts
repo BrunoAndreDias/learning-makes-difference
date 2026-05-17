@@ -1742,6 +1742,18 @@ export function createAppRecallContext(
       reference: input.reference,
       updateEntry: (entry) => {
         switch (input.intent) {
+          case "tighten-expected-answer": {
+            assertLinkedCompletionEntryIntent(entry, "tighten-expected-answer");
+
+            const updatedExpectedAnswer = requireLinkedCompletionReference(
+              input.intentMetadata.updatedExpectedAnswer,
+              "Edit expected answer requires the updated expected answer.",
+            );
+
+            return createCompletedPracticeRepairEntry(entry, {
+              updatedExpectedAnswer,
+            });
+          }
           case "split-study-note": {
             assertLinkedCompletionEntryIntent(entry, "split-study-note");
 

@@ -2132,6 +2132,110 @@ describe("authenticated Study Notes workspace", () => {
     });
   });
 
+  it("completes a linked expected-answer Practice Repair on save, keeps the return target visible, and does not auto-return", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-practice-repair-linked-expected-answer";
+    createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Unrelated answer.",
+      prompt: "Another Study Note",
+      sourceBody: "Another source body.",
+      sourceTitle: "Another source",
+      userId,
+    });
+    const studyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Original expected answer.",
+      prompt: "Original prompt",
+      sourceBody: "Shared source body for linked expected-answer repair.",
+      sourceTitle: "Linked expected-answer source",
+      userId,
+    });
+
+    completeStudyNoteRecall(contexts, {
+      rating: "hard",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const confirmedResult = confirmStudyNotePracticeRepair(contexts, {
+      correction: "State ATP directly and anchor the role.",
+      intent: "tighten-expected-answer",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const practiceRepairEntryId =
+      getConfirmedPracticeRepairEntryId(confirmedResult);
+    const confirmedReference =
+      getConfirmedPracticeRepairReference(confirmedResult);
+    const { router } = renderRoute(
+      `/study-notes?practiceRepairEntryId=${practiceRepairEntryId}&practiceRepairAction=tighten-expected-answer`,
+      {
+        ...contexts,
+        session: {
+          user: {
+            displayName: "Jordan Linked Expected Answer",
+            email: "jordan.linked.expected-answer@example.com",
+            id: userId,
+            userLanguage: "en",
+          },
+        },
+      },
+    );
+
+    expect(await screen.findByLabelText("Prompt")).toHaveValue(
+      "Original prompt",
+    );
+    expect(screen.getByLabelText("Expected answer")).toHaveValue(
+      "Original expected answer.",
+    );
+    expect(
+      screen.getByRole("link", { name: "Return to Practice Repair" }),
+    ).toHaveAttribute("href", `/recall/repair/${practiceRepairEntryId}`);
+
+    fireEvent.change(screen.getByLabelText("Expected answer"), {
+      target: {
+        value: "ATP stores transferable energy for cell work.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Practice Repair completed",
+      ),
+    );
+    expect(router.state.location.pathname).toBe("/study-notes");
+    expect(
+      screen.getByRole("link", { name: "Return to Practice Repair" }),
+    ).toHaveAttribute("href", `/recall/repair/${practiceRepairEntryId}`);
+    expect(
+      contexts.recallContext.listPracticeRepairEntriesForQuestion({
+        reference: confirmedReference,
+        userId,
+      })[0],
+    ).toMatchObject({
+      intentMetadata: {
+        updatedExpectedAnswer: "ATP stores transferable energy for cell work.",
+      },
+      lifecycle: {
+        completedAt: expect.any(String),
+      },
+    });
+
+    fireEvent.click(
+      screen.getByRole("link", { name: "Return to Practice Repair" }),
+    );
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        `/recall/repair/${practiceRepairEntryId}`,
+      ),
+    );
+    expect(
+      await screen.findByRole("complementary", {
+        name: "Practice Repair actions",
+      }),
+    ).toHaveTextContent("Completed");
+  });
+
   it("preserves a linked Practice Repair return target in Study Notes without auto-completing the repair", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-practice-repair-deep-link";

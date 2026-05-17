@@ -1203,12 +1203,14 @@ describe("confirmed Practice Repair entries", () => {
     });
   });
 
-  it("records linked completion evidence for sibling creation and memory aids", () => {
+  it("records linked completion evidence for expected-answer edits, sibling creation, and memory aids", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-16T16:20:00.000Z"));
 
     const storage = createMemoryStorage();
     const userId = "user-practice-repair-linked-actions";
+    const recallStorageKeyPrefix =
+      "practice-repair-entry-linked-actions-recall";
     const notes = createAppNotesContext({
       keyPrefix: "practice-repair-entry-linked-actions-notes",
       storage,
@@ -1223,7 +1225,7 @@ describe("confirmed Practice Repair entries", () => {
         randomUUID: () =>
           `practice-repair-linked-actions-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
       },
-      keyPrefix: "practice-repair-entry-linked-actions-recall",
+      keyPrefix: recallStorageKeyPrefix,
       notes,
       shuffleNotes: (sessionNotes) => [...sessionNotes],
       storage,
@@ -1235,6 +1237,42 @@ describe("confirmed Practice Repair entries", () => {
       sourceBody: "Cell respiration source context.",
       sourceTitle: "Cell respiration source",
     });
+    const expectedAnswerResult = recall.confirmPracticeRepairEntry({
+      correction: "Tighten the expected answer to state ATP directly.",
+      intent: "tighten-expected-answer",
+      reference: createPracticeRepairReference({
+        result: createWeakStudyNoteResult({
+          rating: "hard",
+          recall,
+          studyNoteId: studyNote.id,
+          userId,
+        }),
+        studyNoteId: studyNote.id,
+      }),
+      userId,
+    });
+
+    vi.setSystemTime(new Date("2026-05-16T16:22:00.000Z"));
+
+    expect(
+      recall.completeLinkedPracticeRepairEntry({
+        intent: "tighten-expected-answer",
+        intentMetadata: {
+          updatedExpectedAnswer:
+            "ATP stores transferable energy for cell work.",
+        },
+        reference: getConfirmedPracticeRepairReference(expectedAnswerResult),
+        userId,
+      }).questions[0]?.practiceRepairEntry,
+    ).toMatchObject({
+      intentMetadata: {
+        updatedExpectedAnswer: "ATP stores transferable energy for cell work.",
+      },
+      lifecycle: {
+        completedAt: "2026-05-16T16:22:00.000Z",
+      },
+    });
+
     const siblingResult = recall.confirmPracticeRepairEntry({
       correction: "Create a sibling Study Note for the transport detail.",
       intent: "create-sibling-study-note",
@@ -1303,6 +1341,28 @@ describe("confirmed Practice Repair entries", () => {
       },
       lifecycle: {
         completedAt: "2026-05-16T16:30:00.000Z",
+      },
+    });
+
+    const reloadedRecall = createAppRecallContext({
+      keyPrefix: recallStorageKeyPrefix,
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+
+    expect(
+      reloadedRecall.listPracticeRepairEntriesForQuestion({
+        reference: getConfirmedPracticeRepairReference(expectedAnswerResult),
+        userId,
+      })[0],
+    ).toMatchObject({
+      intentMetadata: {
+        updatedExpectedAnswer: "ATP stores transferable energy for cell work.",
+      },
+      lifecycle: {
+        completedAt: "2026-05-16T16:22:00.000Z",
       },
     });
   });

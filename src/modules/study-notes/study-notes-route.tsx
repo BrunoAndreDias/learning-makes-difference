@@ -1901,6 +1901,46 @@ function StudyNotesWorkspace() {
     return true;
   }
 
+  async function maybeCompleteLinkedExpectedAnswerPracticeRepair(input: {
+    previousStudyNote: AppStudyNote | null;
+    savedStudyNote: AppStudyNote;
+  }) {
+    if (
+      linkedPracticeRepair?.action !== "tighten-expected-answer" ||
+      input.previousStudyNote?.id !==
+        linkedPracticeRepair.entry.reference.studyNoteId ||
+      input.savedStudyNote.id !==
+        linkedPracticeRepair.entry.reference.studyNoteId
+    ) {
+      return false;
+    }
+
+    const previousExpectedAnswer =
+      input.previousStudyNote.expectedAnswer.trim();
+    const updatedExpectedAnswer = input.savedStudyNote.expectedAnswer.trim();
+
+    if (updatedExpectedAnswer === previousExpectedAnswer) {
+      return false;
+    }
+
+    if (updatedExpectedAnswer.length === 0) {
+      setSaveStatus(
+        "Saved. Add an expected answer to complete Practice Repair.",
+      );
+      return true;
+    }
+
+    await completeLinkedPracticeRepairEntry({
+      intent: "tighten-expected-answer",
+      intentMetadata: {
+        updatedExpectedAnswer,
+      },
+      reference: linkedPracticeRepair.entry.reference,
+    });
+
+    return true;
+  }
+
   async function maybeRecordSplitStudyNoteNarrowing(input: {
     entry: SplitStudyNotePracticeRepairEntry | null;
     savedStudyNote: AppStudyNote;
@@ -1979,6 +2019,10 @@ function StudyNotesWorkspace() {
 
       if (
         !(
+          (await maybeCompleteLinkedExpectedAnswerPracticeRepair({
+            previousStudyNote: selectedStudyNote,
+            savedStudyNote,
+          })) ||
           (await maybeRecordSplitStudyNoteNarrowing({
             entry: activeSplitPracticeRepairEntry,
             savedStudyNote,

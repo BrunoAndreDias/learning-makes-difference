@@ -49,6 +49,7 @@ export type PracticeRepairIntentMetadataByIntent = {
 };
 
 export type PracticeRepairLinkedCompletionIntent =
+  | "tighten-expected-answer"
   | "add-memory-aid"
   | "split-study-note"
   | "create-sibling-study-note";
