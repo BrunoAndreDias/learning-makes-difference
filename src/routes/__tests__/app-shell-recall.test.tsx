@@ -1013,7 +1013,7 @@ describe("authenticated recall workspace", () => {
         name: "Practice Repair",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Confirmed repair")).toBeInTheDocument();
+    expect(screen.getByText("Selected repair")).toBeInTheDocument();
     expect(screen.getByText("Tighten expected answer")).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -1526,8 +1526,8 @@ describe("authenticated recall workspace", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("What stores transferable energy?"),
-    ).toBeInTheDocument();
+      screen.getAllByText("What stores transferable energy?").length,
+    ).toBeGreaterThan(0);
 
     firstRender.unmount();
 
@@ -1553,7 +1553,164 @@ describe("authenticated recall workspace", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("What stores transferable energy?"),
+      screen.getAllByText("What stores transferable energy?").length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("renders the canonical Practice Repair workspace evidence shell for an active entry", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const weakStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "ATP stores transferable energy for cells.",
+        prompt: "What stores transferable energy?",
+        sourceBody:
+          "Cell respiration source context with ATP transfer details.",
+        sourceTitle: "Cell respiration source",
+      },
+    );
+
+    vi.setSystemTime(new Date("2026-05-15T09:00:00.000Z"));
+    const session = contexts.recallContext.startFlashCardSession({
+      studyNoteIds: [weakStudyNote.id],
+      userId: testUser.id,
+    });
+
+    contexts.recallContext.updateFlashCardAttemptText({
+      sessionId: session.id,
+      text: "ATP powers mitochondria.",
+      userId: testUser.id,
+    });
+    contexts.recallContext.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId: testUser.id,
+    });
+    contexts.recallContext.rateFlashCardAnswer({
+      rating: "hard",
+      sessionId: session.id,
+      userId: testUser.id,
+    });
+
+    const confirmedResult = confirmStudyNotePracticeRepair({
+      correction:
+        "State ATP directly and anchor the answer to energy transfer.",
+      contexts,
+      intent: "tighten-expected-answer",
+      studyNoteId: weakStudyNote.id,
+    });
+
+    renderRoute(
+      `/recall/repair/${getConfirmedPracticeRepairEntryId(confirmedResult)}`,
+      {
+        ...contexts,
+        session: createSession(),
+      },
+    );
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Practice Repair",
+      }),
+    ).toBeInTheDocument();
+
+    const evidence = screen.getByRole("region", {
+      name: "Practice Repair evidence",
+    });
+    expect(
+      within(evidence).getByRole("heading", {
+        level: 2,
+        name: "What stores transferable energy?",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(evidence).getByText("ATP powers mitochondria."),
+    ).toBeInTheDocument();
+    expect(
+      within(evidence).getByText("ATP stores transferable energy for cells."),
+    ).toBeInTheDocument();
+    expect(
+      within(evidence).getAllByText("Cell respiration source").length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(evidence).getByText(
+        "Needs practice is a signal to adjust and reinforce before the next recall.",
+      ),
+    ).toBeInTheDocument();
+
+    const actionArea = screen.getByRole("complementary", {
+      name: "Practice Repair actions",
+    });
+    expect(
+      within(actionArea).getByRole("heading", {
+        level: 2,
+        name: "Selected repair",
+      }),
+    ).toBeInTheDocument();
+    expect(within(actionArea).getByText("Entry state")).toBeInTheDocument();
+    expect(within(actionArea).getByText("Active")).toBeInTheDocument();
+    expect(
+      within(actionArea).getByText(
+        "State ATP directly and anchor the answer to energy transfer.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(actionArea).getByRole("link", { name: "Open Study Notes" }),
+    ).toBeInTheDocument();
+    expect(
+      within(actionArea).getByRole("link", { name: "Recall again soon" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a clear historical lifecycle state for a completed Practice Repair workspace", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const weakStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "ATP stores transferable energy for cells.",
+        prompt: "What stores transferable energy?",
+        sourceBody: "Cell respiration source context.",
+        sourceTitle: "Cell respiration source",
+      },
+    );
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: weakStudyNote.id,
+      timestamp: "2026-05-15T09:00:00.000Z",
+    });
+
+    const confirmedResult = confirmStudyNotePracticeRepair({
+      correction:
+        "State ATP directly and anchor the answer to energy transfer.",
+      contexts,
+      intent: "tighten-expected-answer",
+      studyNoteId: weakStudyNote.id,
+    });
+
+    contexts.recallContext.completePracticeRepairEntry({
+      reference: getConfirmedPracticeRepairReference(confirmedResult),
+      userId: testUser.id,
+    });
+
+    renderRoute(
+      `/recall/repair/${getConfirmedPracticeRepairEntryId(confirmedResult)}`,
+      {
+        ...contexts,
+        session: createSession(),
+      },
+    );
+
+    const actionArea = await screen.findByRole("complementary", {
+      name: "Practice Repair actions",
+    });
+    expect(within(actionArea).getByText("Entry state")).toBeInTheDocument();
+    expect(within(actionArea).getByText("Completed")).toBeInTheDocument();
+    expect(
+      within(actionArea).getByText(
+        "The repair is complete. Recall again soon is the next step from here.",
+      ),
     ).toBeInTheDocument();
   });
 

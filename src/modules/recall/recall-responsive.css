@@ -157,7 +157,9 @@
   .recall-results-hero,
   .recall-results-detail__header,
   .recall-practice-repair-draft__card-header,
+  .recall-practice-repair-workspace__card-header,
   .recall-practice-repair-draft__detail-header,
+  .recall-practice-repair-workspace__detail-header,
   .recall-question-card__header {
     align-items: stretch;
     flex-direction: column;
@@ -231,11 +233,17 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .recall-practice-repair-draft__selection-actions {
+  .recall-practice-repair-workspace__layout {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .recall-practice-repair-draft__evidence {
+  .recall-practice-repair-draft__selection-actions,
+  .recall-practice-repair-workspace__actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .recall-practice-repair-draft__evidence,
+  .recall-practice-repair-workspace__evidence {
     padding: var(--space-4);
   }
 }

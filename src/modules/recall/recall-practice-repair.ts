@@ -614,6 +614,62 @@ export function getPracticeRepairEntryLifecycleState(
     : "active";
 }
 
+export function getPracticeRepairEntryLifecycleLabel(
+  entry: Pick<PracticeRepairEntry, "lifecycle">,
+): string {
+  const lifecycle = entry.lifecycle;
+
+  if (getLifecycleFact(lifecycle, "studyNoteDeletedAt") !== null) {
+    return "Study Note deleted";
+  }
+
+  if (getLifecycleFact(lifecycle, "supersededAt") !== null) {
+    return "Superseded";
+  }
+
+  if (getLifecycleFact(lifecycle, "dismissedAt") !== null) {
+    return "Dismissed";
+  }
+
+  if (getLifecycleFact(lifecycle, "followUpSatisfiedAt") !== null) {
+    return "Follow-up satisfied";
+  }
+
+  if (getLifecycleFact(lifecycle, "completedAt") !== null) {
+    return "Completed";
+  }
+
+  return "Active";
+}
+
+export function getPracticeRepairEntryLifecycleSummary(
+  entry: Pick<PracticeRepairEntry, "lifecycle">,
+): string {
+  const lifecycle = entry.lifecycle;
+
+  if (getLifecycleFact(lifecycle, "studyNoteDeletedAt") !== null) {
+    return "This Practice Repair is historical because its Study Note is no longer available.";
+  }
+
+  if (getLifecycleFact(lifecycle, "supersededAt") !== null) {
+    return "A newer Practice Repair replaced this entry for the same Study Note.";
+  }
+
+  if (getLifecycleFact(lifecycle, "dismissedAt") !== null) {
+    return "This repair was dismissed and remains here as historical evidence.";
+  }
+
+  if (getLifecycleFact(lifecycle, "followUpSatisfiedAt") !== null) {
+    return "A later recall attempt satisfied the follow-up and closed this repair loop.";
+  }
+
+  if (getLifecycleFact(lifecycle, "completedAt") !== null) {
+    return "The repair is complete. Recall again soon is the next step from here.";
+  }
+
+  return "This is the active Practice Repair workspace for the original Needs practice evidence.";
+}
+
 function getPracticeFollowUpState(
   entry: Pick<PracticeRepairEntry, "lifecycle">,
 ): PracticeFollowUpState {
