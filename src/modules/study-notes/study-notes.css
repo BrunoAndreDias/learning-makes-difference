@@ -1034,11 +1034,7 @@
   line-height: 1;
 }
 
-.study-notes-practice-repair--active .study-notes-practice-repair__signal {
-  border-color: var(--color-primary-soft-border);
-  color: var(--color-primary);
-}
-
+.study-notes-practice-repair--active .study-notes-practice-repair__signal,
 .study-notes-practice-repair--linked .study-notes-practice-repair__signal {
   border-color: var(--color-primary-soft-border);
   color: var(--color-primary);

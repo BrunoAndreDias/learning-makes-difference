@@ -157,14 +157,18 @@ function createStudyNotesPracticeRepairSearch(input: {
   practiceRepairAction?: PracticeRepairIntent;
   practiceRepairEntryId: string;
 }) {
-  return input.practiceRepairAction === undefined
-    ? {
-        practiceRepairEntryId: input.practiceRepairEntryId,
-      }
-    : {
-        practiceRepairAction: input.practiceRepairAction,
-        practiceRepairEntryId: input.practiceRepairEntryId,
-      };
+  const search: {
+    practiceRepairAction?: PracticeRepairIntent;
+    practiceRepairEntryId: string;
+  } = {
+    practiceRepairEntryId: input.practiceRepairEntryId,
+  };
+
+  if (input.practiceRepairAction !== undefined) {
+    search.practiceRepairAction = input.practiceRepairAction;
+  }
+
+  return search;
 }
 
 function isActionSelectionKey(key: string) {
@@ -398,7 +402,7 @@ function RecallPracticeRepairWorkspacePage({
                     card={card}
                     isSelected={entry.intent === card.intent}
                     key={card.intent}
-                    onSelect={() => openStudyNotesPracticeRepair(card.intent)}
+                    onSelect={openStudyNotesPracticeRepair}
                   />
                 ))}
               </div>
@@ -429,7 +433,7 @@ function PracticeRepairWorkspaceActionButton({
 }: Readonly<{
   card: PracticeRepairWorkspaceActionCard;
   isSelected: boolean;
-  onSelect: () => void;
+  onSelect: (intent: PracticeRepairIntent) => void;
 }>) {
   const titleId = `practice-repair-workspace-card-title-${card.intent}`;
   const descriptionId = `practice-repair-workspace-card-description-${card.intent}`;
@@ -440,7 +444,7 @@ function PracticeRepairWorkspaceActionButton({
     }
 
     event.preventDefault();
-    onSelect();
+    onSelect(card.intent);
   }
 
   return (
@@ -452,7 +456,7 @@ function PracticeRepairWorkspaceActionButton({
         aria-describedby={descriptionId}
         aria-labelledby={titleId}
         className="recall-practice-repair-workspace__repair-button"
-        onClick={onSelect}
+        onClick={() => onSelect(card.intent)}
         onKeyDown={handleKeyDown}
         type="button"
       >
@@ -489,14 +493,21 @@ function PracticeRepairWorkspaceActionButton({
 
 function SuggestionChevronIcon() {
   return (
-    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+    <svg
+      aria-hidden="true"
+      fill="none"
+      focusable="false"
+      height="18"
+      viewBox="0 0 18 18"
+      width="18"
+      xmlns="http://www.w3.org/2000/svg"
+    >
       <path
-        d="m10 6 6 6-6 6"
-        fill="none"
+        d="M7 4.5 11.5 9 7 13.5"
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth="1.8"
+        strokeWidth="1.5"
       />
     </svg>
   );

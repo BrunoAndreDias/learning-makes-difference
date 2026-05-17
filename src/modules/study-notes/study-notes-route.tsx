@@ -45,6 +45,7 @@ import {
   type PracticeRepairLinkedCompletionInput,
   type PracticeRepairMemoryAidKind,
   type PracticeRepairQuestionReference,
+  practiceRepairIntents,
 } from "../recall/recall-practice-repair";
 import "./study-notes.css";
 import {
@@ -64,14 +65,8 @@ import {
 } from ".";
 import { getStudyNotePracticeRepair } from "./practice-repair";
 
-const studyNotesPracticeRepairActions = [
-  "tighten-expected-answer",
-  "split-study-note",
-  "create-sibling-study-note",
-  "add-memory-aid",
-] as const satisfies readonly PracticeRepairIntent[];
 const studyNotesSearchSchema = z.object({
-  practiceRepairAction: z.enum(studyNotesPracticeRepairActions).optional(),
+  practiceRepairAction: z.enum(practiceRepairIntents).optional(),
   practiceRepairEntryId: z.string().optional(),
 });
 
@@ -128,6 +123,15 @@ function findLinkedPracticeRepairContext(input: {
   }
 
   return null;
+}
+
+function getLinkedPracticeRepairKey(
+  context: Pick<
+    LinkedPracticeRepairContext,
+    "action" | "practiceRepairEntryId"
+  >,
+) {
+  return `${context.practiceRepairEntryId}:${context.action}`;
 }
 
 function createDraftFromStudyNote(
@@ -1406,10 +1410,8 @@ function StudyNotesWorkspace() {
       return;
     }
 
-    const nextLinkedPracticeRepairKey = [
-      linkedPracticeRepair.practiceRepairEntryId,
-      linkedPracticeRepair.action,
-    ].join(":");
+    const nextLinkedPracticeRepairKey =
+      getLinkedPracticeRepairKey(linkedPracticeRepair);
 
     if (appliedLinkedPracticeRepairKey === nextLinkedPracticeRepairKey) {
       return;
@@ -1417,11 +1419,6 @@ function StudyNotesWorkspace() {
 
     setCreatingStudyNote(false);
     setSelectedStudyNoteId(linkedPracticeRepair.entry.reference.studyNoteId);
-
-    if (linkedPracticeRepair.action === "add-memory-aid") {
-      setMemoryAidsOpenOverride(true);
-    }
-
     setAppliedLinkedPracticeRepairKey(nextLinkedPracticeRepairKey);
   }, [appliedLinkedPracticeRepairKey, linkedPracticeRepair]);
 

@@ -2534,12 +2534,7 @@
   text-align: left;
 }
 
-.recall-practice-repair-draft__suggestion-button {
-  cursor: pointer;
-  color: inherit;
-  font: inherit;
-}
-
+.recall-practice-repair-draft__suggestion-button,
 .recall-practice-repair-workspace__repair-button {
   cursor: pointer;
   color: inherit;

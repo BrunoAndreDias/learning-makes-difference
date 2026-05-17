@@ -25,6 +25,7 @@ import {
   type RecallSelfRating,
   type SessionResult,
 } from "../../modules/recall";
+import type { PracticeRepairIntent } from "../../modules/recall/recall-practice-repair";
 import { createAppStudyNotesContext } from "../../modules/study-notes";
 import {
   type AppSessionSnapshot,
@@ -156,11 +157,7 @@ function confirmStudyNotePracticeRepair(
   contexts: DeterministicRecallTestContexts,
   input: {
     correction: string;
-    intent:
-      | "add-memory-aid"
-      | "create-sibling-study-note"
-      | "split-study-note"
-      | "tighten-expected-answer";
+    intent: PracticeRepairIntent;
     studyNoteId: string;
     userId: string;
   },
@@ -207,6 +204,17 @@ function getConfirmedPracticeRepairReference(result: SessionResult) {
   }
 
   return reference;
+}
+
+function getConfirmedPracticeRepairEntryId(result: SessionResult) {
+  const entryId =
+    result.questions[0]?.practiceRepairEntry?.practiceRepairEntryId;
+
+  if (entryId === undefined) {
+    throw new Error("Expected a durable Practice Repair Entry id.");
+  }
+
+  return entryId;
 }
 
 function renderStudyNotesRouteForUser(
@@ -2154,13 +2162,9 @@ describe("authenticated Study Notes workspace", () => {
       userId,
     });
     const practiceRepairEntryId =
-      confirmedResult.questions[0]?.practiceRepairEntry?.practiceRepairEntryId;
+      getConfirmedPracticeRepairEntryId(confirmedResult);
     const confirmedReference =
       getConfirmedPracticeRepairReference(confirmedResult);
-
-    if (practiceRepairEntryId === undefined) {
-      throw new Error("Expected a durable Practice Repair Entry id.");
-    }
 
     renderRoute(
       `/study-notes?practiceRepairEntryId=${practiceRepairEntryId}&practiceRepairAction=add-memory-aid`,

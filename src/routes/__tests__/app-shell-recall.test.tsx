@@ -13,7 +13,10 @@ import {
   type RecallSelfRating,
   type SessionResult,
 } from "../../modules/recall";
-import { createPracticeRepairEntryId } from "../../modules/recall/recall-practice-repair";
+import {
+  createPracticeRepairEntryId,
+  type PracticeRepairIntent,
+} from "../../modules/recall/recall-practice-repair";
 import { createAppStudyNotesContext } from "../../modules/study-notes";
 import {
   createDeterministicRecallTestContexts,
@@ -275,11 +278,7 @@ function createPersistentStudyNoteRecallTestContexts(
 function confirmStudyNotePracticeRepair(input: {
   correction: string;
   contexts: Pick<DeterministicRecallTestContexts, "recallContext">;
-  intent:
-    | "add-memory-aid"
-    | "create-sibling-study-note"
-    | "split-study-note"
-    | "tighten-expected-answer";
+  intent: PracticeRepairIntent;
   studyNoteId: string;
 }) {
   const questionReference = findStudyNoteQuestionResult({
@@ -1700,13 +1699,10 @@ describe("authenticated recall workspace", () => {
     });
     const practiceRepairEntryId =
       getConfirmedPracticeRepairEntryId(confirmedResult);
-    const { router } = renderRoute(
-      `/recall/repair/${getConfirmedPracticeRepairEntryId(confirmedResult)}`,
-      {
-        ...contexts,
-        session: createSession(),
-      },
-    );
+    const { router } = renderRoute(`/recall/repair/${practiceRepairEntryId}`, {
+      ...contexts,
+      session: createSession(),
+    });
 
     const actionArea = await screen.findByRole("complementary", {
       name: "Practice Repair actions",
