@@ -63,6 +63,11 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .recall-practice-repair-queue__item {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
   .recall-today-summary {
     gap: 0;
     padding: 0;

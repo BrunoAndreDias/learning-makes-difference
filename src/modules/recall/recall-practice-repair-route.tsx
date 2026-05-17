@@ -15,6 +15,11 @@ import { RecallBreadcrumb } from "./recall-breadcrumb";
 import {
   formatPracticeRepairIntentLabel,
   getPracticeRepairEntryId,
+  getPracticeRepairQuestionExpectedAnswer,
+  getPracticeRepairQuestionPrompt,
+  getPracticeRepairQuestionReferenceText,
+  getPracticeRepairQuestionReferenceTitle,
+  getPracticeRepairRecordedAnswer,
   type PracticeRepairEntry,
 } from "./recall-practice-repair";
 import {
@@ -109,10 +114,10 @@ function RecallPracticeRepairWorkspacePage({
 }>) {
   const { t } = useAppTranslation();
   const { entry, question, result } = workspace;
-  const prompt = getQuestionPrompt(question);
-  const expectedAnswer = getQuestionExpectedAnswer(question);
-  const referenceTitle = getQuestionReferenceTitle(question);
-  const referenceText = getQuestionReferenceText(question);
+  const prompt = getPracticeRepairQuestionPrompt(question);
+  const expectedAnswer = getPracticeRepairQuestionExpectedAnswer(question);
+  const referenceTitle = getPracticeRepairQuestionReferenceTitle(question);
+  const referenceText = getPracticeRepairQuestionReferenceText(question);
   const rating =
     question.selfRating === null
       ? "Not rated"
@@ -162,7 +167,7 @@ function RecallPracticeRepairWorkspacePage({
           </PracticeRepairDetail>
           <PracticeRepairDetail label="Rating">{rating}</PracticeRepairDetail>
           <PracticeRepairDetail label="Your answer">
-            {getRecordedAnswer(question)}
+            {getPracticeRepairRecordedAnswer(question)}
           </PracticeRepairDetail>
           <PracticeRepairDetail label="Expected answer">
             {expectedAnswer}

@@ -129,6 +129,38 @@ type PracticeRepairResultLike = {
   questions: readonly PracticeRepairResultQuestionLike[];
 };
 
+export type PracticeRepairDisplayQuestionLike = {
+  noteSnapshot: {
+    body: string;
+    expectedAnswer?: string;
+    prompt?: string;
+    source?: {
+      body: string;
+      title: string;
+    };
+    title: string;
+  };
+  typedAnswer?: string;
+};
+
+export type PracticeRepairQueueQuestionLike =
+  PracticeRepairDisplayQuestionLike & {
+    practiceRepairEntry?: PracticeRepairEntry;
+    selfRating: "easy" | "forgot" | "good" | "hard" | null;
+  };
+
+export type PracticeRepairQueueResultLike = {
+  questions: readonly PracticeRepairQueueQuestionLike[];
+};
+
+export type PracticeRepairQueueItem<
+  Result extends PracticeRepairQueueResultLike = PracticeRepairQueueResultLike,
+> = {
+  entry: PracticeRepairEntry;
+  question: Result["questions"][number];
+  result: Result;
+};
+
 type PracticeRepairEntryPredicate = (entry: PracticeRepairEntry) => boolean;
 
 const practiceRepairSuggestions = [
@@ -641,6 +673,81 @@ function compareActionablePracticeFollowUps(
       getActionablePracticeFollowUpCompletedAt(left),
     ) || comparePracticeRepairEntries(left, right)
   );
+}
+
+function comparePracticeRepairQueueItems(
+  left: PracticeRepairQueueItem,
+  right: PracticeRepairQueueItem,
+): number {
+  return comparePracticeRepairEntries(left.entry, right.entry);
+}
+
+export function getPracticeRepairQuestionPrompt(
+  question: PracticeRepairDisplayQuestionLike,
+): string {
+  const prompt =
+    question.noteSnapshot.prompt?.trim() ?? question.noteSnapshot.title;
+
+  return prompt.length > 0 ? prompt : question.noteSnapshot.body;
+}
+
+export function getPracticeRepairQuestionExpectedAnswer(
+  question: PracticeRepairDisplayQuestionLike,
+): string {
+  return question.noteSnapshot.expectedAnswer ?? question.noteSnapshot.body;
+}
+
+export function getPracticeRepairQuestionReferenceText(
+  question: PracticeRepairDisplayQuestionLike,
+): string {
+  return question.noteSnapshot.source?.body ?? question.noteSnapshot.body;
+}
+
+export function getPracticeRepairQuestionReferenceTitle(
+  question: PracticeRepairDisplayQuestionLike,
+): string {
+  const sourceTitle = question.noteSnapshot.source?.title?.trim();
+
+  if (sourceTitle !== undefined && sourceTitle.length > 0) {
+    return sourceTitle;
+  }
+
+  return question.noteSnapshot.title;
+}
+
+export function getPracticeRepairRecordedAnswer(
+  question: PracticeRepairDisplayQuestionLike,
+): string {
+  const typedAnswer = question.typedAnswer?.trim() ?? "";
+
+  return typedAnswer.length > 0 ? typedAnswer : "No answer recorded.";
+}
+
+export function listActivePracticeRepairQueueItems<
+  Result extends PracticeRepairQueueResultLike,
+>(input: { results: readonly Result[] }): PracticeRepairQueueItem<Result>[] {
+  const queueItems: PracticeRepairQueueItem<Result>[] = [];
+
+  for (const result of input.results) {
+    for (const question of result.questions) {
+      const entry = question.practiceRepairEntry;
+
+      if (
+        entry === undefined ||
+        getPracticeRepairEntryLifecycleState(entry) !== "active"
+      ) {
+        continue;
+      }
+
+      queueItems.push({
+        entry: clonePracticeRepairEntry(entry),
+        question,
+        result,
+      });
+    }
+  }
+
+  return queueItems.sort(comparePracticeRepairQueueItems);
 }
 
 export function listActivePracticeRepairEntriesForStudyNote(input: {

@@ -850,6 +850,62 @@
   margin: 0;
 }
 
+.recall-practice-repair-queue {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.recall-practice-repair-queue__header {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.recall-practice-repair-queue__header h4,
+.recall-practice-repair-queue__item h5 {
+  margin: 0;
+}
+
+.recall-practice-repair-queue__list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recall-practice-repair-queue__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.recall-practice-repair-queue__content {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.recall-practice-repair-queue__meta {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.recall-practice-repair-queue__eyebrow,
+.recall-practice-repair-queue__rating {
+  font-size: 0.9rem;
+}
+
+.recall-practice-repair-queue__eyebrow {
+  color: var(--color-content-strong);
+  font-weight: 600;
+}
+
+.recall-practice-repair-queue__rating {
+  color: var(--color-content-muted);
+}
+
 .recall-empty-surface,
 .recall-empty-state {
   place-content: center;
