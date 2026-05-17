@@ -80,6 +80,27 @@ export type PracticeFollowUpState =
   | "satisfied"
   | "study-note-deleted"
   | "superseded";
+export type PracticeRepairEntryLifecycleKind =
+  | "active"
+  | "completed"
+  | "dismissed"
+  | "follow-up-satisfied"
+  | "study-note-deleted"
+  | "superseded";
+
+type PracticeRepairEntryLifecycleOutcome = {
+  followUpState: PracticeFollowUpState;
+  kind: PracticeRepairEntryLifecycleKind;
+  label: string;
+  state: PracticeRepairEntryLifecycleState;
+  summary: string;
+};
+
+type TerminalPracticeRepairEntryLifecycleOutcome =
+  PracticeRepairEntryLifecycleOutcome & {
+    factKey: keyof PracticeRepairEntryLifecycle;
+    state: "historical";
+  };
 
 export type PracticeRepairEntry = {
   confirmedAt: string;
@@ -224,13 +245,66 @@ const practiceRepairSuggestions = [
 ] as const;
 const practiceRepairEntryIdPrefix = "practice-repair-entry";
 
-const terminalPracticeRepairLifecycleFactKeys = [
-  "completedAt",
-  "dismissedAt",
-  "followUpSatisfiedAt",
-  "studyNoteDeletedAt",
-  "supersededAt",
-] as const satisfies readonly (keyof PracticeRepairEntryLifecycle)[];
+const activePracticeRepairLifecycleOutcome: PracticeRepairEntryLifecycleOutcome =
+  {
+    followUpState: "pending",
+    kind: "active",
+    label: "Active",
+    state: "active",
+    summary:
+      "This is the active Practice Repair workspace for the original Needs practice evidence.",
+  };
+
+const terminalPracticeRepairLifecycleOutcomes = [
+  {
+    factKey: "studyNoteDeletedAt",
+    followUpState: "study-note-deleted",
+    kind: "study-note-deleted",
+    label: "Study Note deleted",
+    state: "historical",
+    summary:
+      "This Practice Repair is historical because its Study Note is no longer available.",
+  },
+  {
+    factKey: "supersededAt",
+    followUpState: "superseded",
+    kind: "superseded",
+    label: "Superseded",
+    state: "historical",
+    summary:
+      "A newer Practice Repair replaced this entry for the same Study Note.",
+  },
+  {
+    factKey: "dismissedAt",
+    followUpState: "dismissed",
+    kind: "dismissed",
+    label: "Dismissed",
+    state: "historical",
+    summary:
+      "This repair was dismissed and remains here as historical evidence.",
+  },
+  {
+    factKey: "followUpSatisfiedAt",
+    followUpState: "satisfied",
+    kind: "follow-up-satisfied",
+    label: "Follow-up satisfied",
+    state: "historical",
+    summary:
+      "A later recall attempt satisfied the follow-up and closed this repair loop.",
+  },
+  {
+    factKey: "completedAt",
+    followUpState: "actionable",
+    kind: "completed",
+    label: "Completed",
+    state: "historical",
+    summary:
+      "The repair is complete. Recall again soon is the next step from here.",
+  },
+] as const satisfies readonly TerminalPracticeRepairEntryLifecycleOutcome[];
+
+const terminalPracticeRepairLifecycleFactKeys: readonly (keyof PracticeRepairEntryLifecycle)[] =
+  terminalPracticeRepairLifecycleOutcomes.map((outcome) => outcome.factKey);
 
 const practiceFollowUpSatisfactionRatings = [
   "easy",
@@ -579,18 +653,6 @@ export function getQuestionPracticeRepairDraft(
   };
 }
 
-function hasTerminalPracticeRepairLifecycleFact(
-  lifecycle: PracticeRepairEntryLifecycle | undefined,
-): boolean {
-  if (lifecycle === undefined) {
-    return false;
-  }
-
-  return terminalPracticeRepairLifecycleFactKeys.some((key) => {
-    return isTerminalPracticeRepairLifecycleFact(lifecycle[key]);
-  });
-}
-
 function isTerminalPracticeRepairLifecycleFact(
   fact: string | null | undefined,
 ): fact is string {
@@ -606,40 +668,46 @@ function getLifecycleFact(
   return isTerminalPracticeRepairLifecycleFact(value) ? value : null;
 }
 
+function getPracticeRepairEntryLifecycleOutcome(
+  entry: Pick<PracticeRepairEntry, "lifecycle">,
+): PracticeRepairEntryLifecycleOutcome {
+  for (const outcome of terminalPracticeRepairLifecycleOutcomes) {
+    if (getLifecycleFact(entry.lifecycle, outcome.factKey) !== null) {
+      return outcome;
+    }
+  }
+
+  return activePracticeRepairLifecycleOutcome;
+}
+
+export function getPracticeRepairEntryLifecycleKind(
+  entry: Pick<PracticeRepairEntry, "lifecycle">,
+): PracticeRepairEntryLifecycleKind {
+  return getPracticeRepairEntryLifecycleOutcome(entry).kind;
+}
+
 export function getPracticeRepairEntryLifecycleState(
   entry: Pick<PracticeRepairEntry, "lifecycle">,
 ): PracticeRepairEntryLifecycleState {
-  return hasTerminalPracticeRepairLifecycleFact(entry.lifecycle)
-    ? "historical"
-    : "active";
+  return getPracticeRepairEntryLifecycleOutcome(entry).state;
+}
+
+export function getPracticeRepairEntryLifecycleLabel(
+  entry: Pick<PracticeRepairEntry, "lifecycle">,
+): string {
+  return getPracticeRepairEntryLifecycleOutcome(entry).label;
+}
+
+export function getPracticeRepairEntryLifecycleSummary(
+  entry: Pick<PracticeRepairEntry, "lifecycle">,
+): string {
+  return getPracticeRepairEntryLifecycleOutcome(entry).summary;
 }
 
 function getPracticeFollowUpState(
   entry: Pick<PracticeRepairEntry, "lifecycle">,
 ): PracticeFollowUpState {
-  const lifecycle = entry.lifecycle;
-
-  if (getLifecycleFact(lifecycle, "studyNoteDeletedAt") !== null) {
-    return "study-note-deleted";
-  }
-
-  if (getLifecycleFact(lifecycle, "supersededAt") !== null) {
-    return "superseded";
-  }
-
-  if (getLifecycleFact(lifecycle, "dismissedAt") !== null) {
-    return "dismissed";
-  }
-
-  if (getLifecycleFact(lifecycle, "followUpSatisfiedAt") !== null) {
-    return "satisfied";
-  }
-
-  if (getLifecycleFact(lifecycle, "completedAt") !== null) {
-    return "actionable";
-  }
-
-  return "pending";
+  return getPracticeRepairEntryLifecycleOutcome(entry).followUpState;
 }
 
 export function isActionablePracticeFollowUp(
