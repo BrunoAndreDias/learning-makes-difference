@@ -7,6 +7,7 @@ export {
   deriveStudyNoteLearningStates,
   formatStudyNoteDueLabel,
   formatStudyNoteLearningStateCompactLabel,
+  formatStudyNoteLearningStateScoreLabel,
   formatStudyNotePracticeSignalLabel,
   toStudyNoteRecallHistories,
 } from "./learning-state";

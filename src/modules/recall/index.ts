@@ -30,6 +30,16 @@ export {
   createAppRecallContext,
   summarizeAttempts,
 } from "./recall";
+export type {
+  RecallGuidanceEntry,
+  RecallGuidanceInput,
+  RecallGuidanceRecommendation,
+  RecallGuidanceRecommendationKind,
+} from "./recall-guidance";
+export {
+  deriveRecallGuidance,
+  getRecallGuidanceRecommendation,
+} from "./recall-guidance";
 export type { RecallSchedule } from "./recall-schedule";
 export {
   createInitialRecallSchedule,

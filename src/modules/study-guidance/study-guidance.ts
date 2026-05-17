@@ -2,21 +2,15 @@ import type { UserTimeZonePreference } from "../access/session/session-contract"
 import type { AppLabel } from "../labels/label-management/labels";
 import type {
   FlashCardRecallAttemptsByNote,
+  RecallGuidanceEntry,
   RecallSchedule,
   SessionResult,
 } from "../recall";
-import { getInterleavedRecallRecommendation } from "../recall/interleaved-recall";
-import { formatNextRecallTiming } from "../recall/recall-schedule";
-import { buildRecallTodayQueue } from "../recall/recall-today";
 import {
-  type AppStudyNote,
-  deriveStudyNoteLearningStates,
-  getStudyNoteReadiness,
-  type StudyNoteLearningState,
-  type StudyNoteRecallHistory,
-  toStudyNoteRecallHistories,
-} from "../study-notes";
-import { formatStudyNoteLearningStateScoreLabel } from "../study-notes/learning-state";
+  deriveRecallGuidance,
+  getRecallGuidanceRecommendation,
+} from "../recall";
+import type { AppStudyNote } from "../study-notes";
 
 export type StudyGuidanceStat = {
   count: number;
@@ -61,8 +55,8 @@ type StudyGuidanceInput = {
 };
 
 type StudyGuidanceTopicDraft = {
+  guidanceEntries: readonly RecallGuidanceEntry[];
   id: string;
-  studyNotes: readonly AppStudyNote[];
   title: string;
 };
 
@@ -87,151 +81,33 @@ const interleavingReadyStat: Omit<StudyGuidanceStat, "count"> = {
   label: "Interleaving ready",
 };
 
-function listInterleavingReadyStudyNoteIds(input: {
-  histories: readonly StudyNoteRecallHistory[];
-  studyNotes: readonly AppStudyNote[];
-}) {
-  return input.studyNotes.flatMap((studyNote) =>
-    getInterleavedRecallRecommendation({
-      histories: input.histories,
-      studyNote,
-      studyNotes: input.studyNotes,
-    }) === null
-      ? []
-      : [studyNote.id],
-  );
-}
-
-function selectRecommendedStudyNote(input: {
-  interleavingReadyStudyNoteIds: ReadonlySet<string>;
-  recallTodayStudyNoteIds: ReadonlySet<string>;
-  studyNotes: readonly AppStudyNote[];
-}) {
-  const recallTodayStudyNote = input.studyNotes.find((studyNote) =>
-    input.recallTodayStudyNoteIds.has(studyNote.id),
-  );
-
-  if (recallTodayStudyNote !== undefined) {
-    return recallTodayStudyNote;
-  }
-
-  const interleavingReadyStudyNote = input.studyNotes.find((studyNote) =>
-    input.interleavingReadyStudyNoteIds.has(studyNote.id),
-  );
-
-  return interleavingReadyStudyNote ?? input.studyNotes[0] ?? null;
-}
-
-function formatRecommendationSummary(input: {
-  action: string;
-  nextRecall: string;
-  prompt: string;
-  scoreLabel: string | null;
-}) {
-  const scoreCopy =
-    input.scoreLabel === null ? "" : ` Last score: ${input.scoreLabel}.`;
-
-  return `${input.prompt} ${input.action}.${scoreCopy} Next recall: ${input.nextRecall}.`;
-}
-
-function formatTopicRecommendation(input: {
-  interleavingReadyStudyNoteIds: ReadonlySet<string>;
-  learningState: StudyNoteLearningState | null;
-  now: string;
-  recallSchedule: RecallSchedule | null;
-  recommendedStudyNote: AppStudyNote | null;
-  recallTodayStudyNoteIds: ReadonlySet<string>;
-  userTimeZone: UserTimeZonePreference;
-}) {
-  if (input.recommendedStudyNote === null) {
-    return null;
-  }
-
-  const prompt = input.recommendedStudyNote.prompt;
-  const scoreLabel = formatStudyNoteLearningStateScoreLabel(
-    input.learningState?.latestScore ?? null,
-  );
-  const nextRecall =
-    formatNextRecallTiming({
-      now: input.now,
-      schedule: input.recallSchedule,
-      userTimeZone: input.userTimeZone,
-    }) ?? "Recall today";
-
-  if (input.learningState?.needsPractice) {
-    return {
-      nextRecall,
-      summary: formatRecommendationSummary({
-        action: "needs practice",
-        nextRecall,
-        prompt,
-        scoreLabel,
-      }),
-    };
-  }
-
-  if (input.recallTodayStudyNoteIds.has(input.recommendedStudyNote.id)) {
-    return {
-      nextRecall,
-      summary: formatRecommendationSummary({
-        action: "is ready for Recall Today",
-        nextRecall,
-        prompt,
-        scoreLabel,
-      }),
-    };
-  }
-
-  if (input.interleavingReadyStudyNoteIds.has(input.recommendedStudyNote.id)) {
-    return {
-      nextRecall,
-      summary: formatRecommendationSummary({
-        action: "is interleaving ready after repeated Good or Easy recalls",
-        nextRecall,
-        prompt,
-        scoreLabel: null,
-      }),
-    };
-  }
-
-  return {
-    nextRecall,
-    summary: formatRecommendationSummary({
-      action: "is the next Study Note to reinforce",
-      nextRecall,
-      prompt,
-      scoreLabel: null,
-    }),
-  };
-}
-
 function createTopicDrafts(input: {
+  guidanceEntries: readonly RecallGuidanceEntry[];
   labels: readonly AppLabel[];
-  studyNotes: readonly AppStudyNote[];
 }) {
   const topicDrafts = input.labels.flatMap((label) => {
-    const labelStudyNotes = input.studyNotes.filter((studyNote) =>
-      studyNote.labelIds.includes(label.id),
+    const labelGuidanceEntries = input.guidanceEntries.filter((entry) =>
+      entry.studyNote.labelIds.includes(label.id),
     );
 
-    return labelStudyNotes.length === 0
+    return labelGuidanceEntries.length === 0
       ? []
       : [
           {
+            guidanceEntries: labelGuidanceEntries,
             id: label.id,
-            studyNotes: labelStudyNotes,
             title: label.name,
           } satisfies StudyGuidanceTopicDraft,
         ];
   });
-  const unlabeledStudyNotes = input.studyNotes.filter(
-    (studyNote) => studyNote.labelIds.length === 0,
+  const unlabeledGuidanceEntries = input.guidanceEntries.filter(
+    (entry) => entry.studyNote.labelIds.length === 0,
   );
 
-  if (unlabeledStudyNotes.length > 0) {
+  if (unlabeledGuidanceEntries.length > 0) {
     topicDrafts.push({
+      guidanceEntries: unlabeledGuidanceEntries,
       id: "__unlabeled__",
-      studyNotes: unlabeledStudyNotes,
       title: "Unlabeled Study Notes",
     });
   }
@@ -250,93 +126,44 @@ function compareTopics(left: StudyGuidanceTopic, right: StudyGuidanceTopic) {
 }
 
 export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
-  const histories = toStudyNoteRecallHistories(input.attemptsByNote);
-  const recallableStudyNotes = input.studyNotes.filter(
-    (studyNote) => getStudyNoteReadiness(studyNote).recallable,
-  );
-  const learningStates = deriveStudyNoteLearningStates({
-    histories,
-    now: input.now,
-    recallSchedules: input.recallSchedules,
-    studyNotes: recallableStudyNotes,
-  });
-  const learningStateByStudyNoteId = new Map(
-    learningStates.map((learningState) => [
-      learningState.studyNoteId,
-      learningState,
-    ]),
-  );
-  const recallScheduleByStudyNoteId = new Map(
-    input.recallSchedules.map((schedule) => [schedule.studyNoteId, schedule]),
-  );
-  const recallTodayQueue = buildRecallTodayQueue({
-    histories,
+  const recallGuidance = deriveRecallGuidance({
+    attemptsByNote: input.attemptsByNote,
     now: input.now,
     recallSchedules: input.recallSchedules,
     sessionResults: input.sessionResults,
-    studyNotes: recallableStudyNotes,
+    studyNotes: input.studyNotes,
     userTimeZone: input.userTimeZone,
   });
-  const recallTodayStudyNoteIds = new Set(
-    recallTodayQueue.map((queueItem) => queueItem.studyNote.id),
-  );
-  const interleavingReadyStudyNoteIds = new Set(
-    listInterleavingReadyStudyNoteIds({
-      histories,
-      studyNotes: recallableStudyNotes,
-    }),
-  );
   const topicDrafts = createTopicDrafts({
+    guidanceEntries: recallGuidance,
     labels: input.labels,
-    studyNotes: recallableStudyNotes,
   });
   const topics = topicDrafts
     .map((topicDraft) => {
-      const needsPracticeCount = topicDraft.studyNotes.filter(
-        (studyNote) =>
-          learningStateByStudyNoteId.get(studyNote.id)?.needsPractice === true,
+      const needsPracticeCount = topicDraft.guidanceEntries.filter(
+        (entry) => entry.needsPractice,
       ).length;
-      const recallTodayCount = topicDraft.studyNotes.filter((studyNote) =>
-        recallTodayStudyNoteIds.has(studyNote.id),
+      const recallTodayCount = topicDraft.guidanceEntries.filter(
+        (entry) => entry.recallToday,
       ).length;
-      const notRecalledYetCount = topicDraft.studyNotes.filter(
-        (studyNote) =>
-          learningStateByStudyNoteId.get(studyNote.id)?.latestScore === null,
+      const notRecalledYetCount = topicDraft.guidanceEntries.filter(
+        (entry) => entry.notRecalledYet,
       ).length;
-      const interleavingReadyCount = topicDraft.studyNotes.filter((studyNote) =>
-        interleavingReadyStudyNoteIds.has(studyNote.id),
+      const interleavingReadyCount = topicDraft.guidanceEntries.filter(
+        (entry) => entry.interleavingReady,
       ).length;
-      const recommendedStudyNote = selectRecommendedStudyNote({
-        interleavingReadyStudyNoteIds,
-        recallTodayStudyNoteIds,
-        studyNotes: topicDraft.studyNotes,
+      const recommendation = getRecallGuidanceRecommendation({
+        entries: topicDraft.guidanceEntries,
       });
-      const recommendedStudyNoteId = recommendedStudyNote?.id ?? null;
-      const recommendedLearningState =
-        recommendedStudyNoteId === null
-          ? null
-          : (learningStateByStudyNoteId.get(recommendedStudyNoteId) ?? null);
-      const recommendedRecallSchedule =
-        recommendedStudyNoteId === null
-          ? null
-          : (recallScheduleByStudyNoteId.get(recommendedStudyNoteId) ?? null);
 
       return {
         id: topicDraft.id,
         interleavingReadyCount,
         needsPracticeCount,
         notRecalledYetCount,
-        recommendation: formatTopicRecommendation({
-          interleavingReadyStudyNoteIds,
-          learningState: recommendedLearningState,
-          now: input.now,
-          recallSchedule: recommendedRecallSchedule,
-          recommendedStudyNote,
-          recallTodayStudyNoteIds,
-          userTimeZone: input.userTimeZone,
-        }),
+        recommendation,
         recallTodayCount,
-        studyNoteCount: topicDraft.studyNotes.length,
+        studyNoteCount: topicDraft.guidanceEntries.length,
         title: topicDraft.title,
       } satisfies StudyGuidanceTopic;
     })
@@ -346,23 +173,19 @@ export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
     stats: [
       {
         ...recallTodayStat,
-        count: recallTodayQueue.length,
+        count: recallGuidance.filter((entry) => entry.recallToday).length,
       },
       {
         ...needsPracticeStat,
-        count: learningStates.filter(
-          (learningState) => learningState.needsPractice,
-        ).length,
+        count: recallGuidance.filter((entry) => entry.needsPractice).length,
       },
       {
         ...notRecalledYetStat,
-        count: learningStates.filter(
-          (learningState) => learningState.latestScore === null,
-        ).length,
+        count: recallGuidance.filter((entry) => entry.notRecalledYet).length,
       },
       {
         ...interleavingReadyStat,
-        count: interleavingReadyStudyNoteIds.size,
+        count: recallGuidance.filter((entry) => entry.interleavingReady).length,
       },
     ],
     topics,
