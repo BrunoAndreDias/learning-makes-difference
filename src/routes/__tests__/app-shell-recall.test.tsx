@@ -281,9 +281,15 @@ function confirmStudyNotePracticeRepair(input: {
     | "tighten-expected-answer";
   studyNoteId: string;
 }) {
-  const result = input.contexts.recallContext.listSessionResults({
-    userId: testUser.id,
-  })[0];
+  const result = input.contexts.recallContext
+    .listSessionResults({
+      userId: testUser.id,
+    })
+    .find((candidate) =>
+      candidate.questions.some(
+        (question) => question.noteId === input.studyNoteId,
+      ),
+    );
   const questionResultId = result?.questions[0]?.questionResultId;
 
   if (result === undefined || questionResultId === undefined) {
@@ -1006,6 +1012,152 @@ describe("authenticated recall workspace", () => {
         name: "Confirm Practice Repair",
       }),
     ).toBeNull();
+  });
+
+  it("shows the active Practice Repair queue in newest-first order and navigates into a workspace", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const olderStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "ATP stores transferable energy for cells.",
+        prompt: "What stores transferable energy?",
+        sourceBody: "Cell respiration source context.",
+        sourceTitle: "Cell respiration source",
+      },
+    );
+    const newerStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "The Krebs cycle regenerates oxaloacetate.",
+        prompt: "What does the Krebs cycle regenerate?",
+        sourceBody: "Citric acid cycle source context.",
+        sourceTitle: "Citric acid cycle source",
+      },
+    );
+    const dismissedStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "NADH carries electrons.",
+        prompt: "What carries electrons to the chain?",
+        sourceBody: "Electron transport source context.",
+        sourceTitle: "Electron transport source",
+      },
+    );
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: olderStudyNote.id,
+      timestamp: "2026-05-15T09:00:00.000Z",
+    });
+    completeStudyNoteRecallAt({
+      rating: "forgot",
+      recallContext: contexts.recallContext,
+      studyNoteId: newerStudyNote.id,
+      timestamp: "2026-05-16T09:00:00.000Z",
+    });
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: dismissedStudyNote.id,
+      timestamp: "2026-05-14T09:00:00.000Z",
+    });
+
+    vi.setSystemTime(new Date("2026-05-16T10:00:00.000Z"));
+    const olderResult = confirmStudyNotePracticeRepair({
+      correction: "State ATP directly.",
+      contexts,
+      intent: "tighten-expected-answer",
+      studyNoteId: olderStudyNote.id,
+    });
+
+    vi.setSystemTime(new Date("2026-05-17T11:00:00.000Z"));
+    const newerResult = confirmStudyNotePracticeRepair({
+      correction: "Call out oxaloacetate at the end of the cycle.",
+      contexts,
+      intent: "tighten-expected-answer",
+      studyNoteId: newerStudyNote.id,
+    });
+
+    vi.setSystemTime(new Date("2026-05-17T12:00:00.000Z"));
+    const dismissedResult = confirmStudyNotePracticeRepair({
+      correction: "This repair was dismissed.",
+      contexts,
+      intent: "tighten-expected-answer",
+      studyNoteId: dismissedStudyNote.id,
+    });
+    contexts.recallContext.dismissPracticeRepairEntry({
+      reference: getConfirmedPracticeRepairReference(dismissedResult),
+      userId: testUser.id,
+    });
+
+    const olderPracticeRepairEntryId =
+      getConfirmedPracticeRepairEntryId(olderResult);
+    const newerPracticeRepairEntryId =
+      getConfirmedPracticeRepairEntryId(newerResult);
+
+    const { router } = renderRoute("/recall/repair", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Practice Repair Queue",
+      }),
+    ).toBeInTheDocument();
+
+    const queueList = screen.getByRole("list", {
+      name: "Active Practice Repair entries",
+    });
+    const queueItems = within(queueList).getAllByRole("listitem");
+
+    expect(queueItems).toHaveLength(2);
+    expect(queueItems[0]).toHaveTextContent(
+      "What does the Krebs cycle regenerate?",
+    );
+    expect(queueItems[0]).toHaveTextContent(
+      "Call out oxaloacetate at the end of the cycle.",
+    );
+    expect(queueItems[1]).toHaveTextContent("What stores transferable energy?");
+    expect(queueItems[1]).toHaveTextContent("State ATP directly.");
+    expect(screen.queryByText("This repair was dismissed.")).toBeNull();
+
+    fireEvent.click(
+      within(queueItems[0]).getByRole("link", {
+        name: "Resume Practice Repair",
+      }),
+    );
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Practice Repair",
+      }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(
+      `/recall/repair/${newerPracticeRepairEntryId}`,
+    );
+    expect(router.state.location.pathname).not.toBe(
+      `/recall/repair/${olderPracticeRepairEntryId}`,
+    );
+  });
+
+  it("shows an empty Practice Repair Queue state when there are no active entries", async () => {
+    renderRoute("/recall/repair", {
+      session: createSession(),
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Practice Repair Queue",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "No active Practice Repair entries.",
+    );
   });
 
   it("resolves the canonical Practice Repair route across reloads by durable entry id", async () => {

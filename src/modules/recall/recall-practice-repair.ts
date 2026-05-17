@@ -129,6 +129,37 @@ type PracticeRepairResultLike = {
   questions: readonly PracticeRepairResultQuestionLike[];
 };
 
+export type PracticeRepairQueueQuestionLike = {
+  noteSnapshot: {
+    body: string;
+    expectedAnswer?: string;
+    prompt?: string;
+    source?: {
+      body: string;
+      title: string;
+    };
+    title: string;
+  };
+  practiceRepairEntry?: PracticeRepairEntry;
+  questionResultId?: string;
+  selfRating: "easy" | "forgot" | "good" | "hard" | null;
+  typedAnswer?: string;
+};
+
+export type PracticeRepairQueueResultLike = {
+  completedAt: string;
+  id: string;
+  questions: readonly PracticeRepairQueueQuestionLike[];
+};
+
+export type PracticeRepairQueueItem<
+  Result extends PracticeRepairQueueResultLike = PracticeRepairQueueResultLike,
+> = {
+  entry: PracticeRepairEntry;
+  question: Result["questions"][number];
+  result: Result;
+};
+
 type PracticeRepairEntryPredicate = (entry: PracticeRepairEntry) => boolean;
 
 const practiceRepairSuggestions = [
@@ -641,6 +672,38 @@ function compareActionablePracticeFollowUps(
       getActionablePracticeFollowUpCompletedAt(left),
     ) || comparePracticeRepairEntries(left, right)
   );
+}
+
+function comparePracticeRepairQueueItems(
+  left: PracticeRepairQueueItem,
+  right: PracticeRepairQueueItem,
+): number {
+  return comparePracticeRepairEntries(left.entry, right.entry);
+}
+
+export function listActivePracticeRepairQueueItems<
+  Result extends PracticeRepairQueueResultLike,
+>(input: { results: readonly Result[] }): PracticeRepairQueueItem<Result>[] {
+  const queueItems: PracticeRepairQueueItem<Result>[] = [];
+
+  for (const result of input.results) {
+    for (const question of result.questions) {
+      const entry = question.practiceRepairEntry;
+
+      if (
+        entry !== undefined &&
+        getPracticeRepairEntryLifecycleState(entry) === "active"
+      ) {
+        queueItems.push({
+          entry: clonePracticeRepairEntry(entry),
+          question,
+          result,
+        });
+      }
+    }
+  }
+
+  return queueItems.sort(comparePracticeRepairQueueItems);
 }
 
 export function listActivePracticeRepairEntriesForStudyNote(input: {
