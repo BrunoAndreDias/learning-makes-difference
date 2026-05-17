@@ -254,6 +254,10 @@ function getPracticeRepairErrorMessage(action: PracticeRepairLifecycleAction) {
   }
 }
 
+function getPracticeRepairFollowUpStartErrorMessage() {
+  return "Recall again soon could not be started.";
+}
+
 async function mutatePracticeRepairLifecycle(input: {
   action: PracticeRepairLifecycleAction;
   persistentRecallContext: AppPersistentRecallContext | undefined;
@@ -307,16 +311,20 @@ function useSessionResultsSubscription(recallResultsStore: RecallResultsStore) {
 }
 
 function PracticeRepairWorkspaceActions({
+  isFollowUpRecallPending,
   isMutationPending,
   lifecycleKind,
   onComplete,
   onDismiss,
+  onStartFollowUpRecall,
   supersedingPracticeRepairEntryId,
 }: Readonly<{
+  isFollowUpRecallPending: boolean;
   isMutationPending: boolean;
   lifecycleKind: PracticeRepairEntryLifecycleKind;
   onComplete: () => void;
   onDismiss: () => void;
+  onStartFollowUpRecall: () => void;
   supersedingPracticeRepairEntryId: string | null;
 }>) {
   switch (lifecycleKind) {
@@ -343,9 +351,14 @@ function PracticeRepairWorkspaceActions({
       );
     case "completed":
       return (
-        <ButtonLink to="/recall" variant="primary">
+        <Button
+          disabled={isFollowUpRecallPending}
+          onClick={onStartFollowUpRecall}
+          type="button"
+          variant="primary"
+        >
           Recall again soon
-        </ButtonLink>
+        </Button>
       );
     case "dismissed":
     case "follow-up-satisfied":
@@ -471,6 +484,7 @@ function RecallPracticeRepairWorkspacePage({
   const { t } = useAppTranslation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [isFollowUpRecallPending, setIsFollowUpRecallPending] = useState(false);
   const [pendingAction, setPendingAction] =
     useState<PracticeRepairLifecycleAction | null>(null);
   const { entry, question, result } = workspace;
@@ -532,6 +546,41 @@ function RecallPracticeRepairWorkspacePage({
       );
     } finally {
       setPendingAction(null);
+    }
+  }
+
+  async function handleStartFollowUpRecall() {
+    if (userId === null) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setFeedbackMessage(null);
+    setIsFollowUpRecallPending(true);
+
+    try {
+      if (persistentRecallContext === undefined) {
+        recallContext.startFlashCardSession({
+          mode: "FlashCard",
+          studyNoteIds: [entry.reference.studyNoteId],
+          userId,
+        });
+      } else {
+        await persistentRecallContext.startFlashCardSession(userId, {
+          mode: "FlashCard",
+          studyNoteIds: [entry.reference.studyNoteId],
+        });
+      }
+
+      await navigate({ to: "/recall/session" });
+    } catch (error) {
+      setErrorMessage(
+        error instanceof AppRecallError
+          ? error.message
+          : getPracticeRepairFollowUpStartErrorMessage(),
+      );
+    } finally {
+      setIsFollowUpRecallPending(false);
     }
   }
 
@@ -728,10 +777,12 @@ function RecallPracticeRepairWorkspacePage({
 
               <div className="recall-practice-repair-workspace__actions">
                 <PracticeRepairWorkspaceActions
+                  isFollowUpRecallPending={isFollowUpRecallPending}
                   isMutationPending={isMutationPending}
                   lifecycleKind={lifecycleKind}
                   onComplete={() => void handleLifecycleMutation("complete")}
                   onDismiss={() => void handleLifecycleMutation("dismiss")}
+                  onStartFollowUpRecall={() => void handleStartFollowUpRecall()}
                   supersedingPracticeRepairEntryId={
                     supersedingPracticeRepairEntryId
                   }

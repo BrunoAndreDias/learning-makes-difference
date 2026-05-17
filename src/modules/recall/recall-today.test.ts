@@ -1,10 +1,32 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { createAppNotesContext } from "../notes";
 import type { AppStudyNote } from "../study-notes";
+import {
+  createAppStudyNotesContext,
+  toStudyNoteRecallHistories,
+} from "../study-notes";
 import type { SessionResult } from "./recall";
+import { type AppRecallContext, createAppRecallContext } from "./recall";
 import { buildRecallTodayQueue } from "./recall-today";
 
 const timestamp = "2026-05-01T09:00:00.000Z";
+
+function createMemoryStorage() {
+  const values = new Map<string, string>();
+
+  return {
+    getItem(key: string) {
+      return values.get(key) ?? null;
+    },
+    removeItem(key: string) {
+      values.delete(key);
+    },
+    setItem(key: string, value: string) {
+      values.set(key, value);
+    },
+  };
+}
 
 function buildStudyNote(
   overrides: Partial<AppStudyNote> & Pick<AppStudyNote, "id" | "prompt">,
@@ -115,7 +137,180 @@ function buildSessionResultWithPracticeRepair(input: {
   };
 }
 
+function createPracticeRepairReference(input: {
+  result: SessionResult;
+  studyNoteId: string;
+}) {
+  const questionResultId = input.result.questions[0]?.questionResultId;
+
+  if (questionResultId === undefined) {
+    throw new Error(
+      "Expected the weak Study Note result to have a question id.",
+    );
+  }
+
+  return {
+    questionIndex: 0,
+    questionResultId,
+    sessionResultId: input.result.id,
+    studyNoteId: input.studyNoteId,
+  };
+}
+
+function getConfirmedPracticeRepairReference(result: SessionResult) {
+  const reference = result.questions[0]?.practiceRepairEntry?.reference;
+
+  if (reference === undefined) {
+    throw new Error("Expected a confirmed Practice Repair reference.");
+  }
+
+  return reference;
+}
+
+function buildRecallTodayQueueFromRecallContext(input: {
+  now: string;
+  recall: AppRecallContext;
+  studyNotes: ReturnType<typeof createAppStudyNotesContext>;
+  userId: string;
+}) {
+  return buildRecallTodayQueue({
+    histories: toStudyNoteRecallHistories(
+      input.recall.listAttemptsByNote({
+        userId: input.userId,
+      }),
+    ),
+    now: input.now,
+    recallSchedules: input.recall.getRecallSchedulesSnapshot(),
+    sessionResults: input.recall.listSessionResults({
+      userId: input.userId,
+    }),
+    studyNotes: input.studyNotes
+      .getSnapshot()
+      .filter((studyNote) => studyNote.userId === input.userId),
+    userTimeZone: "America/New_York",
+  });
+}
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("Recall Today queue", () => {
+  it("keeps a completed Practice Follow-up in Recall Today until the targeted question is attempted", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-16T16:00:00.000Z"));
+
+    const storage = createMemoryStorage();
+    const userId = "user-recall-today-follow-up-timing";
+    const notes = createAppNotesContext({
+      keyPrefix: "recall-today-follow-up-timing-notes",
+      storage,
+    });
+    const studyNotes = createAppStudyNotesContext({
+      keyPrefix: "recall-today-follow-up-timing-study-notes",
+      storage,
+    });
+    let sessionCounter = 0;
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          `recall-today-follow-up-timing-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "recall-today-follow-up-timing-recall",
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+    const studyNote = studyNotes.createStudyNote(userId, {
+      expectedAnswer: "ATP stores transferable energy.",
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+    const firstSession = recall.startFlashCardSession({
+      studyNoteIds: [studyNote.id],
+      userId,
+    });
+
+    recall.revealFlashCardAnswer({
+      sessionId: firstSession.id,
+      userId,
+    });
+    recall.rateFlashCardAnswer({
+      rating: "hard",
+      sessionId: firstSession.id,
+      userId,
+    });
+
+    const confirmedResult = recall.confirmPracticeRepairEntry({
+      correction: "State ATP directly.",
+      intent: "tighten-expected-answer",
+      reference: createPracticeRepairReference({
+        result: recall.listSessionResults({ userId })[0]!,
+        studyNoteId: studyNote.id,
+      }),
+      userId,
+    });
+    const originalReference =
+      getConfirmedPracticeRepairReference(confirmedResult);
+
+    vi.setSystemTime(new Date("2026-05-16T16:05:00.000Z"));
+
+    recall.completePracticeRepairEntry({
+      reference: originalReference,
+      userId,
+    });
+
+    vi.setSystemTime(new Date("2026-05-16T16:10:00.000Z"));
+
+    const followUpSession = recall.startFlashCardSession({
+      studyNoteIds: [studyNote.id],
+      userId,
+    });
+    const queueBeforeAttempt = buildRecallTodayQueueFromRecallContext({
+      now: "2026-05-16T16:10:00.000Z",
+      recall,
+      studyNotes,
+      userId,
+    });
+
+    expect(queueBeforeAttempt).toMatchObject([
+      {
+        reasons: ["practice-follow-up", "needs-practice"],
+        studyNote: {
+          id: studyNote.id,
+        },
+      },
+    ]);
+
+    recall.revealFlashCardAnswer({
+      sessionId: followUpSession.id,
+      userId,
+    });
+    recall.rateFlashCardAnswer({
+      rating: "hard",
+      sessionId: followUpSession.id,
+      userId,
+    });
+
+    const queueAfterAttempt = buildRecallTodayQueueFromRecallContext({
+      now: "2026-05-16T16:10:00.000Z",
+      recall,
+      studyNotes,
+      userId,
+    });
+
+    expect(queueAfterAttempt).toMatchObject([
+      {
+        reasons: ["needs-practice"],
+        studyNote: {
+          id: studyNote.id,
+        },
+      },
+    ]);
+  });
+
   it("routes only actionable Practice Follow-ups into Recall Today and keeps the combined note in one high-priority row", () => {
     const practiceFollowUp = buildStudyNote({
       id: "practice-follow-up",
