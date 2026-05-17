@@ -34,6 +34,8 @@ import {
   getPracticeRepairEntryId,
   getQuestionPracticeRepairDraft,
   isActionablePracticeFollowUp,
+  type PracticeRepairDraft,
+  type PracticeRepairEntry,
 } from "./recall-practice-repair";
 import {
   getRecallResultNoteTitle as getNoteResultTitle,
@@ -1899,68 +1901,99 @@ function QuestionPracticeRepairPanel({
   question: RecallQuestion;
   resultId: string;
 }) {
-  const practiceRepairDraft = getQuestionPracticeRepairDraft(question);
   const practiceRepairEntry = question.practiceRepairEntry;
 
   if (practiceRepairEntry !== undefined) {
-    const actionablePracticeFollowUp =
-      isActionablePracticeFollowUp(practiceRepairEntry);
-    const practiceRepairEntryId = getPracticeRepairEntryId(practiceRepairEntry);
-
     return (
-      <div className="recall-selected-result__question-detail-block">
-        <h5>Confirmed Practice Repair</h5>
-        <p className="recall-selected-result__question-detail-label">Intent</p>
-        <p className="recall-selected-result__question-detail-copy">
-          {formatPracticeRepairIntentLabel(practiceRepairEntry.intent)}
-        </p>
-        <p className="recall-selected-result__question-detail-label">
-          Correction
-        </p>
-        <p className="recall-selected-result__question-detail-copy">
-          {practiceRepairEntry.correction}
-        </p>
-        {practiceRepairEntry.nextPracticeIdea !== undefined ? (
-          <>
-            <p className="recall-selected-result__question-detail-label">
-              Next-practice idea
-            </p>
-            <p className="recall-selected-result__question-detail-copy">
-              {practiceRepairEntry.nextPracticeIdea}
-            </p>
-          </>
-        ) : null}
-        {actionablePracticeFollowUp ? (
-          <>
-            <p className="recall-selected-result__question-detail-label">
-              Practice Follow-up
-            </p>
-            <p className="recall-selected-result__question-detail-copy">
-              Actionable in Recall Today
-            </p>
-          </>
-        ) : null}
-        <ButtonLink
-          params={{
-            practiceRepairEntryId,
-          }}
-          to="/recall/repair/$practiceRepairEntryId"
-          variant="secondary"
-        >
-          Open Practice Repair
-        </ButtonLink>
-      </div>
+      <ConfirmedPracticeRepairPanel practiceRepairEntry={practiceRepairEntry} />
     );
   }
+
+  const { questionResultId } = question;
+
+  if (questionResultId === undefined) {
+    return null;
+  }
+
+  const practiceRepairDraft = getQuestionPracticeRepairDraft(question);
 
   if (practiceRepairDraft === null) {
     return null;
   }
 
-  if (question.questionResultId === undefined) {
-    return null;
-  }
+  return (
+    <PracticeRepairDraftPanel
+      practiceRepairDraft={practiceRepairDraft}
+      questionResultId={questionResultId}
+      resultId={resultId}
+    />
+  );
+}
 
+function ConfirmedPracticeRepairPanel({
+  practiceRepairEntry,
+}: {
+  practiceRepairEntry: PracticeRepairEntry;
+}) {
+  const actionablePracticeFollowUp =
+    isActionablePracticeFollowUp(practiceRepairEntry);
+  const practiceRepairEntryId = getPracticeRepairEntryId(practiceRepairEntry);
+
+  return (
+    <div className="recall-selected-result__question-detail-block">
+      <h5>Confirmed Practice Repair</h5>
+      <p className="recall-selected-result__question-detail-label">Intent</p>
+      <p className="recall-selected-result__question-detail-copy">
+        {formatPracticeRepairIntentLabel(practiceRepairEntry.intent)}
+      </p>
+      <p className="recall-selected-result__question-detail-label">
+        Correction
+      </p>
+      <p className="recall-selected-result__question-detail-copy">
+        {practiceRepairEntry.correction}
+      </p>
+      {practiceRepairEntry.nextPracticeIdea !== undefined ? (
+        <>
+          <p className="recall-selected-result__question-detail-label">
+            Next-practice idea
+          </p>
+          <p className="recall-selected-result__question-detail-copy">
+            {practiceRepairEntry.nextPracticeIdea}
+          </p>
+        </>
+      ) : null}
+      {actionablePracticeFollowUp ? (
+        <>
+          <p className="recall-selected-result__question-detail-label">
+            Practice Follow-up
+          </p>
+          <p className="recall-selected-result__question-detail-copy">
+            Actionable in Recall Today
+          </p>
+        </>
+      ) : null}
+      <ButtonLink
+        params={{
+          practiceRepairEntryId,
+        }}
+        to="/recall/repair/$practiceRepairEntryId"
+        variant="secondary"
+      >
+        Open Practice Repair
+      </ButtonLink>
+    </div>
+  );
+}
+
+function PracticeRepairDraftPanel({
+  practiceRepairDraft,
+  questionResultId,
+  resultId,
+}: {
+  practiceRepairDraft: PracticeRepairDraft;
+  questionResultId: string;
+  resultId: string;
+}) {
   return (
     <div className="recall-selected-result__question-detail-block">
       <h5>Practice Repair</h5>
@@ -1969,7 +2002,7 @@ function QuestionPracticeRepairPanel({
       </p>
       <ButtonLink
         params={{
-          questionResultId: question.questionResultId,
+          questionResultId,
           sessionResultId: resultId,
         }}
         to="/recall/results/$sessionResultId/questions/$questionResultId/repair"

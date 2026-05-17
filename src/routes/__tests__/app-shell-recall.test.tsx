@@ -2572,6 +2572,7 @@ describe("authenticated recall workspace", () => {
       studyNoteId: needsPractice.id,
       timestamp: "2026-05-14T09:00:00.000Z",
     });
+    vi.setSystemTime(new Date("2026-05-15T10:00:00.000Z"));
 
     const { router } = renderRoute("/recall", {
       ...contexts,
