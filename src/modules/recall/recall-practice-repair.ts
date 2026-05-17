@@ -107,7 +107,7 @@ export type PracticeRepairEntryConfirmation = {
 };
 
 type PracticeRepairQuestionLike = {
-  noteId: string;
+  noteId?: string;
   noteSnapshot: {
     expectedAnswer?: string;
     sourceNoteId?: string;
@@ -130,6 +130,7 @@ type PracticeRepairResultLike = {
 };
 
 export type PracticeRepairDisplayQuestionLike = {
+  noteId?: string;
   noteSnapshot: {
     body: string;
     expectedAnswer?: string;
@@ -138,8 +139,10 @@ export type PracticeRepairDisplayQuestionLike = {
       body: string;
       title: string;
     };
+    sourceNoteId?: string;
     title: string;
   };
+  questionResultId?: string;
   typedAnswer?: string;
 };
 
@@ -150,6 +153,8 @@ export type PracticeRepairQueueQuestionLike =
   };
 
 export type PracticeRepairQueueResultLike = {
+  completedAt: string;
+  id: string;
   questions: readonly PracticeRepairQueueQuestionLike[];
 };
 
@@ -160,6 +165,23 @@ export type PracticeRepairQueueItem<
   question: Result["questions"][number];
   result: Result;
 };
+
+export type PracticeRepairQueueCandidateItem<
+  Result extends PracticeRepairQueueResultLike = PracticeRepairQueueResultLike,
+> = {
+  draft: PracticeRepairDraft;
+  kind: "candidate";
+  question: Result["questions"][number];
+  result: Result;
+};
+
+export type PracticeRepairQueueListItem<
+  Result extends PracticeRepairQueueResultLike = PracticeRepairQueueResultLike,
+> =
+  | ({
+      kind: "active";
+    } & PracticeRepairQueueItem<Result>)
+  | PracticeRepairQueueCandidateItem<Result>;
 
 type PracticeRepairEntryPredicate = (entry: PracticeRepairEntry) => boolean;
 
@@ -682,6 +704,20 @@ function comparePracticeRepairQueueItems(
   return comparePracticeRepairEntries(left.entry, right.entry);
 }
 
+function comparePracticeRepairQueueCandidateItems(
+  left: PracticeRepairQueueCandidateItem,
+  right: PracticeRepairQueueCandidateItem,
+): number {
+  return (
+    right.result.completedAt.localeCompare(left.result.completedAt) ||
+    right.result.id.localeCompare(left.result.id) ||
+    (right.question.questionResultId ?? "").localeCompare(
+      left.question.questionResultId ?? "",
+    ) ||
+    (right.question.noteId ?? "").localeCompare(left.question.noteId ?? "")
+  );
+}
+
 export function getPracticeRepairQuestionPrompt(
   question: PracticeRepairDisplayQuestionLike,
 ): string {
@@ -748,6 +784,67 @@ export function listActivePracticeRepairQueueItems<
   }
 
   return queueItems.sort(comparePracticeRepairQueueItems);
+}
+
+export function listPracticeRepairQueueItems<
+  Result extends PracticeRepairQueueResultLike,
+>(input: {
+  results: readonly Result[];
+}): PracticeRepairQueueListItem<Result>[] {
+  const activeItems = listActivePracticeRepairQueueItems(input);
+  const activeStudyNoteIds = new Set(
+    activeItems.map((item) => item.entry.reference.studyNoteId),
+  );
+  const candidateItemsByStudyNoteId = new Map<
+    string,
+    PracticeRepairQueueCandidateItem<Result>
+  >();
+  const sortedResults = [...input.results].sort((left, right) => {
+    return (
+      right.completedAt.localeCompare(left.completedAt) ||
+      right.id.localeCompare(left.id)
+    );
+  });
+
+  for (const result of sortedResults) {
+    for (const question of result.questions) {
+      const studyNoteId = question.noteId;
+
+      if (
+        studyNoteId === undefined ||
+        activeStudyNoteIds.has(studyNoteId) ||
+        candidateItemsByStudyNoteId.has(studyNoteId) ||
+        question.questionResultId === undefined
+      ) {
+        continue;
+      }
+
+      const draft = getQuestionPracticeRepairDraft(question);
+
+      if (draft === null) {
+        continue;
+      }
+
+      candidateItemsByStudyNoteId.set(studyNoteId, {
+        draft,
+        kind: "candidate",
+        question,
+        result,
+      });
+    }
+  }
+
+  const candidateItems = [...candidateItemsByStudyNoteId.values()].sort(
+    comparePracticeRepairQueueCandidateItems,
+  );
+
+  return [
+    ...activeItems.map((item) => ({
+      ...item,
+      kind: "active" as const,
+    })),
+    ...candidateItems,
+  ];
 }
 
 export function listActivePracticeRepairEntriesForStudyNote(input: {

@@ -893,8 +893,14 @@ describe("authenticated recall workspace", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Confirm Practice Repair" }),
-    ).toBeNull();
+      screen.getByRole("heading", {
+        level: 2,
+        name: "Choose one repair to confirm",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Confirm Practice Repair" }),
+    ).toBeDisabled();
   });
 
   it("falls back to the default Recall not-found behavior when a Results repair result is missing", async () => {
@@ -1106,6 +1112,179 @@ describe("authenticated recall workspace", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       "No active Practice Repair entries.",
     );
+  });
+
+  it("shows unconfirmed repair candidates in the queue and turns a confirmed candidate into active Practice Repair work", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const activeStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "The Krebs cycle regenerates oxaloacetate.",
+        prompt: "What does the Krebs cycle regenerate?",
+        sourceBody: "Citric acid cycle source context.",
+        sourceTitle: "Citric acid cycle source",
+      },
+    );
+    const candidateStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "ATP stores transferable energy for cells.",
+        prompt: "What stores transferable energy?",
+        sourceBody: "Cell respiration source context.",
+        sourceTitle: "Cell respiration source",
+      },
+    );
+    const suppressedStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "NADH carries electrons.",
+        prompt: "What carries electrons to the chain?",
+        sourceBody: "Electron transport source context.",
+        sourceTitle: "Electron transport source",
+      },
+    );
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: activeStudyNote.id,
+      timestamp: "2026-05-15T09:00:00.000Z",
+    });
+    vi.setSystemTime(new Date("2026-05-15T10:00:00.000Z"));
+    confirmStudyNotePracticeRepair({
+      correction: "Call out oxaloacetate at the end of the cycle.",
+      contexts,
+      intent: "tighten-expected-answer",
+      studyNoteId: activeStudyNote.id,
+    });
+
+    completeStudyNoteRecallAt({
+      rating: "forgot",
+      recallContext: contexts.recallContext,
+      studyNoteId: candidateStudyNote.id,
+      timestamp: "2026-05-17T09:00:00.000Z",
+    });
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: suppressedStudyNote.id,
+      timestamp: "2026-05-14T09:00:00.000Z",
+    });
+    vi.setSystemTime(new Date("2026-05-14T10:00:00.000Z"));
+    confirmStudyNotePracticeRepair({
+      correction: "Finish the existing electron transport repair first.",
+      contexts,
+      intent: "tighten-expected-answer",
+      studyNoteId: suppressedStudyNote.id,
+    });
+    completeStudyNoteRecallAt({
+      rating: "forgot",
+      recallContext: contexts.recallContext,
+      studyNoteId: suppressedStudyNote.id,
+      timestamp: "2026-05-17T10:00:00.000Z",
+    });
+
+    const candidateReference = findStudyNoteQuestionResult({
+      results: contexts.recallContext.listSessionResults({
+        userId: testUser.id,
+      }),
+      studyNoteId: candidateStudyNote.id,
+    });
+
+    if (candidateReference === null) {
+      throw new Error("Expected a queued Practice Repair candidate.");
+    }
+
+    const { router } = renderRoute("/recall/repair", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Practice Repair Queue",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        level: 4,
+        name: "Active Practice Repair",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        level: 4,
+        name: "Repair candidates",
+      }),
+    ).toBeInTheDocument();
+    const candidateList = screen.getByRole("list", {
+      name: "Practice Repair candidates",
+    });
+    expect(
+      within(candidateList).getByText("What stores transferable energy?"),
+    ).toBeInTheDocument();
+    expect(
+      within(candidateList).queryByText("What carries electrons to the chain?"),
+    ).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("link", {
+        name: "Open Practice Repair draft",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe(
+        `/recall/results/${candidateReference.result.id}/questions/${candidateReference.questionResultId}/repair`,
+      );
+    });
+    expect(
+      await screen.findByRole("heading", {
+        level: 2,
+        name: "Choose one repair to confirm",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit expected answer" }),
+    );
+    fireEvent.change(screen.getByLabelText("Correction"), {
+      target: {
+        value: "State ATP directly and anchor the answer to energy transfer.",
+      },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm Practice Repair" }),
+    );
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toMatch(/^\/recall\/repair\//);
+    });
+    expect(
+      await screen.findByText(
+        "State ATP directly and anchor the answer to energy transfer.",
+      ),
+    ).toBeInTheDocument();
+
+    await router.navigate({ to: "/recall/repair" });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Practice Repair Queue",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("list", { name: "Practice Repair candidates" }),
+    ).toBeNull();
+    expect(
+      contexts.recallContext.listActivePracticeRepairEntriesForStudyNote({
+        studyNoteId: candidateStudyNote.id,
+        userId: testUser.id,
+      }),
+    ).toHaveLength(1);
   });
 
   it("resolves the canonical Practice Repair route across reloads by durable entry id", async () => {

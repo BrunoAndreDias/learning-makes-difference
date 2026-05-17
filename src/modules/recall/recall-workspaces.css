@@ -855,6 +855,11 @@
   gap: var(--space-4);
 }
 
+.recall-practice-repair-queue__section {
+  display: grid;
+  gap: var(--space-3);
+}
+
 .recall-practice-repair-queue__header {
   display: grid;
   gap: var(--space-2);
@@ -2393,6 +2398,15 @@
     color-mix(in srgb, var(--color-content-strong) 24%, transparent);
 }
 
+.recall-practice-repair-draft__suggestion[data-selected="true"] {
+  border-color: color-mix(in srgb, var(--color-primary) 45%, white);
+  background: color-mix(
+    in srgb,
+    var(--color-primary-soft) 48%,
+    var(--color-shell-panel)
+  );
+}
+
 .recall-practice-repair-draft__suggestion h3 {
   color: var(--color-content-strong);
   font-size: 1.02rem;
@@ -2401,6 +2415,32 @@
 .recall-practice-repair-draft__suggestion p {
   color: var(--color-content-muted);
   line-height: 1.55;
+}
+
+.recall-practice-repair-draft__confirmation {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.7rem;
+  background: var(--color-shell-panel);
+  box-shadow: 0 18px 32px -30px
+    color-mix(in srgb, var(--color-content-strong) 24%, transparent);
+}
+
+.recall-practice-repair-draft__confirmation-copy {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.recall-practice-repair-draft__confirmation-copy h2,
+.recall-practice-repair-draft__confirmation-copy p,
+.recall-practice-repair-draft__confirmation-error {
+  margin: 0;
+}
+
+.recall-practice-repair-draft__confirmation-error {
+  color: var(--color-danger-soft-foreground);
 }
 
 .recall-practice-repair-draft__support {

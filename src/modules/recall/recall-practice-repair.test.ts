@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getQuestionPracticeRepairDraft,
   listActivePracticeRepairQueueItems,
+  listPracticeRepairQueueItems,
 } from "./recall-practice-repair";
 
 describe("recall Practice Repair drafts", () => {
@@ -298,5 +299,163 @@ describe("recall Practice Repair queue", () => {
         ],
       }),
     ).toEqual([]);
+  });
+
+  it("lists active entries first and adds only the newest unconfirmed candidate per Study Note without active-entry duplicates", () => {
+    const queueItems = listPracticeRepairQueueItems({
+      results: [
+        {
+          completedAt: "2026-05-16T09:00:00.000Z",
+          id: "result-active",
+          questions: [
+            {
+              noteId: "study-note-active",
+              noteSnapshot: {
+                body: "Active body",
+                expectedAnswer: "Active expected answer",
+                prompt: "What is already being repaired?",
+                sourceNoteId: "source-note-active",
+                title: "Active title",
+              },
+              practiceRepairEntry: {
+                confirmedAt: "2026-05-16T09:15:00.000Z",
+                correction: "Tighten the active note before anything else.",
+                intent: "tighten-expected-answer",
+                intentMetadata: {
+                  updatedExpectedAnswer: null,
+                },
+                reference: {
+                  questionIndex: 0,
+                  questionResultId: "result-active-question-0",
+                  sessionResultId: "result-active",
+                  studyNoteId: "study-note-active",
+                },
+              },
+              questionResultId: "result-active-question-0",
+              selfRating: "hard",
+            },
+          ],
+        },
+        {
+          completedAt: "2026-05-16T08:30:00.000Z",
+          id: "result-older-candidate",
+          questions: [
+            {
+              noteId: "study-note-candidate",
+              noteSnapshot: {
+                body: "Older candidate body",
+                expectedAnswer: "Older candidate expected answer",
+                prompt: "What stores transferable energy?",
+                sourceNoteId: "source-note-candidate",
+                title: "Older candidate title",
+              },
+              questionResultId: "result-older-candidate-question-0",
+              selfRating: "hard",
+            },
+          ],
+        },
+        {
+          completedAt: "2026-05-17T11:00:00.000Z",
+          id: "result-newest-candidate",
+          questions: [
+            {
+              noteId: "study-note-candidate",
+              noteSnapshot: {
+                body: "Newest candidate body",
+                expectedAnswer: "Newest candidate expected answer",
+                prompt: "What stores transferable energy now?",
+                sourceNoteId: "source-note-candidate",
+                title: "Newest candidate title",
+              },
+              questionResultId: "result-newest-candidate-question-0",
+              selfRating: "forgot",
+            },
+          ],
+        },
+        {
+          completedAt: "2026-05-16T10:00:00.000Z",
+          id: "result-suppressed-active",
+          questions: [
+            {
+              noteId: "study-note-suppressed",
+              noteSnapshot: {
+                body: "Suppressed active body",
+                expectedAnswer: "Suppressed active answer",
+                prompt: "What is already suppressed?",
+                sourceNoteId: "source-note-suppressed",
+                title: "Suppressed active title",
+              },
+              practiceRepairEntry: {
+                confirmedAt: "2026-05-16T10:05:00.000Z",
+                correction: "There is already active Practice Repair here.",
+                intent: "tighten-expected-answer",
+                intentMetadata: {
+                  updatedExpectedAnswer: null,
+                },
+                reference: {
+                  questionIndex: 0,
+                  questionResultId: "result-suppressed-active-question-0",
+                  sessionResultId: "result-suppressed-active",
+                  studyNoteId: "study-note-suppressed",
+                },
+              },
+              questionResultId: "result-suppressed-active-question-0",
+              selfRating: "hard",
+            },
+          ],
+        },
+        {
+          completedAt: "2026-05-17T12:00:00.000Z",
+          id: "result-suppressed-candidate",
+          questions: [
+            {
+              noteId: "study-note-suppressed",
+              noteSnapshot: {
+                body: "Suppressed candidate body",
+                expectedAnswer: "Suppressed candidate answer",
+                prompt: "What should stay out of the queue?",
+                sourceNoteId: "source-note-suppressed",
+                title: "Suppressed candidate title",
+              },
+              questionResultId: "result-suppressed-candidate-question-0",
+              selfRating: "forgot",
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(queueItems).toHaveLength(3);
+    expect(queueItems[0]).toMatchObject({
+      entry: {
+        correction: "There is already active Practice Repair here.",
+      },
+      kind: "active",
+      result: {
+        id: "result-suppressed-active",
+      },
+    });
+    expect(queueItems[1]).toMatchObject({
+      entry: {
+        correction: "Tighten the active note before anything else.",
+      },
+      kind: "active",
+      result: {
+        id: "result-active",
+      },
+    });
+    expect(queueItems[2]).toMatchObject({
+      draft: {
+        summary:
+          "Forgot this Study Note. Confirm one concrete repair before the next attempt.",
+      },
+      kind: "candidate",
+      question: {
+        questionResultId: "result-newest-candidate-question-0",
+      },
+      result: {
+        id: "result-newest-candidate",
+      },
+    });
   });
 });
