@@ -1526,8 +1526,11 @@ describe("authenticated recall workspace", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByText("What stores transferable energy?").length,
-    ).toBeGreaterThan(0);
+      screen.getByRole("heading", {
+        level: 2,
+        name: "What stores transferable energy?",
+      }),
+    ).toBeInTheDocument();
 
     firstRender.unmount();
 
@@ -1553,8 +1556,11 @@ describe("authenticated recall workspace", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByText("What stores transferable energy?").length,
-    ).toBeGreaterThan(0);
+      screen.getByRole("heading", {
+        level: 2,
+        name: "What stores transferable energy?",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("renders the canonical Practice Repair workspace evidence shell for an active entry", async () => {
@@ -1630,8 +1636,10 @@ describe("authenticated recall workspace", () => {
       within(evidence).getByText("ATP stores transferable energy for cells."),
     ).toBeInTheDocument();
     expect(
-      within(evidence).getAllByText("Cell respiration source").length,
-    ).toBeGreaterThan(0);
+      within(evidence).getByText(
+        "Cell respiration source context with ATP transfer details.",
+      ),
+    ).toBeInTheDocument();
     expect(
       within(evidence).getByText(
         "Needs practice is a signal to adjust and reinforce before the next recall.",

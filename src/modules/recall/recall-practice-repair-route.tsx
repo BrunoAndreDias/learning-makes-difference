@@ -18,8 +18,8 @@ import { RecallBreadcrumb } from "./recall-breadcrumb";
 import {
   formatPracticeRepairIntentLabel,
   getPracticeRepairEntryId,
+  getPracticeRepairEntryLifecycleKind,
   getPracticeRepairEntryLifecycleLabel,
-  getPracticeRepairEntryLifecycleState,
   getPracticeRepairEntryLifecycleSummary,
   getPracticeRepairQuestionExpectedAnswer,
   getPracticeRepairQuestionPrompt,
@@ -27,6 +27,7 @@ import {
   getPracticeRepairQuestionReferenceTitle,
   getPracticeRepairRecordedAnswer,
   type PracticeRepairEntry,
+  type PracticeRepairEntryLifecycleKind,
 } from "./recall-practice-repair";
 
 export const Route = createFileRoute(
@@ -86,31 +87,35 @@ function getStudyNoteMeta(question: Pick<RecallQuestion, "noteSnapshot">) {
 }
 
 function getPracticeRepairLifecycleTone(
-  entry: Pick<PracticeRepairEntry, "lifecycle">,
+  lifecycleKind: PracticeRepairEntryLifecycleKind,
 ) {
-  const lifecycleLabel = getPracticeRepairEntryLifecycleLabel(entry);
-
-  if (getPracticeRepairEntryLifecycleState(entry) === "active") {
-    return "active";
+  switch (lifecycleKind) {
+    case "active":
+      return "active";
+    case "completed":
+      return "completed";
+    case "dismissed":
+    case "follow-up-satisfied":
+    case "study-note-deleted":
+    case "superseded":
+      return "historical";
   }
-
-  return lifecycleLabel === "Completed" ? "completed" : "historical";
 }
 
 function getPracticeRepairNextStepCopy(
-  entry: Pick<PracticeRepairEntry, "lifecycle">,
+  lifecycleKind: PracticeRepairEntryLifecycleKind,
 ) {
-  const lifecycleLabel = getPracticeRepairEntryLifecycleLabel(entry);
-
-  if (lifecycleLabel === "Completed") {
-    return "Use Recall again soon after the repair work is complete to test this Study Note again.";
+  switch (lifecycleKind) {
+    case "completed":
+      return "Use Recall again soon after the repair work is complete to test this Study Note again.";
+    case "active":
+      return "Make the repair in Study Notes, then come back here to continue the repair loop from the original evidence.";
+    case "dismissed":
+    case "follow-up-satisfied":
+    case "study-note-deleted":
+    case "superseded":
+      return "Use Results for the full historical context, and use Recall when you want to revisit this Study Note again.";
   }
-
-  if (getPracticeRepairEntryLifecycleState(entry) === "active") {
-    return "Make the repair in Study Notes, then come back here to continue the repair loop from the original evidence.";
-  }
-
-  return "Use Results for the full historical context, and use Recall when you want to revisit this Study Note again.";
 }
 
 function PracticeRepairWorkspaceDetail({
@@ -163,10 +168,11 @@ function RecallPracticeRepairWorkspacePage({
   const expectedAnswer = getPracticeRepairQuestionExpectedAnswer(question);
   const referenceTitle = getPracticeRepairQuestionReferenceTitle(question);
   const referenceText = getPracticeRepairQuestionReferenceText(question);
+  const lifecycleKind = getPracticeRepairEntryLifecycleKind(entry);
   const lifecycleLabel = getPracticeRepairEntryLifecycleLabel(entry);
   const lifecycleSummary = getPracticeRepairEntryLifecycleSummary(entry);
-  const lifecycleTone = getPracticeRepairLifecycleTone(entry);
-  const nextStepCopy = getPracticeRepairNextStepCopy(entry);
+  const lifecycleTone = getPracticeRepairLifecycleTone(lifecycleKind);
+  const nextStepCopy = getPracticeRepairNextStepCopy(lifecycleKind);
   const ratingLabel =
     question.selfRating === null
       ? "Not rated"
@@ -241,10 +247,8 @@ function RecallPracticeRepairWorkspacePage({
             </PracticeRepairWorkspaceDetail>
 
             <PracticeRepairWorkspaceDetail label="Reference explanation">
-              <>
-                <strong>{referenceTitle}</strong>
-                <span>{referenceText}</span>
-              </>
+              <strong>{referenceTitle}</strong>
+              <span>{referenceText}</span>
             </PracticeRepairWorkspaceDetail>
 
             <section className="recall-practice-repair-workspace__callout">
