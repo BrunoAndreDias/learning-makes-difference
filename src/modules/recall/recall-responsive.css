@@ -151,6 +151,8 @@
 
   .recall-results-hero,
   .recall-results-detail__header,
+  .recall-practice-repair-draft__card-header,
+  .recall-practice-repair-draft__detail-header,
   .recall-question-card__header {
     align-items: stretch;
     flex-direction: column;
@@ -218,5 +220,13 @@
 
   .recall-selected-result__question-detail {
     padding-left: 0.85rem;
+  }
+
+  .recall-practice-repair-draft__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .recall-practice-repair-draft__evidence {
+    padding: var(--space-4);
   }
 }

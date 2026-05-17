@@ -100,6 +100,11 @@ export default defineConfig({
                     },
                     {
                       type: "route",
+                      path: "/results/$sessionResultId/questions/$questionResultId/repair",
+                      file: "modules/recall/recall-practice-repair-draft-route.tsx",
+                    },
+                    {
+                      type: "route",
                       path: "/select",
                       file: "modules/recall/recall-selection-route.tsx",
                     },

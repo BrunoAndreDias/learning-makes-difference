@@ -25,7 +25,6 @@ import {
 import type {
   FlashCardSessionResult,
   RecallMode,
-  RecallNoteSnapshot,
   RecallQuestion,
   RecallSelfRating,
 } from "./recall";
@@ -33,10 +32,14 @@ import {
   formatPracticeRepairIntentLabel,
   getQuestionPracticeRepairDraft,
   isActionablePracticeFollowUp,
-  type PracticeRepairEntryConfirmation,
-  type PracticeRepairIntent,
-  practiceRepairIntents,
 } from "./recall-practice-repair";
+import {
+  getRecallResultNoteTitle as getNoteResultTitle,
+  getRecallQuestionExpectedAnswer as getQuestionExpectedAnswer,
+  getRecallQuestionPrompt as getQuestionPrompt,
+  getRecallQuestionReferenceTitle as getQuestionReferenceTitle,
+  getRecallQuestionReferenceText,
+} from "./recall-question-evidence";
 import { listRecallResultLabels } from "./recall-result-labels";
 import { projectSessionReview } from "./recall-session-review";
 import { searchRecallSessionResults } from "./recall-session-search";
@@ -66,8 +69,6 @@ type RecallTypeFilter = "all" | RecallMode;
 type RecallWorkspaceView = "results" | "today";
 type ExpandedQuestionKey = string | null;
 type ExpandedQuestionKeyChange = (questionKey: ExpandedQuestionKey) => void;
-type QuestionReferenceNoteSnapshot = Pick<RecallNoteSnapshot, "body" | "title">;
-type ConfirmPracticeRepairInput = PracticeRepairEntryConfirmation;
 type RecallResultsWorkspacePageProps = {
   forcedView?: RecallWorkspaceView;
   searchView?: RecallWorkspaceView;
@@ -154,20 +155,6 @@ function getScoreTone(score: number | null) {
   return "forgot";
 }
 
-function getNoteResultTitle(note: RecallNoteSnapshot) {
-  return note.prompt ?? note.title;
-}
-
-function getQuestionPrompt(question: RecallQuestion) {
-  const prompt = getNoteResultTitle(question.noteSnapshot).trim();
-
-  if (prompt.length > 0) {
-    return prompt;
-  }
-
-  return question.noteSnapshot.body;
-}
-
 function getSelectedResultIdForResults(
   results: readonly FlashCardSessionResult[],
   selectedResultId: string | null,
@@ -237,21 +224,6 @@ function getInitialSavedMessage() {
 
 function getQuestionKey(question: RecallQuestion, index: number) {
   return question.questionResultId ?? `${question.noteId}-${index}`;
-}
-
-function getQuestionExpectedAnswer(question: RecallQuestion) {
-  return question.noteSnapshot.expectedAnswer ?? question.noteSnapshot.body;
-}
-
-function getQuestionReferenceNoteSnapshot(
-  question: RecallQuestion,
-): QuestionReferenceNoteSnapshot {
-  return (
-    question.noteSnapshot.source ?? {
-      body: question.noteSnapshot.body,
-      title: question.noteSnapshot.title,
-    }
-  );
 }
 
 function getQuestionDetailId(index: number) {
@@ -467,22 +439,6 @@ export function RecallResultsWorkspacePage({
       searchView,
     });
 
-  async function confirmPracticeRepairEntry(input: ConfirmPracticeRepairInput) {
-    if (userId === null) {
-      return;
-    }
-
-    if (persistentRecallContext === undefined) {
-      recallContext.confirmPracticeRepairEntry({
-        ...input,
-        userId,
-      });
-      return;
-    }
-
-    await persistentRecallContext.confirmPracticeRepairEntry(userId, input);
-  }
-
   if (hasNoRecallContent) {
     return <NoNotesRecallState />;
   }
@@ -551,7 +507,6 @@ export function RecallResultsWorkspacePage({
           <ResultsDetailPanel
             expandedQuestionKey={expandedQuestionKey}
             hasAnyResults={sessionResults.length > 0}
-            onConfirmPracticeRepairEntry={confirmPracticeRepairEntry}
             onExpandedQuestionKeyChange={setExpandedQuestionKey}
             result={selectedResult}
           />
@@ -1627,15 +1582,11 @@ function SearchIcon() {
 function ResultsDetailPanel({
   expandedQuestionKey,
   hasAnyResults,
-  onConfirmPracticeRepairEntry,
   onExpandedQuestionKeyChange,
   result,
 }: {
   expandedQuestionKey: ExpandedQuestionKey;
   hasAnyResults: boolean;
-  onConfirmPracticeRepairEntry: (
-    input: ConfirmPracticeRepairInput,
-  ) => Promise<void>;
   onExpandedQuestionKeyChange: ExpandedQuestionKeyChange;
   result: FlashCardSessionResult | null;
 }) {
@@ -1658,7 +1609,6 @@ function ResultsDetailPanel({
       ) : (
         <SelectedResultDetail
           expandedQuestionKey={expandedQuestionKey}
-          onConfirmPracticeRepairEntry={onConfirmPracticeRepairEntry}
           onExpandedQuestionKeyChange={onExpandedQuestionKeyChange}
           result={result}
         />
@@ -1669,14 +1619,10 @@ function ResultsDetailPanel({
 
 function SelectedResultDetail({
   expandedQuestionKey,
-  onConfirmPracticeRepairEntry,
   onExpandedQuestionKeyChange,
   result,
 }: {
   expandedQuestionKey: ExpandedQuestionKey;
-  onConfirmPracticeRepairEntry: (
-    input: ConfirmPracticeRepairInput,
-  ) => Promise<void>;
   onExpandedQuestionKeyChange: ExpandedQuestionKeyChange;
   result: FlashCardSessionResult;
 }) {
@@ -1801,7 +1747,6 @@ function SelectedResultDetail({
                   expandedQuestionKey={expandedQuestionKey}
                   index={index}
                   key={questionKey}
-                  onConfirmPracticeRepairEntry={onConfirmPracticeRepairEntry}
                   onExpandedQuestionKeyChange={onExpandedQuestionKeyChange}
                   question={question}
                   questionKey={questionKey}
@@ -1819,7 +1764,6 @@ function SelectedResultDetail({
 function QuestionReviewRow({
   expandedQuestionKey,
   index,
-  onConfirmPracticeRepairEntry,
   onExpandedQuestionKeyChange,
   question,
   questionKey,
@@ -1827,9 +1771,6 @@ function QuestionReviewRow({
 }: {
   expandedQuestionKey: ExpandedQuestionKey;
   index: number;
-  onConfirmPracticeRepairEntry: (
-    input: ConfirmPracticeRepairInput,
-  ) => Promise<void>;
   onExpandedQuestionKeyChange: ExpandedQuestionKeyChange;
   question: RecallQuestion;
   questionKey: string;
@@ -1884,9 +1825,7 @@ function QuestionReviewRow({
         {isExpanded ? (
           <QuestionReviewDetail
             detailId={detailId}
-            onConfirmPracticeRepairEntry={onConfirmPracticeRepairEntry}
             question={question}
-            questionIndex={index}
             resultId={resultId}
             ratingLabel={ratingLabel}
             ratingTone={ratingTone}
@@ -1899,25 +1838,18 @@ function QuestionReviewRow({
 
 function QuestionReviewDetail({
   detailId,
-  onConfirmPracticeRepairEntry,
   question,
-  questionIndex,
   resultId,
   ratingLabel,
   ratingTone,
 }: {
   detailId: string;
-  onConfirmPracticeRepairEntry: (
-    input: ConfirmPracticeRepairInput,
-  ) => Promise<void>;
   question: RecallQuestion;
-  questionIndex: number;
   resultId: string;
   ratingLabel: string;
   ratingTone: ReturnType<typeof getRatingTone>;
 }) {
   const { t } = useAppTranslation();
-  const referenceNoteSnapshot = getQuestionReferenceNoteSnapshot(question);
 
   return (
     <div className="recall-selected-result__question-detail" id={detailId}>
@@ -1955,70 +1887,25 @@ function QuestionReviewDetail({
           {t("recall.result.referenceNote")}
         </p>
         <p className="recall-selected-result__question-detail-title">
-          {referenceNoteSnapshot.title}
+          {getQuestionReferenceTitle(question)}
         </p>
         <p className="recall-selected-result__question-detail-copy">
-          {referenceNoteSnapshot.body}
+          {getRecallQuestionReferenceText(question)}
         </p>
       </div>
-      <QuestionPracticeRepairPanel
-        onConfirmPracticeRepairEntry={onConfirmPracticeRepairEntry}
-        question={question}
-        questionIndex={questionIndex}
-        resultId={resultId}
-      />
+      <QuestionPracticeRepairPanel question={question} resultId={resultId} />
     </div>
   );
 }
 
 function QuestionPracticeRepairPanel({
-  onConfirmPracticeRepairEntry,
   question,
-  questionIndex,
   resultId,
 }: {
-  onConfirmPracticeRepairEntry: (
-    input: ConfirmPracticeRepairInput,
-  ) => Promise<void>;
   question: RecallQuestion;
-  questionIndex: number;
   resultId: string;
 }) {
   const practiceRepairDraft = getQuestionPracticeRepairDraft(question);
-  const [practiceRepairIntent, setPracticeRepairIntent] = useState<
-    PracticeRepairIntent | ""
-  >("");
-  const [practiceRepairCorrection, setPracticeRepairCorrection] = useState("");
-  const [practiceRepairNextPracticeIdea, setPracticeRepairNextPracticeIdea] =
-    useState("");
-  const [isSavingPracticeRepair, setIsSavingPracticeRepair] = useState(false);
-
-  async function handleConfirmPracticeRepair() {
-    if (
-      practiceRepairIntent === "" ||
-      practiceRepairCorrection.trim().length === 0
-    ) {
-      return;
-    }
-
-    setIsSavingPracticeRepair(true);
-
-    try {
-      await onConfirmPracticeRepairEntry({
-        correction: practiceRepairCorrection,
-        intent: practiceRepairIntent,
-        nextPracticeIdea: practiceRepairNextPracticeIdea,
-        reference: {
-          questionIndex,
-          questionResultId: question.questionResultId,
-          sessionResultId: resultId,
-          studyNoteId: question.noteId,
-        },
-      });
-    } finally {
-      setIsSavingPracticeRepair(false);
-    }
-  }
 
   if (question.practiceRepairEntry !== undefined) {
     const actionablePracticeFollowUp = isActionablePracticeFollowUp(
@@ -2066,70 +1953,26 @@ function QuestionPracticeRepairPanel({
     return null;
   }
 
+  if (question.questionResultId === undefined) {
+    return null;
+  }
+
   return (
     <div className="recall-selected-result__question-detail-block">
-      <h5>Draft Practice Repair</h5>
+      <h5>Practice Repair</h5>
       <p className="recall-selected-result__question-detail-copy">
         {practiceRepairDraft.summary}
       </p>
-      <ul className="recall-selected-result__question-detail-copy">
-        {practiceRepairDraft.suggestions.map((suggestion) => (
-          <li key={suggestion}>{suggestion}</li>
-        ))}
-      </ul>
-      <label className="recall-field">
-        <span>Practice Repair intent</span>
-        <select
-          aria-label="Practice Repair intent"
-          onChange={(event) =>
-            setPracticeRepairIntent(
-              event.target.value as PracticeRepairIntent | "",
-            )
-          }
-          value={practiceRepairIntent}
-        >
-          <option value="">Choose one intent</option>
-          {practiceRepairIntents.map((intent) => (
-            <option key={intent} value={intent}>
-              {formatPracticeRepairIntentLabel(intent)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="recall-field">
-        <span>Correction</span>
-        <textarea
-          aria-label="Correction"
-          onChange={(event) => setPracticeRepairCorrection(event.target.value)}
-          rows={3}
-          value={practiceRepairCorrection}
-        />
-      </label>
-      <label className="recall-field">
-        <span>Next-practice idea</span>
-        <textarea
-          aria-label="Next-practice idea"
-          onChange={(event) =>
-            setPracticeRepairNextPracticeIdea(event.target.value)
-          }
-          rows={2}
-          value={practiceRepairNextPracticeIdea}
-        />
-      </label>
-      <Button
-        disabled={
-          isSavingPracticeRepair ||
-          practiceRepairIntent === "" ||
-          practiceRepairCorrection.trim().length === 0
-        }
-        onClick={() => {
-          void handleConfirmPracticeRepair();
+      <ButtonLink
+        params={{
+          questionResultId: question.questionResultId,
+          sessionResultId: resultId,
         }}
-        type="button"
-        variant="primary"
+        to="/recall/results/$sessionResultId/questions/$questionResultId/repair"
+        variant="secondary"
       >
-        Confirm Practice Repair
-      </Button>
+        Practice Repair
+      </ButtonLink>
     </div>
   );
 }

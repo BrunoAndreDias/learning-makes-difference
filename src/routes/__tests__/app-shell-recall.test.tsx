@@ -816,194 +816,156 @@ describe("authenticated recall workspace", () => {
     expect(screen.queryByText("Edited ATP source context.")).toBeNull();
   });
 
-  it("keeps weak-question Practice Repair drafts transient until confirmation and reloads confirmed entries from persisted results", async () => {
-    const storageKeyPrefix = `test-practice-repair-${Math.random()
-      .toString(36)
-      .slice(2)}`;
-    const contexts =
-      createPersistentStudyNoteRecallTestContexts(storageKeyPrefix);
-    const { labelsContext, notesContext, recallContext, studyNotesContext } =
-      contexts;
-    const weakStudyNote = studyNotesContext.createStudyNote(testUser.id, {
-      expectedAnswer: "ATP stores transferable energy for cells.",
-      prompt: "What stores transferable energy?",
-      sourceBody: "Cell respiration source context.",
-      sourceTitle: "Cell respiration source",
-    });
+  it("opens a question-scoped Practice Repair draft route from weak Results evidence", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const weakStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "ATP stores transferable energy for cells.",
+        prompt: "What stores transferable energy?",
+        sourceBody: "Cell respiration source context.",
+        sourceTitle: "Cell respiration source",
+      },
+    );
 
     completeStudyNoteRecallAt({
       rating: "hard",
-      recallContext,
+      recallContext: contexts.recallContext,
       studyNoteId: weakStudyNote.id,
       timestamp: "2026-05-15T09:00:00.000Z",
     });
 
-    const firstRender = renderRoute("/recall/results", {
-      labelsContext,
-      notesContext,
-      recallContext,
-      session: createSession(),
-      studyNotesContext,
-    });
-    const firstSelectedResult = await screen.findByRole("region", {
-      name: "Selected result",
-    });
-
-    fireEvent.click(
-      within(firstSelectedResult).getByRole("button", {
-        name: /What stores transferable energy\?/i,
-      }),
-    );
-
-    expect(
-      within(firstSelectedResult).getByRole("heading", {
-        level: 5,
-        name: "Draft Practice Repair",
-      }),
-    ).toBeInTheDocument();
-
-    fireEvent.change(
-      within(firstSelectedResult).getByLabelText("Practice Repair intent"),
-      {
-        target: { value: "tighten-expected-answer" },
-      },
-    );
-    fireEvent.change(within(firstSelectedResult).getByLabelText("Correction"), {
-      target: { value: "Name the molecule and the energy role." },
-    });
-    fireEvent.change(
-      within(firstSelectedResult).getByLabelText("Next-practice idea"),
-      {
-        target: { value: "Retry this one once without opening the source." },
-      },
-    );
-
-    firstRender.unmount();
-
-    const reloadedRecallContext = contexts.createRecallContext();
-
-    const secondRender = renderRoute("/recall/results", {
-      labelsContext,
-      notesContext,
-      recallContext: reloadedRecallContext,
-      session: createSession(),
-      studyNotesContext,
-    });
-    const reloadedSelectedResult = await screen.findByRole("region", {
-      name: "Selected result",
-    });
-
-    fireEvent.click(
-      within(reloadedSelectedResult).getByRole("button", {
-        name: /What stores transferable energy\?/i,
-      }),
-    );
-
-    expect(
-      screen.queryByText("Name the molecule and the energy role."),
-    ).toBeNull();
-    expect(
-      within(reloadedSelectedResult).getByLabelText("Correction"),
-    ).toHaveValue("");
-    expect(
-      within(reloadedSelectedResult).getByLabelText("Next-practice idea"),
-    ).toHaveValue("");
-
-    fireEvent.change(
-      within(reloadedSelectedResult).getByLabelText("Practice Repair intent"),
-      {
-        target: { value: "tighten-expected-answer" },
-      },
-    );
-    fireEvent.change(
-      within(reloadedSelectedResult).getByLabelText("Correction"),
-      {
-        target: {
-          value: "State ATP and explain that it stores transferable energy.",
-        },
-      },
-    );
-    fireEvent.change(
-      within(reloadedSelectedResult).getByLabelText("Next-practice idea"),
-      {
-        target: {
-          value: "Retry tomorrow with the explanation hidden.",
-        },
-      },
-    );
-    fireEvent.click(
-      within(reloadedSelectedResult).getByRole("button", {
-        name: "Confirm Practice Repair",
-      }),
-    );
-
-    const savedQuestion = reloadedRecallContext.listSessionResults({
+    const result = contexts.recallContext.listSessionResults({
       userId: testUser.id,
-    })[0]?.questions[0];
-    expect(savedQuestion?.practiceRepairEntry).toMatchObject({
-      correction: "State ATP and explain that it stores transferable energy.",
-      intent: "tighten-expected-answer",
-      intentMetadata: {
-        updatedExpectedAnswer: null,
-      },
-      nextPracticeIdea: "Retry tomorrow with the explanation hidden.",
-      reference: {
-        questionIndex: 0,
-        sessionResultId:
-          savedQuestion?.practiceRepairEntry?.reference.sessionResultId,
-        studyNoteId: weakStudyNote.id,
-      },
-    });
-    expect(savedQuestion?.practiceRepairEntry?.reference.questionResultId).toBe(
-      savedQuestion?.questionResultId,
-    );
+    })[0];
+    const questionResultId = result?.questions[0]?.questionResultId;
 
-    secondRender.unmount();
+    if (result === undefined || questionResultId === undefined) {
+      throw new Error(
+        "Expected a stored weak-recall result with a question id.",
+      );
+    }
 
-    const confirmedRecallContext = contexts.createRecallContext();
-
-    renderRoute("/recall/results", {
-      labelsContext,
-      notesContext,
-      recallContext: confirmedRecallContext,
+    const routeRender = renderRoute("/recall/results", {
+      ...contexts,
       session: createSession(),
-      studyNotesContext,
     });
-    const confirmedSelectedResult = await screen.findByRole("region", {
+    const selectedResult = await screen.findByRole("region", {
       name: "Selected result",
     });
 
     fireEvent.click(
-      within(confirmedSelectedResult).getByRole("button", {
+      within(selectedResult).getByRole("button", {
         name: /What stores transferable energy\?/i,
       }),
     );
 
+    fireEvent.click(
+      within(selectedResult).getByRole("link", {
+        name: "Practice Repair",
+      }),
+    );
+
+    expect(routeRender.router.state.location.pathname).toBe(
+      `/recall/results/${result.id}/questions/${questionResultId}/repair`,
+    );
     expect(
-      within(confirmedSelectedResult).getByRole("heading", {
-        level: 5,
-        name: "Confirmed Practice Repair",
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Practice Repair",
       }),
     ).toBeInTheDocument();
     expect(
-      within(confirmedSelectedResult).getByText("Tighten expected answer"),
+      screen.getByText(
+        "This recall needs practice. Review the original evidence before choosing a repair.",
+      ),
     ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View note" })).toHaveAttribute(
+      "href",
+      "/study-notes",
+    );
     expect(
-      within(confirmedSelectedResult).getByText(
-        "State ATP and explain that it stores transferable energy.",
+      screen.getByRole("heading", {
+        level: 2,
+        name: "What stores transferable energy?",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("No answer recorded.")).toBeInTheDocument();
+    expect(
+      screen.getByText("ATP stores transferable energy for cells."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Last score: Hard")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Metaphors and acronyms are optional support material, not required.",
       ),
     ).toBeInTheDocument();
     expect(
-      within(confirmedSelectedResult).getByText("Next-practice idea"),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "Confirm Practice Repair" }),
+    ).toBeNull();
+  });
+
+  it("falls back to the default Recall not-found behavior when a Results repair result is missing", async () => {
+    const { router } = renderRoute(
+      "/recall/results/missing-result/questions/missing-question/repair",
+      {
+        session: createSession(),
+      },
+    );
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/recall");
+    });
     expect(
-      within(confirmedSelectedResult).getByText(
-        "Retry tomorrow with the explanation hidden.",
-      ),
-    ).toBeInTheDocument();
+      screen.queryByRole("heading", {
+        level: 1,
+        name: "Practice Repair",
+      }),
+    ).toBeNull();
+  });
+
+  it("falls back to the default Recall not-found behavior when a Results repair question is missing", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const weakStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "ATP stores transferable energy for cells.",
+        prompt: "What stores transferable energy?",
+        sourceBody: "Cell respiration source context.",
+        sourceTitle: "Cell respiration source",
+      },
+    );
+
+    completeStudyNoteRecallAt({
+      rating: "forgot",
+      recallContext: contexts.recallContext,
+      studyNoteId: weakStudyNote.id,
+      timestamp: "2026-05-15T09:00:00.000Z",
+    });
+
+    const result = contexts.recallContext.listSessionResults({
+      userId: testUser.id,
+    })[0];
+
+    if (result === undefined) {
+      throw new Error("Expected a stored weak-recall result.");
+    }
+
+    const { router } = renderRoute(
+      `/recall/results/${result.id}/questions/missing-question/repair`,
+      {
+        ...contexts,
+        session: createSession(),
+      },
+    );
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/recall");
+    });
     expect(
-      within(confirmedSelectedResult).queryByRole("button", {
-        name: "Confirm Practice Repair",
+      screen.queryByRole("heading", {
+        level: 1,
+        name: "Practice Repair",
       }),
     ).toBeNull();
   });
