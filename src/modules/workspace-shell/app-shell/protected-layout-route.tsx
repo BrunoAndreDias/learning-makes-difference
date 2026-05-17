@@ -18,6 +18,7 @@ import {
 
 import appLogo from "../../../../docs/layout/logo.svg";
 import { Button } from "../../../design-system/button";
+import { PageHeader } from "../../../design-system/page-header";
 import type { AppSessionSnapshot } from "../../access/session/session";
 import { useResolvedProtectedSession } from "../../access/session/use-resolved-protected-session";
 import { FocusSessionStartControl } from "../../focus";
@@ -484,6 +485,15 @@ function WorkspaceHeader({
             <span aria-hidden="true">/</span>
             <span>Recall Schedule</span>
           </nav>
+        ) : isFocusWorkspaceRoute ? (
+          <PageHeader
+            as="div"
+            className="app-frame__workspace-page-header"
+            copyClassName="app-frame__workspace-copy"
+            description={t("focus.description")}
+            headingLevel={2}
+            title={workspaceTitle}
+          />
         ) : (
           <h2
             className={
@@ -501,20 +511,7 @@ function WorkspaceHeader({
       <div className="app-frame__actions">
         {isStudyNotesWorkspaceRoute ? (
           <>
-            <div className="app-frame__meta-actions">
-              <span className="app-frame__date">
-                <CalendarHeaderIcon />
-                <span>{workspaceDate}</span>
-              </span>
-              <Button
-                aria-label="Help"
-                className="app-frame__help"
-                iconOnly
-                type="button"
-              >
-                <HelpCircleIcon />
-              </Button>
-            </div>
+            <WorkspaceMetaActions workspaceDate={workspaceDate} />
             <FocusSessionStartControl
               activeFocusSession={activeFocusSession}
               focus={focus}
@@ -522,6 +519,8 @@ function WorkspaceHeader({
               userId={userId}
             />
           </>
+        ) : isFocusWorkspaceRoute ? (
+          <WorkspaceDate workspaceDate={workspaceDate} />
         ) : isLabelsWorkspaceRoute ? null : (
           <FocusSessionStartControl
             activeFocusSession={activeFocusSession}
@@ -532,6 +531,39 @@ function WorkspaceHeader({
         )}
       </div>
     </header>
+  );
+}
+
+function WorkspaceMetaActions({
+  workspaceDate,
+}: Readonly<{
+  workspaceDate: string;
+}>) {
+  return (
+    <div className="app-frame__meta-actions">
+      <WorkspaceDate workspaceDate={workspaceDate} />
+      <Button
+        aria-label="Help"
+        className="app-frame__help"
+        iconOnly
+        type="button"
+      >
+        <HelpCircleIcon />
+      </Button>
+    </div>
+  );
+}
+
+function WorkspaceDate({
+  workspaceDate,
+}: Readonly<{
+  workspaceDate: string;
+}>) {
+  return (
+    <span className="app-frame__date">
+      <CalendarHeaderIcon />
+      <span>{workspaceDate}</span>
+    </span>
   );
 }
 

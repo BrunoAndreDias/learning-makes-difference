@@ -73,6 +73,166 @@ function completeStudyNoteRecall(
 }
 
 describe("authenticated app shell", () => {
+  it("presents Focus as a guided session dashboard", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-focus-dashboard";
+    const studyNote = createRecallableStudyNote(contexts, {
+      expectedAnswer: "Cell membranes control what enters the cell.",
+      prompt: "What does the cell membrane do?",
+      sourceBody: "The membrane is selectively permeable.",
+      sourceTitle: "Cell membrane",
+      userId,
+    });
+
+    vi.setSystemTime(new Date("2026-05-15T09:05:00.000Z"));
+    contexts.focusContext.startFocusSession({
+      breakIntervalMinutes: 5,
+      focusIntervalMinutes: 25,
+      plannedFocusIntervalCount: 4,
+      userId,
+    });
+    vi.setSystemTime(new Date("2026-05-15T09:30:00.000Z"));
+    contexts.focusContext.endFocusSession({ userId });
+
+    vi.setSystemTime(new Date("2026-05-15T09:35:00.000Z"));
+    contexts.focusContext.startFocusSession({
+      breakIntervalMinutes: 5,
+      focusIntervalMinutes: 25,
+      plannedFocusIntervalCount: 4,
+      userId,
+    });
+    vi.setSystemTime(new Date("2026-05-15T10:00:00.000Z"));
+    contexts.focusContext.endFocusSession({ userId });
+
+    vi.setSystemTime(new Date("2026-05-15T10:05:00.000Z"));
+    contexts.focusContext.startFocusSession({
+      breakIntervalMinutes: 5,
+      focusIntervalMinutes: 15,
+      plannedFocusIntervalCount: 4,
+      userId,
+    });
+    vi.setSystemTime(new Date("2026-05-15T10:20:00.000Z"));
+    contexts.focusContext.endFocusSession({ userId });
+
+    completeStudyNoteRecall(contexts, {
+      rating: "hard",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+
+    vi.setSystemTime(new Date("2026-05-15T12:00:00.000Z"));
+    renderRoute("/focus", {
+      ...contexts,
+      session: {
+        user: {
+          displayName: "Casey Focus Dashboard",
+          email: "casey.focus.dashboard@example.com",
+          id: userId,
+          userLanguage: "en",
+          userTimeZone: "America/New_York",
+        },
+      },
+    });
+
+    const pageHeading = await screen.findByRole("heading", {
+      level: 2,
+      name: "Focus",
+    });
+    expect(pageHeading).toHaveClass("page-header__title");
+    expect(
+      screen.getAllByRole("heading", { level: 2, name: "Focus" }),
+    ).toHaveLength(1);
+    expect(
+      screen.getByText(
+        "Focus time supports your attention and recovery so you can study well. It does not count as recall evidence.",
+      ),
+    ).toHaveClass("page-header__description");
+    expect(screen.getByText("May 15, 2026")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Help" })).toBeNull();
+    expect(
+      screen.queryByText("Focus time supports attention and recovery."),
+    ).toBeNull();
+    expect(
+      screen.queryByText(
+        "Learning evidence comes from recall and improved study notes.",
+      ),
+    ).toBeNull();
+    expect(
+      document.querySelector(".app-frame__actions .app-focus-session-start"),
+    ).toBeNull();
+
+    const sessionDashboard = screen.getByRole("region", {
+      name: "Start a focus session",
+    });
+    expect(within(sessionDashboard).getByText("25:00")).toBeInTheDocument();
+    expect(
+      within(sessionDashboard).getByRole("button", {
+        name: "Session settings",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(sessionDashboard).getByRole("button", {
+        name: "Start Focus",
+      }),
+    ).toBeEnabled();
+    const sessionPlan = within(sessionDashboard).getByRole("list", {
+      name: "Today's session plan",
+    });
+    expect(within(sessionPlan).getAllByText("Focus")).toHaveLength(4);
+    expect(within(sessionPlan).getAllByText("25 min")).toHaveLength(4);
+    expect(within(sessionPlan).getAllByText("Break")).toHaveLength(3);
+    expect(within(sessionPlan).getAllByText("5 min")).toHaveLength(3);
+    expect(
+      within(sessionDashboard).getByText("Long break"),
+    ).toBeInTheDocument();
+
+    const activity = screen.getByRole("region", {
+      name: "Today's focus activity",
+    });
+    const totalFocusMetric = within(activity)
+      .getByText("Total focus time")
+      .closest("div");
+    expect(totalFocusMetric).not.toBeNull();
+    expect(
+      within(totalFocusMetric as HTMLElement).getByText("65m"),
+    ).toBeInTheDocument();
+    expect(
+      within(totalFocusMetric as HTMLElement).getByText("3 sessions"),
+    ).toBeInTheDocument();
+
+    const completedSessionsMetric = within(activity)
+      .getByText("Sessions completed")
+      .closest("div");
+    expect(completedSessionsMetric).not.toBeNull();
+    expect(
+      within(completedSessionsMetric as HTMLElement).getByText("3"),
+    ).toBeInTheDocument();
+
+    const longestStreakMetric = within(activity)
+      .getByText("Longest streak")
+      .closest("div");
+    expect(longestStreakMetric).not.toBeNull();
+    expect(
+      within(longestStreakMetric as HTMLElement).getByText("days"),
+    ).toBeInTheDocument();
+    expect(within(activity).getAllByText("Focus")).toHaveLength(3);
+
+    const support = screen.getByRole("region", {
+      name: "Learning Loop support",
+    });
+    expect(
+      within(support).getByRole("heading", { name: "Suggested next step" }),
+    ).toBeInTheDocument();
+    expect(
+      within(support).getByRole("link", { name: /Recall Today/ }),
+    ).toHaveAttribute("href", "/recall");
+
+    vi.useRealTimers();
+  });
+
   it("surfaces Practice Repair and Recall Today from actual recall facts on Focus", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-focus-learning-loop-support";
@@ -178,7 +338,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Execute uma sessao Pomodoro para apoiar a atencao e a recuperacao. A evidencia de aprendizagem vem de Study Notes e da recordacao, nao apenas dos minutos de foco.",
+        "O tempo de foco apoia a sua atencao e recuperacao para estudar bem. Nao conta como evidencia de recordacao.",
       ),
     ).toBeInTheDocument();
 
@@ -190,7 +350,7 @@ describe("authenticated app shell", () => {
     );
     expect(
       within(setupPanel).getByRole("button", {
-        name: "Iniciar sessao de foco",
+        name: "Iniciar Foco",
       }),
     ).toBeEnabled();
 
@@ -253,9 +413,6 @@ describe("authenticated app shell", () => {
     expect(within(activePanel).getByText("Focus session")).toBeInTheDocument();
     expect(within(activePanel).getByText("In progress")).toBeInTheDocument();
     expect(within(activePanel).getByText("25:00")).toBeInTheDocument();
-    expect(within(activePanel).getByText("25 min")).toBeInTheDocument();
-    expect(within(activePanel).getByText("5 min")).toBeInTheDocument();
-    expect(within(activePanel).getByText("4")).toBeInTheDocument();
     expect(within(activePanel).getByText("0 / 4")).toBeInTheDocument();
     expect(
       within(activePanel).getByRole("button", { name: "End focus session" }),
@@ -319,7 +476,7 @@ describe("authenticated app shell", () => {
     expect(breakMinutes).toHaveValue(5);
     expect(plannedIntervals).toHaveValue(4);
     expect(
-      within(setupPanel).getByRole("button", { name: "Start focus session" }),
+      within(setupPanel).getByRole("button", { name: "Start Focus" }),
     ).toBeEnabled();
   });
 
@@ -407,7 +564,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Run a Pomodoro session to support attention and recovery. Learning evidence comes from Study Notes and recall, not focus minutes alone.",
+        "Focus time supports your attention and recovery so you can study well. It does not count as recall evidence.",
       ),
     ).toBeInTheDocument();
 
@@ -505,6 +662,8 @@ describe("authenticated app shell", () => {
     fireEvent.change(within(focusControls).getByLabelText("Focus minutes"), {
       target: { value: "30" },
     });
+    expect(within(focusControls).getByDisplayValue("30")).toBeInTheDocument();
+    expect(screen.getByText("30:00")).toBeInTheDocument();
     fireEvent.change(within(focusControls).getByLabelText("Break minutes"), {
       target: { value: "10" },
     });
@@ -514,11 +673,13 @@ describe("authenticated app shell", () => {
         target: { value: "4" },
       },
     );
-    fireEvent.submit(focusControls);
+    fireEvent.click(
+      within(focusControls).getByRole("button", { name: "Start Focus" }),
+    );
 
     expect(router.state.location.pathname).toBe("/focus");
     expect(
-      screen.getByRole("button", { name: "End focus" }),
+      screen.getByRole("button", { name: "End focus session" }),
     ).toBeInTheDocument();
     expect(focusContext.getActiveSession({ userId })).toMatchObject({
       breakIntervalMinutes: 10,
@@ -666,7 +827,7 @@ describe("authenticated app shell", () => {
     fireEvent.submit(focusControls);
 
     expect(
-      screen.getByRole("button", { name: "End focus" }),
+      screen.getByRole("button", { name: "End focus session" }),
     ).toBeInTheDocument();
 
     firstRender.unmount();

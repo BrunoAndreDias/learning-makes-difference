@@ -41,6 +41,29 @@ describe("PageHeader", () => {
     ).toBeInstanceOf(HTMLButtonElement);
   });
 
+  it("can render into a non-header container for nested workspace chrome", () => {
+    render(
+      <PageHeader
+        as="div"
+        data-testid="page-header"
+        description="Focus time supports your attention and recovery."
+        headingLevel={2}
+        title="Focus"
+      />,
+    );
+
+    expect(screen.getByTestId("page-header").tagName).toBe("DIV");
+    expect(
+      screen.getByRole("heading", {
+        level: 2,
+        name: "Focus",
+      }),
+    ).toHaveProperty("className", "page-header__title");
+    expect(
+      screen.getByText("Focus time supports your attention and recovery."),
+    ).toHaveProperty("className", "page-header__description");
+  });
+
   it("keeps route header typography centralized", () => {
     const css = readFileSync(
       `${process.cwd()}/src/design-system/page-header/page-header.css`,

@@ -1,6 +1,7 @@
 import type { HTMLAttributes, ReactNode, Ref } from "react";
 
 type PageHeaderHeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
+type PageHeaderContainerTag = "div" | "header";
 
 type PageHeaderHeadingProps = HTMLAttributes<HTMLHeadingElement> & {
   ref?: Ref<HTMLHeadingElement>;
@@ -10,6 +11,7 @@ type PageHeaderProps = Omit<
   HTMLAttributes<HTMLElement>,
   "children" | "title"
 > & {
+  as?: PageHeaderContainerTag;
   actions?: ReactNode;
   actionsClassName?: string;
   beforeTitle?: ReactNode;
@@ -22,6 +24,7 @@ type PageHeaderProps = Omit<
 };
 
 export function PageHeader({
+  as = "header",
   actions,
   actionsClassName,
   beforeTitle,
@@ -34,6 +37,7 @@ export function PageHeader({
   title,
   ...props
 }: Readonly<PageHeaderProps>) {
+  const ContainerTag = as;
   const HeadingTag = `h${headingLevel}` as const;
   const composedClassName = ["page-header", className]
     .filter(Boolean)
@@ -51,7 +55,7 @@ export function PageHeader({
     .join(" ");
 
   return (
-    <header className={composedClassName} {...props}>
+    <ContainerTag className={composedClassName} {...props}>
       <div className={composedCopyClassName}>
         {beforeTitle === undefined || beforeTitle === null ? null : (
           <div className="page-header__before-title">{beforeTitle}</div>
@@ -72,6 +76,6 @@ export function PageHeader({
       {actions === undefined || actions === null ? null : (
         <div className={composedActionsClassName}>{actions}</div>
       )}
-    </header>
+    </ContainerTag>
   );
 }

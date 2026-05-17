@@ -24,10 +24,10 @@ describe("authenticated app shell", () => {
 
     expect(
       await screen.findByRole("heading", { name: "Bem-vindo de volta" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Entre na sua conta para continuar"),
-    ).toBeInTheDocument();
+    ).toHaveClass("page-header__title");
+    expect(screen.getByText("Entre na sua conta para continuar")).toHaveClass(
+      "page-header__description",
+    );
     expect(
       screen.getByRole("form", { name: "Formulario de inicio de sessao" }),
     ).toBeInTheDocument();
@@ -41,7 +41,7 @@ describe("authenticated app shell", () => {
 
     expect(
       await screen.findByRole("heading", { name: "Crea tu cuenta" }),
-    ).toBeInTheDocument();
+    ).toHaveClass("page-header__title");
     expect(screen.getByLabelText("Nombre visible")).toBeInTheDocument();
     expect(
       screen.getByLabelText("Codigo de registro piloto"),
@@ -49,6 +49,9 @@ describe("authenticated app shell", () => {
     expect(
       screen.getByRole("form", { name: "Formulario de registro" }),
     ).toBeInTheDocument();
+    expect(screen.getByText("Registrate para empezar a estudiar")).toHaveClass(
+      "page-header__description",
+    );
     expect(
       screen.getByRole("button", { name: "Registrarte" }),
     ).toBeInTheDocument();
@@ -61,12 +64,12 @@ describe("authenticated app shell", () => {
 
     expect(
       await screen.findByRole("heading", { name: "Reset your password" }),
-    ).toBeInTheDocument();
+    ).toHaveClass("page-header__title");
     expect(
       screen.getByText(
         "Password reset is coming soon. For now, please contact support.",
       ),
-    ).toBeInTheDocument();
+    ).toHaveClass("page-header__description");
     expect(
       screen.getByRole("link", { name: "Back to sign in" }),
     ).toBeInTheDocument();

@@ -695,7 +695,6 @@
 .app-frame[data-workspace="recall"] .app-frame__workspace-header,
 .app-frame[data-workspace="recall-results"] .app-frame__workspace-header,
 .app-frame[data-workspace="labels"] .app-frame__workspace-header,
-.app-frame[data-workspace="focus"] .app-frame__workspace-header,
 .app-frame[data-workspace="settings"] .app-frame__workspace-header {
   position: absolute;
   inset: 0 0 auto 0;
@@ -835,8 +834,31 @@
   gap: 1rem;
 }
 
+.app-frame__workspace-copy {
+  display: grid;
+  gap: var(--lmd-label-gap);
+  min-width: 0;
+}
+
 .app-frame__titlebar h2 {
   margin: 0;
+}
+
+.app-frame__workspace-title {
+  color: var(--color-content-strong);
+  font-family: var(--font-body);
+  font-size: var(--lmd-page-title-size);
+  font-weight: 700;
+  line-height: var(--lmd-page-title-line-height);
+  letter-spacing: 0;
+}
+
+.app-frame__workspace-description {
+  margin: 0;
+  color: var(--color-content-muted);
+  font-family: var(--font-body);
+  font-size: var(--lmd-body-size);
+  line-height: var(--lmd-body-line-height);
 }
 
 .app-frame[data-workspace="notes"] .app-frame__titlebar {
@@ -868,6 +890,56 @@
 
 .app-frame[data-workspace="labels"] .app-frame__actions {
   display: none;
+}
+
+.app-frame[data-workspace="focus"] .app-frame__workspace-header,
+.app-frame[data-workspace="focus"] .app-frame__titlebar,
+.app-frame[data-workspace="focus"] .app-frame__actions {
+  align-items: center;
+}
+
+.app-frame[data-workspace="focus"] .app-frame__workspace-header {
+  height: var(--lmd-header-height);
+  min-height: var(--lmd-header-height);
+  border-bottom: 0;
+}
+
+.app-frame[data-workspace="focus"] .app-frame__titlebar {
+  flex: 1 1 auto;
+}
+
+.app-frame[data-workspace="focus"] .app-frame__workspace-copy {
+  display: grid;
+  align-content: center;
+  gap: 0.125rem;
+  max-width: min(100%, 42rem);
+}
+
+.app-frame[data-workspace="focus"] .app-frame__workspace-page-header {
+  flex: 1 1 auto;
+}
+
+.app-frame[data-workspace="focus"] .app-frame__actions {
+  flex: 0 0 auto;
+  min-height: var(--lmd-header-height);
+}
+
+.app-frame[data-workspace="focus"]
+  .app-frame__workspace-page-header
+  .page-header__title {
+  font-size: 1rem;
+  line-height: 1.15;
+}
+
+.app-frame[data-workspace="focus"]
+  .app-frame__workspace-page-header
+  .page-header__description {
+  font-size: 0.75rem;
+  line-height: 1.2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .app-frame__actions .app-focus-session-start,
@@ -1387,5 +1459,9 @@
 
   .app-frame__date span {
     display: none;
+  }
+
+  .app-frame[data-workspace="focus"] .app-frame__workspace-copy {
+    gap: 0.125rem;
   }
 }

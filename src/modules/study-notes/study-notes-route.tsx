@@ -14,6 +14,7 @@ import {
 } from "react";
 
 import { Button, ButtonLink } from "../../design-system/button";
+import { PageHeader } from "../../design-system/page-header";
 import { defaultUserTimeZone } from "../access/session/session-contract";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import type { AppLabel } from "../labels/label-management/labels";
@@ -2057,36 +2058,36 @@ function StudyNotesWorkspace() {
 
   return (
     <section className="notes-workspace study-notes-workspace">
-      <header className="study-notes-hero">
-        <div className="study-notes-hero__copy">
-          <h1 className="page-header__title">Study Notes</h1>
-          <p className="page-header__description">
-            Your study notes and their recall schedules. Factual recall timing
-            is tracked automatically.
-          </p>
-        </div>
-        <div className="study-notes-hero__actions">
-          <Button
-            className="study-notes-start-recall"
-            onClick={() => void handleStartRecallSession()}
-            type="button"
-            variant="primary"
-          >
-            <PlayIcon />
-            <span>Start Recall Session</span>
-          </Button>
-          <Button
-            aria-label="New Study Note"
-            className="study-notes-new-note"
-            onClick={handleNewStudyNote}
-            type="button"
-            variant="secondary"
-          >
-            <PlusIcon />
-            <span>New Study Note</span>
-          </Button>
-        </div>
-      </header>
+      <PageHeader
+        actions={
+          <>
+            <Button
+              className="study-notes-start-recall"
+              onClick={() => void handleStartRecallSession()}
+              type="button"
+              variant="primary"
+            >
+              <PlayIcon />
+              <span>Start Recall Session</span>
+            </Button>
+            <Button
+              aria-label="New Study Note"
+              className="study-notes-new-note"
+              onClick={handleNewStudyNote}
+              type="button"
+              variant="secondary"
+            >
+              <PlusIcon />
+              <span>New Study Note</span>
+            </Button>
+          </>
+        }
+        actionsClassName="study-notes-hero__actions"
+        className="study-notes-hero"
+        description="Your study notes and their recall schedules. Factual recall timing is tracked automatically."
+        headingLevel={1}
+        title="Study Notes"
+      />
 
       <div
         className="notes-layout study-notes-layout"

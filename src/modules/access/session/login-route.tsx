@@ -8,6 +8,8 @@ import {
 import { type FormEvent, useState } from "react";
 import { z } from "zod";
 
+import { PageHeader } from "../../../design-system/page-header";
+
 import { useAppTranslation } from "../../language";
 import { getAppAuthError, hasActiveSession } from "./session";
 
@@ -72,10 +74,13 @@ function LoginPage() {
 
   return (
     <article className="auth-card">
-      <header className="auth-card__header">
-        <h2 className="auth-card__heading">{t("access.login.heading")}</h2>
-        <p className="auth-card__subtitle">{t("access.login.subtitle")}</p>
-      </header>
+      <PageHeader
+        className="auth-card__header"
+        description={t("access.login.subtitle")}
+        headingLevel={2}
+        headingProps={{ className: "auth-card__heading" }}
+        title={t("access.login.heading")}
+      />
 
       <form
         aria-label={t("access.login.formLabel")}

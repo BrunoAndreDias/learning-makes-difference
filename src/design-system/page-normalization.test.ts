@@ -267,6 +267,23 @@ describe("page style normalization", () => {
     );
   });
 
+  it("keeps Study Notes on the shared page header typography contract", () => {
+    const studyNotesCss = readFileSync(
+      new URL("../modules/study-notes/study-notes.css", import.meta.url),
+      "utf8",
+    );
+
+    expect(studyNotesCss).not.toMatch(
+      /\.study-notes-hero\s+\.page-header__title\s*\{/,
+    );
+    expect(studyNotesCss).not.toMatch(
+      /\.study-notes-hero\s+\.page-header__description\s*\{[^}]*font-size:/,
+    );
+    expect(studyNotesCss).not.toMatch(
+      /\.study-notes-hero\s+\.page-header__description\s*\{[^}]*font-family:/,
+    );
+  });
+
   it("keeps Recall state accents aligned with the shared page palette", () => {
     const recallSessionCss = readFileSync(
       new URL("../modules/recall/recall-session-route.css", import.meta.url),

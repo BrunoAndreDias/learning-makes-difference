@@ -12,6 +12,7 @@ import {
 } from "react";
 
 import { Button } from "../../design-system/button";
+import { PageHeader } from "../../design-system/page-header";
 import {
   type AppSessionSnapshot,
   resolveProtectedSessionSnapshot,
@@ -342,43 +343,48 @@ function RecallSessionPage() {
 
   return (
     <section className="recall-shell" aria-label={t("recall.session.title")}>
-      <header className="recall-shell__header">
-        <div className="recall-shell__context">
+      <PageHeader
+        actions={
+          <div className="recall-progress-card">
+            <div className="recall-progress-card__count">
+              <strong>{`${progress.currentPosition} of ${progress.totalCount}`}</strong>
+              <span>{t("recall.session.notes")}</span>
+            </div>
+            <div
+              aria-label={t("recall.session.progress")}
+              aria-valuemax={progress.totalCount}
+              aria-valuemin={0}
+              aria-valuenow={progress.currentPosition}
+              className="recall-progress-card__track"
+              role="progressbar"
+            >
+              <div
+                className="recall-progress-card__fill"
+                style={{ width: `${progress.progressPercent}%` }}
+              />
+            </div>
+            <p className="recall-progress-card__mode">
+              <FlashCardModeIcon />
+              <span>{formatRecallModeLabel(activeSession.mode)}</span>
+            </p>
+            <p className="recall-progress-card__time">
+              <ClockLineIcon />
+              <span>{formatElapsedTime(activeSession.createdAt, now)}</span>
+              <small>{t("recall.session.elapsed")}</small>
+            </p>
+          </div>
+        }
+        actionsClassName="recall-shell__progress"
+        beforeTitle={
           <RecallBreadcrumb
             currentLabel={t("recall.session.breadcrumbLabel")}
           />
-          <h3>{t("recall.session.title")}</h3>
-        </div>
-
-        <div className="recall-progress-card">
-          <div className="recall-progress-card__count">
-            <strong>{`${progress.currentPosition} of ${progress.totalCount}`}</strong>
-            <span>{t("recall.session.notes")}</span>
-          </div>
-          <div
-            aria-label={t("recall.session.progress")}
-            aria-valuemax={progress.totalCount}
-            aria-valuemin={0}
-            aria-valuenow={progress.currentPosition}
-            className="recall-progress-card__track"
-            role="progressbar"
-          >
-            <div
-              className="recall-progress-card__fill"
-              style={{ width: `${progress.progressPercent}%` }}
-            />
-          </div>
-          <p className="recall-progress-card__mode">
-            <FlashCardModeIcon />
-            <span>{formatRecallModeLabel(activeSession.mode)}</span>
-          </p>
-          <p className="recall-progress-card__time">
-            <ClockLineIcon />
-            <span>{formatElapsedTime(activeSession.createdAt, now)}</span>
-            <small>{t("recall.session.elapsed")}</small>
-          </p>
-        </div>
-      </header>
+        }
+        className="recall-shell__header"
+        copyClassName="recall-shell__context"
+        headingLevel={3}
+        title={t("recall.session.title")}
+      />
 
       {feedbackMessage !== null ? (
         <p className="recall-shell__error" role="alert">

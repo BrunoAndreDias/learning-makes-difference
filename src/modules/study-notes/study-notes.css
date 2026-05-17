@@ -20,39 +20,12 @@
   background: var(--color-shell-panel);
 }
 
-.study-notes-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: var(--space-4);
-}
-
-.study-notes-hero__copy {
-  display: grid;
-  gap: 0.35rem;
-  min-width: 0;
-}
-
-.study-notes-hero .page-header__title {
-  font-family: var(--font-heading);
-  font-size: clamp(1.85rem, 2.1vw, 2.15rem);
-  font-weight: 760;
-  line-height: 1.08;
-  letter-spacing: 0;
-}
-
 .study-notes-hero .page-header__description {
   max-width: 47rem;
-  color: var(--color-content-muted);
-  font-size: 0.91rem;
 }
 
 .study-notes-hero__actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
   gap: var(--space-3);
-  min-width: 0;
 }
 
 .study-notes-start-recall,
@@ -1210,7 +1183,6 @@
     padding-inline: 1rem;
   }
 
-  .study-notes-hero,
   .study-notes-layout {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1237,10 +1209,6 @@
 @media (max-width: 34rem) {
   .study-notes-workspace {
     gap: 1.35rem;
-  }
-
-  .study-notes-hero .page-header__title {
-    font-size: 1.8rem;
   }
 
   .study-notes-hero__actions,
