@@ -2132,6 +2132,264 @@ describe("authenticated Study Notes workspace", () => {
     });
   });
 
+  it("completes a linked create-sibling Practice Repair in Study Notes, keeps the return target visible, and does not auto-return", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-practice-repair-linked-create-sibling";
+    createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Unrelated answer.",
+      prompt: "Another Study Note",
+      sourceBody: "Another source body.",
+      sourceTitle: "Another source",
+      userId,
+    });
+    const studyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Original expected answer.",
+      prompt: "Original prompt",
+      sourceBody: "Shared source body for linked sibling repair.",
+      sourceTitle: "Linked sibling source",
+      userId,
+    });
+
+    completeStudyNoteRecall(contexts, {
+      rating: "forgot",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const confirmedResult = confirmStudyNotePracticeRepair(contexts, {
+      correction: "Create a sibling Study Note for the transport detail.",
+      intent: "create-sibling-study-note",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const practiceRepairEntryId =
+      getConfirmedPracticeRepairEntryId(confirmedResult);
+    const confirmedReference =
+      getConfirmedPracticeRepairReference(confirmedResult);
+    const { router } = renderRoute(
+      `/study-notes?practiceRepairEntryId=${practiceRepairEntryId}&practiceRepairAction=create-sibling-study-note`,
+      {
+        ...contexts,
+        session: {
+          user: {
+            displayName: "Jordan Linked Sibling Repair",
+            email: "jordan.linked.sibling.repair@example.com",
+            id: userId,
+            userLanguage: "en",
+          },
+        },
+      },
+    );
+
+    expect(await screen.findByLabelText("Prompt")).toHaveValue(
+      "Original prompt",
+    );
+    expect(
+      screen.getByRole("link", { name: "Return to Practice Repair" }),
+    ).toHaveAttribute("href", `/recall/repair/${practiceRepairEntryId}`);
+
+    const activePracticeRepair = screen.getByRole("region", {
+      name: "Active Practice Repair",
+    });
+    const activeEntry = within(activePracticeRepair).getByRole("article", {
+      name: "Create sibling Study Note",
+    });
+
+    fireEvent.click(
+      within(activeEntry).getByRole("button", {
+        name: "Create sibling Study Note",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Practice Repair completed",
+      ),
+    );
+    expect(router.state.location.pathname).toBe("/study-notes");
+    expect(await screen.findByLabelText("Prompt")).toHaveValue(
+      "Linked sibling source",
+    );
+    expect(
+      screen.getByRole("link", { name: "Return to Practice Repair" }),
+    ).toHaveAttribute("href", `/recall/repair/${practiceRepairEntryId}`);
+
+    const allStudyNotes = contexts.studyNotesContext.getSnapshot();
+    expect(allStudyNotes).toHaveLength(3);
+    const createdSibling = allStudyNotes.find(
+      (note) =>
+        note.id !== studyNote.id &&
+        note.sourceNoteId === studyNote.sourceNoteId,
+    );
+    expect(createdSibling?.sourceNoteId).toBe(studyNote.sourceNoteId);
+    expect(
+      contexts.recallContext.listPracticeRepairEntriesForQuestion({
+        reference: confirmedReference,
+        userId,
+      })[0],
+    ).toMatchObject({
+      intentMetadata: {
+        createdStudyNoteId: expect.any(String),
+      },
+      lifecycle: {
+        completedAt: expect.any(String),
+      },
+    });
+
+    fireEvent.click(
+      screen.getByRole("link", { name: "Return to Practice Repair" }),
+    );
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        `/recall/repair/${practiceRepairEntryId}`,
+      ),
+    );
+    expect(
+      await screen.findByRole("complementary", {
+        name: "Practice Repair actions",
+      }),
+    ).toHaveTextContent("Completed");
+  });
+
+  it("completes a linked split-study-note Practice Repair in Study Notes after creating a split target and narrowing the original", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-practice-repair-linked-split";
+    createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Unrelated answer.",
+      prompt: "Another Study Note",
+      sourceBody: "Another source body.",
+      sourceTitle: "Another source",
+      userId,
+    });
+    const studyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Original expected answer.",
+      prompt: "Original prompt",
+      sourceBody: "Shared source body for linked split repair.",
+      sourceTitle: "Linked split source",
+      userId,
+    });
+
+    completeStudyNoteRecall(contexts, {
+      rating: "forgot",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const confirmedResult = confirmStudyNotePracticeRepair(contexts, {
+      correction: "Split out the transport detail and narrow the original.",
+      intent: "split-study-note",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const practiceRepairEntryId =
+      getConfirmedPracticeRepairEntryId(confirmedResult);
+    const confirmedReference =
+      getConfirmedPracticeRepairReference(confirmedResult);
+    const { router } = renderRoute(
+      `/study-notes?practiceRepairEntryId=${practiceRepairEntryId}&practiceRepairAction=split-study-note`,
+      {
+        ...contexts,
+        session: {
+          user: {
+            displayName: "Jordan Linked Split Repair",
+            email: "jordan.linked.split.repair@example.com",
+            id: userId,
+            userLanguage: "en",
+          },
+        },
+      },
+    );
+
+    expect(await screen.findByLabelText("Prompt")).toHaveValue(
+      "Original prompt",
+    );
+    expect(
+      screen.getByRole("link", { name: "Return to Practice Repair" }),
+    ).toHaveAttribute("href", `/recall/repair/${practiceRepairEntryId}`);
+
+    const activePracticeRepair = screen.getByRole("region", {
+      name: "Active Practice Repair",
+    });
+    const activeEntry = within(activePracticeRepair).getByRole("article", {
+      name: "Split Study Note",
+    });
+
+    fireEvent.click(
+      within(activeEntry).getByRole("button", {
+        name: "Split Study Note",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Split target created. Narrow the original Study Note and save changes to complete Practice Repair.",
+      ),
+    );
+    expect(screen.getByLabelText("Prompt")).toHaveValue("Original prompt");
+    expect(screen.getByLabelText("Expected answer")).toHaveValue(
+      "Original expected answer.",
+    );
+
+    const createdSibling = contexts.studyNotesContext
+      .getSnapshot()
+      .find(
+        (note) =>
+          note.id !== studyNote.id &&
+          note.sourceNoteId === studyNote.sourceNoteId,
+      );
+    expect(createdSibling?.sourceNoteId).toBe(studyNote.sourceNoteId);
+
+    fireEvent.change(screen.getByLabelText("Prompt"), {
+      target: {
+        value: "What stores transferable energy for cell work?",
+      },
+    });
+    fireEvent.change(screen.getByLabelText("Expected answer"), {
+      target: {
+        value: "ATP stores transferable energy for cell work.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Practice Repair completed",
+      ),
+    );
+    expect(router.state.location.pathname).toBe("/study-notes");
+    expect(
+      screen.getByRole("link", { name: "Return to Practice Repair" }),
+    ).toHaveAttribute("href", `/recall/repair/${practiceRepairEntryId}`);
+    expect(
+      contexts.recallContext.listPracticeRepairEntriesForQuestion({
+        reference: confirmedReference,
+        userId,
+      })[0],
+    ).toMatchObject({
+      intentMetadata: {
+        createdStudyNoteIds: [createdSibling?.id],
+        narrowedOriginalStudyNoteAt: expect.any(String),
+      },
+      lifecycle: {
+        completedAt: expect.any(String),
+      },
+    });
+
+    fireEvent.click(
+      screen.getByRole("link", { name: "Return to Practice Repair" }),
+    );
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        `/recall/repair/${practiceRepairEntryId}`,
+      ),
+    );
+    expect(
+      await screen.findByRole("complementary", {
+        name: "Practice Repair actions",
+      }),
+    ).toHaveTextContent("Completed");
+  });
+
   it("completes a linked expected-answer Practice Repair on save, keeps the return target visible, and does not auto-return", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-practice-repair-linked-expected-answer";
@@ -2236,7 +2494,7 @@ describe("authenticated Study Notes workspace", () => {
     ).toHaveTextContent("Completed");
   });
 
-  it("preserves a linked Practice Repair return target in Study Notes without auto-completing the repair", async () => {
+  it("completes a linked add-memory-aid Practice Repair in Study Notes, keeps the return target visible, and does not auto-return", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-practice-repair-deep-link";
     createStudyNoteSnapshot(contexts, {
@@ -2270,7 +2528,7 @@ describe("authenticated Study Notes workspace", () => {
     const confirmedReference =
       getConfirmedPracticeRepairReference(confirmedResult);
 
-    renderRoute(
+    const { router } = renderRoute(
       `/study-notes?practiceRepairEntryId=${practiceRepairEntryId}&practiceRepairAction=add-memory-aid`,
       {
         ...contexts,
@@ -2295,6 +2553,18 @@ describe("authenticated Study Notes workspace", () => {
       getDisclosureDetails(screen.getByRole("region", { name: "Memory aids" })),
     ).toHaveAttribute("open");
 
+    const activePracticeRepair = screen.getByRole("region", {
+      name: "Active Practice Repair",
+    });
+    const activeEntry = within(activePracticeRepair).getByRole("article", {
+      name: "Add memory aid",
+    });
+
+    fireEvent.click(
+      within(activeEntry).getByRole("button", {
+        name: "Add Acronym",
+      }),
+    );
     fireEvent.change(screen.getByLabelText("Acronym"), {
       target: {
         value: "ATP keeps the transfer pathway in order.",
@@ -2303,24 +2573,42 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("Saved just now"),
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Practice Repair completed",
+      ),
     );
+    expect(router.state.location.pathname).toBe("/study-notes");
     expect(
       screen.getByRole("link", { name: "Return to Practice Repair" }),
     ).toHaveAttribute("href", `/recall/repair/${practiceRepairEntryId}`);
-    expect(
-      contexts.recallContext.listActivePracticeRepairEntriesForStudyNote({
-        studyNoteId: studyNote.id,
-        userId,
-      }),
-    ).toHaveLength(1);
     expect(
       contexts.recallContext.listPracticeRepairEntriesForQuestion({
         reference: confirmedReference,
         userId,
       })[0],
     ).toMatchObject({
-      lifecycle: undefined,
+      intentMetadata: {
+        memoryAidId: expect.any(String),
+        memoryAidKind: "Acronym",
+      },
+      lifecycle: {
+        completedAt: expect.any(String),
+      },
     });
+
+    fireEvent.click(
+      screen.getByRole("link", { name: "Return to Practice Repair" }),
+    );
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        `/recall/repair/${practiceRepairEntryId}`,
+      ),
+    );
+    expect(
+      await screen.findByRole("complementary", {
+        name: "Practice Repair actions",
+      }),
+    ).toHaveTextContent("Completed");
   });
 });

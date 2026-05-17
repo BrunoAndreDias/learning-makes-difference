@@ -145,9 +145,13 @@ function createConfirmedSplitPracticeRepairEntry(input: {
   });
 
   return {
+    notes,
     recall,
+    recallStorageKeyPrefix: `${input.keyPrefix}-recall`,
     reference: getConfirmedPracticeRepairReference(splitResult),
+    storage,
     studyNote,
+    studyNotes,
   };
 }
 
@@ -1365,6 +1369,33 @@ describe("confirmed Practice Repair entries", () => {
         completedAt: "2026-05-16T16:22:00.000Z",
       },
     });
+    expect(
+      reloadedRecall.listPracticeRepairEntriesForQuestion({
+        reference: getConfirmedPracticeRepairReference(siblingResult),
+        userId,
+      })[0],
+    ).toMatchObject({
+      intentMetadata: {
+        createdStudyNoteId: "study-note-sibling-2",
+      },
+      lifecycle: {
+        completedAt: "2026-05-16T16:25:00.000Z",
+      },
+    });
+    expect(
+      reloadedRecall.listPracticeRepairEntriesForQuestion({
+        reference: getConfirmedPracticeRepairReference(memoryAidResult),
+        userId,
+      })[0],
+    ).toMatchObject({
+      intentMetadata: {
+        memoryAidId: `${studyNote.id}:acronym`,
+        memoryAidKind: "Acronym",
+      },
+      lifecycle: {
+        completedAt: "2026-05-16T16:30:00.000Z",
+      },
+    });
   });
 
   it("keeps split-study-note active until sibling creation and original narrowing are both recorded", () => {
@@ -1372,11 +1403,18 @@ describe("confirmed Practice Repair entries", () => {
     vi.setSystemTime(new Date("2026-05-16T16:20:00.000Z"));
 
     const userId = "user-practice-repair-linked-split";
-    const { recall, reference, studyNote } =
-      createConfirmedSplitPracticeRepairEntry({
-        keyPrefix: "practice-repair-entry-linked-split",
-        userId,
-      });
+    const {
+      notes,
+      recall,
+      recallStorageKeyPrefix,
+      reference,
+      storage,
+      studyNote,
+      studyNotes,
+    } = createConfirmedSplitPracticeRepairEntry({
+      keyPrefix: "practice-repair-entry-linked-split",
+      userId,
+    });
 
     vi.setSystemTime(new Date("2026-05-16T16:25:00.000Z"));
 
@@ -1416,6 +1454,28 @@ describe("confirmed Practice Repair entries", () => {
         reference,
         userId,
       }).questions[0]?.practiceRepairEntry,
+    ).toMatchObject({
+      intentMetadata: {
+        createdStudyNoteIds: ["study-note-sibling-2"],
+        narrowedOriginalStudyNoteAt: "2026-05-16T16:30:00.000Z",
+      },
+      lifecycle: {
+        completedAt: "2026-05-16T16:30:00.000Z",
+      },
+    });
+    const reloadedRecall = createAppRecallContext({
+      keyPrefix: recallStorageKeyPrefix,
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+
+    expect(
+      reloadedRecall.listPracticeRepairEntriesForQuestion({
+        reference,
+        userId,
+      })[0],
     ).toMatchObject({
       intentMetadata: {
         createdStudyNoteIds: ["study-note-sibling-2"],
