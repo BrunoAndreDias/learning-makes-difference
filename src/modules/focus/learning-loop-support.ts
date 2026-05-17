@@ -4,13 +4,8 @@ import type {
   RecallSchedule,
   SessionResult,
 } from "../recall";
-import { buildRecallTodayQueue } from "../recall/recall-today";
-import {
-  type AppStudyNote,
-  deriveStudyNoteLearningStates,
-  toStudyNoteRecallHistories,
-} from "../study-notes";
-import { getStudyNotePracticeRepair } from "../study-notes/practice-repair";
+import { deriveRecallGuidance } from "../recall";
+import type { AppStudyNote } from "../study-notes";
 
 export type FocusLearningLoopSupportSuggestion =
   | {
@@ -34,15 +29,8 @@ type FocusLearningLoopSupportInput = {
 export function getFocusLearningLoopSupportSuggestions(
   input: FocusLearningLoopSupportInput,
 ): FocusLearningLoopSupportSuggestion[] {
-  const histories = toStudyNoteRecallHistories(input.attemptsByNote);
-  const learningStates = deriveStudyNoteLearningStates({
-    histories,
-    now: input.now,
-    recallSchedules: input.recallSchedules,
-    studyNotes: input.studyNotes,
-  });
-  const recallTodayQueue = buildRecallTodayQueue({
-    histories,
+  const recallGuidance = deriveRecallGuidance({
+    attemptsByNote: input.attemptsByNote,
     now: input.now,
     recallSchedules: input.recallSchedules,
     sessionResults: input.sessionResults,
@@ -51,18 +39,14 @@ export function getFocusLearningLoopSupportSuggestions(
   });
   const suggestions: FocusLearningLoopSupportSuggestion[] = [];
 
-  if (
-    learningStates.some(
-      (learningState) => getStudyNotePracticeRepair(learningState) !== null,
-    )
-  ) {
+  if (recallGuidance.some((guidanceEntry) => guidanceEntry.needsPractice)) {
     suggestions.push({
       actionId: "practice-repair",
       href: "/study-notes",
     });
   }
 
-  if (recallTodayQueue.length > 0) {
+  if (recallGuidance.some((guidanceEntry) => guidanceEntry.recallToday)) {
     suggestions.push({
       actionId: "recall-today",
       href: "/recall",
