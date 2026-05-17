@@ -33,7 +33,7 @@ function PracticeRepairQueueCard({
   eyebrow: string;
   question: PracticeRepairQueueQuestionLike;
   rating: string;
-  supportingSummary?: string | null;
+  supportingSummary?: string;
 }>) {
   return (
     <article className="recall-panel recall-practice-repair-queue__item">
@@ -44,8 +44,7 @@ function PracticeRepairQueueCard({
         </div>
         <h5>{getPracticeRepairQuestionPrompt(question)}</h5>
         <p>{body}</p>
-        {supportingSummary === undefined ||
-        supportingSummary === null ? null : (
+        {supportingSummary === undefined ? null : (
           <p className="muted">{supportingSummary}</p>
         )}
         <p className="muted">
@@ -145,7 +144,6 @@ function RecallPracticeRepairQueueRoute() {
                           )}
                           question={question}
                           rating={rating}
-                          supportingSummary={null}
                         />
                       </li>
                     );
@@ -195,7 +193,9 @@ function RecallPracticeRepairQueueRoute() {
                           eyebrow="Needs practice candidate"
                           question={question}
                           rating={rating}
-                          supportingSummary={item.recentWeakAttemptsSummary}
+                          supportingSummary={
+                            item.recentWeakAttemptsSummary ?? undefined
+                          }
                         />
                       </li>
                     );

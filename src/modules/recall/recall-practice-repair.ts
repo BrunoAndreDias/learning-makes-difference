@@ -197,16 +197,25 @@ export type PracticeRepairQueueListItem<
   | PracticeRepairQueueCandidateItem<Result>;
 
 type PracticeRepairEntryPredicate = (entry: PracticeRepairEntry) => boolean;
+type PracticeRepairQueueCandidateProjectionItem<
+  Result extends PracticeRepairQueueResultLike,
+> = Omit<PracticeRepairQueueCandidateItem<Result>, "recentWeakAttemptsSummary">;
 type PracticeRepairQueueCandidateProjectionState<
   Result extends PracticeRepairQueueResultLike,
-> = {
-  isClosed: boolean;
-  item: Omit<
-    PracticeRepairQueueCandidateItem<Result>,
-    "recentWeakAttemptsSummary"
-  > | null;
-  recentWeakAttemptCount: number;
-};
+> =
+  | {
+      kind: "collecting-recent-weak-attempts";
+      item: PracticeRepairQueueCandidateProjectionItem<Result>;
+      recentWeakAttemptCount: number;
+    }
+  | {
+      kind: "ready";
+      item: PracticeRepairQueueCandidateProjectionItem<Result>;
+      recentWeakAttemptCount: number;
+    }
+  | {
+      kind: "suppressed";
+    };
 
 const practiceRepairSuggestions = [
   "Tighten the expected answer so the next recall target is specific.",
@@ -765,7 +774,7 @@ function formatPracticeRepairQueueRecentWeakAttemptsSummary(
     : `Also showed Needs practice in ${earlierRecentWeakAttemptCount} earlier recent Recall results.`;
 }
 
-function closePracticeRepairQueueCandidateProjection<
+function stopPracticeRepairQueueCandidateProjectionScan<
   Result extends PracticeRepairQueueResultLike,
 >(
   projectionStates: Map<
@@ -778,14 +787,17 @@ function closePracticeRepairQueueCandidateProjection<
 
   if (existingState === undefined) {
     projectionStates.set(studyNoteId, {
-      isClosed: true,
-      item: null,
-      recentWeakAttemptCount: 0,
+      kind: "suppressed",
     });
     return;
   }
 
-  existingState.isClosed = true;
+  if (existingState.kind === "collecting-recent-weak-attempts") {
+    projectionStates.set(studyNoteId, {
+      ...existingState,
+      kind: "ready",
+    });
+  }
 }
 
 function hasPracticeRepairQueueStudyNoteId<
@@ -907,14 +919,17 @@ export function listPracticeRepairQueueItems<
         candidateProjectionStatesByStudyNoteId.get(studyNoteId);
 
       if (activeStudyNoteIds.has(studyNoteId)) {
-        closePracticeRepairQueueCandidateProjection(
+        stopPracticeRepairQueueCandidateProjectionScan(
           candidateProjectionStatesByStudyNoteId,
           studyNoteId,
         );
         continue;
       }
 
-      if (existingState?.isClosed) {
+      if (
+        existingState !== undefined &&
+        existingState.kind !== "collecting-recent-weak-attempts"
+      ) {
         continue;
       }
 
@@ -924,20 +939,23 @@ export function listPracticeRepairQueueItems<
         draft === null ||
         !hasPracticeRepairQueueCandidateIdentity(question)
       ) {
-        closePracticeRepairQueueCandidateProjection(
+        stopPracticeRepairQueueCandidateProjectionScan(
           candidateProjectionStatesByStudyNoteId,
           studyNoteId,
         );
         continue;
       }
 
-      if (existingState !== undefined && existingState.item !== null) {
-        existingState.recentWeakAttemptCount += 1;
+      if (existingState?.kind === "collecting-recent-weak-attempts") {
+        candidateProjectionStatesByStudyNoteId.set(studyNoteId, {
+          ...existingState,
+          recentWeakAttemptCount: existingState.recentWeakAttemptCount + 1,
+        });
         continue;
       }
 
       candidateProjectionStatesByStudyNoteId.set(studyNoteId, {
-        isClosed: false,
+        kind: "collecting-recent-weak-attempts",
         item: {
           draft,
           kind: "candidate",
@@ -951,7 +969,7 @@ export function listPracticeRepairQueueItems<
 
   const candidateItems = [...candidateProjectionStatesByStudyNoteId.values()]
     .flatMap((state) => {
-      if (state.item === null) {
+      if (state.kind === "suppressed") {
         return [];
       }
 
