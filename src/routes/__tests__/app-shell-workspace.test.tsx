@@ -321,6 +321,9 @@ describe("authenticated app shell", () => {
       within(appSections).getByRole("link", { name: "Recall Today" }),
     ).toHaveAttribute("href", "/recall");
     expect(
+      within(appSections).getByRole("link", { name: "Practice Repair" }),
+    ).toHaveAttribute("href", "/recall/repair");
+    expect(
       within(appSections).getByRole("link", { name: "Recall results" }),
     ).toHaveAttribute("href", "/recall/results");
     expect(

@@ -2556,6 +2556,69 @@ describe("authenticated recall workspace", () => {
     );
   });
 
+  it("exposes Practice Repair from Recall Today navigation and opens the Recall-owned queue", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const needsPractice = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Needs practice answer.",
+      labelIds: [],
+      prompt: "Needs practice prompt",
+      sourceBody: "Needs practice source.",
+      sourceTitle: "Needs practice source",
+    });
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: needsPractice.id,
+      timestamp: "2026-05-14T09:00:00.000Z",
+    });
+
+    const { router } = renderRoute("/recall", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Recall Today" }),
+    ).toBeInTheDocument();
+
+    const sidebar = screen.getByRole("complementary", {
+      name: "Study Notes workspace",
+    });
+    const appSections = within(sidebar).getByRole("navigation", {
+      name: "App sections",
+    });
+    expect(
+      within(appSections).getByRole("link", { name: "Practice Repair" }),
+    ).toHaveAttribute("href", "/recall/repair");
+
+    const recallTodayHeading = screen.getByRole("heading", {
+      level: 1,
+      name: "Recall Today",
+    });
+    const recallTodaySurface = recallTodayHeading.closest("article");
+
+    if (recallTodaySurface === null) {
+      throw new Error("Expected the Recall Today surface.");
+    }
+
+    const practiceRepairLink = within(recallTodaySurface).getByRole("link", {
+      name: "Practice Repair",
+    });
+    expect(practiceRepairLink).toHaveAttribute("href", "/recall/repair");
+
+    fireEvent.click(practiceRepairLink);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Practice Repair Queue",
+      }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall/repair");
+    expect(screen.getByText("Needs practice prompt")).toBeInTheDocument();
+  });
+
   it("shows actionable Practice Follow-ups as the primary Recall Today reason with Needs practice as supporting context", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const practiceFollowUp = contexts.studyNotesContext.createStudyNote(
@@ -2755,6 +2818,69 @@ describe("authenticated recall workspace", () => {
     expect(
       within(selectedResult).getByText("Actionable in Recall Today"),
     ).toBeInTheDocument();
+  });
+
+  it("opens the canonical Practice Repair workspace from confirmed Results evidence", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const practiceRepairStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "ATP stores transferable energy for cells.",
+        prompt: "What stores transferable energy?",
+        sourceBody: "Cell respiration source context.",
+        sourceTitle: "Cell respiration source",
+      },
+    );
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: practiceRepairStudyNote.id,
+      timestamp: "2026-05-14T09:00:00.000Z",
+    });
+
+    const confirmedRepair = confirmStudyNotePracticeRepair({
+      contexts,
+      correction: "State ATP and explain that it stores transferable energy.",
+      intent: "tighten-expected-answer",
+      studyNoteId: practiceRepairStudyNote.id,
+    });
+    const practiceRepairEntryId =
+      getConfirmedPracticeRepairEntryId(confirmedRepair);
+    const { router } = renderRoute("/recall/results", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    const selectedResult = await screen.findByRole("region", {
+      name: "Selected result",
+    });
+
+    fireEvent.click(
+      within(selectedResult).getByRole("button", {
+        name: /What stores transferable energy\?/i,
+      }),
+    );
+
+    const openPracticeRepairLink = within(selectedResult).getByRole("link", {
+      name: "Open Practice Repair",
+    });
+    expect(openPracticeRepairLink).toHaveAttribute(
+      "href",
+      `/recall/repair/${practiceRepairEntryId}`,
+    );
+
+    fireEvent.click(openPracticeRepairLink);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Practice Repair",
+      }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(
+      `/recall/repair/${practiceRepairEntryId}`,
+    );
   });
 
   it("selects the newest Result by default and changes selection without changing route", async () => {

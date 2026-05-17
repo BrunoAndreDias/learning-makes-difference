@@ -31,6 +31,7 @@ import type {
 } from "./recall";
 import {
   formatPracticeRepairIntentLabel,
+  getPracticeRepairEntryId,
   getQuestionPracticeRepairDraft,
   isActionablePracticeFollowUp,
 } from "./recall-practice-repair";
@@ -701,6 +702,13 @@ function RecallTodayPage({
                     {t("recall.today.start")}
                   </Button>
                 ) : null}
+                <ButtonLink
+                  className="recall-today-actions__manual"
+                  to="/recall/repair"
+                >
+                  <QuestionsIcon />
+                  <span>{t("recall.practiceRepair")}</span>
+                </ButtonLink>
                 <ButtonLink
                   className="recall-today-actions__manual"
                   to="/recall/select"
@@ -1897,6 +1905,7 @@ function QuestionPracticeRepairPanel({
   if (practiceRepairEntry !== undefined) {
     const actionablePracticeFollowUp =
       isActionablePracticeFollowUp(practiceRepairEntry);
+    const practiceRepairEntryId = getPracticeRepairEntryId(practiceRepairEntry);
 
     return (
       <div className="recall-selected-result__question-detail-block">
@@ -1931,6 +1940,15 @@ function QuestionPracticeRepairPanel({
             </p>
           </>
         ) : null}
+        <ButtonLink
+          params={{
+            practiceRepairEntryId,
+          }}
+          to="/recall/repair/$practiceRepairEntryId"
+          variant="secondary"
+        >
+          Open Practice Repair
+        </ButtonLink>
       </div>
     );
   }

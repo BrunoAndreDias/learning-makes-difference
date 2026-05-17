@@ -324,6 +324,7 @@ const englishTranslations = {
   "recall.result.sessionReview": "Session review",
   "recall.result.time.unknown": "Unknown time",
   "recall.result.yourAnswer": "Your answer",
+  "recall.practiceRepair": "Practice Repair",
   "recall.results": "Recall results",
   "recall.results.description":
     "Review past results or start a new recall session.",
@@ -800,6 +801,7 @@ const portugueseTranslations = {
   "recall.result.sessionReview": "Revisao da sessao",
   "recall.result.time.unknown": "Hora desconhecida",
   "recall.result.yourAnswer": "A sua resposta",
+  "recall.practiceRepair": "Practice Repair",
   "recall.results": "Resultados de recordacao",
   "recall.results.description":
     "Reveja resultados anteriores ou inicie uma nova sessao de recordacao.",
@@ -1281,6 +1283,7 @@ const spanishTranslations = {
   "recall.result.sessionReview": "Revision de sesion",
   "recall.result.time.unknown": "Hora desconocida",
   "recall.result.yourAnswer": "Tu respuesta",
+  "recall.practiceRepair": "Practice Repair",
   "recall.results": "Resultados de repaso",
   "recall.results.description":
     "Revisa resultados anteriores o inicia una nueva sesion de repaso.",

@@ -75,6 +75,10 @@ const recallSubNavigationItems = [
     to: "/recall",
   },
   {
+    labelKey: "recall.practiceRepair",
+    to: "/recall/repair",
+  },
+  {
     labelKey: "recall.results",
     to: "/recall/results",
   },

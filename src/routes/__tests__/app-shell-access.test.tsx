@@ -127,8 +127,23 @@ describe("authenticated app shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps /recall/repair as a dedicated Recall sub-route", async () => {
+    const { router } = renderRoute("/recall/repair");
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Practice Repair Queue",
+      }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall/repair");
+  });
+
   it.each([
     "/insights",
+    "/recall/repair",
+    "/recall/repair/missing-entry",
+    "/recall/results/result-1/questions/question-1/repair",
     "/settings",
   ] as const)("redirects unauthenticated %s navigation into the public login area", async (pathname) => {
     const { router } = renderRoute(pathname, { session: { user: null } });
