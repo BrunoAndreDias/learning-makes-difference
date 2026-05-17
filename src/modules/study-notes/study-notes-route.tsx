@@ -1905,12 +1905,15 @@ function StudyNotesWorkspace() {
     previousStudyNote: AppStudyNote | null;
     savedStudyNote: AppStudyNote;
   }) {
+    if (linkedPracticeRepair?.action !== "tighten-expected-answer") {
+      return false;
+    }
+
+    const linkedStudyNoteId = linkedPracticeRepair.entry.reference.studyNoteId;
+
     if (
-      linkedPracticeRepair?.action !== "tighten-expected-answer" ||
-      input.previousStudyNote?.id !==
-        linkedPracticeRepair.entry.reference.studyNoteId ||
-      input.savedStudyNote.id !==
-        linkedPracticeRepair.entry.reference.studyNoteId
+      input.previousStudyNote?.id !== linkedStudyNoteId ||
+      input.savedStudyNote.id !== linkedStudyNoteId
     ) {
       return false;
     }
@@ -1969,6 +1972,36 @@ function StudyNotesWorkspace() {
     return true;
   }
 
+  async function maybeHandlePracticeRepairSaveStatus(input: {
+    activeSplitPracticeRepairEntry: SplitStudyNotePracticeRepairEntry | null;
+    previousStudyNote: AppStudyNote | null;
+    savedStudyNote: AppStudyNote;
+    shouldRecordSplitStudyNoteNarrowing: boolean;
+  }) {
+    if (
+      await maybeCompleteLinkedExpectedAnswerPracticeRepair({
+        previousStudyNote: input.previousStudyNote,
+        savedStudyNote: input.savedStudyNote,
+      })
+    ) {
+      return true;
+    }
+
+    if (
+      await maybeRecordSplitStudyNoteNarrowing({
+        entry: input.activeSplitPracticeRepairEntry,
+        savedStudyNote: input.savedStudyNote,
+        shouldRecordNarrowing: input.shouldRecordSplitStudyNoteNarrowing,
+      })
+    ) {
+      return true;
+    }
+
+    return maybeCompletePendingPracticeRepairMemoryAidAction(
+      input.savedStudyNote,
+    );
+  }
+
   async function saveDraft(): Promise<AppStudyNote | null> {
     if (!hasDraftChanges) {
       return selectedStudyNote;
@@ -2017,22 +2050,15 @@ function StudyNotesWorkspace() {
 
       await captureFocusStudyNoteActivity(savedStudyNote);
 
-      if (
-        !(
-          (await maybeCompleteLinkedExpectedAnswerPracticeRepair({
-            previousStudyNote: selectedStudyNote,
-            savedStudyNote,
-          })) ||
-          (await maybeRecordSplitStudyNoteNarrowing({
-            entry: activeSplitPracticeRepairEntry,
-            savedStudyNote,
-            shouldRecordNarrowing: shouldRecordSplitStudyNoteNarrowing,
-          })) ||
-          (await maybeCompletePendingPracticeRepairMemoryAidAction(
-            savedStudyNote,
-          ))
-        )
-      ) {
+      const didHandlePracticeRepairSaveStatus =
+        await maybeHandlePracticeRepairSaveStatus({
+          activeSplitPracticeRepairEntry,
+          previousStudyNote: selectedStudyNote,
+          savedStudyNote,
+          shouldRecordSplitStudyNoteNarrowing,
+        });
+
+      if (!didHandlePracticeRepairSaveStatus) {
         setSaveStatus("Saved just now");
       }
 

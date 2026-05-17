@@ -1682,7 +1682,7 @@ export function createAppRecallContext(
     };
   }
 
-  function requireLinkedCompletionReference(
+  function requireLinkedCompletionValue(
     value: string | null,
     message: string,
   ): string {
@@ -1701,7 +1701,7 @@ export function createAppRecallContext(
     message: string;
   }): string[] {
     return [...new Set([...input.existing, ...input.additions])].map(
-      (reference) => requireLinkedCompletionReference(reference, input.message),
+      (reference) => requireLinkedCompletionValue(reference, input.message),
     );
   }
 
@@ -1745,7 +1745,7 @@ export function createAppRecallContext(
           case "tighten-expected-answer": {
             assertLinkedCompletionEntryIntent(entry, "tighten-expected-answer");
 
-            const updatedExpectedAnswer = requireLinkedCompletionReference(
+            const updatedExpectedAnswer = requireLinkedCompletionValue(
               input.intentMetadata.updatedExpectedAnswer,
               "Edit expected answer requires the updated expected answer.",
             );
@@ -1767,7 +1767,7 @@ export function createAppRecallContext(
             const narrowedOriginalStudyNoteAt =
               input.intentMetadata.narrowedOriginalStudyNoteAt === null
                 ? existingMetadata.narrowedOriginalStudyNoteAt
-                : requireLinkedCompletionReference(
+                : requireLinkedCompletionValue(
                     input.intentMetadata.narrowedOriginalStudyNoteAt,
                     "Split Study Note requires the original Study Note narrowing timestamp.",
                   );
@@ -1790,7 +1790,7 @@ export function createAppRecallContext(
               "create-sibling-study-note",
             );
 
-            const createdStudyNoteId = requireLinkedCompletionReference(
+            const createdStudyNoteId = requireLinkedCompletionValue(
               input.intentMetadata.createdStudyNoteId,
               "Create sibling Study Note requires the created Study Note reference.",
             );
@@ -1802,7 +1802,7 @@ export function createAppRecallContext(
           case "add-memory-aid": {
             assertLinkedCompletionEntryIntent(entry, "add-memory-aid");
 
-            const memoryAidId = requireLinkedCompletionReference(
+            const memoryAidId = requireLinkedCompletionValue(
               input.intentMetadata.memoryAidId,
               "Add memory aid requires the created aid kind and reference.",
             );
