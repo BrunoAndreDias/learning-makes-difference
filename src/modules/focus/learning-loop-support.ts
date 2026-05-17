@@ -1,16 +1,4 @@
-import type { UserTimeZonePreference } from "../access/session/session-contract";
-import type {
-  FlashCardRecallAttemptsByNote,
-  RecallSchedule,
-  SessionResult,
-} from "../recall";
-import { buildRecallTodayQueue } from "../recall/recall-today";
-import {
-  type AppStudyNote,
-  deriveStudyNoteLearningStates,
-  toStudyNoteRecallHistories,
-} from "../study-notes";
-import { getStudyNotePracticeRepair } from "../study-notes/practice-repair";
+import { deriveRecallGuidance, type RecallGuidanceInput } from "../recall";
 
 export type FocusLearningLoopSupportSuggestion =
   | {
@@ -22,47 +10,28 @@ export type FocusLearningLoopSupportSuggestion =
       href: "/recall";
     };
 
-type FocusLearningLoopSupportInput = {
-  attemptsByNote: readonly FlashCardRecallAttemptsByNote[];
-  now: string;
-  recallSchedules: readonly RecallSchedule[];
-  sessionResults: readonly SessionResult[];
-  studyNotes: readonly AppStudyNote[];
-  userTimeZone: UserTimeZonePreference;
-};
+type FocusLearningLoopSupportInput = RecallGuidanceInput;
 
 export function getFocusLearningLoopSupportSuggestions(
   input: FocusLearningLoopSupportInput,
 ): FocusLearningLoopSupportSuggestion[] {
-  const histories = toStudyNoteRecallHistories(input.attemptsByNote);
-  const learningStates = deriveStudyNoteLearningStates({
-    histories,
-    now: input.now,
-    recallSchedules: input.recallSchedules,
-    studyNotes: input.studyNotes,
-  });
-  const recallTodayQueue = buildRecallTodayQueue({
-    histories,
-    now: input.now,
-    recallSchedules: input.recallSchedules,
-    sessionResults: input.sessionResults,
-    studyNotes: input.studyNotes,
-    userTimeZone: input.userTimeZone,
-  });
+  const recallGuidance = deriveRecallGuidance(input);
   const suggestions: FocusLearningLoopSupportSuggestion[] = [];
+  const hasPracticeRepair = recallGuidance.some(
+    (guidanceEntry) => guidanceEntry.needsPractice,
+  );
+  const hasRecallToday = recallGuidance.some(
+    (guidanceEntry) => guidanceEntry.recallToday,
+  );
 
-  if (
-    learningStates.some(
-      (learningState) => getStudyNotePracticeRepair(learningState) !== null,
-    )
-  ) {
+  if (hasPracticeRepair) {
     suggestions.push({
       actionId: "practice-repair",
       href: "/study-notes",
     });
   }
 
-  if (recallTodayQueue.length > 0) {
+  if (hasRecallToday) {
     suggestions.push({
       actionId: "recall-today",
       href: "/recall",
