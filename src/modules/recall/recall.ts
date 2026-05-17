@@ -1598,7 +1598,10 @@ export function createAppRecallContext(
       );
     }
 
-    if (question.practiceRepairEntry !== undefined) {
+    const isRepeatedDraftConfirmation =
+      question.practiceRepairEntry !== undefined;
+
+    if (isRepeatedDraftConfirmation) {
       return cloneSessionResult(result);
     }
 

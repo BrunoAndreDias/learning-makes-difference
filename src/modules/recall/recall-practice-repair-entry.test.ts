@@ -533,10 +533,20 @@ describe("confirmed Practice Repair entries", () => {
       reference,
       userId,
     });
+    const repeatedEntry = getConfirmedPracticeRepairEntry(
+      secondConfirmedResult,
+    );
+    const firstReference =
+      getConfirmedPracticeRepairReference(firstConfirmedResult);
+    const repeatedReference = getConfirmedPracticeRepairReference(
+      secondConfirmedResult,
+    );
+    const storedEntries = recall.listPracticeRepairEntriesForQuestion({
+      reference,
+      userId,
+    });
 
-    expect(
-      secondConfirmedResult.questions[0]?.practiceRepairEntry,
-    ).toMatchObject({
+    expect(repeatedEntry).toMatchObject({
       confirmedAt: "2026-05-16T14:40:00.000Z",
       correction: "State ATP explicitly.",
       intent: "tighten-expected-answer",
@@ -544,15 +554,8 @@ describe("confirmed Practice Repair entries", () => {
         updatedExpectedAnswer: null,
       },
     });
-    expect(
-      recall.listPracticeRepairEntriesForQuestion({
-        reference,
-        userId,
-      }),
-    ).toHaveLength(1);
-    expect(getConfirmedPracticeRepairReference(secondConfirmedResult)).toEqual(
-      getConfirmedPracticeRepairReference(firstConfirmedResult),
-    );
+    expect(storedEntries).toHaveLength(1);
+    expect(repeatedReference).toEqual(firstReference);
   });
 
   it("supersedes an older active same-intent entry when a new draft is confirmed for the same Study Note", () => {

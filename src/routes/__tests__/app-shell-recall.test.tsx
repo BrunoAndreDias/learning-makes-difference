@@ -1112,33 +1112,27 @@ describe("authenticated recall workspace", () => {
       intent: "tighten-expected-answer",
       studyNoteId: weakStudyNote.id,
     });
-    const questionReference = findStudyNoteQuestionResult({
-      results: contexts.recallContext.listSessionResults({
-        userId: testUser.id,
-      }),
-      studyNoteId: weakStudyNote.id,
-    });
+    const confirmedReference =
+      getConfirmedPracticeRepairReference(confirmedResult);
     const practiceRepairEntryId =
       getConfirmedPracticeRepairEntryId(confirmedResult);
+    const questionResultId = confirmedReference.questionResultId;
 
-    if (questionReference === null) {
+    if (questionResultId === undefined) {
       throw new Error(
-        "Expected a stored weak-recall result with a question id.",
+        "Expected a confirmed Practice Repair reference with a question id.",
       );
     }
 
-    const { router } = renderRoute(
-      `/recall/results/${questionReference.result.id}/questions/${questionReference.questionResultId}/repair`,
-      {
-        ...contexts,
-        session: createSession(),
-      },
-    );
+    const confirmedDraftPath = `/recall/results/${confirmedReference.sessionResultId}/questions/${questionResultId}/repair`;
+    const canonicalRepairPath = `/recall/repair/${practiceRepairEntryId}`;
+    const { router } = renderRoute(confirmedDraftPath, {
+      ...contexts,
+      session: createSession(),
+    });
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe(
-        `/recall/repair/${practiceRepairEntryId}`,
-      );
+      expect(router.state.location.pathname).toBe(canonicalRepairPath);
     });
     expect(
       await screen.findByRole("heading", {
