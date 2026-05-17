@@ -9,30 +9,14 @@ import { RecallBreadcrumb } from "./recall-breadcrumb";
 import {
   formatPracticeRepairIntentLabel,
   getPracticeRepairEntryId,
+  getPracticeRepairQuestionPrompt,
+  getPracticeRepairQuestionReferenceTitle,
   listActivePracticeRepairQueueItems,
-  type PracticeRepairQueueQuestionLike,
 } from "./recall-practice-repair";
 
 export const Route = createFileRoute("/_protected/recall/repair")({
   component: RecallPracticeRepairQueueRoute,
 });
-
-function getQuestionPrompt(question: PracticeRepairQueueQuestionLike) {
-  const prompt =
-    question.noteSnapshot.prompt?.trim() ?? question.noteSnapshot.title;
-
-  return prompt.length > 0 ? prompt : question.noteSnapshot.body;
-}
-
-function getQuestionReferenceTitle(question: PracticeRepairQueueQuestionLike) {
-  const sourceTitle = question.noteSnapshot.source?.title?.trim();
-
-  if (sourceTitle !== undefined && sourceTitle.length > 0) {
-    return sourceTitle;
-  }
-
-  return question.noteSnapshot.title;
-}
 
 function RecallPracticeRepairQueueRoute() {
   const { t } = useAppTranslation();
@@ -104,11 +88,11 @@ function RecallPracticeRepairQueueRoute() {
                             {rating}
                           </p>
                         </div>
-                        <h5>{getQuestionPrompt(question)}</h5>
+                        <h5>{getPracticeRepairQuestionPrompt(question)}</h5>
                         <p>{entry.correction}</p>
                         <p className="muted">
                           Reference explanation:{" "}
-                          {getQuestionReferenceTitle(question)}
+                          {getPracticeRepairQuestionReferenceTitle(question)}
                         </p>
                       </div>
 

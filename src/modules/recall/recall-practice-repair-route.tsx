@@ -15,6 +15,11 @@ import { RecallBreadcrumb } from "./recall-breadcrumb";
 import {
   formatPracticeRepairIntentLabel,
   getPracticeRepairEntryId,
+  getPracticeRepairQuestionExpectedAnswer,
+  getPracticeRepairQuestionPrompt,
+  getPracticeRepairQuestionReferenceText,
+  getPracticeRepairQuestionReferenceTitle,
+  getPracticeRepairRecordedAnswer,
   type PracticeRepairEntry,
 } from "./recall-practice-repair";
 
@@ -29,37 +34,6 @@ type PracticeRepairWorkspace = {
   question: RecallQuestion;
   result: FlashCardSessionResult;
 };
-
-function getQuestionPrompt(question: RecallQuestion) {
-  const prompt =
-    question.noteSnapshot.prompt?.trim() ?? question.noteSnapshot.title;
-
-  return prompt.length > 0 ? prompt : question.noteSnapshot.body;
-}
-
-function getQuestionExpectedAnswer(question: RecallQuestion) {
-  return question.noteSnapshot.expectedAnswer ?? question.noteSnapshot.body;
-}
-
-function getQuestionReferenceText(question: RecallQuestion) {
-  return question.noteSnapshot.source?.body ?? question.noteSnapshot.body;
-}
-
-function getQuestionReferenceTitle(question: RecallQuestion) {
-  const sourceTitle = question.noteSnapshot.source?.title?.trim();
-
-  if (sourceTitle !== undefined && sourceTitle.length > 0) {
-    return sourceTitle;
-  }
-
-  return question.noteSnapshot.title;
-}
-
-function getRecordedAnswer(question: RecallQuestion) {
-  const typedAnswer = question.typedAnswer?.trim() ?? "";
-
-  return typedAnswer.length > 0 ? typedAnswer : "No answer recorded.";
-}
 
 function findPracticeRepairWorkspace(input: {
   practiceRepairEntryId: string;
@@ -133,10 +107,10 @@ function RecallPracticeRepairWorkspacePage({
 }>) {
   const { t } = useAppTranslation();
   const { entry, question, result } = workspace;
-  const prompt = getQuestionPrompt(question);
-  const expectedAnswer = getQuestionExpectedAnswer(question);
-  const referenceTitle = getQuestionReferenceTitle(question);
-  const referenceText = getQuestionReferenceText(question);
+  const prompt = getPracticeRepairQuestionPrompt(question);
+  const expectedAnswer = getPracticeRepairQuestionExpectedAnswer(question);
+  const referenceTitle = getPracticeRepairQuestionReferenceTitle(question);
+  const referenceText = getPracticeRepairQuestionReferenceText(question);
   const rating =
     question.selfRating === null
       ? "Not rated"
@@ -186,7 +160,7 @@ function RecallPracticeRepairWorkspacePage({
           </PracticeRepairDetail>
           <PracticeRepairDetail label="Rating">{rating}</PracticeRepairDetail>
           <PracticeRepairDetail label="Your answer">
-            {getRecordedAnswer(question)}
+            {getPracticeRepairRecordedAnswer(question)}
           </PracticeRepairDetail>
           <PracticeRepairDetail label="Expected answer">
             {expectedAnswer}

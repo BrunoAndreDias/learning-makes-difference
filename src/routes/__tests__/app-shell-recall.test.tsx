@@ -281,18 +281,14 @@ function confirmStudyNotePracticeRepair(input: {
     | "tighten-expected-answer";
   studyNoteId: string;
 }) {
-  const result = input.contexts.recallContext
-    .listSessionResults({
+  const questionReference = findStudyNoteQuestionResult({
+    results: input.contexts.recallContext.listSessionResults({
       userId: testUser.id,
-    })
-    .find((candidate) =>
-      candidate.questions.some(
-        (question) => question.noteId === input.studyNoteId,
-      ),
-    );
-  const questionResultId = result?.questions[0]?.questionResultId;
+    }),
+    studyNoteId: input.studyNoteId,
+  });
 
-  if (result === undefined || questionResultId === undefined) {
+  if (questionReference === null) {
     throw new Error("Expected a stored weak-recall result with a question id.");
   }
 
@@ -300,13 +296,44 @@ function confirmStudyNotePracticeRepair(input: {
     correction: input.correction,
     intent: input.intent,
     reference: {
-      questionIndex: 0,
-      questionResultId,
-      sessionResultId: result.id,
+      questionIndex: questionReference.questionIndex,
+      questionResultId: questionReference.questionResultId,
+      sessionResultId: questionReference.result.id,
       studyNoteId: input.studyNoteId,
     },
     userId: testUser.id,
   });
+}
+
+function findStudyNoteQuestionResult(input: {
+  results: readonly SessionResult[];
+  studyNoteId: string;
+}): {
+  questionIndex: number;
+  questionResultId: string;
+  result: SessionResult;
+} | null {
+  for (const result of input.results) {
+    const questionIndex = result.questions.findIndex(
+      (question) => question.noteId === input.studyNoteId,
+    );
+
+    if (questionIndex < 0) {
+      continue;
+    }
+
+    const questionResultId = result.questions[questionIndex]?.questionResultId;
+
+    if (questionResultId !== undefined) {
+      return {
+        questionIndex,
+        questionResultId,
+        result,
+      };
+    }
+  }
+
+  return null;
 }
 
 function getConfirmedPracticeRepairEntryId(result: SessionResult) {
