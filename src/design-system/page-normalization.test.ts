@@ -134,10 +134,6 @@ describe("page style normalization", () => {
     );
 
     const focusRootStyle = getCssRules(focusCss, ".focus-workspace").join("\n");
-    const focusWorkspaceHeaderStyle = getCssRules(
-      focusCss,
-      '.app-frame[data-workspace="focus"] .app-frame__workspace-header',
-    ).join("\n");
     const focusShellWorkspaceHeaderStyle = getCssRules(
       workspaceShellCss,
       '.app-frame[data-workspace="focus"] .app-frame__workspace-header',
@@ -150,13 +146,11 @@ describe("page style normalization", () => {
       workspaceShellCss,
       ".app-frame__actions",
     ).join("\n");
-    const focusStatusStyle = getCssRules(
+    const focusCardStyle = getCssRules(focusCss, ".focus-card").join("\n");
+    const focusSessionPlanNextStyle = getCssRules(
       focusCss,
-      ".focus-session-panel__status",
+      ".focus-session-plan__next",
     ).join("\n");
-    const analyticsStyle = getCssRules(focusCss, ".focus-card--analytics").join(
-      "\n",
-    );
     const secondMetricStyle = getCssRules(
       focusCss,
       ".focus-weekly-analytics div:nth-child(2)",
@@ -181,23 +175,24 @@ describe("page style normalization", () => {
       "--focus-accent-border: var(--color-primary-soft-border);",
     );
     expect(focusRootStyle).toContain("background: var(--color-shell-panel);");
-    expect(focusWorkspaceHeaderStyle).toContain("border-bottom: 0;");
-    expect(focusShellWorkspaceHeaderStyle).toContain("position: absolute;");
-    expect(focusShellWorkspaceHeaderStyle).toContain("inset: 0 0 auto 0;");
     expect(focusShellWorkspaceHeaderStyle).toContain(
-      "padding: var(--lmd-page-padding-y) var(--lmd-page-padding-x);",
+      "height: var(--lmd-header-height);",
     );
+    expect(focusShellWorkspaceHeaderStyle).toContain(
+      "min-height: var(--lmd-header-height);",
+    );
+    expect(focusShellWorkspaceHeaderStyle).toContain("border-bottom: 0;");
     expect(focusShellActionsStyle).toContain("pointer-events: auto;");
     expect(sharedShellActionsStyle).toContain("margin-left: auto;");
-    expect(focusStatusStyle).toContain(
-      "border: 1px solid var(--focus-accent-border);",
+    expect(focusCardStyle).toContain("border: 1px solid var(--focus-line);");
+    expect(focusCardStyle).toContain("background: var(--focus-panel);");
+    expect(focusCardStyle).toContain("box-shadow: var(--shadow-card);");
+    expect(focusSessionPlanNextStyle).toContain(
+      "background: var(--focus-green-soft);",
     );
-    expect(focusStatusStyle).toContain("background: var(--focus-accent-soft);");
-    expect(focusStatusStyle).toContain("color: var(--focus-accent-hover);");
-    expect(analyticsStyle).toContain(
-      "border-color: var(--color-content-border-soft);",
+    expect(focusSessionPlanNextStyle).toContain(
+      "color: var(--focus-green-strong);",
     );
-    expect(analyticsStyle).toContain("background: var(--color-shell-panel);");
     expect(secondMetricStyle).toContain(
       "--focus-metric-accent: var(--focus-success-accent);",
     );

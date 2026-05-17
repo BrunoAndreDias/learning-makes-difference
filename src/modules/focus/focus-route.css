@@ -1,14 +1,44 @@
 .focus-workspace {
-  --focus-green: #238557;
-  --focus-green-strong: #0f6b45;
-  --focus-green-deep: #0b5b3a;
-  --focus-green-soft: #edf7f1;
-  --focus-green-surface: #f5fbf8;
-  --focus-mint: #dff5ee;
+  --focus-accent: var(--color-primary);
+  --focus-accent-hover: var(--color-primary-hover);
+  --focus-accent-soft: var(--color-primary-soft);
+  --focus-accent-border: var(--color-primary-soft-border);
+  --focus-success-accent: var(--color-success);
+  --focus-creative-accent: var(--color-creative);
+  --focus-warm-accent: var(--color-accent-strong);
+  --focus-green: var(--focus-accent);
+  --focus-green-strong: var(--focus-accent-hover);
+  --focus-green-deep: color-mix(in srgb, var(--focus-accent-hover) 72%, black);
+  --focus-green-soft: var(--focus-accent-soft);
+  --focus-green-surface: color-mix(
+    in srgb,
+    var(--focus-accent-soft) 26%,
+    var(--color-shell-panel)
+  );
+  --focus-mint: color-mix(
+    in srgb,
+    var(--color-secondary-soft) 45%,
+    var(--color-shell-panel)
+  );
   --focus-ink: var(--color-content-strong);
   --focus-muted: var(--color-content-muted);
   --focus-line: var(--color-content-border-soft);
-  --focus-panel: #ffffff;
+  --focus-panel: var(--color-shell-panel);
+  --focus-timer-track: color-mix(
+    in srgb,
+    var(--focus-accent-soft) 58%,
+    var(--color-shell-panel)
+  );
+  --focus-timer-ring-border: color-mix(
+    in srgb,
+    var(--focus-line) 68%,
+    var(--color-shell-panel)
+  );
+  --focus-inset-line: color-mix(
+    in srgb,
+    var(--focus-line) 56%,
+    var(--color-shell-panel)
+  );
   display: grid;
   align-content: start;
   gap: var(--space-4);
@@ -16,7 +46,7 @@
   width: 100%;
   padding: var(--lmd-page-padding-y) var(--lmd-page-padding-x);
   background: var(--color-shell-panel);
-  color: var(--focus-ink);
+  color: var(--color-content-default);
   font-family: var(--font-body);
 }
 
@@ -39,7 +69,7 @@
   border: 1px solid var(--focus-line);
   border-radius: var(--lmd-card-radius);
   background: var(--focus-panel);
-  box-shadow: 0 1.25rem 3rem rgb(15 42 28 / 0.07);
+  box-shadow: var(--shadow-card);
 }
 
 .focus-session-panel {
@@ -162,18 +192,18 @@
   inset: 0;
   background: conic-gradient(
     from -48deg,
-    #e7f1ec 0deg 36deg,
+    var(--focus-timer-track) 0deg 36deg,
     var(--focus-green) 36deg 327deg,
-    #e7f1ec 327deg 360deg
+    var(--focus-timer-track) 327deg 360deg
   );
-  box-shadow: 0 0 0 1px #edf4f1;
+  box-shadow: 0 0 0 1px var(--focus-timer-ring-border);
 }
 
 .focus-timer-ring::after {
   inset: 0.42rem;
   z-index: 0;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #f0f5f2;
+  background: var(--focus-panel);
+  box-shadow: inset 0 0 0 1px var(--focus-inset-line);
 }
 
 .focus-timer-ring strong {
@@ -205,7 +235,7 @@
   width: 2rem;
   height: 2rem;
   border-radius: 999px;
-  background: #fff;
+  background: var(--focus-panel);
   color: var(--focus-green);
   transform: translateX(-50%);
 }
@@ -229,21 +259,31 @@
   min-height: 2.85rem;
   border-color: var(--focus-green);
   border-radius: 0.45rem;
-  background: linear-gradient(180deg, #329766 0%, var(--focus-green) 100%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--focus-accent) 82%, var(--color-shell-panel)) 0%,
+    var(--focus-green) 100%
+  );
   box-shadow:
-    0 0.8rem 1.4rem rgb(35 133 87 / 0.18),
-    inset 0 1px 0 rgb(255 255 255 / 0.18);
-  color: #fff;
+    0 0.8rem 1.4rem color-mix(in srgb, var(--focus-green) 20%, transparent),
+    inset 0 1px 0
+    color-mix(in srgb, var(--color-primary-foreground) 18%, transparent);
+  color: var(--color-primary-foreground);
   font-size: 1rem;
   font-weight: 700;
 }
 
 .focus-start-button.notes-action:hover:not(:disabled) {
   border-color: var(--focus-green-deep);
-  background: linear-gradient(180deg, #2d8d5f 0%, var(--focus-green-deep) 100%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--focus-green-deep) 88%, var(--focus-green)) 0%,
+    var(--focus-green-deep) 100%
+  );
   box-shadow:
-    0 0.9rem 1.6rem rgb(35 133 87 / 0.2),
-    inset 0 1px 0 rgb(255 255 255 / 0.18);
+    0 0.9rem 1.6rem color-mix(in srgb, var(--focus-green) 22%, transparent),
+    inset 0 1px 0
+    color-mix(in srgb, var(--color-primary-foreground) 18%, transparent);
 }
 
 .focus-start-button svg {
@@ -266,7 +306,7 @@
   padding: 0.8rem 0.95rem;
   border: 1px solid var(--focus-line);
   border-radius: 0.65rem;
-  background: #fff;
+  background: var(--focus-panel);
   color: var(--focus-muted);
   font-size: 0.84rem;
   font-weight: 500;
@@ -278,7 +318,11 @@
 
 .focus-config-field:focus-within {
   border-color: color-mix(in srgb, var(--focus-green) 38%, var(--focus-line));
-  background: color-mix(in srgb, var(--focus-green-soft) 28%, #fff);
+  background: color-mix(
+    in srgb,
+    var(--focus-green-soft) 28%,
+    var(--color-shell-panel)
+  );
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus-green) 12%, transparent);
 }
 
@@ -287,7 +331,7 @@
   place-items: center;
   width: 1.65rem;
   height: 1.65rem;
-  color: #58706a;
+  color: var(--focus-muted);
 }
 
 .focus-config-field__copy {
@@ -339,7 +383,11 @@
 }
 
 .focus-config-form input::selection {
-  background: color-mix(in srgb, var(--focus-green) 24%, #fff);
+  background: color-mix(
+    in srgb,
+    var(--focus-green) 24%,
+    var(--color-shell-panel)
+  );
   color: var(--focus-green-deep);
 }
 
@@ -355,7 +403,7 @@
   padding: 0.95rem 1rem 1rem;
   border: 1px solid var(--focus-line);
   border-radius: 0.65rem;
-  background: #fff;
+  background: var(--focus-panel);
 }
 
 .focus-session-plan__header strong {
@@ -401,7 +449,7 @@
   height: 1.55rem;
   border: 1px solid var(--focus-line);
   border-radius: 999px;
-  background: #fff;
+  background: var(--focus-panel);
   color: var(--focus-muted);
   font-size: 0.78rem;
   font-weight: 700;
@@ -454,8 +502,8 @@
 .focus-card--activity {
   gap: 1.1rem;
   padding: 1.15rem 1.15rem 1rem;
-  border-color: #dbe8df;
-  box-shadow: 0 1rem 2.5rem rgb(15 42 28 / 0.06);
+  border-color: var(--color-content-border-soft);
+  box-shadow: var(--shadow-card);
 }
 
 .focus-card--activity .focus-card__header {
@@ -504,9 +552,14 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 0;
-  border: 1px solid #dbe8df;
+  border: 1px solid var(--color-content-border-soft);
   border-radius: 1rem;
-  background: linear-gradient(180deg, #fcfefd 0%, #f5fbf8 100%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-shell-panel) 94%, white) 0%,
+    color-mix(in srgb, var(--color-shell-inset) 48%, var(--color-shell-panel))
+      100%
+  );
 }
 
 .focus-activity-summary__metric {
@@ -518,12 +571,12 @@
 }
 
 .focus-activity-summary__metric + .focus-activity-summary__metric {
-  border-left: 1px solid #e3ece6;
+  border-left: 1px solid var(--color-content-border-soft);
 }
 
 .focus-activity-summary dt,
 .focus-weekly-analytics dt {
-  color: #5f756e;
+  color: var(--focus-muted);
   font-size: 0.76rem;
   font-weight: 650;
   line-height: 1.2;
@@ -580,8 +633,8 @@
   gap: var(--space-3);
   min-height: 3rem;
   padding-inline: 0.1rem;
-  border-bottom: 1px solid #edf2ef;
-  color: #617770;
+  border-bottom: 1px solid var(--color-content-border-soft);
+  color: var(--focus-muted);
   font-size: 0.92rem;
 }
 
@@ -595,7 +648,7 @@
 
 .focus-activity-list li > span:nth-child(3) {
   justify-self: end;
-  color: #5c736c;
+  color: var(--focus-muted);
   font-weight: 600;
 }
 
@@ -608,7 +661,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  color: #81938d;
+  color: color-mix(in srgb, var(--focus-muted) 74%, var(--color-shell-panel));
   font-size: 0.82rem;
 }
 
@@ -621,7 +674,7 @@
   overflow: hidden;
   border: 1px solid var(--focus-line);
   border-radius: var(--lmd-card-radius);
-  background: #fff;
+  background: var(--focus-panel);
 }
 
 .focus-learning-loop-support__item {
@@ -647,8 +700,8 @@
 }
 
 .focus-support-icon--practice-repair {
-  background: #ffe8e5;
-  color: #be4b3f;
+  background: var(--color-danger-soft);
+  color: var(--color-danger-soft-foreground);
 }
 
 .focus-learning-loop-support__copy {
@@ -673,14 +726,14 @@
 }
 
 .focus-weekly-analytics div {
-  --metric-accent: var(--focus-green);
+  --focus-metric-accent: var(--focus-green);
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: var(--space-2) var(--space-3);
   padding: var(--space-4);
   border: 1px solid var(--focus-line);
-  border-top: 0.2rem solid var(--metric-accent);
+  border-top: 0.2rem solid var(--focus-metric-accent);
   border-radius: var(--lmd-card-radius);
   background: var(--color-shell-inset);
 }
@@ -690,28 +743,35 @@
   width: 2rem;
   height: 2rem;
   border: 1px solid
-    color-mix(in srgb, var(--metric-accent) 35%, var(--focus-line));
+    color-mix(in srgb, var(--focus-metric-accent) 35%, var(--focus-line));
   border-radius: 0.45rem;
-  background: color-mix(in srgb, var(--metric-accent) 10%, #fff);
+  background: color-mix(
+    in srgb,
+    var(--focus-metric-accent) 10%,
+    var(--color-shell-panel)
+  );
   content: "";
 }
 
-.focus-weekly-analytics div:nth-child(1),
+.focus-weekly-analytics div:nth-child(2) {
+  --focus-metric-accent: var(--focus-success-accent);
+}
+
 .focus-weekly-analytics div:nth-child(3) {
-  --metric-accent: #6b8ff2;
+  --focus-metric-accent: var(--focus-creative-accent);
 }
 
 .focus-weekly-analytics div:nth-child(4) {
-  --metric-accent: #2f9a9a;
+  --focus-metric-accent: var(--color-secondary);
 }
 
 .focus-weekly-analytics div:nth-child(6) {
-  --metric-accent: #d39a2f;
+  --focus-metric-accent: var(--focus-warm-accent);
 }
 
 .focus-weekly-analytics dd {
   margin: 0;
-  color: var(--metric-accent);
+  color: var(--focus-metric-accent);
   font-family: var(--font-heading);
   font-size: clamp(1.6rem, 3vw, 2.35rem);
   font-weight: 800;
@@ -745,7 +805,7 @@
   }
 
   .focus-activity-summary__metric + .focus-activity-summary__metric {
-    border-top: 1px solid #e3ece6;
+    border-top: 1px solid var(--color-content-border-soft);
     border-left: 0;
   }
 }

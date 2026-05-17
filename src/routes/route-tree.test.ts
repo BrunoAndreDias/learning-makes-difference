@@ -58,9 +58,7 @@ describe("route tree", () => {
     expect(generatedRouteTree).toContain(
       "'/insights': typeof modulesStudyGuidanceStudyGuidanceRouteRoute",
     );
-    expect(generatedRouteTree).not.toContain(
-      "'/recall/results': typeof ProtectedRecallResultsRoute",
-    );
+    expect(generatedRouteTree).toContain("'/recall/results':");
     expect(generatedRouteTree).toContain(
       "'/recall/select': typeof modulesRecallRecallSelectionRouteRoute",
     );

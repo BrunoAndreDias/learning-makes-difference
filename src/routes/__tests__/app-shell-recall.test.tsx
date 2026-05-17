@@ -803,7 +803,7 @@ describe("authenticated recall workspace", () => {
       timestamp: "2026-05-15T09:00:00.000Z",
     });
 
-    const firstRender = renderRoute("/recall?view=results", {
+    const firstRender = renderRoute("/recall/results", {
       labelsContext,
       notesContext,
       recallContext,
@@ -854,7 +854,7 @@ describe("authenticated recall workspace", () => {
       studyNotes: studyNotesContext,
     });
 
-    const secondRender = renderRoute("/recall?view=results", {
+    const secondRender = renderRoute("/recall/results", {
       labelsContext,
       notesContext,
       recallContext: reloadedRecallContext,
@@ -941,7 +941,7 @@ describe("authenticated recall workspace", () => {
       studyNotes: studyNotesContext,
     });
 
-    renderRoute("/recall?view=results", {
+    renderRoute("/recall/results", {
       labelsContext,
       notesContext,
       recallContext: confirmedRecallContext,
@@ -1486,7 +1486,7 @@ describe("authenticated recall workspace", () => {
       userId: testUser.id,
     });
 
-    renderRoute("/recall?view=results", {
+    renderRoute("/recall/results", {
       ...contexts,
       session: createSession(),
     });

@@ -68,11 +68,21 @@ type ExpandedQuestionKey = string | null;
 type ExpandedQuestionKeyChange = (questionKey: ExpandedQuestionKey) => void;
 type QuestionReferenceNoteSnapshot = Pick<RecallNoteSnapshot, "body" | "title">;
 type ConfirmPracticeRepairInput = PracticeRepairEntryConfirmation;
+type RecallResultsWorkspacePageProps = {
+  forcedView?: RecallWorkspaceView;
+  searchView?: RecallWorkspaceView;
+};
 
 export const Route = createFileRoute("/_protected/recall/")({
   validateSearch: recallResultsSearchSchema,
-  component: RecallResultsWorkspacePage,
+  component: RecallResultsWorkspaceRoute,
 });
+
+function RecallResultsWorkspaceRoute() {
+  const search = Route.useSearch();
+
+  return <RecallResultsWorkspacePage searchView={search.view} />;
+}
 
 function formatResultDate(timestamp: string) {
   const resultDate = new Date(timestamp);
@@ -287,10 +297,12 @@ function getRecallWorkspaceView(input: {
   return "results";
 }
 
-function RecallResultsWorkspacePage() {
+export function RecallResultsWorkspacePage({
+  forcedView,
+  searchView,
+}: RecallResultsWorkspacePageProps = {}) {
   const { t } = useAppTranslation();
   const navigate = useNavigate();
-  const search = Route.useSearch();
   const recallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.recall,
@@ -448,10 +460,12 @@ function RecallResultsWorkspacePage() {
   const canShowRecallToday =
     recallTodayQueue.length > 0 ||
     (studyNotes.length > 0 && sessionResults.length === 0);
-  const workspaceView = getRecallWorkspaceView({
-    canShowRecallToday,
-    searchView: search.view,
-  });
+  const workspaceView =
+    forcedView ??
+    getRecallWorkspaceView({
+      canShowRecallToday,
+      searchView,
+    });
 
   async function confirmPracticeRepairEntry(input: ConfirmPracticeRepairInput) {
     if (userId === null) {
@@ -756,8 +770,7 @@ function RecallTodayPage({
                 {hasResults ? (
                   <ButtonLink
                     className="recall-today-actions__manual"
-                    search={{ view: "results" }}
-                    to="/recall"
+                    to="/recall/results"
                   >
                     <QuestionsIcon />
                     <span>View Results</span>

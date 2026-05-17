@@ -24,6 +24,7 @@ import { Route as modulesAccessSessionForgotPasswordRouteRouteImport } from './m
 import { Route as modulesAccessPublicEntryPublicIndexRouteRouteImport } from './modules/access/public-entry/public-index-route'
 import { Route as modulesRecallRecallSessionRouteRouteImport } from './modules/recall/recall-session-route'
 import { Route as modulesRecallRecallSelectionRouteRouteImport } from './modules/recall/recall-selection-route'
+import { Route as modulesRecallRecallResultsRouteRouteImport } from './modules/recall/recall-results-route'
 import { Route as modulesRecallRecallResultsWorkspaceRouteRouteImport } from './modules/recall/recall-results-workspace-route'
 
 const modulesAccessPublicEntryPublicLayoutRouteRoute =
@@ -112,6 +113,12 @@ const modulesRecallRecallSelectionRouteRoute =
     path: '/select',
     getParentRoute: () => modulesRecallRecallRouteRoute,
   } as any)
+const modulesRecallRecallResultsRouteRoute =
+  modulesRecallRecallResultsRouteRouteImport.update({
+    id: '/results',
+    path: '/results',
+    getParentRoute: () => modulesRecallRecallRouteRoute,
+  } as any)
 const modulesRecallRecallResultsWorkspaceRouteRoute =
   modulesRecallRecallResultsWorkspaceRouteRouteImport.update({
     id: '/',
@@ -131,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof modulesAccessSessionSettingsRouteRoute
   '/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
   '/recall/': typeof modulesRecallRecallResultsWorkspaceRouteRoute
+  '/recall/results': typeof modulesRecallRecallResultsRouteRoute
   '/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/recall/session': typeof modulesRecallRecallSessionRouteRoute
 }
@@ -145,6 +153,7 @@ export interface FileRoutesByTo {
   '/settings': typeof modulesAccessSessionSettingsRouteRoute
   '/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
   '/recall': typeof modulesRecallRecallResultsWorkspaceRouteRoute
+  '/recall/results': typeof modulesRecallRecallResultsRouteRoute
   '/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/recall/session': typeof modulesRecallRecallSessionRouteRoute
 }
@@ -164,6 +173,7 @@ export interface FileRoutesById {
   '/_protected/settings': typeof modulesAccessSessionSettingsRouteRoute
   '/_protected/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
   '/_protected/recall/': typeof modulesRecallRecallResultsWorkspaceRouteRoute
+  '/_protected/recall/results': typeof modulesRecallRecallResultsRouteRoute
   '/_protected/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/_protected/recall/session': typeof modulesRecallRecallSessionRouteRoute
 }
@@ -181,6 +191,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/study-notes'
     | '/recall/'
+    | '/recall/results'
     | '/recall/select'
     | '/recall/session'
   fileRoutesByTo: FileRoutesByTo
@@ -195,6 +206,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/study-notes'
     | '/recall'
+    | '/recall/results'
     | '/recall/select'
     | '/recall/session'
   id:
@@ -213,6 +225,7 @@ export interface FileRouteTypes {
     | '/_protected/settings'
     | '/_protected/study-notes'
     | '/_protected/recall/'
+    | '/_protected/recall/results'
     | '/_protected/recall/select'
     | '/_protected/recall/session'
   fileRoutesById: FileRoutesById
@@ -330,6 +343,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof modulesRecallRecallSelectionRouteRouteImport
       parentRoute: typeof modulesRecallRecallRouteRoute
     }
+    '/_protected/recall/results': {
+      id: '/_protected/recall/results'
+      path: '/results'
+      fullPath: '/recall/results'
+      preLoaderRoute: typeof modulesRecallRecallResultsRouteRouteImport
+      parentRoute: typeof modulesRecallRecallRouteRoute
+    }
     '/_protected/recall/': {
       id: '/_protected/recall/'
       path: '/'
@@ -362,6 +382,7 @@ const modulesAccessSessionAuthLayoutRouteRouteWithChildren =
 
 interface modulesRecallRecallRouteRouteChildren {
   modulesRecallRecallResultsWorkspaceRouteRoute: typeof modulesRecallRecallResultsWorkspaceRouteRoute
+  modulesRecallRecallResultsRouteRoute: typeof modulesRecallRecallResultsRouteRoute
   modulesRecallRecallSelectionRouteRoute: typeof modulesRecallRecallSelectionRouteRoute
   modulesRecallRecallSessionRouteRoute: typeof modulesRecallRecallSessionRouteRoute
 }
@@ -370,6 +391,7 @@ const modulesRecallRecallRouteRouteChildren: modulesRecallRecallRouteRouteChildr
   {
     modulesRecallRecallResultsWorkspaceRouteRoute:
       modulesRecallRecallResultsWorkspaceRouteRoute,
+    modulesRecallRecallResultsRouteRoute: modulesRecallRecallResultsRouteRoute,
     modulesRecallRecallSelectionRouteRoute:
       modulesRecallRecallSelectionRouteRoute,
     modulesRecallRecallSessionRouteRoute: modulesRecallRecallSessionRouteRoute,

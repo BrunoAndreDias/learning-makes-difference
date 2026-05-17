@@ -289,6 +289,9 @@ describe("authenticated app shell", () => {
     expect(
       within(appSections).queryByRole("link", { name: "Recall history" }),
     ).not.toBeInTheDocument();
+    expect(
+      within(appSections).queryByRole("link", { name: "Recall results" }),
+    ).not.toBeInTheDocument();
     expect(notesLink).toHaveAttribute("href", "/study-notes");
     expect(labelsLink).toHaveAttribute("href", "/labels");
     expect(recallLink).toHaveAttribute("href", "/recall");
@@ -314,6 +317,18 @@ describe("authenticated app shell", () => {
     expect(router.state.location.pathname).toBe("/recall");
     expect(recallLink).toHaveAttribute("aria-current", "page");
     expect(labelsLink).not.toHaveAttribute("aria-current");
+    expect(
+      within(appSections).getByRole("link", { name: "Recall Today" }),
+    ).toHaveAttribute("href", "/recall");
+    expect(
+      within(appSections).getByRole("link", { name: "Recall results" }),
+    ).toHaveAttribute("href", "/recall/results");
+    expect(
+      within(appSections).getByRole("link", { name: "Recall setup" }),
+    ).toHaveAttribute("href", "/recall/select");
+    expect(
+      within(appSections).getByRole("link", { name: "Recall session" }),
+    ).toHaveAttribute("href", "/recall/session");
   });
 
   it("adds Focus to primary navigation and opens the Focus section", async () => {

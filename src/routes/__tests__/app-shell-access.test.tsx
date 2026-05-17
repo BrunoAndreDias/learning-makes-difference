@@ -112,7 +112,7 @@ describe("authenticated app shell", () => {
     expect(router.state.location.pathname).toBe("/study-notes");
   });
 
-  it("redirects the removed /recall/results route to the canonical Recall workspace", async () => {
+  it("keeps /recall/results as a dedicated Recall sub-route", async () => {
     const { router } = renderRoute("/recall/results");
 
     expect(
@@ -121,7 +121,7 @@ describe("authenticated app shell", () => {
         name: "Recall starts with Study Notes",
       }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall");
+    expect(router.state.location.pathname).toBe("/recall/results");
     expect(
       screen.queryByRole("heading", { level: 3, name: "Practice" }),
     ).not.toBeInTheDocument();

@@ -90,6 +90,11 @@ export default defineConfig({
                     },
                     {
                       type: "route",
+                      path: "/results",
+                      file: "modules/recall/recall-results-route.tsx",
+                    },
+                    {
+                      type: "route",
                       path: "/select",
                       file: "modules/recall/recall-selection-route.tsx",
                     },

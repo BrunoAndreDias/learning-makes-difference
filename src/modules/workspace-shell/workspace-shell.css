@@ -1180,6 +1180,14 @@
   gap: var(--lmd-sidebar-nav-item-gap);
 }
 
+.app-sidebar__sublist {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0.35rem 0 0.15rem 1.85rem;
+  padding: 0;
+  list-style: none;
+}
+
 .app-sidebar__link {
   min-height: var(--lmd-sidebar-nav-item-height);
   gap: var(--lmd-list-row-gap);
@@ -1220,6 +1228,30 @@
 .app-sidebar__label {
   font-size: var(--lmd-body-size);
   font-weight: 650;
+}
+
+.app-sidebar__sublink {
+  display: block;
+  padding: 0.3rem 0.55rem;
+  border-radius: 0.45rem;
+  color: var(--color-content-muted);
+  font-size: 0.78rem;
+  font-weight: 640;
+  line-height: 1.25;
+  text-decoration: none;
+  transition:
+    color var(--motion-fast),
+    background-color var(--motion-fast);
+}
+
+.app-sidebar__sublink:hover {
+  color: var(--color-content-strong);
+  background: var(--color-shell-inset);
+}
+
+.app-sidebar__sublink-active {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
 }
 
 .app-sidebar__footer {

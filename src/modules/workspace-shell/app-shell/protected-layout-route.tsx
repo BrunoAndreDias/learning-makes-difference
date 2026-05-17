@@ -69,6 +69,25 @@ const globalNavigationItems = [
   },
 ] as const;
 
+const recallSubNavigationItems = [
+  {
+    labelKey: "recall.today.title",
+    to: "/recall",
+  },
+  {
+    labelKey: "recall.results",
+    to: "/recall/results",
+  },
+  {
+    labelKey: "shell.workspace.recallSetup",
+    to: "/recall/select",
+  },
+  {
+    labelKey: "shell.workspace.recallSession",
+    to: "/recall/session",
+  },
+] as const;
+
 function isWorkspacePath(pathname: string, workspacePath: string) {
   return pathname === workspacePath || pathname.startsWith(`${workspacePath}/`);
 }
@@ -340,7 +359,10 @@ export function AppLayout() {
             </Button>
           </div>
 
-          <GlobalNavigation onNavigate={closeMobileSidebar} />
+          <GlobalNavigation
+            currentPathname={location.pathname}
+            onNavigate={closeMobileSidebar}
+          />
 
           <div className="app-sidebar__footer">
             <div className="app-sidebar__streak">
@@ -568,11 +590,14 @@ function WorkspaceDate({
 }
 
 function GlobalNavigation({
+  currentPathname,
   onNavigate,
 }: Readonly<{
+  currentPathname: string;
   onNavigate: () => void;
 }>) {
   const { t } = useAppTranslation();
+  const isRecallRouteActive = isRecallWorkspacePath(currentPathname);
 
   return (
     <nav
@@ -597,6 +622,28 @@ function GlobalNavigation({
                 {t(navigationItem.labelKey)}
               </span>
             </Link>
+            {navigationItem.to === "/recall" && isRecallRouteActive ? (
+              <ul className="app-sidebar__sublist">
+                {recallSubNavigationItems.map((subNavigationItem) => (
+                  <li key={subNavigationItem.to}>
+                    <Link
+                      activeOptions={{
+                        exact: subNavigationItem.to === "/recall",
+                      }}
+                      activeProps={{
+                        className:
+                          "app-sidebar__sublink app-sidebar__sublink-active",
+                      }}
+                      className="app-sidebar__sublink"
+                      onClick={onNavigate}
+                      to={subNavigationItem.to}
+                    >
+                      {t(subNavigationItem.labelKey)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </li>
         ))}
       </ul>
