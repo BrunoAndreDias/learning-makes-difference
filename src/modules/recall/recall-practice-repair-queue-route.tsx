@@ -1,4 +1,5 @@
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 
 import { ButtonLink } from "../../design-system/button";
 import { PageHeader } from "../../design-system/page-header";
@@ -12,11 +13,45 @@ import {
   getPracticeRepairQuestionPrompt,
   getPracticeRepairQuestionReferenceTitle,
   listPracticeRepairQueueItems,
+  type PracticeRepairQueueQuestionLike,
 } from "./recall-practice-repair";
 
 export const Route = createFileRoute("/_protected/recall/repair")({
   component: RecallPracticeRepairQueueRoute,
 });
+
+function PracticeRepairQueueCard({
+  action,
+  body,
+  eyebrow,
+  question,
+  rating,
+}: Readonly<{
+  action: ReactNode;
+  body: string;
+  eyebrow: string;
+  question: PracticeRepairQueueQuestionLike;
+  rating: string;
+}>) {
+  return (
+    <article className="recall-panel recall-practice-repair-queue__item">
+      <div className="recall-practice-repair-queue__content">
+        <div className="recall-practice-repair-queue__meta">
+          <p className="recall-practice-repair-queue__eyebrow">{eyebrow}</p>
+          <p className="recall-practice-repair-queue__rating">{rating}</p>
+        </div>
+        <h5>{getPracticeRepairQuestionPrompt(question)}</h5>
+        <p>{body}</p>
+        <p className="muted">
+          Reference explanation:{" "}
+          {getPracticeRepairQuestionReferenceTitle(question)}
+        </p>
+      </div>
+
+      {action}
+    </article>
+  );
+}
 
 function RecallPracticeRepairQueueRoute() {
   const { t } = useAppTranslation();
@@ -80,41 +115,31 @@ function RecallPracticeRepairQueueRoute() {
                       question.selfRating === null
                         ? "Not rated"
                         : t(getRecallRatingTranslationKey(question.selfRating));
+                    const practiceRepairEntryId =
+                      getPracticeRepairEntryId(entry);
 
                     return (
-                      <li key={getPracticeRepairEntryId(entry)}>
-                        <article className="recall-panel recall-practice-repair-queue__item">
-                          <div className="recall-practice-repair-queue__content">
-                            <div className="recall-practice-repair-queue__meta">
-                              <p className="recall-practice-repair-queue__eyebrow">
-                                {formatPracticeRepairIntentLabel(entry.intent)}
-                              </p>
-                              <p className="recall-practice-repair-queue__rating">
-                                {rating}
-                              </p>
-                            </div>
-                            <h5>{getPracticeRepairQuestionPrompt(question)}</h5>
-                            <p>{entry.correction}</p>
-                            <p className="muted">
-                              Reference explanation:{" "}
-                              {getPracticeRepairQuestionReferenceTitle(
-                                question,
-                              )}
-                            </p>
-                          </div>
-
-                          <ButtonLink
-                            size="compact"
-                            to="/recall/repair/$practiceRepairEntryId"
-                            params={{
-                              practiceRepairEntryId:
-                                getPracticeRepairEntryId(entry),
-                            }}
-                            variant="secondary"
-                          >
-                            Resume Practice Repair
-                          </ButtonLink>
-                        </article>
+                      <li key={practiceRepairEntryId}>
+                        <PracticeRepairQueueCard
+                          action={
+                            <ButtonLink
+                              size="compact"
+                              to="/recall/repair/$practiceRepairEntryId"
+                              params={{
+                                practiceRepairEntryId,
+                              }}
+                              variant="secondary"
+                            >
+                              Resume Practice Repair
+                            </ButtonLink>
+                          }
+                          body={entry.correction}
+                          eyebrow={formatPracticeRepairIntentLabel(
+                            entry.intent,
+                          )}
+                          question={question}
+                          rating={rating}
+                        />
                       </li>
                     );
                   })}
@@ -141,49 +166,28 @@ function RecallPracticeRepairQueueRoute() {
                       question.selfRating === null
                         ? "Not rated"
                         : t(getRecallRatingTranslationKey(question.selfRating));
-                    const questionResultId = question.questionResultId;
-                    const candidateKey =
-                      questionResultId ??
-                      `${result.id}-${question.noteId ?? getPracticeRepairQuestionPrompt(question)}`;
-
-                    if (questionResultId === undefined) {
-                      return null;
-                    }
 
                     return (
-                      <li key={candidateKey}>
-                        <article className="recall-panel recall-practice-repair-queue__item">
-                          <div className="recall-practice-repair-queue__content">
-                            <div className="recall-practice-repair-queue__meta">
-                              <p className="recall-practice-repair-queue__eyebrow">
-                                Needs practice candidate
-                              </p>
-                              <p className="recall-practice-repair-queue__rating">
-                                {rating}
-                              </p>
-                            </div>
-                            <h5>{getPracticeRepairQuestionPrompt(question)}</h5>
-                            <p>{draft.summary}</p>
-                            <p className="muted">
-                              Reference explanation:{" "}
-                              {getPracticeRepairQuestionReferenceTitle(
-                                question,
-                              )}
-                            </p>
-                          </div>
-
-                          <ButtonLink
-                            size="compact"
-                            to="/recall/results/$sessionResultId/questions/$questionResultId/repair"
-                            params={{
-                              questionResultId,
-                              sessionResultId: result.id,
-                            }}
-                            variant="secondary"
-                          >
-                            Open Practice Repair draft
-                          </ButtonLink>
-                        </article>
+                      <li key={question.questionResultId}>
+                        <PracticeRepairQueueCard
+                          action={
+                            <ButtonLink
+                              size="compact"
+                              to="/recall/results/$sessionResultId/questions/$questionResultId/repair"
+                              params={{
+                                questionResultId: question.questionResultId,
+                                sessionResultId: result.id,
+                              }}
+                              variant="secondary"
+                            >
+                              Open Practice Repair draft
+                            </ButtonLink>
+                          }
+                          body={draft.summary}
+                          eyebrow="Needs practice candidate"
+                          question={question}
+                          rating={rating}
+                        />
                       </li>
                     );
                   })}

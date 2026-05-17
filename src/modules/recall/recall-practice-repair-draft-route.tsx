@@ -17,6 +17,7 @@ import {
 } from "./learner-copy";
 import type { AppPersistentRecallContext } from "./persistent-recall";
 import {
+  type AppRecallContext,
   AppRecallError,
   type FlashCardSessionResult,
   type RecallQuestion,
@@ -27,6 +28,7 @@ import {
   getPracticeRepairEntryId,
   getQuestionPracticeRepairDraft,
   type PracticeRepairDraft,
+  type PracticeRepairEntryConfirmation,
   type PracticeRepairIntent,
 } from "./recall-practice-repair";
 import {
@@ -116,9 +118,11 @@ function findPracticeRepairDraftWorkspace(input: {
     return null;
   }
 
-  const question = result.questions.find(
+  const questionIndex = result.questions.findIndex(
     (candidate) => candidate.questionResultId === questionResultId,
   );
+  const question =
+    questionIndex < 0 ? undefined : result.questions[questionIndex];
 
   if (question === undefined) {
     return null;
@@ -126,11 +130,47 @@ function findPracticeRepairDraftWorkspace(input: {
 
   return {
     question,
-    questionIndex: result.questions.findIndex(
-      (candidate) => candidate.questionResultId === questionResultId,
-    ),
+    questionIndex,
     result,
   };
+}
+
+function getPracticeRepairDraftReference(
+  workspace: PracticeRepairDraftWorkspace,
+): PracticeRepairEntryConfirmation["reference"] {
+  return {
+    questionIndex: workspace.questionIndex,
+    questionResultId: workspace.question.questionResultId,
+    sessionResultId: workspace.result.id,
+    studyNoteId: workspace.question.noteId,
+  };
+}
+
+async function confirmDraftPracticeRepairEntry(input: {
+  correction: string;
+  intent: PracticeRepairIntent;
+  persistentRecallContext: AppPersistentRecallContext | undefined;
+  recallContext: AppRecallContext;
+  reference: PracticeRepairEntryConfirmation["reference"];
+  userId: string;
+}): Promise<FlashCardSessionResult> {
+  if (input.persistentRecallContext !== undefined) {
+    return input.persistentRecallContext.confirmPracticeRepairEntry(
+      input.userId,
+      {
+        correction: input.correction,
+        intent: input.intent,
+        reference: input.reference,
+      },
+    );
+  }
+
+  return input.recallContext.confirmPracticeRepairEntry({
+    correction: input.correction,
+    intent: input.intent,
+    reference: input.reference,
+    userId: input.userId,
+  });
 }
 
 function RecallPracticeRepairDraftRoute() {
@@ -218,6 +258,10 @@ function RecallPracticeRepairDraftPage({
   const [correction, setCorrection] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const selectedRepairDescription =
+    selectedIntent === null
+      ? "Select one action above, then describe the concrete repair you plan to make."
+      : `Selected repair: ${formatPracticeRepairIntentLabel(selectedIntent)}.`;
 
   async function confirmPracticeRepair() {
     if (userId === null || selectedIntent === null) {
@@ -228,29 +272,14 @@ function RecallPracticeRepairDraftPage({
     setErrorMessage(null);
 
     try {
-      const result =
-        persistentRecallContext === undefined
-          ? recallContext.confirmPracticeRepairEntry({
-              correction,
-              intent: selectedIntent,
-              reference: {
-                questionIndex: workspace.questionIndex,
-                questionResultId: question.questionResultId,
-                sessionResultId: workspace.result.id,
-                studyNoteId: question.noteId,
-              },
-              userId,
-            })
-          : await persistentRecallContext.confirmPracticeRepairEntry(userId, {
-              correction,
-              intent: selectedIntent,
-              reference: {
-                questionIndex: workspace.questionIndex,
-                questionResultId: question.questionResultId,
-                sessionResultId: workspace.result.id,
-                studyNoteId: question.noteId,
-              },
-            });
+      const result = await confirmDraftPracticeRepairEntry({
+        correction,
+        intent: selectedIntent,
+        persistentRecallContext,
+        recallContext,
+        reference: getPracticeRepairDraftReference(workspace),
+        userId,
+      });
       const practiceRepairEntry =
         result.questions[workspace.questionIndex]?.practiceRepairEntry;
 
@@ -408,11 +437,7 @@ function RecallPracticeRepairDraftPage({
             <section className="recall-practice-repair-draft__confirmation">
               <div className="recall-practice-repair-draft__confirmation-copy">
                 <h2>Choose one repair to confirm</h2>
-                <p>
-                  {selectedIntent === null
-                    ? "Select one action above, then describe the concrete repair you plan to make."
-                    : `Selected repair: ${formatPracticeRepairIntentLabel(selectedIntent)}.`}
-                </p>
+                <p>{selectedRepairDescription}</p>
               </div>
 
               <div className="recall-practice-repair-draft__detail">

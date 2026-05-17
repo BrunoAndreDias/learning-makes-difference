@@ -152,18 +152,30 @@ export type PracticeRepairQueueQuestionLike =
     selfRating: "easy" | "forgot" | "good" | "hard" | null;
   };
 
-export type PracticeRepairQueueResultLike = {
-  completedAt: string;
-  id: string;
+export type PracticeRepairActiveQueueResultLike = {
   questions: readonly PracticeRepairQueueQuestionLike[];
 };
 
+export type PracticeRepairQueueResultLike =
+  PracticeRepairActiveQueueResultLike & {
+    completedAt: string;
+    id: string;
+  };
+
 export type PracticeRepairQueueItem<
-  Result extends PracticeRepairQueueResultLike = PracticeRepairQueueResultLike,
+  Result extends
+    PracticeRepairActiveQueueResultLike = PracticeRepairActiveQueueResultLike,
 > = {
   entry: PracticeRepairEntry;
   question: Result["questions"][number];
   result: Result;
+};
+
+type PracticeRepairQueueCandidateQuestion<
+  Result extends PracticeRepairQueueResultLike,
+> = Result["questions"][number] & {
+  noteId: string;
+  questionResultId: string;
 };
 
 export type PracticeRepairQueueCandidateItem<
@@ -171,7 +183,7 @@ export type PracticeRepairQueueCandidateItem<
 > = {
   draft: PracticeRepairDraft;
   kind: "candidate";
-  question: Result["questions"][number];
+  question: PracticeRepairQueueCandidateQuestion<Result>;
   result: Result;
 };
 
@@ -711,10 +723,23 @@ function comparePracticeRepairQueueCandidateItems(
   return (
     right.result.completedAt.localeCompare(left.result.completedAt) ||
     right.result.id.localeCompare(left.result.id) ||
-    (right.question.questionResultId ?? "").localeCompare(
-      left.question.questionResultId ?? "",
+    right.question.questionResultId.localeCompare(
+      left.question.questionResultId,
     ) ||
-    (right.question.noteId ?? "").localeCompare(left.question.noteId ?? "")
+    right.question.noteId.localeCompare(left.question.noteId)
+  );
+}
+
+function hasPracticeRepairQueueCandidateIdentity<
+  Question extends PracticeRepairQueueQuestionLike,
+>(
+  question: Question,
+): question is Question & {
+  noteId: string;
+  questionResultId: string;
+} {
+  return (
+    question.noteId !== undefined && question.questionResultId !== undefined
   );
 }
 
@@ -760,7 +785,7 @@ export function getPracticeRepairRecordedAnswer(
 }
 
 export function listActivePracticeRepairQueueItems<
-  Result extends PracticeRepairQueueResultLike,
+  Result extends PracticeRepairActiveQueueResultLike,
 >(input: { results: readonly Result[] }): PracticeRepairQueueItem<Result>[] {
   const queueItems: PracticeRepairQueueItem<Result>[] = [];
 
@@ -808,13 +833,15 @@ export function listPracticeRepairQueueItems<
 
   for (const result of sortedResults) {
     for (const question of result.questions) {
+      if (!hasPracticeRepairQueueCandidateIdentity(question)) {
+        continue;
+      }
+
       const studyNoteId = question.noteId;
 
       if (
-        studyNoteId === undefined ||
         activeStudyNoteIds.has(studyNoteId) ||
-        candidateItemsByStudyNoteId.has(studyNoteId) ||
-        question.questionResultId === undefined
+        candidateItemsByStudyNoteId.has(studyNoteId)
       ) {
         continue;
       }
