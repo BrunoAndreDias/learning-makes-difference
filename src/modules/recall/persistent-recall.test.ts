@@ -613,4 +613,259 @@ describe("createPersistentRecallContext", () => {
       },
     ]);
   });
+
+  it("applies Practice Repair lifecycle mutations into the persisted results snapshot", async () => {
+    let sessionResults: SessionResult[] = [
+      createResult({
+        id: "result-complete",
+        questions: [
+          createQuestion({
+            noteId: "study-note-complete",
+            noteSnapshot: {
+              acronyms: [],
+              body: "ATP stores transferable energy.",
+              createdAt: "2026-05-02T12:00:00.000Z",
+              expectedAnswer: "ATP stores transferable energy.",
+              id: "study-note-complete",
+              labelIds: [],
+              metaphors: [],
+              prompt: "What stores transferable energy?",
+              source: {
+                body: "Cell respiration source.",
+                id: "source-note-complete",
+                title: "Cell respiration",
+                updatedAt: "2026-05-02T12:00:00.000Z",
+              },
+              sourceNoteId: "source-note-complete",
+              title: "What stores transferable energy?",
+              updatedAt: "2026-05-02T12:00:00.000Z",
+            },
+            practiceRepairEntry: {
+              confirmedAt: "2026-05-02T12:15:00.000Z",
+              correction: "State ATP directly.",
+              intent: "tighten-expected-answer",
+              intentMetadata: {
+                updatedExpectedAnswer: null,
+              },
+              practiceRepairEntryId:
+                "practice-repair-entry-result-complete-question-0",
+              reference: {
+                questionIndex: 0,
+                questionResultId: "result-complete-question-0",
+                sessionResultId: "result-complete",
+                studyNoteId: "study-note-complete",
+              },
+            },
+            questionResultId: "result-complete-question-0",
+            selfRating: "hard",
+          }),
+        ],
+      }),
+      createResult({
+        id: "result-dismiss",
+        questions: [
+          createQuestion({
+            noteId: "study-note-dismiss",
+            noteSnapshot: {
+              acronyms: [],
+              body: "NADH carries electrons.",
+              createdAt: "2026-05-02T12:00:00.000Z",
+              expectedAnswer: "NADH carries electrons.",
+              id: "study-note-dismiss",
+              labelIds: [],
+              metaphors: [],
+              prompt: "What carries electrons?",
+              source: {
+                body: "Electron transport source.",
+                id: "source-note-dismiss",
+                title: "Electron transport",
+                updatedAt: "2026-05-02T12:00:00.000Z",
+              },
+              sourceNoteId: "source-note-dismiss",
+              title: "What carries electrons?",
+              updatedAt: "2026-05-02T12:00:00.000Z",
+            },
+            practiceRepairEntry: {
+              confirmedAt: "2026-05-02T12:20:00.000Z",
+              correction: "Pause this repair.",
+              intent: "tighten-expected-answer",
+              intentMetadata: {
+                updatedExpectedAnswer: null,
+              },
+              practiceRepairEntryId:
+                "practice-repair-entry-result-dismiss-question-0",
+              reference: {
+                questionIndex: 0,
+                questionResultId: "result-dismiss-question-0",
+                sessionResultId: "result-dismiss",
+                studyNoteId: "study-note-dismiss",
+              },
+            },
+            questionResultId: "result-dismiss-question-0",
+            selfRating: "hard",
+          }),
+        ],
+      }),
+    ];
+
+    function updateLifecycleResult(input: {
+      completedAt?: string;
+      dismissedAt?: string;
+      sessionResultId: string;
+    }): SessionResult {
+      const existingResult = sessionResults.find(
+        (result) => result.id === input.sessionResultId,
+      );
+
+      if (existingResult === undefined) {
+        throw new Error("Missing stored Practice Repair result.");
+      }
+
+      const existingEntry = existingResult.questions[0]?.practiceRepairEntry;
+
+      if (existingEntry === undefined) {
+        throw new Error("Missing stored Practice Repair entry.");
+      }
+
+      const updatedResult = {
+        ...existingResult,
+        questions: existingResult.questions.map((question, index) =>
+          index === 0
+            ? {
+                ...question,
+                practiceRepairEntry: {
+                  ...existingEntry,
+                  lifecycle: {
+                    ...existingEntry.lifecycle,
+                    completedAt: input.completedAt,
+                    dismissedAt: input.dismissedAt,
+                  },
+                },
+              }
+            : question,
+        ),
+      } satisfies SessionResult;
+
+      sessionResults = [
+        updatedResult,
+        ...sessionResults.filter((result) => result.id !== updatedResult.id),
+      ];
+
+      return updatedResult;
+    }
+
+    const service: AppPersistentRecallService = {
+      completePracticeRepairEntry: vi.fn(async () =>
+        updateLifecycleResult({
+          completedAt: "2026-05-02T12:40:00.000Z",
+          sessionResultId: "result-complete",
+        }),
+      ),
+      completeLinkedPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      confirmPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      dismissPracticeRepairEntry: vi.fn(async () =>
+        updateLifecycleResult({
+          dismissedAt: "2026-05-02T12:45:00.000Z",
+          sessionResultId: "result-dismiss",
+        }),
+      ),
+      endRecallSession: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      getActiveSession: vi.fn(async () => null),
+      listRecallSchedules: vi.fn(async () => []),
+      listSessionResults: vi.fn(async () => sessionResults),
+      rateFlashCardAnswer: vi.fn(async () => null),
+      revealFlashCardAnswer: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      startFlashCardSession: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      updatePracticeRepairEntryCorrection: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      updateFlashCardAttemptText: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+    };
+    const persistentRecall = createPersistentRecallContext({
+      service,
+    });
+
+    await persistentRecall.refresh("user-casey");
+    await expect(
+      persistentRecall.completePracticeRepairEntry("user-casey", {
+        reference: {
+          questionIndex: 0,
+          questionResultId: "result-complete-question-0",
+          sessionResultId: "result-complete",
+          studyNoteId: "study-note-complete",
+        },
+      }),
+    ).resolves.toMatchObject({
+      id: "result-complete",
+      questions: [
+        {
+          practiceRepairEntry: {
+            lifecycle: {
+              completedAt: "2026-05-02T12:40:00.000Z",
+            },
+          },
+        },
+      ],
+    });
+    await expect(
+      persistentRecall.dismissPracticeRepairEntry("user-casey", {
+        reference: {
+          questionIndex: 0,
+          questionResultId: "result-dismiss-question-0",
+          sessionResultId: "result-dismiss",
+          studyNoteId: "study-note-dismiss",
+        },
+      }),
+    ).resolves.toMatchObject({
+      id: "result-dismiss",
+      questions: [
+        {
+          practiceRepairEntry: {
+            lifecycle: {
+              dismissedAt: "2026-05-02T12:45:00.000Z",
+            },
+          },
+        },
+      ],
+    });
+
+    expect(persistentRecall.getSessionResultsSnapshot()).toMatchObject([
+      {
+        id: "result-dismiss",
+        questions: [
+          {
+            practiceRepairEntry: {
+              lifecycle: {
+                dismissedAt: "2026-05-02T12:45:00.000Z",
+              },
+            },
+          },
+        ],
+      },
+      {
+        id: "result-complete",
+        questions: [
+          {
+            practiceRepairEntry: {
+              lifecycle: {
+                completedAt: "2026-05-02T12:40:00.000Z",
+              },
+            },
+          },
+        ],
+      },
+    ]);
+  });
 });
