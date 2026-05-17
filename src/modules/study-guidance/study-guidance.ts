@@ -3,6 +3,7 @@ import type { AppLabel } from "../labels/label-management/labels";
 import type {
   FlashCardRecallAttemptsByNote,
   RecallGuidanceEntry,
+  RecallGuidanceRecommendation,
   RecallSchedule,
   SessionResult,
 } from "../recall";
@@ -23,10 +24,7 @@ export type StudyGuidanceStat = {
   label: string;
 };
 
-export type StudyGuidanceTopicRecommendation = {
-  nextRecall: string;
-  summary: string;
-};
+export type StudyGuidanceTopicRecommendation = RecallGuidanceRecommendation;
 
 export type StudyGuidanceTopic = {
   id: string;
@@ -58,6 +56,13 @@ type StudyGuidanceTopicDraft = {
   guidanceEntries: readonly RecallGuidanceEntry[];
   id: string;
   title: string;
+};
+
+type RecallGuidanceSignalCounts = {
+  interleavingReadyCount: number;
+  needsPracticeCount: number;
+  notRecalledYetCount: number;
+  recallTodayCount: number;
 };
 
 const recallTodayStat: Omit<StudyGuidanceStat, "count"> = {
@@ -115,6 +120,37 @@ function createTopicDrafts(input: {
   return topicDrafts;
 }
 
+function countRecallGuidanceSignals(
+  guidanceEntries: readonly RecallGuidanceEntry[],
+): RecallGuidanceSignalCounts {
+  const counts: RecallGuidanceSignalCounts = {
+    interleavingReadyCount: 0,
+    needsPracticeCount: 0,
+    notRecalledYetCount: 0,
+    recallTodayCount: 0,
+  };
+
+  for (const entry of guidanceEntries) {
+    if (entry.interleavingReady) {
+      counts.interleavingReadyCount += 1;
+    }
+
+    if (entry.needsPractice) {
+      counts.needsPracticeCount += 1;
+    }
+
+    if (entry.notRecalledYet) {
+      counts.notRecalledYetCount += 1;
+    }
+
+    if (entry.recallToday) {
+      counts.recallTodayCount += 1;
+    }
+  }
+
+  return counts;
+}
+
 function compareTopics(left: StudyGuidanceTopic, right: StudyGuidanceTopic) {
   return (
     right.needsPracticeCount - left.needsPracticeCount ||
@@ -140,52 +176,41 @@ export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
   });
   const topics = topicDrafts
     .map((topicDraft) => {
-      const needsPracticeCount = topicDraft.guidanceEntries.filter(
-        (entry) => entry.needsPractice,
-      ).length;
-      const recallTodayCount = topicDraft.guidanceEntries.filter(
-        (entry) => entry.recallToday,
-      ).length;
-      const notRecalledYetCount = topicDraft.guidanceEntries.filter(
-        (entry) => entry.notRecalledYet,
-      ).length;
-      const interleavingReadyCount = topicDraft.guidanceEntries.filter(
-        (entry) => entry.interleavingReady,
-      ).length;
+      const signalCounts = countRecallGuidanceSignals(
+        topicDraft.guidanceEntries,
+      );
       const recommendation = getRecallGuidanceRecommendation({
         entries: topicDraft.guidanceEntries,
       });
 
       return {
         id: topicDraft.id,
-        interleavingReadyCount,
-        needsPracticeCount,
-        notRecalledYetCount,
+        ...signalCounts,
         recommendation,
-        recallTodayCount,
         studyNoteCount: topicDraft.guidanceEntries.length,
         title: topicDraft.title,
       } satisfies StudyGuidanceTopic;
     })
     .sort(compareTopics);
+  const signalCounts = countRecallGuidanceSignals(recallGuidance);
 
   return {
     stats: [
       {
         ...recallTodayStat,
-        count: recallGuidance.filter((entry) => entry.recallToday).length,
+        count: signalCounts.recallTodayCount,
       },
       {
         ...needsPracticeStat,
-        count: recallGuidance.filter((entry) => entry.needsPractice).length,
+        count: signalCounts.needsPracticeCount,
       },
       {
         ...notRecalledYetStat,
-        count: recallGuidance.filter((entry) => entry.notRecalledYet).length,
+        count: signalCounts.notRecalledYetCount,
       },
       {
         ...interleavingReadyStat,
-        count: recallGuidance.filter((entry) => entry.interleavingReady).length,
+        count: signalCounts.interleavingReadyCount,
       },
     ],
     topics,

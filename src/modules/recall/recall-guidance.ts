@@ -53,19 +53,25 @@ export type RecallGuidanceInput = {
   userTimeZone: UserTimeZonePreference;
 };
 
-function listInterleavingReadyStudyNoteIds(input: {
+function getInterleavingReadyStudyNoteIds(input: {
   histories: readonly StudyNoteRecallHistory[];
   studyNotes: readonly AppStudyNote[];
-}) {
-  return input.studyNotes.flatMap((studyNote) =>
-    getInterleavedRecallRecommendation({
+}): ReadonlySet<string> {
+  const studyNoteIds = new Set<string>();
+
+  for (const studyNote of input.studyNotes) {
+    const recommendation = getInterleavedRecallRecommendation({
       histories: input.histories,
       studyNote,
       studyNotes: input.studyNotes,
-    }) === null
-      ? []
-      : [studyNote.id],
-  );
+    });
+
+    if (recommendation !== null) {
+      studyNoteIds.add(studyNote.id);
+    }
+  }
+
+  return studyNoteIds;
 }
 
 function formatRecommendationSummary(input: {
@@ -78,6 +84,20 @@ function formatRecommendationSummary(input: {
     input.scoreLabel === null ? "" : ` Last score: ${input.scoreLabel}.`;
 
   return `${input.prompt} ${input.action}.${scoreCopy} Next recall: ${input.nextRecall}.`;
+}
+
+function createRecommendation(input: {
+  action: string;
+  kind: RecallGuidanceRecommendationKind;
+  nextRecall: string;
+  prompt: string;
+  scoreLabel: string | null;
+}): RecallGuidanceRecommendation {
+  return {
+    kind: input.kind,
+    nextRecall: input.nextRecall,
+    summary: formatRecommendationSummary(input),
+  };
 }
 
 function createRecallGuidanceRecommendation(input: {
@@ -93,54 +113,42 @@ function createRecallGuidanceRecommendation(input: {
   );
 
   if (input.learningState?.needsPractice) {
-    return {
+    return createRecommendation({
+      action: "needs practice",
       kind: "needs-practice",
       nextRecall: input.nextRecall,
-      summary: formatRecommendationSummary({
-        action: "needs practice",
-        nextRecall: input.nextRecall,
-        prompt,
-        scoreLabel,
-      }),
-    };
+      prompt,
+      scoreLabel,
+    });
   }
 
   if (input.recallToday) {
-    return {
+    return createRecommendation({
+      action: "is ready for Recall Today",
       kind: "recall-today",
       nextRecall: input.nextRecall,
-      summary: formatRecommendationSummary({
-        action: "is ready for Recall Today",
-        nextRecall: input.nextRecall,
-        prompt,
-        scoreLabel,
-      }),
-    };
+      prompt,
+      scoreLabel,
+    });
   }
 
   if (input.interleavingReady) {
-    return {
+    return createRecommendation({
+      action: "is interleaving ready after repeated Good or Easy recalls",
       kind: "interleaving-ready",
-      nextRecall: input.nextRecall,
-      summary: formatRecommendationSummary({
-        action: "is interleaving ready after repeated Good or Easy recalls",
-        nextRecall: input.nextRecall,
-        prompt,
-        scoreLabel: null,
-      }),
-    };
-  }
-
-  return {
-    kind: "reinforce",
-    nextRecall: input.nextRecall,
-    summary: formatRecommendationSummary({
-      action: "is the next Study Note to reinforce",
       nextRecall: input.nextRecall,
       prompt,
       scoreLabel: null,
-    }),
-  };
+    });
+  }
+
+  return createRecommendation({
+    action: "is the next Study Note to reinforce",
+    kind: "reinforce",
+    nextRecall: input.nextRecall,
+    prompt,
+    scoreLabel: null,
+  });
 }
 
 function selectRecommendedRecallGuidanceEntry(
@@ -188,12 +196,10 @@ export function deriveRecallGuidance(
     string,
     RecallTodayQueueItem
   >(recallTodayQueue.map((queueItem) => [queueItem.studyNote.id, queueItem]));
-  const interleavingReadyStudyNoteIds = new Set(
-    listInterleavingReadyStudyNoteIds({
-      histories,
-      studyNotes: recallableStudyNotes,
-    }),
-  );
+  const interleavingReadyStudyNoteIds = getInterleavingReadyStudyNoteIds({
+    histories,
+    studyNotes: recallableStudyNotes,
+  });
 
   return recallableStudyNotes.map((studyNote) => {
     const learningState = learningStateByStudyNoteId.get(studyNote.id) ?? null;
