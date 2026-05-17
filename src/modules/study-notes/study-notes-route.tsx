@@ -29,7 +29,6 @@ import {
   formatNextRecallTiming,
   type RecallQuestion,
   type RecallSchedule,
-  type RecallSelfRating,
   resolveSessionResultQuestion,
   type SessionResult,
 } from "../recall";
@@ -61,7 +60,10 @@ import {
   type UpdateStudyNoteInput,
 } from ".";
 import { getStudyNotePracticeRepair } from "./practice-repair";
-import { deriveStudyNoteRecallInsight } from "./study-note-recall-insight";
+import {
+  deriveStudyNoteRecallInsight,
+  formatRecallSelfRatingResultLabel,
+} from "./study-note-recall-insight";
 
 export const Route = createFileRoute("/_protected/study-notes")({
   component: StudyNotesWorkspace,
@@ -510,21 +512,6 @@ function getStudyNoteStatusKind(
   return "neutral";
 }
 
-function formatScoreResultLabel(rating: RecallSelfRating | null) {
-  switch (rating) {
-    case "easy":
-      return "Easy (5/5)";
-    case "forgot":
-      return "Forgot (1/5)";
-    case "good":
-      return "Good (4/5)";
-    case "hard":
-      return "Hard (2/5)";
-    case null:
-      return "—";
-  }
-}
-
 function formatRelativeUpdatedLabel(timestamp: string) {
   const updatedAt = new Date(timestamp).getTime();
 
@@ -633,7 +620,7 @@ function getPracticeRepairOriginSnapshot(input: {
 
   return {
     prompt: getPracticeRepairOriginPrompt(question),
-    ratingLabel: formatScoreResultLabel(question.selfRating),
+    ratingLabel: formatRecallSelfRatingResultLabel(question.selfRating),
     sourceTitle: getPracticeRepairOriginSourceTitle(question),
   };
 }

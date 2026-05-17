@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { RecallGuidanceEntry } from "../recall";
-import { deriveStudyNoteRecallInsight } from "./study-note-recall-insight";
+import {
+  deriveStudyNoteRecallInsight,
+  type StudyNoteRecallInsight,
+} from "./study-note-recall-insight";
 import type { AppStudyNote, UpdateStudyNoteInput } from "./study-notes";
 
 const timestamp = "2026-05-01T09:00:00.000Z";
@@ -52,8 +55,9 @@ function buildRecallGuidanceEntry(
     studyNoteId?: string;
   } = {},
 ): RecallGuidanceEntry {
+  const { studyNoteId, ...entryOverrides } = overrides;
   const studyNote = buildStudyNote({
-    id: overrides.studyNoteId ?? "study-note-1",
+    id: studyNoteId ?? "study-note-1",
     labelIds: [],
     prompt: "Prompt",
   });
@@ -73,162 +77,182 @@ function buildRecallGuidanceEntry(
       summary: "Prompt is ready for Recall Today. Next recall: Recall today.",
     },
     studyNote,
-    ...overrides,
+    ...entryOverrides,
   };
 }
 
-describe("Study Note recall insight", () => {
-  it("preserves the current editor recall-insight copy while using Recall Guidance facts", () => {
-    expect(
-      deriveStudyNoteRecallInsight({
-        draft: buildDraft({ expectedAnswer: " " }),
-        nextRecall: "—",
-        recallGuidance: null,
-      }),
-    ).toEqual({
+type RecallInsightInput = Parameters<typeof deriveStudyNoteRecallInsight>[0];
+
+type RecallInsightScenario = {
+  expected: StudyNoteRecallInsight;
+  input: RecallInsightInput;
+  name: string;
+};
+
+const recallInsightScenarios = [
+  {
+    expected: {
       description: "Complete the note to enable recall.",
       kind: "incomplete",
       lastResult: "—",
       nextRecall: "—",
       statusLabel: "New",
       suggestedAction: "Add expected answer",
-    });
-
-    expect(
-      deriveStudyNoteRecallInsight({
-        draft: buildDraft(),
-        nextRecall: "After saving",
-        recallGuidance: null,
-      }),
-    ).toEqual({
+    },
+    input: {
+      draft: buildDraft({ expectedAnswer: " " }),
+      nextRecall: "—",
+      recallGuidance: null,
+    },
+    name: "marks drafts without expected answers as incomplete",
+  },
+  {
+    expected: {
       description: "Ready for recall after saving.",
       kind: "new",
       lastResult: "—",
       nextRecall: "After saving",
       statusLabel: "New",
       suggestedAction: "Save to enable recall",
-    });
-
-    expect(
-      deriveStudyNoteRecallInsight({
-        draft: buildDraft(),
-        nextRecall: "Today",
-        recallGuidance: buildRecallGuidanceEntry(),
-      }),
-    ).toEqual({
+    },
+    input: {
+      draft: buildDraft(),
+      nextRecall: "After saving",
+      recallGuidance: null,
+    },
+    name: "keeps unsaved recallable drafts in the save-first state",
+  },
+  {
+    expected: {
       description: "Not enough recall data yet.",
       kind: "new",
       lastResult: "—",
       nextRecall: "Today",
       statusLabel: "New",
       suggestedAction: "Review this note",
-    });
-
-    expect(
-      deriveStudyNoteRecallInsight({
-        draft: buildDraft(),
-        nextRecall: "May 19",
-        recallGuidance: buildRecallGuidanceEntry({
-          dueForRecall: false,
-          nextRecall: "Next recall May 19",
-          notRecalledYet: true,
-          recallToday: false,
-          recommendation: {
-            kind: "reinforce",
-            nextRecall: "Next recall May 19",
-            summary:
-              "Prompt is the next Study Note to reinforce. Next recall: Next recall May 19.",
-          },
-        }),
-      }),
-    ).toEqual({
+    },
+    input: {
+      draft: buildDraft(),
+      nextRecall: "Today",
+      recallGuidance: buildRecallGuidanceEntry(),
+    },
+    name: "prompts due unrecalled Study Notes to review now",
+  },
+  {
+    expected: {
       description: "Not enough recall data yet.",
       kind: "new",
       lastResult: "—",
       nextRecall: "May 19",
       statusLabel: "New",
       suggestedAction: "Review when due",
-    });
-
-    expect(
-      deriveStudyNoteRecallInsight({
-        draft: buildDraft(),
-        nextRecall: "Today",
-        recallGuidance: buildRecallGuidanceEntry({
-          lastScore: "hard",
-          needsPractice: true,
-          notRecalledYet: false,
-          recommendation: {
-            kind: "needs-practice",
-            nextRecall: "Recall today",
-            summary:
-              "Prompt needs practice. Last score: Hard. Next recall: Recall today.",
-          },
-        }),
+    },
+    input: {
+      draft: buildDraft(),
+      nextRecall: "May 19",
+      recallGuidance: buildRecallGuidanceEntry({
+        dueForRecall: false,
+        nextRecall: "Next recall May 19",
+        notRecalledYet: true,
+        recallToday: false,
+        recommendation: {
+          kind: "reinforce",
+          nextRecall: "Next recall May 19",
+          summary:
+            "Prompt is the next Study Note to reinforce. Next recall: Next recall May 19.",
+        },
       }),
-    ).toEqual({
+    },
+    name: "prompts scheduled unrecalled Study Notes to wait until due",
+  },
+  {
+    expected: {
       description: "This note needs more attention.",
       kind: "practice",
       lastResult: "Hard (2/5)",
       nextRecall: "Today",
       statusLabel: "Needs practice",
       suggestedAction: "Review this note",
-    });
-
-    expect(
-      deriveStudyNoteRecallInsight({
-        draft: buildDraft(),
-        nextRecall: "May 19",
-        recallGuidance: buildRecallGuidanceEntry({
-          dueForRecall: false,
-          interleavingReady: true,
-          lastScore: "easy",
-          needsPractice: false,
-          nextRecall: "Next recall May 19",
-          notRecalledYet: false,
-          recallToday: false,
-          recommendation: {
-            kind: "interleaving-ready",
-            nextRecall: "Next recall May 19",
-            summary:
-              "Prompt is interleaving ready after repeated Good or Easy recalls. Next recall: Next recall May 19.",
-          },
-        }),
+    },
+    input: {
+      draft: buildDraft(),
+      nextRecall: "Today",
+      recallGuidance: buildRecallGuidanceEntry({
+        lastScore: "hard",
+        needsPractice: true,
+        notRecalledYet: false,
+        recommendation: {
+          kind: "needs-practice",
+          nextRecall: "Recall today",
+          summary:
+            "Prompt needs practice. Last score: Hard. Next recall: Recall today.",
+        },
       }),
-    ).toEqual({
+    },
+    name: "surfaces Needs practice for hard recall evidence",
+  },
+  {
+    expected: {
       description: "You're recalling this well. Keep it up.",
       kind: "on-track",
       lastResult: "Easy (5/5)",
       nextRecall: "May 19",
       statusLabel: "On track",
       suggestedAction: "Keep it up",
-    });
-
-    expect(
-      deriveStudyNoteRecallInsight({
-        draft: buildDraft(),
-        nextRecall: "Today",
-        recallGuidance: buildRecallGuidanceEntry({
-          dueForRecall: true,
-          lastScore: "good",
-          needsPractice: false,
-          notRecalledYet: false,
-          recallToday: true,
-          recommendation: {
-            kind: "recall-today",
-            nextRecall: "Recall today",
-            summary:
-              "Prompt is ready for Recall Today. Last score: Good. Next recall: Recall today.",
-          },
-        }),
+    },
+    input: {
+      draft: buildDraft(),
+      nextRecall: "May 19",
+      recallGuidance: buildRecallGuidanceEntry({
+        dueForRecall: false,
+        interleavingReady: true,
+        lastScore: "easy",
+        needsPractice: false,
+        nextRecall: "Next recall May 19",
+        notRecalledYet: false,
+        recallToday: false,
+        recommendation: {
+          kind: "interleaving-ready",
+          nextRecall: "Next recall May 19",
+          summary:
+            "Prompt is interleaving ready after repeated Good or Easy recalls. Next recall: Next recall May 19.",
+        },
       }),
-    ).toEqual({
+    },
+    name: "keeps successful scheduled Study Notes on track",
+  },
+  {
+    expected: {
       description: "You're recalling this well. Keep it up.",
       kind: "on-track",
       lastResult: "Good (4/5)",
       nextRecall: "Today",
       statusLabel: "On track",
       suggestedAction: "Review this note",
-    });
+    },
+    input: {
+      draft: buildDraft(),
+      nextRecall: "Today",
+      recallGuidance: buildRecallGuidanceEntry({
+        dueForRecall: true,
+        lastScore: "good",
+        needsPractice: false,
+        notRecalledYet: false,
+        recallToday: true,
+        recommendation: {
+          kind: "recall-today",
+          nextRecall: "Recall today",
+          summary:
+            "Prompt is ready for Recall Today. Last score: Good. Next recall: Recall today.",
+        },
+      }),
+    },
+    name: "prompts successful due Study Notes to review now",
+  },
+] satisfies readonly RecallInsightScenario[];
+
+describe("Study Note recall insight", () => {
+  it.each(recallInsightScenarios)("$name", ({ expected, input }) => {
+    expect(deriveStudyNoteRecallInsight(input)).toEqual(expected);
   });
 });

@@ -18,7 +18,9 @@ export type StudyNoteRecallInsight = {
   suggestedAction: string;
 };
 
-function formatScoreResultLabel(rating: RecallSelfRating | null) {
+export function formatRecallSelfRatingResultLabel(
+  rating: RecallSelfRating | null,
+) {
   switch (rating) {
     case "easy":
       return "Easy (5/5)";
@@ -38,9 +40,10 @@ export function deriveStudyNoteRecallInsight(input: {
   nextRecall: string;
   recallGuidance: RecallGuidanceEntry | null;
 }): StudyNoteRecallInsight {
+  const { draft, nextRecall, recallGuidance } = input;
   const readiness = getStudyNoteReadiness({
-    expectedAnswer: input.draft.expectedAnswer,
-    prompt: input.draft.prompt,
+    expectedAnswer: draft.expectedAnswer,
+    prompt: draft.prompt,
   });
 
   if (!readiness.recallable) {
@@ -54,36 +57,36 @@ export function deriveStudyNoteRecallInsight(input: {
     };
   }
 
-  if (input.recallGuidance === null) {
+  if (recallGuidance === null) {
     return {
       description: "Ready for recall after saving.",
       kind: "new",
       lastResult: "—",
-      nextRecall: input.nextRecall,
+      nextRecall,
       statusLabel: "New",
       suggestedAction: "Save to enable recall",
     };
   }
 
-  if (input.recallGuidance.notRecalledYet) {
+  if (recallGuidance.notRecalledYet) {
     return {
       description: "Not enough recall data yet.",
       kind: "new",
       lastResult: "—",
-      nextRecall: input.nextRecall,
+      nextRecall,
       statusLabel: "New",
-      suggestedAction: input.recallGuidance.dueForRecall
+      suggestedAction: recallGuidance.dueForRecall
         ? "Review this note"
         : "Review when due",
     };
   }
 
-  if (input.recallGuidance.needsPractice) {
+  if (recallGuidance.needsPractice) {
     return {
       description: "This note needs more attention.",
       kind: "practice",
-      lastResult: formatScoreResultLabel(input.recallGuidance.lastScore),
-      nextRecall: input.nextRecall,
+      lastResult: formatRecallSelfRatingResultLabel(recallGuidance.lastScore),
+      nextRecall,
       statusLabel: "Needs practice",
       suggestedAction: "Review this note",
     };
@@ -92,10 +95,10 @@ export function deriveStudyNoteRecallInsight(input: {
   return {
     description: "You're recalling this well. Keep it up.",
     kind: "on-track",
-    lastResult: formatScoreResultLabel(input.recallGuidance.lastScore),
-    nextRecall: input.nextRecall,
+    lastResult: formatRecallSelfRatingResultLabel(recallGuidance.lastScore),
+    nextRecall,
     statusLabel: "On track",
-    suggestedAction: input.recallGuidance.dueForRecall
+    suggestedAction: recallGuidance.dueForRecall
       ? "Review this note"
       : "Keep it up",
   };
