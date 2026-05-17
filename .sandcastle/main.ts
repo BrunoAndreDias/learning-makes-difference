@@ -88,7 +88,21 @@ const getHostGitStatus = () =>
     encoding: "utf8",
   }).replace(/\n$/, "");
 
+const restoreGeneratedRouteTreeChurn = () => {
+  const status = getHostGitStatus();
+
+  if (!status.split("\n").includes(" M src/routeTree.gen.ts")) {
+    return;
+  }
+
+  execFileSync("git", ["restore", "--worktree", "src/routeTree.gen.ts"], {
+    encoding: "utf8",
+  });
+};
+
 const assertCleanHostWorktree = (phase: string) => {
+  restoreGeneratedRouteTreeChurn();
+
   const status = getHostGitStatus();
 
   if (status.length === 0) {
