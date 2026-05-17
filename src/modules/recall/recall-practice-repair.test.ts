@@ -453,9 +453,151 @@ describe("recall Practice Repair queue", () => {
       question: {
         questionResultId: "result-newest-candidate-question-0",
       },
+      recentWeakAttemptsSummary:
+        "Also showed Needs practice in 1 earlier recent Recall result.",
       result: {
         id: "result-newest-candidate",
       },
     });
+  });
+
+  it("keeps the queue empty for empty, stale, and noisy candidate histories", () => {
+    expect(
+      listPracticeRepairQueueItems({
+        results: [],
+      }),
+    ).toEqual([]);
+
+    expect(
+      listPracticeRepairQueueItems({
+        results: [
+          {
+            completedAt: "2026-05-17T12:00:00.000Z",
+            id: "result-newest-good",
+            questions: [
+              {
+                noteId: "study-note-resolved",
+                noteSnapshot: {
+                  body: "Resolved body",
+                  expectedAnswer: "Resolved answer",
+                  prompt: "What was resolved?",
+                  sourceNoteId: "source-note-resolved",
+                  title: "Resolved title",
+                },
+                questionResultId: "result-newest-good-question-0",
+                selfRating: "good",
+              },
+            ],
+          },
+          {
+            completedAt: "2026-05-16T12:00:00.000Z",
+            id: "result-older-weak",
+            questions: [
+              {
+                noteId: "study-note-resolved",
+                noteSnapshot: {
+                  body: "Older weak body",
+                  expectedAnswer: "Older weak answer",
+                  prompt: "What used to be weak?",
+                  sourceNoteId: "source-note-resolved",
+                  title: "Older weak title",
+                },
+                questionResultId: "result-older-weak-question-0",
+                selfRating: "forgot",
+              },
+            ],
+          },
+          {
+            completedAt: "2026-05-17T11:00:00.000Z",
+            id: "result-missing-question-id",
+            questions: [
+              {
+                noteId: "study-note-missing-question-id",
+                noteSnapshot: {
+                  body: "Missing id body",
+                  expectedAnswer: "Missing id answer",
+                  prompt: "What is missing its question id?",
+                  sourceNoteId: "source-note-missing-id",
+                  title: "Missing id title",
+                },
+                selfRating: "forgot",
+              },
+            ],
+          },
+          {
+            completedAt: "2026-05-16T11:00:00.000Z",
+            id: "result-older-missing-question-id-candidate",
+            questions: [
+              {
+                noteId: "study-note-missing-question-id",
+                noteSnapshot: {
+                  body: "Older missing id body",
+                  expectedAnswer: "Older missing id answer",
+                  prompt: "What is missing its question id now?",
+                  sourceNoteId: "source-note-missing-id",
+                  title: "Older missing id title",
+                },
+                questionResultId:
+                  "result-older-missing-question-id-candidate-question-0",
+                selfRating: "hard",
+              },
+            ],
+          },
+          {
+            completedAt: "2026-05-17T10:00:00.000Z",
+            id: "result-newest-ineligible",
+            questions: [
+              {
+                noteId: "study-note-ineligible",
+                noteSnapshot: {
+                  body: "Newest ineligible body",
+                  expectedAnswer: "Newest ineligible answer",
+                  prompt: "What no longer has source context?",
+                  title: "Newest ineligible title",
+                },
+                questionResultId: "result-newest-ineligible-question-0",
+                selfRating: "hard",
+              },
+            ],
+          },
+          {
+            completedAt: "2026-05-16T10:00:00.000Z",
+            id: "result-older-ineligible-candidate",
+            questions: [
+              {
+                noteId: "study-note-ineligible",
+                noteSnapshot: {
+                  body: "Older ineligible body",
+                  expectedAnswer: "Older ineligible answer",
+                  prompt: "What used to have source context?",
+                  sourceNoteId: "source-note-ineligible",
+                  title: "Older ineligible title",
+                },
+                questionResultId:
+                  "result-older-ineligible-candidate-question-0",
+                selfRating: "forgot",
+              },
+            ],
+          },
+          {
+            completedAt: "2026-05-17T09:00:00.000Z",
+            id: "result-missing-note-id",
+            questions: [
+              {
+                noteSnapshot: {
+                  body: "No note id body",
+                  expectedAnswer: "No note id answer",
+                  prompt: "What has no note id?",
+                  sourceNoteId: "source-note-no-id",
+                  title: "No note id title",
+                },
+                questionResultId: "result-missing-note-id-question-0",
+                selfRating: "forgot",
+              },
+            ],
+          },
+        ],
+      }),
+    ).toEqual([]);
   });
 });

@@ -184,6 +184,7 @@ export type PracticeRepairQueueCandidateItem<
   draft: PracticeRepairDraft;
   kind: "candidate";
   question: PracticeRepairQueueCandidateQuestion<Result>;
+  recentWeakAttemptsSummary: string | null;
   result: Result;
 };
 
@@ -196,6 +197,16 @@ export type PracticeRepairQueueListItem<
   | PracticeRepairQueueCandidateItem<Result>;
 
 type PracticeRepairEntryPredicate = (entry: PracticeRepairEntry) => boolean;
+type PracticeRepairQueueCandidateProjectionState<
+  Result extends PracticeRepairQueueResultLike,
+> = {
+  isClosed: boolean;
+  item: Omit<
+    PracticeRepairQueueCandidateItem<Result>,
+    "recentWeakAttemptsSummary"
+  > | null;
+  recentWeakAttemptCount: number;
+};
 
 const practiceRepairSuggestions = [
   "Tighten the expected answer so the next recall target is specific.",
@@ -730,6 +741,63 @@ function comparePracticeRepairQueueCandidateItems(
   );
 }
 
+function comparePracticeRepairQueueResults(
+  left: PracticeRepairQueueResultLike,
+  right: PracticeRepairQueueResultLike,
+): number {
+  return (
+    right.completedAt.localeCompare(left.completedAt) ||
+    right.id.localeCompare(left.id)
+  );
+}
+
+function formatPracticeRepairQueueRecentWeakAttemptsSummary(
+  recentWeakAttemptCount: number,
+): string | null {
+  const earlierRecentWeakAttemptCount = recentWeakAttemptCount - 1;
+
+  if (earlierRecentWeakAttemptCount <= 0) {
+    return null;
+  }
+
+  return earlierRecentWeakAttemptCount === 1
+    ? "Also showed Needs practice in 1 earlier recent Recall result."
+    : `Also showed Needs practice in ${earlierRecentWeakAttemptCount} earlier recent Recall results.`;
+}
+
+function closePracticeRepairQueueCandidateProjection<
+  Result extends PracticeRepairQueueResultLike,
+>(
+  projectionStates: Map<
+    string,
+    PracticeRepairQueueCandidateProjectionState<Result>
+  >,
+  studyNoteId: string,
+) {
+  const existingState = projectionStates.get(studyNoteId);
+
+  if (existingState === undefined) {
+    projectionStates.set(studyNoteId, {
+      isClosed: true,
+      item: null,
+      recentWeakAttemptCount: 0,
+    });
+    return;
+  }
+
+  existingState.isClosed = true;
+}
+
+function hasPracticeRepairQueueStudyNoteId<
+  Question extends PracticeRepairQueueQuestionLike,
+>(
+  question: Question,
+): question is Question & {
+  noteId: string;
+} {
+  return question.noteId !== undefined;
+}
+
 function hasPracticeRepairQueueCandidateIdentity<
   Question extends PracticeRepairQueueQuestionLike,
 >(
@@ -820,50 +888,84 @@ export function listPracticeRepairQueueItems<
   const activeStudyNoteIds = new Set(
     activeItems.map((item) => item.entry.reference.studyNoteId),
   );
-  const candidateItemsByStudyNoteId = new Map<
+  const candidateProjectionStatesByStudyNoteId = new Map<
     string,
-    PracticeRepairQueueCandidateItem<Result>
+    PracticeRepairQueueCandidateProjectionState<Result>
   >();
-  const sortedResults = [...input.results].sort((left, right) => {
-    return (
-      right.completedAt.localeCompare(left.completedAt) ||
-      right.id.localeCompare(left.id)
-    );
-  });
+  const sortedResults = [...input.results].sort(
+    comparePracticeRepairQueueResults,
+  );
 
   for (const result of sortedResults) {
     for (const question of result.questions) {
-      if (!hasPracticeRepairQueueCandidateIdentity(question)) {
+      if (!hasPracticeRepairQueueStudyNoteId(question)) {
         continue;
       }
 
       const studyNoteId = question.noteId;
+      const existingState =
+        candidateProjectionStatesByStudyNoteId.get(studyNoteId);
 
-      if (
-        activeStudyNoteIds.has(studyNoteId) ||
-        candidateItemsByStudyNoteId.has(studyNoteId)
-      ) {
+      if (activeStudyNoteIds.has(studyNoteId)) {
+        closePracticeRepairQueueCandidateProjection(
+          candidateProjectionStatesByStudyNoteId,
+          studyNoteId,
+        );
+        continue;
+      }
+
+      if (existingState?.isClosed) {
         continue;
       }
 
       const draft = getQuestionPracticeRepairDraft(question);
 
-      if (draft === null) {
+      if (
+        draft === null ||
+        !hasPracticeRepairQueueCandidateIdentity(question)
+      ) {
+        closePracticeRepairQueueCandidateProjection(
+          candidateProjectionStatesByStudyNoteId,
+          studyNoteId,
+        );
         continue;
       }
 
-      candidateItemsByStudyNoteId.set(studyNoteId, {
-        draft,
-        kind: "candidate",
-        question,
-        result,
+      if (existingState !== undefined && existingState.item !== null) {
+        existingState.recentWeakAttemptCount += 1;
+        continue;
+      }
+
+      candidateProjectionStatesByStudyNoteId.set(studyNoteId, {
+        isClosed: false,
+        item: {
+          draft,
+          kind: "candidate",
+          question,
+          result,
+        },
+        recentWeakAttemptCount: 1,
       });
     }
   }
 
-  const candidateItems = [...candidateItemsByStudyNoteId.values()].sort(
-    comparePracticeRepairQueueCandidateItems,
-  );
+  const candidateItems = [...candidateProjectionStatesByStudyNoteId.values()]
+    .flatMap((state) => {
+      if (state.item === null) {
+        return [];
+      }
+
+      return [
+        {
+          ...state.item,
+          recentWeakAttemptsSummary:
+            formatPracticeRepairQueueRecentWeakAttemptsSummary(
+              state.recentWeakAttemptCount,
+            ),
+        },
+      ];
+    })
+    .sort(comparePracticeRepairQueueCandidateItems);
 
   return [
     ...activeItems.map((item) => ({

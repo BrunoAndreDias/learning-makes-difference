@@ -1278,6 +1278,12 @@ describe("authenticated recall workspace", () => {
     });
 
     completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: candidateStudyNote.id,
+      timestamp: "2026-05-16T09:00:00.000Z",
+    });
+    completeStudyNoteRecallAt({
       rating: "forgot",
       recallContext: contexts.recallContext,
       studyNoteId: candidateStudyNote.id,
@@ -1343,6 +1349,11 @@ describe("authenticated recall workspace", () => {
     });
     expect(
       within(candidateList).getByText("What stores transferable energy?"),
+    ).toBeInTheDocument();
+    expect(
+      within(candidateList).getByText(
+        "Also showed Needs practice in 1 earlier recent Recall result.",
+      ),
     ).toBeInTheDocument();
     expect(
       within(candidateList).queryByText("What carries electrons to the chain?"),
