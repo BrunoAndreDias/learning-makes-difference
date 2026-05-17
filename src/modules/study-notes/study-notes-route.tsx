@@ -25,6 +25,7 @@ import "../notes/notes-workspace/notes-responsive.css";
 import "../notes/notes-workspace/notes-toolbar.css";
 import {
   AppRecallError,
+  deriveRecallGuidance,
   formatNextRecallTiming,
   type RecallQuestion,
   type RecallSchedule,
@@ -60,6 +61,7 @@ import {
   type UpdateStudyNoteInput,
 } from ".";
 import { getStudyNotePracticeRepair } from "./practice-repair";
+import { deriveStudyNoteRecallInsight } from "./study-note-recall-insight";
 
 export const Route = createFileRoute("/_protected/study-notes")({
   component: StudyNotesWorkspace,
@@ -434,19 +436,6 @@ type StudyNoteLearningLabels = {
 };
 
 type StudyNoteStatusKind = "attention" | "complete" | "neutral" | "practice";
-type StudyNoteRecallInsightKind =
-  | "incomplete"
-  | "new"
-  | "on-track"
-  | "practice";
-type StudyNoteRecallInsight = {
-  description: string;
-  kind: StudyNoteRecallInsightKind;
-  lastResult: string;
-  nextRecall: string;
-  statusLabel: string;
-  suggestedAction: string;
-};
 type StudyNoteEditorTarget =
   | {
       studyNoteId: string;
@@ -794,78 +783,6 @@ function hasDraftMemoryAidContent(draft: UpdateStudyNoteInput) {
   );
 }
 
-function getDraftStudyNoteReadiness(draft: UpdateStudyNoteInput) {
-  return getStudyNoteReadiness({
-    expectedAnswer: draft.expectedAnswer,
-    prompt: draft.prompt,
-  });
-}
-
-function getStudyNoteRecallInsight(input: {
-  draft: UpdateStudyNoteInput;
-  learningState: StudyNoteLearningState | null;
-  nextRecall: string;
-}): StudyNoteRecallInsight {
-  const readiness = getDraftStudyNoteReadiness(input.draft);
-
-  if (!readiness.recallable) {
-    return {
-      description: "Complete the note to enable recall.",
-      kind: "incomplete",
-      lastResult: "—",
-      nextRecall: "—",
-      statusLabel: "New",
-      suggestedAction: "Add expected answer",
-    };
-  }
-
-  if (input.learningState === null) {
-    return {
-      description: "Ready for recall after saving.",
-      kind: "new",
-      lastResult: "—",
-      nextRecall: "After saving",
-      statusLabel: "New",
-      suggestedAction: "Save to enable recall",
-    };
-  }
-
-  if (input.learningState.latestScore === null) {
-    return {
-      description: "Not enough recall data yet.",
-      kind: "new",
-      lastResult: "—",
-      nextRecall: input.nextRecall,
-      statusLabel: "New",
-      suggestedAction: input.learningState.dueForRecall
-        ? "Review this note"
-        : "Review when due",
-    };
-  }
-
-  if (input.learningState.needsPractice) {
-    return {
-      description: "This note needs more attention.",
-      kind: "practice",
-      lastResult: formatScoreResultLabel(input.learningState.latestScore),
-      nextRecall: input.nextRecall,
-      statusLabel: "Needs practice",
-      suggestedAction: "Review this note",
-    };
-  }
-
-  return {
-    description: "You're recalling this well. Keep it up.",
-    kind: "on-track",
-    lastResult: formatScoreResultLabel(input.learningState.latestScore),
-    nextRecall: input.nextRecall,
-    statusLabel: "On track",
-    suggestedAction: input.learningState.dueForRecall
-      ? "Review this note"
-      : "Keep it up",
-  };
-}
-
 function getStudyNoteLearningLabels(
   learningState: StudyNoteLearningState,
 ): StudyNoteLearningLabels {
@@ -1124,14 +1041,35 @@ function StudyNotesWorkspace() {
       return searchableText.includes(normalizedQuery);
     });
   }, [availableLabels, labelFilteredStudyNotes, searchQuery]);
-  const recallHistories = useMemo(
+  const recallAttemptsByNote = useMemo(
     () =>
       userId === null || recallResultsSnapshot.length === 0
         ? []
-        : toStudyNoteRecallHistories(
-            recallContext.listAttemptsByNote({ userId }),
-          ),
+        : recallContext.listAttemptsByNote({ userId }),
     [recallContext, recallResultsSnapshot, userId],
+  );
+  const recallHistories = useMemo(
+    () => toStudyNoteRecallHistories(recallAttemptsByNote),
+    [recallAttemptsByNote],
+  );
+  const recallGuidanceEntries = useMemo(
+    () =>
+      deriveRecallGuidance({
+        attemptsByNote: recallAttemptsByNote,
+        now,
+        recallSchedules: recallSchedulesSnapshot,
+        sessionResults: recallResultsSnapshot,
+        studyNotes: allStudyNotes,
+        userTimeZone,
+      }),
+    [
+      allStudyNotes,
+      now,
+      recallAttemptsByNote,
+      recallResultsSnapshot,
+      recallSchedulesSnapshot,
+      userTimeZone,
+    ],
   );
   const learningStates = useMemo(
     () =>
@@ -1163,6 +1101,13 @@ function StudyNotesWorkspace() {
       ),
     [learningStates],
   );
+  const recallGuidanceByStudyNoteId = useMemo(
+    () =>
+      new Map(
+        recallGuidanceEntries.map((entry) => [entry.studyNote.id, entry]),
+      ),
+    [recallGuidanceEntries],
+  );
   const [selectedStudyNoteId, setSelectedStudyNoteId] = useState<string | null>(
     studyNotes[0]?.id ?? null,
   );
@@ -1189,6 +1134,10 @@ function StudyNotesWorkspace() {
     selectedStudyNote === null
       ? null
       : (recallScheduleByStudyNoteId.get(selectedStudyNote.id) ?? null);
+  const selectedRecallGuidance =
+    selectedStudyNote === null
+      ? null
+      : (recallGuidanceByStudyNoteId.get(selectedStudyNote.id) ?? null);
   const selectedPracticeRepairStudyNoteId = selectedStudyNote?.id ?? null;
   const activePracticeRepairEntries = useMemo<PracticeRepairEntryView[]>(
     () =>
@@ -2021,10 +1970,10 @@ function StudyNotesWorkspace() {
     schedule: selectedRecallSchedule,
     userTimeZone,
   });
-  const selectedRecallInsight = getStudyNoteRecallInsight({
+  const selectedRecallInsight = deriveStudyNoteRecallInsight({
     draft,
-    learningState: selectedLearningState,
     nextRecall: selectedNextRecall,
+    recallGuidance: selectedRecallGuidance,
   });
   const referenceHasContent = hasDraftReferenceContent(draft);
   const referenceDisclosureDefaultOpen = referenceHasContent;
