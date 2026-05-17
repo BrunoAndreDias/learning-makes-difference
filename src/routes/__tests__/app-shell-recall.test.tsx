@@ -1087,6 +1087,70 @@ describe("authenticated recall workspace", () => {
     ).toBeNull();
   });
 
+  it("redirects an already confirmed draft URL to the canonical Practice Repair workspace", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const weakStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "ATP stores transferable energy for cells.",
+        prompt: "What stores transferable energy?",
+        sourceBody: "Cell respiration source context.",
+        sourceTitle: "Cell respiration source",
+      },
+    );
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: weakStudyNote.id,
+      timestamp: "2026-05-15T09:00:00.000Z",
+    });
+
+    const confirmedResult = confirmStudyNotePracticeRepair({
+      correction: "State ATP directly and mention energy transfer.",
+      contexts,
+      intent: "tighten-expected-answer",
+      studyNoteId: weakStudyNote.id,
+    });
+    const questionReference = findStudyNoteQuestionResult({
+      results: contexts.recallContext.listSessionResults({
+        userId: testUser.id,
+      }),
+      studyNoteId: weakStudyNote.id,
+    });
+    const practiceRepairEntryId =
+      getConfirmedPracticeRepairEntryId(confirmedResult);
+
+    if (questionReference === null) {
+      throw new Error(
+        "Expected a stored weak-recall result with a question id.",
+      );
+    }
+
+    const { router } = renderRoute(
+      `/recall/results/${questionReference.result.id}/questions/${questionReference.questionResultId}/repair`,
+      {
+        ...contexts,
+        session: createSession(),
+      },
+    );
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe(
+        `/recall/repair/${practiceRepairEntryId}`,
+      );
+    });
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Practice Repair",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("State ATP directly and mention energy transfer."),
+    ).toBeInTheDocument();
+  });
+
   it("shows the active Practice Repair queue in newest-first order and navigates into a workspace", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const olderStudyNote = contexts.studyNotesContext.createStudyNote(

@@ -482,6 +482,79 @@ describe("confirmed Practice Repair entries", () => {
     );
   });
 
+  it("keeps the original durable entry when the same draft confirmation repeats", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-16T14:40:00.000Z"));
+
+    const storage = createMemoryStorage();
+    const userId = "user-practice-repair";
+    const notes = createAppNotesContext({
+      keyPrefix: "practice-repair-entry-duplicate-notes",
+      storage,
+    });
+    const studyNotes = createAppStudyNotesContext({
+      keyPrefix: "practice-repair-entry-duplicate-study-notes",
+      storage,
+    });
+    const recall = createAppRecallContext({
+      keyPrefix: "practice-repair-entry-duplicate-recall",
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+    const studyNote = studyNotes.createStudyNote(userId, {
+      expectedAnswer: "ATP stores transferable energy.",
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+    const result = createWeakStudyNoteResult({
+      recall,
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const reference = createPracticeRepairReference({
+      result,
+      studyNoteId: studyNote.id,
+    });
+    const firstConfirmedResult = recall.confirmPracticeRepairEntry({
+      correction: "State ATP explicitly.",
+      intent: "tighten-expected-answer",
+      reference,
+      userId,
+    });
+
+    vi.setSystemTime(new Date("2026-05-16T14:45:00.000Z"));
+
+    const secondConfirmedResult = recall.confirmPracticeRepairEntry({
+      correction: "Split the note instead.",
+      intent: "split-study-note",
+      reference,
+      userId,
+    });
+
+    expect(
+      secondConfirmedResult.questions[0]?.practiceRepairEntry,
+    ).toMatchObject({
+      confirmedAt: "2026-05-16T14:40:00.000Z",
+      correction: "State ATP explicitly.",
+      intent: "tighten-expected-answer",
+      intentMetadata: {
+        updatedExpectedAnswer: null,
+      },
+    });
+    expect(
+      recall.listPracticeRepairEntriesForQuestion({
+        reference,
+        userId,
+      }),
+    ).toHaveLength(1);
+    expect(getConfirmedPracticeRepairReference(secondConfirmedResult)).toEqual(
+      getConfirmedPracticeRepairReference(firstConfirmedResult),
+    );
+  });
+
   it("supersedes an older active same-intent entry when a new draft is confirmed for the same Study Note", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-16T15:00:00.000Z"));

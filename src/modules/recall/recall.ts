@@ -1598,6 +1598,10 @@ export function createAppRecallContext(
       );
     }
 
+    if (question.practiceRepairEntry !== undefined) {
+      return cloneSessionResult(result);
+    }
+
     const confirmedAt = new Date().toISOString();
     const confirmedReference = {
       ...input.reference,
