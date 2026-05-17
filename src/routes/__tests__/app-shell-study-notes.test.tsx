@@ -59,6 +59,7 @@ function getDisclosureDetails(region: HTMLElement) {
 type DeterministicRecallTestContexts = ReturnType<
   typeof createDeterministicRecallTestContexts
 >;
+type StudyNotesRouteTestRouter = ReturnType<typeof renderRoute>["router"];
 
 type StudyNoteSnapshotInput = {
   expectedAnswer: string;
@@ -215,6 +216,122 @@ function getConfirmedPracticeRepairEntryId(result: SessionResult) {
   }
 
   return entryId;
+}
+
+function expectPracticeRepairReturnLink(practiceRepairEntryId: string) {
+  expect(
+    screen.getByRole("link", { name: "Return to Practice Repair" }),
+  ).toHaveAttribute("href", `/recall/repair/${practiceRepairEntryId}`);
+}
+
+function getActivePracticeRepairEntry(name: string) {
+  const activePracticeRepair = screen.getByRole("region", {
+    name: "Active Practice Repair",
+  });
+
+  return within(activePracticeRepair).getByRole("article", { name });
+}
+
+function getCreatedSiblingStudyNote(
+  contexts: DeterministicRecallTestContexts,
+  originalStudyNote: ReturnType<typeof createStudyNoteSnapshot>,
+) {
+  const createdSibling = contexts.studyNotesContext
+    .getSnapshot()
+    .find(
+      (studyNote) =>
+        studyNote.id !== originalStudyNote.id &&
+        studyNote.sourceNoteId === originalStudyNote.sourceNoteId,
+    );
+
+  if (createdSibling === undefined) {
+    throw new Error("Expected a sibling Study Note from the original source.");
+  }
+
+  return createdSibling;
+}
+
+function renderLinkedPracticeRepairRoute(input: {
+  contexts: DeterministicRecallTestContexts;
+  correction: string;
+  displayName: string;
+  email: string;
+  intent: PracticeRepairIntent;
+  otherExpectedAnswer?: string;
+  rating: RecallSelfRating;
+  sourceBody: string;
+  sourceTitle: string;
+  userId: string;
+}) {
+  createStudyNoteSnapshot(input.contexts, {
+    expectedAnswer: input.otherExpectedAnswer ?? "Unrelated answer.",
+    prompt: "Another Study Note",
+    sourceBody: "Another source body.",
+    sourceTitle: "Another source",
+    userId: input.userId,
+  });
+  const studyNote = createStudyNoteSnapshot(input.contexts, {
+    expectedAnswer: "Original expected answer.",
+    prompt: "Original prompt",
+    sourceBody: input.sourceBody,
+    sourceTitle: input.sourceTitle,
+    userId: input.userId,
+  });
+
+  completeStudyNoteRecall(input.contexts, {
+    rating: input.rating,
+    studyNoteId: studyNote.id,
+    userId: input.userId,
+  });
+  const confirmedResult = confirmStudyNotePracticeRepair(input.contexts, {
+    correction: input.correction,
+    intent: input.intent,
+    studyNoteId: studyNote.id,
+    userId: input.userId,
+  });
+  const practiceRepairEntryId =
+    getConfirmedPracticeRepairEntryId(confirmedResult);
+  const { router } = renderRoute(
+    `/study-notes?practiceRepairEntryId=${practiceRepairEntryId}&practiceRepairAction=${input.intent}`,
+    {
+      ...input.contexts,
+      session: {
+        user: {
+          displayName: input.displayName,
+          email: input.email,
+          id: input.userId,
+          userLanguage: "en",
+        },
+      },
+    },
+  );
+
+  return {
+    confirmedReference: getConfirmedPracticeRepairReference(confirmedResult),
+    practiceRepairEntryId,
+    router,
+    studyNote,
+  };
+}
+
+async function returnToCompletedPracticeRepairWorkspace(
+  router: StudyNotesRouteTestRouter,
+  practiceRepairEntryId: string,
+) {
+  fireEvent.click(
+    screen.getByRole("link", { name: "Return to Practice Repair" }),
+  );
+
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe(
+      `/recall/repair/${practiceRepairEntryId}`,
+    ),
+  );
+  expect(
+    await screen.findByRole("complementary", {
+      name: "Practice Repair actions",
+    }),
+  ).toHaveTextContent("Completed");
 }
 
 function renderStudyNotesRouteForUser(
@@ -2135,64 +2252,27 @@ describe("authenticated Study Notes workspace", () => {
   it("completes a linked create-sibling Practice Repair in Study Notes, keeps the return target visible, and does not auto-return", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-practice-repair-linked-create-sibling";
-    createStudyNoteSnapshot(contexts, {
-      expectedAnswer: "Unrelated answer.",
-      prompt: "Another Study Note",
-      sourceBody: "Another source body.",
-      sourceTitle: "Another source",
-      userId,
-    });
-    const studyNote = createStudyNoteSnapshot(contexts, {
-      expectedAnswer: "Original expected answer.",
-      prompt: "Original prompt",
-      sourceBody: "Shared source body for linked sibling repair.",
-      sourceTitle: "Linked sibling source",
-      userId,
-    });
-
-    completeStudyNoteRecall(contexts, {
-      rating: "forgot",
-      studyNoteId: studyNote.id,
-      userId,
-    });
-    const confirmedResult = confirmStudyNotePracticeRepair(contexts, {
-      correction: "Create a sibling Study Note for the transport detail.",
-      intent: "create-sibling-study-note",
-      studyNoteId: studyNote.id,
-      userId,
-    });
-    const practiceRepairEntryId =
-      getConfirmedPracticeRepairEntryId(confirmedResult);
-    const confirmedReference =
-      getConfirmedPracticeRepairReference(confirmedResult);
-    const { router } = renderRoute(
-      `/study-notes?practiceRepairEntryId=${practiceRepairEntryId}&practiceRepairAction=create-sibling-study-note`,
-      {
-        ...contexts,
-        session: {
-          user: {
-            displayName: "Jordan Linked Sibling Repair",
-            email: "jordan.linked.sibling.repair@example.com",
-            id: userId,
-            userLanguage: "en",
-          },
-        },
-      },
-    );
+    const { confirmedReference, practiceRepairEntryId, router, studyNote } =
+      renderLinkedPracticeRepairRoute({
+        contexts,
+        correction: "Create a sibling Study Note for the transport detail.",
+        displayName: "Jordan Linked Sibling Repair",
+        email: "jordan.linked.sibling.repair@example.com",
+        intent: "create-sibling-study-note",
+        rating: "forgot",
+        sourceBody: "Shared source body for linked sibling repair.",
+        sourceTitle: "Linked sibling source",
+        userId,
+      });
 
     expect(await screen.findByLabelText("Prompt")).toHaveValue(
       "Original prompt",
     );
-    expect(
-      screen.getByRole("link", { name: "Return to Practice Repair" }),
-    ).toHaveAttribute("href", `/recall/repair/${practiceRepairEntryId}`);
+    expectPracticeRepairReturnLink(practiceRepairEntryId);
 
-    const activePracticeRepair = screen.getByRole("region", {
-      name: "Active Practice Repair",
-    });
-    const activeEntry = within(activePracticeRepair).getByRole("article", {
-      name: "Create sibling Study Note",
-    });
+    const activeEntry = getActivePracticeRepairEntry(
+      "Create sibling Study Note",
+    );
 
     fireEvent.click(
       within(activeEntry).getByRole("button", {
@@ -2209,18 +2289,12 @@ describe("authenticated Study Notes workspace", () => {
     expect(await screen.findByLabelText("Prompt")).toHaveValue(
       "Linked sibling source",
     );
-    expect(
-      screen.getByRole("link", { name: "Return to Practice Repair" }),
-    ).toHaveAttribute("href", `/recall/repair/${practiceRepairEntryId}`);
+    expectPracticeRepairReturnLink(practiceRepairEntryId);
 
     const allStudyNotes = contexts.studyNotesContext.getSnapshot();
     expect(allStudyNotes).toHaveLength(3);
-    const createdSibling = allStudyNotes.find(
-      (note) =>
-        note.id !== studyNote.id &&
-        note.sourceNoteId === studyNote.sourceNoteId,
-    );
-    expect(createdSibling?.sourceNoteId).toBe(studyNote.sourceNoteId);
+    const createdSibling = getCreatedSiblingStudyNote(contexts, studyNote);
+    expect(createdSibling.sourceNoteId).toBe(studyNote.sourceNoteId);
     expect(
       contexts.recallContext.listPracticeRepairEntriesForQuestion({
         reference: confirmedReference,
@@ -2228,90 +2302,41 @@ describe("authenticated Study Notes workspace", () => {
       })[0],
     ).toMatchObject({
       intentMetadata: {
-        createdStudyNoteId: expect.any(String),
+        createdStudyNoteId: createdSibling.id,
       },
       lifecycle: {
         completedAt: expect.any(String),
       },
     });
 
-    fireEvent.click(
-      screen.getByRole("link", { name: "Return to Practice Repair" }),
+    await returnToCompletedPracticeRepairWorkspace(
+      router,
+      practiceRepairEntryId,
     );
-
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe(
-        `/recall/repair/${practiceRepairEntryId}`,
-      ),
-    );
-    expect(
-      await screen.findByRole("complementary", {
-        name: "Practice Repair actions",
-      }),
-    ).toHaveTextContent("Completed");
   });
 
   it("completes a linked split-study-note Practice Repair in Study Notes after creating a split target and narrowing the original", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-practice-repair-linked-split";
-    createStudyNoteSnapshot(contexts, {
-      expectedAnswer: "Unrelated answer.",
-      prompt: "Another Study Note",
-      sourceBody: "Another source body.",
-      sourceTitle: "Another source",
-      userId,
-    });
-    const studyNote = createStudyNoteSnapshot(contexts, {
-      expectedAnswer: "Original expected answer.",
-      prompt: "Original prompt",
-      sourceBody: "Shared source body for linked split repair.",
-      sourceTitle: "Linked split source",
-      userId,
-    });
-
-    completeStudyNoteRecall(contexts, {
-      rating: "forgot",
-      studyNoteId: studyNote.id,
-      userId,
-    });
-    const confirmedResult = confirmStudyNotePracticeRepair(contexts, {
-      correction: "Split out the transport detail and narrow the original.",
-      intent: "split-study-note",
-      studyNoteId: studyNote.id,
-      userId,
-    });
-    const practiceRepairEntryId =
-      getConfirmedPracticeRepairEntryId(confirmedResult);
-    const confirmedReference =
-      getConfirmedPracticeRepairReference(confirmedResult);
-    const { router } = renderRoute(
-      `/study-notes?practiceRepairEntryId=${practiceRepairEntryId}&practiceRepairAction=split-study-note`,
-      {
-        ...contexts,
-        session: {
-          user: {
-            displayName: "Jordan Linked Split Repair",
-            email: "jordan.linked.split.repair@example.com",
-            id: userId,
-            userLanguage: "en",
-          },
-        },
-      },
-    );
+    const { confirmedReference, practiceRepairEntryId, router, studyNote } =
+      renderLinkedPracticeRepairRoute({
+        contexts,
+        correction: "Split out the transport detail and narrow the original.",
+        displayName: "Jordan Linked Split Repair",
+        email: "jordan.linked.split.repair@example.com",
+        intent: "split-study-note",
+        rating: "forgot",
+        sourceBody: "Shared source body for linked split repair.",
+        sourceTitle: "Linked split source",
+        userId,
+      });
 
     expect(await screen.findByLabelText("Prompt")).toHaveValue(
       "Original prompt",
     );
-    expect(
-      screen.getByRole("link", { name: "Return to Practice Repair" }),
-    ).toHaveAttribute("href", `/recall/repair/${practiceRepairEntryId}`);
+    expectPracticeRepairReturnLink(practiceRepairEntryId);
 
-    const activePracticeRepair = screen.getByRole("region", {
-      name: "Active Practice Repair",
-    });
-    const activeEntry = within(activePracticeRepair).getByRole("article", {
-      name: "Split Study Note",
-    });
+    const activeEntry = getActivePracticeRepairEntry("Split Study Note");
 
     fireEvent.click(
       within(activeEntry).getByRole("button", {
@@ -2329,14 +2354,8 @@ describe("authenticated Study Notes workspace", () => {
       "Original expected answer.",
     );
 
-    const createdSibling = contexts.studyNotesContext
-      .getSnapshot()
-      .find(
-        (note) =>
-          note.id !== studyNote.id &&
-          note.sourceNoteId === studyNote.sourceNoteId,
-      );
-    expect(createdSibling?.sourceNoteId).toBe(studyNote.sourceNoteId);
+    const createdSibling = getCreatedSiblingStudyNote(contexts, studyNote);
+    expect(createdSibling.sourceNoteId).toBe(studyNote.sourceNoteId);
 
     fireEvent.change(screen.getByLabelText("Prompt"), {
       target: {
@@ -2356,9 +2375,7 @@ describe("authenticated Study Notes workspace", () => {
       ),
     );
     expect(router.state.location.pathname).toBe("/study-notes");
-    expect(
-      screen.getByRole("link", { name: "Return to Practice Repair" }),
-    ).toHaveAttribute("href", `/recall/repair/${practiceRepairEntryId}`);
+    expectPracticeRepairReturnLink(practiceRepairEntryId);
     expect(
       contexts.recallContext.listPracticeRepairEntriesForQuestion({
         reference: confirmedReference,
@@ -2366,7 +2383,7 @@ describe("authenticated Study Notes workspace", () => {
       })[0],
     ).toMatchObject({
       intentMetadata: {
-        createdStudyNoteIds: [createdSibling?.id],
+        createdStudyNoteIds: [createdSibling.id],
         narrowedOriginalStudyNoteAt: expect.any(String),
       },
       lifecycle: {
@@ -2374,69 +2391,27 @@ describe("authenticated Study Notes workspace", () => {
       },
     });
 
-    fireEvent.click(
-      screen.getByRole("link", { name: "Return to Practice Repair" }),
+    await returnToCompletedPracticeRepairWorkspace(
+      router,
+      practiceRepairEntryId,
     );
-
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe(
-        `/recall/repair/${practiceRepairEntryId}`,
-      ),
-    );
-    expect(
-      await screen.findByRole("complementary", {
-        name: "Practice Repair actions",
-      }),
-    ).toHaveTextContent("Completed");
   });
 
   it("completes a linked expected-answer Practice Repair on save, keeps the return target visible, and does not auto-return", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-practice-repair-linked-expected-answer";
-    createStudyNoteSnapshot(contexts, {
-      expectedAnswer: "Unrelated answer.",
-      prompt: "Another Study Note",
-      sourceBody: "Another source body.",
-      sourceTitle: "Another source",
-      userId,
-    });
-    const studyNote = createStudyNoteSnapshot(contexts, {
-      expectedAnswer: "Original expected answer.",
-      prompt: "Original prompt",
-      sourceBody: "Shared source body for linked expected-answer repair.",
-      sourceTitle: "Linked expected-answer source",
-      userId,
-    });
-
-    completeStudyNoteRecall(contexts, {
-      rating: "hard",
-      studyNoteId: studyNote.id,
-      userId,
-    });
-    const confirmedResult = confirmStudyNotePracticeRepair(contexts, {
-      correction: "State ATP directly and anchor the role.",
-      intent: "tighten-expected-answer",
-      studyNoteId: studyNote.id,
-      userId,
-    });
-    const practiceRepairEntryId =
-      getConfirmedPracticeRepairEntryId(confirmedResult);
-    const confirmedReference =
-      getConfirmedPracticeRepairReference(confirmedResult);
-    const { router } = renderRoute(
-      `/study-notes?practiceRepairEntryId=${practiceRepairEntryId}&practiceRepairAction=tighten-expected-answer`,
-      {
-        ...contexts,
-        session: {
-          user: {
-            displayName: "Jordan Linked Expected Answer",
-            email: "jordan.linked.expected-answer@example.com",
-            id: userId,
-            userLanguage: "en",
-          },
-        },
-      },
-    );
+    const { confirmedReference, practiceRepairEntryId, router } =
+      renderLinkedPracticeRepairRoute({
+        contexts,
+        correction: "State ATP directly and anchor the role.",
+        displayName: "Jordan Linked Expected Answer",
+        email: "jordan.linked.expected-answer@example.com",
+        intent: "tighten-expected-answer",
+        rating: "hard",
+        sourceBody: "Shared source body for linked expected-answer repair.",
+        sourceTitle: "Linked expected-answer source",
+        userId,
+      });
 
     expect(await screen.findByLabelText("Prompt")).toHaveValue(
       "Original prompt",
@@ -2444,9 +2419,7 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.getByLabelText("Expected answer")).toHaveValue(
       "Original expected answer.",
     );
-    expect(
-      screen.getByRole("link", { name: "Return to Practice Repair" }),
-    ).toHaveAttribute("href", `/recall/repair/${practiceRepairEntryId}`);
+    expectPracticeRepairReturnLink(practiceRepairEntryId);
 
     fireEvent.change(screen.getByLabelText("Expected answer"), {
       target: {
@@ -2461,9 +2434,7 @@ describe("authenticated Study Notes workspace", () => {
       ),
     );
     expect(router.state.location.pathname).toBe("/study-notes");
-    expect(
-      screen.getByRole("link", { name: "Return to Practice Repair" }),
-    ).toHaveAttribute("href", `/recall/repair/${practiceRepairEntryId}`);
+    expectPracticeRepairReturnLink(practiceRepairEntryId);
     expect(
       contexts.recallContext.listPracticeRepairEntriesForQuestion({
         reference: confirmedReference,
@@ -2478,87 +2449,38 @@ describe("authenticated Study Notes workspace", () => {
       },
     });
 
-    fireEvent.click(
-      screen.getByRole("link", { name: "Return to Practice Repair" }),
+    await returnToCompletedPracticeRepairWorkspace(
+      router,
+      practiceRepairEntryId,
     );
-
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe(
-        `/recall/repair/${practiceRepairEntryId}`,
-      ),
-    );
-    expect(
-      await screen.findByRole("complementary", {
-        name: "Practice Repair actions",
-      }),
-    ).toHaveTextContent("Completed");
   });
 
   it("completes a linked add-memory-aid Practice Repair in Study Notes, keeps the return target visible, and does not auto-return", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-practice-repair-deep-link";
-    createStudyNoteSnapshot(contexts, {
-      expectedAnswer: "Other answer.",
-      prompt: "Another Study Note",
-      sourceBody: "Another source body.",
-      sourceTitle: "Another source",
-      userId,
-    });
-    const studyNote = createStudyNoteSnapshot(contexts, {
-      expectedAnswer: "Original expected answer.",
-      prompt: "Original prompt",
-      sourceBody: "Shared source body for linked Practice Repair.",
-      sourceTitle: "Linked repair source",
-      userId,
-    });
-
-    completeStudyNoteRecall(contexts, {
-      rating: "hard",
-      studyNoteId: studyNote.id,
-      userId,
-    });
-    const confirmedResult = confirmStudyNotePracticeRepair(contexts, {
-      correction: "Add a memory aid for the transport steps.",
-      intent: "add-memory-aid",
-      studyNoteId: studyNote.id,
-      userId,
-    });
-    const practiceRepairEntryId =
-      getConfirmedPracticeRepairEntryId(confirmedResult);
-    const confirmedReference =
-      getConfirmedPracticeRepairReference(confirmedResult);
-
-    const { router } = renderRoute(
-      `/study-notes?practiceRepairEntryId=${practiceRepairEntryId}&practiceRepairAction=add-memory-aid`,
-      {
-        ...contexts,
-        session: {
-          user: {
-            displayName: "Jordan Linked Repair",
-            email: "jordan.linked.repair@example.com",
-            id: userId,
-            userLanguage: "en",
-          },
-        },
-      },
-    );
+    const { confirmedReference, practiceRepairEntryId, router } =
+      renderLinkedPracticeRepairRoute({
+        contexts,
+        correction: "Add a memory aid for the transport steps.",
+        displayName: "Jordan Linked Repair",
+        email: "jordan.linked.repair@example.com",
+        intent: "add-memory-aid",
+        otherExpectedAnswer: "Other answer.",
+        rating: "hard",
+        sourceBody: "Shared source body for linked Practice Repair.",
+        sourceTitle: "Linked repair source",
+        userId,
+      });
 
     expect(await screen.findByLabelText("Prompt")).toHaveValue(
       "Original prompt",
     );
-    expect(
-      screen.getByRole("link", { name: "Return to Practice Repair" }),
-    ).toHaveAttribute("href", `/recall/repair/${practiceRepairEntryId}`);
+    expectPracticeRepairReturnLink(practiceRepairEntryId);
     expect(
       getDisclosureDetails(screen.getByRole("region", { name: "Memory aids" })),
     ).toHaveAttribute("open");
 
-    const activePracticeRepair = screen.getByRole("region", {
-      name: "Active Practice Repair",
-    });
-    const activeEntry = within(activePracticeRepair).getByRole("article", {
-      name: "Add memory aid",
-    });
+    const activeEntry = getActivePracticeRepairEntry("Add memory aid");
 
     fireEvent.click(
       within(activeEntry).getByRole("button", {
@@ -2578,9 +2500,7 @@ describe("authenticated Study Notes workspace", () => {
       ),
     );
     expect(router.state.location.pathname).toBe("/study-notes");
-    expect(
-      screen.getByRole("link", { name: "Return to Practice Repair" }),
-    ).toHaveAttribute("href", `/recall/repair/${practiceRepairEntryId}`);
+    expectPracticeRepairReturnLink(practiceRepairEntryId);
     expect(
       contexts.recallContext.listPracticeRepairEntriesForQuestion({
         reference: confirmedReference,
@@ -2596,19 +2516,9 @@ describe("authenticated Study Notes workspace", () => {
       },
     });
 
-    fireEvent.click(
-      screen.getByRole("link", { name: "Return to Practice Repair" }),
+    await returnToCompletedPracticeRepairWorkspace(
+      router,
+      practiceRepairEntryId,
     );
-
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe(
-        `/recall/repair/${practiceRepairEntryId}`,
-      ),
-    );
-    expect(
-      await screen.findByRole("complementary", {
-        name: "Practice Repair actions",
-      }),
-    ).toHaveTextContent("Completed");
   });
 });

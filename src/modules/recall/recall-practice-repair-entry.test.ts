@@ -98,11 +98,27 @@ function getConfirmedPracticeRepairEntry(result: SessionResult) {
   return entry;
 }
 
+function createReloadedRecallContext(input: {
+  keyPrefix: string;
+  notes: ReturnType<typeof createAppNotesContext>;
+  storage: ReturnType<typeof createMemoryStorage>;
+  studyNotes: ReturnType<typeof createAppStudyNotesContext>;
+}) {
+  return createAppRecallContext({
+    keyPrefix: input.keyPrefix,
+    notes: input.notes,
+    shuffleNotes: (sessionNotes) => [...sessionNotes],
+    storage: input.storage,
+    studyNotes: input.studyNotes,
+  });
+}
+
 function createConfirmedSplitPracticeRepairEntry(input: {
   keyPrefix: string;
   userId: string;
 }) {
   const storage = createMemoryStorage();
+  const recallStorageKeyPrefix = `${input.keyPrefix}-recall`;
   const notes = createAppNotesContext({
     keyPrefix: `${input.keyPrefix}-notes`,
     storage,
@@ -117,7 +133,7 @@ function createConfirmedSplitPracticeRepairEntry(input: {
       randomUUID: () =>
         `${input.keyPrefix}-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
     },
-    keyPrefix: `${input.keyPrefix}-recall`,
+    keyPrefix: recallStorageKeyPrefix,
     notes,
     shuffleNotes: (sessionNotes) => [...sessionNotes],
     storage,
@@ -145,13 +161,16 @@ function createConfirmedSplitPracticeRepairEntry(input: {
   });
 
   return {
-    notes,
     recall,
-    recallStorageKeyPrefix: `${input.keyPrefix}-recall`,
     reference: getConfirmedPracticeRepairReference(splitResult),
-    storage,
+    reloadRecall: () =>
+      createReloadedRecallContext({
+        keyPrefix: recallStorageKeyPrefix,
+        notes,
+        storage,
+        studyNotes,
+      }),
     studyNote,
-    studyNotes,
   };
 }
 
@@ -1348,10 +1367,9 @@ describe("confirmed Practice Repair entries", () => {
       },
     });
 
-    const reloadedRecall = createAppRecallContext({
+    const reloadedRecall = createReloadedRecallContext({
       keyPrefix: recallStorageKeyPrefix,
       notes,
-      shuffleNotes: (sessionNotes) => [...sessionNotes],
       storage,
       studyNotes,
     });
@@ -1403,18 +1421,11 @@ describe("confirmed Practice Repair entries", () => {
     vi.setSystemTime(new Date("2026-05-16T16:20:00.000Z"));
 
     const userId = "user-practice-repair-linked-split";
-    const {
-      notes,
-      recall,
-      recallStorageKeyPrefix,
-      reference,
-      storage,
-      studyNote,
-      studyNotes,
-    } = createConfirmedSplitPracticeRepairEntry({
-      keyPrefix: "practice-repair-entry-linked-split",
-      userId,
-    });
+    const { recall, reference, reloadRecall, studyNote } =
+      createConfirmedSplitPracticeRepairEntry({
+        keyPrefix: "practice-repair-entry-linked-split",
+        userId,
+      });
 
     vi.setSystemTime(new Date("2026-05-16T16:25:00.000Z"));
 
@@ -1463,13 +1474,7 @@ describe("confirmed Practice Repair entries", () => {
         completedAt: "2026-05-16T16:30:00.000Z",
       },
     });
-    const reloadedRecall = createAppRecallContext({
-      keyPrefix: recallStorageKeyPrefix,
-      notes,
-      shuffleNotes: (sessionNotes) => [...sessionNotes],
-      storage,
-      studyNotes,
-    });
+    const reloadedRecall = reloadRecall();
 
     expect(
       reloadedRecall.listPracticeRepairEntriesForQuestion({
