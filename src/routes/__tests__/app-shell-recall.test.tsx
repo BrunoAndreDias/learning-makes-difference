@@ -176,6 +176,19 @@ function createStoredSessionResult(
   };
 }
 
+function getStoredRecallSelfRatingScore(rating: RecallSelfRating) {
+  switch (rating) {
+    case "forgot":
+      return 0;
+    case "hard":
+      return 50;
+    case "good":
+      return 75;
+    case "easy":
+      return 100;
+  }
+}
+
 function createStoredPracticeRepairResult(
   overrides: {
     correction?: string;
@@ -207,14 +220,7 @@ function createStoredPracticeRepairResult(
   const id = overrides.id ?? "stored-practice-repair-result";
   const questionResultId = overrides.questionResultId ?? `${id}-question-0`;
   const rating = overrides.rating ?? "hard";
-  const score =
-    rating === "forgot"
-      ? 0
-      : rating === "hard"
-        ? 50
-        : rating === "good"
-          ? 75
-          : 100;
+  const score = getStoredRecallSelfRatingScore(rating);
   const reference = {
     questionIndex: 0,
     questionResultId,

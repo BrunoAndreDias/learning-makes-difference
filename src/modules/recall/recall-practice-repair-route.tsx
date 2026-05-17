@@ -48,6 +48,13 @@ type PracticeRepairWorkspace = {
   result: FlashCardSessionResult;
 };
 
+type PracticeRepairLifecycleAction = "complete" | "dismiss";
+
+type RecallResultsStore = Pick<
+  AppRecallContext,
+  "getSessionResultsSnapshot" | "subscribe"
+>;
+
 function findPracticeRepairWorkspace(input: {
   practiceRepairEntryId: string;
   sessionResults: readonly FlashCardSessionResult[];
@@ -187,8 +194,28 @@ function getPracticeRepairSupportCopy(input: {
   }
 }
 
+function getPracticeRepairFeedbackMessage(
+  action: PracticeRepairLifecycleAction,
+) {
+  switch (action) {
+    case "complete":
+      return "Practice Repair completed";
+    case "dismiss":
+      return "Practice Repair dismissed";
+  }
+}
+
+function getPracticeRepairErrorMessage(action: PracticeRepairLifecycleAction) {
+  switch (action) {
+    case "complete":
+      return "Practice Repair could not be completed.";
+    case "dismiss":
+      return "Practice Repair could not be dismissed.";
+  }
+}
+
 async function mutatePracticeRepairLifecycle(input: {
-  action: "complete" | "dismiss";
+  action: PracticeRepairLifecycleAction;
   persistentRecallContext: AppPersistentRecallContext | undefined;
   reference: PracticeRepairEntry["reference"];
   recallContext: AppRecallContext;
@@ -200,33 +227,128 @@ async function mutatePracticeRepairLifecycle(input: {
     return;
   }
 
-  if (input.action === "complete") {
-    if (persistentRecallContext === undefined) {
+  if (persistentRecallContext !== undefined) {
+    switch (input.action) {
+      case "complete":
+        await persistentRecallContext.completePracticeRepairEntry(userId, {
+          reference,
+        });
+        return;
+      case "dismiss":
+        await persistentRecallContext.dismissPracticeRepairEntry(userId, {
+          reference,
+        });
+        return;
+    }
+  }
+
+  switch (input.action) {
+    case "complete":
       recallContext.completePracticeRepairEntry({
         reference,
         userId,
       });
       return;
-    }
-
-    await persistentRecallContext.completePracticeRepairEntry(userId, {
-      reference,
-    });
-
-    return;
+    case "dismiss":
+      recallContext.dismissPracticeRepairEntry({
+        reference,
+        userId,
+      });
+      return;
   }
+}
 
-  if (persistentRecallContext === undefined) {
-    recallContext.dismissPracticeRepairEntry({
-      reference,
-      userId,
-    });
-    return;
+function useSessionResultsSubscription(recallResultsStore: RecallResultsStore) {
+  useSyncExternalStore(
+    recallResultsStore.subscribe,
+    recallResultsStore.getSessionResultsSnapshot,
+    recallResultsStore.getSessionResultsSnapshot,
+  );
+}
+
+function PracticeRepairWorkspaceActions({
+  canOpenStudyNotes,
+  isMutationPending,
+  lifecycleKind,
+  onComplete,
+  onDismiss,
+  supersedingPracticeRepairEntryId,
+}: Readonly<{
+  canOpenStudyNotes: boolean;
+  isMutationPending: boolean;
+  lifecycleKind: PracticeRepairEntryLifecycleKind;
+  onComplete: () => void;
+  onDismiss: () => void;
+  supersedingPracticeRepairEntryId: string | null;
+}>) {
+  switch (lifecycleKind) {
+    case "active":
+      return (
+        <>
+          {canOpenStudyNotes ? (
+            <ButtonLink to="/study-notes" variant="secondary">
+              Open Study Notes
+            </ButtonLink>
+          ) : null}
+          <Button
+            disabled={isMutationPending}
+            onClick={onComplete}
+            type="button"
+            variant="primary"
+          >
+            Mark repair complete
+          </Button>
+          <Button
+            disabled={isMutationPending}
+            onClick={onDismiss}
+            type="button"
+            variant="danger"
+          >
+            Dismiss repair
+          </Button>
+        </>
+      );
+    case "completed":
+      return (
+        <>
+          {canOpenStudyNotes ? (
+            <ButtonLink to="/study-notes" variant="secondary">
+              Open Study Notes
+            </ButtonLink>
+          ) : null}
+          <ButtonLink to="/recall" variant="primary">
+            Recall again soon
+          </ButtonLink>
+        </>
+      );
+    case "dismissed":
+    case "follow-up-satisfied":
+    case "study-note-deleted":
+      return (
+        <ButtonLink to="/recall/results" variant="secondary">
+          Open Results
+        </ButtonLink>
+      );
+    case "superseded":
+      return (
+        <>
+          {supersedingPracticeRepairEntryId === null ? null : (
+            <ButtonLink
+              params={{
+                practiceRepairEntryId: supersedingPracticeRepairEntryId,
+              }}
+              to="/recall/repair/$practiceRepairEntryId"
+              variant="primary"
+            >
+              Open newer Practice Repair
+            </ButtonLink>
+          )}
+          <ButtonLink to="/recall/results" variant="secondary">
+            Open Results
+          </ButtonLink>
+        </>
+      );
   }
-
-  await persistentRecallContext.dismissPracticeRepairEntry(userId, {
-    reference,
-  });
 }
 
 function PracticeRepairWorkspaceDetail({
@@ -260,11 +382,7 @@ function RecallPracticeRepairRoute() {
   const recallResultsStore = persistentRecallContext ?? recallContext;
   const recallResultsContext =
     persistentRecallContext?.readonlyContext ?? recallContext;
-  useSyncExternalStore(
-    recallResultsStore.subscribe,
-    recallResultsStore.getSessionResultsSnapshot,
-    recallResultsStore.getSessionResultsSnapshot,
-  );
+  useSessionResultsSubscription(recallResultsStore);
   const userId = sessionSnapshot.user?.id ?? null;
   const sessionResults =
     userId === null ? [] : recallResultsContext.listSessionResults({ userId });
@@ -304,9 +422,8 @@ function RecallPracticeRepairWorkspacePage({
   const { t } = useAppTranslation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
-  const [pendingAction, setPendingAction] = useState<
-    "complete" | "dismiss" | null
-  >(null);
+  const [pendingAction, setPendingAction] =
+    useState<PracticeRepairLifecycleAction | null>(null);
   const { entry, question, result } = workspace;
   const prompt = getPracticeRepairQuestionPrompt(question);
   const expectedAnswer = getPracticeRepairQuestionExpectedAnswer(question);
@@ -340,7 +457,9 @@ function RecallPracticeRepairWorkspacePage({
   const canOpenStudyNotes = lifecycleKind !== "study-note-deleted";
   const isMutationPending = pendingAction !== null;
 
-  async function handleLifecycleMutation(action: "complete" | "dismiss") {
+  async function handleLifecycleMutation(
+    action: PracticeRepairLifecycleAction,
+  ) {
     setErrorMessage(null);
     setFeedbackMessage(null);
     setPendingAction(action);
@@ -353,18 +472,12 @@ function RecallPracticeRepairWorkspacePage({
         reference: entry.reference,
         userId,
       });
-      setFeedbackMessage(
-        action === "complete"
-          ? "Practice Repair completed"
-          : "Practice Repair dismissed",
-      );
+      setFeedbackMessage(getPracticeRepairFeedbackMessage(action));
     } catch (error) {
       setErrorMessage(
         error instanceof AppRecallError
           ? error.message
-          : action === "complete"
-            ? "Practice Repair could not be completed."
-            : "Practice Repair could not be dismissed.",
+          : getPracticeRepairErrorMessage(action),
       );
     } finally {
       setPendingAction(null);
@@ -528,77 +641,16 @@ function RecallPracticeRepairWorkspacePage({
               )}
 
               <div className="recall-practice-repair-workspace__actions">
-                {lifecycleKind === "active" ? (
-                  <>
-                    {canOpenStudyNotes ? (
-                      <ButtonLink to="/study-notes" variant="secondary">
-                        Open Study Notes
-                      </ButtonLink>
-                    ) : null}
-                    <Button
-                      disabled={isMutationPending}
-                      onClick={() => void handleLifecycleMutation("complete")}
-                      type="button"
-                      variant="primary"
-                    >
-                      Mark repair complete
-                    </Button>
-                    <Button
-                      disabled={isMutationPending}
-                      onClick={() => void handleLifecycleMutation("dismiss")}
-                      type="button"
-                      variant="danger"
-                    >
-                      Dismiss repair
-                    </Button>
-                  </>
-                ) : null}
-
-                {lifecycleKind === "completed" ? (
-                  <>
-                    {canOpenStudyNotes ? (
-                      <ButtonLink to="/study-notes" variant="secondary">
-                        Open Study Notes
-                      </ButtonLink>
-                    ) : null}
-                    <ButtonLink to="/recall" variant="primary">
-                      Recall again soon
-                    </ButtonLink>
-                  </>
-                ) : null}
-
-                {lifecycleKind === "dismissed" ||
-                lifecycleKind === "follow-up-satisfied" ? (
-                  <ButtonLink to="/recall/results" variant="secondary">
-                    Open Results
-                  </ButtonLink>
-                ) : null}
-
-                {lifecycleKind === "study-note-deleted" ? (
-                  <ButtonLink to="/recall/results" variant="secondary">
-                    Open Results
-                  </ButtonLink>
-                ) : null}
-
-                {lifecycleKind === "superseded" ? (
-                  <>
-                    {supersedingPracticeRepairEntryId === null ? null : (
-                      <ButtonLink
-                        params={{
-                          practiceRepairEntryId:
-                            supersedingPracticeRepairEntryId,
-                        }}
-                        to="/recall/repair/$practiceRepairEntryId"
-                        variant="primary"
-                      >
-                        Open newer Practice Repair
-                      </ButtonLink>
-                    )}
-                    <ButtonLink to="/recall/results" variant="secondary">
-                      Open Results
-                    </ButtonLink>
-                  </>
-                ) : null}
+                <PracticeRepairWorkspaceActions
+                  canOpenStudyNotes={canOpenStudyNotes}
+                  isMutationPending={isMutationPending}
+                  lifecycleKind={lifecycleKind}
+                  onComplete={() => void handleLifecycleMutation("complete")}
+                  onDismiss={() => void handleLifecycleMutation("dismiss")}
+                  supersedingPracticeRepairEntryId={
+                    supersedingPracticeRepairEntryId
+                  }
+                />
               </div>
 
               <p className="recall-practice-repair-workspace__support">
