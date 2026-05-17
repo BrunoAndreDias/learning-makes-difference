@@ -1898,7 +1898,7 @@ describe("authenticated recall workspace", () => {
       reference: getConfirmedPracticeRepairReference(sessionResults[0]),
     });
     expect(
-      within(actionArea).getByRole("link", { name: "Recall again soon" }),
+      within(actionArea).getByRole("button", { name: "Recall again soon" }),
     ).toBeInTheDocument();
   });
 
@@ -2018,6 +2018,79 @@ describe("authenticated recall workspace", () => {
         "The repair is complete. Recall again soon is the next step from here.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("starts targeted Recall again soon from a completed Practice Repair workspace without satisfying the follow-up on session start", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const weakStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "ATP stores transferable energy for cells.",
+        prompt: "What stores transferable energy?",
+        sourceBody: "Cell respiration source context.",
+        sourceTitle: "Cell respiration source",
+      },
+    );
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: weakStudyNote.id,
+      timestamp: "2026-05-15T09:00:00.000Z",
+    });
+
+    const confirmedResult = confirmStudyNotePracticeRepair({
+      correction:
+        "State ATP directly and anchor the answer to energy transfer.",
+      contexts,
+      intent: "tighten-expected-answer",
+      studyNoteId: weakStudyNote.id,
+    });
+    const confirmedReference =
+      getConfirmedPracticeRepairReference(confirmedResult);
+
+    contexts.recallContext.completePracticeRepairEntry({
+      reference: confirmedReference,
+      userId: testUser.id,
+    });
+
+    const { router } = renderRoute(
+      `/recall/repair/${getConfirmedPracticeRepairEntryId(confirmedResult)}`,
+      {
+        ...contexts,
+        session: createSession(),
+      },
+    );
+
+    const actionArea = await screen.findByRole("complementary", {
+      name: "Practice Repair actions",
+    });
+
+    fireEvent.click(
+      within(actionArea).getByRole("button", {
+        name: "Recall again soon",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/recall/session");
+    });
+    expect(await screen.findByText(weakStudyNote.prompt)).toBeInTheDocument();
+
+    const startedSession = contexts.recallContext.getSnapshot();
+
+    expect(startedSession?.notes).toMatchObject([
+      {
+        id: weakStudyNote.id,
+      },
+    ]);
+    expect(startedSession?.notes).toHaveLength(1);
+    expect(
+      contexts.recallContext.listPracticeRepairEntriesForQuestion({
+        reference: confirmedReference,
+        userId: testUser.id,
+      })[0]?.followUpSatisfaction,
+    ).toBeUndefined();
   });
 
   it.each([
