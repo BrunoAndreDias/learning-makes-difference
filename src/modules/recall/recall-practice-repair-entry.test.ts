@@ -83,13 +83,19 @@ function createPracticeRepairReference(input: {
 function getConfirmedPracticeRepairReference(
   result: SessionResult,
 ): PracticeRepairQuestionReference {
-  const reference = result.questions[0]?.practiceRepairEntry?.reference;
+  const entry = getConfirmedPracticeRepairEntry(result);
 
-  if (reference === undefined) {
-    throw new Error("Expected a confirmed Practice Repair reference.");
+  return entry.reference;
+}
+
+function getConfirmedPracticeRepairEntry(result: SessionResult) {
+  const entry = result.questions[0]?.practiceRepairEntry;
+
+  if (entry === undefined) {
+    throw new Error("Expected a confirmed Practice Repair entry.");
   }
 
-  return reference;
+  return entry;
 }
 
 function createConfirmedSplitPracticeRepairEntry(input: {
@@ -358,14 +364,16 @@ describe("confirmed Practice Repair entries", () => {
       }),
       userId,
     });
-    const confirmedEntry =
-      confirmedResult.questions[0]?.practiceRepairEntry ?? null;
-    const expectedPracticeRepairEntryId = confirmedEntry?.reference
-      .questionResultId
-      ? `practice-repair-entry-${confirmedEntry.reference.questionResultId}`
-      : null;
+    const confirmedEntry = getConfirmedPracticeRepairEntry(confirmedResult);
+    const questionResultId = confirmedEntry.reference.questionResultId;
 
-    expect(confirmedEntry?.practiceRepairEntryId).toBe(
+    if (questionResultId === undefined) {
+      throw new Error("Expected confirmed Practice Repair question id.");
+    }
+
+    const expectedPracticeRepairEntryId = `practice-repair-entry-${questionResultId}`;
+
+    expect(confirmedEntry.practiceRepairEntryId).toBe(
       expectedPracticeRepairEntryId,
     );
 
@@ -405,8 +413,8 @@ describe("confirmed Practice Repair entries", () => {
       correction: "State ATP explicitly.",
       practiceRepairEntryId: expectedPracticeRepairEntryId,
       reference: {
-        questionResultId: confirmedEntry?.reference.questionResultId,
-        sessionResultId: confirmedEntry?.reference.sessionResultId,
+        questionResultId: confirmedEntry.reference.questionResultId,
+        sessionResultId: confirmedEntry.reference.sessionResultId,
         studyNoteId: studyNote.id,
       },
     });

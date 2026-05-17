@@ -31,6 +31,12 @@ const testUser = {
 type DeterministicRecallTestContexts = ReturnType<
   typeof createDeterministicRecallTestContexts
 >;
+type PersistentStudyNoteRecallTestContexts = Pick<
+  DeterministicRecallTestContexts,
+  "labelsContext" | "notesContext" | "recallContext" | "studyNotesContext"
+> & {
+  createRecallContext: () => DeterministicRecallTestContexts["recallContext"];
+};
 
 function createSession() {
   return { user: testUser };
@@ -227,9 +233,47 @@ function completeStudyNoteRecallAt(input: {
   });
 }
 
+function createPersistentStudyNoteRecallTestContexts(
+  storageKeyPrefix: string,
+): PersistentStudyNoteRecallTestContexts {
+  const labelsContext = createAppLabelsContext({
+    keyPrefix: `${storageKeyPrefix}-labels`,
+    storage: window.localStorage,
+  });
+  const notesContext = createAppNotesContext({
+    getOwnedLabelIdsForUser: (userId) =>
+      labelsContext.getLabelsForUser(userId).map((label) => label.id),
+    keyPrefix: `${storageKeyPrefix}-notes`,
+    storage: window.localStorage,
+  });
+  const studyNotesContext = createAppStudyNotesContext({
+    getOwnedLabelIdsForUser: (userId) =>
+      labelsContext.getLabelsForUser(userId).map((label) => label.id),
+    keyPrefix: `${storageKeyPrefix}-study-notes`,
+    storage: window.localStorage,
+  });
+  const createRecallContext = () =>
+    createAppRecallContext({
+      getLabelsForUser: (userId) => labelsContext.getLabelsForUser(userId),
+      keyPrefix: `${storageKeyPrefix}-recall`,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+      studyNotes: studyNotesContext,
+    });
+
+  return {
+    createRecallContext,
+    labelsContext,
+    notesContext,
+    recallContext: createRecallContext(),
+    studyNotesContext,
+  };
+}
+
 function confirmStudyNotePracticeRepair(input: {
   correction: string;
-  contexts: DeterministicRecallTestContexts;
+  contexts: Pick<DeterministicRecallTestContexts, "recallContext">;
   intent:
     | "add-memory-aid"
     | "create-sibling-study-note"
@@ -257,6 +301,17 @@ function confirmStudyNotePracticeRepair(input: {
     },
     userId: testUser.id,
   });
+}
+
+function getConfirmedPracticeRepairEntryId(result: SessionResult) {
+  const entryId =
+    result.questions[0]?.practiceRepairEntry?.practiceRepairEntryId;
+
+  if (entryId === undefined) {
+    throw new Error("Expected a durable Practice Repair Entry id.");
+  }
+
+  return entryId;
 }
 
 function getConfirmedPracticeRepairReference(result: SessionResult) {
@@ -765,30 +820,10 @@ describe("authenticated recall workspace", () => {
     const storageKeyPrefix = `test-practice-repair-${Math.random()
       .toString(36)
       .slice(2)}`;
-    const labelsContext = createAppLabelsContext({
-      keyPrefix: `${storageKeyPrefix}-labels`,
-      storage: window.localStorage,
-    });
-    const notesContext = createAppNotesContext({
-      getOwnedLabelIdsForUser: (userId) =>
-        labelsContext.getLabelsForUser(userId).map((label) => label.id),
-      keyPrefix: `${storageKeyPrefix}-notes`,
-      storage: window.localStorage,
-    });
-    const studyNotesContext = createAppStudyNotesContext({
-      getOwnedLabelIdsForUser: (userId) =>
-        labelsContext.getLabelsForUser(userId).map((label) => label.id),
-      keyPrefix: `${storageKeyPrefix}-study-notes`,
-      storage: window.localStorage,
-    });
-    const recallContext = createAppRecallContext({
-      getLabelsForUser: (userId) => labelsContext.getLabelsForUser(userId),
-      keyPrefix: `${storageKeyPrefix}-recall`,
-      notes: notesContext,
-      shuffleNotes: (sessionNotes) => [...sessionNotes],
-      storage: window.localStorage,
-      studyNotes: studyNotesContext,
-    });
+    const contexts =
+      createPersistentStudyNoteRecallTestContexts(storageKeyPrefix);
+    const { labelsContext, notesContext, recallContext, studyNotesContext } =
+      contexts;
     const weakStudyNote = studyNotesContext.createStudyNote(testUser.id, {
       expectedAnswer: "ATP stores transferable energy for cells.",
       prompt: "What stores transferable energy?",
@@ -845,14 +880,7 @@ describe("authenticated recall workspace", () => {
 
     firstRender.unmount();
 
-    const reloadedRecallContext = createAppRecallContext({
-      getLabelsForUser: (userId) => labelsContext.getLabelsForUser(userId),
-      keyPrefix: `${storageKeyPrefix}-recall`,
-      notes: notesContext,
-      shuffleNotes: (sessionNotes) => [...sessionNotes],
-      storage: window.localStorage,
-      studyNotes: studyNotesContext,
-    });
+    const reloadedRecallContext = contexts.createRecallContext();
 
     const secondRender = renderRoute("/recall/results", {
       labelsContext,
@@ -932,14 +960,7 @@ describe("authenticated recall workspace", () => {
 
     secondRender.unmount();
 
-    const confirmedRecallContext = createAppRecallContext({
-      getLabelsForUser: (userId) => labelsContext.getLabelsForUser(userId),
-      keyPrefix: `${storageKeyPrefix}-recall`,
-      notes: notesContext,
-      shuffleNotes: (sessionNotes) => [...sessionNotes],
-      storage: window.localStorage,
-      studyNotes: studyNotesContext,
-    });
+    const confirmedRecallContext = contexts.createRecallContext();
 
     renderRoute("/recall/results", {
       labelsContext,
@@ -991,30 +1012,10 @@ describe("authenticated recall workspace", () => {
     const storageKeyPrefix = `test-practice-repair-route-${Math.random()
       .toString(36)
       .slice(2)}`;
-    const labelsContext = createAppLabelsContext({
-      keyPrefix: `${storageKeyPrefix}-labels`,
-      storage: window.localStorage,
-    });
-    const notesContext = createAppNotesContext({
-      getOwnedLabelIdsForUser: (userId) =>
-        labelsContext.getLabelsForUser(userId).map((label) => label.id),
-      keyPrefix: `${storageKeyPrefix}-notes`,
-      storage: window.localStorage,
-    });
-    const studyNotesContext = createAppStudyNotesContext({
-      getOwnedLabelIdsForUser: (userId) =>
-        labelsContext.getLabelsForUser(userId).map((label) => label.id),
-      keyPrefix: `${storageKeyPrefix}-study-notes`,
-      storage: window.localStorage,
-    });
-    const recallContext = createAppRecallContext({
-      getLabelsForUser: (userId) => labelsContext.getLabelsForUser(userId),
-      keyPrefix: `${storageKeyPrefix}-recall`,
-      notes: notesContext,
-      shuffleNotes: (sessionNotes) => [...sessionNotes],
-      storage: window.localStorage,
-      studyNotes: studyNotesContext,
-    });
+    const contexts =
+      createPersistentStudyNoteRecallTestContexts(storageKeyPrefix);
+    const { labelsContext, notesContext, recallContext, studyNotesContext } =
+      contexts;
     const weakStudyNote = studyNotesContext.createStudyNote(testUser.id, {
       expectedAnswer: "ATP stores transferable energy for cells.",
       prompt: "What stores transferable energy?",
@@ -1031,21 +1032,12 @@ describe("authenticated recall workspace", () => {
 
     const confirmedResult = confirmStudyNotePracticeRepair({
       correction: "State ATP and explain that it stores transferable energy.",
-      contexts: {
-        labelsContext,
-        notesContext,
-        recallContext,
-        studyNotesContext,
-      } as DeterministicRecallTestContexts,
+      contexts,
       intent: "tighten-expected-answer",
       studyNoteId: weakStudyNote.id,
     });
     const practiceRepairEntryId =
-      confirmedResult.questions[0]?.practiceRepairEntry?.practiceRepairEntryId;
-
-    if (practiceRepairEntryId === undefined) {
-      throw new Error("Expected a durable Practice Repair Entry id.");
-    }
+      getConfirmedPracticeRepairEntryId(confirmedResult);
 
     const firstRender = renderRoute(`/recall/repair/${practiceRepairEntryId}`, {
       labelsContext,
@@ -1072,14 +1064,7 @@ describe("authenticated recall workspace", () => {
 
     firstRender.unmount();
 
-    const reloadedRecallContext = createAppRecallContext({
-      getLabelsForUser: (userId) => labelsContext.getLabelsForUser(userId),
-      keyPrefix: `${storageKeyPrefix}-recall`,
-      notes: notesContext,
-      shuffleNotes: (sessionNotes) => [...sessionNotes],
-      storage: window.localStorage,
-      studyNotes: studyNotesContext,
-    });
+    const reloadedRecallContext = contexts.createRecallContext();
 
     renderRoute(`/recall/repair/${practiceRepairEntryId}`, {
       labelsContext,

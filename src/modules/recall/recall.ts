@@ -1599,7 +1599,7 @@ export function createAppRecallContext(
     }
 
     const confirmedAt = new Date().toISOString();
-    const reference = {
+    const confirmedReference = {
       ...input.reference,
       questionResultId:
         question.questionResultId ?? input.reference.questionResultId,
@@ -1613,8 +1613,8 @@ export function createAppRecallContext(
         nextPracticeIdea === undefined || nextPracticeIdea.length === 0
           ? undefined
           : nextPracticeIdea,
-      practiceRepairEntryId: createPracticeRepairEntryId(reference),
-      reference,
+      practiceRepairEntryId: createPracticeRepairEntryId(confirmedReference),
+      reference: confirmedReference,
     };
     const nextResult = replacePracticeRepairEntryInSessionResult({
       practiceRepairEntry,

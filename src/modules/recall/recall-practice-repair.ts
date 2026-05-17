@@ -136,6 +136,7 @@ const practiceRepairSuggestions = [
   "Split a broad Study Note or create a sibling from the same source explanation.",
   "Add a Metaphor or Acronym only if it solves this recall problem.",
 ] as const;
+const practiceRepairEntryIdPrefix = "practice-repair-entry";
 
 const terminalPracticeRepairLifecycleFactKeys = [
   "completedAt",
@@ -201,11 +202,14 @@ function hasOptionalStringProperty(
 export function createPracticeRepairEntryId(
   reference: PracticeRepairQuestionReference,
 ): string {
-  if (reference.questionResultId !== undefined) {
-    return `practice-repair-entry-${reference.questionResultId}`;
+  const { questionIndex, questionResultId, sessionResultId, studyNoteId } =
+    reference;
+
+  if (questionResultId !== undefined) {
+    return `${practiceRepairEntryIdPrefix}-${questionResultId}`;
   }
 
-  return `practice-repair-entry-${reference.sessionResultId}-question-${reference.questionIndex}-${reference.studyNoteId}`;
+  return `${practiceRepairEntryIdPrefix}-${sessionResultId}-question-${questionIndex}-${studyNoteId}`;
 }
 
 export function getPracticeRepairEntryId(

@@ -3,6 +3,7 @@ import {
   Navigate,
   useRouteContext,
 } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 
 import { ButtonLink } from "../../design-system/button";
 import { PageHeader } from "../../design-system/page-header";
@@ -64,13 +65,15 @@ function findPracticeRepairWorkspace(input: {
   practiceRepairEntryId: string;
   sessionResults: readonly FlashCardSessionResult[];
 }): PracticeRepairWorkspace | null {
-  for (const result of input.sessionResults) {
+  const { practiceRepairEntryId, sessionResults } = input;
+
+  for (const result of sessionResults) {
     for (const question of result.questions) {
       const entry = question.practiceRepairEntry;
 
       if (
         entry !== undefined &&
-        getPracticeRepairEntryId(entry) === input.practiceRepairEntryId
+        getPracticeRepairEntryId(entry) === practiceRepairEntryId
       ) {
         return {
           entry,
@@ -82,6 +85,23 @@ function findPracticeRepairWorkspace(input: {
   }
 
   return null;
+}
+
+function PracticeRepairDetail({
+  children,
+  label,
+}: Readonly<{
+  children: ReactNode;
+  label: string;
+}>) {
+  return (
+    <>
+      <p>
+        <strong>{label}</strong>
+      </p>
+      <p>{children}</p>
+    </>
+  );
 }
 
 function RecallPracticeRepairRoute() {
@@ -112,14 +132,15 @@ function RecallPracticeRepairWorkspacePage({
   workspace: PracticeRepairWorkspace;
 }>) {
   const { t } = useAppTranslation();
-  const prompt = getQuestionPrompt(workspace.question);
-  const expectedAnswer = getQuestionExpectedAnswer(workspace.question);
-  const referenceTitle = getQuestionReferenceTitle(workspace.question);
-  const referenceText = getQuestionReferenceText(workspace.question);
+  const { entry, question, result } = workspace;
+  const prompt = getQuestionPrompt(question);
+  const expectedAnswer = getQuestionExpectedAnswer(question);
+  const referenceTitle = getQuestionReferenceTitle(question);
+  const referenceText = getQuestionReferenceText(question);
   const rating =
-    workspace.question.selfRating === null
+    question.selfRating === null
       ? "Not rated"
-      : t(getRecallRatingTranslationKey(workspace.question.selfRating));
+      : t(getRecallRatingTranslationKey(question.selfRating));
 
   return (
     <section
@@ -142,21 +163,16 @@ function RecallPracticeRepairWorkspacePage({
 
         <section aria-label="Practice Repair summary" className="recall-panel">
           <h4>Confirmed repair</h4>
-          <p>
-            <strong>Intent</strong>
-          </p>
-          <p>{formatPracticeRepairIntentLabel(workspace.entry.intent)}</p>
-          <p>
-            <strong>Correction</strong>
-          </p>
-          <p>{workspace.entry.correction}</p>
-          {workspace.entry.nextPracticeIdea === undefined ? null : (
-            <>
-              <p>
-                <strong>Next-practice idea</strong>
-              </p>
-              <p>{workspace.entry.nextPracticeIdea}</p>
-            </>
+          <PracticeRepairDetail label="Intent">
+            {formatPracticeRepairIntentLabel(entry.intent)}
+          </PracticeRepairDetail>
+          <PracticeRepairDetail label="Correction">
+            {entry.correction}
+          </PracticeRepairDetail>
+          {entry.nextPracticeIdea === undefined ? null : (
+            <PracticeRepairDetail label="Next-practice idea">
+              {entry.nextPracticeIdea}
+            </PracticeRepairDetail>
           )}
         </section>
 
@@ -165,31 +181,23 @@ function RecallPracticeRepairWorkspacePage({
           className="recall-panel"
         >
           <h4>Origin evidence</h4>
-          <p>
-            <strong>Study Note</strong>
-          </p>
-          <p>{prompt}</p>
-          <p>
-            <strong>Rating</strong>
-          </p>
-          <p>{rating}</p>
-          <p>
-            <strong>Your answer</strong>
-          </p>
-          <p>{getRecordedAnswer(workspace.question)}</p>
-          <p>
-            <strong>Expected answer</strong>
-          </p>
-          <p>{expectedAnswer}</p>
-          <p>
-            <strong>Reference explanation</strong>
-          </p>
-          <p>{referenceTitle}</p>
+          <PracticeRepairDetail label="Study Note">
+            {prompt}
+          </PracticeRepairDetail>
+          <PracticeRepairDetail label="Rating">{rating}</PracticeRepairDetail>
+          <PracticeRepairDetail label="Your answer">
+            {getRecordedAnswer(question)}
+          </PracticeRepairDetail>
+          <PracticeRepairDetail label="Expected answer">
+            {expectedAnswer}
+          </PracticeRepairDetail>
+          <PracticeRepairDetail label="Reference explanation">
+            {referenceTitle}
+          </PracticeRepairDetail>
           <p>{referenceText}</p>
-          <p>
-            <strong>Session Result</strong>
-          </p>
-          <p>{workspace.result.id}</p>
+          <PracticeRepairDetail label="Session Result">
+            {result.id}
+          </PracticeRepairDetail>
         </section>
       </article>
     </section>
