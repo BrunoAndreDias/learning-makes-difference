@@ -26,12 +26,14 @@ function PracticeRepairQueueCard({
   eyebrow,
   question,
   rating,
+  supportingSummary,
 }: Readonly<{
   action: ReactNode;
   body: string;
   eyebrow: string;
   question: PracticeRepairQueueQuestionLike;
   rating: string;
+  supportingSummary?: string;
 }>) {
   return (
     <article className="recall-panel recall-practice-repair-queue__item">
@@ -42,6 +44,9 @@ function PracticeRepairQueueCard({
         </div>
         <h5>{getPracticeRepairQuestionPrompt(question)}</h5>
         <p>{body}</p>
+        {supportingSummary === undefined ? null : (
+          <p className="muted">{supportingSummary}</p>
+        )}
         <p className="muted">
           Reference explanation:{" "}
           {getPracticeRepairQuestionReferenceTitle(question)}
@@ -161,7 +166,8 @@ function RecallPracticeRepairQueueRoute() {
                   aria-label="Practice Repair candidates"
                   className="recall-practice-repair-queue__list"
                 >
-                  {candidateQueue.map(({ draft, question, result }) => {
+                  {candidateQueue.map((item) => {
+                    const { draft, question, result } = item;
                     const rating =
                       question.selfRating === null
                         ? "Not rated"
@@ -187,6 +193,9 @@ function RecallPracticeRepairQueueRoute() {
                           eyebrow="Needs practice candidate"
                           question={question}
                           rating={rating}
+                          supportingSummary={
+                            item.recentWeakAttemptsSummary ?? undefined
+                          }
                         />
                       </li>
                     );
