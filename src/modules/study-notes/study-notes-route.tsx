@@ -12,6 +12,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { z } from "zod";
 
 import { Button, ButtonLink } from "../../design-system/button";
 import { PageHeader } from "../../design-system/page-header";
@@ -35,10 +36,12 @@ import {
 import { getInterleavedRecallRecommendation } from "../recall/interleaved-recall";
 import {
   formatPracticeRepairIntentLabel,
+  getPracticeRepairEntryId,
   isPracticeRepairEntryForIntent,
   listActionablePracticeFollowUpsForStudyNote,
   type PracticeRepairEntry,
   type PracticeRepairEntryForIntent,
+  type PracticeRepairIntent,
   type PracticeRepairLinkedCompletionInput,
   type PracticeRepairMemoryAidKind,
   type PracticeRepairQuestionReference,
@@ -61,9 +64,28 @@ import {
 } from ".";
 import { getStudyNotePracticeRepair } from "./practice-repair";
 
+const studyNotesPracticeRepairActions = [
+  "tighten-expected-answer",
+  "split-study-note",
+  "create-sibling-study-note",
+  "add-memory-aid",
+] as const satisfies readonly PracticeRepairIntent[];
+const studyNotesSearchSchema = z.object({
+  practiceRepairAction: z.enum(studyNotesPracticeRepairActions).optional(),
+  practiceRepairEntryId: z.string().optional(),
+});
+
 export const Route = createFileRoute("/_protected/study-notes")({
+  validateSearch: studyNotesSearchSchema,
   component: StudyNotesWorkspace,
 });
+
+type StudyNotesSearch = z.infer<typeof studyNotesSearchSchema>;
+type LinkedPracticeRepairContext = {
+  action: PracticeRepairIntent;
+  entry: PracticeRepairEntry;
+  practiceRepairEntryId: string;
+};
 
 function createBlankDraft(): UpdateStudyNoteInput {
   return {
@@ -75,6 +97,37 @@ function createBlankDraft(): UpdateStudyNoteInput {
     sourceBody: "",
     sourceTitle: "",
   };
+}
+
+function findLinkedPracticeRepairContext(input: {
+  practiceRepairAction: StudyNotesSearch["practiceRepairAction"];
+  practiceRepairEntryId: string | undefined;
+  sessionResults: readonly SessionResult[];
+}): LinkedPracticeRepairContext | null {
+  const { practiceRepairAction, practiceRepairEntryId, sessionResults } = input;
+
+  if (practiceRepairEntryId === undefined) {
+    return null;
+  }
+
+  for (const result of sessionResults) {
+    for (const question of result.questions) {
+      const entry = question.practiceRepairEntry;
+
+      if (
+        entry !== undefined &&
+        getPracticeRepairEntryId(entry) === practiceRepairEntryId
+      ) {
+        return {
+          action: practiceRepairAction ?? entry.intent,
+          entry,
+          practiceRepairEntryId,
+        };
+      }
+    }
+  }
+
+  return null;
 }
 
 function createDraftFromStudyNote(
@@ -756,6 +809,19 @@ function formatOriginalNarrowedStatus(
     : "Practice Repair completed";
 }
 
+function getLinkedPracticeRepairSummary(action: PracticeRepairIntent) {
+  switch (action) {
+    case "tighten-expected-answer":
+      return "Edit the expected answer here, then return to Practice Repair when the Study Note feels clearer.";
+    case "split-study-note":
+      return "Narrow the original Study Note and add focused siblings here when the source is doing too much at once.";
+    case "create-sibling-study-note":
+      return "Create another Study Note from the same source explanation when this repair belongs in a separate recall target.";
+    case "add-memory-aid":
+      return "Add a Metaphor or Acronym here only when it makes the answer easier to retrieve. Opening this route does not complete Practice Repair.";
+  }
+}
+
 function formatSelectedNextRecall(input: {
   now: string;
   schedule: RecallSchedule | null;
@@ -1029,6 +1095,7 @@ function PracticeFollowUpSection({
 
 function StudyNotesWorkspace() {
   const navigate = useNavigate();
+  const search = Route.useSearch();
   const studyNotesContext = useRouteContext({
     from: "/_protected/study-notes",
     select: (context) => context.studyNotes,
@@ -1082,6 +1149,19 @@ function StudyNotesWorkspace() {
     recallContext.subscribe,
     recallContext.getRecallSchedulesSnapshot,
     recallContext.getRecallSchedulesSnapshot,
+  );
+  const linkedPracticeRepair = useMemo(
+    () =>
+      findLinkedPracticeRepairContext({
+        practiceRepairAction: search.practiceRepairAction,
+        practiceRepairEntryId: search.practiceRepairEntryId,
+        sessionResults: recallResultsSnapshot,
+      }),
+    [
+      recallResultsSnapshot,
+      search.practiceRepairAction,
+      search.practiceRepairEntryId,
+    ],
   );
   useSyncExternalStore(
     focusContext.subscribe,
@@ -1166,6 +1246,8 @@ function StudyNotesWorkspace() {
   const [selectedStudyNoteId, setSelectedStudyNoteId] = useState<string | null>(
     studyNotes[0]?.id ?? null,
   );
+  const [appliedLinkedPracticeRepairKey, setAppliedLinkedPracticeRepairKey] =
+    useState<string | null>(null);
   const [isCreatingStudyNote, setCreatingStudyNote] = useState(false);
   const selectedStudyNote = isCreatingStudyNote
     ? null
@@ -1320,6 +1402,30 @@ function StudyNotesWorkspace() {
   }, [isCreatingStudyNote, selectedStudyNoteId, studyNotes]);
 
   useEffect(() => {
+    if (linkedPracticeRepair === null) {
+      return;
+    }
+
+    const nextLinkedPracticeRepairKey = [
+      linkedPracticeRepair.practiceRepairEntryId,
+      linkedPracticeRepair.action,
+    ].join(":");
+
+    if (appliedLinkedPracticeRepairKey === nextLinkedPracticeRepairKey) {
+      return;
+    }
+
+    setCreatingStudyNote(false);
+    setSelectedStudyNoteId(linkedPracticeRepair.entry.reference.studyNoteId);
+
+    if (linkedPracticeRepair.action === "add-memory-aid") {
+      setMemoryAidsOpenOverride(true);
+    }
+
+    setAppliedLinkedPracticeRepairKey(nextLinkedPracticeRepairKey);
+  }, [appliedLinkedPracticeRepairKey, linkedPracticeRepair]);
+
+  useEffect(() => {
     const nextDraft = createDraftFromStudyNote(selectedStudyNote);
 
     setDraft(nextDraft);
@@ -1336,6 +1442,17 @@ function StudyNotesWorkspace() {
     setMemoryAidsOpenOverride(null);
     setLabelManagerOpen(false);
   }, [selectedDisclosureKey]);
+
+  useEffect(() => {
+    if (
+      linkedPracticeRepair?.action !== "add-memory-aid" ||
+      selectedStudyNote?.id !== linkedPracticeRepair.entry.reference.studyNoteId
+    ) {
+      return;
+    }
+
+    setMemoryAidsOpenOverride(true);
+  }, [linkedPracticeRepair, selectedStudyNote?.id]);
 
   useEffect(() => {
     if (saveStatus === null || hasDraftChanges || isSaving) {
@@ -2404,6 +2521,44 @@ function StudyNotesWorkspace() {
                   </div>
                 </details>
               </section>
+
+              {linkedPracticeRepair === null ? null : (
+                <section
+                  aria-label="Linked Practice Repair"
+                  className="study-notes-practice-repair study-notes-practice-repair--linked"
+                >
+                  <div className="study-notes-practice-repair__header">
+                    <div className="study-notes-practice-repair__title-row">
+                      <h2 className="study-notes-practice-repair__title">
+                        {formatPracticeRepairIntentLabel(
+                          linkedPracticeRepair.action,
+                        )}
+                      </h2>
+                      <span className="study-notes-practice-repair__signal">
+                        Return target
+                      </span>
+                    </div>
+                    <p className="muted study-notes-editor__guidance">
+                      {getLinkedPracticeRepairSummary(
+                        linkedPracticeRepair.action,
+                      )}
+                    </p>
+                  </div>
+                  <div className="study-notes-practice-repair__actions">
+                    <ButtonLink
+                      size="compact"
+                      to="/recall/repair/$practiceRepairEntryId"
+                      params={{
+                        practiceRepairEntryId:
+                          linkedPracticeRepair.practiceRepairEntryId,
+                      }}
+                      variant="secondary"
+                    >
+                      Return to Practice Repair
+                    </ButtonLink>
+                  </div>
+                </section>
+              )}
 
               {activePracticeRepairEntries.length === 0 ? null : (
                 <section

@@ -2123,4 +2123,96 @@ describe("authenticated Study Notes workspace", () => {
       },
     });
   });
+
+  it("preserves a linked Practice Repair return target in Study Notes without auto-completing the repair", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-practice-repair-deep-link";
+    createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Other answer.",
+      prompt: "Another Study Note",
+      sourceBody: "Another source body.",
+      sourceTitle: "Another source",
+      userId,
+    });
+    const studyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Original expected answer.",
+      prompt: "Original prompt",
+      sourceBody: "Shared source body for linked Practice Repair.",
+      sourceTitle: "Linked repair source",
+      userId,
+    });
+
+    completeStudyNoteRecall(contexts, {
+      rating: "hard",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const confirmedResult = confirmStudyNotePracticeRepair(contexts, {
+      correction: "Add a memory aid for the transport steps.",
+      intent: "add-memory-aid",
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const practiceRepairEntryId =
+      confirmedResult.questions[0]?.practiceRepairEntry?.practiceRepairEntryId;
+    const confirmedReference =
+      getConfirmedPracticeRepairReference(confirmedResult);
+
+    if (practiceRepairEntryId === undefined) {
+      throw new Error("Expected a durable Practice Repair Entry id.");
+    }
+
+    renderRoute(
+      `/study-notes?practiceRepairEntryId=${practiceRepairEntryId}&practiceRepairAction=add-memory-aid`,
+      {
+        ...contexts,
+        session: {
+          user: {
+            displayName: "Jordan Linked Repair",
+            email: "jordan.linked.repair@example.com",
+            id: userId,
+            userLanguage: "en",
+          },
+        },
+      },
+    );
+
+    expect(await screen.findByLabelText("Prompt")).toHaveValue(
+      "Original prompt",
+    );
+    expect(
+      screen.getByRole("link", { name: "Return to Practice Repair" }),
+    ).toHaveAttribute("href", `/recall/repair/${practiceRepairEntryId}`);
+    expect(
+      getDisclosureDetails(screen.getByRole("region", { name: "Memory aids" })),
+    ).toHaveAttribute("open");
+
+    fireEvent.change(screen.getByLabelText("Acronym"), {
+      target: {
+        value: "ATP keeps the transfer pathway in order.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("Saved just now"),
+    );
+    expect(
+      screen.getByRole("link", { name: "Return to Practice Repair" }),
+    ).toHaveAttribute("href", `/recall/repair/${practiceRepairEntryId}`);
+    expect(
+      contexts.recallContext.listActivePracticeRepairEntriesForStudyNote({
+        studyNoteId: studyNote.id,
+        userId,
+      }),
+    ).toHaveLength(1);
+    expect(
+      contexts.recallContext.listPracticeRepairEntriesForQuestion({
+        reference: confirmedReference,
+        userId,
+      })[0],
+    ).toMatchObject({
+      lifecycle: undefined,
+    });
+  });
 });

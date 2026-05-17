@@ -1,9 +1,10 @@
 import {
   createFileRoute,
   Navigate,
+  useNavigate,
   useRouteContext,
 } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 
 import { ButtonLink } from "../../design-system/button";
 import { PageHeader } from "../../design-system/page-header";
@@ -28,6 +29,7 @@ import {
   getPracticeRepairRecordedAnswer,
   type PracticeRepairEntry,
   type PracticeRepairEntryLifecycleKind,
+  type PracticeRepairIntent,
 } from "./recall-practice-repair";
 
 export const Route = createFileRoute(
@@ -41,6 +43,39 @@ type PracticeRepairWorkspace = {
   question: RecallQuestion;
   result: FlashCardSessionResult;
 };
+
+type PracticeRepairWorkspaceActionCard = {
+  description: string;
+  intent: PracticeRepairIntent;
+  title: string;
+};
+
+const workspaceActionCards = [
+  {
+    description:
+      "Refine or expand the answer so the recall target is clearer and easier to judge.",
+    intent: "tighten-expected-answer",
+    title: "Edit expected answer",
+  },
+  {
+    description:
+      "Break a broad concept into smaller Study Notes you can train one at a time.",
+    intent: "split-study-note",
+    title: "Split this Study Note",
+  },
+  {
+    description:
+      "Add a related concept or contrast from the same source explanation.",
+    intent: "create-sibling-study-note",
+    title: "Create a sibling Study Note",
+  },
+  {
+    description:
+      "Add a Metaphor or Acronym only when it would make the answer easier to retrieve.",
+    intent: "add-memory-aid",
+    title: "Add a memory aid",
+  },
+] as const satisfies readonly PracticeRepairWorkspaceActionCard[];
 
 function findPracticeRepairWorkspace(input: {
   practiceRepairEntryId: string;
@@ -118,6 +153,24 @@ function getPracticeRepairNextStepCopy(
   }
 }
 
+function createStudyNotesPracticeRepairSearch(input: {
+  practiceRepairAction?: PracticeRepairIntent;
+  practiceRepairEntryId: string;
+}) {
+  return input.practiceRepairAction === undefined
+    ? {
+        practiceRepairEntryId: input.practiceRepairEntryId,
+      }
+    : {
+        practiceRepairAction: input.practiceRepairAction,
+        practiceRepairEntryId: input.practiceRepairEntryId,
+      };
+}
+
+function isActionSelectionKey(key: string) {
+  return key === "Enter" || key === " ";
+}
+
 function PracticeRepairWorkspaceDetail({
   children,
   label,
@@ -162,8 +215,10 @@ function RecallPracticeRepairWorkspacePage({
 }: Readonly<{
   workspace: PracticeRepairWorkspace;
 }>) {
+  const navigate = useNavigate();
   const { t } = useAppTranslation();
   const { entry, question, result } = workspace;
+  const practiceRepairEntryId = getPracticeRepairEntryId(entry);
   const prompt = getPracticeRepairQuestionPrompt(question);
   const expectedAnswer = getPracticeRepairQuestionExpectedAnswer(question);
   const referenceTitle = getPracticeRepairQuestionReferenceTitle(question);
@@ -178,6 +233,18 @@ function RecallPracticeRepairWorkspacePage({
       ? "Not rated"
       : t(getRecallRatingTranslationKey(question.selfRating));
   const ratingTone = getRecallRatingTone(question.selfRating);
+
+  function openStudyNotesPracticeRepair(
+    practiceRepairAction?: PracticeRepairIntent,
+  ) {
+    void navigate({
+      search: createStudyNotesPracticeRepairSearch({
+        practiceRepairAction,
+        practiceRepairEntryId,
+      }),
+      to: "/study-notes",
+    });
+  }
 
   return (
     <section
@@ -216,7 +283,13 @@ function RecallPracticeRepairWorkspacePage({
                 </p>
               </div>
 
-              <ButtonLink to="/study-notes" variant="secondary">
+              <ButtonLink
+                search={createStudyNotesPracticeRepairSearch({
+                  practiceRepairEntryId,
+                })}
+                to="/study-notes"
+                variant="secondary"
+              >
                 View note
               </ButtonLink>
             </header>
@@ -268,9 +341,10 @@ function RecallPracticeRepairWorkspacePage({
               <div className="recall-practice-repair-workspace__panel-copy">
                 <h2>Selected repair</h2>
                 <p>
-                  Practice Repair keeps one concrete fix attached to the
-                  original Recall evidence.
+                  The confirmed repair stays attached to this Practice Repair
+                  entry while you compare the other Study Notes actions.
                 </p>
+                <p>{lifecycleSummary}</p>
               </div>
 
               <PracticeRepairWorkspaceDetail label="Intent">
@@ -286,13 +360,6 @@ function RecallPracticeRepairWorkspacePage({
                   {entry.nextPracticeIdea}
                 </PracticeRepairWorkspaceDetail>
               )}
-            </section>
-
-            <section className="recall-panel recall-practice-repair-workspace__panel">
-              <div className="recall-practice-repair-workspace__panel-copy">
-                <h2>Repair state</h2>
-                <p>{lifecycleSummary}</p>
-              </div>
 
               <div className="recall-practice-repair-workspace__state-card">
                 <p className="recall-practice-repair-workspace__detail-label">
@@ -310,31 +377,127 @@ function RecallPracticeRepairWorkspacePage({
                   Origin result: {result.id}
                 </p>
               </div>
+
+              <p className="recall-practice-repair-workspace__support">
+                {nextStepCopy}
+              </p>
             </section>
 
             <section className="recall-panel recall-practice-repair-workspace__panel">
               <div className="recall-practice-repair-workspace__panel-copy">
-                <h2>Next step</h2>
-                <p>{nextStepCopy}</p>
+                <h2>Suggested repairs</h2>
+                <p>
+                  Open the Study Notes action you want to make next. The
+                  highlighted card is the repair saved on this entry.
+                </p>
+              </div>
+
+              <div className="recall-practice-repair-workspace__repair-list">
+                {workspaceActionCards.map((card) => (
+                  <PracticeRepairWorkspaceActionButton
+                    card={card}
+                    isSelected={entry.intent === card.intent}
+                    key={card.intent}
+                    onSelect={() => openStudyNotesPracticeRepair(card.intent)}
+                  />
+                ))}
               </div>
 
               <div className="recall-practice-repair-workspace__actions">
-                <ButtonLink to="/study-notes" variant="secondary">
-                  Open Study Notes
-                </ButtonLink>
                 <ButtonLink to="/recall" variant="primary">
                   Recall again soon
                 </ButtonLink>
               </div>
 
               <p className="recall-practice-repair-workspace__support">
-                Results keeps the historical evidence. This workspace keeps the
-                active repair in view.
+                Results keeps the historical evidence. Study Notes owns the
+                actual note edit, split, sibling creation, and memory-aid
+                change.
               </p>
             </section>
           </aside>
         </div>
       </article>
     </section>
+  );
+}
+
+function PracticeRepairWorkspaceActionButton({
+  card,
+  isSelected,
+  onSelect,
+}: Readonly<{
+  card: PracticeRepairWorkspaceActionCard;
+  isSelected: boolean;
+  onSelect: () => void;
+}>) {
+  const titleId = `practice-repair-workspace-card-title-${card.intent}`;
+  const descriptionId = `practice-repair-workspace-card-description-${card.intent}`;
+
+  function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (!isActionSelectionKey(event.key)) {
+      return;
+    }
+
+    event.preventDefault();
+    onSelect();
+  }
+
+  return (
+    <article
+      className="recall-practice-repair-workspace__repair-card"
+      data-selected={isSelected ? "true" : "false"}
+    >
+      <button
+        aria-describedby={descriptionId}
+        aria-labelledby={titleId}
+        className="recall-practice-repair-workspace__repair-button"
+        onClick={onSelect}
+        onKeyDown={handleKeyDown}
+        type="button"
+      >
+        <span className="recall-practice-repair-workspace__repair-copy">
+          {isSelected ? (
+            <span className="recall-practice-repair-workspace__repair-tag">
+              Current repair
+            </span>
+          ) : null}
+          <span
+            className="recall-practice-repair-workspace__repair-title"
+            id={titleId}
+          >
+            {card.title}
+          </span>
+          <span
+            className="recall-practice-repair-workspace__repair-description"
+            id={descriptionId}
+          >
+            {card.description}
+          </span>
+        </span>
+
+        <span
+          aria-hidden="true"
+          className="recall-practice-repair-workspace__repair-chevron"
+        >
+          <SuggestionChevronIcon />
+        </span>
+      </button>
+    </article>
+  );
+}
+
+function SuggestionChevronIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path
+        d="m10 6 6 6-6 6"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
   );
 }

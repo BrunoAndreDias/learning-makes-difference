@@ -972,6 +972,21 @@
   );
 }
 
+.study-notes-practice-repair--linked {
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--color-primary-soft-border) 74%,
+      var(--color-content-border-soft)
+    );
+  border-left-color: var(--color-primary);
+  background: color-mix(
+    in srgb,
+    var(--color-shell-panel) 88%,
+    var(--color-primary-soft)
+  );
+}
+
 .study-notes-interleaved-recall {
   border: 1px solid var(--color-primary-soft-border);
   background: var(--color-primary-soft);
@@ -1020,6 +1035,11 @@
 }
 
 .study-notes-practice-repair--active .study-notes-practice-repair__signal {
+  border-color: var(--color-primary-soft-border);
+  color: var(--color-primary);
+}
+
+.study-notes-practice-repair--linked .study-notes-practice-repair__signal {
   border-color: var(--color-primary-soft-border);
   color: var(--color-primary);
 }

@@ -1663,11 +1663,82 @@ describe("authenticated recall workspace", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      within(actionArea).getByRole("link", { name: "Open Study Notes" }),
+      within(actionArea).getByRole("button", {
+        name: "Edit expected answer",
+      }),
     ).toBeInTheDocument();
     expect(
       within(actionArea).getByRole("link", { name: "Recall again soon" }),
     ).toBeInTheDocument();
+  });
+
+  it("shows all Study Notes repair actions and keyboard-deep-links the chosen action with a return target", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const weakStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "ATP stores transferable energy for cells.",
+        prompt: "What stores transferable energy?",
+        sourceBody: "Cell respiration source context.",
+        sourceTitle: "Cell respiration source",
+      },
+    );
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: weakStudyNote.id,
+      timestamp: "2026-05-15T09:00:00.000Z",
+    });
+
+    const confirmedResult = confirmStudyNotePracticeRepair({
+      correction:
+        "State ATP directly and anchor the answer to energy transfer.",
+      contexts,
+      intent: "tighten-expected-answer",
+      studyNoteId: weakStudyNote.id,
+    });
+    const practiceRepairEntryId =
+      getConfirmedPracticeRepairEntryId(confirmedResult);
+    const { router } = renderRoute(
+      `/recall/repair/${getConfirmedPracticeRepairEntryId(confirmedResult)}`,
+      {
+        ...contexts,
+        session: createSession(),
+      },
+    );
+
+    const actionArea = await screen.findByRole("complementary", {
+      name: "Practice Repair actions",
+    });
+    expect(
+      within(actionArea).getByRole("button", {
+        name: "Edit expected answer",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(actionArea).getByRole("button", {
+        name: "Split this Study Note",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(actionArea).getByRole("button", {
+        name: "Create a sibling Study Note",
+      }),
+    ).toBeInTheDocument();
+    const addMemoryAidButton = within(actionArea).getByRole("button", {
+      name: "Add a memory aid",
+    });
+
+    fireEvent.keyDown(addMemoryAidButton, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/study-notes");
+    });
+    expect(router.state.location.search).toMatchObject({
+      practiceRepairAction: "add-memory-aid",
+      practiceRepairEntryId,
+    });
   });
 
   it("shows a clear historical lifecycle state for a completed Practice Repair workspace", async () => {

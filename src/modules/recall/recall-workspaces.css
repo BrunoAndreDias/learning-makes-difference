@@ -2472,7 +2472,12 @@
 
 .recall-practice-repair-workspace__actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.recall-practice-repair-workspace__repair-list {
+  display: grid;
   gap: var(--space-3);
 }
 
@@ -2493,7 +2498,8 @@
   gap: var(--space-3);
 }
 
-.recall-practice-repair-draft__suggestion {
+.recall-practice-repair-draft__suggestion,
+.recall-practice-repair-workspace__repair-card {
   border: 1px solid var(--color-content-border-soft);
   border-radius: 0.7rem;
   background: var(--color-shell-panel);
@@ -2501,7 +2507,8 @@
     color-mix(in srgb, var(--color-content-strong) 24%, transparent);
 }
 
-.recall-practice-repair-draft__suggestion[data-selected="true"] {
+.recall-practice-repair-draft__suggestion[data-selected="true"],
+.recall-practice-repair-workspace__repair-card[data-selected="true"] {
   border-color: var(--color-primary-soft-border);
   background: color-mix(
     in srgb,
@@ -2513,7 +2520,8 @@
 }
 
 .recall-practice-repair-draft__suggestion-button,
-.recall-practice-repair-draft__suggestion-static {
+.recall-practice-repair-draft__suggestion-static,
+.recall-practice-repair-workspace__repair-button {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
@@ -2532,33 +2540,60 @@
   font: inherit;
 }
 
+.recall-practice-repair-workspace__repair-button {
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
 .recall-practice-repair-draft__suggestion-button:hover,
-.recall-practice-repair-draft__suggestion-button:focus-visible {
+.recall-practice-repair-draft__suggestion-button:focus-visible,
+.recall-practice-repair-workspace__repair-button:hover,
+.recall-practice-repair-workspace__repair-button:focus-visible {
   background: color-mix(in srgb, var(--color-primary-soft) 54%, white);
   outline: none;
 }
 
-.recall-practice-repair-draft__suggestion-copy {
+.recall-practice-repair-draft__suggestion-copy,
+.recall-practice-repair-workspace__repair-copy {
   display: grid;
   gap: var(--space-2);
   min-width: 0;
 }
 
-.recall-practice-repair-draft__suggestion-title {
+.recall-practice-repair-draft__suggestion-title,
+.recall-practice-repair-workspace__repair-title {
   color: var(--color-content-strong);
   font-size: 1.02rem;
   font-weight: 700;
 }
 
-.recall-practice-repair-draft__suggestion-description {
+.recall-practice-repair-draft__suggestion-description,
+.recall-practice-repair-workspace__repair-description {
   color: var(--color-content-muted);
   line-height: 1.55;
 }
 
-.recall-practice-repair-draft__suggestion-chevron {
+.recall-practice-repair-draft__suggestion-chevron,
+.recall-practice-repair-workspace__repair-chevron {
   display: inline-grid;
   align-self: center;
   color: var(--color-content-muted);
+}
+
+.recall-practice-repair-workspace__repair-tag {
+  justify-self: start;
+  display: inline-flex;
+  min-height: 1.45rem;
+  align-items: center;
+  padding-inline: var(--space-2);
+  border: 1px solid var(--color-primary-soft-border);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-primary-soft) 72%, white);
+  color: color-mix(in srgb, var(--color-primary) 84%, black);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .recall-practice-repair-draft__confirmation {
