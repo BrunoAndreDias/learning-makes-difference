@@ -439,6 +439,8 @@ describe("createRecallService PostgreSQL integration", () => {
             intentMetadata: {
               updatedExpectedAnswer: null,
             },
+            practiceRepairEntryId:
+              "practice-repair-entry-session-practice-repair-question-0",
             reference: {
               questionResultId: "session-practice-repair-question-0",
               sessionResultId: "session-practice-repair",
@@ -472,6 +474,8 @@ describe("createRecallService PostgreSQL integration", () => {
               intentMetadata: {
                 updatedExpectedAnswer: null,
               },
+              practiceRepairEntryId:
+                "practice-repair-entry-session-practice-repair-question-0",
               reference: {
                 questionResultId: "session-practice-repair-question-0",
               },

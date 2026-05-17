@@ -26,6 +26,7 @@ import { Route as modulesRecallRecallSessionRouteRouteImport } from './modules/r
 import { Route as modulesRecallRecallSelectionRouteRouteImport } from './modules/recall/recall-selection-route'
 import { Route as modulesRecallRecallResultsRouteRouteImport } from './modules/recall/recall-results-route'
 import { Route as modulesRecallRecallResultsWorkspaceRouteRouteImport } from './modules/recall/recall-results-workspace-route'
+import { Route as modulesRecallRecallPracticeRepairRouteRouteImport } from './modules/recall/recall-practice-repair-route'
 
 const modulesAccessPublicEntryPublicLayoutRouteRoute =
   modulesAccessPublicEntryPublicLayoutRouteRouteImport.update({
@@ -125,6 +126,12 @@ const modulesRecallRecallResultsWorkspaceRouteRoute =
     path: '/',
     getParentRoute: () => modulesRecallRecallRouteRoute,
   } as any)
+const modulesRecallRecallPracticeRepairRouteRoute =
+  modulesRecallRecallPracticeRepairRouteRouteImport.update({
+    id: '/repair/$practiceRepairEntryId',
+    path: '/repair/$practiceRepairEntryId',
+    getParentRoute: () => modulesRecallRecallRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof modulesAccessPublicEntryPublicIndexRouteRoute
@@ -141,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/recall/results': typeof modulesRecallRecallResultsRouteRoute
   '/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/recall/session': typeof modulesRecallRecallSessionRouteRoute
+  '/recall/repair/$practiceRepairEntryId': typeof modulesRecallRecallPracticeRepairRouteRoute
 }
 export interface FileRoutesByTo {
   '/': typeof modulesAccessPublicEntryPublicIndexRouteRoute
@@ -156,6 +164,7 @@ export interface FileRoutesByTo {
   '/recall/results': typeof modulesRecallRecallResultsRouteRoute
   '/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/recall/session': typeof modulesRecallRecallSessionRouteRoute
+  '/recall/repair/$practiceRepairEntryId': typeof modulesRecallRecallPracticeRepairRouteRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -176,6 +185,7 @@ export interface FileRoutesById {
   '/_protected/recall/results': typeof modulesRecallRecallResultsRouteRoute
   '/_protected/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/_protected/recall/session': typeof modulesRecallRecallSessionRouteRoute
+  '/_protected/recall/repair/$practiceRepairEntryId': typeof modulesRecallRecallPracticeRepairRouteRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -194,6 +204,7 @@ export interface FileRouteTypes {
     | '/recall/results'
     | '/recall/select'
     | '/recall/session'
+    | '/recall/repair/$practiceRepairEntryId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -209,6 +220,7 @@ export interface FileRouteTypes {
     | '/recall/results'
     | '/recall/select'
     | '/recall/session'
+    | '/recall/repair/$practiceRepairEntryId'
   id:
     | '__root__'
     | '/_auth'
@@ -228,6 +240,7 @@ export interface FileRouteTypes {
     | '/_protected/recall/results'
     | '/_protected/recall/select'
     | '/_protected/recall/session'
+    | '/_protected/recall/repair/$practiceRepairEntryId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -357,6 +370,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof modulesRecallRecallResultsWorkspaceRouteRouteImport
       parentRoute: typeof modulesRecallRecallRouteRoute
     }
+    '/_protected/recall/repair/$practiceRepairEntryId': {
+      id: '/_protected/recall/repair/$practiceRepairEntryId'
+      path: '/repair/$practiceRepairEntryId'
+      fullPath: '/recall/repair/$practiceRepairEntryId'
+      preLoaderRoute: typeof modulesRecallRecallPracticeRepairRouteRouteImport
+      parentRoute: typeof modulesRecallRecallRouteRoute
+    }
   }
 }
 
@@ -385,6 +405,7 @@ interface modulesRecallRecallRouteRouteChildren {
   modulesRecallRecallResultsRouteRoute: typeof modulesRecallRecallResultsRouteRoute
   modulesRecallRecallSelectionRouteRoute: typeof modulesRecallRecallSelectionRouteRoute
   modulesRecallRecallSessionRouteRoute: typeof modulesRecallRecallSessionRouteRoute
+  modulesRecallRecallPracticeRepairRouteRoute: typeof modulesRecallRecallPracticeRepairRouteRoute
 }
 
 const modulesRecallRecallRouteRouteChildren: modulesRecallRecallRouteRouteChildren =
@@ -395,6 +416,8 @@ const modulesRecallRecallRouteRouteChildren: modulesRecallRecallRouteRouteChildr
     modulesRecallRecallSelectionRouteRoute:
       modulesRecallRecallSelectionRouteRoute,
     modulesRecallRecallSessionRouteRoute: modulesRecallRecallSessionRouteRoute,
+    modulesRecallRecallPracticeRepairRouteRoute:
+      modulesRecallRecallPracticeRepairRouteRoute,
   }
 
 const modulesRecallRecallRouteRouteWithChildren =

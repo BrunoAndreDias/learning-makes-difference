@@ -89,6 +89,7 @@ export type PracticeRepairEntry = {
   intentMetadata: PracticeRepairIntentMetadata;
   lifecycle?: PracticeRepairEntryLifecycle;
   nextPracticeIdea?: string;
+  practiceRepairEntryId?: string;
   reference: PracticeRepairQuestionReference;
 };
 
@@ -195,6 +196,24 @@ function hasOptionalStringProperty(
   key: string,
 ): boolean {
   return candidate[key] === undefined || typeof candidate[key] === "string";
+}
+
+export function createPracticeRepairEntryId(
+  reference: PracticeRepairQuestionReference,
+): string {
+  if (reference.questionResultId !== undefined) {
+    return `practice-repair-entry-${reference.questionResultId}`;
+  }
+
+  return `practice-repair-entry-${reference.sessionResultId}-question-${reference.questionIndex}-${reference.studyNoteId}`;
+}
+
+export function getPracticeRepairEntryId(
+  entry: Pick<PracticeRepairEntry, "practiceRepairEntryId" | "reference">,
+): string {
+  return (
+    entry.practiceRepairEntryId ?? createPracticeRepairEntryId(entry.reference)
+  );
 }
 
 function isPracticeRepairQuestionReference(
@@ -356,6 +375,7 @@ export function clonePracticeRepairEntry(
       entry.intentMetadata,
     ),
     lifecycle: clonePracticeRepairEntryLifecycle(entry.lifecycle),
+    practiceRepairEntryId: getPracticeRepairEntryId(entry),
     reference: {
       ...entry.reference,
     },
@@ -429,6 +449,7 @@ export function isPracticeRepairEntry(
     (candidate.lifecycle === undefined ||
       isPracticeRepairEntryLifecycle(candidate.lifecycle)) &&
     hasOptionalStringProperty(candidate, "nextPracticeIdea") &&
+    hasOptionalStringProperty(candidate, "practiceRepairEntryId") &&
     isPracticeRepairQuestionReference(candidate.reference)
   );
 }

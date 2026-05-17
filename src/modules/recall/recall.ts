@@ -9,6 +9,7 @@ import {
 } from "../study-notes";
 import {
   clonePracticeRepairEntry as clonePracticeRepairEntryValue,
+  createPracticeRepairEntryId,
   createPracticeRepairIntentMetadata,
   getPracticeRepairEntryLifecycleState,
   isActionablePracticeFollowUp,
@@ -1598,6 +1599,11 @@ export function createAppRecallContext(
     }
 
     const confirmedAt = new Date().toISOString();
+    const reference = {
+      ...input.reference,
+      questionResultId:
+        question.questionResultId ?? input.reference.questionResultId,
+    };
     const practiceRepairEntry: PracticeRepairEntry = {
       confirmedAt,
       correction,
@@ -1607,11 +1613,8 @@ export function createAppRecallContext(
         nextPracticeIdea === undefined || nextPracticeIdea.length === 0
           ? undefined
           : nextPracticeIdea,
-      reference: {
-        ...input.reference,
-        questionResultId:
-          question.questionResultId ?? input.reference.questionResultId,
-      },
+      practiceRepairEntryId: createPracticeRepairEntryId(reference),
+      reference,
     };
     const nextResult = replacePracticeRepairEntryInSessionResult({
       practiceRepairEntry,

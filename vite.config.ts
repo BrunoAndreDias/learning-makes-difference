@@ -90,6 +90,11 @@ export default defineConfig({
                     },
                     {
                       type: "route",
+                      path: "/repair/$practiceRepairEntryId",
+                      file: "modules/recall/recall-practice-repair-route.tsx",
+                    },
+                    {
+                      type: "route",
                       path: "/results",
                       file: "modules/recall/recall-results-route.tsx",
                     },

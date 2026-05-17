@@ -25,6 +25,9 @@ describe("route tree", () => {
       "modules/labels/label-management/labels-route",
     );
     expect(generatedRouteTree).toContain("modules/recall/recall-route");
+    expect(generatedRouteTree).toContain(
+      "modules/recall/recall-practice-repair-route",
+    );
     expect(generatedRouteTree).toContain("modules/focus/focus-route");
     expect(generatedRouteTree).toContain(
       "modules/study-guidance/study-guidance-route",
@@ -59,6 +62,9 @@ describe("route tree", () => {
       "'/insights': typeof modulesStudyGuidanceStudyGuidanceRouteRoute",
     );
     expect(generatedRouteTree).toContain("'/recall/results':");
+    expect(generatedRouteTree).toContain(
+      "'/recall/repair/$practiceRepairEntryId':",
+    );
     expect(generatedRouteTree).toContain(
       "'/recall/select': typeof modulesRecallRecallSelectionRouteRoute",
     );

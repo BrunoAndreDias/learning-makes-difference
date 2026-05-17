@@ -200,6 +200,8 @@ describe("createPersistentRecallContext", () => {
                       intentMetadata: {
                         updatedExpectedAnswer: null,
                       },
+                      practiceRepairEntryId:
+                        "practice-repair-entry-result-weak-question-0",
                       reference: {
                         ...reference,
                         questionResultId:
@@ -521,6 +523,8 @@ describe("createPersistentRecallContext", () => {
                       intentMetadata: {
                         updatedExpectedAnswer: null,
                       },
+                      practiceRepairEntryId:
+                        "practice-repair-entry-result-weak-question-0",
                       reference,
                     },
                   }
@@ -598,6 +602,8 @@ describe("createPersistentRecallContext", () => {
               intentMetadata: {
                 updatedExpectedAnswer: null,
               },
+              practiceRepairEntryId:
+                "practice-repair-entry-result-weak-question-0",
               reference: {
                 questionResultId: "result-weak-question-0",
               },

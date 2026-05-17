@@ -316,6 +316,102 @@ describe("confirmed Practice Repair entries", () => {
     ).toEqual(expect.arrayContaining(cases.map((testCase) => testCase.intent)));
   });
 
+  it("assigns a durable Practice Repair Entry id and backfills it for legacy stored entries", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-16T14:35:00.000Z"));
+
+    const storage = createMemoryStorage();
+    const userId = "user-practice-repair";
+    const keyPrefix = "practice-repair-entry-id";
+    const notes = createAppNotesContext({
+      keyPrefix: `${keyPrefix}-notes`,
+      storage,
+    });
+    const studyNotes = createAppStudyNotesContext({
+      keyPrefix: `${keyPrefix}-study-notes`,
+      storage,
+    });
+    const recall = createAppRecallContext({
+      keyPrefix: `${keyPrefix}-recall`,
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+    const studyNote = studyNotes.createStudyNote(userId, {
+      expectedAnswer: "ATP stores transferable energy.",
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+    const result = createWeakStudyNoteResult({
+      recall,
+      studyNoteId: studyNote.id,
+      userId,
+    });
+    const confirmedResult = recall.confirmPracticeRepairEntry({
+      correction: "State ATP explicitly.",
+      intent: "tighten-expected-answer",
+      reference: createPracticeRepairReference({
+        result,
+        studyNoteId: studyNote.id,
+      }),
+      userId,
+    });
+    const confirmedEntry =
+      confirmedResult.questions[0]?.practiceRepairEntry ?? null;
+    const expectedPracticeRepairEntryId = confirmedEntry?.reference
+      .questionResultId
+      ? `practice-repair-entry-${confirmedEntry.reference.questionResultId}`
+      : null;
+
+    expect(confirmedEntry?.practiceRepairEntryId).toBe(
+      expectedPracticeRepairEntryId,
+    );
+
+    const storageKey = `${keyPrefix}-recall:session-results`;
+    const storedSessionResults = JSON.parse(
+      storage.getItem(storageKey) ?? "[]",
+    ) as Array<{
+      questions: Array<{
+        practiceRepairEntry?: {
+          practiceRepairEntryId?: string;
+        };
+      }>;
+    }>;
+    const storedEntry =
+      storedSessionResults[0]?.questions[0]?.practiceRepairEntry;
+
+    if (storedEntry === undefined) {
+      throw new Error("Expected a stored Practice Repair Entry.");
+    }
+
+    delete storedEntry.practiceRepairEntryId;
+    storage.setItem(storageKey, JSON.stringify(storedSessionResults));
+
+    const reloadedRecall = createAppRecallContext({
+      keyPrefix: `${keyPrefix}-recall`,
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+    const reloadedEntry = reloadedRecall.listPracticeRepairEntriesForQuestion({
+      reference: getConfirmedPracticeRepairReference(confirmedResult),
+      userId,
+    })[0];
+
+    expect(reloadedEntry).toMatchObject({
+      correction: "State ATP explicitly.",
+      practiceRepairEntryId: expectedPracticeRepairEntryId,
+      reference: {
+        questionResultId: confirmedEntry?.reference.questionResultId,
+        sessionResultId: confirmedEntry?.reference.sessionResultId,
+        studyNoteId: studyNote.id,
+      },
+    });
+  });
+
   it("rejects missing required intent or correction", () => {
     const storage = createMemoryStorage();
     const userId = "user-practice-repair";

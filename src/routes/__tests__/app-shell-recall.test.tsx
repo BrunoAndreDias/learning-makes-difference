@@ -987,6 +987,138 @@ describe("authenticated recall workspace", () => {
     ).toBeNull();
   });
 
+  it("resolves the canonical Practice Repair route across reloads by durable entry id", async () => {
+    const storageKeyPrefix = `test-practice-repair-route-${Math.random()
+      .toString(36)
+      .slice(2)}`;
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `${storageKeyPrefix}-labels`,
+      storage: window.localStorage,
+    });
+    const notesContext = createAppNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labelsContext.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: `${storageKeyPrefix}-notes`,
+      storage: window.localStorage,
+    });
+    const studyNotesContext = createAppStudyNotesContext({
+      getOwnedLabelIdsForUser: (userId) =>
+        labelsContext.getLabelsForUser(userId).map((label) => label.id),
+      keyPrefix: `${storageKeyPrefix}-study-notes`,
+      storage: window.localStorage,
+    });
+    const recallContext = createAppRecallContext({
+      getLabelsForUser: (userId) => labelsContext.getLabelsForUser(userId),
+      keyPrefix: `${storageKeyPrefix}-recall`,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+      studyNotes: studyNotesContext,
+    });
+    const weakStudyNote = studyNotesContext.createStudyNote(testUser.id, {
+      expectedAnswer: "ATP stores transferable energy for cells.",
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext,
+      studyNoteId: weakStudyNote.id,
+      timestamp: "2026-05-15T09:00:00.000Z",
+    });
+
+    const confirmedResult = confirmStudyNotePracticeRepair({
+      correction: "State ATP and explain that it stores transferable energy.",
+      contexts: {
+        labelsContext,
+        notesContext,
+        recallContext,
+        studyNotesContext,
+      } as DeterministicRecallTestContexts,
+      intent: "tighten-expected-answer",
+      studyNoteId: weakStudyNote.id,
+    });
+    const practiceRepairEntryId =
+      confirmedResult.questions[0]?.practiceRepairEntry?.practiceRepairEntryId;
+
+    if (practiceRepairEntryId === undefined) {
+      throw new Error("Expected a durable Practice Repair Entry id.");
+    }
+
+    const firstRender = renderRoute(`/recall/repair/${practiceRepairEntryId}`, {
+      labelsContext,
+      notesContext,
+      recallContext,
+      session: createSession(),
+      studyNotesContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Practice Repair",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "State ATP and explain that it stores transferable energy.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("What stores transferable energy?"),
+    ).toBeInTheDocument();
+
+    firstRender.unmount();
+
+    const reloadedRecallContext = createAppRecallContext({
+      getLabelsForUser: (userId) => labelsContext.getLabelsForUser(userId),
+      keyPrefix: `${storageKeyPrefix}-recall`,
+      notes: notesContext,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage: window.localStorage,
+      studyNotes: studyNotesContext,
+    });
+
+    renderRoute(`/recall/repair/${practiceRepairEntryId}`, {
+      labelsContext,
+      notesContext,
+      recallContext: reloadedRecallContext,
+      session: createSession(),
+      studyNotesContext,
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Practice Repair",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "State ATP and explain that it stores transferable energy.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("What stores transferable energy?"),
+    ).toBeInTheDocument();
+  });
+
+  it("falls back to the default Recall not-found behavior when a Practice Repair entry is missing", async () => {
+    const { router } = renderRoute("/recall/repair/missing-entry", {
+      session: createSession(),
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Recall starts with Study Notes",
+      }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall");
+  });
+
   it("links child Recall breadcrumbs back to the default Recall page", async () => {
     const contexts = createDeterministicRecallTestContexts();
     contexts.studyNotesContext.createStudyNote(testUser.id, {
