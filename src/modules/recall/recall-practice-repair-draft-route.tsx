@@ -7,6 +7,7 @@ import {
 import {
   type FormEvent,
   type KeyboardEvent,
+  type RefObject,
   useEffect,
   useRef,
   useState,
@@ -32,6 +33,7 @@ import {
   getPracticeRepairEntryId,
   getQuestionPracticeRepairDraft,
   type PracticeRepairIntent,
+  type PracticeRepairQuestionReference,
 } from "./recall-practice-repair";
 import {
   getRecallQuestionExpectedAnswer,
@@ -121,6 +123,34 @@ function findDraftIntentCard(
   }
 
   return card;
+}
+
+function createPracticeRepairDraftReference(
+  workspace: PracticeRepairDraftWorkspace,
+): PracticeRepairQuestionReference {
+  return {
+    questionIndex: workspace.questionIndex,
+    questionResultId: workspace.questionResultId,
+    sessionResultId: workspace.sessionResultId,
+    studyNoteId: workspace.question.noteId,
+  };
+}
+
+function getConfirmedPracticeRepairEntryRouteId(
+  result: FlashCardSessionResult,
+  questionIndex: number,
+): string {
+  const confirmedEntry = result.questions[questionIndex]?.practiceRepairEntry;
+
+  if (confirmedEntry === undefined) {
+    throw new Error("Expected a confirmed Practice Repair entry.");
+  }
+
+  return getPracticeRepairEntryId(confirmedEntry);
+}
+
+function isIntentSelectionKey(key: string) {
+  return key === "Enter" || key === " ";
 }
 
 function getStudyNoteMeta(question: Pick<RecallQuestion, "noteSnapshot">) {
@@ -256,18 +286,6 @@ function RecallPracticeRepairDraftPage({
     setErrorMessage(null);
   }
 
-  function handleIntentCardKeyDown(
-    event: KeyboardEvent<HTMLButtonElement>,
-    intent: PracticeRepairIntent,
-  ) {
-    if (event.key !== "Enter" && event.key !== " ") {
-      return;
-    }
-
-    event.preventDefault();
-    selectIntent(intent);
-  }
-
   async function handleConfirmPracticeRepair(
     event: FormEvent<HTMLFormElement>,
   ) {
@@ -281,35 +299,33 @@ function RecallPracticeRepairDraftPage({
     setIsSubmitting(true);
 
     try {
-      const reference = {
-        questionIndex: workspace.questionIndex,
-        questionResultId: workspace.questionResultId,
-        sessionResultId: workspace.sessionResultId,
-        studyNoteId: question.noteId,
+      const reference = createPracticeRepairDraftReference(workspace);
+      const confirmation = {
+        correction,
+        intent: selectedCard.intent,
+        reference,
       };
-      const updatedResult =
-        persistentRecallContext === undefined
-          ? recallContext.confirmPracticeRepairEntry({
-              correction,
-              intent: selectedCard.intent,
-              reference,
-              userId,
-            })
-          : await persistentRecallContext.confirmPracticeRepairEntry(userId, {
-              correction,
-              intent: selectedCard.intent,
-              reference,
-            });
-      const confirmedEntry =
-        updatedResult.questions[workspace.questionIndex]?.practiceRepairEntry;
+      let updatedResult: FlashCardSessionResult;
 
-      if (confirmedEntry === undefined) {
-        throw new Error("Expected a confirmed Practice Repair entry.");
+      if (persistentRecallContext === undefined) {
+        updatedResult = recallContext.confirmPracticeRepairEntry({
+          ...confirmation,
+          userId,
+        });
+      } else {
+        updatedResult =
+          await persistentRecallContext.confirmPracticeRepairEntry(
+            userId,
+            confirmation,
+          );
       }
 
       await navigate({
         params: {
-          practiceRepairEntryId: getPracticeRepairEntryId(confirmedEntry),
+          practiceRepairEntryId: getConfirmedPracticeRepairEntryRouteId(
+            updatedResult,
+            workspace.questionIndex,
+          ),
         },
         to: "/recall/repair/$practiceRepairEntryId",
       });
@@ -417,137 +433,34 @@ function RecallPracticeRepairDraftPage({
             </div>
 
             <div className="recall-practice-repair-draft__suggestion-list">
-              {draftIntentCards.map((card) => {
-                const isSelected = selectedIntent === card.intent;
-                const titleId = `practice-repair-draft-card-title-${card.intent}`;
-                const descriptionId = `practice-repair-draft-card-description-${card.intent}`;
+              {draftIntentCards.map((card) => (
+                <PracticeRepairDraftIntentCard
+                  card={card}
+                  isSelected={selectedIntent === card.intent}
+                  key={card.intent}
+                  onSelect={selectIntent}
+                />
+              ))}
 
-                return (
-                  <article
-                    className="recall-practice-repair-draft__suggestion"
-                    data-selected={isSelected ? "true" : "false"}
-                    key={card.intent}
-                  >
-                    <button
-                      aria-describedby={descriptionId}
-                      aria-labelledby={titleId}
-                      aria-pressed={isSelected}
-                      className="recall-practice-repair-draft__suggestion-button"
-                      onClick={() => selectIntent(card.intent)}
-                      onKeyDown={(event) =>
-                        handleIntentCardKeyDown(event, card.intent)
-                      }
-                      type="button"
-                    >
-                      <span className="recall-practice-repair-draft__suggestion-copy">
-                        <span
-                          className="recall-practice-repair-draft__suggestion-title"
-                          id={titleId}
-                        >
-                          {card.title}
-                        </span>
-                        <span
-                          className="recall-practice-repair-draft__suggestion-description"
-                          id={descriptionId}
-                        >
-                          {card.description}
-                        </span>
-                      </span>
-
-                      <span
-                        aria-hidden="true"
-                        className="recall-practice-repair-draft__suggestion-chevron"
-                      >
-                        <SuggestionChevronIcon />
-                      </span>
-                    </button>
-                  </article>
-                );
-              })}
-
-              <article className="recall-practice-repair-draft__suggestion">
-                <div className="recall-practice-repair-draft__suggestion-static">
-                  <span className="recall-practice-repair-draft__suggestion-copy">
-                    <span className="recall-practice-repair-draft__suggestion-title">
-                      {recallAgainSoonCard.title}
-                    </span>
-                    <span className="recall-practice-repair-draft__suggestion-description">
-                      {recallAgainSoonCard.description}
-                    </span>
-                  </span>
-                </div>
-              </article>
+              <PracticeRepairDraftStaticSuggestion card={recallAgainSoonCard} />
             </div>
 
             {selectedCard === null ? null : (
-              <form
-                aria-label="Practice Repair confirmation"
-                className="recall-practice-repair-draft__selection"
+              <PracticeRepairDraftSelectionForm
+                correction={correction}
+                correctionRef={correctionRef}
+                errorMessage={errorMessage}
+                isSubmitting={isSubmitting}
+                onClearSelection={clearSelection}
+                onCorrectionChange={(nextCorrection) => {
+                  setCorrection(nextCorrection);
+                  setErrorMessage(null);
+                }}
                 onSubmit={(event) => {
                   void handleConfirmPracticeRepair(event);
                 }}
-              >
-                <div className="recall-practice-repair-draft__selection-copy">
-                  <p className="recall-practice-repair-draft__eyebrow">
-                    Selected repair
-                  </p>
-                  <h3>{selectedCard.title}</h3>
-                  <p>{selectedCard.selectionDescription}</p>
-                </div>
-
-                <div className="recall-practice-repair-draft__selection-detail">
-                  <p className="recall-practice-repair-draft__selection-label">
-                    Practice Repair intent
-                  </p>
-                  <p className="recall-practice-repair-draft__selection-value">
-                    {formatPracticeRepairIntentLabel(selectedCard.intent)}
-                  </p>
-                </div>
-
-                <p className="recall-practice-repair-draft__selection-note">
-                  This repair candidate stays in draft until you confirm this
-                  Practice Repair.
-                </p>
-
-                <FloatingTextarea
-                  label="Correction"
-                  minLength={1}
-                  onChange={(event) => {
-                    setCorrection(event.target.value);
-                    setErrorMessage(null);
-                  }}
-                  placeholder={selectedCard.correctionPlaceholder}
-                  ref={correctionRef}
-                  rows={4}
-                  value={correction}
-                />
-
-                {errorMessage === null ? null : (
-                  <p
-                    className="recall-practice-repair-draft__selection-error"
-                    role="alert"
-                  >
-                    {errorMessage}
-                  </p>
-                )}
-
-                <div className="recall-practice-repair-draft__selection-actions">
-                  <Button
-                    disabled={isSubmitting || correction.trim().length === 0}
-                    type="submit"
-                    variant="primary"
-                  >
-                    Confirm Practice Repair
-                  </Button>
-                  <Button
-                    onClick={clearSelection}
-                    type="button"
-                    variant="secondary"
-                  >
-                    Clear selection
-                  </Button>
-                </div>
-              </form>
+                selectedCard={selectedCard}
+              />
             )}
           </aside>
         </div>
@@ -557,6 +470,168 @@ function RecallPracticeRepairDraftPage({
         </p>
       </article>
     </section>
+  );
+}
+
+function PracticeRepairDraftIntentCard({
+  card,
+  isSelected,
+  onSelect,
+}: Readonly<{
+  card: DraftPracticeRepairIntentCard;
+  isSelected: boolean;
+  onSelect: (intent: PracticeRepairIntent) => void;
+}>) {
+  const titleId = `practice-repair-draft-card-title-${card.intent}`;
+  const descriptionId = `practice-repair-draft-card-description-${card.intent}`;
+
+  function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (!isIntentSelectionKey(event.key)) {
+      return;
+    }
+
+    event.preventDefault();
+    onSelect(card.intent);
+  }
+
+  return (
+    <article
+      className="recall-practice-repair-draft__suggestion"
+      data-selected={isSelected ? "true" : "false"}
+    >
+      <button
+        aria-describedby={descriptionId}
+        aria-labelledby={titleId}
+        aria-pressed={isSelected}
+        className="recall-practice-repair-draft__suggestion-button"
+        onClick={() => onSelect(card.intent)}
+        onKeyDown={handleKeyDown}
+        type="button"
+      >
+        <span className="recall-practice-repair-draft__suggestion-copy">
+          <span
+            className="recall-practice-repair-draft__suggestion-title"
+            id={titleId}
+          >
+            {card.title}
+          </span>
+          <span
+            className="recall-practice-repair-draft__suggestion-description"
+            id={descriptionId}
+          >
+            {card.description}
+          </span>
+        </span>
+
+        <span
+          aria-hidden="true"
+          className="recall-practice-repair-draft__suggestion-chevron"
+        >
+          <SuggestionChevronIcon />
+        </span>
+      </button>
+    </article>
+  );
+}
+
+function PracticeRepairDraftStaticSuggestion({
+  card,
+}: Readonly<{
+  card: typeof recallAgainSoonCard;
+}>) {
+  return (
+    <article className="recall-practice-repair-draft__suggestion">
+      <div className="recall-practice-repair-draft__suggestion-static">
+        <span className="recall-practice-repair-draft__suggestion-copy">
+          <span className="recall-practice-repair-draft__suggestion-title">
+            {card.title}
+          </span>
+          <span className="recall-practice-repair-draft__suggestion-description">
+            {card.description}
+          </span>
+        </span>
+      </div>
+    </article>
+  );
+}
+
+function PracticeRepairDraftSelectionForm({
+  correction,
+  correctionRef,
+  errorMessage,
+  isSubmitting,
+  onClearSelection,
+  onCorrectionChange,
+  onSubmit,
+  selectedCard,
+}: Readonly<{
+  correction: string;
+  correctionRef: RefObject<HTMLTextAreaElement | null>;
+  errorMessage: string | null;
+  isSubmitting: boolean;
+  onClearSelection: () => void;
+  onCorrectionChange: (correction: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  selectedCard: DraftPracticeRepairIntentCard;
+}>) {
+  return (
+    <form
+      aria-label="Practice Repair confirmation"
+      className="recall-practice-repair-draft__selection"
+      onSubmit={onSubmit}
+    >
+      <div className="recall-practice-repair-draft__selection-copy">
+        <p className="recall-practice-repair-draft__eyebrow">Selected repair</p>
+        <h3>{selectedCard.title}</h3>
+        <p>{selectedCard.selectionDescription}</p>
+      </div>
+
+      <div className="recall-practice-repair-draft__selection-detail">
+        <p className="recall-practice-repair-draft__selection-label">
+          Practice Repair intent
+        </p>
+        <p className="recall-practice-repair-draft__selection-value">
+          {formatPracticeRepairIntentLabel(selectedCard.intent)}
+        </p>
+      </div>
+
+      <p className="recall-practice-repair-draft__selection-note">
+        This repair candidate stays in draft until you confirm this Practice
+        Repair.
+      </p>
+
+      <FloatingTextarea
+        label="Correction"
+        minLength={1}
+        onChange={(event) => onCorrectionChange(event.target.value)}
+        placeholder={selectedCard.correctionPlaceholder}
+        ref={correctionRef}
+        rows={4}
+        value={correction}
+      />
+
+      {errorMessage === null ? null : (
+        <p
+          className="recall-practice-repair-draft__selection-error"
+          role="alert"
+        >
+          {errorMessage}
+        </p>
+      )}
+
+      <div className="recall-practice-repair-draft__selection-actions">
+        <Button
+          disabled={isSubmitting || correction.trim().length === 0}
+          type="submit"
+          variant="primary"
+        >
+          Confirm Practice Repair
+        </Button>
+        <Button onClick={onClearSelection} type="button" variant="secondary">
+          Clear selection
+        </Button>
+      </div>
+    </form>
   );
 }
 
