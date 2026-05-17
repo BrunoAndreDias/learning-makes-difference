@@ -1,6 +1,8 @@
 import type { AppTranslationKey } from "../language";
 import type { RecallMode, RecallSelfRating } from "./recall";
 
+export type RecallRatingTone = RecallSelfRating | "unattempted";
+
 export function formatRecallModeLabel(mode: RecallMode): string {
   switch (mode) {
     case "FlashCard":
@@ -50,6 +52,23 @@ export function getRecallRatingTranslationKey(
       return "recall.rating.good";
     case "easy":
       return "recall.rating.easy";
+  }
+}
+
+export function getRecallRatingTone(
+  rating: RecallSelfRating | null,
+): RecallRatingTone {
+  switch (rating) {
+    case "forgot":
+      return "forgot";
+    case "hard":
+      return "hard";
+    case "good":
+      return "good";
+    case "easy":
+      return "easy";
+    case null:
+      return "unattempted";
   }
 }
 

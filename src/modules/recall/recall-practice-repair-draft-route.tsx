@@ -8,7 +8,10 @@ import { ButtonLink } from "../../design-system/button";
 import { PageHeader } from "../../design-system/page-header";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { useAppTranslation } from "../language";
-import { getRecallRatingTranslationKey } from "./learner-copy";
+import {
+  getRecallRatingTone,
+  getRecallRatingTranslationKey,
+} from "./learner-copy";
 import type { FlashCardSessionResult, RecallQuestion } from "./recall";
 import { RecallBreadcrumb } from "./recall-breadcrumb";
 import { getQuestionPracticeRepairDraft } from "./recall-practice-repair";
@@ -26,7 +29,6 @@ export const Route = createFileRoute(
 
 type PracticeRepairDraftWorkspace = {
   question: RecallQuestion;
-  result: FlashCardSessionResult;
 };
 
 const draftSuggestionCards = [
@@ -57,22 +59,7 @@ const draftSuggestionCards = [
   },
 ] as const;
 
-function getRatingTone(rating: RecallQuestion["selfRating"]) {
-  switch (rating) {
-    case "forgot":
-      return "forgot";
-    case "hard":
-      return "hard";
-    case "good":
-      return "good";
-    case "easy":
-      return "easy";
-    case null:
-      return "unattempted";
-  }
-}
-
-function getStudyNoteMeta(question: RecallQuestion) {
+function getStudyNoteMeta(question: Pick<RecallQuestion, "noteSnapshot">) {
   const labels = question.noteSnapshot.labels
     ?.map((label) => label.name.trim())
     .filter((label) => label.length > 0);
@@ -95,8 +82,9 @@ function findPracticeRepairDraftWorkspace(input: {
   sessionResultId: string;
   sessionResults: readonly FlashCardSessionResult[];
 }): PracticeRepairDraftWorkspace | null {
-  const result = input.sessionResults.find(
-    (candidate) => candidate.id === input.sessionResultId,
+  const { questionResultId, sessionResultId, sessionResults } = input;
+  const result = sessionResults.find(
+    (candidate) => candidate.id === sessionResultId,
   );
 
   if (result === undefined) {
@@ -104,7 +92,7 @@ function findPracticeRepairDraftWorkspace(input: {
   }
 
   const question = result.questions.find(
-    (candidate) => candidate.questionResultId === input.questionResultId,
+    (candidate) => candidate.questionResultId === questionResultId,
   );
 
   if (question === undefined) {
@@ -113,7 +101,6 @@ function findPracticeRepairDraftWorkspace(input: {
 
   return {
     question,
-    result,
   };
 }
 
@@ -154,13 +141,14 @@ function RecallPracticeRepairDraftPage({
   workspace: PracticeRepairDraftWorkspace;
 }>) {
   const { t } = useAppTranslation();
-  const prompt = getRecallQuestionPrompt(workspace.question);
-  const expectedAnswer = getRecallQuestionExpectedAnswer(workspace.question);
+  const { question } = workspace;
+  const prompt = getRecallQuestionPrompt(question);
+  const expectedAnswer = getRecallQuestionExpectedAnswer(question);
   const ratingLabel =
-    workspace.question.selfRating === null
+    question.selfRating === null
       ? "Not rated"
-      : t(getRecallRatingTranslationKey(workspace.question.selfRating));
-  const ratingTone = getRatingTone(workspace.question.selfRating);
+      : t(getRecallRatingTranslationKey(question.selfRating));
+  const ratingTone = getRecallRatingTone(question.selfRating);
 
   return (
     <section aria-label="Practice Repair draft" className="recall-workspace">
@@ -192,7 +180,7 @@ function RecallPracticeRepairDraftPage({
                   {prompt}
                 </h2>
                 <p className="recall-practice-repair-draft__study-note-meta">
-                  {getStudyNoteMeta(workspace.question)}
+                  {getStudyNoteMeta(question)}
                 </p>
               </div>
 
@@ -223,7 +211,7 @@ function RecallPracticeRepairDraftPage({
                 </span>
               </div>
               <p className="recall-practice-repair-draft__detail-copy">
-                {getRecallQuestionRecordedAnswer(workspace.question)}
+                {getRecallQuestionRecordedAnswer(question)}
               </p>
             </section>
 

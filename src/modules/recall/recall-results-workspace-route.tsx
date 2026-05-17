@@ -20,6 +20,7 @@ import { listStudyNotesForUser } from "../study-notes";
 import { toStudyNoteRecallHistories } from "../study-notes/learning-state";
 import {
   getRecallModeTranslationKey,
+  getRecallRatingTone,
   getRecallRatingTranslationKey,
 } from "./learner-copy";
 import type {
@@ -107,21 +108,6 @@ function formatResultTime(timestamp: string) {
 
 function formatResultScore(score: number | null) {
   return score === null ? "No score" : `${Math.round(score)}%`;
-}
-
-function getRatingTone(rating: RecallSelfRating | null) {
-  switch (rating) {
-    case "forgot":
-      return "forgot";
-    case "hard":
-      return "hard";
-    case "good":
-      return "good";
-    case "easy":
-      return "easy";
-    case null:
-      return "unattempted";
-  }
 }
 
 function getModeTone(mode: RecallMode) {
@@ -1783,7 +1769,7 @@ function QuestionReviewRow({
     question.selfRating === null
       ? t("recall.result.notAnswered")
       : t(getRecallRatingTranslationKey(question.selfRating));
-  const ratingTone = getRatingTone(question.selfRating);
+  const ratingTone = getRecallRatingTone(question.selfRating);
 
   function handleToggleQuestion() {
     onExpandedQuestionKeyChange(isExpanded ? null : questionKey);
@@ -1847,7 +1833,7 @@ function QuestionReviewDetail({
   question: RecallQuestion;
   resultId: string;
   ratingLabel: string;
-  ratingTone: ReturnType<typeof getRatingTone>;
+  ratingTone: ReturnType<typeof getRecallRatingTone>;
 }) {
   const { t } = useAppTranslation();
 
@@ -1906,32 +1892,32 @@ function QuestionPracticeRepairPanel({
   resultId: string;
 }) {
   const practiceRepairDraft = getQuestionPracticeRepairDraft(question);
+  const practiceRepairEntry = question.practiceRepairEntry;
 
-  if (question.practiceRepairEntry !== undefined) {
-    const actionablePracticeFollowUp = isActionablePracticeFollowUp(
-      question.practiceRepairEntry,
-    );
+  if (practiceRepairEntry !== undefined) {
+    const actionablePracticeFollowUp =
+      isActionablePracticeFollowUp(practiceRepairEntry);
 
     return (
       <div className="recall-selected-result__question-detail-block">
         <h5>Confirmed Practice Repair</h5>
         <p className="recall-selected-result__question-detail-label">Intent</p>
         <p className="recall-selected-result__question-detail-copy">
-          {formatPracticeRepairIntentLabel(question.practiceRepairEntry.intent)}
+          {formatPracticeRepairIntentLabel(practiceRepairEntry.intent)}
         </p>
         <p className="recall-selected-result__question-detail-label">
           Correction
         </p>
         <p className="recall-selected-result__question-detail-copy">
-          {question.practiceRepairEntry.correction}
+          {practiceRepairEntry.correction}
         </p>
-        {question.practiceRepairEntry.nextPracticeIdea !== undefined ? (
+        {practiceRepairEntry.nextPracticeIdea !== undefined ? (
           <>
             <p className="recall-selected-result__question-detail-label">
               Next-practice idea
             </p>
             <p className="recall-selected-result__question-detail-copy">
-              {question.practiceRepairEntry.nextPracticeIdea}
+              {practiceRepairEntry.nextPracticeIdea}
             </p>
           </>
         ) : null}

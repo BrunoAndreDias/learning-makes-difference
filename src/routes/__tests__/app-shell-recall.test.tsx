@@ -361,47 +361,6 @@ function createStudyNoteSnapshot(
   return updateStudyNoteSnapshot(contexts, studyNote.id, input);
 }
 
-function _getControlledPanel(control: HTMLElement) {
-  const panelId = control.getAttribute("aria-controls");
-
-  if (panelId === null) {
-    throw new Error("Expected control to reference a detail panel.");
-  }
-
-  const panel = document.getElementById(panelId);
-
-  if (panel === null) {
-    throw new Error(`Expected detail panel "${panelId}" to exist.`);
-  }
-
-  return panel;
-}
-
-function _getDetailBlockByLabel(panel: HTMLElement, label: string) {
-  const labelElement = within(panel).getByText(label);
-  const block = labelElement.closest(
-    ".recall-selected-result__question-detail-block",
-  );
-
-  if (!(block instanceof HTMLElement)) {
-    throw new Error(`Expected "${label}" to be inside a detail block.`);
-  }
-
-  return block;
-}
-
-function _getDetailBlockCopy(block: HTMLElement) {
-  const copy = block.querySelector(
-    ".recall-selected-result__question-detail-copy",
-  );
-
-  if (!(copy instanceof HTMLElement)) {
-    throw new Error("Expected detail block to include copy text.");
-  }
-
-  return copy;
-}
-
 const defaultViewportWidth = window.innerWidth;
 
 function setViewportWidth(width: number) {
