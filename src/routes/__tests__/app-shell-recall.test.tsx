@@ -2076,14 +2076,15 @@ describe("authenticated recall workspace", () => {
       expect(router.state.location.pathname).toBe("/recall/session");
     });
     expect(await screen.findByText(weakStudyNote.prompt)).toBeInTheDocument();
-    expect(contexts.recallContext.getSnapshot()).toMatchObject({
-      notes: [
-        {
-          id: weakStudyNote.id,
-        },
-      ],
-    });
-    expect(contexts.recallContext.getSnapshot()?.notes).toHaveLength(1);
+
+    const startedSession = contexts.recallContext.getSnapshot();
+
+    expect(startedSession?.notes).toMatchObject([
+      {
+        id: weakStudyNote.id,
+      },
+    ]);
+    expect(startedSession?.notes).toHaveLength(1);
     expect(
       contexts.recallContext.listPracticeRepairEntriesForQuestion({
         reference: confirmedReference,

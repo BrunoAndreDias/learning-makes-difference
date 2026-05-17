@@ -6,7 +6,7 @@ import {
   createAppStudyNotesContext,
   toStudyNoteRecallHistories,
 } from "../study-notes";
-import type { SessionResult } from "./recall";
+import type { RecallSelfRating, SessionResult } from "./recall";
 import { type AppRecallContext, createAppRecallContext } from "./recall";
 import { buildRecallTodayQueue } from "./recall-today";
 
@@ -25,6 +25,35 @@ function createMemoryStorage() {
     setItem(key: string, value: string) {
       values.set(key, value);
     },
+  };
+}
+
+function createRecallTodayTestContexts(keyPrefix: string) {
+  const storage = createMemoryStorage();
+  const notes = createAppNotesContext({
+    keyPrefix: `${keyPrefix}-notes`,
+    storage,
+  });
+  const studyNotes = createAppStudyNotesContext({
+    keyPrefix: `${keyPrefix}-study-notes`,
+    storage,
+  });
+  let sessionCounter = 0;
+  const recall = createAppRecallContext({
+    crypto: {
+      randomUUID: () =>
+        `${keyPrefix}-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+    },
+    keyPrefix: `${keyPrefix}-recall`,
+    notes,
+    shuffleNotes: (sessionNotes) => [...sessionNotes],
+    storage,
+    studyNotes,
+  });
+
+  return {
+    recall,
+    studyNotes,
   };
 }
 
@@ -137,6 +166,48 @@ function buildSessionResultWithPracticeRepair(input: {
   };
 }
 
+function completeStudyNoteRecall(input: {
+  rating: RecallSelfRating;
+  recall: AppRecallContext;
+  studyNoteId: string;
+  userId: string;
+}) {
+  const session = input.recall.startFlashCardSession({
+    studyNoteIds: [input.studyNoteId],
+    userId: input.userId,
+  });
+
+  input.recall.revealFlashCardAnswer({
+    sessionId: session.id,
+    userId: input.userId,
+  });
+  input.recall.rateFlashCardAnswer({
+    rating: input.rating,
+    sessionId: session.id,
+    userId: input.userId,
+  });
+
+  return getMostRecentSessionResult({
+    recall: input.recall,
+    userId: input.userId,
+  });
+}
+
+function getMostRecentSessionResult(input: {
+  recall: AppRecallContext;
+  userId: string;
+}) {
+  const result = input.recall.listSessionResults({
+    userId: input.userId,
+  })[0];
+
+  if (result === undefined) {
+    throw new Error("Expected a stored Recall result.");
+  }
+
+  return result;
+}
+
 function createPracticeRepairReference(input: {
   result: SessionResult;
   studyNoteId: string;
@@ -200,46 +271,20 @@ describe("Recall Today queue", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-16T16:00:00.000Z"));
 
-    const storage = createMemoryStorage();
     const userId = "user-recall-today-follow-up-timing";
-    const notes = createAppNotesContext({
-      keyPrefix: "recall-today-follow-up-timing-notes",
-      storage,
-    });
-    const studyNotes = createAppStudyNotesContext({
-      keyPrefix: "recall-today-follow-up-timing-study-notes",
-      storage,
-    });
-    let sessionCounter = 0;
-    const recall = createAppRecallContext({
-      crypto: {
-        randomUUID: () =>
-          `recall-today-follow-up-timing-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
-      },
-      keyPrefix: "recall-today-follow-up-timing-recall",
-      notes,
-      shuffleNotes: (sessionNotes) => [...sessionNotes],
-      storage,
-      studyNotes,
-    });
+    const { recall, studyNotes } = createRecallTodayTestContexts(
+      "recall-today-follow-up-timing",
+    );
     const studyNote = studyNotes.createStudyNote(userId, {
       expectedAnswer: "ATP stores transferable energy.",
       prompt: "What stores transferable energy?",
       sourceBody: "Cell respiration source context.",
       sourceTitle: "Cell respiration source",
     });
-    const firstSession = recall.startFlashCardSession({
-      studyNoteIds: [studyNote.id],
-      userId,
-    });
-
-    recall.revealFlashCardAnswer({
-      sessionId: firstSession.id,
-      userId,
-    });
-    recall.rateFlashCardAnswer({
+    const weakResult = completeStudyNoteRecall({
       rating: "hard",
-      sessionId: firstSession.id,
+      recall,
+      studyNoteId: studyNote.id,
       userId,
     });
 
@@ -247,7 +292,7 @@ describe("Recall Today queue", () => {
       correction: "State ATP directly.",
       intent: "tighten-expected-answer",
       reference: createPracticeRepairReference({
-        result: recall.listSessionResults({ userId })[0]!,
+        result: weakResult,
         studyNoteId: studyNote.id,
       }),
       userId,

@@ -258,6 +258,31 @@ function getPracticeRepairFollowUpStartErrorMessage() {
   return "Recall again soon could not be started.";
 }
 
+async function startPracticeRepairFollowUpRecall(input: {
+  persistentRecallContext: AppPersistentRecallContext | undefined;
+  recallContext: AppRecallContext;
+  studyNoteId: string;
+  userId: string;
+}) {
+  const sessionInput = {
+    mode: "FlashCard" as const,
+    studyNoteIds: [input.studyNoteId],
+  };
+
+  if (input.persistentRecallContext !== undefined) {
+    await input.persistentRecallContext.startFlashCardSession(
+      input.userId,
+      sessionInput,
+    );
+    return;
+  }
+
+  input.recallContext.startFlashCardSession({
+    ...sessionInput,
+    userId: input.userId,
+  });
+}
+
 async function mutatePracticeRepairLifecycle(input: {
   action: PracticeRepairLifecycleAction;
   persistentRecallContext: AppPersistentRecallContext | undefined;
@@ -559,19 +584,12 @@ function RecallPracticeRepairWorkspacePage({
     setIsFollowUpRecallPending(true);
 
     try {
-      if (persistentRecallContext === undefined) {
-        recallContext.startFlashCardSession({
-          mode: "FlashCard",
-          studyNoteIds: [entry.reference.studyNoteId],
-          userId,
-        });
-      } else {
-        await persistentRecallContext.startFlashCardSession(userId, {
-          mode: "FlashCard",
-          studyNoteIds: [entry.reference.studyNoteId],
-        });
-      }
-
+      await startPracticeRepairFollowUpRecall({
+        persistentRecallContext,
+        recallContext,
+        studyNoteId: entry.reference.studyNoteId,
+        userId,
+      });
       await navigate({ to: "/recall/session" });
     } catch (error) {
       setErrorMessage(
