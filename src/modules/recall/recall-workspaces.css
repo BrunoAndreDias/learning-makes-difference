@@ -2470,6 +2470,11 @@
   color: var(--color-content-muted);
 }
 
+.recall-practice-repair-workspace__error {
+  margin: 0;
+  color: var(--color-danger-soft-foreground);
+}
+
 .recall-practice-repair-workspace__actions {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
