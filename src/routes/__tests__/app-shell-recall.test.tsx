@@ -13,6 +13,7 @@ import {
   type RecallSelfRating,
   type SessionResult,
 } from "../../modules/recall";
+import { createPracticeRepairEntryId } from "../../modules/recall/recall-practice-repair";
 import { createAppStudyNotesContext } from "../../modules/study-notes";
 import {
   createDeterministicRecallTestContexts,
@@ -895,6 +896,124 @@ describe("authenticated recall workspace", () => {
     expect(
       screen.queryByRole("button", { name: "Confirm Practice Repair" }),
     ).toBeNull();
+  });
+
+  it("renders suggested repair cards and lets keyboard selection open an intent-specific draft confirmation", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const weakStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "ATP stores transferable energy for cells.",
+        prompt: "What stores transferable energy?",
+        sourceBody: "Cell respiration source context.",
+        sourceTitle: "Cell respiration source",
+      },
+    );
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: weakStudyNote.id,
+      timestamp: "2026-05-15T09:00:00.000Z",
+    });
+
+    const result = contexts.recallContext.listSessionResults({
+      userId: testUser.id,
+    })[0];
+    const questionResultId = result?.questions[0]?.questionResultId;
+
+    if (result === undefined || questionResultId === undefined) {
+      throw new Error(
+        "Expected a stored weak-recall result with a question id.",
+      );
+    }
+
+    const routeRender = renderRoute(
+      `/recall/results/${result.id}/questions/${questionResultId}/repair`,
+      {
+        ...contexts,
+        session: createSession(),
+      },
+    );
+
+    const suggestions = await screen.findByRole("complementary", {
+      name: "Suggested repairs",
+    });
+    const editExpectedAnswerButton = within(suggestions).getByRole("button", {
+      name: "Edit expected answer",
+    });
+
+    expect(
+      within(suggestions).getByRole("button", {
+        name: "Split this Study Note",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(suggestions).getByRole("button", {
+        name: "Create a sibling Study Note",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(suggestions).getByRole("button", {
+        name: "Add a memory aid",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(suggestions).getByText("Recall again soon"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Confirm Practice Repair" }),
+    ).toBeNull();
+
+    editExpectedAnswerButton.focus();
+    fireEvent.keyDown(editExpectedAnswerButton, { key: "Enter" });
+
+    expect(editExpectedAnswerButton).toHaveAttribute("aria-pressed", "true");
+    expect(
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Edit expected answer",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "This repair candidate stays in draft until you confirm this Practice Repair.",
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Correction"), {
+      target: {
+        value:
+          "State ATP directly and mention that it stores transferable energy.",
+      },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm Practice Repair" }),
+    );
+
+    await waitFor(() => {
+      expect(routeRender.router.state.location.pathname).toBe(
+        `/recall/repair/${createPracticeRepairEntryId({
+          questionIndex: 0,
+          questionResultId,
+          sessionResultId: result.id,
+          studyNoteId: weakStudyNote.id,
+        })}`,
+      );
+    });
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Practice Repair",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Confirmed repair")).toBeInTheDocument();
+    expect(screen.getByText("Tighten expected answer")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "State ATP directly and mention that it stores transferable energy.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("falls back to the default Recall not-found behavior when a Results repair result is missing", async () => {

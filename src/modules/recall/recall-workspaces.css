@@ -2383,9 +2383,6 @@
 }
 
 .recall-practice-repair-draft__suggestion {
-  display: grid;
-  gap: var(--space-2);
-  padding: var(--space-4);
   border: 1px solid var(--color-content-border-soft);
   border-radius: 0.7rem;
   background: var(--color-shell-panel);
@@ -2393,14 +2390,109 @@
     color-mix(in srgb, var(--color-content-strong) 24%, transparent);
 }
 
-.recall-practice-repair-draft__suggestion h3 {
-  color: var(--color-content-strong);
-  font-size: 1.02rem;
+.recall-practice-repair-draft__suggestion[data-selected="true"] {
+  border-color: var(--color-primary-soft-border);
+  box-shadow: 0 20px 34px -28px
+    color-mix(in srgb, var(--color-primary) 30%, transparent);
 }
 
-.recall-practice-repair-draft__suggestion p {
+.recall-practice-repair-draft__suggestion-button,
+.recall-practice-repair-draft__suggestion-static {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-4);
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  text-align: left;
+}
+
+.recall-practice-repair-draft__suggestion-button {
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.recall-practice-repair-draft__suggestion-button:hover,
+.recall-practice-repair-draft__suggestion-button:focus-visible {
+  background: color-mix(in srgb, var(--color-primary-soft) 54%, white);
+  outline: none;
+}
+
+.recall-practice-repair-draft__suggestion-copy {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.recall-practice-repair-draft__suggestion-title {
+  color: var(--color-content-strong);
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.recall-practice-repair-draft__suggestion-description {
   color: var(--color-content-muted);
   line-height: 1.55;
+}
+
+.recall-practice-repair-draft__suggestion-chevron {
+  display: inline-grid;
+  align-self: center;
+  color: var(--color-content-muted);
+}
+
+.recall-practice-repair-draft__selection {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-primary-soft-border);
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--color-primary-soft) 36%, white);
+}
+
+.recall-practice-repair-draft__selection-copy,
+.recall-practice-repair-draft__selection-detail,
+.recall-practice-repair-draft__selection-actions {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.recall-practice-repair-draft__selection-copy h3,
+.recall-practice-repair-draft__selection-copy p,
+.recall-practice-repair-draft__selection-detail p,
+.recall-practice-repair-draft__selection-note,
+.recall-practice-repair-draft__selection-error {
+  margin: 0;
+}
+
+.recall-practice-repair-draft__selection-label {
+  color: var(--color-content-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.recall-practice-repair-draft__selection-value {
+  color: var(--color-content-strong);
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.recall-practice-repair-draft__selection-note {
+  color: var(--color-content-default);
+}
+
+.recall-practice-repair-draft__selection-error {
+  color: var(--color-danger-soft-foreground);
+}
+
+.recall-practice-repair-draft__selection-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .recall-practice-repair-draft__support {

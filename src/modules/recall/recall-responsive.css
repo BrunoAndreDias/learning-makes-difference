@@ -231,6 +231,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .recall-practice-repair-draft__selection-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .recall-practice-repair-draft__evidence {
     padding: var(--space-4);
   }
