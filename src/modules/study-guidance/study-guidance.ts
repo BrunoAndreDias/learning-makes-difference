@@ -1,11 +1,12 @@
 import type { UserTimeZonePreference } from "../access/session/session-contract";
 import type { AppLabel } from "../labels/label-management/labels";
-import { getInterleavedRecallRecommendation } from "../recall/interleaved-recall";
-import { getLocalDateKey } from "../recall/local-date";
 import type {
   FlashCardRecallAttemptsByNote,
+  RecallSchedule,
   SessionResult,
-} from "../recall/recall";
+} from "../recall";
+import { getInterleavedRecallRecommendation } from "../recall/interleaved-recall";
+import { getLocalDateKey } from "../recall/local-date";
 import { buildDueTodayQueue } from "../recall/recall-due-today";
 import {
   formatPracticeRepairIntentLabel,
@@ -15,12 +16,12 @@ import {
   type PracticeRepairEntry,
   type PracticeRepairQueueListItem,
 } from "../recall/recall-practice-repair";
-import type { RecallSchedule } from "../recall/recall-schedule";
-import { type AppStudyNote, getStudyNoteReadiness } from "../study-notes";
 import {
+  type AppStudyNote,
+  getStudyNoteReadiness,
   type StudyNoteRecallHistory,
   toStudyNoteRecallHistories,
-} from "../study-notes/learning-state";
+} from "../study-notes";
 
 export type StudyGuidanceBucketId =
   | "practice-repair"
@@ -210,6 +211,31 @@ function createStudyNoteMetadata(input: {
   return [labelMetadata, `Source: ${getStudyNoteSourceTitle(input.studyNote)}`];
 }
 
+function createStudyNoteRowDraft(input: {
+  action: StudyGuidanceRowAction;
+  bucketId: StudyGuidanceBucketId;
+  evidence: string;
+  id: string;
+  labelsById: ReadonlyMap<string, AppLabel>;
+  studyNote: AppStudyNote;
+}): StudyGuidanceRowDraft {
+  const bucket = getBucketDefinition(input.bucketId);
+
+  return {
+    action: input.action,
+    bucketId: bucket.id,
+    bucketLabel: bucket.label,
+    evidence: input.evidence,
+    id: input.id,
+    metadata: createStudyNoteMetadata({
+      labelsById: input.labelsById,
+      studyNote: input.studyNote,
+    }),
+    studyNoteIds: [input.studyNote.id],
+    title: getStudyNoteTitle(input.studyNote),
+  };
+}
+
 function getLatestHistoryAttempt(
   history: StudyNoteRecallHistory | null,
 ): StudyNoteRecallHistory["attempts"][number] | null {
@@ -307,12 +333,16 @@ function createPracticeRepairRows(input: {
       return [];
     }
 
+    const rowId =
+      item.kind === "active"
+        ? getPracticeRepairEntryId(item.entry)
+        : item.question.questionResultId;
     const action =
       item.kind === "active"
         ? ({
             kind: "practice-repair-entry",
             label: "Open Practice Repair",
-            practiceRepairEntryId: getPracticeRepairEntryId(item.entry),
+            practiceRepairEntryId: rowId,
           } satisfies StudyGuidanceRowAction)
         : ({
             kind: "practice-repair-draft",
@@ -322,22 +352,14 @@ function createPracticeRepairRows(input: {
           } satisfies StudyGuidanceRowAction);
 
     return [
-      {
+      createStudyNoteRowDraft({
         action,
         bucketId: "practice-repair",
-        bucketLabel: getBucketDefinition("practice-repair").label,
         evidence: createPracticeRepairEvidence(item),
-        id:
-          item.kind === "active"
-            ? getPracticeRepairEntryId(item.entry)
-            : item.question.questionResultId,
-        metadata: createStudyNoteMetadata({
-          labelsById,
-          studyNote,
-        }),
-        studyNoteIds: [studyNote.id],
-        title: getStudyNoteTitle(studyNote),
-      } satisfies StudyGuidanceRowDraft,
+        id: rowId,
+        labelsById,
+        studyNote,
+      }),
     ];
   });
 }
@@ -370,23 +392,18 @@ function createPracticeFollowUpRows(input: {
     }
 
     return [
-      {
+      createStudyNoteRowDraft({
         action: {
           kind: "practice-repair-entry",
           label: "Open Practice Repair",
           practiceRepairEntryId: getPracticeRepairEntryId(entry),
         },
         bucketId: "practice-follow-up",
-        bucketLabel: getBucketDefinition("practice-follow-up").label,
         evidence: createPracticeFollowUpEvidence(entry),
         id: `follow-up:${getPracticeRepairEntryId(entry)}`,
-        metadata: createStudyNoteMetadata({
-          labelsById: input.labelsById,
-          studyNote,
-        }),
-        studyNoteIds: [studyNote.id],
-        title: getStudyNoteTitle(studyNote),
-      } satisfies StudyGuidanceRowDraft,
+        labelsById: input.labelsById,
+        studyNote,
+      }),
     ];
   });
 }
@@ -432,28 +449,22 @@ function createDueTodayRows(input: {
         userTimeZone: input.userTimeZone,
       }),
     )
-    .map(
-      (item) =>
-        ({
-          action: {
-            kind: "recall-due-today",
-            label: "Open Recall Due today",
-          },
-          bucketId: "due-today",
-          bucketLabel: getBucketDefinition("due-today").label,
-          evidence: createDueTodayEvidence({
-            now: input.now,
-            schedule: item.schedule,
-            userTimeZone: input.userTimeZone,
-          }),
-          id: `due:${item.studyNote.id}`,
-          metadata: createStudyNoteMetadata({
-            labelsById: input.labelsById,
-            studyNote: item.studyNote,
-          }),
-          studyNoteIds: [item.studyNote.id],
-          title: getStudyNoteTitle(item.studyNote),
-        }) satisfies StudyGuidanceRowDraft,
+    .map((item) =>
+      createStudyNoteRowDraft({
+        action: {
+          kind: "recall-due-today",
+          label: "Open Recall Due today",
+        },
+        bucketId: "due-today",
+        evidence: createDueTodayEvidence({
+          now: input.now,
+          schedule: item.schedule,
+          userTimeZone: input.userTimeZone,
+        }),
+        id: `due:${item.studyNote.id}`,
+        labelsById: input.labelsById,
+        studyNote: item.studyNote,
+      }),
     );
 }
 
@@ -465,25 +476,19 @@ function createCompletionBlockerRows(input: {
   return input.studyNotes
     .filter((studyNote) => !input.blockedStudyNoteIds.has(studyNote.id))
     .filter((studyNote) => getStudyNoteReadiness(studyNote).incomplete)
-    .map(
-      (studyNote) =>
-        ({
-          action: {
-            kind: "study-notes",
-            label: "Open Study Notes",
-          },
-          bucketId: "completion-blocker",
-          bucketLabel: getBucketDefinition("completion-blocker").label,
-          evidence:
-            "Add the expected answer before this Study Note can enter recall.",
-          id: `completion-blocker:${studyNote.id}`,
-          metadata: createStudyNoteMetadata({
-            labelsById: input.labelsById,
-            studyNote,
-          }),
-          studyNoteIds: [studyNote.id],
-          title: getStudyNoteTitle(studyNote),
-        }) satisfies StudyGuidanceRowDraft,
+    .map((studyNote) =>
+      createStudyNoteRowDraft({
+        action: {
+          kind: "study-notes",
+          label: "Open Study Notes",
+        },
+        bucketId: "completion-blocker",
+        evidence:
+          "Add the expected answer before this Study Note can enter recall.",
+        id: `completion-blocker:${studyNote.id}`,
+        labelsById: input.labelsById,
+        studyNote,
+      }),
     );
 }
 
@@ -501,25 +506,19 @@ function createFirstRecallRows(input: {
 
       return getLatestHistoryAttempt(history) === null;
     })
-    .map(
-      (studyNote) =>
-        ({
-          action: {
-            kind: "recall-selection",
-            label: "Open Recall Selection",
-            studyNoteIds: [studyNote.id],
-          },
-          bucketId: "first-recall",
-          bucketLabel: getBucketDefinition("first-recall").label,
-          evidence: "No recall attempts yet.",
-          id: `first-recall:${studyNote.id}`,
-          metadata: createStudyNoteMetadata({
-            labelsById: input.labelsById,
-            studyNote,
-          }),
+    .map((studyNote) =>
+      createStudyNoteRowDraft({
+        action: {
+          kind: "recall-selection",
+          label: "Open Recall Selection",
           studyNoteIds: [studyNote.id],
-          title: getStudyNoteTitle(studyNote),
-        }) satisfies StudyGuidanceRowDraft,
+        },
+        bucketId: "first-recall",
+        evidence: "No recall attempts yet.",
+        id: `first-recall:${studyNote.id}`,
+        labelsById: input.labelsById,
+        studyNote,
+      }),
     );
 }
 
@@ -690,7 +689,9 @@ function addStudyNoteIdsToBlockedSet(
   }
 }
 
-function stripRowDraftMetadata(rows: readonly StudyGuidanceRowDraft[]) {
+function toPublicRows(
+  rows: readonly StudyGuidanceRowDraft[],
+): StudyGuidanceRow[] {
   return rows.map(({ studyNoteIds: _studyNoteIds, ...row }) => row);
 }
 
@@ -768,7 +769,7 @@ export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
     studyNotes: input.studyNotes,
   });
 
-  const rows = stripRowDraftMetadata([
+  const rows = toPublicRows([
     ...practiceRepairRows,
     ...practiceFollowUpRows,
     ...dueTodayRows,

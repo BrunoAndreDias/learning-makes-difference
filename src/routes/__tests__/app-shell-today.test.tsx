@@ -263,7 +263,7 @@ describe("authenticated Today workspace", () => {
       sourceTitle: "Cell membranes",
       userId,
     });
-    const completionBlocker = createStudyNote(contexts, {
+    createStudyNote(contexts, {
       expectedAnswer: " ",
       labelIds: [biology.id],
       prompt: "Define mitochondria",

@@ -46,6 +46,7 @@ function StudyGuidanceWorkspace() {
     studyNotesStore.getSnapshot,
   );
 
+  // Subscribe to result changes; listSessionResults below applies user scoping.
   useSyncExternalStore(
     recallContext.subscribe,
     recallContext.getSessionResultsSnapshot,
@@ -139,48 +140,58 @@ function StudyGuidanceWorkspace() {
               </p>
             </section>
           ) : (
-            <section
-              aria-label="Today next actions"
-              className="study-guidance-plan"
-            >
-              <ol className="study-guidance-plan__list">
-                {guidance.rows.map((row) => (
-                  <li key={row.id}>
-                    <article
-                      className="study-guidance-row"
-                      data-bucket-id={row.bucketId}
-                    >
-                      <div className="study-guidance-row__content">
-                        <div className="study-guidance-row__header">
-                          <p className="study-guidance-row__bucket">
-                            {row.bucketLabel}
-                          </p>
-                          <h2>{row.title}</h2>
-                        </div>
-
-                        <ul className="study-guidance-row__metadata">
-                          {row.metadata.map((metadata) => (
-                            <li key={metadata}>{metadata}</li>
-                          ))}
-                        </ul>
-
-                        <p className="study-guidance-row__evidence">
-                          {row.evidence}
-                        </p>
-                      </div>
-
-                      <div className="study-guidance-row__action">
-                        <StudyGuidanceRowActionLink action={row.action} />
-                      </div>
-                    </article>
-                  </li>
-                ))}
-              </ol>
-            </section>
+            <StudyGuidancePlan rows={guidance.rows} />
           )}
         </>
       )}
     </section>
+  );
+}
+
+function StudyGuidancePlan({
+  rows,
+}: Readonly<{
+  rows: readonly StudyGuidanceRow[];
+}>) {
+  return (
+    <section aria-label="Today next actions" className="study-guidance-plan">
+      <ol className="study-guidance-plan__list">
+        {rows.map((row) => (
+          <li key={row.id}>
+            <StudyGuidanceRowView row={row} />
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function StudyGuidanceRowView({
+  row,
+}: Readonly<{
+  row: StudyGuidanceRow;
+}>) {
+  return (
+    <article className="study-guidance-row" data-bucket-id={row.bucketId}>
+      <div className="study-guidance-row__content">
+        <div className="study-guidance-row__header">
+          <p className="study-guidance-row__bucket">{row.bucketLabel}</p>
+          <h2>{row.title}</h2>
+        </div>
+
+        <ul className="study-guidance-row__metadata">
+          {row.metadata.map((metadata) => (
+            <li key={metadata}>{metadata}</li>
+          ))}
+        </ul>
+
+        <p className="study-guidance-row__evidence">{row.evidence}</p>
+      </div>
+
+      <div className="study-guidance-row__action">
+        <StudyGuidanceRowActionLink action={row.action} />
+      </div>
+    </article>
   );
 }
 

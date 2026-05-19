@@ -6,35 +6,39 @@ import type {
   RecallSchedule,
   SessionResult,
 } from "../recall";
+import type { AppStudyNote } from "../study-notes";
 import { deriveStudyGuidance } from "./study-guidance";
 
 const timestamp = "2026-05-01T09:00:00.000Z";
 
-function buildStudyNote(
-  overrides: Partial<SessionResult["notes"][number]> & {
-    expectedAnswer?: string;
-    id: string;
-    labelIds: string[];
-    prompt: string;
-    sourceBody?: string;
-    sourceTitle?: string;
-  },
-) {
+type PracticeRepairEntry = NonNullable<
+  SessionResult["questions"][number]["practiceRepairEntry"]
+>;
+type PracticeRepairEntryLifecycle = NonNullable<
+  PracticeRepairEntry["lifecycle"]
+>;
+type BuildStudyNoteInput = Pick<AppStudyNote, "id" | "labelIds" | "prompt"> & {
+  expectedAnswer?: string;
+  sourceBody?: string;
+  sourceTitle?: string;
+};
+
+function buildStudyNote(input: BuildStudyNoteInput): AppStudyNote {
   return {
     acronyms: [],
     createdAt: timestamp,
-    expectedAnswer: overrides.expectedAnswer ?? "Expected answer",
-    id: overrides.id,
-    labelIds: overrides.labelIds,
+    expectedAnswer: input.expectedAnswer ?? "Expected answer",
+    id: input.id,
+    labelIds: input.labelIds,
     metaphors: [],
-    prompt: overrides.prompt,
+    prompt: input.prompt,
     source: {
-      body: overrides.sourceBody ?? "Source body",
-      id: `source-${overrides.id}`,
-      title: overrides.sourceTitle ?? "Source title",
+      body: input.sourceBody ?? "Source body",
+      id: `source-${input.id}`,
+      title: input.sourceTitle ?? "Source title",
       updatedAt: timestamp,
     },
-    sourceNoteId: `source-${overrides.id}`,
+    sourceNoteId: `source-${input.id}`,
     updatedAt: timestamp,
   };
 }
@@ -83,9 +87,7 @@ function buildSchedule(
   };
 }
 
-function buildRecallQuestionSnapshot(
-  studyNote: ReturnType<typeof buildStudyNote>,
-) {
+function buildRecallQuestionSnapshot(studyNote: AppStudyNote) {
   return {
     acronyms: [],
     body: studyNote.source.body,
@@ -110,21 +112,15 @@ function buildRecallQuestionSnapshot(
 function buildPracticeRepairEntry(input: {
   confirmedAt: string;
   correction: string;
-  lifecycle?: {
-    completedAt?: string | null;
-    dismissedAt?: string | null;
-    followUpSatisfiedAt?: string | null;
-    studyNoteDeletedAt?: string | null;
-    supersededAt?: string | null;
-  };
+  lifecycle?: PracticeRepairEntryLifecycle;
   questionResultId: string;
   resultId: string;
   studyNoteId: string;
-}) {
+}): PracticeRepairEntry {
   return {
     confirmedAt: input.confirmedAt,
     correction: input.correction,
-    intent: "tighten-expected-answer" as const,
+    intent: "tighten-expected-answer",
     intentMetadata: {
       updatedExpectedAnswer: null,
     },
@@ -142,16 +138,10 @@ function buildSessionResult(input: {
   completedAt: string;
   id: string;
   practiceRepairCorrection?: string;
-  practiceRepairLifecycle?: {
-    completedAt?: string | null;
-    dismissedAt?: string | null;
-    followUpSatisfiedAt?: string | null;
-    studyNoteDeletedAt?: string | null;
-    supersededAt?: string | null;
-  };
+  practiceRepairLifecycle?: PracticeRepairEntryLifecycle;
   questionResultId: string;
   selfRating: "easy" | "forgot" | "good" | "hard";
-  studyNote: ReturnType<typeof buildStudyNote>;
+  studyNote: AppStudyNote;
 }): SessionResult {
   const noteSnapshot = buildRecallQuestionSnapshot(input.studyNote);
 
