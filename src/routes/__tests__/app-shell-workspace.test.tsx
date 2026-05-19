@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { fireEvent, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { createAppStudyNotesContext } from "../../modules/study-notes";
 import {
   createAppFocusContext,
@@ -30,7 +30,66 @@ function getAppSections(sidebar = getStudyNotesWorkspaceSidebar()) {
     name: "App sections",
   });
 }
+const defaultViewportWidth = window.innerWidth;
+const defaultMatchMedia = window.matchMedia;
+const rootRemPixels = 16;
 
+function queryMatchesViewportWidth(query: string, width: number) {
+  const maxWidthRemMatch = query.match(/^\(max-width:\s*([0-9.]+)rem\)$/);
+  if (maxWidthRemMatch !== null) {
+    return width <= Number(maxWidthRemMatch[1]) * rootRemPixels;
+  }
+
+  const maxWidthPxMatch = query.match(/^\(max-width:\s*([0-9.]+)px\)$/);
+  if (maxWidthPxMatch !== null) {
+    return width <= Number(maxWidthPxMatch[1]);
+  }
+
+  return false;
+}
+
+function createMediaQueryList(query: string, width: number): MediaQueryList {
+  return {
+    addEventListener: () => undefined,
+    addListener: () => undefined,
+    dispatchEvent: () => false,
+    matches: queryMatchesViewportWidth(query, width),
+    media: query,
+    onchange: null,
+    removeEventListener: () => undefined,
+    removeListener: () => undefined,
+  };
+}
+
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: width,
+    writable: true,
+  });
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: (query: string) => createMediaQueryList(query, width),
+    writable: true,
+  });
+  fireEvent(window, new Event("resize"));
+}
+
+function restoreViewport() {
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: defaultViewportWidth,
+    writable: true,
+  });
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: defaultMatchMedia,
+    writable: true,
+  });
+  fireEvent(window, new Event("resize"));
+}
+
+afterEach(restoreViewport);
 describe("authenticated app shell", () => {
   it("uses the stored User Language for authenticated shell chrome instead of browser detection", async () => {
     setBrowserLanguages(["pt-PT", "en"]);
@@ -152,6 +211,18 @@ describe("authenticated app shell", () => {
     expect(appCss).not.toContain(
       '.authenticated-shell[data-sidebar-state="collapsed"]\n  .app-frame[data-workspace="notes"]\n  .app-frame__workspace-header {\n  position: sticky',
     );
+  });
+
+  it("removes the expanded-sidebar Focus Dock styling while keeping the header fallback styles", () => {
+    const shellCss = readFileSync(
+      join(process.cwd(), "src/modules/workspace-shell/workspace-shell.css"),
+      {
+        encoding: "utf8",
+      },
+    );
+
+    expect(shellCss).not.toContain(".focus-dock--sidebar");
+    expect(shellCss).toContain(".focus-dock--pill");
   });
 
   it("renders a Study Notes workspace shell with an account menu instead of product navigation", async () => {
@@ -375,6 +446,57 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { level: 1, name: "Focus" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/focus");
+  });
+
+  it("keeps the header Focus Dock fallback available when the sidebar dock is unavailable", async () => {
+    setViewportWidth(800);
+
+    const userId = "user-focus-mobile-fallback";
+    const focusContext = createAppFocusContext({
+      keyPrefix: `test-focus-mobile-fallback-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const { router } = renderRoute("/study-notes", {
+      focusContext,
+      session: {
+        user: {
+          displayName: "Casey Focus Mobile",
+          email: "casey.focus.mobile@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+      studyNotesContext: createAppStudyNotesContext({
+        keyPrefix: `test-study-notes-mobile-fallback-${Math.random().toString(36).slice(2)}`,
+        storage: window.localStorage,
+      }),
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
+    ).toBeInTheDocument();
+
+    const focusDock = screen.getByRole("region", { name: "Focus now" });
+    expect(
+      within(focusDock).getByRole("button", { name: "Start Pomodoro" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start Focus" })).toBeNull();
+
+    fireEvent.click(
+      within(focusDock).getByRole("button", { name: "Start Pomodoro" }),
+    );
+
+    expect(router.state.location.pathname).toBe("/study-notes");
+    expect(
+      within(focusDock).getByRole("button", { name: "End focus" }),
+    ).toBeInTheDocument();
+    expect(focusContext.getActiveSession({ userId })).toMatchObject({
+      breakIntervalMinutes: 5,
+      currentInterval: "Focus",
+      focusIntervalMinutes: 25,
+      method: "Pomodoro",
+      plannedFocusIntervalCount: null,
+    });
   });
 
   it("renders global workspace navigation and updates the active link when navigating", async () => {
