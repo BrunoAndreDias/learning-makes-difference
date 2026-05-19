@@ -27,6 +27,7 @@ import type {
   AppPersistentRecallContext,
   AppRecallContext,
 } from "../../recall";
+import { isRemovedRecallPracticeRepairPath } from "../../recall/recall-practice-repair-paths";
 import type {
   AppPersistentStudyNotesContext,
   AppStudyNotesContext,
@@ -40,6 +41,7 @@ const authRoutePaths = new Set<string>([
   appRoutePaths.register,
 ]);
 const redirectableProtectedPaths = [
+  appRoutePaths.practiceRepair,
   appRoutePaths.recall,
   appRoutePaths.settings,
   appRoutePaths.studyNotes,
@@ -47,6 +49,10 @@ const redirectableProtectedPaths = [
 ];
 
 function isProtectedPath(pathname: string): boolean {
+  if (isRemovedRecallPracticeRepairPath(pathname)) {
+    return false;
+  }
+
   return redirectableProtectedPaths.some(
     (protectedPath) =>
       pathname === protectedPath || pathname.startsWith(`${protectedPath}/`),

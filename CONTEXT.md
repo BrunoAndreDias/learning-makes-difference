@@ -397,6 +397,11 @@ _Avoid_: Recall dashboard, Recall home, Practice (possible future user-facing la
 A Recall Section subroute, `/recall/results`, where the User reviews completed SessionResults and starts Practice Repair from weak Questions.
 _Avoid_: History, recall log, base Recall screen
 
+**Practice Repair Section**:
+The primary authenticated section that acts as the base entry point for repair-focused work derived from weak recall evidence, including the Practice Repair Queue, confirmed Practice Repair Workspaces, and question-scoped draft routes that preserve original Results evidence.
+In v1, the Practice Repair Section is a top-level sidebar destination labeled "Practice Repair" at `/practice-repair`.
+_Avoid_: Error log, remediation dashboard, Recall subnav item
+
 **Focus Section**:
 The authenticated workspace section for running FocusSessions, reviewing FocusRecords, and seeing focus analytics. Compact active FocusSession controls remain globally available across the authenticated workspace.
 In v1, the Focus Section shows the active FocusSession when present, supported Pomodoro timing configuration, completed FocusRecords newest first, completed FocusInterval time, BreakInterval count and duration as secondary detail, touched FocusTargets, and basic cross-study analytics derived only from existing Notes, Recall SessionResults, and FocusRecords.
@@ -423,7 +428,7 @@ A temporary Recall Section route, such as `/recall/select`, with a dedicated rec
 _Avoid_: Bulk edit mode, saved set builder, deck builder
 
 **Practice Repair Workspace**:
-A Recall Section subroute, such as `/recall/repair/:practiceRepairEntryId`, where the User works through one confirmed Practice Repair Entry from correction through completion or follow-up.
+A Practice Repair Section subroute, such as `/practice-repair/:practiceRepairEntryId`, where the User works through one confirmed Practice Repair Entry from correction through completion or follow-up.
 The Practice Repair Workspace explains the active repair and links to the relevant Study Notes Workspace repair action for content changes.
 The Practice Repair Workspace does not duplicate Study Note editing, split, sibling creation, Metaphor, or Acronym editing flows.
 When the Practice Repair Workspace deep-links to a Study Notes Workspace repair action, it carries the Practice Repair Entry identity as an explicit return target.
@@ -433,8 +438,8 @@ From the completed Practice Repair Workspace, the User may start a targeted sing
 _Avoid_: Results panel, repair toggle, error-log detail
 
 **Practice Repair Queue**:
-A Recall Section subroute, `/recall/repair`, where the User sees repair-focused work across Study Notes without first opening a specific SessionResult.
-The Practice Repair Queue is discoverable as a secondary action inside the Recall Section, not as a primary sidebar navigation item.
+The base Practice Repair Section route, `/practice-repair`, where the User sees repair-focused work across Study Notes without first opening a specific SessionResult.
+The Practice Repair Queue is discoverable as a primary sidebar navigation item and through links from Results, Today, and Study Notes return actions.
 The Practice Repair Queue contains both unconfirmed repair candidates from Forgot or Hard Questions and active Practice Repair Entries.
 For unconfirmed repair candidates, the Practice Repair Queue shows only the newest candidate per Study Note.
 Repeated weak Questions for the same Study Note may be summarized in the Practice Repair Queue as recent failed attempts, while full evidence remains in Results.
@@ -446,7 +451,7 @@ The Practice Repair Queue is not a timed or recorded repair session.
 _Avoid_: Repair session, weak notes page, error log
 
 **Practice Repair Draft View**:
-A question-scoped Results route, such as `/recall/results/:sessionResultId/questions/:questionResultId/repair`, where the User reviews weak Question evidence and confirms a Practice Repair Entry.
+A question-scoped Practice Repair Section route, such as `/practice-repair/results/:sessionResultId/questions/:questionResultId`, where the User reviews weak Question evidence and confirms a Practice Repair Entry while preserving the original Results evidence.
 The Practice Repair Draft View is the full-page choose-one-repair surface; it is not an inline Results toggle.
 Suggested repair cards in the Practice Repair Draft View only choose the intended repair path; persistence still requires explicit confirmation of the Practice Repair Intent and correction.
 _Avoid_: Repair entry, active repair workspace, inline results toggle
@@ -482,8 +487,9 @@ _Avoid_: Product menu, sidebar navigation
 - Passive study activity can support the **Study Layer**, but it is not learning progress unless it produces or reinforces **Study Notes** or recall evidence.
 - **Practice Repair** follows weak recall evidence and helps the User improve or split Study Notes without introducing a full error-log concept in v1.
 - **Practice Repair** may persist **Practice Repair Entries** for future practice planning.
-- The **Recall Section** exposes **Practice Repair** through two entry points: the **Practice Repair Queue** at `/recall/repair` and repair candidates shown inside the **Results Workspace**.
-- **Practice Repair** is exposed as a Recall subroute and secondary Recall Section action, not as a primary sidebar navigation item.
+- The authenticated workspace exposes **Practice Repair** as a top-level **Practice Repair Section** rooted at `/practice-repair`, while repair candidates still originate from the **Results Workspace**.
+- **Practice Repair** is a primary sidebar navigation item, not a Recall subroute.
+- Legacy `/recall/repair*` URLs are removed rather than redirected into the new namespace.
 - Results repair candidates are based on Forgot or Hard **Questions**; user-facing copy should avoid calling Study Notes "weak notes".
 - The **Practice Repair Queue** includes both unconfirmed repair candidates and active **Practice Repair Entries**.
 - The **Practice Repair Queue** deduplicates unconfirmed repair candidates to the newest candidate per **Study Note**.
@@ -991,8 +997,8 @@ _Avoid_: Product menu, sidebar navigation
 - "Start Recall" in the **Study Notes Workspace** could have meant Study Notes owns recall setup or passes selected Study Notes into Recall — resolved for v1: it only opens the **Recall Section** without preselection.
 - "Recall" may be less familiar than "Practice" to general users — resolved for v1: keep "Recall" as the navigation label and revisit after user feedback.
 - "Selecting Notes" could mean opening source material for editing or choosing practice material for recall — resolved: in the **Study Notes Workspace**, selection opens a Study Note for editing; in **Recall Selection Mode**, selection toggles Study Notes into the temporary RecallSession target set.
-- "Recall view" could have meant the base **Recall Section**, the **Results Workspace**, a **Practice Repair Workspace**, or an active **Recall Session View** — resolved: `/recall` is the base entry route, `/recall/results` reviews SessionResults, `/recall/repair/:practiceRepairEntryId` handles confirmed Practice Repair work, and `/recall/session` only represents an active RecallSession.
-- "Recall route" could have meant only an active session route — resolved: `/recall` is the base **Recall Section**, `/recall/results` is the canonical **Results Workspace**, `/recall/select` is **Recall Selection Mode**, `/recall/session` is the active **Recall Session View**, `/recall/results/:sessionResultId/questions/:questionResultId/repair` is the **Practice Repair Draft View**, and `/recall/repair/:practiceRepairEntryId` is the **Practice Repair Workspace**.
+- "Recall view" could have meant the base **Recall Section**, the **Results Workspace**, a **Practice Repair Workspace**, or an active **Recall Session View** — resolved: `/recall` is the base entry route, `/recall/results` reviews SessionResults, `/recall/session` only represents an active RecallSession, and `/practice-repair/:practiceRepairEntryId` handles confirmed Practice Repair work.
+- "Recall route" could have meant only an active session route — resolved: `/recall` is the base **Recall Section**, `/recall/results` is the canonical **Results Workspace**, `/recall/select` is **Recall Selection Mode**, `/recall/session` is the active **Recall Session View**, `/practice-repair` is the **Practice Repair Queue**, `/practice-repair/results/:sessionResultId/questions/:questionResultId` is the **Practice Repair Draft View**, and `/practice-repair/:practiceRepairEntryId` is the **Practice Repair Workspace**.
 - "Different languages" could mean app chrome, study material, per-Note language, or automatic content translation — resolved for v1: use one **User Language** for app chrome and language-aware study defaults; translation is a later explicit feature.
 - "Interface Language", "Study Language", and "Note Language" could have become separate v1 concepts — resolved for v1: avoid those terms and use **User Language**.
 - "Portuguese" could mean Portuguese (Portugal) or Portuguese (Brazil) — resolved for v1: support Portuguese (Portugal), not Portuguese (Brazil).

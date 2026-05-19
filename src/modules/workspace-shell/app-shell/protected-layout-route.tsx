@@ -25,9 +25,16 @@ import { useResolvedProtectedSession } from "../../access/session/use-resolved-p
 import { FocusSessionStartControl } from "../../focus";
 import { useAppTranslation } from "../../language";
 import { NotesWorkspaceProvider } from "../../notes";
+import { isPracticeRepairPath } from "../../recall/recall-practice-repair-paths";
 import { appRoutePaths, authenticatedLandingPath } from "./route-paths";
 
-type NavigationIconName = "focus" | "note" | "recall" | "settings" | "today";
+type NavigationIconName =
+  | "focus"
+  | "note"
+  | "practice-repair"
+  | "recall"
+  | "settings"
+  | "today";
 type WorkspaceFrameName =
   | "focus"
   | "notes"
@@ -53,6 +60,11 @@ const globalNavigationItems = [
     to: appRoutePaths.recall,
   },
   {
+    iconName: "practice-repair",
+    labelKey: "shell.navigation.practiceRepair",
+    to: appRoutePaths.practiceRepair,
+  },
+  {
     iconName: "focus",
     labelKey: "shell.navigation.focus",
     to: appRoutePaths.focus,
@@ -63,10 +75,6 @@ const recallSubNavigationItems = [
   {
     labelKey: "recall.today.title",
     to: appRoutePaths.recall,
-  },
-  {
-    labelKey: "recall.practiceRepair",
-    to: "/recall/repair",
   },
   {
     labelKey: "recall.results",
@@ -89,6 +97,10 @@ function isWorkspacePath(pathname: string, workspacePath: string) {
 function getWorkspaceTitleKey(pathname: string) {
   if (isRecallWorkspacePath(pathname)) {
     return "shell.workspace.recall";
+  }
+
+  if (isPracticeRepairWorkspacePath(pathname)) {
+    return "shell.workspace.practiceRepair";
   }
 
   if (isFocusWorkspacePath(pathname)) {
@@ -134,6 +146,10 @@ function isFocusWorkspacePath(pathname: string) {
   return isWorkspacePath(pathname, appRoutePaths.focus);
 }
 
+function isPracticeRepairWorkspacePath(pathname: string) {
+  return isPracticeRepairPath(pathname);
+}
+
 function isSettingsWorkspacePath(pathname: string) {
   return isWorkspacePath(pathname, appRoutePaths.settings);
 }
@@ -154,6 +170,10 @@ function getWorkspaceFrameName(
   }
 
   if (isRecallWorkspacePath(pathname)) {
+    return "recall";
+  }
+
+  if (isPracticeRepairWorkspacePath(pathname)) {
     return "recall";
   }
 
@@ -207,6 +227,9 @@ export function AppLayout() {
   );
   const isRecallWorkspaceRoute = isRecallWorkspacePath(location.pathname);
   const isFocusWorkspaceRoute = isFocusWorkspacePath(location.pathname);
+  const isPracticeRepairWorkspaceRoute = isPracticeRepairWorkspacePath(
+    location.pathname,
+  );
   const isTodayWorkspaceRoute = isTodayWorkspacePath(location.pathname);
   const isSettingsWorkspaceRoute = isSettingsWorkspacePath(location.pathname);
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
@@ -375,6 +398,7 @@ export function AppLayout() {
             isStudyNotesWorkspaceRoute={isStudyNotesWorkspaceRoute}
             isRecallWorkspaceRoute={isRecallWorkspaceRoute}
             isFocusWorkspaceRoute={isFocusWorkspaceRoute}
+            isPracticeRepairWorkspaceRoute={isPracticeRepairWorkspaceRoute}
             isTodayWorkspaceRoute={isTodayWorkspaceRoute}
             isSettingsWorkspaceRoute={isSettingsWorkspaceRoute}
             isSidebarCollapsed={isSidebarCollapsed}
@@ -405,6 +429,7 @@ function WorkspaceHeader({
   isStudyNotesWorkspaceRoute,
   isRecallWorkspaceRoute,
   isFocusWorkspaceRoute,
+  isPracticeRepairWorkspaceRoute,
   isTodayWorkspaceRoute,
   isSettingsWorkspaceRoute,
   isSidebarCollapsed,
@@ -428,6 +453,7 @@ function WorkspaceHeader({
   isStudyNotesWorkspaceRoute: boolean;
   isRecallWorkspaceRoute: boolean;
   isFocusWorkspaceRoute: boolean;
+  isPracticeRepairWorkspaceRoute: boolean;
   isTodayWorkspaceRoute: boolean;
   isSettingsWorkspaceRoute: boolean;
   isSidebarCollapsed: boolean;
@@ -446,6 +472,7 @@ function WorkspaceHeader({
   }).format(new Date());
   const hasVisuallyHiddenWorkspaceTitle =
     isRecallWorkspaceRoute ||
+    isPracticeRepairWorkspaceRoute ||
     isFocusWorkspaceRoute ||
     isTodayWorkspaceRoute ||
     isSettingsWorkspaceRoute;
@@ -910,6 +937,15 @@ function NavigationIcon({
           <path d="M4 5v6h6" />
           <path d="M5.5 15a7 7 0 1 0 .9-7.9L4 11" />
           <path d="M12 8v4l3 2" />
+        </svg>
+      );
+    case "practice-repair":
+      return (
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M5 19 19 5" />
+          <path d="M14 5h5v5" />
+          <path d="m5 10 4-4" />
+          <path d="m14 15 5 5" />
         </svg>
       );
     case "settings":

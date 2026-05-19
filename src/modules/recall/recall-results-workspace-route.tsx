@@ -37,7 +37,6 @@ import {
   type PracticeRepairDraft,
   type PracticeRepairEntry,
 } from "./recall-practice-repair";
-import { getPracticeRepairQuestionRouteParams } from "./recall-practice-repair-routing";
 import {
   getRecallResultNoteTitle as getNoteResultTitle,
   getRecallQuestionExpectedAnswer as getQuestionExpectedAnswer,
@@ -707,7 +706,7 @@ function RecallTodayPage({
                 ) : null}
                 <ButtonLink
                   className="recall-today-actions__manual"
-                  to="/recall/repair"
+                  to="/practice-repair"
                 >
                   <QuestionsIcon />
                   <span>{t("recall.practiceRepair")}</span>
@@ -1906,10 +1905,7 @@ function QuestionPracticeRepairPanel({
 
   if (practiceRepairEntry !== undefined) {
     return (
-      <ConfirmedPracticeRepairPanel
-        practiceRepairEntry={practiceRepairEntry}
-        question={question}
-      />
+      <ConfirmedPracticeRepairPanel practiceRepairEntry={practiceRepairEntry} />
     );
   }
 
@@ -1936,18 +1932,12 @@ function QuestionPracticeRepairPanel({
 
 function ConfirmedPracticeRepairPanel({
   practiceRepairEntry,
-  question,
 }: {
   practiceRepairEntry: PracticeRepairEntry;
-  question: RecallQuestion;
 }) {
   const actionablePracticeFollowUp =
     isActionablePracticeFollowUp(practiceRepairEntry);
   const practiceRepairEntryId = getPracticeRepairEntryId(practiceRepairEntry);
-  const repairRouteParams = getPracticeRepairQuestionRouteParams({
-    entry: practiceRepairEntry,
-    question,
-  });
 
   return (
     <div className="recall-selected-result__question-detail-block">
@@ -1982,25 +1972,15 @@ function ConfirmedPracticeRepairPanel({
           </p>
         </>
       ) : null}
-      {repairRouteParams === null ? (
-        <ButtonLink
-          params={{
-            practiceRepairEntryId,
-          }}
-          to="/recall/repair/$practiceRepairEntryId"
-          variant="secondary"
-        >
-          Open Practice Repair
-        </ButtonLink>
-      ) : (
-        <ButtonLink
-          params={repairRouteParams}
-          to="/recall/repair/$sessionResultId/questions/$questionResultId"
-          variant="secondary"
-        >
-          Open Practice Repair
-        </ButtonLink>
-      )}
+      <ButtonLink
+        params={{
+          practiceRepairEntryId,
+        }}
+        to="/practice-repair/$practiceRepairEntryId"
+        variant="secondary"
+      >
+        Open Practice Repair
+      </ButtonLink>
     </div>
   );
 }
@@ -2025,7 +2005,7 @@ function PracticeRepairDraftPanel({
           questionResultId,
           sessionResultId: resultId,
         }}
-        to="/recall/repair/$sessionResultId/questions/$questionResultId"
+        to="/practice-repair/results/$sessionResultId/questions/$questionResultId"
         variant="secondary"
       >
         Practice Repair

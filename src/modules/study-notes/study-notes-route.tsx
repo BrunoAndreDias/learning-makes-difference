@@ -953,18 +953,11 @@ function formatOriginalNarrowedStatus(
 function getLinkedPracticeRepairReturnTarget(
   linkedPracticeRepair: LinkedPracticeRepairContext,
 ) {
-  if (linkedPracticeRepair.repairRouteParams === null) {
-    return {
-      params: {
-        practiceRepairEntryId: linkedPracticeRepair.practiceRepairEntryId,
-      },
-      to: "/recall/repair/$practiceRepairEntryId" as const,
-    };
-  }
-
   return {
-    params: linkedPracticeRepair.repairRouteParams,
-    to: "/recall/repair/$sessionResultId/questions/$questionResultId" as const,
+    params: {
+      practiceRepairEntryId: linkedPracticeRepair.practiceRepairEntryId,
+    },
+    to: "/practice-repair/$practiceRepairEntryId" as const,
   };
 }
 

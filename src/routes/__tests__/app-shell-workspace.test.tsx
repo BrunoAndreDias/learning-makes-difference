@@ -260,12 +260,16 @@ describe("authenticated app shell", () => {
     const recallLink = within(appSections).getByRole("link", {
       name: "Recall",
     });
+    const practiceRepairLink = within(appSections).getByRole("link", {
+      name: "Practice Repair",
+    });
     const focusLink = within(appSections).getByRole("link", { name: "Focus" });
 
     expect(within(appSections).getAllByRole("link")).toEqual([
       todayLink,
       notesLink,
       recallLink,
+      practiceRepairLink,
       focusLink,
     ]);
     expect(
@@ -280,6 +284,7 @@ describe("authenticated app shell", () => {
     ).not.toBeInTheDocument();
     expect(notesLink).toHaveAttribute("href", "/study-notes");
     expect(recallLink).toHaveAttribute("href", "/recall");
+    expect(practiceRepairLink).toHaveAttribute("href", "/practice-repair");
     expect(notesLink).toHaveAttribute("aria-current", "page");
 
     fireEvent.click(recallLink);
@@ -296,9 +301,6 @@ describe("authenticated app shell", () => {
     expect(
       within(appSections).getByRole("link", { name: "Recall Today" }),
     ).toHaveAttribute("href", "/recall");
-    expect(
-      within(appSections).getByRole("link", { name: "Practice Repair" }),
-    ).toHaveAttribute("href", "/recall/repair");
     expect(
       within(appSections).getByRole("link", { name: "Recall results" }),
     ).toHaveAttribute("href", "/recall/results");

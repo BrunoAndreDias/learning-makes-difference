@@ -1,12 +1,12 @@
 import { createFileRoute, useRouteContext } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { type ReactNode, useSyncExternalStore } from "react";
 
 import { ButtonLink } from "../../design-system/button";
 import { PageHeader } from "../../design-system/page-header";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { useAppTranslation } from "../language";
+import { getStudyNoteReadiness, listStudyNotesForUser } from "../study-notes";
 import { getRecallRatingTranslationKey } from "./learner-copy";
-import { RecallBreadcrumb } from "./recall-breadcrumb";
 import {
   formatPracticeRepairIntentLabel,
   getPracticeRepairEntryId,
@@ -15,11 +15,30 @@ import {
   listPracticeRepairQueueItems,
   type PracticeRepairQueueQuestionLike,
 } from "./recall-practice-repair";
-import { getPracticeRepairQuestionRouteParams } from "./recall-practice-repair-routing";
 
-export const Route = createFileRoute("/_protected/recall/repair")({
+export const Route = createFileRoute("/_protected/practice-repair")({
   component: RecallPracticeRepairQueueRoute,
 });
+
+type PracticeRepairEmptyStateAction =
+  | "review-results"
+  | "start-custom-recall"
+  | "create-first-study-note";
+
+function getPracticeRepairEmptyStateAction(input: {
+  hasResults: boolean;
+  recallableStudyNoteCount: number;
+}): PracticeRepairEmptyStateAction {
+  if (input.hasResults) {
+    return "review-results";
+  }
+
+  if (input.recallableStudyNoteCount > 0) {
+    return "start-custom-recall";
+  }
+
+  return "create-first-study-note";
+}
 
 function PracticeRepairQueueCard({
   action,
@@ -65,30 +84,78 @@ function RecallPracticeRepairQueueRoute() {
     from: "/_protected",
     select: (context) => context.recall,
   });
+  const studyNotesContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.studyNotes,
+  });
+  const persistentStudyNotesContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.persistentStudyNotes,
+  });
   const { sessionSnapshot } = useResolvedProtectedSession("/_protected");
+  const studyNotesStore = persistentStudyNotesContext ?? studyNotesContext;
+  const studyNotesSnapshot = useSyncExternalStore(
+    studyNotesStore.subscribe,
+    studyNotesStore.getSnapshot,
+    studyNotesStore.getSnapshot,
+  );
   const userId = sessionSnapshot.user?.id ?? null;
   const sessionResults =
     userId === null ? [] : recallContext.listSessionResults({ userId });
+  const studyNotes =
+    userId === null ? [] : listStudyNotesForUser(studyNotesSnapshot, userId);
   const queueItems = listPracticeRepairQueueItems({
     results: sessionResults,
   });
   const activeQueue = queueItems.filter((item) => item.kind === "active");
   const candidateQueue = queueItems.filter((item) => item.kind === "candidate");
+  const recallableStudyNoteCount = studyNotes.filter(
+    (studyNote) => getStudyNoteReadiness(studyNote).recallable,
+  ).length;
+  const emptyStateAction = getPracticeRepairEmptyStateAction({
+    hasResults: sessionResults.length > 0,
+    recallableStudyNoteCount,
+  });
+  const nextActiveEntry = activeQueue[0];
+  const nextCandidateEntry = candidateQueue[0];
 
   return (
     <section aria-label="Practice Repair Queue" className="recall-workspace">
       <article className="recall-surface">
         <PageHeader
           actions={
-            <ButtonLink to="/recall" variant="secondary">
-              Recall Today
-            </ButtonLink>
-          }
-          beforeTitle={
-            <RecallBreadcrumb currentLabel="Practice Repair Queue" />
+            nextActiveEntry !== undefined ? (
+              <ButtonLink
+                params={{
+                  practiceRepairEntryId: getPracticeRepairEntryId(
+                    nextActiveEntry.entry,
+                  ),
+                }}
+                to="/practice-repair/$practiceRepairEntryId"
+              >
+                Open next repair
+              </ButtonLink>
+            ) : nextCandidateEntry !== undefined ? (
+              <ButtonLink
+                params={{
+                  questionResultId:
+                    nextCandidateEntry.question.questionResultId,
+                  sessionResultId: nextCandidateEntry.result.id,
+                }}
+                to="/practice-repair/results/$sessionResultId/questions/$questionResultId"
+              >
+                Open next repair
+              </ButtonLink>
+            ) : emptyStateAction === "review-results" ? (
+              <ButtonLink to="/recall/results">Review results</ButtonLink>
+            ) : emptyStateAction === "start-custom-recall" ? (
+              <ButtonLink to="/recall/select">Start custom recall</ButtonLink>
+            ) : (
+              <ButtonLink to="/study-notes">Create first Study Note</ButtonLink>
+            )
           }
           className="recall-surface__header"
-          description="Resume active Practice Repair work first, then open the newest repair candidates from weak Recall results."
+          description="Resume active Practice Repair work first, then open the newest repair candidates from weak Results evidence."
           headingLevel={1}
           title="Practice Repair Queue"
         />
@@ -96,10 +163,22 @@ function RecallPracticeRepairQueueRoute() {
         {queueItems.length === 0 ? (
           <section className="recall-panel recall-empty-state" role="status">
             <h4>No active Practice Repair entries.</h4>
-            <p className="muted">
-              Confirmed repairs and new repair candidates show up here when
-              Recall surfaces work you can act on.
-            </p>
+            {emptyStateAction === "review-results" ? (
+              <p className="muted">
+                Results already has weak recall evidence. Review the latest
+                results to start Practice Repair from the original questions.
+              </p>
+            ) : emptyStateAction === "start-custom-recall" ? (
+              <p className="muted">
+                No stored results exist yet. Start custom recall to generate the
+                weak evidence that can become Practice Repair work.
+              </p>
+            ) : (
+              <p className="muted">
+                Practice Repair starts after recall evidence exists. Create your
+                first recallable Study Note first.
+              </p>
+            )}
           </section>
         ) : (
           <section className="recall-practice-repair-queue">
@@ -123,37 +202,21 @@ function RecallPracticeRepairQueueRoute() {
                         : t(getRecallRatingTranslationKey(question.selfRating));
                     const practiceRepairEntryId =
                       getPracticeRepairEntryId(entry);
-                    const repairRouteParams =
-                      getPracticeRepairQuestionRouteParams({
-                        entry,
-                        question,
-                      });
 
                     return (
                       <li key={practiceRepairEntryId}>
                         <PracticeRepairQueueCard
                           action={
-                            repairRouteParams === null ? (
-                              <ButtonLink
-                                size="compact"
-                                params={{
-                                  practiceRepairEntryId,
-                                }}
-                                to="/recall/repair/$practiceRepairEntryId"
-                                variant="secondary"
-                              >
-                                Resume Practice Repair
-                              </ButtonLink>
-                            ) : (
-                              <ButtonLink
-                                size="compact"
-                                params={repairRouteParams}
-                                to="/recall/repair/$sessionResultId/questions/$questionResultId"
-                                variant="secondary"
-                              >
-                                Resume Practice Repair
-                              </ButtonLink>
-                            )
+                            <ButtonLink
+                              size="compact"
+                              params={{
+                                practiceRepairEntryId,
+                              }}
+                              to="/practice-repair/$practiceRepairEntryId"
+                              variant="secondary"
+                            >
+                              Resume Practice Repair
+                            </ButtonLink>
                           }
                           body={entry.correction}
                           eyebrow={formatPracticeRepairIntentLabel(
@@ -196,7 +259,7 @@ function RecallPracticeRepairQueueRoute() {
                           action={
                             <ButtonLink
                               size="compact"
-                              to="/recall/repair/$sessionResultId/questions/$questionResultId"
+                              to="/practice-repair/results/$sessionResultId/questions/$questionResultId"
                               params={{
                                 questionResultId: question.questionResultId,
                                 sessionResultId: result.id,

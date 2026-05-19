@@ -34,7 +34,7 @@ describe("route tree", () => {
     expect(generatedRouteTree).toContain(
       "modules/recall/recall-practice-repair-draft-route",
     );
-    expect(generatedRouteTree).toContain(
+    expect(generatedRouteTree).not.toContain(
       "modules/recall/recall-practice-repair-results-redirect-route",
     );
     expect(generatedRouteTree).toContain("modules/focus/focus-route");
@@ -73,15 +73,22 @@ describe("route tree", () => {
     expect(generatedRouteTree).not.toContain(
       "'/insights': typeof modulesStudyGuidanceStudyGuidanceRouteRoute",
     );
-    expect(generatedRouteTree).toContain("'/recall/results':");
-    expect(generatedRouteTree).toContain("'/recall/repair':");
+    expect(generatedRouteTree).toContain("'/practice-repair':");
     expect(generatedRouteTree).toContain(
+      "'/practice-repair/results/$sessionResultId/questions/$questionResultId':",
+    );
+    expect(generatedRouteTree).toContain(
+      "'/practice-repair/$practiceRepairEntryId':",
+    );
+    expect(generatedRouteTree).toContain("'/recall/results':");
+    expect(generatedRouteTree).not.toContain("'/recall/repair':");
+    expect(generatedRouteTree).not.toContain(
       "'/recall/repair/$sessionResultId/questions/$questionResultId':",
     );
-    expect(generatedRouteTree).toContain(
+    expect(generatedRouteTree).not.toContain(
       "'/recall/results/$sessionResultId/questions/$questionResultId/repair':",
     );
-    expect(generatedRouteTree).toContain(
+    expect(generatedRouteTree).not.toContain(
       "'/recall/repair/$practiceRepairEntryId':",
     );
     expect(generatedRouteTree).toContain(

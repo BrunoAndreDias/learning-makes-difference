@@ -127,8 +127,8 @@ describe("authenticated app shell", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("keeps /recall/repair as a dedicated Recall sub-route", async () => {
-    const { router } = renderRoute("/recall/repair");
+  it("keeps /practice-repair as a top-level authenticated route", async () => {
+    const { router } = renderRoute("/practice-repair");
 
     expect(
       await screen.findByRole("heading", {
@@ -136,15 +136,14 @@ describe("authenticated app shell", () => {
         name: "Practice Repair Queue",
       }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall/repair");
+    expect(router.state.location.pathname).toBe("/practice-repair");
   });
 
   it.each([
     "/today",
-    "/recall/repair",
-    "/recall/repair/missing-entry",
-    "/recall/repair/result-1/questions/question-1",
-    "/recall/results/result-1/questions/question-1/repair",
+    "/practice-repair",
+    "/practice-repair/missing-entry",
+    "/practice-repair/results/result-1/questions/question-1",
     "/settings",
   ] as const)("redirects unauthenticated %s navigation into the public login area", async (pathname) => {
     const { router } = renderRoute(pathname, { session: { user: null } });
@@ -154,6 +153,20 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/login");
     expect(router.state.location.search.redirect).toBe(pathname);
+  });
+
+  it.each([
+    "/recall/repair",
+    "/recall/repair/missing-entry",
+    "/recall/results/result-1/questions/question-1/repair",
+  ] as const)("treats removed %s routes as generic login navigation instead of protected redirect targets", async (pathname) => {
+    const { router } = renderRoute(pathname, { session: { user: null } });
+
+    expect(
+      await screen.findByRole("heading", { name: "Welcome back" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/login");
+    expect(router.state.location.search.redirect).toBeUndefined();
   });
 
   it("treats /insights as a removed route instead of preserving it as a protected redirect target", async () => {

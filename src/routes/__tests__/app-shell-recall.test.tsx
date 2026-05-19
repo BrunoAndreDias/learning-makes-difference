@@ -440,18 +440,14 @@ function getConfirmedPracticeRepairReference(result: SessionResult) {
   return reference;
 }
 
-function getPracticeRepairQuestionPath(
+function getPracticeRepairEntryPath(
   reference: ReturnType<typeof getConfirmedPracticeRepairReference>,
 ) {
-  if (reference.questionResultId === undefined) {
-    throw new Error("Expected a Practice Repair reference with a question id.");
-  }
-
-  return `/recall/repair/${reference.sessionResultId}/questions/${reference.questionResultId}`;
+  return `/practice-repair/${createPracticeRepairEntryId(reference)}`;
 }
 
 function getConfirmedPracticeRepairPath(result: SessionResult) {
-  return getPracticeRepairQuestionPath(
+  return getPracticeRepairEntryPath(
     getConfirmedPracticeRepairReference(result),
   );
 }
@@ -958,7 +954,7 @@ describe("authenticated recall workspace", () => {
     );
 
     expect(routeRender.router.state.location.pathname).toBe(
-      `/recall/repair/${result.id}/questions/${questionResultId}`,
+      `/practice-repair/results/${result.id}/questions/${questionResultId}`,
     );
     expect(
       await screen.findByRole("heading", {
@@ -1010,7 +1006,7 @@ describe("authenticated recall workspace", () => {
     ).toBeNull();
   });
 
-  it("redirects a legacy Results repair URL to the compact Repair card and starts the selected repair from the keyboard", async () => {
+  it("opens the canonical draft Practice Repair route from Results and starts the selected repair from the keyboard", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const weakStudyNote = contexts.studyNotesContext.createStudyNote(
       testUser.id,
@@ -1041,18 +1037,16 @@ describe("authenticated recall workspace", () => {
     }
 
     const routeRender = renderRoute(
-      `/recall/results/${result.id}/questions/${questionResultId}/repair`,
+      `/practice-repair/results/${result.id}/questions/${questionResultId}`,
       {
         ...contexts,
         session: createSession(),
       },
     );
 
-    await waitFor(() => {
-      expect(routeRender.router.state.location.pathname).toBe(
-        `/recall/repair/${result.id}/questions/${questionResultId}`,
-      );
-    });
+    expect(routeRender.router.state.location.pathname).toBe(
+      `/practice-repair/results/${result.id}/questions/${questionResultId}`,
+    );
 
     const suggestions = await screen.findByRole("complementary", {
       name: "Practice Repair actions",
@@ -1113,26 +1107,26 @@ describe("authenticated recall workspace", () => {
     );
   });
 
-  it("falls back to the default Recall not-found behavior when a Repair draft result is missing", async () => {
+  it("falls back to the Practice Repair queue when a Repair draft result is missing", async () => {
     const { router } = renderRoute(
-      "/recall/repair/missing-result/questions/missing-question",
+      "/practice-repair/results/missing-result/questions/missing-question",
       {
         session: createSession(),
       },
     );
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/recall");
+      expect(router.state.location.pathname).toBe("/practice-repair");
     });
     expect(
-      screen.queryByRole("heading", {
+      await screen.findByRole("heading", {
         level: 1,
-        name: "Practice Repair",
+        name: "Practice Repair Queue",
       }),
-    ).toBeNull();
+    ).toBeInTheDocument();
   });
 
-  it("falls back to the default Recall not-found behavior when a Repair draft question is missing", async () => {
+  it("falls back to the Practice Repair queue when a Repair draft question is missing", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const weakStudyNote = contexts.studyNotesContext.createStudyNote(
       testUser.id,
@@ -1160,7 +1154,7 @@ describe("authenticated recall workspace", () => {
     }
 
     const { router } = renderRoute(
-      `/recall/repair/${result.id}/questions/missing-question`,
+      `/practice-repair/results/${result.id}/questions/missing-question`,
       {
         ...contexts,
         session: createSession(),
@@ -1168,14 +1162,14 @@ describe("authenticated recall workspace", () => {
     );
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/recall");
+      expect(router.state.location.pathname).toBe("/practice-repair");
     });
     expect(
-      screen.queryByRole("heading", {
+      await screen.findByRole("heading", {
         level: 1,
-        name: "Practice Repair",
+        name: "Practice Repair Queue",
       }),
-    ).toBeNull();
+    ).toBeInTheDocument();
   });
 
   it("keeps an already confirmed draft URL on the question-scoped Practice Repair workspace", async () => {
@@ -1213,16 +1207,14 @@ describe("authenticated recall workspace", () => {
       );
     }
 
-    const confirmedDraftPath = `/recall/results/${confirmedReference.sessionResultId}/questions/${questionResultId}/repair`;
-    const canonicalRepairPath =
-      getPracticeRepairQuestionPath(confirmedReference);
+    const confirmedDraftPath = `/practice-repair/results/${confirmedReference.sessionResultId}/questions/${questionResultId}`;
     const { router } = renderRoute(confirmedDraftPath, {
       ...contexts,
       session: createSession(),
     });
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe(canonicalRepairPath);
+      expect(router.state.location.pathname).toBe(confirmedDraftPath);
     });
     expect(
       await screen.findByRole("heading", {
@@ -1316,7 +1308,7 @@ describe("authenticated recall workspace", () => {
       getConfirmedPracticeRepairEntryId(olderResult);
     const newerPracticeRepairPath = getConfirmedPracticeRepairPath(newerResult);
 
-    const { router } = renderRoute("/recall/repair", {
+    const { router } = renderRoute("/practice-repair", {
       ...contexts,
       session: createSession(),
     });
@@ -1358,12 +1350,31 @@ describe("authenticated recall workspace", () => {
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe(newerPracticeRepairPath);
     expect(router.state.location.pathname).not.toBe(
-      `/recall/repair/${olderPracticeRepairEntryId}`,
+      `/practice-repair/${olderPracticeRepairEntryId}`,
     );
   });
 
-  it("shows an empty Practice Repair Queue state when there are no active entries", async () => {
-    renderRoute("/recall/repair", {
+  it("falls back to Results when the Practice Repair queue is empty but stored Results exist", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const weakStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "ATP stores transferable energy for cells.",
+        prompt: "What stores transferable energy?",
+        sourceBody: "Cell respiration source context.",
+        sourceTitle: "Cell respiration source",
+      },
+    );
+
+    completeStudyNoteRecallAt({
+      rating: "good",
+      recallContext: contexts.recallContext,
+      studyNoteId: weakStudyNote.id,
+      timestamp: "2026-05-15T09:00:00.000Z",
+    });
+
+    renderRoute("/practice-repair", {
+      ...contexts,
       session: createSession(),
     });
 
@@ -1376,6 +1387,51 @@ describe("authenticated recall workspace", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       "No active Practice Repair entries.",
     );
+    expect(
+      screen.getByRole("link", { name: "Review results" }),
+    ).toHaveAttribute("href", "/recall/results");
+  });
+
+  it("falls back to custom recall when the Practice Repair queue is empty and recallable Study Notes exist", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+
+    contexts.studyNotesContext.createStudyNote(testUser.id, {
+      expectedAnswer: "ATP stores transferable energy for cells.",
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+
+    renderRoute("/practice-repair", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Practice Repair Queue",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Start custom recall" }),
+    ).toHaveAttribute("href", "/recall/select");
+  });
+
+  it("falls back to Study Notes when the Practice Repair queue is empty and no recallable Study Notes exist", async () => {
+    renderRoute("/practice-repair", {
+      session: createSession(),
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Practice Repair Queue",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Create first Study Note" }),
+    ).toHaveAttribute("href", "/study-notes");
   });
 
   it("shows unconfirmed repair candidates in the queue and turns a confirmed candidate into active Practice Repair work", async () => {
@@ -1466,7 +1522,7 @@ describe("authenticated recall workspace", () => {
       throw new Error("Expected a queued Practice Repair candidate.");
     }
 
-    const { router } = renderRoute("/recall/repair", {
+    const { router } = renderRoute("/practice-repair", {
       ...contexts,
       session: createSession(),
     });
@@ -1512,7 +1568,7 @@ describe("authenticated recall workspace", () => {
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe(
-        `/recall/repair/${candidateReference.result.id}/questions/${candidateReference.questionResultId}`,
+        `/practice-repair/results/${candidateReference.result.id}/questions/${candidateReference.questionResultId}`,
       );
     });
     fireEvent.click(
@@ -1534,7 +1590,7 @@ describe("authenticated recall workspace", () => {
       }),
     ).toBeInTheDocument();
 
-    await router.navigate({ to: "/recall/repair" });
+    await router.navigate({ to: "/practice-repair" });
 
     expect(
       await screen.findByRole("heading", {
@@ -1585,13 +1641,16 @@ describe("authenticated recall workspace", () => {
       getConfirmedPracticeRepairEntryId(confirmedResult);
     const canonicalRepairPath = getConfirmedPracticeRepairPath(confirmedResult);
 
-    const firstRender = renderRoute(`/recall/repair/${practiceRepairEntryId}`, {
-      labelsContext,
-      notesContext,
-      recallContext,
-      session: createSession(),
-      studyNotesContext,
-    });
+    const firstRender = renderRoute(
+      `/practice-repair/${practiceRepairEntryId}`,
+      {
+        labelsContext,
+        notesContext,
+        recallContext,
+        session: createSession(),
+        studyNotesContext,
+      },
+    );
 
     await waitFor(() => {
       expect(firstRender.router.state.location.pathname).toBe(
@@ -1619,7 +1678,7 @@ describe("authenticated recall workspace", () => {
     const reloadedRecallContext = contexts.createRecallContext();
 
     const secondRender = renderRoute(
-      `/recall/repair/${practiceRepairEntryId}`,
+      `/practice-repair/${practiceRepairEntryId}`,
       {
         labelsContext,
         notesContext,
@@ -2184,18 +2243,18 @@ describe("authenticated recall workspace", () => {
     ).toBeInTheDocument();
   });
 
-  it("falls back to the default Recall not-found behavior when a Practice Repair entry is missing", async () => {
-    const { router } = renderRoute("/recall/repair/missing-entry", {
+  it("falls back to the Practice Repair queue when a Practice Repair entry is missing", async () => {
+    const { router } = renderRoute("/practice-repair/missing-entry", {
       session: createSession(),
     });
 
     expect(
       await screen.findByRole("heading", {
-        level: 3,
-        name: "Recall starts with Study Notes",
+        level: 1,
+        name: "Practice Repair Queue",
       }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall");
+    expect(router.state.location.pathname).toBe("/practice-repair");
   });
 
   it("links child Recall breadcrumbs back to the default Recall page", async () => {
@@ -2551,7 +2610,7 @@ describe("authenticated recall workspace", () => {
     });
     expect(
       within(appSections).getByRole("link", { name: "Practice Repair" }),
-    ).toHaveAttribute("href", "/recall/repair");
+    ).toHaveAttribute("href", "/practice-repair");
 
     const recallTodayHeading = screen.getByRole("heading", {
       level: 1,
@@ -2566,7 +2625,7 @@ describe("authenticated recall workspace", () => {
     const practiceRepairLink = within(recallTodaySurface).getByRole("link", {
       name: "Practice Repair",
     });
-    expect(practiceRepairLink).toHaveAttribute("href", "/recall/repair");
+    expect(practiceRepairLink).toHaveAttribute("href", "/practice-repair");
 
     fireEvent.click(practiceRepairLink);
 
@@ -2576,7 +2635,7 @@ describe("authenticated recall workspace", () => {
         name: "Practice Repair Queue",
       }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall/repair");
+    expect(router.state.location.pathname).toBe("/practice-repair");
     expect(screen.getByText("Needs practice prompt")).toBeInTheDocument();
   });
 

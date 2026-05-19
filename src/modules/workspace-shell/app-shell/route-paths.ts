@@ -2,6 +2,7 @@ export const appRoutePaths = {
   focus: "/focus",
   forgotPassword: "/forgot-password",
   login: "/login",
+  practiceRepair: "/practice-repair",
   recall: "/recall",
   register: "/register",
   settings: "/settings",

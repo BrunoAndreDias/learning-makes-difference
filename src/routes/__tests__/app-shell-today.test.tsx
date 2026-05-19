@@ -284,7 +284,7 @@ describe("authenticated Today workspace", () => {
       within(getStudyGuidancePracticeRepairPanel()).getByRole("link", {
         name: "Open Practice Repair",
       }),
-    ).toHaveAttribute("href", "/recall/repair");
+    ).toHaveAttribute("href", "/practice-repair");
     expect(
       screen.getByText(
         "1 new repair candidate is waiting for Biology. Open Practice Repair before repeating generic Needs practice work.",
@@ -390,7 +390,7 @@ describe("authenticated Today workspace", () => {
       within(getStudyGuidancePracticeRepairPanel()).getByRole("link", {
         name: "Open Practice Repair",
       }),
-    ).toHaveAttribute("href", "/recall/repair");
+    ).toHaveAttribute("href", "/practice-repair");
 
     expect(screen.getAllByText("Recall Today").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Needs practice").length).toBeGreaterThan(0);
@@ -503,7 +503,7 @@ describe("authenticated Today workspace", () => {
     const biologyCard = getStudyGuidanceTopicCard("Biology");
     expect(
       within(biologyCard).getByRole("link", { name: "Open Practice Repair" }),
-    ).toHaveAttribute("href", "/recall/repair");
+    ).toHaveAttribute("href", "/practice-repair");
     expect(
       within(biologyCard).getByRole("link", {
         name: "View Biology Study Notes",
@@ -612,7 +612,7 @@ describe("authenticated Today workspace", () => {
       within(getStudyGuidancePracticeRepairPanel()).getByRole("link", {
         name: "Open Practice Repair",
       }),
-    ).toHaveAttribute("href", "/recall/repair");
+    ).toHaveAttribute("href", "/practice-repair");
     expect(
       screen.getByText(
         "1 active Practice Repair entry and 1 new repair candidate are waiting for Biology. Open Practice Repair before repeating generic Needs practice work.",

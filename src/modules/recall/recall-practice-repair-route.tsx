@@ -20,13 +20,13 @@ import {
   getRecallRatingTranslationKey,
 } from "./learner-copy";
 import type { AppPersistentRecallContext } from "./persistent-recall";
+import { PracticeRepairBreadcrumb } from "./practice-repair-breadcrumb";
 import {
   type AppRecallContext,
   AppRecallError,
   type FlashCardSessionResult,
   type RecallQuestion,
 } from "./recall";
-import { RecallBreadcrumb } from "./recall-breadcrumb";
 import {
   getPracticeRepairEntryId,
   getPracticeRepairEntryLifecycleKind,
@@ -39,13 +39,9 @@ import {
   type PracticeRepairEntryLifecycleKind,
   type PracticeRepairIntent,
 } from "./recall-practice-repair";
-import {
-  getPracticeRepairQuestionRouteParams,
-  type PracticeRepairQuestionRouteParams,
-} from "./recall-practice-repair-routing";
 
 export const Route = createFileRoute(
-  "/_protected/recall/repair/$practiceRepairEntryId",
+  "/_protected/practice-repair/$practiceRepairEntryId",
 )({
   component: RecallPracticeRepairRoute,
 });
@@ -140,10 +136,10 @@ function getStudyNoteMeta(question: Pick<RecallQuestion, "noteSnapshot">) {
   return "Results evidence";
 }
 
-function findSupersedingPracticeRepairRouteParams(input: {
+function findSupersedingPracticeRepairEntryId(input: {
   entry: PracticeRepairEntry;
   sessionResults: readonly FlashCardSessionResult[];
-}): PracticeRepairQuestionRouteParams | null {
+}): string | null {
   const currentEntryId = getPracticeRepairEntryId(input.entry);
 
   for (const result of input.sessionResults) {
@@ -163,10 +159,7 @@ function findSupersedingPracticeRepairRouteParams(input: {
       const candidateEntryId = getPracticeRepairEntryId(candidateEntry);
 
       if (candidateEntryId !== currentEntryId) {
-        return getPracticeRepairQuestionRouteParams({
-          entry: candidateEntry,
-          question,
-        });
+        return candidateEntryId;
       }
     }
   }
@@ -330,7 +323,7 @@ function PracticeRepairWorkspaceActions({
   onComplete,
   onDismiss,
   onStartFollowUpRecall,
-  supersedingPracticeRepairRouteParams,
+  supersedingPracticeRepairEntryId,
 }: Readonly<{
   isFollowUpRecallPending: boolean;
   isMutationPending: boolean;
@@ -338,7 +331,7 @@ function PracticeRepairWorkspaceActions({
   onComplete: () => void;
   onDismiss: () => void;
   onStartFollowUpRecall: () => void;
-  supersedingPracticeRepairRouteParams: PracticeRepairQuestionRouteParams | null;
+  supersedingPracticeRepairEntryId: string | null;
 }>) {
   switch (lifecycleKind) {
     case "active":
@@ -384,10 +377,12 @@ function PracticeRepairWorkspaceActions({
     case "superseded":
       return (
         <>
-          {supersedingPracticeRepairRouteParams === null ? null : (
+          {supersedingPracticeRepairEntryId === null ? null : (
             <ButtonLink
-              params={supersedingPracticeRepairRouteParams}
-              to="/recall/repair/$sessionResultId/questions/$questionResultId"
+              params={{
+                practiceRepairEntryId: supersedingPracticeRepairEntryId,
+              }}
+              to="/practice-repair/$practiceRepairEntryId"
               variant="primary"
             >
               Open newer Practice Repair
@@ -464,22 +459,7 @@ function RecallPracticeRepairRoute() {
   });
 
   if (workspace === null) {
-    return <Navigate to="/recall" />;
-  }
-
-  const repairRouteParams = getPracticeRepairQuestionRouteParams({
-    entry: workspace.entry,
-    question: workspace.question,
-  });
-
-  if (repairRouteParams !== null) {
-    return (
-      <Navigate
-        params={repairRouteParams}
-        replace
-        to="/recall/repair/$sessionResultId/questions/$questionResultId"
-      />
-    );
+    return <Navigate to="/practice-repair" />;
   }
 
   return (
@@ -521,14 +501,14 @@ export function RecallPracticeRepairWorkspacePage({
   const referenceText = getPracticeRepairQuestionReferenceText(question);
   const lifecycleKind = getPracticeRepairEntryLifecycleKind(entry);
   const cardTitle = lifecycleKind === "active" ? referenceTitle : prompt;
-  const supersedingPracticeRepairRouteParams =
+  const supersedingPracticeRepairEntryId =
     lifecycleKind === "superseded"
-      ? findSupersedingPracticeRepairRouteParams({
+      ? findSupersedingPracticeRepairEntryId({
           entry,
           sessionResults,
         })
       : null;
-  const hasSupersedingEntry = supersedingPracticeRepairRouteParams !== null;
+  const hasSupersedingEntry = supersedingPracticeRepairEntryId !== null;
   const nextStepCopy = getPracticeRepairNextStepCopy({
     hasSupersedingEntry,
     lifecycleKind,
@@ -623,11 +603,13 @@ export function RecallPracticeRepairWorkspacePage({
       <article className="recall-surface recall-practice-repair-workspace">
         <PageHeader
           actions={
-            <ButtonLink to="/recall/repair" variant="secondary">
+            <ButtonLink to="/practice-repair" variant="secondary">
               Practice Repair Queue
             </ButtonLink>
           }
-          beforeTitle={<RecallBreadcrumb currentLabel="Practice Repair" />}
+          beforeTitle={
+            <PracticeRepairBreadcrumb currentLabel="Practice Repair" />
+          }
           className="recall-surface__header"
           description="Keep the original Needs practice evidence visible while you finish one concrete repair from Recall."
           headingLevel={1}
@@ -843,8 +825,8 @@ export function RecallPracticeRepairWorkspacePage({
                   onComplete={() => void handleLifecycleMutation("complete")}
                   onDismiss={() => void handleLifecycleMutation("dismiss")}
                   onStartFollowUpRecall={() => void handleStartFollowUpRecall()}
-                  supersedingPracticeRepairRouteParams={
-                    supersedingPracticeRepairRouteParams
+                  supersedingPracticeRepairEntryId={
+                    supersedingPracticeRepairEntryId
                   }
                 />
               </div>

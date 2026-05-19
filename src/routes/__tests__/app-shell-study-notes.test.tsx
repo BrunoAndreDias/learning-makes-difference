@@ -25,7 +25,10 @@ import {
   type RecallSelfRating,
   type SessionResult,
 } from "../../modules/recall";
-import type { PracticeRepairIntent } from "../../modules/recall/recall-practice-repair";
+import {
+  createPracticeRepairEntryId,
+  type PracticeRepairIntent,
+} from "../../modules/recall/recall-practice-repair";
 import {
   createAppStudyNotesContext,
   unlabeledStudyNotesFilterValue,
@@ -221,16 +224,12 @@ function getConfirmedPracticeRepairEntryId(result: SessionResult) {
   return entryId;
 }
 
-function getPracticeRepairQuestionPath(
+function getPracticeRepairEntryPath(
   reference: NonNullable<
     SessionResult["questions"][number]["practiceRepairEntry"]
   >["reference"],
 ) {
-  if (reference.questionResultId === undefined) {
-    throw new Error("Expected a Practice Repair reference with a question id.");
-  }
-
-  return `/recall/repair/${reference.sessionResultId}/questions/${reference.questionResultId}`;
+  return `/practice-repair/${createPracticeRepairEntryId(reference)}`;
 }
 
 function expectPracticeRepairReturnLink(
@@ -240,7 +239,7 @@ function expectPracticeRepairReturnLink(
 ) {
   expect(
     screen.getByRole("link", { name: "Return to Practice Repair" }),
-  ).toHaveAttribute("href", getPracticeRepairQuestionPath(reference));
+  ).toHaveAttribute("href", getPracticeRepairEntryPath(reference));
 }
 
 function _getActivePracticeRepairEntry(name: string) {
@@ -345,7 +344,7 @@ async function returnToCompletedPracticeRepairWorkspace(
 
   await waitFor(() =>
     expect(router.state.location.pathname).toBe(
-      getPracticeRepairQuestionPath(reference),
+      getPracticeRepairEntryPath(reference),
     ),
   );
   expect(

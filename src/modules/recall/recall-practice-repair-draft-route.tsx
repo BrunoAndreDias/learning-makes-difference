@@ -14,12 +14,12 @@ import {
   getRecallRatingTone,
   getRecallRatingTranslationKey,
 } from "./learner-copy";
+import { PracticeRepairBreadcrumb } from "./practice-repair-breadcrumb";
 import {
   AppRecallError,
   type FlashCardSessionResult,
   type RecallQuestion,
 } from "./recall";
-import { RecallBreadcrumb } from "./recall-breadcrumb";
 import {
   createPracticeRepairEntryId,
   getPracticeRepairQuestionExpectedAnswer,
@@ -49,7 +49,7 @@ type RecallResultsStore = {
 };
 
 export const Route = createFileRoute(
-  "/_protected/recall/repair/$sessionResultId/questions/$questionResultId",
+  "/_protected/practice-repair/results/$sessionResultId/questions/$questionResultId",
 )({
   component: RecallPracticeRepairDraftRoute,
 });
@@ -226,7 +226,7 @@ function RecallPracticeRepairDraftRoute() {
   });
 
   if (workspace === null) {
-    return <Navigate to="/recall" />;
+    return <Navigate to="/practice-repair" />;
   }
 
   const confirmedPracticeRepairEntry = workspace.question.practiceRepairEntry;
@@ -254,7 +254,7 @@ function RecallPracticeRepairDraftRoute() {
   );
 
   if (practiceRepairDraft === null) {
-    return <Navigate to="/recall" />;
+    return <Navigate to="/practice-repair" />;
   }
 
   return (
@@ -392,11 +392,11 @@ function RecallPracticeRepairDraftPage({
       <article className="recall-surface recall-practice-repair-workspace">
         <PageHeader
           actions={
-            <ButtonLink to="/recall/repair" variant="secondary">
+            <ButtonLink to="/practice-repair" variant="secondary">
               Practice Repair Queue
             </ButtonLink>
           }
-          beforeTitle={<RecallBreadcrumb currentLabel="Practice Repair" />}
+          beforeTitle={<PracticeRepairBreadcrumb currentLabel="Draft" />}
           className="recall-surface__header"
           description="Keep the original Needs practice evidence visible while you choose the smallest repair."
           headingLevel={1}

@@ -344,7 +344,7 @@ function StudyGuidancePracticeRepairPanel({
           </div>
         ) : null}
       </dl>
-      <ButtonLink to="/recall/repair">Open Practice Repair</ButtonLink>
+      <ButtonLink to="/practice-repair">Open Practice Repair</ButtonLink>
     </section>
   );
 }
@@ -362,7 +362,9 @@ function StudyGuidanceTopicPrimaryAction({
 }>) {
   switch (topic.action.kind) {
     case "practice-repair":
-      return <ButtonLink to="/recall/repair">{topic.action.label}</ButtonLink>;
+      return (
+        <ButtonLink to="/practice-repair">{topic.action.label}</ButtonLink>
+      );
     case "recall-selection":
       return (
         <ButtonLink

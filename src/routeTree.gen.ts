@@ -16,6 +16,7 @@ import { Route as modulesStudyGuidanceStudyGuidanceRouteRouteImport } from './mo
 import { Route as modulesStudyNotesStudyNotesRouteRouteImport } from './modules/study-notes/study-notes-route'
 import { Route as modulesAccessSessionSettingsRouteRouteImport } from './modules/access/session/settings-route'
 import { Route as modulesRecallRecallRouteRouteImport } from './modules/recall/recall-route'
+import { Route as modulesRecallRecallPracticeRepairQueueRouteRouteImport } from './modules/recall/recall-practice-repair-queue-route'
 import { Route as modulesFocusFocusRouteRouteImport } from './modules/focus/focus-route'
 import { Route as modulesAccessSessionRegisterRouteRouteImport } from './modules/access/session/register-route'
 import { Route as modulesAccessSessionLoginRouteRouteImport } from './modules/access/session/login-route'
@@ -24,11 +25,9 @@ import { Route as modulesAccessPublicEntryPublicIndexRouteRouteImport } from './
 import { Route as modulesRecallRecallSessionRouteRouteImport } from './modules/recall/recall-session-route'
 import { Route as modulesRecallRecallSelectionRouteRouteImport } from './modules/recall/recall-selection-route'
 import { Route as modulesRecallRecallResultsRouteRouteImport } from './modules/recall/recall-results-route'
-import { Route as modulesRecallRecallPracticeRepairQueueRouteRouteImport } from './modules/recall/recall-practice-repair-queue-route'
-import { Route as modulesRecallRecallResultsWorkspaceRouteRouteImport } from './modules/recall/recall-results-workspace-route'
 import { Route as modulesRecallRecallPracticeRepairRouteRouteImport } from './modules/recall/recall-practice-repair-route'
+import { Route as modulesRecallRecallResultsWorkspaceRouteRouteImport } from './modules/recall/recall-results-workspace-route'
 import { Route as modulesRecallRecallPracticeRepairDraftRouteRouteImport } from './modules/recall/recall-practice-repair-draft-route'
-import { Route as modulesRecallRecallPracticeRepairResultsRedirectRouteRouteImport } from './modules/recall/recall-practice-repair-results-redirect-route'
 
 const modulesAccessPublicEntryPublicLayoutRouteRoute =
   modulesAccessPublicEntryPublicLayoutRouteRouteImport.update({
@@ -67,6 +66,12 @@ const modulesRecallRecallRouteRoute =
   modulesRecallRecallRouteRouteImport.update({
     id: '/recall',
     path: '/recall',
+    getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
+  } as any)
+const modulesRecallRecallPracticeRepairQueueRouteRoute =
+  modulesRecallRecallPracticeRepairQueueRouteRouteImport.update({
+    id: '/practice-repair',
+    path: '/practice-repair',
     getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
   } as any)
 const modulesFocusFocusRouteRoute = modulesFocusFocusRouteRouteImport.update({
@@ -116,11 +121,11 @@ const modulesRecallRecallResultsRouteRoute =
     path: '/results',
     getParentRoute: () => modulesRecallRecallRouteRoute,
   } as any)
-const modulesRecallRecallPracticeRepairQueueRouteRoute =
-  modulesRecallRecallPracticeRepairQueueRouteRouteImport.update({
-    id: '/repair',
-    path: '/repair',
-    getParentRoute: () => modulesRecallRecallRouteRoute,
+const modulesRecallRecallPracticeRepairRouteRoute =
+  modulesRecallRecallPracticeRepairRouteRouteImport.update({
+    id: '/practice-repair/$practiceRepairEntryId',
+    path: '/practice-repair/$practiceRepairEntryId',
+    getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
   } as any)
 const modulesRecallRecallResultsWorkspaceRouteRoute =
   modulesRecallRecallResultsWorkspaceRouteRouteImport.update({
@@ -128,23 +133,11 @@ const modulesRecallRecallResultsWorkspaceRouteRoute =
     path: '/',
     getParentRoute: () => modulesRecallRecallRouteRoute,
   } as any)
-const modulesRecallRecallPracticeRepairRouteRoute =
-  modulesRecallRecallPracticeRepairRouteRouteImport.update({
-    id: '/repair/$practiceRepairEntryId',
-    path: '/repair/$practiceRepairEntryId',
-    getParentRoute: () => modulesRecallRecallRouteRoute,
-  } as any)
 const modulesRecallRecallPracticeRepairDraftRouteRoute =
   modulesRecallRecallPracticeRepairDraftRouteRouteImport.update({
-    id: '/repair/$sessionResultId/questions/$questionResultId',
-    path: '/repair/$sessionResultId/questions/$questionResultId',
-    getParentRoute: () => modulesRecallRecallRouteRoute,
-  } as any)
-const modulesRecallRecallPracticeRepairResultsRedirectRouteRoute =
-  modulesRecallRecallPracticeRepairResultsRedirectRouteRouteImport.update({
-    id: '/results/$sessionResultId/questions/$questionResultId/repair',
-    path: '/results/$sessionResultId/questions/$questionResultId/repair',
-    getParentRoute: () => modulesRecallRecallRouteRoute,
+    id: '/practice-repair/results/$sessionResultId/questions/$questionResultId',
+    path: '/practice-repair/results/$sessionResultId/questions/$questionResultId',
+    getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -153,18 +146,17 @@ export interface FileRoutesByFullPath {
   '/login': typeof modulesAccessSessionLoginRouteRoute
   '/register': typeof modulesAccessSessionRegisterRouteRoute
   '/focus': typeof modulesFocusFocusRouteRoute
+  '/practice-repair': typeof modulesRecallRecallPracticeRepairQueueRouteRoute
   '/recall': typeof modulesRecallRecallRouteRouteWithChildren
   '/settings': typeof modulesAccessSessionSettingsRouteRoute
   '/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
   '/today': typeof modulesStudyGuidanceStudyGuidanceRouteRoute
   '/recall/': typeof modulesRecallRecallResultsWorkspaceRouteRoute
-  '/recall/repair': typeof modulesRecallRecallPracticeRepairQueueRouteRoute
+  '/practice-repair/$practiceRepairEntryId': typeof modulesRecallRecallPracticeRepairRouteRoute
   '/recall/results': typeof modulesRecallRecallResultsRouteRoute
   '/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/recall/session': typeof modulesRecallRecallSessionRouteRoute
-  '/recall/repair/$practiceRepairEntryId': typeof modulesRecallRecallPracticeRepairRouteRoute
-  '/recall/repair/$sessionResultId/questions/$questionResultId': typeof modulesRecallRecallPracticeRepairDraftRouteRoute
-  '/recall/results/$sessionResultId/questions/$questionResultId/repair': typeof modulesRecallRecallPracticeRepairResultsRedirectRouteRoute
+  '/practice-repair/results/$sessionResultId/questions/$questionResultId': typeof modulesRecallRecallPracticeRepairDraftRouteRoute
 }
 export interface FileRoutesByTo {
   '/': typeof modulesAccessPublicEntryPublicIndexRouteRoute
@@ -172,17 +164,16 @@ export interface FileRoutesByTo {
   '/login': typeof modulesAccessSessionLoginRouteRoute
   '/register': typeof modulesAccessSessionRegisterRouteRoute
   '/focus': typeof modulesFocusFocusRouteRoute
+  '/practice-repair': typeof modulesRecallRecallPracticeRepairQueueRouteRoute
   '/settings': typeof modulesAccessSessionSettingsRouteRoute
   '/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
   '/today': typeof modulesStudyGuidanceStudyGuidanceRouteRoute
   '/recall': typeof modulesRecallRecallResultsWorkspaceRouteRoute
-  '/recall/repair': typeof modulesRecallRecallPracticeRepairQueueRouteRoute
+  '/practice-repair/$practiceRepairEntryId': typeof modulesRecallRecallPracticeRepairRouteRoute
   '/recall/results': typeof modulesRecallRecallResultsRouteRoute
   '/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/recall/session': typeof modulesRecallRecallSessionRouteRoute
-  '/recall/repair/$practiceRepairEntryId': typeof modulesRecallRecallPracticeRepairRouteRoute
-  '/recall/repair/$sessionResultId/questions/$questionResultId': typeof modulesRecallRecallPracticeRepairDraftRouteRoute
-  '/recall/results/$sessionResultId/questions/$questionResultId/repair': typeof modulesRecallRecallPracticeRepairResultsRedirectRouteRoute
+  '/practice-repair/results/$sessionResultId/questions/$questionResultId': typeof modulesRecallRecallPracticeRepairDraftRouteRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -194,18 +185,17 @@ export interface FileRoutesById {
   '/_auth/login': typeof modulesAccessSessionLoginRouteRoute
   '/_auth/register': typeof modulesAccessSessionRegisterRouteRoute
   '/_protected/focus': typeof modulesFocusFocusRouteRoute
+  '/_protected/practice-repair': typeof modulesRecallRecallPracticeRepairQueueRouteRoute
   '/_protected/recall': typeof modulesRecallRecallRouteRouteWithChildren
   '/_protected/settings': typeof modulesAccessSessionSettingsRouteRoute
   '/_protected/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
   '/_protected/today': typeof modulesStudyGuidanceStudyGuidanceRouteRoute
   '/_protected/recall/': typeof modulesRecallRecallResultsWorkspaceRouteRoute
-  '/_protected/recall/repair': typeof modulesRecallRecallPracticeRepairQueueRouteRoute
+  '/_protected/practice-repair/$practiceRepairEntryId': typeof modulesRecallRecallPracticeRepairRouteRoute
   '/_protected/recall/results': typeof modulesRecallRecallResultsRouteRoute
   '/_protected/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/_protected/recall/session': typeof modulesRecallRecallSessionRouteRoute
-  '/_protected/recall/repair/$practiceRepairEntryId': typeof modulesRecallRecallPracticeRepairRouteRoute
-  '/_protected/recall/repair/$sessionResultId/questions/$questionResultId': typeof modulesRecallRecallPracticeRepairDraftRouteRoute
-  '/_protected/recall/results/$sessionResultId/questions/$questionResultId/repair': typeof modulesRecallRecallPracticeRepairResultsRedirectRouteRoute
+  '/_protected/practice-repair/results/$sessionResultId/questions/$questionResultId': typeof modulesRecallRecallPracticeRepairDraftRouteRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -215,18 +205,17 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/focus'
+    | '/practice-repair'
     | '/recall'
     | '/settings'
     | '/study-notes'
     | '/today'
     | '/recall/'
-    | '/recall/repair'
+    | '/practice-repair/$practiceRepairEntryId'
     | '/recall/results'
     | '/recall/select'
     | '/recall/session'
-    | '/recall/repair/$practiceRepairEntryId'
-    | '/recall/repair/$sessionResultId/questions/$questionResultId'
-    | '/recall/results/$sessionResultId/questions/$questionResultId/repair'
+    | '/practice-repair/results/$sessionResultId/questions/$questionResultId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -234,17 +223,16 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/focus'
+    | '/practice-repair'
     | '/settings'
     | '/study-notes'
     | '/today'
     | '/recall'
-    | '/recall/repair'
+    | '/practice-repair/$practiceRepairEntryId'
     | '/recall/results'
     | '/recall/select'
     | '/recall/session'
-    | '/recall/repair/$practiceRepairEntryId'
-    | '/recall/repair/$sessionResultId/questions/$questionResultId'
-    | '/recall/results/$sessionResultId/questions/$questionResultId/repair'
+    | '/practice-repair/results/$sessionResultId/questions/$questionResultId'
   id:
     | '__root__'
     | '/_auth'
@@ -255,18 +243,17 @@ export interface FileRouteTypes {
     | '/_auth/login'
     | '/_auth/register'
     | '/_protected/focus'
+    | '/_protected/practice-repair'
     | '/_protected/recall'
     | '/_protected/settings'
     | '/_protected/study-notes'
     | '/_protected/today'
     | '/_protected/recall/'
-    | '/_protected/recall/repair'
+    | '/_protected/practice-repair/$practiceRepairEntryId'
     | '/_protected/recall/results'
     | '/_protected/recall/select'
     | '/_protected/recall/session'
-    | '/_protected/recall/repair/$practiceRepairEntryId'
-    | '/_protected/recall/repair/$sessionResultId/questions/$questionResultId'
-    | '/_protected/recall/results/$sessionResultId/questions/$questionResultId/repair'
+    | '/_protected/practice-repair/results/$sessionResultId/questions/$questionResultId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -326,6 +313,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof modulesRecallRecallRouteRouteImport
       parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
     }
+    '/_protected/practice-repair': {
+      id: '/_protected/practice-repair'
+      path: '/practice-repair'
+      fullPath: '/practice-repair'
+      preLoaderRoute: typeof modulesRecallRecallPracticeRepairQueueRouteRouteImport
+      parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
+    }
     '/_protected/focus': {
       id: '/_protected/focus'
       path: '/focus'
@@ -382,12 +376,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof modulesRecallRecallResultsRouteRouteImport
       parentRoute: typeof modulesRecallRecallRouteRoute
     }
-    '/_protected/recall/repair': {
-      id: '/_protected/recall/repair'
-      path: '/repair'
-      fullPath: '/recall/repair'
-      preLoaderRoute: typeof modulesRecallRecallPracticeRepairQueueRouteRouteImport
-      parentRoute: typeof modulesRecallRecallRouteRoute
+    '/_protected/practice-repair/$practiceRepairEntryId': {
+      id: '/_protected/practice-repair/$practiceRepairEntryId'
+      path: '/practice-repair/$practiceRepairEntryId'
+      fullPath: '/practice-repair/$practiceRepairEntryId'
+      preLoaderRoute: typeof modulesRecallRecallPracticeRepairRouteRouteImport
+      parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
     }
     '/_protected/recall/': {
       id: '/_protected/recall/'
@@ -396,26 +390,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof modulesRecallRecallResultsWorkspaceRouteRouteImport
       parentRoute: typeof modulesRecallRecallRouteRoute
     }
-    '/_protected/recall/repair/$practiceRepairEntryId': {
-      id: '/_protected/recall/repair/$practiceRepairEntryId'
-      path: '/repair/$practiceRepairEntryId'
-      fullPath: '/recall/repair/$practiceRepairEntryId'
-      preLoaderRoute: typeof modulesRecallRecallPracticeRepairRouteRouteImport
-      parentRoute: typeof modulesRecallRecallRouteRoute
-    }
-    '/_protected/recall/repair/$sessionResultId/questions/$questionResultId': {
-      id: '/_protected/recall/repair/$sessionResultId/questions/$questionResultId'
-      path: '/repair/$sessionResultId/questions/$questionResultId'
-      fullPath: '/recall/repair/$sessionResultId/questions/$questionResultId'
+    '/_protected/practice-repair/results/$sessionResultId/questions/$questionResultId': {
+      id: '/_protected/practice-repair/results/$sessionResultId/questions/$questionResultId'
+      path: '/practice-repair/results/$sessionResultId/questions/$questionResultId'
+      fullPath: '/practice-repair/results/$sessionResultId/questions/$questionResultId'
       preLoaderRoute: typeof modulesRecallRecallPracticeRepairDraftRouteRouteImport
-      parentRoute: typeof modulesRecallRecallRouteRoute
-    }
-    '/_protected/recall/results/$sessionResultId/questions/$questionResultId/repair': {
-      id: '/_protected/recall/results/$sessionResultId/questions/$questionResultId/repair'
-      path: '/results/$sessionResultId/questions/$questionResultId/repair'
-      fullPath: '/recall/results/$sessionResultId/questions/$questionResultId/repair'
-      preLoaderRoute: typeof modulesRecallRecallPracticeRepairResultsRedirectRouteRouteImport
-      parentRoute: typeof modulesRecallRecallRouteRoute
+      parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
     }
   }
 }
@@ -442,31 +422,19 @@ const modulesAccessSessionAuthLayoutRouteRouteWithChildren =
 
 interface modulesRecallRecallRouteRouteChildren {
   modulesRecallRecallResultsWorkspaceRouteRoute: typeof modulesRecallRecallResultsWorkspaceRouteRoute
-  modulesRecallRecallPracticeRepairQueueRouteRoute: typeof modulesRecallRecallPracticeRepairQueueRouteRoute
   modulesRecallRecallResultsRouteRoute: typeof modulesRecallRecallResultsRouteRoute
   modulesRecallRecallSelectionRouteRoute: typeof modulesRecallRecallSelectionRouteRoute
   modulesRecallRecallSessionRouteRoute: typeof modulesRecallRecallSessionRouteRoute
-  modulesRecallRecallPracticeRepairRouteRoute: typeof modulesRecallRecallPracticeRepairRouteRoute
-  modulesRecallRecallPracticeRepairDraftRouteRoute: typeof modulesRecallRecallPracticeRepairDraftRouteRoute
-  modulesRecallRecallPracticeRepairResultsRedirectRouteRoute: typeof modulesRecallRecallPracticeRepairResultsRedirectRouteRoute
 }
 
 const modulesRecallRecallRouteRouteChildren: modulesRecallRecallRouteRouteChildren =
   {
     modulesRecallRecallResultsWorkspaceRouteRoute:
       modulesRecallRecallResultsWorkspaceRouteRoute,
-    modulesRecallRecallPracticeRepairQueueRouteRoute:
-      modulesRecallRecallPracticeRepairQueueRouteRoute,
     modulesRecallRecallResultsRouteRoute: modulesRecallRecallResultsRouteRoute,
     modulesRecallRecallSelectionRouteRoute:
       modulesRecallRecallSelectionRouteRoute,
     modulesRecallRecallSessionRouteRoute: modulesRecallRecallSessionRouteRoute,
-    modulesRecallRecallPracticeRepairRouteRoute:
-      modulesRecallRecallPracticeRepairRouteRoute,
-    modulesRecallRecallPracticeRepairDraftRouteRoute:
-      modulesRecallRecallPracticeRepairDraftRouteRoute,
-    modulesRecallRecallPracticeRepairResultsRedirectRouteRoute:
-      modulesRecallRecallPracticeRepairResultsRedirectRouteRoute,
   }
 
 const modulesRecallRecallRouteRouteWithChildren =
@@ -476,15 +444,20 @@ const modulesRecallRecallRouteRouteWithChildren =
 
 interface modulesWorkspaceShellAppShellProtectedRouteRouteChildren {
   modulesFocusFocusRouteRoute: typeof modulesFocusFocusRouteRoute
+  modulesRecallRecallPracticeRepairQueueRouteRoute: typeof modulesRecallRecallPracticeRepairQueueRouteRoute
   modulesRecallRecallRouteRoute: typeof modulesRecallRecallRouteRouteWithChildren
   modulesAccessSessionSettingsRouteRoute: typeof modulesAccessSessionSettingsRouteRoute
   modulesStudyNotesStudyNotesRouteRoute: typeof modulesStudyNotesStudyNotesRouteRoute
   modulesStudyGuidanceStudyGuidanceRouteRoute: typeof modulesStudyGuidanceStudyGuidanceRouteRoute
+  modulesRecallRecallPracticeRepairRouteRoute: typeof modulesRecallRecallPracticeRepairRouteRoute
+  modulesRecallRecallPracticeRepairDraftRouteRoute: typeof modulesRecallRecallPracticeRepairDraftRouteRoute
 }
 
 const modulesWorkspaceShellAppShellProtectedRouteRouteChildren: modulesWorkspaceShellAppShellProtectedRouteRouteChildren =
   {
     modulesFocusFocusRouteRoute: modulesFocusFocusRouteRoute,
+    modulesRecallRecallPracticeRepairQueueRouteRoute:
+      modulesRecallRecallPracticeRepairQueueRouteRoute,
     modulesRecallRecallRouteRoute: modulesRecallRecallRouteRouteWithChildren,
     modulesAccessSessionSettingsRouteRoute:
       modulesAccessSessionSettingsRouteRoute,
@@ -492,6 +465,10 @@ const modulesWorkspaceShellAppShellProtectedRouteRouteChildren: modulesWorkspace
       modulesStudyNotesStudyNotesRouteRoute,
     modulesStudyGuidanceStudyGuidanceRouteRoute:
       modulesStudyGuidanceStudyGuidanceRouteRoute,
+    modulesRecallRecallPracticeRepairRouteRoute:
+      modulesRecallRecallPracticeRepairRouteRoute,
+    modulesRecallRecallPracticeRepairDraftRouteRoute:
+      modulesRecallRecallPracticeRepairDraftRouteRoute,
   }
 
 const modulesWorkspaceShellAppShellProtectedRouteRouteWithChildren =
