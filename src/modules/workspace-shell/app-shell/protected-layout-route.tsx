@@ -507,7 +507,13 @@ function WorkspaceHeader({
       </div>
       <div className="app-frame__actions">
         {isStudyNotesWorkspaceRoute ? (
-          <WorkspaceMetaActions workspaceDate={workspaceDate} />
+          <WorkspaceMetaActions
+            activeFocusSession={activeFocusSession}
+            focus={focus}
+            persistentFocus={persistentFocus}
+            userId={userId}
+            workspaceDate={workspaceDate}
+          />
         ) : isFocusWorkspaceRoute ? (
           <WorkspaceDate workspaceDate={workspaceDate} />
         ) : (
@@ -524,12 +530,31 @@ function WorkspaceHeader({
 }
 
 function WorkspaceMetaActions({
+  activeFocusSession,
+  focus,
+  persistentFocus,
+  userId,
   workspaceDate,
 }: Readonly<{
+  activeFocusSession: Parameters<
+    typeof FocusSessionStartControl
+  >[0]["activeFocusSession"];
+  focus: Parameters<typeof FocusSessionStartControl>[0]["focus"];
+  persistentFocus?: Parameters<
+    typeof FocusSessionStartControl
+  >[0]["persistentFocus"];
+  userId: Parameters<typeof FocusSessionStartControl>[0]["userId"];
   workspaceDate: string;
 }>) {
   return (
     <div className="app-frame__meta-actions">
+      <FocusSessionStartControl
+        actionButtonClassName="app-frame__focus-control"
+        activeFocusSession={activeFocusSession}
+        focus={focus}
+        persistentFocus={persistentFocus}
+        userId={userId}
+      />
       <WorkspaceDate workspaceDate={workspaceDate} />
       <Button
         aria-label="Help"

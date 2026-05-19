@@ -963,6 +963,19 @@ function getLinkedPracticeRepairReturnTarget(
   };
 }
 
+function formatLinkedPracticeRepairSummary(action: PracticeRepairIntent) {
+  switch (action) {
+    case "tighten-expected-answer":
+      return "Update the expected answer here, then return to Practice Repair when the correction is ready.";
+    case "add-memory-aid":
+      return "Add the missing memory aid here, then return to Practice Repair when the correction is ready.";
+    case "split-study-note":
+      return "Narrow the original Study Note or create the split target here, then return to Practice Repair.";
+    case "create-sibling-study-note":
+      return "Create the related sibling Study Note here, then return to Practice Repair when the correction is ready.";
+  }
+}
+
 function formatSelectedNextRecall(input: {
   now: string;
   schedule: RecallSchedule | null;
@@ -1466,8 +1479,20 @@ function StudyNotesWorkspace() {
     }
 
     measureCollapsedStudyNotesCount();
+    window.addEventListener("resize", measureCollapsedStudyNotesCount);
 
-    const resizeObserver = new ResizeObserver(measureCollapsedStudyNotesCount);
+    const ResizeObserverConstructor = window.ResizeObserver;
+
+    if (typeof ResizeObserverConstructor !== "function") {
+      return () => {
+        window.cancelAnimationFrame(animationFrameId);
+        window.removeEventListener("resize", measureCollapsedStudyNotesCount);
+      };
+    }
+
+    const resizeObserver = new ResizeObserverConstructor(
+      measureCollapsedStudyNotesCount,
+    );
     resizeObserver.observe(listElement);
 
     const firstRowElement =
@@ -1476,9 +1501,6 @@ function StudyNotesWorkspace() {
     if (firstRowElement !== null) {
       resizeObserver.observe(firstRowElement);
     }
-
-    window.addEventListener("resize", measureCollapsedStudyNotesCount);
-
     return () => {
       window.cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
@@ -2854,6 +2876,28 @@ function StudyNotesWorkspace() {
             </div>
 
             <div className="study-notes-editor__fields">
+              {linkedPracticeRepair === null ? null : (
+                <section
+                  aria-label="Linked Practice Repair"
+                  className="study-notes-practice-repair study-notes-practice-repair--linked"
+                >
+                  <div className="study-notes-practice-repair__header">
+                    <div className="study-notes-practice-repair__title-row">
+                      <h2 className="study-notes-practice-repair__title">
+                        Linked Practice Repair
+                      </h2>
+                      <span className="study-notes-practice-repair__signal">
+                        Linked
+                      </span>
+                    </div>
+                    <p className="muted study-notes-editor__guidance">
+                      {formatLinkedPracticeRepairSummary(
+                        linkedPracticeRepair.action,
+                      )}
+                    </p>
+                  </div>
+                </section>
+              )}
               <StudyNotesTextField
                 inputRef={promptInputRef}
                 isPracticeRepairFocus={isPromptPracticeRepairFocus}
