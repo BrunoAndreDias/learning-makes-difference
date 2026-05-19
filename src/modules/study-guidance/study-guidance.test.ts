@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import type { AppLabel } from "../labels/label-management/labels";
-import type { FlashCardRecallAttemptsByNote, RecallSchedule } from "../recall";
+import type {
+  FlashCardRecallAttemptsByNote,
+  RecallSchedule,
+  SessionResult,
+} from "../recall";
 import type { AppStudyNote } from "../study-notes";
 import { deriveStudyGuidance } from "./study-guidance";
 
@@ -74,6 +78,74 @@ function buildSchedule(
     repetitionCount: 1,
     studyNoteId,
     ...overrides,
+  };
+}
+
+function buildRecallQuestionSnapshot(studyNote: AppStudyNote) {
+  return {
+    acronyms: [],
+    body: studyNote.source.body,
+    createdAt: studyNote.createdAt,
+    expectedAnswer: studyNote.expectedAnswer,
+    id: studyNote.id,
+    labelIds: studyNote.labelIds,
+    metaphors: [],
+    prompt: studyNote.prompt,
+    source: {
+      body: studyNote.source.body,
+      id: studyNote.source.id,
+      title: studyNote.source.title,
+      updatedAt: studyNote.source.updatedAt,
+    },
+    sourceNoteId: studyNote.sourceNoteId,
+    title: studyNote.prompt,
+    updatedAt: studyNote.updatedAt,
+  };
+}
+
+function buildSessionResult(input: {
+  completedAt: string;
+  id: string;
+  practiceRepairCorrection?: string;
+  questionResultId: string;
+  selfRating: "easy" | "forgot" | "good" | "hard";
+  studyNote: AppStudyNote;
+}): SessionResult {
+  const noteSnapshot = buildRecallQuestionSnapshot(input.studyNote);
+
+  return {
+    attempts: [],
+    completedAt: input.completedAt,
+    createdAt: input.completedAt,
+    id: input.id,
+    mode: "FlashCard",
+    notes: [noteSnapshot],
+    questions: [
+      {
+        isAnswerRevealed: true,
+        noteId: input.studyNote.id,
+        noteSnapshot,
+        practiceRepairEntry:
+          input.practiceRepairCorrection === undefined
+            ? undefined
+            : {
+                confirmedAt: input.completedAt,
+                correction: input.practiceRepairCorrection,
+                intent: "tighten-expected-answer",
+                intentMetadata: {
+                  updatedExpectedAnswer: null,
+                },
+                reference: {
+                  questionIndex: 0,
+                  questionResultId: input.questionResultId,
+                  sessionResultId: input.id,
+                  studyNoteId: input.studyNote.id,
+                },
+              },
+        questionResultId: input.questionResultId,
+        selfRating: input.selfRating,
+      },
+    ],
   };
 }
 
@@ -162,6 +234,7 @@ describe("Study Guidance", () => {
       expect.objectContaining({ count: 1, label: "Not recalled yet" }),
       expect.objectContaining({ count: 4, label: "Interleaved Recall" }),
     ]);
+    expect(guidance.practiceRepair).toBeNull();
     expect(guidance.topics).toEqual([
       expect.objectContaining({
         interleavingReadyCount: 0,
@@ -186,6 +259,94 @@ describe("Study Guidance", () => {
             "Chemistry prompt 1 is ready for Interleaved Recall after repeated Good or Easy recalls. Next recall: Next recall May 19.",
         }),
         title: "Chemistry",
+      }),
+    ]);
+  });
+
+  it("surfaces active Practice Repair entries and repair candidates before generic needs-practice guidance", () => {
+    const biology: AppLabel = {
+      id: "label-biology",
+      name: "Biology",
+      parentIds: [],
+    };
+    const activeRepairStudyNote = buildStudyNote({
+      id: "study-note-biology-active-repair",
+      labelIds: [biology.id],
+      prompt: "Explain active transport",
+    });
+    const repairCandidateStudyNote = buildStudyNote({
+      id: "study-note-biology-repair-candidate",
+      labelIds: [biology.id],
+      prompt: "Explain osmosis",
+    });
+
+    const guidance = deriveStudyGuidance({
+      attemptsByNote: [
+        buildAttempts(activeRepairStudyNote.id, [
+          {
+            bodySnapshot: "Active transport answer",
+            completedAt: "2026-05-14T09:00:00.000Z",
+            rating: "hard",
+            sessionId: "session-biology-active-repair",
+            snapshotTitle: activeRepairStudyNote.prompt,
+          },
+        ]),
+        buildAttempts(repairCandidateStudyNote.id, [
+          {
+            bodySnapshot: "Osmosis answer",
+            completedAt: "2026-05-15T08:00:00.000Z",
+            rating: "forgot",
+            sessionId: "session-biology-repair-candidate",
+            snapshotTitle: repairCandidateStudyNote.prompt,
+          },
+        ]),
+      ],
+      labels: [biology],
+      now: "2026-05-15T12:00:00.000Z",
+      recallSchedules: [
+        buildSchedule(activeRepairStudyNote.id, {}),
+        buildSchedule(repairCandidateStudyNote.id, {}),
+      ],
+      sessionResults: [
+        buildSessionResult({
+          completedAt: "2026-05-14T09:00:00.000Z",
+          id: "result-active-repair",
+          practiceRepairCorrection:
+            "Call out ATP use directly in the expected answer.",
+          questionResultId: "result-active-repair-question-0",
+          selfRating: "hard",
+          studyNote: activeRepairStudyNote,
+        }),
+        buildSessionResult({
+          completedAt: "2026-05-15T08:00:00.000Z",
+          id: "result-repair-candidate",
+          questionResultId: "result-repair-candidate-question-0",
+          selfRating: "forgot",
+          studyNote: repairCandidateStudyNote,
+        }),
+      ],
+      studyNotes: [activeRepairStudyNote, repairCandidateStudyNote],
+      userTimeZone: "America/New_York",
+    });
+
+    expect(guidance.practiceRepair).toEqual({
+      activeEntryCount: 1,
+      candidateCount: 1,
+      hasActiveEntries: true,
+      hasCandidates: true,
+      summary:
+        "1 active Practice Repair entry and 1 new repair candidate are waiting in Recall.",
+    });
+    expect(guidance.topics).toEqual([
+      expect.objectContaining({
+        practiceRepairActiveCount: 1,
+        practiceRepairCandidateCount: 1,
+        recommendation: {
+          kind: "practice-repair",
+          summary:
+            "1 active Practice Repair entry and 1 new repair candidate are waiting for Biology. Open Practice Repair before repeating generic Needs practice work.",
+        },
+        title: "Biology",
       }),
     ]);
   });

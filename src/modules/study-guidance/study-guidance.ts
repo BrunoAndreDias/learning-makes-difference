@@ -11,6 +11,10 @@ import {
   deriveRecallGuidance,
   getRecallGuidanceRecommendation,
 } from "../recall";
+import {
+  listPracticeRepairQueueItems,
+  type PracticeRepairQueueListItem,
+} from "../recall/recall-practice-repair";
 import type { AppStudyNote } from "../study-notes";
 
 export type StudyGuidanceSignalId =
@@ -26,13 +30,28 @@ export type StudyGuidanceStat = {
   label: string;
 };
 
-export type StudyGuidanceTopicRecommendation = RecallGuidanceRecommendation;
+export type StudyGuidancePracticeRepair = {
+  activeEntryCount: number;
+  candidateCount: number;
+  hasActiveEntries: boolean;
+  hasCandidates: boolean;
+  summary: string;
+};
+
+export type StudyGuidanceTopicRecommendation =
+  | RecallGuidanceRecommendation
+  | {
+      kind: "practice-repair";
+      summary: string;
+    };
 
 export type StudyGuidanceTopic = {
   id: string;
   interleavingReadyCount: number;
   needsPracticeCount: number;
   notRecalledYetCount: number;
+  practiceRepairActiveCount: number;
+  practiceRepairCandidateCount: number;
   recommendation: StudyGuidanceTopicRecommendation | null;
   recallTodayCount: number;
   studyNoteCount: number;
@@ -45,6 +64,7 @@ export type StudyGuidanceTopicStat = Pick<
 >;
 
 export type StudyGuidance = {
+  practiceRepair: StudyGuidancePracticeRepair | null;
   stats: readonly StudyGuidanceStat[];
   topics: readonly StudyGuidanceTopic[];
 };
@@ -71,6 +91,11 @@ type RecallGuidanceSignalCounts = {
   notRecalledYetCount: number;
   recallTodayCount: number;
 };
+
+type StudyGuidancePracticeRepairCounts = Pick<
+  StudyGuidancePracticeRepair,
+  "activeEntryCount" | "candidateCount"
+>;
 
 type StudyGuidanceSignalDefinition = Omit<StudyGuidanceStat, "count"> & {
   countKey: keyof RecallGuidanceSignalCounts;
@@ -189,11 +214,157 @@ export function getStudyGuidanceTopicStats(
 
 function compareTopics(left: StudyGuidanceTopic, right: StudyGuidanceTopic) {
   return (
+    right.practiceRepairActiveCount - left.practiceRepairActiveCount ||
+    right.practiceRepairCandidateCount - left.practiceRepairCandidateCount ||
     right.needsPracticeCount - left.needsPracticeCount ||
     right.recallTodayCount - left.recallTodayCount ||
     right.interleavingReadyCount - left.interleavingReadyCount ||
     right.notRecalledYetCount - left.notRecalledYetCount ||
     left.title.localeCompare(right.title)
+  );
+}
+
+function createEmptyPracticeRepairCounts(): StudyGuidancePracticeRepairCounts {
+  return {
+    activeEntryCount: 0,
+    candidateCount: 0,
+  };
+}
+
+function getPracticeRepairQueueItemStudyNoteId(
+  item: PracticeRepairQueueListItem<SessionResult>,
+) {
+  return item.kind === "active"
+    ? item.entry.reference.studyNoteId
+    : item.question.noteId;
+}
+
+function countPracticeRepairQueueItems(input: {
+  queueItems: readonly PracticeRepairQueueListItem<SessionResult>[];
+  studyNoteIds?: ReadonlySet<string>;
+}): StudyGuidancePracticeRepairCounts {
+  const counts = createEmptyPracticeRepairCounts();
+
+  for (const item of input.queueItems) {
+    const studyNoteId = getPracticeRepairQueueItemStudyNoteId(item);
+
+    if (
+      input.studyNoteIds !== undefined &&
+      !input.studyNoteIds.has(studyNoteId)
+    ) {
+      continue;
+    }
+
+    if (item.kind === "active") {
+      counts.activeEntryCount += 1;
+      continue;
+    }
+
+    counts.candidateCount += 1;
+  }
+
+  return counts;
+}
+
+function formatPracticeRepairCountLabel(
+  count: number,
+  singular: string,
+  plural: string,
+) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function formatPracticeRepairWorkSummary(input: {
+  counts: StudyGuidancePracticeRepairCounts;
+  location: string;
+}) {
+  const parts: string[] = [];
+
+  if (input.counts.activeEntryCount > 0) {
+    parts.push(
+      formatPracticeRepairCountLabel(
+        input.counts.activeEntryCount,
+        "active Practice Repair entry",
+        "active Practice Repair entries",
+      ),
+    );
+  }
+
+  if (input.counts.candidateCount > 0) {
+    parts.push(
+      formatPracticeRepairCountLabel(
+        input.counts.candidateCount,
+        "new repair candidate",
+        "new repair candidates",
+      ),
+    );
+  }
+
+  if (parts.length === 0) {
+    return null;
+  }
+
+  const totalCount =
+    input.counts.activeEntryCount + input.counts.candidateCount;
+  const workSummary =
+    parts.length === 1 ? parts[0] : `${parts[0]} and ${parts[1]}`;
+
+  return `${workSummary} ${totalCount === 1 ? "is" : "are"} waiting ${input.location}.`;
+}
+
+function createStudyGuidancePracticeRepair(
+  queueItems: readonly PracticeRepairQueueListItem<SessionResult>[],
+): StudyGuidancePracticeRepair | null {
+  const counts = countPracticeRepairQueueItems({ queueItems });
+  const summary = formatPracticeRepairWorkSummary({
+    counts,
+    location: "in Recall",
+  });
+
+  if (summary === null) {
+    return null;
+  }
+
+  return {
+    ...counts,
+    hasActiveEntries: counts.activeEntryCount > 0,
+    hasCandidates: counts.candidateCount > 0,
+    summary,
+  };
+}
+
+function createPracticeRepairTopicRecommendation(input: {
+  counts: StudyGuidancePracticeRepairCounts;
+  title: string;
+}): StudyGuidanceTopicRecommendation | null {
+  const summary = formatPracticeRepairWorkSummary({
+    counts: input.counts,
+    location: `for ${input.title}`,
+  });
+
+  if (summary === null) {
+    return null;
+  }
+
+  return {
+    kind: "practice-repair",
+    summary: `${summary} Open Practice Repair before repeating generic Needs practice work.`,
+  };
+}
+
+function getStudyGuidanceTopicRecommendation(input: {
+  counts: StudyGuidancePracticeRepairCounts;
+  entries: readonly RecallGuidanceEntry[];
+  title: string;
+}): StudyGuidanceTopicRecommendation | null {
+  return (
+    createPracticeRepairTopicRecommendation({
+      counts: input.counts,
+      title: input.title,
+    }) ??
+    getRecallGuidanceRecommendation({
+      entries: input.entries,
+    })
   );
 }
 
@@ -206,6 +377,9 @@ export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
     studyNotes: input.studyNotes,
     userTimeZone: input.userTimeZone,
   });
+  const practiceRepairQueueItems = listPracticeRepairQueueItems({
+    results: input.sessionResults,
+  });
   const topicDrafts = createTopicDrafts({
     guidanceEntries: recallGuidance,
     labels: input.labels,
@@ -215,14 +389,23 @@ export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
       const signalCounts = countRecallGuidanceSignals(
         topicDraft.guidanceEntries,
       );
-      const recommendation = getRecallGuidanceRecommendation({
-        entries: topicDraft.guidanceEntries,
+      const practiceRepairCounts = countPracticeRepairQueueItems({
+        queueItems: practiceRepairQueueItems,
+        studyNoteIds: new Set(
+          topicDraft.guidanceEntries.map((entry) => entry.studyNote.id),
+        ),
       });
 
       return {
         id: topicDraft.id,
         ...signalCounts,
-        recommendation,
+        practiceRepairActiveCount: practiceRepairCounts.activeEntryCount,
+        practiceRepairCandidateCount: practiceRepairCounts.candidateCount,
+        recommendation: getStudyGuidanceTopicRecommendation({
+          counts: practiceRepairCounts,
+          entries: topicDraft.guidanceEntries,
+          title: topicDraft.title,
+        }),
         studyNoteCount: topicDraft.guidanceEntries.length,
         title: topicDraft.title,
       } satisfies StudyGuidanceTopic;
@@ -231,6 +414,7 @@ export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
   const signalCounts = countRecallGuidanceSignals(recallGuidance);
 
   return {
+    practiceRepair: createStudyGuidancePracticeRepair(practiceRepairQueueItems),
     stats: createStudyGuidanceStats(signalCounts),
     topics,
   };

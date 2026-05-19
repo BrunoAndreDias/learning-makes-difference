@@ -123,7 +123,7 @@ function StudyGuidanceWorkspace() {
             <p className="study-guidance-stat__label">{stat.label}</p>
             <strong className="study-guidance-stat__count">{stat.count}</strong>
             <p className="study-guidance-stat__notes">
-              {formatCountLabel(stat.count)}
+              {formatStudyGuidanceCountLabel(stat.count)}
             </p>
             <p className="study-guidance-stat__detail">{stat.detail}</p>
           </article>
@@ -132,6 +132,42 @@ function StudyGuidanceWorkspace() {
 
       <div className="study-guidance-content">
         <div className="study-guidance-content__main">
+          {guidance.practiceRepair === null ? null : (
+            <section className="study-guidance-practice-repair">
+              <div className="study-guidance-practice-repair__copy">
+                <h2>Practice Repair</h2>
+                <p>{guidance.practiceRepair.summary}</p>
+              </div>
+              <dl className="study-guidance-practice-repair__facts">
+                {guidance.practiceRepair.hasActiveEntries ? (
+                  <div>
+                    <dt>Active entries</dt>
+                    <dd>
+                      {formatStudyGuidanceCountLabel(
+                        guidance.practiceRepair.activeEntryCount,
+                        "active entry",
+                        "active entries",
+                      )}
+                    </dd>
+                  </div>
+                ) : null}
+                {guidance.practiceRepair.hasCandidates ? (
+                  <div>
+                    <dt>New candidates</dt>
+                    <dd>
+                      {formatStudyGuidanceCountLabel(
+                        guidance.practiceRepair.candidateCount,
+                        "new candidate",
+                        "new candidates",
+                      )}
+                    </dd>
+                  </div>
+                ) : null}
+              </dl>
+              <ButtonLink to="/recall/repair">Open Practice Repair</ButtonLink>
+            </section>
+          )}
+
           <section className="study-guidance-callout">
             <h2>Passive activity does not count as learning evidence.</h2>
             <p>
@@ -159,7 +195,9 @@ function StudyGuidanceWorkspace() {
                   <div className="study-guidance-topic__header">
                     <div>
                       <h2>{topic.title}</h2>
-                      <p>{formatCountLabel(topic.studyNoteCount)}</p>
+                      <p>
+                        {formatStudyGuidanceCountLabel(topic.studyNoteCount)}
+                      </p>
                     </div>
                     <ButtonLink
                       size="compact"
@@ -173,7 +211,7 @@ function StudyGuidanceWorkspace() {
                     {getStudyGuidanceTopicStats(topic).map((stat) => (
                       <div key={stat.id}>
                         <dt>{stat.label}</dt>
-                        <dd>{formatCountLabel(stat.count)}</dd>
+                        <dd>{formatStudyGuidanceCountLabel(stat.count)}</dd>
                       </div>
                     ))}
                   </dl>
@@ -224,6 +262,10 @@ function StudyGuidanceWorkspace() {
   );
 }
 
-function formatCountLabel(count: number) {
-  return count === 1 ? "1 note" : `${count} notes`;
+function formatStudyGuidanceCountLabel(
+  count: number,
+  singular = "note",
+  plural = `${singular}s`,
+) {
+  return `${count} ${count === 1 ? singular : plural}`;
 }
