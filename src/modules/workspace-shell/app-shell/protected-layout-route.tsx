@@ -25,17 +25,10 @@ import { FocusSessionStartControl } from "../../focus";
 import { useAppTranslation } from "../../language";
 import { NotesWorkspaceProvider } from "../../notes";
 
-type NavigationIconName =
-  | "focus"
-  | "insights"
-  | "label"
-  | "note"
-  | "recall"
-  | "settings";
+type NavigationIconName = "focus" | "insights" | "note" | "recall" | "settings";
 type WorkspaceFrameName =
   | "focus"
   | "insights"
-  | "labels"
   | "notes"
   | "recall"
   | "recall-results"
@@ -51,11 +44,6 @@ const globalNavigationItems = [
     iconName: "recall",
     labelKey: "shell.navigation.recall",
     to: "/recall",
-  },
-  {
-    iconName: "label",
-    labelKey: "shell.navigation.labels",
-    to: "/labels",
   },
   {
     iconName: "focus",
@@ -97,10 +85,6 @@ function isWorkspacePath(pathname: string, workspacePath: string) {
 }
 
 function getWorkspaceTitleKey(pathname: string) {
-  if (isLabelsWorkspacePath(pathname)) {
-    return "shell.workspace.labels";
-  }
-
   if (isRecallWorkspacePath(pathname)) {
     return "shell.workspace.recall";
   }
@@ -144,10 +128,6 @@ function isRecallWorkspacePath(pathname: string) {
   return isWorkspacePath(pathname, "/recall");
 }
 
-function isLabelsWorkspacePath(pathname: string) {
-  return isWorkspacePath(pathname, "/labels");
-}
-
 function isFocusWorkspacePath(pathname: string) {
   return isWorkspacePath(pathname, "/focus");
 }
@@ -173,10 +153,6 @@ function getWorkspaceFrameName(
 
   if (isRecallWorkspacePath(pathname)) {
     return "recall";
-  }
-
-  if (isLabelsWorkspacePath(pathname)) {
-    return "labels";
   }
 
   if (isFocusWorkspacePath(pathname)) {
@@ -228,7 +204,6 @@ export function AppLayout() {
     location.pathname,
   );
   const isRecallWorkspaceRoute = isRecallWorkspacePath(location.pathname);
-  const isLabelsWorkspaceRoute = isLabelsWorkspacePath(location.pathname);
   const isFocusWorkspaceRoute = isFocusWorkspacePath(location.pathname);
   const isInsightsWorkspaceRoute = isInsightsWorkspacePath(location.pathname);
   const isSettingsWorkspaceRoute = isSettingsWorkspacePath(location.pathname);
@@ -397,7 +372,6 @@ export function AppLayout() {
             persistentFocus={persistentFocus}
             isStudyNotesWorkspaceRoute={isStudyNotesWorkspaceRoute}
             isRecallWorkspaceRoute={isRecallWorkspaceRoute}
-            isLabelsWorkspaceRoute={isLabelsWorkspaceRoute}
             isFocusWorkspaceRoute={isFocusWorkspaceRoute}
             isInsightsWorkspaceRoute={isInsightsWorkspaceRoute}
             isSettingsWorkspaceRoute={isSettingsWorkspaceRoute}
@@ -428,7 +402,6 @@ function WorkspaceHeader({
   persistentFocus,
   isStudyNotesWorkspaceRoute,
   isRecallWorkspaceRoute,
-  isLabelsWorkspaceRoute,
   isFocusWorkspaceRoute,
   isInsightsWorkspaceRoute,
   isSettingsWorkspaceRoute,
@@ -452,7 +425,6 @@ function WorkspaceHeader({
   >[0]["persistentFocus"];
   isStudyNotesWorkspaceRoute: boolean;
   isRecallWorkspaceRoute: boolean;
-  isLabelsWorkspaceRoute: boolean;
   isFocusWorkspaceRoute: boolean;
   isInsightsWorkspaceRoute: boolean;
   isSettingsWorkspaceRoute: boolean;
@@ -472,7 +444,6 @@ function WorkspaceHeader({
   }).format(new Date());
   const hasVisuallyHiddenWorkspaceTitle =
     isRecallWorkspaceRoute ||
-    isLabelsWorkspaceRoute ||
     isFocusWorkspaceRoute ||
     isInsightsWorkspaceRoute ||
     isSettingsWorkspaceRoute;
@@ -509,7 +480,7 @@ function WorkspaceHeader({
           <nav aria-label="Breadcrumb" className="app-frame__breadcrumb">
             <Link to="/study-notes">Study Notes</Link>
             <span aria-hidden="true">/</span>
-            <span>Recall Schedule</span>
+            <span>Edit Note</span>
           </nav>
         ) : isFocusWorkspaceRoute ? (
           <PageHeader
@@ -536,18 +507,10 @@ function WorkspaceHeader({
       </div>
       <div className="app-frame__actions">
         {isStudyNotesWorkspaceRoute ? (
-          <>
-            <WorkspaceMetaActions workspaceDate={workspaceDate} />
-            <FocusSessionStartControl
-              activeFocusSession={activeFocusSession}
-              focus={focus}
-              persistentFocus={persistentFocus}
-              userId={userId}
-            />
-          </>
+          <WorkspaceMetaActions workspaceDate={workspaceDate} />
         ) : isFocusWorkspaceRoute ? (
           <WorkspaceDate workspaceDate={workspaceDate} />
-        ) : isLabelsWorkspaceRoute ? null : (
+        ) : (
           <FocusSessionStartControl
             activeFocusSession={activeFocusSession}
             focus={focus}
@@ -910,13 +873,6 @@ function NavigationIcon({
           <path d="M4 5v6h6" />
           <path d="M5.5 15a7 7 0 1 0 .9-7.9L4 11" />
           <path d="M12 8v4l3 2" />
-        </svg>
-      );
-    case "label":
-      return (
-        <svg aria-hidden="true" viewBox="0 0 24 24">
-          <path d="M4 5h9l7 7-7 7H4V5Z" />
-          <path d="M9 12h.01" />
         </svg>
       );
     case "settings":

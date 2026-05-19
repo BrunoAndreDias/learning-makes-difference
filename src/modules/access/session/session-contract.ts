@@ -18,6 +18,7 @@ export type AppSessionUser = {
   email: string;
   id: string;
   displayName: string;
+  showStudyNoteTemplates?: boolean;
   userLanguage: UserLanguage;
   studyObjective?: StudyObjectivePreference;
   studyIntensity?: StudyIntensityPreference;
@@ -41,6 +42,7 @@ export const studyIntensityPreferences = [
   "regular",
   "intensive",
 ] as const;
+export const defaultShowStudyNoteTemplatesPreference = true;
 export const defaultUserTimeZone = "UTC";
 const appAuthErrorCodes = [
   "email_taken",
@@ -69,6 +71,7 @@ export type LoginInput = {
 
 export type UpdatePreferencesInput = {
   displayName: string;
+  showStudyNoteTemplates: boolean;
   userLanguage: UserLanguage;
   studyObjective: StudyObjectivePreference;
   studyIntensity: StudyIntensityPreference;
@@ -195,6 +198,19 @@ export function validateStudyIntensityPreference(
     studyIntensityPreferences,
     "Study Intensity must be one of the supported options.",
   );
+}
+
+export function validateShowStudyNoteTemplatesPreference(
+  value: unknown,
+): boolean {
+  if (typeof value !== "boolean") {
+    throw new AppAuthError(
+      "invalid_input",
+      "Study Note templates preference must be enabled or disabled.",
+    );
+  }
+
+  return value;
 }
 
 export function normalizeUserLanguage(value: unknown): UserLanguage {

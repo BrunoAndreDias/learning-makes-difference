@@ -118,6 +118,14 @@ describe("foundationTokens", () => {
     expect(foundationTokens.color.content.borderSoft).toBe("#e2e8f0");
     expect(foundationTokens.color.brand.primary).toBe("#2563eb");
     expect(foundationTokens.color.primary.value).toBe("#2563eb");
+    expect(foundationTokens.color.learning.ink).toBe("#17231E");
+    expect(foundationTokens.color.learning.muted).toBe("#62706A");
+    expect(foundationTokens.color.learning.warmIvory).toBe("#FAF8F3");
+    expect(foundationTokens.color.learning.deepPine).toBe("#1F6B45");
+    expect(foundationTokens.color.learning.pineMist).toBe("#E9F2EC");
+    expect(foundationTokens.color.learning.factualTeal).toBe("#287C73");
+    expect(foundationTokens.color.learning.honeyAmber).toBe("#D99126");
+    expect(foundationTokens.color.learning.terracotta).toBe("#C95646");
     expect(foundationTokens.color.secondary.value).toBe("#0f766e");
     expect(foundationTokens.color.accent.value).toBe("#f59e0b");
     expect(foundationTokens.color.accent.strong).toBe("#b45309");
@@ -145,6 +153,11 @@ describe("foundationTokens", () => {
     expect(css).toContain("--color-neutral-ink: #0f172a;");
     expect(css).toContain("--color-neutral-muted: #475569;");
     expect(css).toContain("--color-primary: #2563eb;");
+    expect(css).toContain("--color-learning-pine: #1f6b45;");
+    expect(css).toContain("--color-learning-pine-mist: #e9f2ec;");
+    expect(css).toContain("--color-learning-factual-teal: #287c73;");
+    expect(css).toContain("--color-learning-honey-amber: #d99126;");
+    expect(css).toContain("--color-learning-terracotta: #c95646;");
     expect(css).toContain("--color-secondary: #0f766e;");
     expect(css).toContain("--color-accent: #f59e0b;");
     expect(css).toContain("--color-creative: #7c3aed;");
@@ -278,6 +291,27 @@ describe("foundationTokens", () => {
 
     expect(css).toContain("grid-template-rows: auto auto minmax(0, 1fr);");
     expect(css).toContain("align-content: start;");
+  });
+
+  it("opens the sidebar account menu above the trigger and keeps the profile palette green", () => {
+    const css = readFileSync(
+      new URL(
+        "../modules/workspace-shell/workspace-shell.css",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const popoverRule = getCssRule(css, ".account-menu__popover");
+    const avatarRule = getCssRule(css, ".account-menu__avatar");
+    const triggerRule = getCssRule(css, ".account-menu__trigger");
+
+    expect(popoverRule).toContain("inset: auto 0 calc(100% + 0.35rem) auto;");
+    expect(popoverRule).toContain("min-width: 100%;");
+    expect(avatarRule).toContain(
+      "background: var(--color-learning-pine-mist);",
+    );
+    expect(avatarRule).toContain("color: var(--color-learning-pine);");
+    expect(triggerRule).toContain("background: transparent;");
   });
 
   it("keeps the authenticated shell connected instead of framed as cards", () => {

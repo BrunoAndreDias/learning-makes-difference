@@ -351,7 +351,7 @@ _Avoid_: Admin approval, public signup
 
 **Study Notes Workspace**:
 The primary authenticated workspace where the User creates Study Notes, captures or edits their source Notes, and edits Study Note prompts, expected answers, Labels, Metaphors, and Acronyms.
-In the Study Notes Workspace, the User may assign existing Labels to a Study Note, but creating Labels and managing Label graph relationships belongs to the Labels workspace.
+In the Study Notes Workspace, the User may assign existing Labels to a Study Note and create a new Label inline while editing that Study Note. v1 does not expose a standalone Labels workspace or parent-label graph management surface.
 The primary navigation label for the Study Notes Workspace is "Study Notes".
 The Study Notes Workspace route is `/study-notes`.
 The old `/notes` route is removed rather than redirected.

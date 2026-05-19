@@ -1,43 +1,39 @@
 .focus-workspace {
-  --focus-accent: var(--color-primary);
-  --focus-accent-hover: var(--color-primary-hover);
-  --focus-accent-soft: var(--color-primary-soft);
-  --focus-accent-border: var(--color-primary-soft-border);
-  --focus-success-accent: var(--color-success);
-  --focus-creative-accent: var(--color-creative);
-  --focus-warm-accent: var(--color-accent-strong);
+  --focus-accent: var(--color-learning-pine);
+  --focus-accent-hover: var(--color-learning-pine-hover);
+  --focus-accent-soft: var(--color-learning-pine-mist);
+  --focus-accent-border: var(--color-learning-border-stone);
+  --focus-success-accent: var(--color-learning-leaf-success);
+  --focus-creative-accent: var(--color-learning-factual-teal);
+  --focus-warm-accent: var(--color-learning-honey-amber);
   --focus-green: var(--focus-accent);
   --focus-green-strong: var(--focus-accent-hover);
-  --focus-green-deep: color-mix(in srgb, var(--focus-accent-hover) 72%, black);
+  --focus-green-deep: var(--focus-accent-hover);
   --focus-green-soft: var(--focus-accent-soft);
   --focus-green-surface: color-mix(
     in srgb,
-    var(--focus-accent-soft) 26%,
-    var(--color-shell-panel)
+    var(--focus-accent-soft) 55%,
+    var(--color-learning-surface)
   );
-  --focus-mint: color-mix(
-    in srgb,
-    var(--color-secondary-soft) 45%,
-    var(--color-shell-panel)
-  );
-  --focus-ink: var(--color-content-strong);
-  --focus-muted: var(--color-content-muted);
-  --focus-line: var(--color-content-border-soft);
-  --focus-panel: var(--color-shell-panel);
+  --focus-mint: var(--color-learning-teal-mist);
+  --focus-ink: var(--color-learning-ink);
+  --focus-muted: var(--color-learning-muted);
+  --focus-line: var(--color-learning-border-stone);
+  --focus-panel: var(--color-learning-surface);
   --focus-timer-track: color-mix(
     in srgb,
     var(--focus-accent-soft) 58%,
-    var(--color-shell-panel)
+    var(--color-learning-surface)
   );
   --focus-timer-ring-border: color-mix(
     in srgb,
     var(--focus-line) 68%,
-    var(--color-shell-panel)
+    var(--color-learning-surface)
   );
   --focus-inset-line: color-mix(
     in srgb,
     var(--focus-line) 56%,
-    var(--color-shell-panel)
+    var(--color-learning-surface)
   );
   display: grid;
   align-content: start;

@@ -32,8 +32,29 @@ const neutralColorTokens = {
   muted: "#475569",
 } as const;
 
+const learningColorTokens = {
+  amberMist: "#FFF4DE",
+  borderStone: "#E6E1D8",
+  deepPine: "#1F6B45",
+  deepPineHover: "#185A39",
+  factualTeal: "#287C73",
+  honeyAmber: "#D99126",
+  ink: "#17231E",
+  leafSuccess: "#2F8A53",
+  moss: "#6F7B4B",
+  muted: "#62706A",
+  pineMist: "#E9F2EC",
+  sageFocus: "#6E9279",
+  surface: "#FFFFFF",
+  tealMist: "#EAF6F4",
+  terracotta: "#C95646",
+  terracottaMist: "#FBECEA",
+  warmIvory: "#FAF8F3",
+} as const;
+
 const colorTokens = {
   neutral: neutralColorTokens,
+  learning: learningColorTokens,
   primary: {
     value: "#2563eb",
     hover: "#1d4ed8",

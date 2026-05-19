@@ -15,6 +15,7 @@ import {
   listPracticeRepairQueueItems,
   type PracticeRepairQueueQuestionLike,
 } from "./recall-practice-repair";
+import { getPracticeRepairQuestionRouteParams } from "./recall-practice-repair-routing";
 
 export const Route = createFileRoute("/_protected/recall/repair")({
   component: RecallPracticeRepairQueueRoute,
@@ -87,7 +88,7 @@ function RecallPracticeRepairQueueRoute() {
             <RecallBreadcrumb currentLabel="Practice Repair Queue" />
           }
           className="recall-surface__header"
-          description="Resume active Practice Repair work first, then confirm the newest repair candidates from weak Recall results."
+          description="Resume active Practice Repair work first, then open the newest repair candidates from weak Recall results."
           headingLevel={1}
           title="Practice Repair Queue"
         />
@@ -122,21 +123,37 @@ function RecallPracticeRepairQueueRoute() {
                         : t(getRecallRatingTranslationKey(question.selfRating));
                     const practiceRepairEntryId =
                       getPracticeRepairEntryId(entry);
+                    const repairRouteParams =
+                      getPracticeRepairQuestionRouteParams({
+                        entry,
+                        question,
+                      });
 
                     return (
                       <li key={practiceRepairEntryId}>
                         <PracticeRepairQueueCard
                           action={
-                            <ButtonLink
-                              size="compact"
-                              to="/recall/repair/$practiceRepairEntryId"
-                              params={{
-                                practiceRepairEntryId,
-                              }}
-                              variant="secondary"
-                            >
-                              Resume Practice Repair
-                            </ButtonLink>
+                            repairRouteParams === null ? (
+                              <ButtonLink
+                                size="compact"
+                                params={{
+                                  practiceRepairEntryId,
+                                }}
+                                to="/recall/repair/$practiceRepairEntryId"
+                                variant="secondary"
+                              >
+                                Resume Practice Repair
+                              </ButtonLink>
+                            ) : (
+                              <ButtonLink
+                                size="compact"
+                                params={repairRouteParams}
+                                to="/recall/repair/$sessionResultId/questions/$questionResultId"
+                                variant="secondary"
+                              >
+                                Resume Practice Repair
+                              </ButtonLink>
+                            )
                           }
                           body={entry.correction}
                           eyebrow={formatPracticeRepairIntentLabel(
@@ -157,8 +174,8 @@ function RecallPracticeRepairQueueRoute() {
                 <div className="recall-practice-repair-queue__header">
                   <h4>Repair candidates</h4>
                   <p className="muted">
-                    Confirm one concrete repair when Recall shows new
-                    needs-practice evidence.
+                    Open one candidate when Recall shows new needs-practice
+                    evidence.
                   </p>
                 </div>
 
@@ -179,14 +196,14 @@ function RecallPracticeRepairQueueRoute() {
                           action={
                             <ButtonLink
                               size="compact"
-                              to="/recall/results/$sessionResultId/questions/$questionResultId/repair"
+                              to="/recall/repair/$sessionResultId/questions/$questionResultId"
                               params={{
                                 questionResultId: question.questionResultId,
                                 sessionResultId: result.id,
                               }}
                               variant="secondary"
                             >
-                              Open Practice Repair draft
+                              Open Practice Repair
                             </ButtonLink>
                           }
                           body={draft.summary}

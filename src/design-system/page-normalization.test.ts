@@ -76,10 +76,6 @@ describe("page style normalization", () => {
       new URL("../modules/focus/focus-route.css", import.meta.url),
       "utf8",
     );
-    const labelsCss = readFileSync(
-      new URL("../modules/labels/labels.css", import.meta.url),
-      "utf8",
-    );
     const notesToolbarCss = readFileSync(
       new URL(
         "../modules/notes/notes-workspace/notes-toolbar.css",
@@ -106,7 +102,6 @@ describe("page style normalization", () => {
     expectSelectorToUsePageTypeAndColor(accessCss, ".auth-shell");
     expectSelectorToUsePageTypeAndColor(accessCss, ".settings-layout");
     expectSelectorToUsePageTypeAndColor(focusCss, ".focus-workspace");
-    expectSelectorToUsePageTypeAndColor(labelsCss, ".labels-page");
     expectSelectorToUsePageTypeAndColor(notesToolbarCss, ".notes-workspace");
     expectSelectorToUsePageTypeAndColor(recallSessionCss, ".recall-shell");
     expectSelectorToUsePageTypeAndColor(recallWorkspacesCss, ".recall-surface");
@@ -120,7 +115,11 @@ describe("page style normalization", () => {
     );
   });
 
-  it("keeps Focus route surfaces neutral with colorful metric tones", () => {
+  it("keeps Focus route on the LMD green study palette without changing its shell density", () => {
+    const globalCss = readFileSync(
+      new URL("./global.css", import.meta.url),
+      "utf8",
+    );
     const focusCss = readFileSync(
       new URL("../modules/focus/focus-route.css", import.meta.url),
       "utf8",
@@ -134,6 +133,10 @@ describe("page style normalization", () => {
     );
 
     const focusRootStyle = getCssRules(focusCss, ".focus-workspace").join("\n");
+    const focusShellThemeStyle = getCssRules(
+      workspaceShellCss,
+      '.authenticated-shell:has(.app-frame[data-workspace="focus"])',
+    ).join("\n");
     const focusShellWorkspaceHeaderStyle = getCssRules(
       workspaceShellCss,
       '.app-frame[data-workspace="focus"] .app-frame__workspace-header',
@@ -164,15 +167,40 @@ describe("page style normalization", () => {
       ".focus-weekly-analytics div:nth-child(6)",
     ).join("\n");
 
-    expect(focusRootStyle).toContain("--focus-accent: var(--color-primary);");
-    expect(focusRootStyle).toContain(
-      "--focus-accent-hover: var(--color-primary-hover);",
+    expect(globalCss).toContain("--color-learning-pine: #1f6b45;");
+    expect(globalCss).toContain("--color-learning-pine-mist: #e9f2ec;");
+    expect(globalCss).toContain("--color-learning-factual-teal: #287c73;");
+    expect(globalCss).toContain("--color-learning-honey-amber: #d99126;");
+    expect(globalCss).toContain("--color-learning-terracotta: #c95646;");
+    expect(focusShellThemeStyle).toContain(
+      "--color-primary: var(--color-learning-pine);",
+    );
+    expect(focusShellThemeStyle).toContain(
+      "--color-primary-soft: var(--color-learning-pine-mist);",
+    );
+    expect(focusShellThemeStyle).toContain(
+      "--color-content-strong: var(--color-learning-ink);",
     );
     expect(focusRootStyle).toContain(
-      "--focus-accent-soft: var(--color-primary-soft);",
+      "--focus-accent: var(--color-learning-pine);",
     );
     expect(focusRootStyle).toContain(
-      "--focus-accent-border: var(--color-primary-soft-border);",
+      "--focus-accent-hover: var(--color-learning-pine-hover);",
+    );
+    expect(focusRootStyle).toContain(
+      "--focus-accent-soft: var(--color-learning-pine-mist);",
+    );
+    expect(focusRootStyle).toContain(
+      "--focus-accent-border: var(--color-learning-border-stone);",
+    );
+    expect(focusRootStyle).toContain(
+      "--focus-success-accent: var(--color-learning-leaf-success);",
+    );
+    expect(focusRootStyle).toContain(
+      "--focus-creative-accent: var(--color-learning-factual-teal);",
+    );
+    expect(focusRootStyle).toContain(
+      "--focus-warm-accent: var(--color-learning-honey-amber);",
     );
     expect(focusRootStyle).toContain("background: var(--color-shell-panel);");
     expect(focusShellWorkspaceHeaderStyle).toContain(

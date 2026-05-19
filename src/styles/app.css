@@ -8,7 +8,6 @@
 @import "../modules/notes/notes.css";
 @import "../modules/recall/recall.css";
 @import "../modules/focus/focus.css";
-@import "../modules/labels/labels.css";
 @import "../modules/access/access.css";
 
 .app-shell:has(.authenticated-shell) {
@@ -39,7 +38,6 @@
 }
 
 .app-shell:has(.authenticated-shell) .recall-surface,
-.app-shell:has(.authenticated-shell) .labels-page,
 .app-shell:has(.authenticated-shell) .focus-workspace,
 .app-shell:has(.authenticated-shell) .settings-layout {
   padding-inline: var(--workspace-page-inline);
@@ -47,7 +45,6 @@
 }
 
 .app-shell:has(.authenticated-shell) .recall-surface,
-.app-shell:has(.authenticated-shell) .labels-page,
 .app-shell:has(.authenticated-shell) .focus-workspace,
 .app-shell:has(.authenticated-shell) .settings-layout {
   padding-block-end: var(--workspace-page-block-end);
@@ -66,8 +63,6 @@
   .app-frame[data-workspace="recall"],
 .authenticated-shell[data-sidebar-state="collapsed"]
   .app-frame[data-workspace="recall-results"],
-.authenticated-shell[data-sidebar-state="collapsed"]
-  .app-frame[data-workspace="labels"],
 .authenticated-shell[data-sidebar-state="collapsed"]
   .app-frame[data-workspace="focus"],
 .authenticated-shell[data-sidebar-state="collapsed"]
@@ -117,9 +112,6 @@
 .authenticated-shell[data-sidebar-state="collapsed"]
   .app-frame[data-workspace="recall-results"]
   .recall-surface,
-.authenticated-shell[data-sidebar-state="collapsed"]
-  .app-frame[data-workspace="labels"]
-  .labels-page,
 .authenticated-shell[data-sidebar-state="collapsed"]
   .app-frame[data-workspace="focus"]
   .focus-workspace,
@@ -181,9 +173,6 @@
   .authenticated-shell[data-sidebar-state="collapsed"]
     .app-frame[data-workspace="recall-results"]
     .recall-surface,
-  .authenticated-shell[data-sidebar-state="collapsed"]
-    .app-frame[data-workspace="labels"]
-    .labels-page,
   .authenticated-shell[data-sidebar-state="collapsed"]
     .app-frame[data-workspace="focus"]
     .focus-workspace,

@@ -45,6 +45,7 @@ const loginInputSchema = z.object({
 
 const updatePreferencesInputSchema = z.object({
   displayName: z.string(),
+  showStudyNoteTemplates: z.boolean(),
   userLanguage: z.enum(userLanguagePreferences),
   studyObjective: z.enum(studyObjectivePreferences).nullable(),
   studyIntensity: z.enum(studyIntensityPreferences).nullable(),

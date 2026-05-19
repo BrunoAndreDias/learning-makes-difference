@@ -2,6 +2,7 @@ import {
   AppAuthError,
   type AppSessionSnapshot,
   buildAnonymousSnapshot,
+  defaultShowStudyNoteTemplatesPreference,
   defaultUserTimeZone,
   getAppAuthError,
   type LoginInput,
@@ -12,6 +13,7 @@ import {
   type UpdatePreferencesInput,
   type UserLanguage,
   type UserTimeZonePreference,
+  validateShowStudyNoteTemplatesPreference,
   validateStudyIntensityPreference,
   validateStudyObjectivePreference,
   validateUserLanguagePreference,
@@ -23,6 +25,7 @@ export {
   AppAuthError,
   type AppSessionSnapshot,
   type AppSessionUser,
+  defaultShowStudyNoteTemplatesPreference,
   defaultUserTimeZone,
   fallbackUserLanguage,
   getAppAuthError,
@@ -45,6 +48,7 @@ type MemoryStoredUserRecord = {
   email: string;
   passwordHash: string;
   passwordSalt: string;
+  showStudyNoteTemplates?: boolean;
   userLanguage?: UserLanguage;
   interfaceLanguage?: string;
   studyObjective: StudyObjectivePreference;
@@ -158,6 +162,8 @@ function buildSnapshot(
       id: user.id,
       displayName: user.displayName,
       email: user.email,
+      showStudyNoteTemplates:
+        user.showStudyNoteTemplates ?? defaultShowStudyNoteTemplatesPreference,
       userLanguage: normalizeUserLanguage(
         user.userLanguage ?? user.interfaceLanguage,
       ),
@@ -409,6 +415,7 @@ export function createMemorySessionService(
           safePassword,
           passwordSalt,
         ),
+        showStudyNoteTemplates: defaultShowStudyNoteTemplatesPreference,
         userLanguage: safeUserLanguage,
         studyObjective: null,
         studyIntensity: null,
@@ -422,6 +429,7 @@ export function createMemorySessionService(
     },
     updatePreferences: async ({
       displayName,
+      showStudyNoteTemplates,
       userLanguage,
       studyObjective,
       studyIntensity,
@@ -434,6 +442,8 @@ export function createMemorySessionService(
       }
 
       const safeDisplayName = validateDisplayName(displayName);
+      const safeShowStudyNoteTemplates =
+        validateShowStudyNoteTemplatesPreference(showStudyNoteTemplates);
       const safeUserLanguage = validateUserLanguagePreference(userLanguage);
       const safeStudyObjective =
         validateStudyObjectivePreference(studyObjective);
@@ -451,6 +461,7 @@ export function createMemorySessionService(
       const nextUser: MemoryStoredUserRecord = {
         ...store.users[userIndex],
         displayName: safeDisplayName,
+        showStudyNoteTemplates: safeShowStudyNoteTemplates,
         userLanguage: safeUserLanguage,
         studyObjective: safeStudyObjective,
         studyIntensity: safeStudyIntensity,

@@ -562,6 +562,7 @@ describe("authenticated app shell", () => {
     fireEvent.change(screen.getByLabelText("User Time Zone"), {
       target: { value: "America/New_York" },
     });
+    fireEvent.click(screen.getByLabelText("Study Note prompt templates"));
     fireEvent.submit(
       screen.getByRole("form", { name: "Account preferences form" }),
     );
@@ -590,6 +591,9 @@ describe("authenticated app shell", () => {
     expect(screen.getByLabelText("User Time Zone")).toHaveValue(
       "America/New_York",
     );
+    expect(
+      screen.getByLabelText("Study Note prompt templates"),
+    ).not.toBeChecked();
     expect(
       within(screen.getByLabelText("Current account settings")).getByText(
         "Specific exam",
@@ -683,6 +687,9 @@ describe("authenticated app shell", () => {
     expect(screen.getByLabelText("User Time Zone")).toHaveValue(
       "America/New_York",
     );
+    expect(
+      screen.getByLabelText("Study Note prompt templates"),
+    ).not.toBeChecked();
   });
 
   it("renders one translated Language selector and updates app chrome after save", async () => {
@@ -735,7 +742,9 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "Configuracion" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Notas" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Etiquetas" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Etiquetas" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText("Idioma")).toHaveValue("es");
   });
 });

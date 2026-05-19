@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import {
   defaultUserTimeZone,
@@ -12,6 +12,9 @@ export const usersTable = pgTable("users", {
   displayName: text("display_name").notNull(),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
+  showStudyNoteTemplates: boolean("show_study_note_templates")
+    .notNull()
+    .default(true),
   userLanguage: text("user_language", {
     enum: userLanguagePreferences,
   }).notNull(),

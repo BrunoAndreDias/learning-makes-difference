@@ -15,7 +15,6 @@ import { Route as modulesAccessSessionAuthLayoutRouteRouteImport } from './modul
 import { Route as modulesStudyNotesStudyNotesRouteRouteImport } from './modules/study-notes/study-notes-route'
 import { Route as modulesAccessSessionSettingsRouteRouteImport } from './modules/access/session/settings-route'
 import { Route as modulesRecallRecallRouteRouteImport } from './modules/recall/recall-route'
-import { Route as modulesLabelsLabelManagementLabelsRouteRouteImport } from './modules/labels/label-management/labels-route'
 import { Route as modulesStudyGuidanceStudyGuidanceRouteRouteImport } from './modules/study-guidance/study-guidance-route'
 import { Route as modulesFocusFocusRouteRouteImport } from './modules/focus/focus-route'
 import { Route as modulesAccessSessionRegisterRouteRouteImport } from './modules/access/session/register-route'
@@ -29,6 +28,7 @@ import { Route as modulesRecallRecallPracticeRepairQueueRouteRouteImport } from 
 import { Route as modulesRecallRecallResultsWorkspaceRouteRouteImport } from './modules/recall/recall-results-workspace-route'
 import { Route as modulesRecallRecallPracticeRepairRouteRouteImport } from './modules/recall/recall-practice-repair-route'
 import { Route as modulesRecallRecallPracticeRepairDraftRouteRouteImport } from './modules/recall/recall-practice-repair-draft-route'
+import { Route as modulesRecallRecallPracticeRepairResultsRedirectRouteRouteImport } from './modules/recall/recall-practice-repair-results-redirect-route'
 
 const modulesAccessPublicEntryPublicLayoutRouteRoute =
   modulesAccessPublicEntryPublicLayoutRouteRouteImport.update({
@@ -61,12 +61,6 @@ const modulesRecallRecallRouteRoute =
   modulesRecallRecallRouteRouteImport.update({
     id: '/recall',
     path: '/recall',
-    getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
-  } as any)
-const modulesLabelsLabelManagementLabelsRouteRoute =
-  modulesLabelsLabelManagementLabelsRouteRouteImport.update({
-    id: '/labels',
-    path: '/labels',
     getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
   } as any)
 const modulesStudyGuidanceStudyGuidanceRouteRoute =
@@ -142,6 +136,12 @@ const modulesRecallRecallPracticeRepairRouteRoute =
   } as any)
 const modulesRecallRecallPracticeRepairDraftRouteRoute =
   modulesRecallRecallPracticeRepairDraftRouteRouteImport.update({
+    id: '/repair/$sessionResultId/questions/$questionResultId',
+    path: '/repair/$sessionResultId/questions/$questionResultId',
+    getParentRoute: () => modulesRecallRecallRouteRoute,
+  } as any)
+const modulesRecallRecallPracticeRepairResultsRedirectRouteRoute =
+  modulesRecallRecallPracticeRepairResultsRedirectRouteRouteImport.update({
     id: '/results/$sessionResultId/questions/$questionResultId/repair',
     path: '/results/$sessionResultId/questions/$questionResultId/repair',
     getParentRoute: () => modulesRecallRecallRouteRoute,
@@ -154,7 +154,6 @@ export interface FileRoutesByFullPath {
   '/register': typeof modulesAccessSessionRegisterRouteRoute
   '/focus': typeof modulesFocusFocusRouteRoute
   '/insights': typeof modulesStudyGuidanceStudyGuidanceRouteRoute
-  '/labels': typeof modulesLabelsLabelManagementLabelsRouteRoute
   '/recall': typeof modulesRecallRecallRouteRouteWithChildren
   '/settings': typeof modulesAccessSessionSettingsRouteRoute
   '/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
@@ -164,7 +163,8 @@ export interface FileRoutesByFullPath {
   '/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/recall/session': typeof modulesRecallRecallSessionRouteRoute
   '/recall/repair/$practiceRepairEntryId': typeof modulesRecallRecallPracticeRepairRouteRoute
-  '/recall/results/$sessionResultId/questions/$questionResultId/repair': typeof modulesRecallRecallPracticeRepairDraftRouteRoute
+  '/recall/repair/$sessionResultId/questions/$questionResultId': typeof modulesRecallRecallPracticeRepairDraftRouteRoute
+  '/recall/results/$sessionResultId/questions/$questionResultId/repair': typeof modulesRecallRecallPracticeRepairResultsRedirectRouteRoute
 }
 export interface FileRoutesByTo {
   '/': typeof modulesAccessPublicEntryPublicIndexRouteRoute
@@ -173,7 +173,6 @@ export interface FileRoutesByTo {
   '/register': typeof modulesAccessSessionRegisterRouteRoute
   '/focus': typeof modulesFocusFocusRouteRoute
   '/insights': typeof modulesStudyGuidanceStudyGuidanceRouteRoute
-  '/labels': typeof modulesLabelsLabelManagementLabelsRouteRoute
   '/settings': typeof modulesAccessSessionSettingsRouteRoute
   '/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
   '/recall': typeof modulesRecallRecallResultsWorkspaceRouteRoute
@@ -182,7 +181,8 @@ export interface FileRoutesByTo {
   '/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/recall/session': typeof modulesRecallRecallSessionRouteRoute
   '/recall/repair/$practiceRepairEntryId': typeof modulesRecallRecallPracticeRepairRouteRoute
-  '/recall/results/$sessionResultId/questions/$questionResultId/repair': typeof modulesRecallRecallPracticeRepairDraftRouteRoute
+  '/recall/repair/$sessionResultId/questions/$questionResultId': typeof modulesRecallRecallPracticeRepairDraftRouteRoute
+  '/recall/results/$sessionResultId/questions/$questionResultId/repair': typeof modulesRecallRecallPracticeRepairResultsRedirectRouteRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -195,7 +195,6 @@ export interface FileRoutesById {
   '/_auth/register': typeof modulesAccessSessionRegisterRouteRoute
   '/_protected/focus': typeof modulesFocusFocusRouteRoute
   '/_protected/insights': typeof modulesStudyGuidanceStudyGuidanceRouteRoute
-  '/_protected/labels': typeof modulesLabelsLabelManagementLabelsRouteRoute
   '/_protected/recall': typeof modulesRecallRecallRouteRouteWithChildren
   '/_protected/settings': typeof modulesAccessSessionSettingsRouteRoute
   '/_protected/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
@@ -205,7 +204,8 @@ export interface FileRoutesById {
   '/_protected/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/_protected/recall/session': typeof modulesRecallRecallSessionRouteRoute
   '/_protected/recall/repair/$practiceRepairEntryId': typeof modulesRecallRecallPracticeRepairRouteRoute
-  '/_protected/recall/results/$sessionResultId/questions/$questionResultId/repair': typeof modulesRecallRecallPracticeRepairDraftRouteRoute
+  '/_protected/recall/repair/$sessionResultId/questions/$questionResultId': typeof modulesRecallRecallPracticeRepairDraftRouteRoute
+  '/_protected/recall/results/$sessionResultId/questions/$questionResultId/repair': typeof modulesRecallRecallPracticeRepairResultsRedirectRouteRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -216,7 +216,6 @@ export interface FileRouteTypes {
     | '/register'
     | '/focus'
     | '/insights'
-    | '/labels'
     | '/recall'
     | '/settings'
     | '/study-notes'
@@ -226,6 +225,7 @@ export interface FileRouteTypes {
     | '/recall/select'
     | '/recall/session'
     | '/recall/repair/$practiceRepairEntryId'
+    | '/recall/repair/$sessionResultId/questions/$questionResultId'
     | '/recall/results/$sessionResultId/questions/$questionResultId/repair'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -235,7 +235,6 @@ export interface FileRouteTypes {
     | '/register'
     | '/focus'
     | '/insights'
-    | '/labels'
     | '/settings'
     | '/study-notes'
     | '/recall'
@@ -244,6 +243,7 @@ export interface FileRouteTypes {
     | '/recall/select'
     | '/recall/session'
     | '/recall/repair/$practiceRepairEntryId'
+    | '/recall/repair/$sessionResultId/questions/$questionResultId'
     | '/recall/results/$sessionResultId/questions/$questionResultId/repair'
   id:
     | '__root__'
@@ -256,7 +256,6 @@ export interface FileRouteTypes {
     | '/_auth/register'
     | '/_protected/focus'
     | '/_protected/insights'
-    | '/_protected/labels'
     | '/_protected/recall'
     | '/_protected/settings'
     | '/_protected/study-notes'
@@ -266,6 +265,7 @@ export interface FileRouteTypes {
     | '/_protected/recall/select'
     | '/_protected/recall/session'
     | '/_protected/recall/repair/$practiceRepairEntryId'
+    | '/_protected/recall/repair/$sessionResultId/questions/$questionResultId'
     | '/_protected/recall/results/$sessionResultId/questions/$questionResultId/repair'
   fileRoutesById: FileRoutesById
 }
@@ -317,13 +317,6 @@ declare module '@tanstack/react-router' {
       path: '/recall'
       fullPath: '/recall'
       preLoaderRoute: typeof modulesRecallRecallRouteRouteImport
-      parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
-    }
-    '/_protected/labels': {
-      id: '/_protected/labels'
-      path: '/labels'
-      fullPath: '/labels'
-      preLoaderRoute: typeof modulesLabelsLabelManagementLabelsRouteRouteImport
       parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
     }
     '/_protected/insights': {
@@ -410,11 +403,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof modulesRecallRecallPracticeRepairRouteRouteImport
       parentRoute: typeof modulesRecallRecallRouteRoute
     }
+    '/_protected/recall/repair/$sessionResultId/questions/$questionResultId': {
+      id: '/_protected/recall/repair/$sessionResultId/questions/$questionResultId'
+      path: '/repair/$sessionResultId/questions/$questionResultId'
+      fullPath: '/recall/repair/$sessionResultId/questions/$questionResultId'
+      preLoaderRoute: typeof modulesRecallRecallPracticeRepairDraftRouteRouteImport
+      parentRoute: typeof modulesRecallRecallRouteRoute
+    }
     '/_protected/recall/results/$sessionResultId/questions/$questionResultId/repair': {
       id: '/_protected/recall/results/$sessionResultId/questions/$questionResultId/repair'
       path: '/results/$sessionResultId/questions/$questionResultId/repair'
       fullPath: '/recall/results/$sessionResultId/questions/$questionResultId/repair'
-      preLoaderRoute: typeof modulesRecallRecallPracticeRepairDraftRouteRouteImport
+      preLoaderRoute: typeof modulesRecallRecallPracticeRepairResultsRedirectRouteRouteImport
       parentRoute: typeof modulesRecallRecallRouteRoute
     }
   }
@@ -448,6 +448,7 @@ interface modulesRecallRecallRouteRouteChildren {
   modulesRecallRecallSessionRouteRoute: typeof modulesRecallRecallSessionRouteRoute
   modulesRecallRecallPracticeRepairRouteRoute: typeof modulesRecallRecallPracticeRepairRouteRoute
   modulesRecallRecallPracticeRepairDraftRouteRoute: typeof modulesRecallRecallPracticeRepairDraftRouteRoute
+  modulesRecallRecallPracticeRepairResultsRedirectRouteRoute: typeof modulesRecallRecallPracticeRepairResultsRedirectRouteRoute
 }
 
 const modulesRecallRecallRouteRouteChildren: modulesRecallRecallRouteRouteChildren =
@@ -464,6 +465,8 @@ const modulesRecallRecallRouteRouteChildren: modulesRecallRecallRouteRouteChildr
       modulesRecallRecallPracticeRepairRouteRoute,
     modulesRecallRecallPracticeRepairDraftRouteRoute:
       modulesRecallRecallPracticeRepairDraftRouteRoute,
+    modulesRecallRecallPracticeRepairResultsRedirectRouteRoute:
+      modulesRecallRecallPracticeRepairResultsRedirectRouteRoute,
   }
 
 const modulesRecallRecallRouteRouteWithChildren =
@@ -474,7 +477,6 @@ const modulesRecallRecallRouteRouteWithChildren =
 interface modulesWorkspaceShellAppShellProtectedRouteRouteChildren {
   modulesFocusFocusRouteRoute: typeof modulesFocusFocusRouteRoute
   modulesStudyGuidanceStudyGuidanceRouteRoute: typeof modulesStudyGuidanceStudyGuidanceRouteRoute
-  modulesLabelsLabelManagementLabelsRouteRoute: typeof modulesLabelsLabelManagementLabelsRouteRoute
   modulesRecallRecallRouteRoute: typeof modulesRecallRecallRouteRouteWithChildren
   modulesAccessSessionSettingsRouteRoute: typeof modulesAccessSessionSettingsRouteRoute
   modulesStudyNotesStudyNotesRouteRoute: typeof modulesStudyNotesStudyNotesRouteRoute
@@ -485,8 +487,6 @@ const modulesWorkspaceShellAppShellProtectedRouteRouteChildren: modulesWorkspace
     modulesFocusFocusRouteRoute: modulesFocusFocusRouteRoute,
     modulesStudyGuidanceStudyGuidanceRouteRoute:
       modulesStudyGuidanceStudyGuidanceRouteRoute,
-    modulesLabelsLabelManagementLabelsRouteRoute:
-      modulesLabelsLabelManagementLabelsRouteRoute,
     modulesRecallRecallRouteRoute: modulesRecallRecallRouteRouteWithChildren,
     modulesAccessSessionSettingsRouteRoute:
       modulesAccessSessionSettingsRouteRoute,

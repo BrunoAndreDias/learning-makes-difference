@@ -727,7 +727,7 @@ describe("authenticated app shell", () => {
     });
   });
 
-  it("keeps the global FocusSession control available across labels, recall, Study Notes, and settings", async () => {
+  it("keeps the global FocusSession control available across recall, Study Notes, and settings", async () => {
     const focusContext = createAppFocusContext({
       keyPrefix: `test-focus-global-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -751,15 +751,6 @@ describe("authenticated app shell", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
 
-    expect(
-      screen.getByRole("button", { name: "End focus" }),
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("link", { name: "Labels" }));
-    expect(
-      await screen.findByRole("heading", { level: 2, name: "Labels" }),
-    ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/labels");
     expect(
       screen.getByRole("button", { name: "End focus" }),
     ).toBeInTheDocument();

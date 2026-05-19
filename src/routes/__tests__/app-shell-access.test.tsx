@@ -143,6 +143,7 @@ describe("authenticated app shell", () => {
     "/insights",
     "/recall/repair",
     "/recall/repair/missing-entry",
+    "/recall/repair/result-1/questions/question-1",
     "/recall/results/result-1/questions/question-1/repair",
     "/settings",
   ] as const)("redirects unauthenticated %s navigation into the public login area", async (pathname) => {

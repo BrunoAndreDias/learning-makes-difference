@@ -28,11 +28,8 @@ import {
 } from "./recall";
 import { RecallBreadcrumb } from "./recall-breadcrumb";
 import {
-  formatPracticeRepairIntentLabel,
   getPracticeRepairEntryId,
   getPracticeRepairEntryLifecycleKind,
-  getPracticeRepairEntryLifecycleLabel,
-  getPracticeRepairEntryLifecycleSummary,
   getPracticeRepairQuestionExpectedAnswer,
   getPracticeRepairQuestionPrompt,
   getPracticeRepairQuestionReferenceText,
@@ -42,6 +39,10 @@ import {
   type PracticeRepairEntryLifecycleKind,
   type PracticeRepairIntent,
 } from "./recall-practice-repair";
+import {
+  getPracticeRepairQuestionRouteParams,
+  type PracticeRepairQuestionRouteParams,
+} from "./recall-practice-repair-routing";
 
 export const Route = createFileRoute(
   "/_protected/recall/repair/$practiceRepairEntryId",
@@ -49,7 +50,7 @@ export const Route = createFileRoute(
   component: RecallPracticeRepairRoute,
 });
 
-type PracticeRepairWorkspace = {
+export type PracticeRepairWorkspace = {
   entry: PracticeRepairEntry;
   question: RecallQuestion;
   result: FlashCardSessionResult;
@@ -139,26 +140,10 @@ function getStudyNoteMeta(question: Pick<RecallQuestion, "noteSnapshot">) {
   return "Results evidence";
 }
 
-function getPracticeRepairLifecycleTone(
-  lifecycleKind: PracticeRepairEntryLifecycleKind,
-) {
-  switch (lifecycleKind) {
-    case "active":
-      return "active";
-    case "completed":
-      return "completed";
-    case "dismissed":
-    case "follow-up-satisfied":
-    case "study-note-deleted":
-    case "superseded":
-      return "historical";
-  }
-}
-
-function findSupersedingPracticeRepairEntryId(input: {
+function findSupersedingPracticeRepairRouteParams(input: {
   entry: PracticeRepairEntry;
   sessionResults: readonly FlashCardSessionResult[];
-}): string | null {
+}): PracticeRepairQuestionRouteParams | null {
   const currentEntryId = getPracticeRepairEntryId(input.entry);
 
   for (const result of input.sessionResults) {
@@ -178,7 +163,10 @@ function findSupersedingPracticeRepairEntryId(input: {
       const candidateEntryId = getPracticeRepairEntryId(candidateEntry);
 
       if (candidateEntryId !== currentEntryId) {
-        return candidateEntryId;
+        return getPracticeRepairQuestionRouteParams({
+          entry: candidateEntry,
+          question,
+        });
       }
     }
   }
@@ -342,7 +330,7 @@ function PracticeRepairWorkspaceActions({
   onComplete,
   onDismiss,
   onStartFollowUpRecall,
-  supersedingPracticeRepairEntryId,
+  supersedingPracticeRepairRouteParams,
 }: Readonly<{
   isFollowUpRecallPending: boolean;
   isMutationPending: boolean;
@@ -350,7 +338,7 @@ function PracticeRepairWorkspaceActions({
   onComplete: () => void;
   onDismiss: () => void;
   onStartFollowUpRecall: () => void;
-  supersedingPracticeRepairEntryId: string | null;
+  supersedingPracticeRepairRouteParams: PracticeRepairQuestionRouteParams | null;
 }>) {
   switch (lifecycleKind) {
     case "active":
@@ -396,12 +384,10 @@ function PracticeRepairWorkspaceActions({
     case "superseded":
       return (
         <>
-          {supersedingPracticeRepairEntryId === null ? null : (
+          {supersedingPracticeRepairRouteParams === null ? null : (
             <ButtonLink
-              params={{
-                practiceRepairEntryId: supersedingPracticeRepairEntryId,
-              }}
-              to="/recall/repair/$practiceRepairEntryId"
+              params={supersedingPracticeRepairRouteParams}
+              to="/recall/repair/$sessionResultId/questions/$questionResultId"
               variant="primary"
             >
               Open newer Practice Repair
@@ -481,6 +467,21 @@ function RecallPracticeRepairRoute() {
     return <Navigate to="/recall" />;
   }
 
+  const repairRouteParams = getPracticeRepairQuestionRouteParams({
+    entry: workspace.entry,
+    question: workspace.question,
+  });
+
+  if (repairRouteParams !== null) {
+    return (
+      <Navigate
+        params={repairRouteParams}
+        replace
+        to="/recall/repair/$sessionResultId/questions/$questionResultId"
+      />
+    );
+  }
+
   return (
     <RecallPracticeRepairWorkspacePage
       persistentRecallContext={persistentRecallContext}
@@ -492,7 +493,7 @@ function RecallPracticeRepairRoute() {
   );
 }
 
-function RecallPracticeRepairWorkspacePage({
+export function RecallPracticeRepairWorkspacePage({
   persistentRecallContext,
   recallContext,
   sessionResults,
@@ -512,24 +513,22 @@ function RecallPracticeRepairWorkspacePage({
   const [isFollowUpRecallPending, setIsFollowUpRecallPending] = useState(false);
   const [pendingAction, setPendingAction] =
     useState<PracticeRepairLifecycleAction | null>(null);
-  const { entry, question, result } = workspace;
+  const { entry, question } = workspace;
   const practiceRepairEntryId = getPracticeRepairEntryId(entry);
   const prompt = getPracticeRepairQuestionPrompt(question);
   const expectedAnswer = getPracticeRepairQuestionExpectedAnswer(question);
   const referenceTitle = getPracticeRepairQuestionReferenceTitle(question);
   const referenceText = getPracticeRepairQuestionReferenceText(question);
   const lifecycleKind = getPracticeRepairEntryLifecycleKind(entry);
-  const lifecycleLabel = getPracticeRepairEntryLifecycleLabel(entry);
-  const lifecycleSummary = getPracticeRepairEntryLifecycleSummary(entry);
-  const lifecycleTone = getPracticeRepairLifecycleTone(lifecycleKind);
-  const supersedingPracticeRepairEntryId =
+  const cardTitle = lifecycleKind === "active" ? referenceTitle : prompt;
+  const supersedingPracticeRepairRouteParams =
     lifecycleKind === "superseded"
-      ? findSupersedingPracticeRepairEntryId({
+      ? findSupersedingPracticeRepairRouteParams({
           entry,
           sessionResults,
         })
       : null;
-  const hasSupersedingEntry = supersedingPracticeRepairEntryId !== null;
+  const hasSupersedingEntry = supersedingPracticeRepairRouteParams !== null;
   const nextStepCopy = getPracticeRepairNextStepCopy({
     hasSupersedingEntry,
     lifecycleKind,
@@ -543,6 +542,8 @@ function RecallPracticeRepairWorkspacePage({
       ? "Not rated"
       : t(getRecallRatingTranslationKey(question.selfRating));
   const ratingTone = getRecallRatingTone(question.selfRating);
+  const recordedAnswer = getPracticeRepairRecordedAnswer(question);
+  const hasRecordedAnswer = (question.typedAnswer?.trim() ?? "").length > 0;
   const canOpenStudyNotes = lifecycleKind !== "study-note-deleted";
   const isMutationPending = pendingAction !== null;
   const showSuggestedRepairs = lifecycleKind === "active";
@@ -634,125 +635,166 @@ function RecallPracticeRepairWorkspacePage({
         />
 
         <div className="recall-practice-repair-workspace__layout">
-          <section
-            aria-label="Practice Repair evidence"
-            className="recall-panel recall-practice-repair-workspace__evidence"
-          >
-            <header className="recall-practice-repair-workspace__card-header">
-              <div className="recall-practice-repair-workspace__card-copy">
-                <p className="recall-practice-repair-workspace__eyebrow">
-                  Study Note
-                </p>
-                <h2 className="recall-practice-repair-workspace__study-note-title">
-                  {prompt}
-                </h2>
-                <p className="recall-practice-repair-workspace__study-note-meta">
-                  {getStudyNoteMeta(question)}
-                </p>
-              </div>
+          <div className="recall-practice-repair-workspace__main">
+            <section
+              aria-label="Practice Repair evidence"
+              className={
+                lifecycleKind === "active"
+                  ? "recall-panel recall-practice-repair-workspace__evidence recall-practice-repair-workspace__evidence--compact"
+                  : "recall-panel recall-practice-repair-workspace__evidence"
+              }
+            >
+              <header className="recall-practice-repair-workspace__card-header">
+                {lifecycleKind === "active" ? (
+                  <span
+                    aria-hidden="true"
+                    className="recall-practice-repair-workspace__note-icon"
+                  >
+                    <StudyNoteDocumentIcon />
+                  </span>
+                ) : null}
 
-              {canOpenStudyNotes ? (
-                <ButtonLink
-                  search={createStudyNotesPracticeRepairSearch({
-                    practiceRepairEntryId,
-                  })}
-                  to="/study-notes"
-                  variant="secondary"
+                <div className="recall-practice-repair-workspace__card-copy">
+                  {lifecycleKind === "active" ? null : (
+                    <p className="recall-practice-repair-workspace__eyebrow">
+                      Study Note
+                    </p>
+                  )}
+                  <h2 className="recall-practice-repair-workspace__study-note-title">
+                    {cardTitle}
+                  </h2>
+                  <p className="recall-practice-repair-workspace__study-note-meta">
+                    {getStudyNoteMeta(question)}
+                  </p>
+                </div>
+
+                {canOpenStudyNotes ? (
+                  <ButtonLink
+                    className={
+                      lifecycleKind === "active"
+                        ? "recall-practice-repair-workspace__view-note"
+                        : undefined
+                    }
+                    search={createStudyNotesPracticeRepairSearch({
+                      practiceRepairEntryId,
+                    })}
+                    to="/study-notes"
+                    variant="secondary"
+                  >
+                    {lifecycleKind === "active" ? (
+                      <>
+                        <span>View note</span>
+                        <ExternalLinkIcon />
+                      </>
+                    ) : (
+                      "View note"
+                    )}
+                  </ButtonLink>
+                ) : null}
+              </header>
+
+              <PracticeRepairWorkspaceDetail label="Prompt (what you were asked)">
+                {prompt}
+              </PracticeRepairWorkspaceDetail>
+
+              <section className="recall-practice-repair-workspace__detail">
+                <div className="recall-practice-repair-workspace__detail-header">
+                  <p className="recall-practice-repair-workspace__detail-label">
+                    Your answer
+                  </p>
+                  <span
+                    className="recall-selected-result__row-pill recall-practice-repair-workspace__rating"
+                    data-rating-tone={ratingTone}
+                  >
+                    {ratingLabel}
+                  </span>
+                </div>
+                <div
+                  className="recall-practice-repair-workspace__detail-copy"
+                  data-empty-answer={hasRecordedAnswer ? undefined : "true"}
                 >
-                  View note
-                </ButtonLink>
+                  {recordedAnswer}
+                </div>
+              </section>
+
+              <PracticeRepairWorkspaceDetail label="Expected answer">
+                {expectedAnswer}
+              </PracticeRepairWorkspaceDetail>
+
+              {lifecycleKind === "active" ? null : (
+                <PracticeRepairWorkspaceDetail label="Reference explanation">
+                  <strong>{referenceTitle}</strong>
+                  <span>{referenceText}</span>
+                </PracticeRepairWorkspaceDetail>
+              )}
+
+              <section className="recall-practice-repair-workspace__callout">
+                {lifecycleKind === "active" ? (
+                  <WarningIcon className="recall-practice-repair-workspace__callout-icon" />
+                ) : null}
+                <div className="recall-practice-repair-workspace__callout-copy">
+                  <strong>
+                    {lifecycleKind === "active"
+                      ? `Your last score: ${ratingLabel}`
+                      : `Last score: ${ratingLabel}`}
+                  </strong>
+                  {lifecycleKind === "active" ? (
+                    <p>
+                      It's okay--weak recall is a signal to adjust and
+                      reinforce.
+                    </p>
+                  ) : (
+                    <p>
+                      Needs practice is a signal to adjust and reinforce before
+                      the next recall.
+                    </p>
+                  )}
+                </div>
+              </section>
+
+              {lifecycleKind === "active" ? (
+                <div className="recall-practice-repair-workspace__actions recall-practice-repair-workspace__quick-actions">
+                  <ButtonLink
+                    className="recall-practice-repair-workspace__action-button"
+                    search={createStudyNotesPracticeRepairSearch({
+                      practiceRepairAction: entry.intent,
+                      practiceRepairEntryId,
+                    })}
+                    to="/study-notes"
+                    variant="secondary"
+                  >
+                    <PencilIcon />
+                    <span>Edit note</span>
+                  </ButtonLink>
+                  <Button
+                    className="recall-practice-repair-workspace__action-button"
+                    disabled={isFollowUpRecallPending}
+                    onClick={() => void handleStartFollowUpRecall()}
+                    type="button"
+                    variant="primary"
+                  >
+                    <RefreshIcon />
+                    <span>Recall again</span>
+                  </Button>
+                </div>
               ) : null}
-            </header>
+            </section>
 
-            <PracticeRepairWorkspaceDetail label="Prompt (what you were asked)">
-              {prompt}
-            </PracticeRepairWorkspaceDetail>
-
-            <section className="recall-practice-repair-workspace__detail">
-              <div className="recall-practice-repair-workspace__detail-header">
-                <p className="recall-practice-repair-workspace__detail-label">
-                  Your answer
-                </p>
-                <span
-                  className="recall-selected-result__row-pill recall-practice-repair-workspace__rating"
-                  data-rating-tone={ratingTone}
-                >
-                  {ratingLabel}
+            {lifecycleKind === "active" ? (
+              <p className="recall-practice-repair-workspace__footer-note">
+                <InfoIcon />
+                <span>
+                  Metaphors and acronyms are optional support material, not
+                  required.
                 </span>
-              </div>
-              <div className="recall-practice-repair-workspace__detail-copy">
-                {getPracticeRepairRecordedAnswer(question)}
-              </div>
-            </section>
-
-            <PracticeRepairWorkspaceDetail label="Expected answer">
-              {expectedAnswer}
-            </PracticeRepairWorkspaceDetail>
-
-            <PracticeRepairWorkspaceDetail label="Reference explanation">
-              <strong>{referenceTitle}</strong>
-              <span>{referenceText}</span>
-            </PracticeRepairWorkspaceDetail>
-
-            <section className="recall-practice-repair-workspace__callout">
-              <strong>{`Last score: ${ratingLabel}`}</strong>
-              <p>
-                Needs practice is a signal to adjust and reinforce before the
-                next recall.
               </p>
-            </section>
-          </section>
+            ) : null}
+          </div>
 
           <aside
             aria-label="Practice Repair actions"
             className="recall-practice-repair-workspace__sidebar"
           >
-            <section className="recall-panel recall-practice-repair-workspace__panel">
-              <div className="recall-practice-repair-workspace__panel-copy">
-                <h2>Selected repair</h2>
-                <p>
-                  The confirmed repair stays attached to this Practice Repair
-                  entry while you compare the other Study Notes actions.
-                </p>
-                <p>{lifecycleSummary}</p>
-              </div>
-
-              <PracticeRepairWorkspaceDetail label="Intent">
-                {formatPracticeRepairIntentLabel(entry.intent)}
-              </PracticeRepairWorkspaceDetail>
-
-              <PracticeRepairWorkspaceDetail label="Correction">
-                {entry.correction}
-              </PracticeRepairWorkspaceDetail>
-
-              {entry.nextPracticeIdea === undefined ? null : (
-                <PracticeRepairWorkspaceDetail label="Next-practice idea">
-                  {entry.nextPracticeIdea}
-                </PracticeRepairWorkspaceDetail>
-              )}
-
-              <div className="recall-practice-repair-workspace__state-card">
-                <p className="recall-practice-repair-workspace__detail-label">
-                  Entry state
-                </p>
-                <div className="recall-practice-repair-workspace__state-row">
-                  <span
-                    className="recall-practice-repair-workspace__state-badge"
-                    data-lifecycle-tone={lifecycleTone}
-                  >
-                    {lifecycleLabel}
-                  </span>
-                </div>
-                <p className="recall-practice-repair-workspace__state-meta">
-                  Origin result: {result.id}
-                </p>
-              </div>
-
-              <p className="recall-practice-repair-workspace__support">
-                {showSuggestedRepairs ? lifecycleSummary : nextStepCopy}
-              </p>
-            </section>
-
             <section className="recall-panel recall-practice-repair-workspace__panel">
               <div className="recall-practice-repair-workspace__panel-copy">
                 <h2>
@@ -801,8 +843,8 @@ function RecallPracticeRepairWorkspacePage({
                   onComplete={() => void handleLifecycleMutation("complete")}
                   onDismiss={() => void handleLifecycleMutation("dismiss")}
                   onStartFollowUpRecall={() => void handleStartFollowUpRecall()}
-                  supersedingPracticeRepairEntryId={
-                    supersedingPracticeRepairEntryId
+                  supersedingPracticeRepairRouteParams={
+                    supersedingPracticeRepairRouteParams
                   }
                 />
               </div>
@@ -883,7 +925,7 @@ function PracticeRepairWorkspaceActionButton({
   );
 }
 
-function SuggestionChevronIcon() {
+export function SuggestionChevronIcon() {
   return (
     <svg
       aria-hidden="true"
@@ -901,6 +943,72 @@ function SuggestionChevronIcon() {
         strokeLinejoin="round"
         strokeWidth="1.5"
       />
+    </svg>
+  );
+}
+
+export function StudyNoteDocumentIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M6 3h9l3 3v15H6V3Z" />
+      <path d="M14 3v4h4" />
+      <path d="M9 11h6" />
+      <path d="M9 15h5" />
+    </svg>
+  );
+}
+
+export function ExternalLinkIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M14 5h5v5" />
+      <path d="m10 14 9-9" />
+      <path d="M19 14v5H5V5h5" />
+    </svg>
+  );
+}
+
+export function PencilIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="m5 19 4.5-1 9-9a2.1 2.1 0 0 0-3-3l-9 9L5 19Z" />
+      <path d="m14 7 3 3" />
+    </svg>
+  );
+}
+
+export function RefreshIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M20 12a8 8 0 0 1-13.3 6" />
+      <path d="M4 12a8 8 0 0 1 13.3-6" />
+      <path d="M17 2v4h-4" />
+      <path d="M7 22v-4h4" />
+    </svg>
+  );
+}
+
+export function WarningIcon({ className }: Readonly<{ className?: string }>) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      focusable="false"
+      viewBox="0 0 24 24"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v7" />
+      <path d="M12 17h.01" />
+    </svg>
+  );
+}
+
+export function InfoIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 10v6" />
+      <path d="M12 7h.01" />
     </svg>
   );
 }

@@ -693,18 +693,6 @@ export function getPracticeRepairEntryLifecycleState(
   return getPracticeRepairEntryLifecycleOutcome(entry).state;
 }
 
-export function getPracticeRepairEntryLifecycleLabel(
-  entry: Pick<PracticeRepairEntry, "lifecycle">,
-): string {
-  return getPracticeRepairEntryLifecycleOutcome(entry).label;
-}
-
-export function getPracticeRepairEntryLifecycleSummary(
-  entry: Pick<PracticeRepairEntry, "lifecycle">,
-): string {
-  return getPracticeRepairEntryLifecycleOutcome(entry).summary;
-}
-
 function getPracticeFollowUpState(
   entry: Pick<PracticeRepairEntry, "lifecycle">,
 ): PracticeFollowUpState {
@@ -930,7 +918,7 @@ export function getPracticeRepairRecordedAnswer(
 ): string {
   const typedAnswer = question.typedAnswer?.trim() ?? "";
 
-  return typedAnswer.length > 0 ? typedAnswer : "No answer recorded.";
+  return typedAnswer.length > 0 ? typedAnswer : "No answer provided.";
 }
 
 export function listActivePracticeRepairQueueItems<

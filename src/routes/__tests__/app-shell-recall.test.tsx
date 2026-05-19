@@ -440,6 +440,22 @@ function getConfirmedPracticeRepairReference(result: SessionResult) {
   return reference;
 }
 
+function getPracticeRepairQuestionPath(
+  reference: ReturnType<typeof getConfirmedPracticeRepairReference>,
+) {
+  if (reference.questionResultId === undefined) {
+    throw new Error("Expected a Practice Repair reference with a question id.");
+  }
+
+  return `/recall/repair/${reference.sessionResultId}/questions/${reference.questionResultId}`;
+}
+
+function getConfirmedPracticeRepairPath(result: SessionResult) {
+  return getPracticeRepairQuestionPath(
+    getConfirmedPracticeRepairReference(result),
+  );
+}
+
 type StudyNoteSnapshotInput = {
   expectedAnswer: string;
   labelIds: string[];
@@ -891,7 +907,7 @@ describe("authenticated recall workspace", () => {
     expect(screen.queryByText("Edited ATP source context.")).toBeNull();
   });
 
-  it("opens a question-scoped Practice Repair draft route from weak Results evidence", async () => {
+  it("opens a question-scoped Practice Repair draft under the Repair route from weak Results evidence", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const weakStudyNote = contexts.studyNotesContext.createStudyNote(
       testUser.id,
@@ -942,7 +958,7 @@ describe("authenticated recall workspace", () => {
     );
 
     expect(routeRender.router.state.location.pathname).toBe(
-      `/recall/results/${result.id}/questions/${questionResultId}/repair`,
+      `/recall/repair/${result.id}/questions/${questionResultId}`,
     );
     expect(
       await screen.findByRole("heading", {
@@ -952,7 +968,7 @@ describe("authenticated recall workspace", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "This recall needs practice. Review the original evidence before choosing a repair.",
+        "Keep the original Needs practice evidence visible while you choose the smallest repair.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View note" })).toHaveAttribute(
@@ -962,31 +978,39 @@ describe("authenticated recall workspace", () => {
     expect(
       screen.getByRole("heading", {
         level: 2,
-        name: "What stores transferable energy?",
+        name: "Cell respiration source",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("No answer recorded.")).toBeInTheDocument();
+    expect(
+      screen.getByText("What stores transferable energy?"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("No answer provided.")).toBeInTheDocument();
     expect(
       screen.getByText("ATP stores transferable energy for cells."),
     ).toBeInTheDocument();
-    expect(screen.getByText("Last score: Hard")).toBeInTheDocument();
+    expect(screen.getByText("Your last score: Hard")).toBeInTheDocument();
     expect(
       screen.getByText(
         "Metaphors and acronyms are optional support material, not required.",
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", {
-        level: 2,
+      screen.queryByRole("heading", {
         name: "Choose one repair to confirm",
       }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Edit note" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Recall again/ }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Confirm Practice Repair" }),
     ).toBeNull();
   });
 
-  it("renders suggested repair cards and lets keyboard selection open an intent-specific draft confirmation", async () => {
+  it("redirects a legacy Results repair URL to the compact Repair card and starts the selected repair from the keyboard", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const weakStudyNote = contexts.studyNotesContext.createStudyNote(
       testUser.id,
@@ -1024,8 +1048,14 @@ describe("authenticated recall workspace", () => {
       },
     );
 
+    await waitFor(() => {
+      expect(routeRender.router.state.location.pathname).toBe(
+        `/recall/repair/${result.id}/questions/${questionResultId}`,
+      );
+    });
+
     const suggestions = await screen.findByRole("complementary", {
-      name: "Suggested repairs",
+      name: "Practice Repair actions",
     });
     const editExpectedAnswerButton = within(suggestions).getByRole("button", {
       name: "Edit expected answer",
@@ -1047,8 +1077,8 @@ describe("authenticated recall workspace", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      within(suggestions).getByText("Recall again soon"),
-    ).toBeInTheDocument();
+      within(suggestions).queryByText("Recall again soon"),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Confirm Practice Repair" }),
     ).toBeNull();
@@ -1056,57 +1086,36 @@ describe("authenticated recall workspace", () => {
     editExpectedAnswerButton.focus();
     fireEvent.keyDown(editExpectedAnswerButton, { key: "Enter" });
 
-    expect(editExpectedAnswerButton).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => {
+      expect(routeRender.router.state.location.pathname).toBe("/study-notes");
+    });
     expect(
-      await screen.findByRole("heading", {
-        level: 3,
-        name: "Edit expected answer",
+      contexts.recallContext.listActivePracticeRepairEntriesForStudyNote({
+        studyNoteId: weakStudyNote.id,
+        userId: testUser.id,
       }),
-    ).toBeInTheDocument();
+    ).toHaveLength(1);
     expect(
-      screen.getByText(
+      screen.queryByRole("button", { name: "Confirm Practice Repair" }),
+    ).toBeNull();
+    expect(
+      screen.queryByText(
         "This repair candidate stays in draft until you confirm this Practice Repair.",
       ),
-    ).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("Correction"), {
-      target: {
-        value:
-          "State ATP directly and mention that it stores transferable energy.",
-      },
-    });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Confirm Practice Repair" }),
-    );
-
-    await waitFor(() => {
-      expect(routeRender.router.state.location.pathname).toBe(
-        `/recall/repair/${createPracticeRepairEntryId({
-          questionIndex: 0,
-          questionResultId,
-          sessionResultId: result.id,
-          studyNoteId: weakStudyNote.id,
-        })}`,
-      );
-    });
+    ).toBeNull();
     expect(
-      await screen.findByRole("heading", {
-        level: 1,
-        name: "Practice Repair",
+      screen.getByRole("region", {
+        name: "Linked Practice Repair",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Selected repair")).toBeInTheDocument();
-    expect(screen.getByText("Tighten expected answer")).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "State ATP directly and mention that it stores transferable energy.",
-      ),
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByLabelText("Expected answer")).toHaveFocus(),
+    );
   });
 
-  it("falls back to the default Recall not-found behavior when a Results repair result is missing", async () => {
+  it("falls back to the default Recall not-found behavior when a Repair draft result is missing", async () => {
     const { router } = renderRoute(
-      "/recall/results/missing-result/questions/missing-question/repair",
+      "/recall/repair/missing-result/questions/missing-question",
       {
         session: createSession(),
       },
@@ -1123,7 +1132,7 @@ describe("authenticated recall workspace", () => {
     ).toBeNull();
   });
 
-  it("falls back to the default Recall not-found behavior when a Results repair question is missing", async () => {
+  it("falls back to the default Recall not-found behavior when a Repair draft question is missing", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const weakStudyNote = contexts.studyNotesContext.createStudyNote(
       testUser.id,
@@ -1151,7 +1160,7 @@ describe("authenticated recall workspace", () => {
     }
 
     const { router } = renderRoute(
-      `/recall/results/${result.id}/questions/missing-question/repair`,
+      `/recall/repair/${result.id}/questions/missing-question`,
       {
         ...contexts,
         session: createSession(),
@@ -1169,7 +1178,7 @@ describe("authenticated recall workspace", () => {
     ).toBeNull();
   });
 
-  it("redirects an already confirmed draft URL to the canonical Practice Repair workspace", async () => {
+  it("keeps an already confirmed draft URL on the question-scoped Practice Repair workspace", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const weakStudyNote = contexts.studyNotesContext.createStudyNote(
       testUser.id,
@@ -1196,8 +1205,6 @@ describe("authenticated recall workspace", () => {
     });
     const confirmedReference =
       getConfirmedPracticeRepairReference(confirmedResult);
-    const practiceRepairEntryId =
-      getConfirmedPracticeRepairEntryId(confirmedResult);
     const questionResultId = confirmedReference.questionResultId;
 
     if (questionResultId === undefined) {
@@ -1207,7 +1214,8 @@ describe("authenticated recall workspace", () => {
     }
 
     const confirmedDraftPath = `/recall/results/${confirmedReference.sessionResultId}/questions/${questionResultId}/repair`;
-    const canonicalRepairPath = `/recall/repair/${practiceRepairEntryId}`;
+    const canonicalRepairPath =
+      getPracticeRepairQuestionPath(confirmedReference);
     const { router } = renderRoute(confirmedDraftPath, {
       ...contexts,
       session: createSession(),
@@ -1223,7 +1231,7 @@ describe("authenticated recall workspace", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("State ATP directly and mention energy transfer."),
+      screen.getByRole("button", { name: /Recall again/ }),
     ).toBeInTheDocument();
   });
 
@@ -1306,8 +1314,7 @@ describe("authenticated recall workspace", () => {
 
     const olderPracticeRepairEntryId =
       getConfirmedPracticeRepairEntryId(olderResult);
-    const newerPracticeRepairEntryId =
-      getConfirmedPracticeRepairEntryId(newerResult);
+    const newerPracticeRepairPath = getConfirmedPracticeRepairPath(newerResult);
 
     const { router } = renderRoute("/recall/repair", {
       ...contexts,
@@ -1349,9 +1356,7 @@ describe("authenticated recall workspace", () => {
         name: "Practice Repair",
       }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe(
-      `/recall/repair/${newerPracticeRepairEntryId}`,
-    );
+    expect(router.state.location.pathname).toBe(newerPracticeRepairPath);
     expect(router.state.location.pathname).not.toBe(
       `/recall/repair/${olderPracticeRepairEntryId}`,
     );
@@ -1501,41 +1506,32 @@ describe("authenticated recall workspace", () => {
 
     fireEvent.click(
       screen.getByRole("link", {
-        name: "Open Practice Repair draft",
+        name: "Open Practice Repair",
       }),
     );
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe(
-        `/recall/results/${candidateReference.result.id}/questions/${candidateReference.questionResultId}/repair`,
+        `/recall/repair/${candidateReference.result.id}/questions/${candidateReference.questionResultId}`,
       );
     });
-    expect(
-      await screen.findByRole("heading", {
-        level: 2,
-        name: "Choose one repair to confirm",
-      }),
-    ).toBeInTheDocument();
-
     fireEvent.click(
-      screen.getByRole("button", { name: "Edit expected answer" }),
-    );
-    fireEvent.change(screen.getByLabelText("Correction"), {
-      target: {
-        value: "State ATP directly and anchor the answer to energy transfer.",
-      },
-    });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Confirm Practice Repair" }),
+      await screen.findByRole("button", { name: "Edit expected answer" }),
     );
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toMatch(/^\/recall\/repair\//);
+      expect(router.state.location.pathname).toBe("/study-notes");
     });
     expect(
-      await screen.findByText(
-        "State ATP directly and anchor the answer to energy transfer.",
-      ),
+      contexts.recallContext.listActivePracticeRepairEntriesForStudyNote({
+        studyNoteId: candidateStudyNote.id,
+        userId: testUser.id,
+      }),
+    ).toHaveLength(1);
+    expect(
+      await screen.findByRole("region", {
+        name: "Linked Practice Repair",
+      }),
     ).toBeInTheDocument();
 
     await router.navigate({ to: "/recall/repair" });
@@ -1587,6 +1583,7 @@ describe("authenticated recall workspace", () => {
     });
     const practiceRepairEntryId =
       getConfirmedPracticeRepairEntryId(confirmedResult);
+    const canonicalRepairPath = getConfirmedPracticeRepairPath(confirmedResult);
 
     const firstRender = renderRoute(`/recall/repair/${practiceRepairEntryId}`, {
       labelsContext,
@@ -1596,6 +1593,11 @@ describe("authenticated recall workspace", () => {
       studyNotesContext,
     });
 
+    await waitFor(() => {
+      expect(firstRender.router.state.location.pathname).toBe(
+        canonicalRepairPath,
+      );
+    });
     expect(
       await screen.findByRole("heading", {
         level: 1,
@@ -1603,14 +1605,12 @@ describe("authenticated recall workspace", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "State ATP and explain that it stores transferable energy.",
-      ),
+      screen.getByRole("button", { name: /Recall again/ }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
         level: 2,
-        name: "What stores transferable energy?",
+        name: "Cell respiration source",
       }),
     ).toBeInTheDocument();
 
@@ -1618,14 +1618,22 @@ describe("authenticated recall workspace", () => {
 
     const reloadedRecallContext = contexts.createRecallContext();
 
-    renderRoute(`/recall/repair/${practiceRepairEntryId}`, {
-      labelsContext,
-      notesContext,
-      recallContext: reloadedRecallContext,
-      session: createSession(),
-      studyNotesContext,
-    });
+    const secondRender = renderRoute(
+      `/recall/repair/${practiceRepairEntryId}`,
+      {
+        labelsContext,
+        notesContext,
+        recallContext: reloadedRecallContext,
+        session: createSession(),
+        studyNotesContext,
+      },
+    );
 
+    await waitFor(() => {
+      expect(secondRender.router.state.location.pathname).toBe(
+        canonicalRepairPath,
+      );
+    });
     expect(
       await screen.findByRole("heading", {
         level: 1,
@@ -1633,28 +1641,36 @@ describe("authenticated recall workspace", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "State ATP and explain that it stores transferable energy.",
-      ),
+      screen.getByRole("button", { name: /Recall again/ }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
         level: 2,
-        name: "What stores transferable energy?",
+        name: "Cell respiration source",
       }),
     ).toBeInTheDocument();
   });
 
-  it("renders the canonical Practice Repair workspace evidence shell for an active entry", async () => {
+  it("renders the canonical Practice Repair workspace as a compact repair card", async () => {
     const contexts = createDeterministicRecallTestContexts();
+    const biologyLabel = contexts.labelsContext.createLabel({
+      name: "Biology",
+      userId: testUser.id,
+    });
+    const nervousSystemLabel = contexts.labelsContext.createLabel({
+      name: "Nervous System",
+      userId: testUser.id,
+    });
     const weakStudyNote = contexts.studyNotesContext.createStudyNote(
       testUser.id,
       {
-        expectedAnswer: "ATP stores transferable energy for cells.",
-        prompt: "What stores transferable energy?",
-        sourceBody:
-          "Cell respiration source context with ATP transfer details.",
-        sourceTitle: "Cell respiration source",
+        expectedAnswer:
+          "An action potential has resting, depolarization, peak, repolarization, and hyperpolarization phases.",
+        labelIds: [biologyLabel.id, nervousSystemLabel.id],
+        prompt:
+          "List and briefly describe the phases of an action potential in a neuron.",
+        sourceBody: "Action potential source context with phase details.",
+        sourceTitle: "Action Potential Phases",
       },
     );
 
@@ -1666,7 +1682,7 @@ describe("authenticated recall workspace", () => {
 
     contexts.recallContext.updateFlashCardAttemptText({
       sessionId: session.id,
-      text: "ATP powers mitochondria.",
+      text: "",
       userId: testUser.id,
     });
     contexts.recallContext.revealFlashCardAnswer({
@@ -1674,26 +1690,23 @@ describe("authenticated recall workspace", () => {
       userId: testUser.id,
     });
     contexts.recallContext.rateFlashCardAnswer({
-      rating: "hard",
+      rating: "forgot",
       sessionId: session.id,
       userId: testUser.id,
     });
 
     const confirmedResult = confirmStudyNotePracticeRepair({
       correction:
-        "State ATP directly and anchor the answer to energy transfer.",
+        "Add the missing phase list and one short description for each phase.",
       contexts,
       intent: "tighten-expected-answer",
       studyNoteId: weakStudyNote.id,
     });
 
-    renderRoute(
-      `/recall/repair/${getConfirmedPracticeRepairEntryId(confirmedResult)}`,
-      {
-        ...contexts,
-        session: createSession(),
-      },
-    );
+    renderRoute(getConfirmedPracticeRepairPath(confirmedResult), {
+      ...contexts,
+      session: createSession(),
+    });
 
     expect(
       await screen.findByRole("heading", {
@@ -1708,59 +1721,63 @@ describe("authenticated recall workspace", () => {
     expect(
       within(evidence).getByRole("heading", {
         level: 2,
-        name: "What stores transferable energy?",
+        name: "Action Potential Phases",
       }),
     ).toBeInTheDocument();
     expect(
-      within(evidence).getByText("ATP powers mitochondria."),
-    ).toBeInTheDocument();
-    expect(
-      within(evidence).getByText("ATP stores transferable energy for cells."),
+      within(evidence).getByText("Biology · Nervous System"),
     ).toBeInTheDocument();
     expect(
       within(evidence).getByText(
-        "Cell respiration source context with ATP transfer details.",
+        "List and briefly describe the phases of an action potential in a neuron.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(evidence).getByText("No answer provided."),
+    ).toBeInTheDocument();
+    expect(
+      within(evidence).getByText(
+        "An action potential has resting, depolarization, peak, repolarization, and hyperpolarization phases.",
       ),
     ).toBeInTheDocument();
     expect(
       within(evidence).getByText(
-        "Needs practice is a signal to adjust and reinforce before the next recall.",
-      ),
-    ).toBeInTheDocument();
-
-    const actionArea = screen.getByRole("complementary", {
-      name: "Practice Repair actions",
-    });
-    expect(
-      within(actionArea).getByRole("heading", {
-        level: 2,
-        name: "Selected repair",
-      }),
-    ).toBeInTheDocument();
-    expect(within(actionArea).getByText("Entry state")).toBeInTheDocument();
-    expect(within(actionArea).getByText("Active")).toBeInTheDocument();
-    expect(
-      within(actionArea).getByText(
-        "State ATP directly and anchor the answer to energy transfer.",
+        "It's okay--weak recall is a signal to adjust and reinforce.",
       ),
     ).toBeInTheDocument();
     expect(
-      within(actionArea).getByRole("button", {
-        name: "Edit expected answer",
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "View note" })).toBeInTheDocument();
-    expect(
-      within(actionArea).getByRole("button", {
-        name: "Mark repair complete",
-      }),
+      within(evidence).getByText("Your last score: Forgot"),
     ).toBeInTheDocument();
     expect(
-      within(actionArea).getByRole("button", { name: "Dismiss repair" }),
+      screen.getByRole("complementary", {
+        name: "Practice Repair actions",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Selected repair")).toBeNull();
+    expect(screen.queryByText("Entry state")).toBeNull();
+    expect(screen.queryByText("Reference explanation")).not.toBeInTheDocument();
+    expect(
+      within(evidence).getByRole("link", { name: /View note/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(evidence).getByRole("link", { name: /Edit note/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(evidence).getByRole("button", { name: /Recall again/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(evidence).queryByText(
+        "Metaphors and acronyms are optional support material, not required.",
+      ),
+    ).toBeNull();
+    expect(
+      screen.getByText(
+        "Metaphors and acronyms are optional support material, not required.",
+      ),
     ).toBeInTheDocument();
   });
 
-  it("dismisses active Practice Repair from the workspace and removes it from the active queue", async () => {
+  it("starts targeted Recall again from the active compact Practice Repair card", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const weakStudyNote = contexts.studyNotesContext.createStudyNote(
       testUser.id,
@@ -1788,121 +1805,82 @@ describe("authenticated recall workspace", () => {
     });
 
     const { router } = renderRoute(
-      `/recall/repair/${getConfirmedPracticeRepairEntryId(confirmedResult)}`,
+      getConfirmedPracticeRepairPath(confirmedResult),
       {
         ...contexts,
         session: createSession(),
       },
     );
 
-    const actionArea = await screen.findByRole("complementary", {
-      name: "Practice Repair actions",
-    });
-
     fireEvent.click(
-      within(actionArea).getByRole("button", { name: "Dismiss repair" }),
+      await screen.findByRole("button", { name: /Recall again/ }),
     );
 
     await waitFor(() => {
-      expect(within(actionArea).getByText("Dismissed")).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe("/recall/session");
     });
-    expect(
-      within(actionArea).getByText(
-        "This repair was dismissed and remains here as historical evidence.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(actionArea).queryByRole("button", { name: "Dismiss repair" }),
-    ).toBeNull();
-
-    await router.navigate({ to: "/recall/repair" });
-
-    expect(
-      await screen.findByRole("heading", {
-        level: 1,
-        name: "Practice Repair Queue",
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "No active Practice Repair entries.",
-    );
   });
 
-  it("completes active Practice Repair through the persistent recall service and rerenders the completed workspace state", async () => {
-    let sessionResults = [
+  it("starts targeted Recall again from the active compact Practice Repair card through the persistent recall service", async () => {
+    const sessionResults = [
       createStoredPracticeRepairResult({
         correction:
           "State ATP directly and anchor the answer to energy transfer.",
         id: "persistent-practice-repair-result",
       }),
     ];
-    const completePracticeRepairEntry = vi.fn(async () => {
-      const existingResult = sessionResults[0];
-      const existingEntry = existingResult?.questions[0]?.practiceRepairEntry;
-
-      if (existingResult === undefined || existingEntry === undefined) {
-        throw new Error("Expected a stored Practice Repair result.");
-      }
-
-      const updatedResult = {
-        ...existingResult,
-        questions: existingResult.questions.map((question, index) =>
-          index === 0
-            ? {
-                ...question,
-                practiceRepairEntry: {
-                  ...existingEntry,
-                  lifecycle: {
-                    ...existingEntry.lifecycle,
-                    completedAt: "2026-05-18T09:00:00.000Z",
-                  },
-                },
-              }
-            : question,
-        ),
-      } satisfies SessionResult;
-
-      sessionResults = [updatedResult];
-
-      return updatedResult;
-    });
+    const startFlashCardSession = vi.fn(async () => ({
+      attempts: [],
+      createdAt: "2026-05-18T09:00:00.000Z",
+      currentIndex: 0,
+      currentQuestionIndex: 0,
+      id: "persistent-follow-up-session",
+      isAnswerRevealed: false,
+      mode: "FlashCard" as const,
+      notes: [
+        createStoredRecallNote({
+          id: "study-note-practice-repair",
+        }),
+      ],
+      questions: [
+        createStoredRecallQuestion({
+          note: createStoredRecallNote({
+            id: "study-note-practice-repair",
+          }),
+          score: null,
+          selfRating: null,
+        }),
+      ],
+    }));
     const persistentRecallContext = createPersistentRecallContext({
       service: createPersistentRecallService({
-        completePracticeRepairEntry,
         listSessionResults: vi.fn(async () => sessionResults),
+        startFlashCardSession,
       }),
     });
 
-    renderRoute(
-      `/recall/repair/${getConfirmedPracticeRepairEntryId(sessionResults[0])}`,
+    const { router } = renderRoute(
+      getConfirmedPracticeRepairPath(sessionResults[0]),
       {
         persistentRecallContext,
         session: createSession(),
       },
     );
 
-    const actionArea = await screen.findByRole("complementary", {
-      name: "Practice Repair actions",
-    });
-
     fireEvent.click(
-      within(actionArea).getByRole("button", {
-        name: "Mark repair complete",
-      }),
+      await screen.findByRole("button", { name: /Recall again/ }),
     );
 
     await waitFor(() => {
-      expect(within(actionArea).getByText("Completed")).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe("/recall/session");
     });
-    expect(completePracticeRepairEntry).toHaveBeenCalledWith({
-      reference: getConfirmedPracticeRepairReference(sessionResults[0]),
+    expect(startFlashCardSession).toHaveBeenCalledWith({
+      mode: "FlashCard",
+      studyNoteIds: ["study-note-practice-repair"],
     });
-    expect(
-      within(actionArea).getByRole("button", { name: "Recall again soon" }),
-    ).toBeInTheDocument();
   });
 
-  it("shows all Study Notes repair actions and keyboard-deep-links the chosen action with a return target", async () => {
+  it("deep-links Edit note with the saved repair intent and return target", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const weakStudyNote = contexts.studyNotesContext.createStudyNote(
       testUser.id,
@@ -1930,45 +1908,26 @@ describe("authenticated recall workspace", () => {
     });
     const practiceRepairEntryId =
       getConfirmedPracticeRepairEntryId(confirmedResult);
-    const { router } = renderRoute(`/recall/repair/${practiceRepairEntryId}`, {
-      ...contexts,
-      session: createSession(),
-    });
+    const { router } = renderRoute(
+      getConfirmedPracticeRepairPath(confirmedResult),
+      {
+        ...contexts,
+        session: createSession(),
+      },
+    );
 
-    const actionArea = await screen.findByRole("complementary", {
-      name: "Practice Repair actions",
-    });
-    expect(
-      within(actionArea).getByRole("button", {
-        name: "Edit expected answer",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      within(actionArea).getByRole("button", {
-        name: "Split this Study Note",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      within(actionArea).getByRole("button", {
-        name: "Create a sibling Study Note",
-      }),
-    ).toBeInTheDocument();
-    const addMemoryAidButton = within(actionArea).getByRole("button", {
-      name: "Add a memory aid",
-    });
-
-    fireEvent.keyDown(addMemoryAidButton, { key: "Enter" });
+    fireEvent.click(await screen.findByRole("link", { name: /Edit note/ }));
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/study-notes");
     });
     expect(router.state.location.search).toMatchObject({
-      practiceRepairAction: "add-memory-aid",
+      practiceRepairAction: "tighten-expected-answer",
       practiceRepairEntryId,
     });
   });
 
-  it("shows a clear historical lifecycle state for a completed Practice Repair workspace", async () => {
+  it("shows the next step for a completed Practice Repair workspace", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const weakStudyNote = contexts.studyNotesContext.createStudyNote(
       testUser.id,
@@ -2000,22 +1959,23 @@ describe("authenticated recall workspace", () => {
       userId: testUser.id,
     });
 
-    renderRoute(
-      `/recall/repair/${getConfirmedPracticeRepairEntryId(confirmedResult)}`,
-      {
-        ...contexts,
-        session: createSession(),
-      },
-    );
+    renderRoute(getConfirmedPracticeRepairPath(confirmedResult), {
+      ...contexts,
+      session: createSession(),
+    });
 
     const actionArea = await screen.findByRole("complementary", {
       name: "Practice Repair actions",
     });
-    expect(within(actionArea).getByText("Entry state")).toBeInTheDocument();
-    expect(within(actionArea).getByText("Completed")).toBeInTheDocument();
+    expect(within(actionArea).queryByText("Entry state")).toBeNull();
     expect(
       within(actionArea).getByText(
-        "The repair is complete. Recall again soon is the next step from here.",
+        "Use Recall again soon after the repair work is complete to test this Study Note again.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(actionArea).getByText(
+        "Results keeps the historical evidence. The follow-up closes only after you attempt recall again.",
       ),
     ).toBeInTheDocument();
   });
@@ -2055,7 +2015,7 @@ describe("authenticated recall workspace", () => {
     });
 
     const { router } = renderRoute(
-      `/recall/repair/${getConfirmedPracticeRepairEntryId(confirmedResult)}`,
+      getConfirmedPracticeRepairPath(confirmedResult),
       {
         ...contexts,
         session: createSession(),
@@ -2095,9 +2055,10 @@ describe("authenticated recall workspace", () => {
 
   it.each([
     {
-      expectedLabel: "Follow-up satisfied",
-      expectedSummary:
-        "A later recall attempt satisfied the follow-up and closed this repair loop.",
+      expectedNextStep:
+        "A later recall attempt closed this repair loop, so this entry stays available as history only.",
+      expectedSupport:
+        "Results keeps the historical evidence that led to this repair and the later recall that closed it.",
       lifecycle: {
         completedAt: "2026-05-18T08:45:00.000Z",
         followUpSatisfiedAt: "2026-05-18T09:00:00.000Z",
@@ -2105,17 +2066,18 @@ describe("authenticated recall workspace", () => {
       stateName: "follow-up-satisfied",
     },
     {
-      expectedLabel: "Study Note deleted",
-      expectedSummary:
-        "This Practice Repair is historical because its Study Note is no longer available.",
+      expectedNextStep:
+        "Use Results for the historical evidence because this Study Note is no longer available for active repair.",
+      expectedSupport:
+        "Results keeps the historical evidence even though the original Study Note no longer exists.",
       lifecycle: {
         studyNoteDeletedAt: "2026-05-18T09:00:00.000Z",
       },
       stateName: "deleted-note",
     },
-  ])("renders the $stateName Practice Repair workspace state as clear historical context", async ({
-    expectedLabel,
-    expectedSummary,
+  ])("renders the $stateName Practice Repair workspace with historical next steps", async ({
+    expectedNextStep,
+    expectedSupport,
     lifecycle,
     stateName,
   }) => {
@@ -2129,19 +2091,17 @@ describe("authenticated recall workspace", () => {
       }),
     });
 
-    renderRoute(
-      `/recall/repair/${getConfirmedPracticeRepairEntryId(storedResult)}`,
-      {
-        persistentRecallContext,
-        session: createSession(),
-      },
-    );
+    renderRoute(getConfirmedPracticeRepairPath(storedResult), {
+      persistentRecallContext,
+      session: createSession(),
+    });
 
     const actionArea = await screen.findByRole("complementary", {
       name: "Practice Repair actions",
     });
-    expect(within(actionArea).getByText(expectedLabel)).toBeInTheDocument();
-    expect(within(actionArea).getByText(expectedSummary)).toBeInTheDocument();
+    expect(within(actionArea).queryByText("Entry state")).toBeNull();
+    expect(within(actionArea).getByText(expectedNextStep)).toBeInTheDocument();
+    expect(within(actionArea).getByText(expectedSupport)).toBeInTheDocument();
     expect(
       within(actionArea).getByRole("link", { name: "Open Results" }),
     ).toBeInTheDocument();
@@ -2195,7 +2155,7 @@ describe("authenticated recall workspace", () => {
       }),
     });
     const { router } = renderRoute(
-      `/recall/repair/${getConfirmedPracticeRepairEntryId(supersededResult)}`,
+      getConfirmedPracticeRepairPath(supersededResult),
       {
         persistentRecallContext,
         session: createSession(),
@@ -2206,7 +2166,7 @@ describe("authenticated recall workspace", () => {
       name: "Practice Repair actions",
     });
 
-    expect(within(actionArea).getByText("Superseded")).toBeInTheDocument();
+    expect(within(actionArea).queryByText("Entry state")).toBeNull();
 
     fireEvent.click(
       within(actionArea).getByRole("link", {
@@ -2216,11 +2176,11 @@ describe("authenticated recall workspace", () => {
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe(
-        `/recall/repair/${getConfirmedPracticeRepairEntryId(newerResult)}`,
+        getConfirmedPracticeRepairPath(newerResult),
       );
     });
     expect(
-      await screen.findByRole("button", { name: "Mark repair complete" }),
+      await screen.findByRole("button", { name: /Recall again/ }),
     ).toBeInTheDocument();
   });
 
@@ -2846,8 +2806,7 @@ describe("authenticated recall workspace", () => {
       intent: "tighten-expected-answer",
       studyNoteId: practiceRepairStudyNote.id,
     });
-    const practiceRepairEntryId =
-      getConfirmedPracticeRepairEntryId(confirmedRepair);
+    const practiceRepairPath = getConfirmedPracticeRepairPath(confirmedRepair);
     const { router } = renderRoute("/recall/results", {
       ...contexts,
       session: createSession(),
@@ -2866,10 +2825,7 @@ describe("authenticated recall workspace", () => {
     const openPracticeRepairLink = within(selectedResult).getByRole("link", {
       name: "Open Practice Repair",
     });
-    expect(openPracticeRepairLink).toHaveAttribute(
-      "href",
-      `/recall/repair/${practiceRepairEntryId}`,
-    );
+    expect(openPracticeRepairLink).toHaveAttribute("href", practiceRepairPath);
 
     fireEvent.click(openPracticeRepairLink);
 
@@ -2879,9 +2835,7 @@ describe("authenticated recall workspace", () => {
         name: "Practice Repair",
       }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe(
-      `/recall/repair/${practiceRepairEntryId}`,
-    );
+    expect(router.state.location.pathname).toBe(practiceRepairPath);
   });
 
   it("selects the newest Result by default and changes selection without changing route", async () => {

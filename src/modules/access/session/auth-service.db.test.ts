@@ -62,6 +62,7 @@ describe("createAuthService PostgreSQL integration", () => {
 
     await caseyAuth.updatePreferences({
       displayName: "Casey Rivers",
+      showStudyNoteTemplates: false,
       userLanguage: "pt-PT",
       studyObjective: "specific_exam",
       studyIntensity: "light",
@@ -84,6 +85,7 @@ describe("createAuthService PostgreSQL integration", () => {
 
     await jordanAuth.updatePreferences({
       displayName: "Jordan Rivera",
+      showStudyNoteTemplates: true,
       userLanguage: "en",
       studyObjective: null,
       studyIntensity: null,
@@ -108,6 +110,7 @@ describe("createAuthService PostgreSQL integration", () => {
       user: {
         displayName: "Casey Rivers",
         email: "casey@example.com",
+        showStudyNoteTemplates: false,
         userLanguage: "pt-PT",
         studyObjective: "specific_exam",
         studyIntensity: "light",
@@ -118,6 +121,7 @@ describe("createAuthService PostgreSQL integration", () => {
       user: {
         displayName: "Jordan Rivera",
         email: "jordan@example.com",
+        showStudyNoteTemplates: true,
         userLanguage: "en",
         studyObjective: null,
         studyIntensity: null,

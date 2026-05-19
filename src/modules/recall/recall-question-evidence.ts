@@ -37,11 +37,3 @@ export function getRecallQuestionReferenceTitle(
 
   return question.noteSnapshot.title;
 }
-
-export function getRecallQuestionRecordedAnswer(
-  question: Pick<RecallQuestion, "typedAnswer">,
-) {
-  const typedAnswer = question.typedAnswer?.trim() ?? "";
-
-  return typedAnswer.length > 0 ? typedAnswer : "No answer recorded.";
-}
