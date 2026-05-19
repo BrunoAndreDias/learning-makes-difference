@@ -13,14 +13,16 @@ import {
 } from "../recall";
 import type { AppStudyNote } from "../study-notes";
 
+export type StudyGuidanceSignalId =
+  | "interleaving-ready"
+  | "needs-practice"
+  | "not-recalled-yet"
+  | "recall-today";
+
 export type StudyGuidanceStat = {
   count: number;
   detail: string;
-  id:
-    | "interleaving-ready"
-    | "needs-practice"
-    | "not-recalled-yet"
-    | "recall-today";
+  id: StudyGuidanceSignalId;
   label: string;
 };
 
@@ -36,6 +38,11 @@ export type StudyGuidanceTopic = {
   studyNoteCount: number;
   title: string;
 };
+
+export type StudyGuidanceTopicStat = Pick<
+  StudyGuidanceStat,
+  "count" | "id" | "label"
+>;
 
 export type StudyGuidance = {
   stats: readonly StudyGuidanceStat[];
@@ -65,26 +72,36 @@ type RecallGuidanceSignalCounts = {
   recallTodayCount: number;
 };
 
-const recallTodayStat: Omit<StudyGuidanceStat, "count"> = {
-  detail: "Recommended recall work exists today.",
-  id: "recall-today",
-  label: "Recall Today",
+type StudyGuidanceSignalDefinition = Omit<StudyGuidanceStat, "count"> & {
+  countKey: keyof RecallGuidanceSignalCounts;
 };
-const needsPracticeStat: Omit<StudyGuidanceStat, "count"> = {
-  detail: "Latest recall was Hard or Forgot.",
-  id: "needs-practice",
-  label: "Needs practice",
-};
-const notRecalledYetStat: Omit<StudyGuidanceStat, "count"> = {
-  detail: "No recall attempts yet.",
-  id: "not-recalled-yet",
-  label: "Not recalled yet",
-};
-const interleavingReadyStat: Omit<StudyGuidanceStat, "count"> = {
-  detail: "Ready for Interleaved Recall after repeated Good or Easy recalls.",
-  id: "interleaving-ready",
-  label: "Interleaved Recall",
-};
+
+const studyGuidanceSignalDefinitions = [
+  {
+    countKey: "recallTodayCount",
+    detail: "Recommended recall work exists today.",
+    id: "recall-today",
+    label: "Recall Today",
+  },
+  {
+    countKey: "needsPracticeCount",
+    detail: "Latest recall was Hard or Forgot.",
+    id: "needs-practice",
+    label: "Needs practice",
+  },
+  {
+    countKey: "notRecalledYetCount",
+    detail: "No recall attempts yet.",
+    id: "not-recalled-yet",
+    label: "Not recalled yet",
+  },
+  {
+    countKey: "interleavingReadyCount",
+    detail: "Ready for Interleaved Recall after repeated Good or Easy recalls.",
+    id: "interleaving-ready",
+    label: "Interleaved Recall",
+  },
+] as const satisfies readonly StudyGuidanceSignalDefinition[];
 
 function createTopicDrafts(input: {
   guidanceEntries: readonly RecallGuidanceEntry[];
@@ -151,6 +168,25 @@ function countRecallGuidanceSignals(
   return counts;
 }
 
+function createStudyGuidanceStats(
+  signalCounts: RecallGuidanceSignalCounts,
+): StudyGuidanceStat[] {
+  return studyGuidanceSignalDefinitions.map(({ countKey, ...stat }) => ({
+    ...stat,
+    count: signalCounts[countKey],
+  }));
+}
+
+export function getStudyGuidanceTopicStats(
+  topic: StudyGuidanceTopic,
+): StudyGuidanceTopicStat[] {
+  return studyGuidanceSignalDefinitions.map(({ countKey, id, label }) => ({
+    count: topic[countKey],
+    id,
+    label,
+  }));
+}
+
 function compareTopics(left: StudyGuidanceTopic, right: StudyGuidanceTopic) {
   return (
     right.needsPracticeCount - left.needsPracticeCount ||
@@ -195,24 +231,7 @@ export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
   const signalCounts = countRecallGuidanceSignals(recallGuidance);
 
   return {
-    stats: [
-      {
-        ...recallTodayStat,
-        count: signalCounts.recallTodayCount,
-      },
-      {
-        ...needsPracticeStat,
-        count: signalCounts.needsPracticeCount,
-      },
-      {
-        ...notRecalledYetStat,
-        count: signalCounts.notRecalledYetCount,
-      },
-      {
-        ...interleavingReadyStat,
-        count: signalCounts.interleavingReadyCount,
-      },
-    ],
+    stats: createStudyGuidanceStats(signalCounts),
     topics,
   };
 }

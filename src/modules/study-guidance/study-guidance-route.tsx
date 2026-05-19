@@ -9,7 +9,10 @@ import type { AppLabel } from "../labels/label-management/labels";
 import type { FlashCardRecallAttemptsByNote } from "../recall";
 import { listStudyNotesForUser } from "../study-notes";
 import "./study-guidance.css";
-import { deriveStudyGuidance } from "./study-guidance";
+import {
+  deriveStudyGuidance,
+  getStudyGuidanceTopicStats,
+} from "./study-guidance";
 
 export const Route = createFileRoute("/_protected/insights")({
   component: StudyGuidanceWorkspace,
@@ -167,22 +170,12 @@ function StudyGuidanceWorkspace() {
                     </ButtonLink>
                   </div>
                   <dl className="study-guidance-topic__stats">
-                    <div>
-                      <dt>Recall Today</dt>
-                      <dd>{formatCountLabel(topic.recallTodayCount)}</dd>
-                    </div>
-                    <div>
-                      <dt>Needs practice</dt>
-                      <dd>{formatCountLabel(topic.needsPracticeCount)}</dd>
-                    </div>
-                    <div>
-                      <dt>Not recalled yet</dt>
-                      <dd>{formatCountLabel(topic.notRecalledYetCount)}</dd>
-                    </div>
-                    <div>
-                      <dt>Interleaved Recall</dt>
-                      <dd>{formatCountLabel(topic.interleavingReadyCount)}</dd>
-                    </div>
+                    {getStudyGuidanceTopicStats(topic).map((stat) => (
+                      <div key={stat.id}>
+                        <dt>{stat.label}</dt>
+                        <dd>{formatCountLabel(stat.count)}</dd>
+                      </div>
+                    ))}
                   </dl>
                   {topic.recommendation === null ? null : (
                     <p className="study-guidance-topic__recommendation">

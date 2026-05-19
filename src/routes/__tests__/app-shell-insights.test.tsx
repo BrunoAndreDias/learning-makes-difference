@@ -251,32 +251,8 @@ describe("authenticated Study Guidance workspace", () => {
   });
 
   it("uses the four agreed factual signal labels in the Study Guidance summary", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-study-guidance-signal-labels";
-    const biology = contexts.labelsContext.createLabel({
-      name: "Biology",
-      userId,
-    });
-    const weakBiology = createRecallableStudyNote(contexts, {
-      expectedAnswer:
-        "Diffusion moves particles down a concentration gradient.",
-      labelIds: [biology.id],
-      prompt: "Diffusion vs. osmosis",
-      sourceBody: "Biology source explanation.",
-      sourceTitle: "Biology source",
-      userId,
-    });
-
-    completeStudyNoteRecall(contexts, {
-      rating: "hard",
-      studyNoteId: weakBiology.id,
-      timestamp: "2026-05-14T09:00:00.000Z",
-      userId,
-    });
-
-    vi.setSystemTime(new Date("2026-05-15T12:00:00.000Z"));
 
     renderRoute("/insights", {
       ...contexts,
@@ -295,10 +271,14 @@ describe("authenticated Study Guidance workspace", () => {
       name: "Study Guidance summary",
     });
 
-    expect(within(summary).getByText("Recall Today")).toBeInTheDocument();
-    expect(within(summary).getByText("Needs practice")).toBeInTheDocument();
-    expect(within(summary).getByText("Not recalled yet")).toBeInTheDocument();
-    expect(within(summary).getByText("Interleaved Recall")).toBeInTheDocument();
+    for (const label of [
+      "Recall Today",
+      "Needs practice",
+      "Not recalled yet",
+      "Interleaved Recall",
+    ]) {
+      expect(within(summary).getByText(label)).toBeInTheDocument();
+    }
     expect(within(summary).queryByText("Interleaving ready")).toBeNull();
   });
 });
