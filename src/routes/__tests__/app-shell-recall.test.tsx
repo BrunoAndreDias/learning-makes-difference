@@ -524,7 +524,7 @@ describe("authenticated recall workspace", () => {
       timestamp: "2026-04-05T09:00:00.000Z",
     });
 
-    renderRoute("/recall", {
+    renderRoute("/recall/results", {
       ...contexts,
       session: {
         user: {
@@ -766,7 +766,7 @@ describe("authenticated recall workspace", () => {
       timestamp: "2026-05-07T09:00:00.000Z",
     });
 
-    renderRoute("/recall", {
+    renderRoute("/recall/results", {
       ...contexts,
       sessionContext: createRouteHydratedSessionContext(createSession()),
     });
@@ -851,9 +851,9 @@ describe("authenticated recall workspace", () => {
       sourceTitle: "Edited glucose source note",
     });
 
-    renderRoute("/recall", { ...contexts, session: createSession() });
+    renderRoute("/recall/results", { ...contexts, session: createSession() });
 
-    await screen.findByRole("heading", { level: 3, name: "Recall" });
+    await screen.findByRole("region", { name: "Selected result" });
     fireEvent.change(screen.getByLabelText("Filter results by label"), {
       target: { value: label.id },
     });
@@ -2289,13 +2289,13 @@ describe("authenticated recall workspace", () => {
     expect(
       await screen.findByRole("heading", {
         level: 1,
-        name: "Recall Today",
+        name: "Due today",
       }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall");
+    expect(router.state.location.pathname).toBe("/recall/due-today");
     expect(
       screen.getByRole("navigation", { name: "Breadcrumb" }),
-    ).toHaveTextContent(/Recall\s*\/\s*Recall Today/);
+    ).toHaveTextContent(/Recall\s*\/\s*Due today/);
   });
 
   it("uses the route-hydrated session to load Recall setup notes immediately", async () => {
@@ -2328,7 +2328,7 @@ describe("authenticated recall workspace", () => {
       }),
     });
 
-    renderRoute("/recall", {
+    renderRoute("/recall/results", {
       persistentRecallContext,
       sessionContext: createRouteHydratedSessionContext(createSession()),
     });
@@ -2371,14 +2371,14 @@ describe("authenticated recall workspace", () => {
       }),
     });
 
-    const routeRender = renderRoute("/recall", {
+    const routeRender = renderRoute("/recall/results", {
       ...contexts,
       persistentRecallContext,
       session: createSession(),
     });
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Recall" }),
+      await screen.findByRole("region", { name: "Selected result" }),
     ).toBeInTheDocument();
 
     await routeRender.router.navigate({ to: "/study-notes" });
@@ -2398,10 +2398,10 @@ describe("authenticated recall workspace", () => {
       title: "Recall note",
     });
 
-    renderRoute("/recall", { ...contexts, session: createSession() });
+    renderRoute("/recall/results", { ...contexts, session: createSession() });
 
     expect(
-      await screen.findByRole("heading", { level: 3, name: "Recall" }),
+      await screen.findByRole("region", { name: "Recall results" }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("No results yet").length).toBeGreaterThan(0);
     expect(
@@ -2419,7 +2419,7 @@ describe("authenticated recall workspace", () => {
     expect(screen.queryByText(/Showing/)).toBeNull();
   });
 
-  it("explains empty Recall Today when Study Notes are not ready for recommended recall", async () => {
+  it("explains empty Due today when Study Notes are not schedule-due", async () => {
     const contexts = createDeterministicRecallTestContexts();
     contexts.studyNotesContext.createStudyNote(testUser.id, {
       expectedAnswer: " ",
@@ -2431,22 +2431,70 @@ describe("authenticated recall workspace", () => {
     renderRoute("/recall", { ...contexts, session: createSession() });
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Recall Today" }),
+      await screen.findByRole("heading", { level: 1, name: "Due today" }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Complete Study Notes with expected answers, then finish RecallSessions to create future Recall Today work.",
+        "Nothing is schedule-due right now. Start a custom recall session or return to Today for broader priorities.",
       ),
     ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Custom recall" })).toHaveAttribute(
+      "href",
+      "/recall/select",
+    );
     expect(
-      screen.getByRole("link", { name: "Manual selection" }),
-    ).toHaveAttribute("href", "/recall/select");
-    expect(
-      screen.queryByRole("button", { name: "Start Recall Session" }),
+      screen.queryByRole("button", { name: "Start due recall" }),
     ).toBeNull();
   });
 
-  it("opens Recall Today by default and starts a FlashCard session from its queue", async () => {
+  it("redirects /recall to /recall/due-today and exposes Due today and Results tabs only", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const dueToday = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Due today answer.",
+      labelIds: [],
+      prompt: "Due today prompt",
+      sourceBody: "Due today source.",
+      sourceTitle: "Due today source",
+    });
+
+    completeStudyNoteRecallAt({
+      rating: "good",
+      recallContext: contexts.recallContext,
+      studyNoteId: dueToday.id,
+      timestamp: "2026-05-14T09:00:00.000Z",
+    });
+    vi.setSystemTime(new Date("2026-05-15T10:00:00.000Z"));
+
+    const { router } = renderRoute("/recall", {
+      ...contexts,
+      session: {
+        user: {
+          ...testUser,
+          userTimeZone: "America/New_York",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Due today" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall/due-today");
+
+    const tabs = screen.getByRole("navigation", { name: "Recall pages" });
+    expect(
+      within(tabs).getByRole("link", { name: "Due today" }),
+    ).toHaveAttribute("href", "/recall/due-today");
+    expect(within(tabs).getByRole("link", { name: "Results" })).toHaveAttribute(
+      "href",
+      "/recall/results",
+    );
+    expect(
+      within(tabs).queryByRole("link", { name: "Select Study Notes" }),
+    ).toBeNull();
+    expect(within(tabs).queryByRole("link", { name: "Session" })).toBeNull();
+  });
+
+  it("opens Due today by default and starts a FlashCard session from its queue", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const needsPractice = createStudyNoteSnapshot(contexts, {
       expectedAnswer: "Needs practice answer.",
@@ -2502,82 +2550,50 @@ describe("authenticated recall workspace", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Recall Today" }),
+      await screen.findByRole("heading", { level: 1, name: "Due today" }),
     ).toBeInTheDocument();
     const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
     expect(
       within(breadcrumb).getByRole("link", { name: "Recall" }),
     ).toHaveAttribute("href", "/recall");
-    expect(within(breadcrumb).getByText("Recall Today")).toBeInTheDocument();
-    expect(screen.getByText("May 15, 2026")).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Manual selection" }),
-    ).toHaveAttribute("href", "/recall/select");
+    expect(within(breadcrumb).getByText("Due today")).toBeInTheDocument();
+    expect(screen.getAllByText("May 15, 2026").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "Custom recall" })).toHaveAttribute(
+      "href",
+      "/recall/select",
+    );
 
-    const summary = screen.getByRole("list", { name: "Recall Today summary" });
-    expect(within(summary).getByText("Recall today")).toBeInTheDocument();
-    expect(within(summary).getByText("3")).toBeInTheDocument();
-    expect(within(summary).getByText("Needs practice")).toBeInTheDocument();
-    expect(within(summary).getByText("Not recalled yet")).toBeInTheDocument();
-    expect(within(summary).getByText("Due for recall")).toBeInTheDocument();
+    const summary = screen.getByRole("list", { name: "Due today summary" });
+    expect(within(summary).getByText("Due now")).toBeInTheDocument();
+    expect(within(summary).getByText("2")).toBeInTheDocument();
+    expect(within(summary).getByText("Due today")).toBeInTheDocument();
 
-    const needsPracticeSection = screen.getByRole("region", {
-      name: "Needs practice",
+    const dueTodayQueue = screen.getByRole("region", {
+      name: "Due today queue",
     });
-    expect(needsPracticeSection).toHaveTextContent("Focus first");
-    expect(needsPracticeSection).toHaveTextContent("Needs practice prompt");
-    expect(needsPracticeSection).toHaveTextContent("Last score");
-    expect(needsPracticeSection).toHaveTextContent("Hard");
-    expect(needsPracticeSection).toHaveTextContent("Next recall");
-    expect(needsPracticeSection).toHaveTextContent("Today");
-
-    const notRecalledSection = screen.getByRole("region", {
-      name: "Not recalled yet",
-    });
-    expect(notRecalledSection).toHaveTextContent("Newly recallable");
-    expect(notRecalledSection).toHaveTextContent("Not recalled prompt");
-    expect(notRecalledSection).toHaveTextContent("Not attempted");
-    expect(notRecalledSection).toHaveTextContent("New");
-
-    const dueForRecallSection = screen.getByRole("region", {
-      name: "Due for recall",
-    });
-    expect(dueForRecallSection).toHaveTextContent("Scheduled for today");
-    expect(dueForRecallSection).toHaveTextContent("Due prompt");
-    expect(dueForRecallSection).toHaveTextContent("Good");
+    expect(dueTodayQueue).toHaveTextContent("Needs practice prompt");
+    expect(dueTodayQueue).toHaveTextContent("Due prompt");
+    expect(dueTodayQueue).toHaveTextContent("Last score");
+    expect(dueTodayQueue).toHaveTextContent("Scheduled");
+    expect(dueTodayQueue).not.toHaveTextContent("Not recalled prompt");
+    expect(dueTodayQueue).not.toHaveTextContent("Incomplete prompt");
 
     const helpPanel = screen.getByRole("complementary", {
-      name: "How Recall Works",
+      name: "How Due Today Works",
     });
     expect(helpPanel).toHaveTextContent("Answer is hidden");
     expect(helpPanel).toHaveTextContent("Self-rate your recall");
-    expect(helpPanel).toHaveTextContent("We schedule the rest");
+    expect(helpPanel).toHaveTextContent("Recall by schedule");
 
-    const items = [
-      within(needsPracticeSection).getByRole("listitem"),
-      within(notRecalledSection).getByRole("listitem"),
-      within(dueForRecallSection).getByRole("listitem"),
-    ];
-    expect(items).toHaveLength(3);
-    expect(items[0]).toHaveTextContent("Needs practice prompt");
-    expect(items[1]).toHaveTextContent("Not recalled prompt");
-    expect(items[2]).toHaveTextContent("Due prompt");
-    expect(screen.queryByText("Incomplete prompt")).toBeNull();
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Start Recall Session" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Start due recall" }));
 
     await screen.findByRole("heading", { level: 3, name: "Recall session" });
     expect(router.state.location.pathname).toBe("/recall/session");
-    expect(screen.getAllByText("Needs practice prompt").length).toBeGreaterThan(
-      0,
-    );
   });
 
-  it("exposes Practice Repair from Recall Today navigation and opens the Recall-owned queue", async () => {
+  it("keeps active unresolved Practice Repair work out of Due today", async () => {
     const contexts = createDeterministicRecallTestContexts();
-    const needsPractice = createStudyNoteSnapshot(contexts, {
+    const dueStudyNote = createStudyNoteSnapshot(contexts, {
       expectedAnswer: "Needs practice answer.",
       labelIds: [],
       prompt: "Needs practice prompt",
@@ -2588,58 +2604,35 @@ describe("authenticated recall workspace", () => {
     completeStudyNoteRecallAt({
       rating: "hard",
       recallContext: contexts.recallContext,
-      studyNoteId: needsPractice.id,
+      studyNoteId: dueStudyNote.id,
       timestamp: "2026-05-14T09:00:00.000Z",
+    });
+    confirmStudyNotePracticeRepair({
+      contexts,
+      correction: "Tighten the answer before recalling again.",
+      intent: "tighten-expected-answer",
+      studyNoteId: dueStudyNote.id,
     });
     vi.setSystemTime(new Date("2026-05-15T10:00:00.000Z"));
 
-    const { router } = renderRoute("/recall", {
+    renderRoute("/recall", {
       ...contexts,
-      session: createSession(),
+      session: {
+        user: {
+          ...testUser,
+          userTimeZone: "America/New_York",
+        },
+      },
     });
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Recall Today" }),
+      await screen.findByRole("heading", { level: 1, name: "Due today" }),
     ).toBeInTheDocument();
-
-    const sidebar = screen.getByRole("complementary", {
-      name: "Study Notes workspace",
-    });
-    const appSections = within(sidebar).getByRole("navigation", {
-      name: "App sections",
-    });
-    expect(
-      within(appSections).getByRole("link", { name: "Practice Repair" }),
-    ).toHaveAttribute("href", "/practice-repair");
-
-    const recallTodayHeading = screen.getByRole("heading", {
-      level: 1,
-      name: "Recall Today",
-    });
-    const recallTodaySurface = recallTodayHeading.closest("article");
-
-    if (recallTodaySurface === null) {
-      throw new Error("Expected the Recall Today surface.");
-    }
-
-    const practiceRepairLink = within(recallTodaySurface).getByRole("link", {
-      name: "Practice Repair",
-    });
-    expect(practiceRepairLink).toHaveAttribute("href", "/practice-repair");
-
-    fireEvent.click(practiceRepairLink);
-
-    expect(
-      await screen.findByRole("heading", {
-        level: 1,
-        name: "Practice Repair Queue",
-      }),
-    ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/practice-repair");
-    expect(screen.getByText("Needs practice prompt")).toBeInTheDocument();
+    expect(screen.queryByText("Needs practice prompt")).toBeNull();
+    expect(screen.getByText("No Due today work")).toBeInTheDocument();
   });
 
-  it("shows actionable Practice Follow-ups as the primary Recall Today reason with Needs practice as supporting context", async () => {
+  it("shows schedule-due Practice Follow-ups in Due today without Practice Follow-up labels", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const practiceFollowUp = contexts.studyNotesContext.createStudyNote(
       testUser.id,
@@ -2697,36 +2690,15 @@ describe("authenticated recall workspace", () => {
       },
     });
 
-    const summary = await screen.findByRole("list", {
-      name: "Recall Today summary",
+    const dueTodayQueue = await screen.findByRole("region", {
+      name: "Due today queue",
     });
-    expect(within(summary).getByText("Practice Follow-up")).toBeInTheDocument();
-
-    const practiceFollowUpSection = screen.getByRole("region", {
-      name: "Practice Follow-up",
-    });
-    expect(practiceFollowUpSection).toHaveTextContent("Retry after repair");
-    expect(practiceFollowUpSection).toHaveTextContent(
-      "What stores transferable energy?",
-    );
-    expect(practiceFollowUpSection).toHaveTextContent("Practice Follow-up");
-    expect(practiceFollowUpSection).toHaveTextContent(
-      "State ATP and explain that it stores transferable energy.",
-    );
-    expect(practiceFollowUpSection).toHaveTextContent("Needs practice");
-
-    const needsPracticeSection = screen.getByRole("region", {
-      name: "Needs practice",
-    });
-    expect(needsPracticeSection).toHaveTextContent(
-      "What organelle generates ATP?",
-    );
-    expect(needsPracticeSection).not.toHaveTextContent(
-      "What stores transferable energy?",
-    );
+    expect(dueTodayQueue).toHaveTextContent("What stores transferable energy?");
+    expect(dueTodayQueue).toHaveTextContent("What organelle generates ATP?");
+    expect(dueTodayQueue).not.toHaveTextContent("Practice Follow-up");
   });
 
-  it("removes satisfied Practice Follow-ups from Recall Today after later same-Study-Note recall", async () => {
+  it("keeps schedule-future Practice Follow-ups out of Due today", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const practiceFollowUp = contexts.studyNotesContext.createStudyNote(
       testUser.id,
@@ -2757,13 +2729,7 @@ describe("authenticated recall workspace", () => {
       userId: testUser.id,
     });
 
-    completeStudyNoteRecallAt({
-      rating: "hard",
-      recallContext: contexts.recallContext,
-      studyNoteId: practiceFollowUp.id,
-      timestamp: "2026-05-15T09:00:00.000Z",
-    });
-    vi.setSystemTime(new Date("2026-05-15T10:00:00.000Z"));
+    vi.setSystemTime(new Date("2026-05-14T10:00:00.000Z"));
 
     renderRoute("/recall", {
       ...contexts,
@@ -2775,18 +2741,8 @@ describe("authenticated recall workspace", () => {
       },
     });
 
-    const needsPracticeSection = await screen.findByRole("region", {
-      name: "Needs practice",
-    });
-    expect(needsPracticeSection).toHaveTextContent(
-      "What stores transferable energy?",
-    );
-
-    expect(
-      screen.queryByRole("region", {
-        name: "Practice Follow-up",
-      }),
-    ).toBeNull();
+    expect(await screen.findByText("No Due today work")).toBeInTheDocument();
+    expect(screen.queryByText("What stores transferable energy?")).toBeNull();
   });
 
   it("keeps completed Practice Follow-ups visible in Results context", async () => {
@@ -2921,7 +2877,7 @@ describe("authenticated recall workspace", () => {
       timestamp: "2026-04-02T09:00:00.000Z",
     });
 
-    const { router } = renderRoute("/recall", {
+    const { router } = renderRoute("/recall/results", {
       ...contexts,
       session: createSession(),
     });
@@ -2938,7 +2894,7 @@ describe("authenticated recall workspace", () => {
     const resultButtons = within(results).getAllByRole("button");
     fireEvent.click(resultButtons[1]);
 
-    expect(router.state.location.pathname).toBe("/recall");
+    expect(router.state.location.pathname).toBe("/recall/results");
     expect(
       within(detail).getAllByText("Older result note").length,
     ).toBeGreaterThan(0);
@@ -2973,9 +2929,9 @@ describe("authenticated recall workspace", () => {
       timestamp: "2026-04-03T09:00:00.000Z",
     });
 
-    renderRoute("/recall", { ...contexts, session: createSession() });
+    renderRoute("/recall/results", { ...contexts, session: createSession() });
 
-    await screen.findByRole("heading", { level: 3, name: "Recall" });
+    await screen.findByRole("region", { name: "Recall results" });
     fireEvent.change(screen.getByLabelText("Filter results by label"), {
       target: { value: label.id },
     });

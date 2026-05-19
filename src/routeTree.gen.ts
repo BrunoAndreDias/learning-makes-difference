@@ -25,8 +25,9 @@ import { Route as modulesAccessPublicEntryPublicIndexRouteRouteImport } from './
 import { Route as modulesRecallRecallSessionRouteRouteImport } from './modules/recall/recall-session-route'
 import { Route as modulesRecallRecallSelectionRouteRouteImport } from './modules/recall/recall-selection-route'
 import { Route as modulesRecallRecallResultsRouteRouteImport } from './modules/recall/recall-results-route'
+import { Route as modulesRecallRecallDueTodayRouteRouteImport } from './modules/recall/recall-due-today-route'
 import { Route as modulesRecallRecallPracticeRepairRouteRouteImport } from './modules/recall/recall-practice-repair-route'
-import { Route as modulesRecallRecallResultsWorkspaceRouteRouteImport } from './modules/recall/recall-results-workspace-route'
+import { Route as modulesRecallRecallIndexRouteRouteImport } from './modules/recall/recall-index-route'
 import { Route as modulesRecallRecallPracticeRepairDraftRouteRouteImport } from './modules/recall/recall-practice-repair-draft-route'
 
 const modulesAccessPublicEntryPublicLayoutRouteRoute =
@@ -121,14 +122,20 @@ const modulesRecallRecallResultsRouteRoute =
     path: '/results',
     getParentRoute: () => modulesRecallRecallRouteRoute,
   } as any)
+const modulesRecallRecallDueTodayRouteRoute =
+  modulesRecallRecallDueTodayRouteRouteImport.update({
+    id: '/due-today',
+    path: '/due-today',
+    getParentRoute: () => modulesRecallRecallRouteRoute,
+  } as any)
 const modulesRecallRecallPracticeRepairRouteRoute =
   modulesRecallRecallPracticeRepairRouteRouteImport.update({
     id: '/practice-repair/$practiceRepairEntryId',
     path: '/practice-repair/$practiceRepairEntryId',
     getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
   } as any)
-const modulesRecallRecallResultsWorkspaceRouteRoute =
-  modulesRecallRecallResultsWorkspaceRouteRouteImport.update({
+const modulesRecallRecallIndexRouteRoute =
+  modulesRecallRecallIndexRouteRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => modulesRecallRecallRouteRoute,
@@ -151,8 +158,9 @@ export interface FileRoutesByFullPath {
   '/settings': typeof modulesAccessSessionSettingsRouteRoute
   '/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
   '/today': typeof modulesStudyGuidanceStudyGuidanceRouteRoute
-  '/recall/': typeof modulesRecallRecallResultsWorkspaceRouteRoute
+  '/recall/': typeof modulesRecallRecallIndexRouteRoute
   '/practice-repair/$practiceRepairEntryId': typeof modulesRecallRecallPracticeRepairRouteRoute
+  '/recall/due-today': typeof modulesRecallRecallDueTodayRouteRoute
   '/recall/results': typeof modulesRecallRecallResultsRouteRoute
   '/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/recall/session': typeof modulesRecallRecallSessionRouteRoute
@@ -168,8 +176,9 @@ export interface FileRoutesByTo {
   '/settings': typeof modulesAccessSessionSettingsRouteRoute
   '/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
   '/today': typeof modulesStudyGuidanceStudyGuidanceRouteRoute
-  '/recall': typeof modulesRecallRecallResultsWorkspaceRouteRoute
+  '/recall': typeof modulesRecallRecallIndexRouteRoute
   '/practice-repair/$practiceRepairEntryId': typeof modulesRecallRecallPracticeRepairRouteRoute
+  '/recall/due-today': typeof modulesRecallRecallDueTodayRouteRoute
   '/recall/results': typeof modulesRecallRecallResultsRouteRoute
   '/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/recall/session': typeof modulesRecallRecallSessionRouteRoute
@@ -190,8 +199,9 @@ export interface FileRoutesById {
   '/_protected/settings': typeof modulesAccessSessionSettingsRouteRoute
   '/_protected/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
   '/_protected/today': typeof modulesStudyGuidanceStudyGuidanceRouteRoute
-  '/_protected/recall/': typeof modulesRecallRecallResultsWorkspaceRouteRoute
+  '/_protected/recall/': typeof modulesRecallRecallIndexRouteRoute
   '/_protected/practice-repair/$practiceRepairEntryId': typeof modulesRecallRecallPracticeRepairRouteRoute
+  '/_protected/recall/due-today': typeof modulesRecallRecallDueTodayRouteRoute
   '/_protected/recall/results': typeof modulesRecallRecallResultsRouteRoute
   '/_protected/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/_protected/recall/session': typeof modulesRecallRecallSessionRouteRoute
@@ -212,6 +222,7 @@ export interface FileRouteTypes {
     | '/today'
     | '/recall/'
     | '/practice-repair/$practiceRepairEntryId'
+    | '/recall/due-today'
     | '/recall/results'
     | '/recall/select'
     | '/recall/session'
@@ -229,6 +240,7 @@ export interface FileRouteTypes {
     | '/today'
     | '/recall'
     | '/practice-repair/$practiceRepairEntryId'
+    | '/recall/due-today'
     | '/recall/results'
     | '/recall/select'
     | '/recall/session'
@@ -250,6 +262,7 @@ export interface FileRouteTypes {
     | '/_protected/today'
     | '/_protected/recall/'
     | '/_protected/practice-repair/$practiceRepairEntryId'
+    | '/_protected/recall/due-today'
     | '/_protected/recall/results'
     | '/_protected/recall/select'
     | '/_protected/recall/session'
@@ -376,6 +389,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof modulesRecallRecallResultsRouteRouteImport
       parentRoute: typeof modulesRecallRecallRouteRoute
     }
+    '/_protected/recall/due-today': {
+      id: '/_protected/recall/due-today'
+      path: '/due-today'
+      fullPath: '/recall/due-today'
+      preLoaderRoute: typeof modulesRecallRecallDueTodayRouteRouteImport
+      parentRoute: typeof modulesRecallRecallRouteRoute
+    }
     '/_protected/practice-repair/$practiceRepairEntryId': {
       id: '/_protected/practice-repair/$practiceRepairEntryId'
       path: '/practice-repair/$practiceRepairEntryId'
@@ -387,7 +407,7 @@ declare module '@tanstack/react-router' {
       id: '/_protected/recall/'
       path: '/'
       fullPath: '/recall/'
-      preLoaderRoute: typeof modulesRecallRecallResultsWorkspaceRouteRouteImport
+      preLoaderRoute: typeof modulesRecallRecallIndexRouteRouteImport
       parentRoute: typeof modulesRecallRecallRouteRoute
     }
     '/_protected/practice-repair/results/$sessionResultId/questions/$questionResultId': {
@@ -421,7 +441,8 @@ const modulesAccessSessionAuthLayoutRouteRouteWithChildren =
   )
 
 interface modulesRecallRecallRouteRouteChildren {
-  modulesRecallRecallResultsWorkspaceRouteRoute: typeof modulesRecallRecallResultsWorkspaceRouteRoute
+  modulesRecallRecallIndexRouteRoute: typeof modulesRecallRecallIndexRouteRoute
+  modulesRecallRecallDueTodayRouteRoute: typeof modulesRecallRecallDueTodayRouteRoute
   modulesRecallRecallResultsRouteRoute: typeof modulesRecallRecallResultsRouteRoute
   modulesRecallRecallSelectionRouteRoute: typeof modulesRecallRecallSelectionRouteRoute
   modulesRecallRecallSessionRouteRoute: typeof modulesRecallRecallSessionRouteRoute
@@ -429,8 +450,9 @@ interface modulesRecallRecallRouteRouteChildren {
 
 const modulesRecallRecallRouteRouteChildren: modulesRecallRecallRouteRouteChildren =
   {
-    modulesRecallRecallResultsWorkspaceRouteRoute:
-      modulesRecallRecallResultsWorkspaceRouteRoute,
+    modulesRecallRecallIndexRouteRoute: modulesRecallRecallIndexRouteRoute,
+    modulesRecallRecallDueTodayRouteRoute:
+      modulesRecallRecallDueTodayRouteRoute,
     modulesRecallRecallResultsRouteRoute: modulesRecallRecallResultsRouteRoute,
     modulesRecallRecallSelectionRouteRoute:
       modulesRecallRecallSelectionRouteRoute,

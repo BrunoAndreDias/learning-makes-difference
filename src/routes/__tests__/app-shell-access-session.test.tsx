@@ -483,15 +483,11 @@ describe("authenticated app shell", () => {
       screen.getByRole("form", { name: "Formulario de inicio de sesion" }),
     );
 
-    expect(
-      await screen.findByRole("heading", {
-        level: 3,
-        name: "Recall starts with Study Notes",
-      }),
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/recall/due-today");
+    });
     expect(screen.getByText("Skip to main content")).toBeInTheDocument();
     expect(screen.getByText("Jordan Review")).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall");
   });
 
   it("shows serialized authentication errors from the login service", async () => {

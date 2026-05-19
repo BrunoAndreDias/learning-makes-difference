@@ -7,6 +7,7 @@ import {
   type ReactNode,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -40,6 +41,8 @@ const recallRatingOptions = [
   "good",
   "easy",
 ] as const satisfies readonly FlashCardRecallRating[];
+const recallDueTodayPath = "/recall/due-today";
+const recallResultsPath = "/recall/results";
 
 export const Route = createFileRoute("/_protected/recall/session")({
   component: RecallSessionPage,
@@ -137,13 +140,17 @@ function RecallSessionPage() {
     useState<FlashCardRecallRating | null>(null);
   const [isEndDialogOpen, setEndDialogOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const sessionExitTargetRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (activeSession !== null) {
       return;
     }
 
-    void navigate({ replace: true, to: "/recall" });
+    void navigate({
+      replace: true,
+      to: sessionExitTargetRef.current ?? recallDueTodayPath,
+    });
   }, [activeSession, navigate]);
 
   useEffect(() => {
@@ -210,6 +217,11 @@ function RecallSessionPage() {
     }
 
     try {
+      const exitTarget =
+        activeSession.attempts.length > 0
+          ? recallResultsPath
+          : recallDueTodayPath;
+      sessionExitTargetRef.current = exitTarget;
       let nextSession: RecallSession | null;
 
       if (persistentRecallContext === undefined) {
@@ -232,9 +244,13 @@ function RecallSessionPage() {
         if (activeSession.attempts.length > 0) {
           setRecallSavedMessage();
         }
-        await navigate({ to: "/recall" });
+        await navigate({ to: exitTarget });
+        return;
       }
+
+      sessionExitTargetRef.current = null;
     } catch (error) {
+      sessionExitTargetRef.current = null;
       handleRecallError(error);
     }
   }
@@ -250,6 +266,7 @@ function RecallSessionPage() {
     }
 
     try {
+      sessionExitTargetRef.current = recallResultsPath;
       let nextSession: RecallSession | null;
 
       if (persistentRecallContext === undefined) {
@@ -273,9 +290,13 @@ function RecallSessionPage() {
 
       if (nextSession === null) {
         setRecallSavedMessage();
-        await navigate({ to: "/recall" });
+        await navigate({ to: recallResultsPath });
+        return;
       }
+
+      sessionExitTargetRef.current = null;
     } catch (error) {
+      sessionExitTargetRef.current = null;
       handleRecallError(error);
     }
   }
@@ -286,6 +307,11 @@ function RecallSessionPage() {
     }
 
     try {
+      const exitTarget =
+        activeSession.attempts.length > 0
+          ? recallResultsPath
+          : recallDueTodayPath;
+      sessionExitTargetRef.current = exitTarget;
       if (persistentRecallContext === undefined) {
         recallContext.endFlashCardSession({
           sessionId: activeSession.id,
@@ -303,8 +329,9 @@ function RecallSessionPage() {
 
       setFeedbackMessage(null);
       setEndDialogOpen(false);
-      await navigate({ to: "/recall" });
+      await navigate({ to: exitTarget });
     } catch (error) {
+      sessionExitTargetRef.current = null;
       handleRecallError(error);
     }
   }

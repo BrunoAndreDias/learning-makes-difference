@@ -73,20 +73,12 @@ const globalNavigationItems = [
 
 const recallSubNavigationItems = [
   {
-    labelKey: "recall.today.title",
-    to: appRoutePaths.recall,
+    labelKey: "recall.dueToday.title",
+    to: "/recall/due-today",
   },
   {
-    labelKey: "recall.results",
+    labelKey: "recall.tabs.results",
     to: "/recall/results",
-  },
-  {
-    labelKey: "shell.workspace.recallSetup",
-    to: "/recall/select",
-  },
-  {
-    labelKey: "shell.workspace.recallSession",
-    to: "/recall/session",
   },
 ] as const;
 
@@ -142,6 +134,10 @@ function isRecallWorkspacePath(pathname: string) {
   return isWorkspacePath(pathname, appRoutePaths.recall);
 }
 
+function isRecallSurfacePath(pathname: string) {
+  return pathname === "/recall/due-today" || pathname === "/recall/results";
+}
+
 function isFocusWorkspacePath(pathname: string) {
   return isWorkspacePath(pathname, appRoutePaths.focus);
 }
@@ -165,7 +161,7 @@ function getWorkspaceFrameName(
     return "notes";
   }
 
-  if (pathname === appRoutePaths.recall) {
+  if (pathname === appRoutePaths.recall || isRecallSurfacePath(pathname)) {
     return "recall-results";
   }
 
@@ -658,9 +654,7 @@ function GlobalNavigation({
                 {recallSubNavigationItems.map((subNavigationItem) => (
                   <li key={subNavigationItem.to}>
                     <Link
-                      activeOptions={{
-                        exact: subNavigationItem.to === appRoutePaths.recall,
-                      }}
+                      activeOptions={{ exact: true }}
                       activeProps={{
                         className:
                           "app-sidebar__sublink app-sidebar__sublink-active",

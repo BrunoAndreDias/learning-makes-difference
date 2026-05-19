@@ -38,7 +38,7 @@ function getRecallTodayReasonPriority(reason: RecallTodayReason) {
   return recallTodayReasonPriority[reason];
 }
 
-export function getPrimaryRecallTodayReason(item: {
+function getPrimaryRecallTodayReason(item: {
   reasons: readonly RecallTodayReason[];
 }): RecallTodayReason {
   let primaryReason: RecallTodayReason | null = null;

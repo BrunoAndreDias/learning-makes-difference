@@ -331,6 +331,41 @@ const englishTranslations = {
   "recall.results": "Recall results",
   "recall.results.description":
     "Review past results or start a new recall session.",
+  "recall.tabs": "Recall pages",
+  "recall.tabs.results": "Results",
+  "recall.dueToday.description":
+    "Study Notes whose Recall Schedule is due today or overdue.",
+  "recall.dueToday.emptyBody":
+    "Nothing is schedule-due right now. Start a custom recall session or return to Today for broader priorities.",
+  "recall.dueToday.emptyTitle": "No Due today work",
+  "recall.dueToday.helper":
+    "Only schedule-due Study Notes appear here. Active repair stays in Today and Practice Repair.",
+  "recall.dueToday.how.hidden.body":
+    "You'll see the prompt first. The answer is revealed only after you try to recall.",
+  "recall.dueToday.how.hidden.title": "Answer is hidden",
+  "recall.dueToday.how.rate.body":
+    "After answering, rate your recall as Forgot, Hard, Good, or Easy.",
+  "recall.dueToday.how.rate.title": "Self-rate your recall",
+  "recall.dueToday.how.schedule.body":
+    "This queue shows only Study Notes whose schedule is due now. Your next recall updates automatically after each attempt.",
+  "recall.dueToday.how.schedule.title": "Recall by schedule",
+  "recall.dueToday.how.tip":
+    "Keep repair and follow-up work in Today and Practice Repair, then return here for scheduled recall.",
+  "recall.dueToday.how.title": "How Due Today Works",
+  "recall.dueToday.lastScore": "Last score",
+  "recall.dueToday.manualSelection": "Custom recall",
+  "recall.dueToday.metric.dueToday": "Due today",
+  "recall.dueToday.metric.overdue": "Overdue",
+  "recall.dueToday.metric.total": "Due now",
+  "recall.dueToday.queue": "Due today queue",
+  "recall.dueToday.queueTitle": "Scheduled recall",
+  "recall.dueToday.scheduled": "Scheduled",
+  "recall.dueToday.start": "Start due recall",
+  "recall.dueToday.status.dueToday": "Due today",
+  "recall.dueToday.status.label": "Status",
+  "recall.dueToday.status.overdue": "Overdue",
+  "recall.dueToday.summary": "Due today summary",
+  "recall.dueToday.title": "Due today",
   "recall.today.actions": "Recall Today actions",
   "recall.today.description":
     "Your recommended recall queue for today. Focus on what matters most.",
@@ -813,6 +848,41 @@ const portugueseTranslations = {
   "recall.results": "Resultados de recordacao",
   "recall.results.description":
     "Reveja resultados anteriores ou inicie uma nova sessao de recordacao.",
+  "recall.tabs": "Paginas de recordacao",
+  "recall.tabs.results": "Resultados",
+  "recall.dueToday.description":
+    "Notas de estudo cujo agendamento de recordacao vence hoje ou esta em atraso.",
+  "recall.dueToday.emptyBody":
+    "Nao ha trabalho agendado para agora. Inicie uma sessao de recordacao personalizada ou volte a Hoje para prioridades mais amplas.",
+  "recall.dueToday.emptyTitle": "Sem trabalho devido hoje",
+  "recall.dueToday.helper":
+    "Aqui aparecem apenas notas de estudo devidas pelo agendamento. Reparacao ativa fica em Hoje e Practice Repair.",
+  "recall.dueToday.how.hidden.body":
+    "Vera primeiro o enunciado. A resposta so aparece depois de tentar recordar.",
+  "recall.dueToday.how.hidden.title": "A resposta fica oculta",
+  "recall.dueToday.how.rate.body":
+    "Depois de responder, avalie a recordacao como Esqueci, Dificil, Bom ou Facil.",
+  "recall.dueToday.how.rate.title": "Autoavalie a sua recordacao",
+  "recall.dueToday.how.schedule.body":
+    "Esta fila mostra apenas notas de estudo cujo agendamento vence agora. A proxima recordacao atualiza-se automaticamente apos cada tentativa.",
+  "recall.dueToday.how.schedule.title": "Recordar por agendamento",
+  "recall.dueToday.how.tip":
+    "Mantenha reparacoes e seguimentos em Hoje e Practice Repair, depois volte aqui para a recordacao agendada.",
+  "recall.dueToday.how.title": "Como funciona Devido hoje",
+  "recall.dueToday.lastScore": "Ultima pontuacao",
+  "recall.dueToday.manualSelection": "Recordacao personalizada",
+  "recall.dueToday.metric.dueToday": "Devido hoje",
+  "recall.dueToday.metric.overdue": "Em atraso",
+  "recall.dueToday.metric.total": "Devido agora",
+  "recall.dueToday.queue": "Fila de Devido hoje",
+  "recall.dueToday.queueTitle": "Recordacao agendada",
+  "recall.dueToday.scheduled": "Agendada",
+  "recall.dueToday.start": "Iniciar recordacao devida",
+  "recall.dueToday.status.dueToday": "Devido hoje",
+  "recall.dueToday.status.label": "Estado",
+  "recall.dueToday.status.overdue": "Em atraso",
+  "recall.dueToday.summary": "Resumo de Devido hoje",
+  "recall.dueToday.title": "Devido hoje",
   "recall.today.actions": "Acoes de Recordar Hoje",
   "recall.today.description":
     "A sua fila de recordacao recomendada para hoje. Foque-se no que importa mais.",
@@ -1300,6 +1370,41 @@ const spanishTranslations = {
   "recall.results": "Resultados de repaso",
   "recall.results.description":
     "Revisa resultados anteriores o inicia una nueva sesion de repaso.",
+  "recall.tabs": "Paginas de repaso",
+  "recall.tabs.results": "Resultados",
+  "recall.dueToday.description":
+    "Notas de estudio cuyo calendario de repaso vence hoy o esta atrasado.",
+  "recall.dueToday.emptyBody":
+    "No hay trabajo programado para ahora. Inicia una sesion de repaso personalizada o vuelve a Hoy para prioridades mas amplias.",
+  "recall.dueToday.emptyTitle": "Sin trabajo pendiente hoy",
+  "recall.dueToday.helper":
+    "Aqui solo aparecen notas de estudio pendientes por calendario. La reparacion activa se queda en Hoy y Practice Repair.",
+  "recall.dueToday.how.hidden.body":
+    "Veras primero el enunciado. La respuesta solo aparece despues de intentar recordar.",
+  "recall.dueToday.how.hidden.title": "La respuesta esta oculta",
+  "recall.dueToday.how.rate.body":
+    "Despues de responder, califica tu repaso como Olvidado, Dificil, Bien o Facil.",
+  "recall.dueToday.how.rate.title": "Autoevalua tu repaso",
+  "recall.dueToday.how.schedule.body":
+    "Esta cola muestra solo notas de estudio cuyo calendario vence ahora. Tu proximo repaso se actualiza automaticamente despues de cada intento.",
+  "recall.dueToday.how.schedule.title": "Repasar por calendario",
+  "recall.dueToday.how.tip":
+    "Mantem el trabajo de reparacion y seguimiento en Hoy y Practice Repair, y vuelve aqui para el repaso programado.",
+  "recall.dueToday.how.title": "Como funciona Pendiente hoy",
+  "recall.dueToday.lastScore": "Ultima puntuacion",
+  "recall.dueToday.manualSelection": "Repaso personalizado",
+  "recall.dueToday.metric.dueToday": "Pendiente hoy",
+  "recall.dueToday.metric.overdue": "Atrasado",
+  "recall.dueToday.metric.total": "Pendiente ahora",
+  "recall.dueToday.queue": "Cola de Pendiente hoy",
+  "recall.dueToday.queueTitle": "Repaso programado",
+  "recall.dueToday.scheduled": "Programado",
+  "recall.dueToday.start": "Iniciar repaso pendiente",
+  "recall.dueToday.status.dueToday": "Pendiente hoy",
+  "recall.dueToday.status.label": "Estado",
+  "recall.dueToday.status.overdue": "Atrasado",
+  "recall.dueToday.summary": "Resumen de Pendiente hoy",
+  "recall.dueToday.title": "Pendiente hoy",
   "recall.today.actions": "Acciones de Repasar Hoy",
   "recall.today.description":
     "Tu cola de repaso recomendada para hoy. Enfocate en lo que mas importa.",

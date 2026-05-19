@@ -377,7 +377,7 @@ describe("authenticated recall workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
     fireEvent.click(screen.getByRole("button", { name: "Next Study Note" }));
 
-    expect(router.state.location.pathname).toBe("/recall");
+    expect(router.state.location.pathname).toBe("/recall/results");
     expect(
       await screen.findByText("Recall session saved to results"),
     ).toBeInTheDocument();
@@ -494,7 +494,7 @@ describe("authenticated recall workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next Study Note" }));
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/recall");
+      expect(router.state.location.pathname).toBe("/recall/results");
     });
     expect(
       contexts.recallContext.listPracticeRepairEntriesForQuestion({
@@ -542,7 +542,7 @@ describe("authenticated recall workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
     fireEvent.click(screen.getByRole("button", { name: "Next Study Note" }));
 
-    expect(router.state.location.pathname).toBe("/recall");
+    expect(router.state.location.pathname).toBe("/recall/results");
     const selectedResult = await screen.findByRole("region", {
       name: "Selected result",
     });
@@ -588,7 +588,7 @@ describe("authenticated recall workspace", () => {
       timestamp: "2026-04-05T09:00:00.000Z",
     });
 
-    renderRoute("/recall", {
+    renderRoute("/recall/results", {
       ...contexts,
       session: createSession(),
     });
@@ -643,7 +643,7 @@ describe("authenticated recall workspace", () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Discard session" }));
 
-    expect(router.state.location.pathname).toBe("/recall");
+    expect(router.state.location.pathname).toBe("/recall/due-today");
     expect(
       contexts.recallContext.listSessionResults({ userId: testUser.id }),
     ).toEqual([]);
@@ -663,7 +663,7 @@ describe("authenticated recall workspace", () => {
       timestamp: "2026-04-04T09:00:00.000Z",
     });
 
-    renderRoute("/recall", {
+    renderRoute("/recall/results", {
       ...contexts,
       session: createSession(),
     });
@@ -732,7 +732,7 @@ describe("authenticated recall workspace", () => {
       userId: testUser.id,
     });
 
-    renderRoute("/recall", {
+    renderRoute("/recall/results", {
       ...contexts,
       session: createSession(),
     });
@@ -798,7 +798,7 @@ describe("authenticated recall workspace", () => {
       timestamp: "2026-04-05T09:00:00.000Z",
     });
 
-    renderRoute("/recall", {
+    renderRoute("/recall/results", {
       ...contexts,
       session: createSession(),
     });
@@ -879,7 +879,7 @@ describe("authenticated recall workspace", () => {
       timestamp: "2026-04-05T09:00:00.000Z",
     });
 
-    renderRoute("/recall", {
+    renderRoute("/recall/results", {
       ...contexts,
       session: createSession(),
     });
@@ -950,6 +950,6 @@ describe("authenticated recall workspace", () => {
         name: "Recall starts with Study Notes",
       }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall");
+    expect(router.state.location.pathname).toBe("/recall/due-today");
   });
 });

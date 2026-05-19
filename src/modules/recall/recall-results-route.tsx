@@ -7,5 +7,5 @@ export const Route = createFileRoute("/_protected/recall/results")({
 });
 
 function RecallResultsRoute() {
-  return <RecallResultsWorkspacePage forcedView="results" />;
+  return <RecallResultsWorkspacePage />;
 }

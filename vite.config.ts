@@ -96,7 +96,12 @@ export default defineConfig({
                   children: [
                     {
                       type: "index",
-                      file: "modules/recall/recall-results-workspace-route.tsx",
+                      file: "modules/recall/recall-index-route.tsx",
+                    },
+                    {
+                      type: "route",
+                      path: "/due-today",
+                      file: "modules/recall/recall-due-today-route.tsx",
                     },
                     {
                       type: "route",

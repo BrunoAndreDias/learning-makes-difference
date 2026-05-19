@@ -1,11 +1,5 @@
-import {
-  createFileRoute,
-  Link,
-  useNavigate,
-  useRouteContext,
-} from "@tanstack/react-router";
+import { Link, useNavigate, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { z } from "zod";
 
 import { Button, ButtonLink } from "../../design-system/button";
 import { ListCard } from "../../design-system/list-card";
@@ -14,7 +8,7 @@ import { formatCount } from "../../lib/format-count";
 import { defaultUserTimeZone } from "../access/session/session-contract";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import type { AppLabel } from "../labels/label-management/labels";
-import { type AppTranslationKey, useAppTranslation } from "../language";
+import { useAppTranslation } from "../language";
 import { listNotesForUser } from "../notes";
 import { listStudyNotesForUser } from "../study-notes";
 import { toStudyNoteRecallHistories } from "../study-notes/learning-state";
@@ -23,12 +17,15 @@ import {
   getRecallRatingTone,
   getRecallRatingTranslationKey,
 } from "./learner-copy";
+import { getLocalDateKey } from "./local-date";
 import type {
   FlashCardSessionResult,
   RecallMode,
   RecallQuestion,
   RecallSelfRating,
 } from "./recall";
+import { buildDueTodayQueue, type DueTodayQueueItem } from "./recall-due-today";
+import { RecallPageTabs } from "./recall-page-tabs";
 import {
   formatPracticeRepairIntentLabel,
   getPracticeRepairEntryId,
@@ -47,16 +44,7 @@ import {
 import { listRecallResultLabels } from "./recall-result-labels";
 import { projectSessionReview } from "./recall-session-review";
 import { searchRecallSessionResults } from "./recall-session-search";
-import {
-  buildRecallTodayQueue,
-  getPrimaryRecallTodayReason,
-  type RecallTodayQueueItem,
-  type RecallTodayReason,
-} from "./recall-today";
 
-const recallResultsSearchSchema = z.object({
-  view: z.enum(["results", "today"]).optional(),
-});
 const recallSessionSavedMessageKey = "learning-makes-difference:recall-saved";
 const recallModes = ["FlashCard", "AiAssisted", "AiGraded"] as const;
 const resultDateFormatter = new Intl.DateTimeFormat("en", {
@@ -70,24 +58,8 @@ const resultTimeFormatter = new Intl.DateTimeFormat("en", {
 const calmReviewStatsMinWidth = 960;
 
 type RecallTypeFilter = "all" | RecallMode;
-type RecallWorkspaceView = "results" | "today";
 type ExpandedQuestionKey = string | null;
 type ExpandedQuestionKeyChange = (questionKey: ExpandedQuestionKey) => void;
-type RecallResultsWorkspacePageProps = {
-  forcedView?: RecallWorkspaceView;
-  searchView?: RecallWorkspaceView;
-};
-
-export const Route = createFileRoute("/_protected/recall/")({
-  validateSearch: recallResultsSearchSchema,
-  component: RecallResultsWorkspaceRoute,
-});
-
-function RecallResultsWorkspaceRoute() {
-  const search = Route.useSearch();
-
-  return <RecallResultsWorkspacePage searchView={search.view} />;
-}
 
 function formatResultDate(timestamp: string) {
   const resultDate = new Date(timestamp);
@@ -239,31 +211,7 @@ function subscribeToReviewStatsLayout(callback: () => void) {
   };
 }
 
-function getRecallWorkspaceView(input: {
-  canShowRecallToday: boolean;
-  searchView: RecallWorkspaceView | undefined;
-}): RecallWorkspaceView {
-  if (input.searchView === "results") {
-    return "results";
-  }
-
-  if (input.searchView === "today" && !input.canShowRecallToday) {
-    return "results";
-  }
-
-  if (input.searchView === "today" || input.canShowRecallToday) {
-    return "today";
-  }
-
-  return "results";
-}
-
-export function RecallResultsWorkspacePage({
-  forcedView,
-  searchView,
-}: RecallResultsWorkspacePageProps = {}) {
-  const { t } = useAppTranslation();
-  const navigate = useNavigate();
+function useRecallWorkspaceState() {
   const recallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.recall,
@@ -322,10 +270,39 @@ export function RecallResultsWorkspacePage({
   );
   const sessionResults =
     userId === null ? [] : recallContext.listSessionResults({ userId });
-  const recallTodayQueue =
+
+  return {
+    currentLabels,
+    currentLabelsById,
+    notes,
+    persistentRecallContext,
+    recallContext,
+    recallSchedules,
+    sessionResults,
+    studyNotes,
+    userId,
+    userTimeZone,
+  };
+}
+
+export function RecallDueTodayWorkspacePage() {
+  const { t } = useAppTranslation();
+  const navigate = useNavigate();
+  const {
+    currentLabelsById,
+    notes,
+    persistentRecallContext,
+    recallContext,
+    recallSchedules,
+    sessionResults,
+    studyNotes,
+    userId,
+    userTimeZone,
+  } = useRecallWorkspaceState();
+  const dueTodayQueue =
     userId === null
       ? []
-      : buildRecallTodayQueue({
+      : buildDueTodayQueue({
           histories: toStudyNoteRecallHistories(
             recallContext.listAttemptsByNote({ userId }),
           ),
@@ -335,6 +312,52 @@ export function RecallResultsWorkspacePage({
           studyNotes,
           userTimeZone,
         });
+  const hasNoRecallContent =
+    notes.length === 0 &&
+    studyNotes.length === 0 &&
+    sessionResults.length === 0;
+
+  async function startDueTodayRecall() {
+    if (userId === null || dueTodayQueue.length === 0) {
+      return;
+    }
+
+    const studyNoteIds = dueTodayQueue.map((item) => item.studyNote.id);
+
+    if (persistentRecallContext === undefined) {
+      recallContext.startFlashCardSession({
+        mode: "FlashCard",
+        studyNoteIds,
+        userId,
+      });
+    } else {
+      await persistentRecallContext.startFlashCardSession(userId, {
+        mode: "FlashCard",
+        studyNoteIds,
+      });
+    }
+
+    await navigate({ to: "/recall/session" });
+  }
+
+  if (hasNoRecallContent) {
+    return <NoNotesRecallState />;
+  }
+
+  return (
+    <RecallDueTodayPage
+      labelsById={currentLabelsById}
+      onStartDueToday={startDueTodayRecall}
+      queue={dueTodayQueue}
+      userTimeZone={userTimeZone}
+    />
+  );
+}
+
+export function RecallResultsWorkspacePage() {
+  const { t } = useAppTranslation();
+  const { currentLabels, notes, sessionResults, studyNotes } =
+    useRecallWorkspaceState();
   const availableLabels = listRecallResultLabels({
     currentLabels,
     sessionResults,
@@ -391,56 +414,13 @@ export function RecallResultsWorkspacePage({
     }
   }, [availableLabels, selectedLabelId]);
 
-  async function startRecallToday() {
-    if (userId === null || recallTodayQueue.length === 0) {
-      return;
-    }
-
-    const studyNoteIds = recallTodayQueue.map((item) => item.studyNote.id);
-
-    if (persistentRecallContext === undefined) {
-      recallContext.startFlashCardSession({
-        mode: "FlashCard",
-        studyNoteIds,
-        userId,
-      });
-    } else {
-      await persistentRecallContext.startFlashCardSession(userId, {
-        mode: "FlashCard",
-        studyNoteIds,
-      });
-    }
-
-    await navigate({ to: "/recall/session" });
-  }
-
   const hasNoRecallContent =
     notes.length === 0 &&
     studyNotes.length === 0 &&
     sessionResults.length === 0;
-  const canShowRecallToday =
-    recallTodayQueue.length > 0 ||
-    (studyNotes.length > 0 && sessionResults.length === 0);
-  const workspaceView =
-    forcedView ??
-    getRecallWorkspaceView({
-      canShowRecallToday,
-      searchView,
-    });
 
   if (hasNoRecallContent) {
     return <NoNotesRecallState />;
-  }
-
-  if (workspaceView === "today") {
-    return (
-      <RecallTodayPage
-        hasResults={sessionResults.length > 0}
-        labelsById={currentLabelsById}
-        onStartRecallToday={startRecallToday}
-        queue={recallTodayQueue}
-      />
-    );
   }
 
   const selectedResult =
@@ -453,10 +433,11 @@ export function RecallResultsWorkspacePage({
     >
       <article className="recall-surface recall-results-surface">
         <div className="recall-results-top">
+          <RecallPageTabs />
           <PageHeader
             className="recall-surface__header"
             description={t("recall.results.description")}
-            title={t("shell.workspace.recall")}
+            title={t("recall.tabs.results")}
           />
 
           {savedMessage !== null ? (
@@ -505,97 +486,25 @@ export function RecallResultsWorkspacePage({
   );
 }
 
-type RecallTodayPageProps = {
-  hasResults: boolean;
+type QueueTone = "due" | "new" | "practice";
+type DueTodayStatus = "due-today" | "overdue";
+
+type DueTodayPageProps = {
   labelsById: ReadonlyMap<string, AppLabel>;
-  onStartRecallToday: () => void;
-  queue: readonly RecallTodayQueueItem[];
+  onStartDueToday: () => void;
+  queue: readonly DueTodayQueueItem[];
+  userTimeZone: string;
 };
 
-type RecallTodaySectionConfig = {
-  badge: string;
-  helperKey: AppTranslationKey;
-  reason: RecallTodayReason;
-  titleKey: AppTranslationKey;
-  tone: "due" | "new" | "practice";
-};
-
-const recallTodaySections = [
-  {
-    badge: "1",
-    helperKey: "recall.today.section.retryAfterRepair",
-    reason: "practice-follow-up",
-    titleKey: "recall.today.reason.practiceFollowUp",
-    tone: "practice",
-  },
-  {
-    badge: "2",
-    helperKey: "recall.today.section.focusFirst",
-    reason: "needs-practice",
-    titleKey: "recall.today.reason.needsPractice",
-    tone: "practice",
-  },
-  {
-    badge: "3",
-    helperKey: "recall.today.section.newlyRecallable",
-    reason: "not-recalled",
-    titleKey: "recall.today.reason.notRecalled",
-    tone: "new",
-  },
-  {
-    badge: "4",
-    helperKey: "recall.today.section.scheduledToday",
-    reason: "due-for-recall",
-    titleKey: "recall.today.reason.dueForRecall",
-    tone: "due",
-  },
-] as const satisfies readonly RecallTodaySectionConfig[];
-
-function getRecallTodayItemsByReason(
-  queue: readonly RecallTodayQueueItem[],
-  reason: RecallTodayReason,
-) {
-  return queue.filter((item) => getPrimaryRecallTodayReason(item) === reason);
-}
-
-function getRecallTodayReasonText(
-  item: RecallTodayQueueItem,
+function getLastScoreText(
+  lastRating: RecallSelfRating | null,
   t: ReturnType<typeof useAppTranslation>["t"],
 ) {
-  if (getPrimaryRecallTodayReason(item) === "practice-follow-up") {
-    return t("recall.today.reason.practiceFollowUp");
-  }
-
-  if (item.lastRating === null) {
-    return t("recall.today.reason.new");
-  }
-
-  return t(getRecallRatingTranslationKey(item.lastRating));
-}
-
-function getRecallTodaySupportingReasonText(
-  item: RecallTodayQueueItem,
-  t: ReturnType<typeof useAppTranslation>["t"],
-) {
-  if (
-    getPrimaryRecallTodayReason(item) === "practice-follow-up" &&
-    item.reasons.includes("needs-practice")
-  ) {
-    return t("recall.today.reason.supportingNeedsPractice");
-  }
-
-  return null;
-}
-
-function getRecallTodayLastScoreText(
-  item: RecallTodayQueueItem,
-  t: ReturnType<typeof useAppTranslation>["t"],
-) {
-  if (item.lastRating === null) {
+  if (lastRating === null) {
     return t("recall.today.lastScore.notAttempted");
   }
 
-  return t(getRecallRatingTranslationKey(item.lastRating));
+  return t(getRecallRatingTranslationKey(lastRating));
 }
 
 function getRecallRatingDotCount(rating: RecallSelfRating | null) {
@@ -614,7 +523,7 @@ function getRecallRatingDotCount(rating: RecallSelfRating | null) {
 }
 
 function getStudyNoteMetaLine(
-  item: RecallTodayQueueItem,
+  item: Pick<DueTodayQueueItem, "studyNote">,
   labelsById: ReadonlyMap<string, AppLabel>,
 ) {
   const labelNames = item.studyNote.labelIds
@@ -633,30 +542,51 @@ function getStudyNoteMetaLine(
   return sourceTitle;
 }
 
-function getRecallTodayFollowUpExplanation(item: RecallTodayQueueItem) {
-  if (item.practiceFollowUpEntry === null) {
-    return null;
+function getDueTodayStatus(input: {
+  item: DueTodayQueueItem;
+  now: string;
+  userTimeZone: string;
+}): DueTodayStatus {
+  const nextRecallDateKey = getLocalDateKey({
+    timestamp: input.item.schedule.nextRecallAt,
+    userTimeZone: input.userTimeZone,
+  });
+  const todayDateKey = getLocalDateKey({
+    timestamp: input.now,
+    userTimeZone: input.userTimeZone,
+  });
+
+  if (
+    nextRecallDateKey !== null &&
+    todayDateKey !== null &&
+    nextRecallDateKey < todayDateKey
+  ) {
+    return "overdue";
   }
 
-  return `${formatPracticeRepairIntentLabel(item.practiceFollowUpEntry.intent)}: ${item.practiceFollowUpEntry.correction}`;
+  return "due-today";
 }
 
-function RecallTodayPage({
-  hasResults,
+function formatDueTodayScheduledDate(input: {
+  timestamp: string;
+  userTimeZone: string;
+}) {
+  return new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+    timeZone: input.userTimeZone,
+  }).format(new Date(input.timestamp));
+}
+
+function RecallDueTodayPage({
   labelsById,
-  onStartRecallToday,
+  onStartDueToday,
   queue,
-}: RecallTodayPageProps) {
+  userTimeZone,
+}: DueTodayPageProps) {
   const { t } = useAppTranslation();
   const workspaceDate = new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
   }).format(new Date());
-  const queueByReason = new Map(
-    recallTodaySections.map((section) => [
-      section.reason,
-      getRecallTodayItemsByReason(queue, section.reason),
-    ]),
-  );
 
   return (
     <section
@@ -671,7 +601,7 @@ function RecallTodayPage({
           >
             <Link to="/recall">{t("shell.workspace.recall")}</Link>
             <span aria-hidden="true">/</span>
-            <span>{t("recall.today.title")}</span>
+            <span>{t("recall.dueToday.title")}</span>
           </nav>
           <div className="recall-today-chrome__meta">
             <span className="recall-today-chrome__date">
@@ -690,71 +620,71 @@ function RecallTodayPage({
         </div>
 
         <div className="recall-today-top">
+          <RecallPageTabs />
           <PageHeader
             actions={
               <div className="recall-today-actions">
                 {queue.length > 0 ? (
                   <Button
                     className="recall-today-actions__start"
-                    onClick={onStartRecallToday}
+                    onClick={onStartDueToday}
                     type="button"
                     variant="primary"
                   >
                     <PlayIcon />
-                    {t("recall.today.start")}
+                    {t("recall.dueToday.start")}
                   </Button>
-                ) : null}
-                <ButtonLink
-                  className="recall-today-actions__manual"
-                  to="/practice-repair"
-                >
-                  <QuestionsIcon />
-                  <span>{t("recall.practiceRepair")}</span>
-                </ButtonLink>
-                <ButtonLink
-                  className="recall-today-actions__manual"
-                  to="/recall/select"
-                >
-                  <ListIcon />
-                  {t("recall.today.manualSelection")}
-                </ButtonLink>
-                {hasResults ? (
+                ) : (
+                  <ButtonLink
+                    className="recall-today-actions__start"
+                    to="/recall/select"
+                    variant="primary"
+                  >
+                    <ListIcon />
+                    {t("recall.dueToday.manualSelection")}
+                  </ButtonLink>
+                )}
+                {queue.length > 0 ? (
                   <ButtonLink
                     className="recall-today-actions__manual"
-                    to="/recall/results"
+                    to="/recall/select"
                   >
-                    <QuestionsIcon />
-                    <span>View Results</span>
+                    <ListIcon />
+                    {t("recall.dueToday.manualSelection")}
                   </ButtonLink>
                 ) : null}
+                <ButtonLink
+                  className="recall-today-actions__manual"
+                  to="/today"
+                >
+                  <CalendarIcon />
+                  {t("shell.navigation.today")}
+                </ButtonLink>
               </div>
             }
             actionsClassName="recall-today-hero__actions"
             className="recall-surface__header recall-today-hero"
-            description={t("recall.today.description")}
+            description={t("recall.dueToday.description")}
             headingLevel={1}
-            title={t("recall.today.title")}
+            title={t("recall.dueToday.title")}
           />
         </div>
 
-        <RecallTodaySummary queue={queue} queueByReason={queueByReason} />
+        <RecallDueTodaySummary queue={queue} userTimeZone={userTimeZone} />
 
         <div className="recall-today-layout">
           <div className="recall-today-queue">
             {queue.length === 0 ? (
               <div className="recall-results-empty" role="status">
-                <h4>{t("recall.today.emptyTitle")}</h4>
-                <p className="muted">{t("recall.today.emptyBody")}</p>
+                <h4>{t("recall.dueToday.emptyTitle")}</h4>
+                <p className="muted">{t("recall.dueToday.emptyBody")}</p>
               </div>
             ) : (
-              recallTodaySections.map((section) => (
-                <RecallTodaySection
-                  items={queueByReason.get(section.reason) ?? []}
-                  key={section.reason}
-                  labelsById={labelsById}
-                  section={section}
-                />
-              ))
+              <RecallDueTodayQueue
+                labelsById={labelsById}
+                queue={queue}
+                userTimeZone={userTimeZone}
+              />
             )}
           </div>
 
@@ -765,52 +695,50 @@ function RecallTodayPage({
   );
 }
 
-function RecallTodaySummary({
+function RecallDueTodaySummary({
   queue,
-  queueByReason,
+  userTimeZone,
 }: {
-  queue: readonly RecallTodayQueueItem[];
-  queueByReason: ReadonlyMap<
-    RecallTodayReason,
-    readonly RecallTodayQueueItem[]
-  >;
+  queue: readonly DueTodayQueueItem[];
+  userTimeZone: string;
 }) {
   const { t } = useAppTranslation();
+  const now = new Date().toISOString();
+  const overdueCount = queue.filter(
+    (item) =>
+      getDueTodayStatus({
+        item,
+        now,
+        userTimeZone,
+      }) === "overdue",
+  ).length;
+  const dueTodayCount = queue.length - overdueCount;
   const summaryItems = [
     {
       count: queue.length,
       icon: <CalendarQueueIcon />,
-      label: t("recall.today.metric.total"),
+      label: t("recall.dueToday.metric.total"),
       tone: "total",
     },
     {
-      count: queueByReason.get("practice-follow-up")?.length ?? 0,
+      count: dueTodayCount,
       icon: <CheckIcon />,
-      label: t("recall.today.reason.practiceFollowUp"),
-      tone: "practice",
-    },
-    {
-      count: queueByReason.get("needs-practice")?.length ?? 0,
-      icon: <WarningIcon />,
-      label: t("recall.today.reason.needsPractice"),
-      tone: "practice",
-    },
-    {
-      count: queueByReason.get("not-recalled")?.length ?? 0,
-      icon: <ClockIcon />,
-      label: t("recall.today.reason.notRecalled"),
-      tone: "new",
-    },
-    {
-      count: queueByReason.get("due-for-recall")?.length ?? 0,
-      icon: <CheckIcon />,
-      label: t("recall.today.reason.dueForRecall"),
+      label: t("recall.dueToday.metric.dueToday"),
       tone: "due",
+    },
+    {
+      count: overdueCount,
+      icon: <WarningIcon />,
+      label: t("recall.dueToday.metric.overdue"),
+      tone: "practice",
     },
   ] as const;
 
   return (
-    <ul aria-label={t("recall.today.summary")} className="recall-today-summary">
+    <ul
+      aria-label={t("recall.dueToday.summary")}
+      className="recall-today-summary"
+    >
       {summaryItems.map((item) => (
         <li
           className="recall-today-summary__item"
@@ -831,46 +759,42 @@ function RecallTodaySummary({
   );
 }
 
-function RecallTodaySection({
-  items,
+function RecallDueTodayQueue({
   labelsById,
-  section,
+  queue,
+  userTimeZone,
 }: {
-  items: readonly RecallTodayQueueItem[];
   labelsById: ReadonlyMap<string, AppLabel>;
-  section: RecallTodaySectionConfig;
+  queue: readonly DueTodayQueueItem[];
+  userTimeZone: string;
 }) {
   const { t } = useAppTranslation();
 
-  if (items.length === 0) {
-    return null;
-  }
-
   return (
     <section
-      aria-label={t(section.titleKey)}
+      aria-label={t("recall.dueToday.queue")}
       className="recall-today-section"
-      data-tone={section.tone}
+      data-tone="due"
     >
       <header className="recall-today-section__header">
         <div className="recall-today-section__title">
-          <span className="recall-today-section__badge">{section.badge}</span>
-          <h2>{t(section.titleKey)}</h2>
-          <span className="recall-today-section__count">{items.length}</span>
+          <span className="recall-today-section__badge">{queue.length}</span>
+          <h2>{t("recall.dueToday.queueTitle")}</h2>
+          <span className="recall-today-section__count">{queue.length}</span>
         </div>
         <div className="recall-today-section__helper">
-          <span>{t(section.helperKey)}</span>
+          <span>{t("recall.dueToday.helper")}</span>
           <InfoIcon />
         </div>
       </header>
 
       <ul className="recall-today-section__rows">
-        {items.map((item) => (
-          <RecallTodayQueueRow
+        {queue.map((item) => (
+          <RecallDueTodayQueueRow
             item={item}
             key={item.studyNote.id}
             labelsById={labelsById}
-            tone={section.tone}
+            userTimeZone={userTimeZone}
           />
         ))}
       </ul>
@@ -878,22 +802,34 @@ function RecallTodaySection({
   );
 }
 
-function RecallTodayQueueRow({
+function RecallDueTodayQueueRow({
   item,
   labelsById,
-  tone,
+  userTimeZone,
 }: {
-  item: RecallTodayQueueItem;
+  item: DueTodayQueueItem;
   labelsById: ReadonlyMap<string, AppLabel>;
-  tone: RecallTodaySectionConfig["tone"];
+  userTimeZone: string;
 }) {
   const { t } = useAppTranslation();
+  const now = new Date().toISOString();
+  const status = getDueTodayStatus({
+    item,
+    now,
+    userTimeZone,
+  });
+  const tone: QueueTone = status === "overdue" ? "practice" : "due";
   const dotCount = getRecallRatingDotCount(item.lastRating);
-  const followUpExplanation = getRecallTodayFollowUpExplanation(item);
   const metaLine = getStudyNoteMetaLine(item, labelsById);
-  const reasonText = getRecallTodayReasonText(item, t);
-  const supportingReasonText = getRecallTodaySupportingReasonText(item, t);
-  const lastScoreText = getRecallTodayLastScoreText(item, t);
+  const lastScoreText = getLastScoreText(item.lastRating, t);
+  const statusText =
+    status === "overdue"
+      ? t("recall.dueToday.status.overdue")
+      : t("recall.dueToday.status.dueToday");
+  const scheduledDateText = formatDueTodayScheduledDate({
+    timestamp: item.schedule.nextRecallAt,
+    userTimeZone,
+  });
 
   return (
     <li className="recall-today-row" data-tone={tone}>
@@ -902,24 +838,20 @@ function RecallTodayQueueRow({
       </span>
       <div className="recall-today-row__main">
         <h3>{item.studyNote.prompt}</h3>
-        {followUpExplanation === null ? null : <p>{followUpExplanation}</p>}
         {metaLine.length > 0 ? <p>{metaLine}</p> : null}
       </div>
       <div className="recall-today-row__score">
-        <span>{t("recall.today.lastScore")}</span>
+        <span>{t("recall.dueToday.lastScore")}</span>
         <strong>{lastScoreText}</strong>
         <RatingDots activeCount={dotCount} tone={tone} />
       </div>
       <div className="recall-today-row__reason">
-        <span>{t("recall.today.reason")}</span>
-        <strong>{reasonText}</strong>
-        {supportingReasonText === null ? null : (
-          <span>{supportingReasonText}</span>
-        )}
+        <span>{t("recall.dueToday.status.label")}</span>
+        <strong>{statusText}</strong>
       </div>
       <div className="recall-today-row__next">
-        <span>{t("recall.today.nextRecall")}</span>
-        <strong>{t("recall.today.nextRecall.today")}</strong>
+        <span>{t("recall.dueToday.scheduled")}</span>
+        <strong>{scheduledDateText}</strong>
       </div>
       <ChevronRightIcon />
     </li>
@@ -933,7 +865,7 @@ function RatingDots({
   tone,
 }: {
   activeCount: number;
-  tone: RecallTodaySectionConfig["tone"];
+  tone: QueueTone;
 }) {
   return (
     <span
@@ -952,31 +884,31 @@ function RecallTodayHowPanel() {
   const { t } = useAppTranslation();
   const steps = [
     {
-      bodyKey: "recall.today.how.hidden.body",
+      bodyKey: "recall.dueToday.how.hidden.body",
       icon: <HiddenAnswerIcon />,
-      titleKey: "recall.today.how.hidden.title",
+      titleKey: "recall.dueToday.how.hidden.title",
     },
     {
-      bodyKey: "recall.today.how.rate.body",
+      bodyKey: "recall.dueToday.how.rate.body",
       icon: <RatingScaleIcon />,
-      titleKey: "recall.today.how.rate.title",
+      titleKey: "recall.dueToday.how.rate.title",
     },
     {
-      bodyKey: "recall.today.how.schedule.body",
+      bodyKey: "recall.dueToday.how.schedule.body",
       icon: <CalendarQueueIcon />,
-      titleKey: "recall.today.how.schedule.title",
+      titleKey: "recall.dueToday.how.schedule.title",
     },
   ] as const;
 
   return (
     <aside
-      aria-label={t("recall.today.how.title")}
+      aria-label={t("recall.dueToday.how.title")}
       className="recall-today-how"
     >
       <div aria-hidden="true" className="recall-today-how__lock">
         <LockIcon />
       </div>
-      <h2>{t("recall.today.how.title")}</h2>
+      <h2>{t("recall.dueToday.how.title")}</h2>
       <div className="recall-today-how__steps">
         {steps.map((step) => (
           <section className="recall-today-how__step" key={step.titleKey}>
@@ -992,7 +924,7 @@ function RecallTodayHowPanel() {
       </div>
       <p className="recall-today-how__tip">
         <LightbulbIcon />
-        <span>{t("recall.today.how.tip")}</span>
+        <span>{t("recall.dueToday.how.tip")}</span>
       </p>
     </aside>
   );
