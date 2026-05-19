@@ -765,14 +765,14 @@ function FocusNavigationRow({
 }>) {
   const { t } = useAppTranslation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const errorId = useId();
-  const timerId = useId();
+  const actionErrorId = useId();
+  const timerElementId = useId();
   const currentActiveFocusSession =
     userId === null ? null : focus.getActiveSession({ userId });
   useFocusTimerTick(currentActiveFocusSession);
   const isSessionActive = currentActiveFocusSession !== null;
   const isActionDisabled = userId === null;
-  const errorDescriptionId = errorMessage === null ? undefined : errorId;
+  const errorDescriptionId = errorMessage === null ? undefined : actionErrorId;
   const focusActionInput = { focus, persistentFocus, userId };
   const focusNavClassName = [
     "app-sidebar__focus-nav",
@@ -785,7 +785,7 @@ function FocusNavigationRow({
     currentActiveFocusSession === null
       ? null
       : formatFocusNavTimerLabel(currentActiveFocusSession);
-  const timerDescriptionId = timerLabel === null ? undefined : timerId;
+  const timerDescriptionId = timerLabel === null ? undefined : timerElementId;
   const actionLabel = isSessionActive
     ? t("focus.action.end")
     : t("focus.action.start");
@@ -860,7 +860,7 @@ function FocusNavigationRow({
         </span>
         <span className="app-sidebar__label">{label}</span>
         {timerLabel === null ? null : (
-          <span className="app-sidebar__focus-timer" id={timerId}>
+          <span className="app-sidebar__focus-timer" id={timerElementId}>
             {timerLabel}
           </span>
         )}
@@ -879,7 +879,11 @@ function FocusNavigationRow({
         </Button>
       </div>
       {errorMessage === null ? null : (
-        <span className="app-sidebar__focus-error" id={errorId} role="status">
+        <span
+          className="app-sidebar__focus-error"
+          id={actionErrorId}
+          role="status"
+        >
           {errorMessage}
         </span>
       )}

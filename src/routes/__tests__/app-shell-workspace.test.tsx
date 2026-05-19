@@ -19,6 +19,18 @@ function setBrowserLanguages(languages: readonly string[]) {
   });
 }
 
+function getStudyNotesWorkspaceSidebar() {
+  return screen.getByRole("complementary", {
+    name: "Study Notes workspace",
+  });
+}
+
+function getAppSections(sidebar = getStudyNotesWorkspaceSidebar()) {
+  return within(sidebar).getByRole("navigation", {
+    name: "App sections",
+  });
+}
+
 describe("authenticated app shell", () => {
   it("uses the stored User Language for authenticated shell chrome instead of browser detection", async () => {
     setBrowserLanguages(["pt-PT", "en"]);
@@ -156,9 +168,7 @@ describe("authenticated app shell", () => {
     expect(accountMenuButton).toBeVisible();
     expect(within(sidebar).queryByText("Learning Makes Difference")).toBeNull();
 
-    const appSections = within(sidebar).getByRole("navigation", {
-      name: "App sections",
-    });
+    const appSections = getAppSections(sidebar);
     expect(
       within(appSections).getByRole("link", { name: "Study Notes" }),
     ).toBeInTheDocument();
@@ -254,12 +264,7 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { level: 2, name: "Settings" }),
     ).toBeInTheDocument();
 
-    const sidebar = screen.getByRole("complementary", {
-      name: "Study Notes workspace",
-    });
-    const appSections = within(sidebar).getByRole("navigation", {
-      name: "App sections",
-    });
+    const appSections = getAppSections();
     const focusLink = within(appSections).getByRole("link", { name: "Focus" });
     const startButton = within(appSections).getByRole("button", {
       name: "Start Focus",
@@ -311,12 +316,7 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { level: 2, name: "Settings" }),
     ).toBeInTheDocument();
 
-    const sidebar = screen.getByRole("complementary", {
-      name: "Study Notes workspace",
-    });
-    const appSections = within(sidebar).getByRole("navigation", {
-      name: "App sections",
-    });
+    const appSections = getAppSections();
 
     expect(screen.queryByRole("region", { name: "Focus now" })).toBeNull();
     expect(within(appSections).getByText("25:00")).toBeInTheDocument();
@@ -360,12 +360,7 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { level: 2, name: "Settings" }),
     ).toBeInTheDocument();
 
-    const sidebar = screen.getByRole("complementary", {
-      name: "Study Notes workspace",
-    });
-    const appSections = within(sidebar).getByRole("navigation", {
-      name: "App sections",
-    });
+    const appSections = getAppSections();
     const focusLink = within(appSections).getByRole("link", { name: "Focus" });
     const timer = within(focusLink).getByText("25:00");
 
@@ -389,12 +384,7 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
     ).toBeInTheDocument();
 
-    const sidebar = screen.getByRole("complementary", {
-      name: "Study Notes workspace",
-    });
-    const appSections = within(sidebar).getByRole("navigation", {
-      name: "App sections",
-    });
+    const appSections = getAppSections();
     const todayLink = within(appSections).getByRole("link", {
       name: "Today",
     });
@@ -463,12 +453,7 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
     ).toBeInTheDocument();
 
-    const sidebar = screen.getByRole("complementary", {
-      name: "Study Notes workspace",
-    });
-    const appSections = within(sidebar).getByRole("navigation", {
-      name: "App sections",
-    });
+    const appSections = getAppSections();
     const focusLink = within(appSections).getByRole("link", { name: "Focus" });
 
     expect(focusLink).toHaveAttribute("href", "/focus");
@@ -532,9 +517,7 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
     ).toBeInTheDocument();
 
-    const sidebar = screen.getByRole("complementary", {
-      name: "Study Notes workspace",
-    });
+    const sidebar = getStudyNotesWorkspaceSidebar();
     const studyNotesCatalog = screen.getByRole("complementary", {
       name: "Study Notes catalog",
     });
@@ -549,9 +532,7 @@ describe("authenticated app shell", () => {
     expect(
       within(sidebar).queryByRole("navigation", { name: "Study Notes list" }),
     ).not.toBeInTheDocument();
-    expect(
-      within(sidebar).getByRole("navigation", { name: "App sections" }),
-    ).toBeInTheDocument();
+    expect(getAppSections(sidebar)).toBeInTheDocument();
     expect(
       within(sidebar).getByRole("button", { name: /account menu/i }),
     ).toBeInTheDocument();
