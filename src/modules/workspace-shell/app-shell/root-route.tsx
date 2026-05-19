@@ -35,10 +35,10 @@ import { shouldShowRouterDevtools } from "./router-devtools-gate";
 
 const authRoutePaths = new Set(["/forgot-password", "/login", "/register"]);
 const redirectableProtectedPaths = [
-  "/insights",
   "/recall",
   "/settings",
   "/study-notes",
+  "/today",
 ];
 
 function isProtectedPath(pathname: string): boolean {
@@ -111,9 +111,7 @@ function NotFoundRedirect() {
     session.getSnapshot,
     session.getSnapshot,
   );
-  const redirectTo = hasActiveSession(sessionSnapshot)
-    ? "/study-notes"
-    : "/login";
+  const redirectTo = hasActiveSession(sessionSnapshot) ? "/today" : "/login";
 
   return <Navigate to={redirectTo} />;
 }
@@ -190,7 +188,7 @@ function RootDocumentBody({ children }: Readonly<{ children: ReactNode }>) {
                 </li>
                 <li>
                   <Link
-                    to="/study-notes"
+                    to="/today"
                     activeProps={{ className: "nav-link nav-link-active" }}
                     className="nav-link"
                   >

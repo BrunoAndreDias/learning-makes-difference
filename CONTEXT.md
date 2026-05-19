@@ -334,9 +334,17 @@ In v1, Study Intensity is profile context only; it does not affect FocusSession 
 In v1, Settings is the only place where the User sets or changes Study Intensity.
 _Avoid_: Difficulty, RecallMode, FocusMethod, streak target
 
+**Today**:
+The authenticated landing route and primary navigation label for the app's Study Guidance surface.
+Today is navigation copy, not a replacement name for **Study Guidance** or **Recall Today**.
+The Today route is `/today`.
+Today is a decision surface that summarizes what matters next and routes the User into existing workspaces such as Recall, Recall Selection Mode, Practice Repair, or Study Notes.
+Today does not directly start recall or replace the underlying domain concepts that power its recommendations.
+_Avoid_: Insights page, dashboard, Recall Today
+
 **Study Guidance**:
 The app's contextual recommendation for what the User should do next in the Learning Loop.
-In v1, Study Guidance may live under broader Insights navigation, but Insights is navigation language rather than a separate learning concept.
+In v1, Study Guidance is surfaced through Today navigation at `/today`; Today is product copy rather than a separate learning concept.
 In v1, Study Guidance should adapt from local Study Note and Label evidence rather than a broad beginner, intermediate, or advanced User profile.
 In v1, Study Guidance groups recommendations by Label, with an unlabeled group for Study Notes without Labels; these groups are not separate durable Topics.
 In v1, Study Guidance summarizes factual recall work with Recall Today, Needs practice, Not recalled yet, and Interleaved Recall readiness rather than broad analytics or mastery metrics.
@@ -355,13 +363,20 @@ _Avoid_: Admin approval, public signup
 
 ### Workspace Navigation
 
+**Today**:
+The authenticated landing route and top-level navigation label for Study Guidance.
+The Today route is `/today`.
+Today helps the User decide what to do next and links into existing workspaces rather than performing the work directly.
+Today does not replace the underlying Study Guidance domain term or the separate Recall Today queue inside Recall.
+_Avoid_: Insights page, Recall Today, analytics dashboard
+
 **Study Notes Workspace**:
-The primary authenticated workspace where the User creates Study Notes, captures or edits their source Notes, and edits Study Note prompts, expected answers, Labels, Metaphors, and Acronyms.
+The authenticated workspace where the User creates Study Notes, captures or edits their source Notes, and edits Study Note prompts, expected answers, Labels, Metaphors, and Acronyms.
 In the Study Notes Workspace, the User may assign existing Labels to a Study Note and create a new Label inline while editing that Study Note. v1 does not expose a standalone Labels workspace or parent-label graph management surface.
 The primary navigation label for the Study Notes Workspace is "Study Notes".
 The Study Notes Workspace route is `/study-notes`.
 The old `/notes` route is removed rather than redirected.
-After login or registration, the User lands on `/study-notes`.
+After login or registration, the User lands on `/today` rather than opening Study Notes first.
 The Study Notes Workspace has a Study Notes list, not a separate source Notes list.
 New Study Note is the primary creation action; it creates a new supporting source Note by default.
 Add Study Note from this source is the explicit action for creating another Study Note tied to an existing source Note.

@@ -12,10 +12,10 @@ import { Route as rootRouteImport } from './modules/workspace-shell/app-shell/ro
 import { Route as modulesAccessPublicEntryPublicLayoutRouteRouteImport } from './modules/access/public-entry/public-layout-route'
 import { Route as modulesWorkspaceShellAppShellProtectedRouteRouteImport } from './modules/workspace-shell/app-shell/protected-route'
 import { Route as modulesAccessSessionAuthLayoutRouteRouteImport } from './modules/access/session/auth-layout-route'
+import { Route as modulesStudyGuidanceStudyGuidanceRouteRouteImport } from './modules/study-guidance/study-guidance-route'
 import { Route as modulesStudyNotesStudyNotesRouteRouteImport } from './modules/study-notes/study-notes-route'
 import { Route as modulesAccessSessionSettingsRouteRouteImport } from './modules/access/session/settings-route'
 import { Route as modulesRecallRecallRouteRouteImport } from './modules/recall/recall-route'
-import { Route as modulesStudyGuidanceStudyGuidanceRouteRouteImport } from './modules/study-guidance/study-guidance-route'
 import { Route as modulesFocusFocusRouteRouteImport } from './modules/focus/focus-route'
 import { Route as modulesAccessSessionRegisterRouteRouteImport } from './modules/access/session/register-route'
 import { Route as modulesAccessSessionLoginRouteRouteImport } from './modules/access/session/login-route'
@@ -45,6 +45,12 @@ const modulesAccessSessionAuthLayoutRouteRoute =
     id: '/_auth',
     getParentRoute: () => rootRouteImport,
   } as any)
+const modulesStudyGuidanceStudyGuidanceRouteRoute =
+  modulesStudyGuidanceStudyGuidanceRouteRouteImport.update({
+    id: '/today',
+    path: '/today',
+    getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
+  } as any)
 const modulesStudyNotesStudyNotesRouteRoute =
   modulesStudyNotesStudyNotesRouteRouteImport.update({
     id: '/study-notes',
@@ -61,12 +67,6 @@ const modulesRecallRecallRouteRoute =
   modulesRecallRecallRouteRouteImport.update({
     id: '/recall',
     path: '/recall',
-    getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
-  } as any)
-const modulesStudyGuidanceStudyGuidanceRouteRoute =
-  modulesStudyGuidanceStudyGuidanceRouteRouteImport.update({
-    id: '/insights',
-    path: '/insights',
     getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
   } as any)
 const modulesFocusFocusRouteRoute = modulesFocusFocusRouteRouteImport.update({
@@ -153,10 +153,10 @@ export interface FileRoutesByFullPath {
   '/login': typeof modulesAccessSessionLoginRouteRoute
   '/register': typeof modulesAccessSessionRegisterRouteRoute
   '/focus': typeof modulesFocusFocusRouteRoute
-  '/insights': typeof modulesStudyGuidanceStudyGuidanceRouteRoute
   '/recall': typeof modulesRecallRecallRouteRouteWithChildren
   '/settings': typeof modulesAccessSessionSettingsRouteRoute
   '/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
+  '/today': typeof modulesStudyGuidanceStudyGuidanceRouteRoute
   '/recall/': typeof modulesRecallRecallResultsWorkspaceRouteRoute
   '/recall/repair': typeof modulesRecallRecallPracticeRepairQueueRouteRoute
   '/recall/results': typeof modulesRecallRecallResultsRouteRoute
@@ -172,9 +172,9 @@ export interface FileRoutesByTo {
   '/login': typeof modulesAccessSessionLoginRouteRoute
   '/register': typeof modulesAccessSessionRegisterRouteRoute
   '/focus': typeof modulesFocusFocusRouteRoute
-  '/insights': typeof modulesStudyGuidanceStudyGuidanceRouteRoute
   '/settings': typeof modulesAccessSessionSettingsRouteRoute
   '/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
+  '/today': typeof modulesStudyGuidanceStudyGuidanceRouteRoute
   '/recall': typeof modulesRecallRecallResultsWorkspaceRouteRoute
   '/recall/repair': typeof modulesRecallRecallPracticeRepairQueueRouteRoute
   '/recall/results': typeof modulesRecallRecallResultsRouteRoute
@@ -194,10 +194,10 @@ export interface FileRoutesById {
   '/_auth/login': typeof modulesAccessSessionLoginRouteRoute
   '/_auth/register': typeof modulesAccessSessionRegisterRouteRoute
   '/_protected/focus': typeof modulesFocusFocusRouteRoute
-  '/_protected/insights': typeof modulesStudyGuidanceStudyGuidanceRouteRoute
   '/_protected/recall': typeof modulesRecallRecallRouteRouteWithChildren
   '/_protected/settings': typeof modulesAccessSessionSettingsRouteRoute
   '/_protected/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute
+  '/_protected/today': typeof modulesStudyGuidanceStudyGuidanceRouteRoute
   '/_protected/recall/': typeof modulesRecallRecallResultsWorkspaceRouteRoute
   '/_protected/recall/repair': typeof modulesRecallRecallPracticeRepairQueueRouteRoute
   '/_protected/recall/results': typeof modulesRecallRecallResultsRouteRoute
@@ -215,10 +215,10 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/focus'
-    | '/insights'
     | '/recall'
     | '/settings'
     | '/study-notes'
+    | '/today'
     | '/recall/'
     | '/recall/repair'
     | '/recall/results'
@@ -234,9 +234,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/focus'
-    | '/insights'
     | '/settings'
     | '/study-notes'
+    | '/today'
     | '/recall'
     | '/recall/repair'
     | '/recall/results'
@@ -255,10 +255,10 @@ export interface FileRouteTypes {
     | '/_auth/login'
     | '/_auth/register'
     | '/_protected/focus'
-    | '/_protected/insights'
     | '/_protected/recall'
     | '/_protected/settings'
     | '/_protected/study-notes'
+    | '/_protected/today'
     | '/_protected/recall/'
     | '/_protected/recall/repair'
     | '/_protected/recall/results'
@@ -298,6 +298,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof modulesAccessSessionAuthLayoutRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_protected/today': {
+      id: '/_protected/today'
+      path: '/today'
+      fullPath: '/today'
+      preLoaderRoute: typeof modulesStudyGuidanceStudyGuidanceRouteRouteImport
+      parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
+    }
     '/_protected/study-notes': {
       id: '/_protected/study-notes'
       path: '/study-notes'
@@ -317,13 +324,6 @@ declare module '@tanstack/react-router' {
       path: '/recall'
       fullPath: '/recall'
       preLoaderRoute: typeof modulesRecallRecallRouteRouteImport
-      parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
-    }
-    '/_protected/insights': {
-      id: '/_protected/insights'
-      path: '/insights'
-      fullPath: '/insights'
-      preLoaderRoute: typeof modulesStudyGuidanceStudyGuidanceRouteRouteImport
       parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
     }
     '/_protected/focus': {
@@ -476,22 +476,22 @@ const modulesRecallRecallRouteRouteWithChildren =
 
 interface modulesWorkspaceShellAppShellProtectedRouteRouteChildren {
   modulesFocusFocusRouteRoute: typeof modulesFocusFocusRouteRoute
-  modulesStudyGuidanceStudyGuidanceRouteRoute: typeof modulesStudyGuidanceStudyGuidanceRouteRoute
   modulesRecallRecallRouteRoute: typeof modulesRecallRecallRouteRouteWithChildren
   modulesAccessSessionSettingsRouteRoute: typeof modulesAccessSessionSettingsRouteRoute
   modulesStudyNotesStudyNotesRouteRoute: typeof modulesStudyNotesStudyNotesRouteRoute
+  modulesStudyGuidanceStudyGuidanceRouteRoute: typeof modulesStudyGuidanceStudyGuidanceRouteRoute
 }
 
 const modulesWorkspaceShellAppShellProtectedRouteRouteChildren: modulesWorkspaceShellAppShellProtectedRouteRouteChildren =
   {
     modulesFocusFocusRouteRoute: modulesFocusFocusRouteRoute,
-    modulesStudyGuidanceStudyGuidanceRouteRoute:
-      modulesStudyGuidanceStudyGuidanceRouteRoute,
     modulesRecallRecallRouteRoute: modulesRecallRecallRouteRouteWithChildren,
     modulesAccessSessionSettingsRouteRoute:
       modulesAccessSessionSettingsRouteRoute,
     modulesStudyNotesStudyNotesRouteRoute:
       modulesStudyNotesStudyNotesRouteRoute,
+    modulesStudyGuidanceStudyGuidanceRouteRoute:
+      modulesStudyGuidanceStudyGuidanceRouteRoute,
   }
 
 const modulesWorkspaceShellAppShellProtectedRouteRouteWithChildren =

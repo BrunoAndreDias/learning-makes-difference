@@ -181,12 +181,12 @@ function getSelectedStudyNoteIdsFromHref(href: string) {
   return studyNoteIds?.split(",").filter(Boolean) ?? [];
 }
 
-describe("authenticated Study Guidance workspace", () => {
+describe("authenticated Today workspace", () => {
   it("presents the summary strip, recommendations, and explanatory side panel as separate guidance areas", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-study-guidance-presentation";
 
-    renderRoute("/insights", {
+    renderRoute("/today", {
       ...contexts,
       session: {
         user: {
@@ -248,7 +248,7 @@ describe("authenticated Study Guidance workspace", () => {
 
     vi.setSystemTime(new Date("2026-05-15T12:00:00.000Z"));
 
-    renderRoute("/insights", {
+    renderRoute("/today", {
       ...contexts,
       session: {
         user: {
@@ -359,7 +359,7 @@ describe("authenticated Study Guidance workspace", () => {
 
     vi.setSystemTime(new Date("2026-05-15T12:00:00.000Z"));
 
-    renderRoute("/insights", {
+    renderRoute("/today", {
       ...contexts,
       session: {
         user: {
@@ -381,7 +381,7 @@ describe("authenticated Study Guidance workspace", () => {
     expect(
       within(
         screen.getByRole("navigation", { name: "App sections" }),
-      ).getByRole("link", { name: "Insights" }),
+      ).getByRole("link", { name: "Today" }),
     ).toHaveAttribute("aria-current", "page");
     expect(
       screen.getByRole("link", { name: "Manual selection" }),
@@ -482,7 +482,7 @@ describe("authenticated Study Guidance workspace", () => {
 
     vi.setSystemTime(new Date("2026-05-15T12:00:00.000Z"));
 
-    renderRoute("/insights", {
+    renderRoute("/today", {
       ...contexts,
       session: {
         user: {
@@ -587,7 +587,7 @@ describe("authenticated Study Guidance workspace", () => {
 
     vi.setSystemTime(new Date("2026-05-15T12:00:00.000Z"));
 
-    renderRoute("/insights", {
+    renderRoute("/today", {
       ...contexts,
       session: {
         user: {
@@ -654,7 +654,7 @@ describe("authenticated Study Guidance workspace", () => {
 
     vi.setSystemTime(new Date("2026-05-15T12:10:00.000Z"));
 
-    renderRoute("/insights", {
+    renderRoute("/today", {
       ...contexts,
       session: {
         user: {
@@ -685,7 +685,7 @@ describe("authenticated Study Guidance workspace", () => {
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-study-guidance-signal-labels";
 
-    renderRoute("/insights", {
+    renderRoute("/today", {
       ...contexts,
       session: {
         user: {

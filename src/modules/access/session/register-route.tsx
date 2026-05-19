@@ -26,7 +26,7 @@ export const Route = createFileRoute("/_auth/register")({
 
     if (hasActiveSession(sessionSnapshot)) {
       throw redirect({
-        to: search.redirect ?? "/study-notes",
+        to: search.redirect ?? "/today",
       });
     }
   },
@@ -48,7 +48,7 @@ function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
-  const redirectTarget = search.redirect ?? "/study-notes";
+  const redirectTarget = search.redirect ?? "/today";
   const passwordVisibilityLabel = showPassword
     ? t("access.login.password.hide")
     : t("access.login.password.show");

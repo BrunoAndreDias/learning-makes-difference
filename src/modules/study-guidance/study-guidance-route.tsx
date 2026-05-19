@@ -16,7 +16,7 @@ import {
   type StudyGuidanceTopic,
 } from "./study-guidance";
 
-export const Route = createFileRoute("/_protected/insights")({
+export const Route = createFileRoute("/_protected/today")({
   component: StudyGuidanceWorkspace,
 });
 
@@ -33,9 +33,7 @@ function StudyGuidanceWorkspace() {
   const persistentStudyNotes = Route.useRouteContext({
     select: (context) => context.persistentStudyNotes,
   });
-  const { sessionSnapshot } = useResolvedProtectedSession(
-    "/_protected/insights",
-  );
+  const { sessionSnapshot } = useResolvedProtectedSession("/_protected/today");
   const userId = sessionSnapshot.user?.id ?? null;
   const userTimeZone =
     sessionSnapshot.user?.userTimeZone ?? defaultUserTimeZone;
@@ -112,7 +110,7 @@ function StudyGuidanceWorkspace() {
         }
         beforeTitle={
           <p className="study-guidance-workspace__eyebrow">
-            Insights <span aria-hidden="true">/</span> Study Guidance
+            Today <span aria-hidden="true">/</span> Study Guidance
           </p>
         }
         className="study-guidance-workspace__page-header"

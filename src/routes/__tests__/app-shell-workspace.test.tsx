@@ -251,6 +251,9 @@ describe("authenticated app shell", () => {
     const appSections = within(sidebar).getByRole("navigation", {
       name: "App sections",
     });
+    const todayLink = within(appSections).getByRole("link", {
+      name: "Today",
+    });
     const notesLink = within(appSections).getByRole("link", {
       name: "Study Notes",
     });
@@ -258,19 +261,20 @@ describe("authenticated app shell", () => {
       name: "Recall",
     });
     const focusLink = within(appSections).getByRole("link", { name: "Focus" });
-    const insightsLink = within(appSections).getByRole("link", {
-      name: "Insights",
-    });
 
     expect(within(appSections).getAllByRole("link")).toEqual([
+      todayLink,
       notesLink,
       recallLink,
       focusLink,
-      insightsLink,
     ]);
     expect(
       within(appSections).queryByRole("link", { name: "Recall history" }),
     ).not.toBeInTheDocument();
+    expect(
+      within(appSections).queryByRole("link", { name: "Insights" }),
+    ).not.toBeInTheDocument();
+    expect(todayLink).toHaveAttribute("href", "/today");
     expect(
       within(appSections).queryByRole("link", { name: "Recall results" }),
     ).not.toBeInTheDocument();

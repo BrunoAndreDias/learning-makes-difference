@@ -71,7 +71,7 @@ export default defineConfig({
                 },
                 {
                   type: "route",
-                  path: "/insights",
+                  path: "/today",
                   file: "modules/study-guidance/study-guidance-route.tsx",
                 },
                 {

@@ -143,7 +143,7 @@ describe("authenticated app shell", () => {
     expect(router.state.location.pathname).toBe("/login");
   });
 
-  it("registers a new account into Study Notes when no redirect is provided", async () => {
+  it("registers a new account into Today when no redirect is provided", async () => {
     const sessionContext = createRouteTestSessionContext();
     const { router } = renderRoute("/register", { sessionContext });
 
@@ -166,12 +166,12 @@ describe("authenticated app shell", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Sign up form" }));
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
+      await screen.findByRole("heading", { level: 1, name: "Study Guidance" }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/study-notes");
+    expect(router.state.location.pathname).toBe("/today");
   });
 
-  it("logs a returning user into Study Notes when no redirect is provided", async () => {
+  it("logs a returning user into Today when no redirect is provided", async () => {
     const sessionContext = createRouteTestSessionContext();
 
     await sessionContext.register({
@@ -197,9 +197,9 @@ describe("authenticated app shell", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Sign in form" }));
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
+      await screen.findByRole("heading", { level: 1, name: "Study Guidance" }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/study-notes");
+    expect(router.state.location.pathname).toBe("/today");
   });
 
   it("captures the browser-detected User Time Zone during registration", async () => {

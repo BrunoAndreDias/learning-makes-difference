@@ -84,13 +84,13 @@ describe("authenticated app shell", () => {
     expect(router.state.location.pathname).toBe("/login");
   });
 
-  it("redirects authenticated visits to the root path into the Study Notes workspace", async () => {
+  it("redirects authenticated visits to the root path into the Today workspace", async () => {
     const { router } = renderRoute("/");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
+      await screen.findByRole("heading", { level: 1, name: "Study Guidance" }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/study-notes");
+    expect(router.state.location.pathname).toBe("/today");
   });
 
   it("redirects anonymous visits to unknown paths into login", async () => {
@@ -103,13 +103,13 @@ describe("authenticated app shell", () => {
     expect(router.state.location.search.redirect).toBeUndefined();
   });
 
-  it("redirects authenticated visits to unknown paths into the Study Notes workspace", async () => {
+  it("redirects authenticated visits to unknown paths into the Today workspace", async () => {
     const { router } = renderRoute("/qweqwe");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
+      await screen.findByRole("heading", { level: 1, name: "Study Guidance" }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/study-notes");
+    expect(router.state.location.pathname).toBe("/today");
   });
 
   it("keeps /recall/results as a dedicated Recall sub-route", async () => {
@@ -140,7 +140,7 @@ describe("authenticated app shell", () => {
   });
 
   it.each([
-    "/insights",
+    "/today",
     "/recall/repair",
     "/recall/repair/missing-entry",
     "/recall/repair/result-1/questions/question-1",
@@ -154,6 +154,16 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/login");
     expect(router.state.location.search.redirect).toBe(pathname);
+  });
+
+  it("treats /insights as a removed route instead of preserving it as a protected redirect target", async () => {
+    const { router } = renderRoute("/insights", { session: { user: null } });
+
+    expect(
+      await screen.findByRole("heading", { name: "Welcome back" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/login");
+    expect(router.state.location.search.redirect).toBeUndefined();
   });
 
   it("redirects to login when persisted session restoration fails", async () => {

@@ -25,16 +25,21 @@ import { FocusSessionStartControl } from "../../focus";
 import { useAppTranslation } from "../../language";
 import { NotesWorkspaceProvider } from "../../notes";
 
-type NavigationIconName = "focus" | "insights" | "note" | "recall" | "settings";
+type NavigationIconName = "focus" | "note" | "recall" | "settings" | "today";
 type WorkspaceFrameName =
   | "focus"
-  | "insights"
   | "notes"
   | "recall"
   | "recall-results"
-  | "settings";
+  | "settings"
+  | "today";
 
 const globalNavigationItems = [
+  {
+    iconName: "today",
+    labelKey: "shell.navigation.today",
+    to: "/today",
+  },
   {
     iconName: "note",
     labelKey: "shell.navigation.notes",
@@ -49,11 +54,6 @@ const globalNavigationItems = [
     iconName: "focus",
     labelKey: "shell.navigation.focus",
     to: "/focus",
-  },
-  {
-    iconName: "insights",
-    labelKey: "shell.navigation.insights",
-    to: "/insights",
   },
 ] as const;
 
@@ -93,8 +93,8 @@ function getWorkspaceTitleKey(pathname: string) {
     return "shell.workspace.focus";
   }
 
-  if (isInsightsWorkspacePath(pathname)) {
-    return "shell.workspace.insights";
+  if (isTodayWorkspacePath(pathname)) {
+    return "shell.workspace.today";
   }
 
   if (isSettingsWorkspacePath(pathname)) {
@@ -136,8 +136,8 @@ function isSettingsWorkspacePath(pathname: string) {
   return isWorkspacePath(pathname, "/settings");
 }
 
-function isInsightsWorkspacePath(pathname: string) {
-  return isWorkspacePath(pathname, "/insights");
+function isTodayWorkspacePath(pathname: string) {
+  return isWorkspacePath(pathname, "/today");
 }
 
 function getWorkspaceFrameName(
@@ -159,8 +159,8 @@ function getWorkspaceFrameName(
     return "focus";
   }
 
-  if (isInsightsWorkspacePath(pathname)) {
-    return "insights";
+  if (isTodayWorkspacePath(pathname)) {
+    return "today";
   }
 
   if (isSettingsWorkspacePath(pathname)) {
@@ -205,7 +205,7 @@ export function AppLayout() {
   );
   const isRecallWorkspaceRoute = isRecallWorkspacePath(location.pathname);
   const isFocusWorkspaceRoute = isFocusWorkspacePath(location.pathname);
-  const isInsightsWorkspaceRoute = isInsightsWorkspacePath(location.pathname);
+  const isTodayWorkspaceRoute = isTodayWorkspacePath(location.pathname);
   const isSettingsWorkspaceRoute = isSettingsWorkspacePath(location.pathname);
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
   const sidebarToggleLabel = isSidebarCollapsed
@@ -296,7 +296,7 @@ export function AppLayout() {
           tabIndex={-1}
         >
           <div className="app-sidebar__header">
-            <Link className="app-sidebar__brand" to="/study-notes">
+            <Link className="app-sidebar__brand" to="/today">
               <img
                 alt=""
                 aria-hidden="true"
@@ -373,7 +373,7 @@ export function AppLayout() {
             isStudyNotesWorkspaceRoute={isStudyNotesWorkspaceRoute}
             isRecallWorkspaceRoute={isRecallWorkspaceRoute}
             isFocusWorkspaceRoute={isFocusWorkspaceRoute}
-            isInsightsWorkspaceRoute={isInsightsWorkspaceRoute}
+            isTodayWorkspaceRoute={isTodayWorkspaceRoute}
             isSettingsWorkspaceRoute={isSettingsWorkspaceRoute}
             isSidebarCollapsed={isSidebarCollapsed}
             isMobileSidebarOpen={isMobileSidebarOpen}
@@ -403,7 +403,7 @@ function WorkspaceHeader({
   isStudyNotesWorkspaceRoute,
   isRecallWorkspaceRoute,
   isFocusWorkspaceRoute,
-  isInsightsWorkspaceRoute,
+  isTodayWorkspaceRoute,
   isSettingsWorkspaceRoute,
   isSidebarCollapsed,
   isMobileSidebarOpen,
@@ -426,7 +426,7 @@ function WorkspaceHeader({
   isStudyNotesWorkspaceRoute: boolean;
   isRecallWorkspaceRoute: boolean;
   isFocusWorkspaceRoute: boolean;
-  isInsightsWorkspaceRoute: boolean;
+  isTodayWorkspaceRoute: boolean;
   isSettingsWorkspaceRoute: boolean;
   isSidebarCollapsed: boolean;
   isMobileSidebarOpen: boolean;
@@ -445,7 +445,7 @@ function WorkspaceHeader({
   const hasVisuallyHiddenWorkspaceTitle =
     isRecallWorkspaceRoute ||
     isFocusWorkspaceRoute ||
-    isInsightsWorkspaceRoute ||
+    isTodayWorkspaceRoute ||
     isSettingsWorkspaceRoute;
 
   return (
@@ -883,7 +883,7 @@ function NavigationIcon({
           <path d="M19 12h3" />
         </svg>
       );
-    case "insights":
+    case "today":
       return (
         <svg aria-hidden="true" viewBox="0 0 24 24">
           <path d="M5 19V7" />

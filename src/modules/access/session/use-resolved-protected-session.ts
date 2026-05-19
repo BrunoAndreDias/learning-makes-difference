@@ -9,10 +9,10 @@ import {
 type ProtectedSessionRouteId =
   | "/_protected"
   | "/_protected/focus"
-  | "/_protected/insights"
   | "/_protected/recall"
   | "/_protected/settings"
-  | "/_protected/study-notes";
+  | "/_protected/study-notes"
+  | "/_protected/today";
 
 export function useResolvedProtectedSession(routeId: ProtectedSessionRouteId): {
   session: AppSessionContext;

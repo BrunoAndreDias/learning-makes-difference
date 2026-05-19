@@ -68,6 +68,9 @@ describe("route tree", () => {
       "'/focus': typeof modulesFocusFocusRouteRoute",
     );
     expect(generatedRouteTree).toContain(
+      "'/today': typeof modulesStudyGuidanceStudyGuidanceRouteRoute",
+    );
+    expect(generatedRouteTree).not.toContain(
       "'/insights': typeof modulesStudyGuidanceStudyGuidanceRouteRoute",
     );
     expect(generatedRouteTree).toContain("'/recall/results':");
