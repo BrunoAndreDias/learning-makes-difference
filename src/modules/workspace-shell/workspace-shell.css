@@ -996,6 +996,184 @@
   flex-wrap: nowrap;
 }
 
+.focus-nav-prototype {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.focus-nav-prototype__link {
+  min-width: 0;
+}
+
+.focus-nav-prototype__copy {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.focus-nav-prototype__status,
+.focus-nav-prototype__state,
+.focus-nav-prototype__error {
+  color: var(--color-content-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.focus-nav-prototype__timer {
+  color: var(--color-success);
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.focus-nav-prototype__timer::before {
+  content: "";
+  display: inline-block;
+  width: 0.35rem;
+  height: 0.35rem;
+  margin-right: 0.35rem;
+  border-radius: 999px;
+  background: currentColor;
+  vertical-align: 0.08em;
+}
+
+.focus-nav-prototype__action {
+  min-height: 1.9rem;
+  padding-inline: 0.65rem;
+}
+
+.focus-nav-prototype__state {
+  display: block;
+  padding-inline: var(--lmd-list-row-padding-x);
+}
+
+.focus-nav-prototype__error {
+  color: var(--color-danger);
+}
+
+.focus-nav-prototype--a,
+.focus-nav-prototype--c {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.focus-nav-prototype--a {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.focus-nav-prototype--a .focus-nav-prototype__link {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  padding-right: 0.6rem;
+}
+
+.focus-nav-prototype--a .focus-nav-prototype__button-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: max-content;
+}
+
+.focus-nav-prototype--a .focus-nav-prototype__button-slot .notes-action {
+  pointer-events: auto;
+}
+
+.focus-nav-prototype--a .focus-nav-prototype__state,
+.focus-nav-prototype--a .focus-nav-prototype__error,
+.focus-nav-prototype--c .focus-nav-prototype__state,
+.focus-nav-prototype--c .focus-nav-prototype__error {
+  grid-column: 1 / -1;
+}
+
+.focus-nav-prototype--b {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  padding: 0.35rem;
+  border: 1px solid var(--color-primary-soft-border);
+  border-radius: var(--radius-lg);
+  background: color-mix(
+    in srgb,
+    var(--color-primary-soft) 55%,
+    var(--color-shell-panel)
+  );
+}
+
+.focus-nav-prototype--b .focus-nav-prototype__link {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 2.5rem;
+  padding: 0.25rem 0.35rem;
+  border: 0;
+  background: transparent;
+}
+
+.focus-nav-prototype--b .focus-nav-prototype__link:hover,
+.focus-nav-prototype--b .focus-nav-prototype__link.app-sidebar__link-active {
+  background: transparent;
+  border-color: transparent;
+}
+
+.focus-nav-prototype--b .focus-nav-prototype__action {
+  min-height: 2.5rem;
+}
+
+.focus-nav-prototype--b .focus-nav-prototype__state,
+.focus-nav-prototype--b .focus-nav-prototype__error {
+  grid-column: 1 / -1;
+  padding-inline: 0.35rem;
+}
+
+.focus-nav-prototype--c .focus-nav-prototype__link {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.focus-nav-prototype--c .focus-nav-prototype__timer {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-left: calc(1.55rem + var(--lmd-list-row-gap));
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: var(--color-success-soft);
+}
+
+.prototype-switcher {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--color-content-border);
+  border-radius: 999px;
+  background: var(--color-content-strong);
+  color: var(--color-primary-foreground);
+  box-shadow: var(--shadow-chrome);
+  transform: translateX(-50%);
+}
+
+.prototype-switcher button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.prototype-switcher span {
+  min-width: 10rem;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .app-sidebar[data-sidebar-state="collapsed"] .app-sidebar__header {
   justify-items: center;
 }

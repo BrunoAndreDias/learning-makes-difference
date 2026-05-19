@@ -87,7 +87,7 @@ const studyNotesSearchSchema = z.object({
   practiceRepairEntryId: z.string().optional(),
 });
 
-const DEFAULT_COLLAPSED_STUDY_NOTES_COUNT = 4;
+const DEFAULT_COLLAPSED_STUDY_NOTES_COUNT = 8;
 
 export const Route = createFileRoute("/_protected/study-notes")({
   validateSearch: studyNotesSearchSchema,
@@ -469,16 +469,6 @@ function HelpCircleIcon() {
   );
 }
 
-function LightbulbIcon() {
-  return (
-    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-      <path d="M9 18h6" />
-      <path d="M10 22h4" />
-      <path d="M8.5 14.5A6 6 0 1 1 15.5 14c-.9.6-1.5 1.7-1.5 3h-4c0-1.1-.5-2-1.5-2.5Z" />
-    </svg>
-  );
-}
-
 function SparklesIcon() {
   return (
     <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
@@ -555,34 +545,6 @@ const studyNoteTemplateActions = [
     icon: <TrendIcon />,
     label: "Cause & effect",
     prompt: "What causes this and what changes because of it?",
-  },
-] as const;
-
-const studyNoteGuidanceItems = [
-  {
-    body: "Strong prompts spark better recall.",
-    icon: <HelpCircleIcon />,
-    title: "Ask a why, how, or example question.",
-  },
-  {
-    body: "It's easier to remember and review.",
-    icon: <StudyNoteDocumentIcon />,
-    title: "Keep one idea per study note.",
-  },
-  {
-    body: "Clear answers build confidence.",
-    icon: <CheckIcon />,
-    title: "Make the expected answer specific enough to check yourself.",
-  },
-  {
-    body: "Summarize the principle here.",
-    icon: <WrenchIcon />,
-    title: "Worked examples can stay in source material.",
-  },
-  {
-    body: "Use them to clarify, not complicate.",
-    icon: <LightbulbIcon />,
-    title: "Add a metaphor or acronym only if it helps.",
   },
 ] as const;
 
@@ -2741,42 +2703,39 @@ function StudyNotesWorkspace() {
                         }
                         type="button"
                       >
-                        <span className="study-note-row__indicator" />
+                        <span className="study-note-row__icon">
+                          <StudyNoteDocumentIcon />
+                        </span>
                         <span className="study-note-row__content">
                           <strong>{studyNote.prompt}</strong>
                           <span>{labelNames.slice(0, 2).join(" · ")}</span>
-                          <span className="study-note-row__updated-inline">
-                            {formatRelativeUpdatedLabel(studyNote.updatedAt)}
-                          </span>
                           <span className="study-note-row__status">
                             {rowStatus}
                           </span>
+                        </span>
+                        <span className="study-note-row__updated-inline">
+                          {formatRelativeUpdatedLabel(studyNote.updatedAt)}
                         </span>
                       </button>
                     </li>
                   );
                 })}
+                {isStudyNotesCatalogExpandable &&
+                !isStudyNotesCatalogExpanded ? (
+                  <li className="study-notes-catalog-footer">
+                    <button
+                      className="study-notes-show-more"
+                      onClick={() => setStudyNotesCatalogExpanded(true)}
+                      type="button"
+                    >
+                      Show {hiddenStudyNotesCount} more
+                      <ChevronDownIcon />
+                    </button>
+                  </li>
+                ) : null}
               </ul>
             )}
           </nav>
-          {studyNotes.length === 0 ? null : (
-            <div className="study-notes-catalog-footer">
-              <span>
-                {studyNotes.length} {studyNotes.length === 1 ? "note" : "notes"}{" "}
-                total
-              </span>
-              {isStudyNotesCatalogExpandable && !isStudyNotesCatalogExpanded ? (
-                <button
-                  className="study-notes-show-more"
-                  onClick={() => setStudyNotesCatalogExpanded(true)}
-                  type="button"
-                >
-                  Show {hiddenStudyNotesCount} more
-                  <ChevronDownIcon />
-                </button>
-              ) : null}
-            </div>
-          )}
         </aside>
 
         <form
@@ -3508,38 +3467,6 @@ function StudyNotesWorkspace() {
             </p>
           )}
         </form>
-
-        <aside
-          aria-label="Study Note guidance"
-          className="study-notes-guidance-panel"
-        >
-          <header className="study-notes-guidance-panel__header">
-            <span className="study-notes-guidance-panel__icon">
-              <LightbulbIcon />
-            </span>
-            <h2>Write better study notes</h2>
-          </header>
-          <div className="study-notes-guidance-panel__items">
-            {studyNoteGuidanceItems.map((item) => (
-              <article className="study-notes-guidance-item" key={item.title}>
-                <span className="study-notes-guidance-item__icon">
-                  {item.icon}
-                </span>
-                <div>
-                  <h3>{item.title}</h3>
-                  <p>{item.body}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-          <p className="study-notes-guidance-panel__note">
-            <SparklesIcon />
-            <span>
-              We encourage stronger prompts through guidance and templates-no
-              extra required structure.
-            </span>
-          </p>
-        </aside>
 
         {isSaveBarVisible ? (
           <section

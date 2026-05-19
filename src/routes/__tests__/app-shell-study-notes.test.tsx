@@ -512,9 +512,8 @@ describe("authenticated Study Notes workspace", () => {
       within(editor).getByRole("button", { name: "Cause & effect" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("complementary", { name: "Study Note guidance" }),
-    ).toHaveTextContent("Write better study notes");
-    expect(screen.getByText("Keep one idea per study note.")).toBeVisible();
+      screen.queryByRole("complementary", { name: "Study Note guidance" }),
+    ).not.toBeInTheDocument();
 
     expect(screen.getByLabelText("Prompt")).toHaveValue("Retrieval practice");
     expect(screen.getByLabelText("Expected answer")).toHaveValue(

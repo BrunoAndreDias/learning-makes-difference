@@ -414,7 +414,10 @@ _Avoid_: Timer page, Pomodoro page, focus history
 
 **Focus Dock**:
 A compact global workspace utility for starting and controlling the active FocusSession without navigating away from the current workspace.
-In v1, the expanded sidebar footer card label is "Focus now" to distinguish the active utility from the Focus Section.
+In v1, the expanded sidebar does not show a separate Focus Dock footer card.
+In v1, the expanded sidebar Focus navigation row globally surfaces compact FocusSession status and a simple Start or End action inside the same row surface while the non-action row area still navigates to the Focus Section.
+In v1, the expanded sidebar Focus navigation row does not show state-specific BreakInterval or IntervalTransitionWindow actions; richer FocusSession controls belong in the Focus Section or header fallback.
+In v1, when the sidebar is collapsed or unavailable, compact FocusSession status and controls remain available in the workspace header.
 In v1, Pomodoro timing settings are hidden behind a "Configure" disclosure by default.
 In v1, active-session actions appear only when relevant to the current FocusSession state, such as keeping focus during an IntervalTransitionWindow, skipping a BreakInterval, or starting the next FocusInterval.
 _Avoid_: Timer page, Focus page control, sidebar nav item

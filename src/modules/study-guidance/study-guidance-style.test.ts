@@ -26,6 +26,7 @@ describe("Study Guidance styling", () => {
       "utf8",
     );
     const summaryListStyle = getCssRule(css, ".study-guidance-summary__list");
+    const workspaceStyle = getCssRule(css, ".study-guidance-workspace");
     const planListStyle = getCssRule(css, ".study-guidance-plan__list");
     const rowStyle = getCssRule(css, ".study-guidance-row");
     const mobileSummaryListStyle = getMediaRule(
@@ -34,8 +35,10 @@ describe("Study Guidance styling", () => {
       ".study-guidance-summary__list",
     );
 
+    expect(workspaceStyle).toContain("max-width: none;");
+    expect(workspaceStyle).toContain("margin: 0;");
     expect(summaryListStyle).toContain(
-      "grid-template-columns: repeat(3, minmax(0, 1fr));",
+      "grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));",
     );
     expect(planListStyle).toContain("display: grid;");
     expect(planListStyle).toContain("gap: var(--space-4);");

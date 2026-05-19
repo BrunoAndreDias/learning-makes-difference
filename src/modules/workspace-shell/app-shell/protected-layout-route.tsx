@@ -10,6 +10,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
   type RefObject,
+  useCallback,
   useEffect,
   useId,
   useRef,
@@ -23,6 +24,7 @@ import type { AppSessionSnapshot } from "../../access/session/session";
 import { useResolvedProtectedSession } from "../../access/session/use-resolved-protected-session";
 import {
   type AppFocusContext,
+  AppFocusError,
   type AppPersistentFocusContext,
   FocusDock,
   type FocusSession,
@@ -87,6 +89,17 @@ const recallSubNavigationItems = [
 ] as const;
 
 const SIDEBAR_DOCK_UNAVAILABLE_QUERY = "(max-width: 51.99rem)";
+const FOCUS_NAV_PROTOTYPE_VARIANTS = ["A", "B", "C"] as const;
+const FOCUS_NAV_PROTOTYPE_LABELS = {
+  A: "Inline split row",
+  B: "Status stack row",
+  C: "Separated control row",
+} as const satisfies Record<FocusNavPrototypeVariant, string>;
+const FOCUS_NAV_TIMER_SEPARATOR = " · ";
+const DEFAULT_FOCUS_MINUTES = 25;
+const DEFAULT_BREAK_MINUTES = 5;
+
+type FocusNavPrototypeVariant = (typeof FOCUS_NAV_PROTOTYPE_VARIANTS)[number];
 
 function isWorkspacePath(pathname: string, workspacePath: string) {
   return pathname === workspacePath || pathname.startsWith(`${workspacePath}/`);
@@ -250,8 +263,9 @@ export function AppLayout() {
   const shouldRenderFocusDock = !isFocusWorkspaceRoute;
   const showHeaderFocusDock =
     shouldRenderFocusDock && (isSidebarCollapsed || isSidebarDockUnavailable);
-  const showSidebarFocusDock =
-    shouldRenderFocusDock && !isSidebarCollapsed && !isSidebarDockUnavailable;
+  const focusNavPrototypeVariant = getFocusNavPrototypeVariant(location.search);
+  const shouldRenderFocusNavPrototype =
+    import.meta.env.DEV && !isSidebarCollapsed && !isSidebarDockUnavailable;
 
   function closeMobileSidebar(options?: { returnFocusToToggle?: boolean }) {
     setMobileSidebarOpen(false);
@@ -377,19 +391,18 @@ export function AppLayout() {
           </div>
 
           <GlobalNavigation
+            activeFocusSession={activeFocusSession}
             currentPathname={location.pathname}
+            focus={focus}
+            focusNavPrototypeVariant={
+              shouldRenderFocusNavPrototype ? focusNavPrototypeVariant : null
+            }
             onNavigate={closeMobileSidebar}
+            persistentFocus={persistentFocus}
+            userId={userId}
           />
 
           <div className="app-sidebar__footer">
-            {showSidebarFocusDock ? (
-              <FocusDock
-                activeFocusSession={activeFocusSession}
-                focus={focus}
-                persistentFocus={persistentFocus}
-                userId={userId}
-              />
-            ) : null}
             <div className="app-sidebar__streak">
               <span aria-hidden="true" className="app-sidebar__streak-icon">
                 <StreakIcon />
@@ -438,6 +451,12 @@ export function AppLayout() {
             <Outlet />
           </div>
         </div>
+        {shouldRenderFocusNavPrototype ? (
+          <FocusNavigationPrototypeSwitcher
+            currentVariant={focusNavPrototypeVariant}
+            locationSearch={location.search}
+          />
+        ) : null}
       </section>
     </NotesWorkspaceProvider>
   );
@@ -665,11 +684,21 @@ function WorkspaceDate({
 }
 
 function GlobalNavigation({
+  activeFocusSession,
   currentPathname,
+  focus,
+  focusNavPrototypeVariant,
   onNavigate,
+  persistentFocus,
+  userId,
 }: Readonly<{
+  activeFocusSession: FocusSession | null;
   currentPathname: string;
+  focus: AppFocusContext;
+  focusNavPrototypeVariant: FocusNavPrototypeVariant | null;
   onNavigate: () => void;
+  persistentFocus: AppPersistentFocusContext | undefined;
+  userId: string | null;
 }>) {
   const { t } = useAppTranslation();
   const isRecallRouteActive = isRecallWorkspacePath(currentPathname);
@@ -680,49 +709,357 @@ function GlobalNavigation({
       className="app-sidebar__nav"
     >
       <ul className="app-sidebar__list">
-        {globalNavigationItems.map((navigationItem) => (
-          <li key={navigationItem.to}>
-            <Link
-              activeProps={{
-                className: "app-sidebar__link app-sidebar__link-active",
-              }}
-              className="app-sidebar__link"
-              onClick={onNavigate}
-              to={navigationItem.to}
-            >
-              <span aria-hidden="true" className="app-sidebar__icon">
-                <NavigationIcon name={navigationItem.iconName} />
-              </span>
-              <span className="app-sidebar__label">
-                {t(navigationItem.labelKey)}
-              </span>
-            </Link>
-            {navigationItem.to === appRoutePaths.recall &&
-            isRecallRouteActive ? (
-              <ul className="app-sidebar__sublist">
-                {recallSubNavigationItems.map((subNavigationItem) => (
-                  <li key={subNavigationItem.to}>
-                    <Link
-                      activeOptions={{ exact: true }}
-                      activeProps={{
-                        className:
-                          "app-sidebar__sublink app-sidebar__sublink-active",
-                      }}
-                      className="app-sidebar__sublink"
-                      onClick={onNavigate}
-                      to={subNavigationItem.to}
-                    >
-                      {t(subNavigationItem.labelKey)}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </li>
-        ))}
+        {globalNavigationItems.map((navigationItem) => {
+          const shouldRenderFocusPrototype =
+            focusNavPrototypeVariant !== null &&
+            navigationItem.to === appRoutePaths.focus;
+
+          return (
+            <li key={navigationItem.to}>
+              {shouldRenderFocusPrototype ? (
+                <FocusNavigationPrototypeRow
+                  activeFocusSession={activeFocusSession}
+                  focus={focus}
+                  label={t(navigationItem.labelKey)}
+                  onNavigate={onNavigate}
+                  persistentFocus={persistentFocus}
+                  userId={userId}
+                  variant={focusNavPrototypeVariant}
+                />
+              ) : (
+                <Link
+                  activeProps={{
+                    className: "app-sidebar__link app-sidebar__link-active",
+                  }}
+                  className="app-sidebar__link"
+                  onClick={onNavigate}
+                  to={navigationItem.to}
+                >
+                  <span aria-hidden="true" className="app-sidebar__icon">
+                    <NavigationIcon name={navigationItem.iconName} />
+                  </span>
+                  <span className="app-sidebar__label">
+                    {t(navigationItem.labelKey)}
+                  </span>
+                </Link>
+              )}
+              {navigationItem.to === appRoutePaths.recall &&
+              isRecallRouteActive ? (
+                <ul className="app-sidebar__sublist">
+                  {recallSubNavigationItems.map((subNavigationItem) => (
+                    <li key={subNavigationItem.to}>
+                      <Link
+                        activeOptions={{ exact: true }}
+                        activeProps={{
+                          className:
+                            "app-sidebar__sublink app-sidebar__sublink-active",
+                        }}
+                        className="app-sidebar__sublink"
+                        onClick={onNavigate}
+                        to={subNavigationItem.to}
+                      >
+                        {t(subNavigationItem.labelKey)}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
     </nav>
   );
+}
+
+// PROTOTYPE: Three variants of the Focus sidebar navigation row,
+// switchable via /focus?variant=A|B|C on the existing Focus route.
+function FocusNavigationPrototypeRow({
+  activeFocusSession,
+  focus,
+  label,
+  onNavigate,
+  persistentFocus,
+  userId,
+  variant,
+}: Readonly<{
+  activeFocusSession: FocusSession | null;
+  focus: AppFocusContext;
+  label: string;
+  onNavigate: () => void;
+  persistentFocus: AppPersistentFocusContext | undefined;
+  userId: string | null;
+  variant: FocusNavPrototypeVariant;
+}>) {
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const currentActiveFocusSession =
+    userId === null ? activeFocusSession : focus.getActiveSession({ userId });
+  const isSessionActive = currentActiveFocusSession !== null;
+  const timerLabel =
+    currentActiveFocusSession === null
+      ? null
+      : formatFocusNavTimerLabel(currentActiveFocusSession);
+  const statusLabel =
+    currentActiveFocusSession === null
+      ? "Idle"
+      : getFocusNavStatusLabel(currentActiveFocusSession);
+  const actionLabel = isSessionActive ? "End" : "Start";
+
+  async function runAction() {
+    if (userId === null) {
+      return;
+    }
+
+    try {
+      if (currentActiveFocusSession === null) {
+        await startDefaultFocusSession({
+          focus,
+          persistentFocus,
+          userId,
+        });
+      } else {
+        await endFocusSession({
+          focus,
+          persistentFocus,
+          userId,
+        });
+      }
+
+      setErrorMessage(null);
+    } catch (error) {
+      if (error instanceof AppFocusError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    }
+  }
+
+  const navContent = (
+    <>
+      <span aria-hidden="true" className="app-sidebar__icon">
+        <NavigationIcon name="focus" />
+      </span>
+      <span className="focus-nav-prototype__copy">
+        <span className="app-sidebar__label">{label}</span>
+        {variant === "B" ? (
+          <span className="focus-nav-prototype__status">{statusLabel}</span>
+        ) : null}
+      </span>
+      {timerLabel === null ? null : (
+        <span className="focus-nav-prototype__timer">{timerLabel}</span>
+      )}
+      {variant === "A" ? (
+        <span className="focus-nav-prototype__button-slot">
+          <Button
+            className="focus-nav-prototype__action"
+            disabled={userId === null}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void runAction();
+            }}
+            size="compact"
+            type="button"
+            variant={isSessionActive ? "standard" : "secondary"}
+          >
+            {actionLabel}
+          </Button>
+        </span>
+      ) : null}
+    </>
+  );
+
+  return (
+    <div
+      className={`focus-nav-prototype focus-nav-prototype--${variant.toLowerCase()}`}
+      data-focus-active={isSessionActive ? "true" : "false"}
+    >
+      <Link
+        activeProps={{
+          className:
+            "focus-nav-prototype__link app-sidebar__link app-sidebar__link-active",
+        }}
+        className="focus-nav-prototype__link app-sidebar__link"
+        onClick={onNavigate}
+        to={appRoutePaths.focus}
+      >
+        {navContent}
+      </Link>
+      {variant === "A" ? null : (
+        <Button
+          className="focus-nav-prototype__action"
+          disabled={userId === null}
+          onClick={() => void runAction()}
+          size="compact"
+          type="button"
+          variant={isSessionActive ? "standard" : "secondary"}
+        >
+          {actionLabel}
+        </Button>
+      )}
+      <span className="focus-nav-prototype__state">
+        variant {variant} | state {statusLabel}
+        {timerLabel === null ? "" : `${FOCUS_NAV_TIMER_SEPARATOR}${timerLabel}`}
+      </span>
+      {errorMessage === null ? null : (
+        <span className="focus-nav-prototype__error" role="status">
+          {errorMessage}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function FocusNavigationPrototypeSwitcher({
+  currentVariant,
+  locationSearch,
+}: Readonly<{
+  currentVariant: FocusNavPrototypeVariant;
+  locationSearch: unknown;
+}>) {
+  const navigate = useNavigate();
+  const currentIndex = FOCUS_NAV_PROTOTYPE_VARIANTS.indexOf(currentVariant);
+  const selectVariant = useCallback(
+    (direction: -1 | 1) => {
+      const nextIndex =
+        (currentIndex + direction + FOCUS_NAV_PROTOTYPE_VARIANTS.length) %
+        FOCUS_NAV_PROTOTYPE_VARIANTS.length;
+      const nextVariant = FOCUS_NAV_PROTOTYPE_VARIANTS[nextIndex];
+      const nextSearch =
+        typeof locationSearch === "object" && locationSearch !== null
+          ? { ...locationSearch, variant: nextVariant }
+          : { variant: nextVariant };
+
+      void navigate({
+        search: nextSearch as never,
+        to: appRoutePaths.focus,
+      });
+    },
+    [currentIndex, locationSearch, navigate],
+  );
+
+  useEffect(() => {
+    function handleKeyDown(event: globalThis.KeyboardEvent) {
+      const target = event.target;
+
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLElement && target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        selectVariant(-1);
+      }
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        selectVariant(1);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectVariant]);
+
+  return (
+    <fieldset className="prototype-switcher" aria-label="Prototype">
+      <button onClick={() => selectVariant(-1)} type="button">
+        ←
+      </button>
+      <span>
+        {currentVariant} — {FOCUS_NAV_PROTOTYPE_LABELS[currentVariant]}
+      </span>
+      <button onClick={() => selectVariant(1)} type="button">
+        →
+      </button>
+    </fieldset>
+  );
+}
+
+function getFocusNavPrototypeVariant(
+  search: unknown,
+): FocusNavPrototypeVariant {
+  const variant =
+    typeof search === "object" && search !== null && "variant" in search
+      ? search.variant
+      : undefined;
+
+  return FOCUS_NAV_PROTOTYPE_VARIANTS.includes(
+    variant as FocusNavPrototypeVariant,
+  )
+    ? (variant as FocusNavPrototypeVariant)
+    : "A";
+}
+
+async function startDefaultFocusSession({
+  focus,
+  persistentFocus,
+  userId,
+}: {
+  focus: AppFocusContext;
+  persistentFocus: AppPersistentFocusContext | undefined;
+  userId: string;
+}) {
+  const input = {
+    breakIntervalMinutes: DEFAULT_BREAK_MINUTES,
+    focusIntervalMinutes: DEFAULT_FOCUS_MINUTES,
+    plannedFocusIntervalCount: null,
+  };
+
+  if (persistentFocus === undefined) {
+    focus.startFocusSession({ ...input, userId });
+    return;
+  }
+
+  await persistentFocus.startFocusSession(userId, input);
+}
+
+async function endFocusSession({
+  focus,
+  persistentFocus,
+  userId,
+}: {
+  focus: AppFocusContext;
+  persistentFocus: AppPersistentFocusContext | undefined;
+  userId: string;
+}) {
+  if (persistentFocus === undefined) {
+    focus.endFocusSession({ userId });
+    return;
+  }
+
+  await persistentFocus.endFocusSession(userId);
+}
+
+function getFocusNavStatusLabel(session: FocusSession) {
+  switch (session.intervalState) {
+    case "Focus":
+      return "Active";
+    case "Break":
+      return "Break";
+    case "Transition":
+      return "Transition";
+    case "AwaitingNextFocus":
+      return "Waiting";
+  }
+}
+
+function formatFocusNavTimerLabel(session: FocusSession) {
+  const remainingSeconds = session.remainingSeconds ?? 0;
+  const normalizedSeconds = remainingSeconds <= 0 ? 0 : remainingSeconds;
+  const minutes = Math.floor(normalizedSeconds / 60);
+  const seconds = normalizedSeconds % 60;
+
+  return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 }
 
 function AccountMenu({
