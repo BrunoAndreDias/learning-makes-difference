@@ -157,10 +157,10 @@ describe("Study Guidance", () => {
     });
 
     expect(guidance.stats).toEqual([
-      expect.objectContaining({ count: 2, label: "Recall today" }),
+      expect.objectContaining({ count: 2, label: "Recall Today" }),
       expect.objectContaining({ count: 1, label: "Needs practice" }),
       expect.objectContaining({ count: 1, label: "Not recalled yet" }),
-      expect.objectContaining({ count: 4, label: "Interleaving ready" }),
+      expect.objectContaining({ count: 4, label: "Interleaved Recall" }),
     ]);
     expect(guidance.topics).toEqual([
       expect.objectContaining({
@@ -183,7 +183,7 @@ describe("Study Guidance", () => {
         recommendation: expect.objectContaining({
           nextRecall: "Next recall May 19",
           summary:
-            "Chemistry prompt 1 is interleaving ready after repeated Good or Easy recalls. Next recall: Next recall May 19.",
+            "Chemistry prompt 1 is ready for Interleaved Recall after repeated Good or Easy recalls. Next recall: Next recall May 19.",
         }),
         title: "Chemistry",
       }),

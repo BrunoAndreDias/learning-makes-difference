@@ -68,7 +68,7 @@ type RecallGuidanceSignalCounts = {
 const recallTodayStat: Omit<StudyGuidanceStat, "count"> = {
   detail: "Recommended recall work exists today.",
   id: "recall-today",
-  label: "Recall today",
+  label: "Recall Today",
 };
 const needsPracticeStat: Omit<StudyGuidanceStat, "count"> = {
   detail: "Latest recall was Hard or Forgot.",
@@ -81,9 +81,9 @@ const notRecalledYetStat: Omit<StudyGuidanceStat, "count"> = {
   label: "Not recalled yet",
 };
 const interleavingReadyStat: Omit<StudyGuidanceStat, "count"> = {
-  detail: "Two recent Good or Easy recalls plus a related pool.",
+  detail: "Ready for Interleaved Recall after repeated Good or Easy recalls.",
   id: "interleaving-ready",
-  label: "Interleaving ready",
+  label: "Interleaved Recall",
 };
 
 function createTopicDrafts(input: {

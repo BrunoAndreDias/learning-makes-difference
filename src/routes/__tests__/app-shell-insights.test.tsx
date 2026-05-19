@@ -226,10 +226,10 @@ describe("authenticated Study Guidance workspace", () => {
       screen.getByRole("link", { name: "Manual selection" }),
     ).toHaveAttribute("href", "/recall/select");
 
-    expect(screen.getAllByText("Recall today").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Recall Today").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Needs practice").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Not recalled yet").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Interleaving ready").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Interleaved Recall").length).toBeGreaterThan(0);
     expect(screen.getAllByText("2 notes").length).toBeGreaterThan(0);
     expect(screen.getAllByText("1 note").length).toBeGreaterThan(0);
     expect(screen.getAllByText("4 notes").length).toBeGreaterThan(0);
@@ -248,5 +248,57 @@ describe("authenticated Study Guidance workspace", () => {
     expect(screen.queryByText(/beginner/i)).toBeNull();
     expect(screen.queryByText(/intermediate/i)).toBeNull();
     expect(screen.queryByText(/advanced/i)).toBeNull();
+  });
+
+  it("uses the four agreed factual signal labels in the Study Guidance summary", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-study-guidance-signal-labels";
+    const biology = contexts.labelsContext.createLabel({
+      name: "Biology",
+      userId,
+    });
+    const weakBiology = createRecallableStudyNote(contexts, {
+      expectedAnswer:
+        "Diffusion moves particles down a concentration gradient.",
+      labelIds: [biology.id],
+      prompt: "Diffusion vs. osmosis",
+      sourceBody: "Biology source explanation.",
+      sourceTitle: "Biology source",
+      userId,
+    });
+
+    completeStudyNoteRecall(contexts, {
+      rating: "hard",
+      studyNoteId: weakBiology.id,
+      timestamp: "2026-05-14T09:00:00.000Z",
+      userId,
+    });
+
+    vi.setSystemTime(new Date("2026-05-15T12:00:00.000Z"));
+
+    renderRoute("/insights", {
+      ...contexts,
+      session: {
+        user: {
+          displayName: "Jordan Guidance",
+          email: "jordan.guidance@example.com",
+          id: userId,
+          userLanguage: "en",
+          userTimeZone: "America/New_York",
+        },
+      },
+    });
+
+    const summary = await screen.findByRole("region", {
+      name: "Study Guidance summary",
+    });
+
+    expect(within(summary).getByText("Recall Today")).toBeInTheDocument();
+    expect(within(summary).getByText("Needs practice")).toBeInTheDocument();
+    expect(within(summary).getByText("Not recalled yet")).toBeInTheDocument();
+    expect(within(summary).getByText("Interleaved Recall")).toBeInTheDocument();
+    expect(within(summary).queryByText("Interleaving ready")).toBeNull();
   });
 });

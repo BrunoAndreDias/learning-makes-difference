@@ -215,7 +215,7 @@ const recallInsightScenarios = [
           kind: "interleaving-ready",
           nextRecall: "Next recall May 19",
           summary:
-            "Prompt is interleaving ready after repeated Good or Easy recalls. Next recall: Next recall May 19.",
+            "Prompt is ready for Interleaved Recall after repeated Good or Easy recalls. Next recall: Next recall May 19.",
         },
       }),
     },

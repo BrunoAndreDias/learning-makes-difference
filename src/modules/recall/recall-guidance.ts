@@ -134,7 +134,8 @@ function createRecallGuidanceRecommendation(input: {
 
   if (input.interleavingReady) {
     return createRecommendation({
-      action: "is interleaving ready after repeated Good or Easy recalls",
+      action:
+        "is ready for Interleaved Recall after repeated Good or Easy recalls",
       kind: "interleaving-ready",
       nextRecall: input.nextRecall,
       prompt,

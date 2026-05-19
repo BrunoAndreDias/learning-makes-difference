@@ -168,7 +168,7 @@ function StudyGuidanceWorkspace() {
                   </div>
                   <dl className="study-guidance-topic__stats">
                     <div>
-                      <dt>Recall today</dt>
+                      <dt>Recall Today</dt>
                       <dd>{formatCountLabel(topic.recallTodayCount)}</dd>
                     </div>
                     <div>
@@ -180,7 +180,7 @@ function StudyGuidanceWorkspace() {
                       <dd>{formatCountLabel(topic.notRecalledYetCount)}</dd>
                     </div>
                     <div>
-                      <dt>Interleaving ready</dt>
+                      <dt>Interleaved Recall</dt>
                       <dd>{formatCountLabel(topic.interleavingReadyCount)}</dd>
                     </div>
                   </dl>
@@ -207,7 +207,7 @@ function StudyGuidanceWorkspace() {
                 <strong>Factual signals only</strong>
                 <span>
                   We look at last score, Recall Today, Needs practice, not
-                  recalled yet, next recall, and interleaving readiness.
+                  recalled yet, next recall, and Interleaved Recall readiness.
                 </span>
               </li>
               <li>

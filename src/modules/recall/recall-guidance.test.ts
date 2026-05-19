@@ -192,7 +192,7 @@ describe("recall guidance", () => {
         kind: "interleaving-ready",
         nextRecall: "Next recall May 19",
         summary:
-          "Chemistry prompt 1 is interleaving ready after repeated Good or Easy recalls. Next recall: Next recall May 19.",
+          "Chemistry prompt 1 is ready for Interleaved Recall after repeated Good or Easy recalls. Next recall: Next recall May 19.",
       },
     });
 
@@ -218,7 +218,7 @@ describe("recall guidance", () => {
       kind: "interleaving-ready",
       nextRecall: "Next recall May 19",
       summary:
-        "Chemistry prompt 1 is interleaving ready after repeated Good or Easy recalls. Next recall: Next recall May 19.",
+        "Chemistry prompt 1 is ready for Interleaved Recall after repeated Good or Easy recalls. Next recall: Next recall May 19.",
     });
   });
 });
