@@ -13,7 +13,14 @@ export {
   isBreakIntervalActive,
 } from "./focus";
 export { FocusDock } from "./focus-dock";
-export { FocusSessionStartControl } from "./focus-session-start-control";
+export {
+  endActiveFocusSession,
+  startDefaultFocusSession,
+} from "./focus-session-actions";
+export {
+  FocusSessionStartControl,
+  useFocusTimerTick,
+} from "./focus-session-start-control";
 export type {
   AppPersistentFocusContext,
   AppPersistentFocusService,

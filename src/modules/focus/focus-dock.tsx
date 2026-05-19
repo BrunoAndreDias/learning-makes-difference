@@ -7,11 +7,15 @@ import {
   AppFocusError,
   type FocusSession,
 } from "./focus";
+import {
+  endActiveFocusSession,
+  restartDefaultFocusSession,
+  startDefaultFocusSession,
+  startNextFocusInterval,
+} from "./focus-session-actions";
 import { useFocusTimerTick } from "./focus-session-start-control";
 import type { AppPersistentFocusContext } from "./persistent-focus";
 
-const DEFAULT_FOCUS_MINUTES = 25;
-const DEFAULT_BREAK_MINUTES = 5;
 const FOCUS_DOCK_TIMER_SEPARATOR = " \u00b7 ";
 
 type FocusDockVariant = "pill" | "sidebar";
@@ -41,6 +45,7 @@ export function FocusDock({
   const errorDescriptionId = errorMessage === null ? undefined : errorId;
   const isActionDisabled = userId === null;
   const isSidebarVariant = variant === "sidebar";
+  const focusActionInput = { focus, persistentFocus, userId };
 
   useEffect(() => {
     if (currentActiveFocusSession === null) {
@@ -76,86 +81,20 @@ export function FocusDock({
     );
   }
 
-  async function startDefaultFocusSession() {
-    if (userId === null) {
-      return;
-    }
-
-    if (persistentFocus === undefined) {
-      focus.startFocusSession({
-        ...createDefaultFocusSessionInput(),
-        userId,
-      });
-      return;
-    }
-
-    await persistentFocus.startFocusSession(
-      userId,
-      createDefaultFocusSessionInput(),
-    );
-  }
-
-  async function endActiveFocusSession() {
-    if (userId === null) {
-      return;
-    }
-
-    if (persistentFocus === undefined) {
-      focus.endFocusSession({ userId });
-      return;
-    }
-
-    await persistentFocus.endFocusSession(userId);
-  }
-
-  async function startNextFocusInterval() {
-    if (userId === null) {
-      return;
-    }
-
-    if (persistentFocus === undefined) {
-      focus.startNextFocusInterval({ userId });
-      return;
-    }
-
-    await persistentFocus.startNextFocusInterval(userId);
-  }
-
-  async function restartFocusSession() {
-    if (userId === null) {
-      return;
-    }
-
-    if (persistentFocus === undefined) {
-      focus.endFocusSession({ userId });
-      focus.startFocusSession({
-        ...createDefaultFocusSessionInput(),
-        userId,
-      });
-      return;
-    }
-
-    await persistentFocus.endFocusSession(userId);
-    await persistentFocus.startFocusSession(
-      userId,
-      createDefaultFocusSessionInput(),
-    );
-  }
-
   async function runPrimaryAction(session: FocusSession) {
     if (isCompletedFocusSession(session)) {
-      await restartFocusSession();
+      await restartDefaultFocusSession(focusActionInput);
       return;
     }
 
     switch (session.intervalState) {
       case "Focus":
-        await endActiveFocusSession();
+        await endActiveFocusSession(focusActionInput);
         return;
       case "Transition":
       case "Break":
       case "AwaitingNextFocus":
-        await startNextFocusInterval();
+        await startNextFocusInterval(focusActionInput);
         return;
     }
   }
@@ -172,7 +111,9 @@ export function FocusDock({
               aria-describedby={errorDescriptionId}
               disabled={isActionDisabled}
               onClick={() => {
-                void runDockAction(startDefaultFocusSession);
+                void runDockAction(() =>
+                  startDefaultFocusSession(focusActionInput),
+                );
               }}
               size="compact"
               type="button"
@@ -233,7 +174,9 @@ export function FocusDock({
               aria-describedby={errorDescriptionId}
               disabled={isActionDisabled}
               onClick={() => {
-                void runDockAction(endActiveFocusSession);
+                void runDockAction(() =>
+                  endActiveFocusSession(focusActionInput),
+                );
               }}
               size="compact"
               type="button"
@@ -306,14 +249,6 @@ function getFocusDockDataState(session: FocusSession) {
 
 function formatFocusDockStatusLabel(stateLabel: string, timerLabel: string) {
   return `${stateLabel}${FOCUS_DOCK_TIMER_SEPARATOR}${timerLabel}`;
-}
-
-function createDefaultFocusSessionInput() {
-  return {
-    breakIntervalMinutes: DEFAULT_BREAK_MINUTES,
-    focusIntervalMinutes: DEFAULT_FOCUS_MINUTES,
-    plannedFocusIntervalCount: null,
-  };
 }
 
 function isCompletedFocusSession(session: FocusSession) {
