@@ -18,7 +18,6 @@ import type { AppPersistentFocusContext } from "./persistent-focus";
 
 const FOCUS_DOCK_TIMER_SEPARATOR = " \u00b7 ";
 
-type FocusDockVariant = "pill" | "sidebar";
 type FocusDockAction = () => Promise<void> | void;
 type AppTranslate = ReturnType<typeof useAppTranslation>["t"];
 
@@ -27,13 +26,11 @@ export function FocusDock({
   focus,
   persistentFocus,
   userId,
-  variant = "sidebar",
 }: Readonly<{
   activeFocusSession: FocusSession | null;
   focus: AppFocusContext;
   persistentFocus?: AppPersistentFocusContext;
   userId: string | null;
-  variant?: FocusDockVariant;
 }>) {
   const { t } = useAppTranslation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -41,10 +38,9 @@ export function FocusDock({
   useFocusTimerTick(activeFocusSession);
   const currentActiveFocusSession =
     userId === null ? activeFocusSession : focus.getActiveSession({ userId });
-  const dockClassName = `focus-dock focus-dock--${variant}`;
+  const dockClassName = "focus-dock focus-dock--pill";
   const errorDescriptionId = errorMessage === null ? undefined : errorId;
   const isActionDisabled = userId === null;
-  const isSidebarVariant = variant === "sidebar";
   const focusActionInput = { focus, persistentFocus, userId };
 
   useEffect(() => {
@@ -102,9 +98,6 @@ export function FocusDock({
   if (currentActiveFocusSession === null) {
     return (
       <section aria-label={t("focus.dock.heading")} className={dockClassName}>
-        {isSidebarVariant ? (
-          <p className="focus-dock__heading">{t("focus.dock.heading")}</p>
-        ) : null}
         <div className="focus-dock__body">
           <div className="focus-dock__actions">
             <Button
@@ -138,20 +131,12 @@ export function FocusDock({
     ? t("focus.dock.start")
     : getFocusDockPrimaryActionLabel(currentActiveFocusSession, t);
 
-  const showEndAction =
-    isSidebarVariant &&
-    !isCompletedSession &&
-    currentActiveFocusSession.intervalState !== "Focus";
-
   return (
     <section
       aria-label={t("focus.dock.heading")}
       className={dockClassName}
       data-state={getFocusDockDataState(currentActiveFocusSession)}
     >
-      {isSidebarVariant ? (
-        <p className="focus-dock__heading">{t("focus.dock.heading")}</p>
-      ) : null}
       <div className="focus-dock__body">
         <span className="focus-dock__status">{focusDockStatusLabel}</span>
         <div className="focus-dock__actions">
@@ -169,21 +154,6 @@ export function FocusDock({
           >
             {primaryActionLabel}
           </Button>
-          {showEndAction ? (
-            <Button
-              aria-describedby={errorDescriptionId}
-              disabled={isActionDisabled}
-              onClick={() => {
-                void runDockAction(() =>
-                  endActiveFocusSession(focusActionInput),
-                );
-              }}
-              size="compact"
-              type="button"
-            >
-              {t("focus.action.end")}
-            </Button>
-          ) : null}
         </div>
         {renderErrorMessage()}
       </div>

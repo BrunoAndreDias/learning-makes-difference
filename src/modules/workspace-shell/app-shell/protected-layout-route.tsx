@@ -500,7 +500,6 @@ function WorkspaceHeader({
       focus={focus}
       persistentFocus={persistentFocus}
       userId={userId}
-      variant="pill"
     />
   ) : null;
   let titlebarContent: ReactNode;
