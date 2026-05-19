@@ -444,10 +444,11 @@ describe("authenticated Study Notes workspace", () => {
       name: "New Study Note",
     });
     expect(newStudyNoteButton).toHaveClass("study-notes-new-note");
+    expect(newStudyNoteButton).toHaveClass("notes-action-secondary");
     expect(newStudyNoteButton).toHaveTextContent("New note");
     expect(
-      screen.getByRole("button", { name: "More actions" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "More actions" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Start Recall Session" }),
     ).toHaveClass("study-notes-start-recall");

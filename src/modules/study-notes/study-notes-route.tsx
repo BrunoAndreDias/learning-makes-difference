@@ -457,16 +457,6 @@ function CopyIcon() {
   );
 }
 
-function MoreVerticalIcon() {
-  return (
-    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-      <path d="M12 6h.01" />
-      <path d="M12 12h.01" />
-      <path d="M12 18h.01" />
-    </svg>
-  );
-}
-
 function CalendarCheckIcon() {
   return (
     <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
@@ -2565,33 +2555,20 @@ function StudyNotesWorkspace() {
               className="study-notes-new-note"
               onClick={handleNewStudyNote}
               type="button"
-              variant="primary"
+              variant="secondary"
             >
               <PlusIcon />
               <span>New note</span>
             </Button>
-            <div className="study-notes-more-actions">
-              <Button
-                className="study-notes-more-actions__trigger"
-                type="button"
-                variant="secondary"
-              >
-                <MoreVerticalIcon />
-                <span>More actions</span>
-                <ChevronDownIcon />
-              </Button>
-              <div className="study-notes-more-actions__menu">
-                <Button
-                  className="study-notes-start-recall"
-                  onClick={() => void handleStartRecallSession()}
-                  type="button"
-                  variant="secondary"
-                >
-                  <PlayIcon />
-                  <span>Start Recall Session</span>
-                </Button>
-              </div>
-            </div>
+            <Button
+              className="study-notes-start-recall"
+              onClick={() => void handleStartRecallSession()}
+              type="button"
+              variant="secondary"
+            >
+              <PlayIcon />
+              <span>Start Recall Session</span>
+            </Button>
           </>
         }
         actionsClassName="study-notes-hero__actions"
