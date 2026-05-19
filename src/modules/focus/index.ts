@@ -12,6 +12,7 @@ export {
   createAppFocusContext,
   isBreakIntervalActive,
 } from "./focus";
+export { FocusDock } from "./focus-dock";
 export { FocusSessionStartControl } from "./focus-session-start-control";
 export type {
   AppPersistentFocusContext,

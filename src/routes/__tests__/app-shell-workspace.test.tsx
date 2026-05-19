@@ -55,8 +55,11 @@ describe("authenticated app shell", () => {
     expect(
       screen.getByRole("button", { name: "Abrir menu de navegacion" }),
     ).toBeInTheDocument();
+    const focusDock = screen.getByRole("region", {
+      name: "Concentracion ahora",
+    });
     expect(
-      screen.getByRole("button", { name: "Iniciar concentracion" }),
+      within(focusDock).getByRole("button", { name: "Iniciar Pomodoro" }),
     ).toBeInTheDocument();
 
     fireEvent.click(
@@ -226,16 +229,27 @@ describe("authenticated app shell", () => {
     ).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("keeps the shared shell Focus action secondary beside page-specific CTAs", async () => {
+  it("moves the global Focus control into the Focus Dock instead of the workspace header", async () => {
     renderRoute("/settings");
 
     expect(
       await screen.findByRole("heading", { level: 2, name: "Settings" }),
     ).toBeInTheDocument();
 
-    expect(screen.getByRole("button", { name: "Start Focus" })).toHaveClass(
-      "notes-action-secondary",
-    );
+    expect(
+      document.querySelector(".app-frame__actions .app-focus-session-start"),
+    ).toBeNull();
+
+    const sidebar = screen.getByRole("complementary", {
+      name: "Study Notes workspace",
+    });
+    const focusDock = within(sidebar).getByRole("region", {
+      name: "Focus now",
+    });
+
+    expect(
+      within(focusDock).getByRole("button", { name: "Start Pomodoro" }),
+    ).toHaveClass("notes-action-secondary");
   });
 
   it("renders global workspace navigation and updates the active link when navigating", async () => {

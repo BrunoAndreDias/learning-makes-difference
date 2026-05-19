@@ -104,6 +104,11 @@ const englishTranslations = {
   "focus.breadcrumb.session": "Session",
   "focus.description":
     "Focus time supports your attention and recovery so you can study well. It does not count as recall evidence.",
+  "focus.dock.heading": "Focus now",
+  "focus.dock.start": "Start Pomodoro",
+  "focus.dock.state.active": "Focus session",
+  "focus.dock.state.complete": "Focus complete",
+  "focus.dock.state.paused": "Focus paused",
   "focus.evidence.attention": "Focus time supports attention and recovery.",
   "focus.evidence.learning":
     "Learning evidence comes from recall and improved study notes.",
@@ -616,6 +621,11 @@ const portugueseTranslations = {
   "focus.breadcrumb.session": "Sessao",
   "focus.description":
     "O tempo de foco apoia a sua atencao e recuperacao para estudar bem. Nao conta como evidencia de recordacao.",
+  "focus.dock.heading": "Foco agora",
+  "focus.dock.start": "Iniciar Pomodoro",
+  "focus.dock.state.active": "Sessao de foco",
+  "focus.dock.state.complete": "Foco concluido",
+  "focus.dock.state.paused": "Foco em pausa",
   "focus.evidence.attention": "O tempo de foco apoia atencao e recuperacao.",
   "focus.evidence.learning":
     "A evidencia de aprendizagem vem da recordacao e de notas de estudo melhoradas.",
@@ -1137,6 +1147,11 @@ const spanishTranslations = {
   "focus.breadcrumb.session": "Sesion",
   "focus.description":
     "El tiempo de concentracion apoya tu atencion y recuperacion para estudiar bien. No cuenta como evidencia de repaso.",
+  "focus.dock.heading": "Concentracion ahora",
+  "focus.dock.start": "Iniciar Pomodoro",
+  "focus.dock.state.active": "Sesion de concentracion",
+  "focus.dock.state.complete": "Concentracion completa",
+  "focus.dock.state.paused": "Concentracion en pausa",
   "focus.evidence.attention":
     "El tiempo de concentracion apoya la atencion y la recuperacion.",
   "focus.evidence.learning":

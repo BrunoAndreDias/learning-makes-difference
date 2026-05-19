@@ -21,7 +21,12 @@ import appLogo from "../../../../docs/layout/logo.svg";
 import { Button } from "../../../design-system/button";
 import type { AppSessionSnapshot } from "../../access/session/session";
 import { useResolvedProtectedSession } from "../../access/session/use-resolved-protected-session";
-import { FocusSessionStartControl } from "../../focus";
+import {
+  type AppFocusContext,
+  type AppPersistentFocusContext,
+  FocusDock,
+  type FocusSession,
+} from "../../focus";
 import { useAppTranslation } from "../../language";
 import { NotesWorkspaceProvider } from "../../notes";
 import { isPracticeRepairPath } from "../../recall/recall-practice-repair-paths";
@@ -234,9 +239,14 @@ export function AppLayout() {
   const sidebarToggleLabel = isSidebarCollapsed
     ? t("shell.navigation.expandSidebar")
     : t("shell.navigation.collapseSidebar");
+  const isSidebarUnavailable = useMediaQuery("(max-width: 51.99rem)");
   const userId = sessionSnapshot.user?.id ?? null;
   const activeFocusSession =
     userId === null ? null : focus.getActiveSession({ userId });
+  const showHeaderFocusDock =
+    !isFocusWorkspaceRoute && (isSidebarCollapsed || isSidebarUnavailable);
+  const showSidebarFocusDock =
+    !isFocusWorkspaceRoute && !isSidebarCollapsed && !isSidebarUnavailable;
 
   function closeMobileSidebar(options?: { returnFocusToToggle?: boolean }) {
     setMobileSidebarOpen(false);
@@ -367,6 +377,14 @@ export function AppLayout() {
           />
 
           <div className="app-sidebar__footer">
+            {showSidebarFocusDock ? (
+              <FocusDock
+                activeFocusSession={activeFocusSession}
+                focus={focus}
+                persistentFocus={persistentFocus}
+                userId={userId}
+              />
+            ) : null}
             <div className="app-sidebar__streak">
               <span aria-hidden="true" className="app-sidebar__streak-icon">
                 <StreakIcon />
@@ -406,6 +424,7 @@ export function AppLayout() {
             onOpenMobileSidebar={openMobileSidebar}
             onExpandSidebar={() => setSidebarCollapsed(false)}
             recallWorkspaceTitle={recallWorkspaceTitle}
+            showHeaderFocusDock={showHeaderFocusDock}
             userId={userId}
             workspaceTitle={workspaceTitle}
           />
@@ -437,17 +456,14 @@ function WorkspaceHeader({
   onOpenMobileSidebar,
   onExpandSidebar,
   recallWorkspaceTitle,
+  showHeaderFocusDock,
   userId,
   workspaceTitle,
 }: {
-  activeFocusSession: Parameters<
-    typeof FocusSessionStartControl
-  >[0]["activeFocusSession"];
+  activeFocusSession: FocusSession | null;
   collapsedSidebarToggleRef: RefObject<HTMLButtonElement | null>;
-  focus: Parameters<typeof FocusSessionStartControl>[0]["focus"];
-  persistentFocus: Parameters<
-    typeof FocusSessionStartControl
-  >[0]["persistentFocus"];
+  focus: AppFocusContext;
+  persistentFocus: AppPersistentFocusContext | undefined;
   isStudyNotesWorkspaceRoute: boolean;
   isRecallWorkspaceRoute: boolean;
   isFocusWorkspaceRoute: boolean;
@@ -461,6 +477,7 @@ function WorkspaceHeader({
   onOpenMobileSidebar: () => void;
   onExpandSidebar: () => void;
   recallWorkspaceTitle: string | null;
+  showHeaderFocusDock: boolean;
   userId: string | null;
   workspaceTitle: string;
 }) {
@@ -474,8 +491,17 @@ function WorkspaceHeader({
     isFocusWorkspaceRoute ||
     isTodayWorkspaceRoute ||
     isSettingsWorkspaceRoute;
+  const headerFocusDock = showHeaderFocusDock ? (
+    <FocusDock
+      activeFocusSession={activeFocusSession}
+      focus={focus}
+      persistentFocus={persistentFocus}
+      userId={userId}
+      variant="pill"
+    />
+  ) : null;
   let titlebarContent: ReactNode;
-  let workspaceActions: ReactNode;
+  let workspaceActions: ReactNode | null;
 
   if (isStudyNotesWorkspaceRoute) {
     titlebarContent = (
@@ -487,10 +513,7 @@ function WorkspaceHeader({
     );
     workspaceActions = (
       <WorkspaceMetaActions
-        activeFocusSession={activeFocusSession}
-        focus={focus}
-        persistentFocus={persistentFocus}
-        userId={userId}
+        focusDock={headerFocusDock}
         workspaceDate={workspaceDate}
       />
     );
@@ -513,15 +536,7 @@ function WorkspaceHeader({
           : workspaceTitle}
       </h2>
     );
-    workspaceActions = (
-      <FocusSessionStartControl
-        actionButtonVariant="secondary"
-        activeFocusSession={activeFocusSession}
-        focus={focus}
-        persistentFocus={persistentFocus}
-        userId={userId}
-      />
-    );
+    workspaceActions = headerFocusDock;
   }
 
   return (
@@ -554,38 +569,23 @@ function WorkspaceHeader({
         ) : null}
         {titlebarContent}
       </div>
-      <div className="app-frame__actions">{workspaceActions}</div>
+      {workspaceActions === null ? null : (
+        <div className="app-frame__actions">{workspaceActions}</div>
+      )}
     </header>
   );
 }
 
 function WorkspaceMetaActions({
-  activeFocusSession,
-  focus,
-  persistentFocus,
-  userId,
+  focusDock,
   workspaceDate,
 }: Readonly<{
-  activeFocusSession: Parameters<
-    typeof FocusSessionStartControl
-  >[0]["activeFocusSession"];
-  focus: Parameters<typeof FocusSessionStartControl>[0]["focus"];
-  persistentFocus?: Parameters<
-    typeof FocusSessionStartControl
-  >[0]["persistentFocus"];
-  userId: Parameters<typeof FocusSessionStartControl>[0]["userId"];
+  focusDock: ReactNode;
   workspaceDate: string;
 }>) {
   return (
     <div className="app-frame__meta-actions">
-      <FocusSessionStartControl
-        actionButtonClassName="app-frame__focus-control"
-        actionButtonVariant="secondary"
-        activeFocusSession={activeFocusSession}
-        focus={focus}
-        persistentFocus={persistentFocus}
-        userId={userId}
-      />
+      {focusDock}
       <WorkspaceDate workspaceDate={workspaceDate} />
       <Button
         aria-label="Help"
@@ -597,6 +597,53 @@ function WorkspaceMetaActions({
       </Button>
     </div>
   );
+}
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(() => getMatchesMediaQuery(query));
+
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    ) {
+      return;
+    }
+
+    const mediaQueryList = window.matchMedia(query);
+    const handleChange = () => {
+      setMatches(mediaQueryList.matches);
+    };
+
+    handleChange();
+
+    if (typeof mediaQueryList.addEventListener === "function") {
+      mediaQueryList.addEventListener("change", handleChange);
+
+      return () => {
+        mediaQueryList.removeEventListener("change", handleChange);
+      };
+    }
+
+    mediaQueryList.addListener(handleChange);
+
+    return () => {
+      mediaQueryList.removeListener(handleChange);
+    };
+  }, [query]);
+
+  return matches;
+}
+
+function getMatchesMediaQuery(query: string) {
+  if (
+    typeof window === "undefined" ||
+    typeof window.matchMedia !== "function"
+  ) {
+    return false;
+  }
+
+  return window.matchMedia(query).matches;
 }
 
 function WorkspaceDate({

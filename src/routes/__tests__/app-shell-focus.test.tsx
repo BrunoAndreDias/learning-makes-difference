@@ -715,7 +715,11 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "Settings" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
+    const focusDock = screen.getByRole("region", { name: "Focus now" });
+
+    fireEvent.click(
+      within(focusDock).getByRole("button", { name: "Start Pomodoro" }),
+    );
 
     expect(router.state.location.pathname).toBe("/settings");
     expect(
@@ -730,7 +734,7 @@ describe("authenticated app shell", () => {
     });
   });
 
-  it("keeps the global FocusSession control available across recall, Study Notes, and settings", async () => {
+  it("keeps the Focus Dock available across recall, Study Notes, and settings", async () => {
     const focusContext = createAppFocusContext({
       keyPrefix: `test-focus-global-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -752,7 +756,7 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { level: 2, name: "Recall" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start Pomodoro" }));
 
     expect(
       screen.getByRole("button", { name: "End focus" }),
@@ -776,6 +780,102 @@ describe("authenticated app shell", () => {
     expect(
       screen.getByRole("button", { name: "End focus" }),
     ).toBeInTheDocument();
+  });
+
+  it("renders the Focus Dock copy for idle, active, paused, break, and complete states", async () => {
+    const session = {
+      user: {
+        displayName: "Casey Dock",
+        email: "casey.dock@example.com",
+        id: "user-focus-dock-copy",
+        userLanguage: "en",
+      },
+    } satisfies AppSessionSnapshot;
+
+    const idleRender = renderRoute("/settings", { session });
+    const idleDock = await screen.findByRole("region", { name: "Focus now" });
+    expect(
+      within(idleDock).getByRole("button", { name: "Start Pomodoro" }),
+    ).toBeInTheDocument();
+    idleRender.unmount();
+
+    function createTimedFocusContext() {
+      let currentTime = new Date("2026-05-01T10:00:00.000Z");
+      const focusContext = createAppFocusContext({
+        keyPrefix: `test-focus-dock-${Math.random().toString(36).slice(2)}`,
+        now: () => new Date(currentTime),
+        storage: window.localStorage,
+      });
+
+      return {
+        focusContext,
+        setCurrentTime(nextTime: string) {
+          currentTime = new Date(nextTime);
+        },
+      };
+    }
+
+    const activeState = createTimedFocusContext();
+    activeState.focusContext.startFocusSession({
+      breakIntervalMinutes: 5,
+      focusIntervalMinutes: 25,
+      plannedFocusIntervalCount: 2,
+      userId: session.user.id,
+    });
+    const activeRender = renderRoute("/settings", {
+      focusContext: activeState.focusContext,
+      session,
+    });
+    expect(
+      await screen.findByText(`Focus session \u00b7 25:00`),
+    ).toBeInTheDocument();
+    activeRender.unmount();
+
+    const pausedState = createTimedFocusContext();
+    pausedState.focusContext.startFocusSession({
+      breakIntervalMinutes: 5,
+      focusIntervalMinutes: 25,
+      plannedFocusIntervalCount: 2,
+      userId: session.user.id,
+    });
+    pausedState.setCurrentTime("2026-05-01T10:25:05.000Z");
+    const pausedRender = renderRoute("/settings", {
+      focusContext: pausedState.focusContext,
+      session,
+    });
+    expect(
+      await screen.findByText(`Focus paused \u00b7 00:25`),
+    ).toBeInTheDocument();
+    pausedRender.unmount();
+
+    const breakState = createTimedFocusContext();
+    breakState.focusContext.startFocusSession({
+      breakIntervalMinutes: 5,
+      focusIntervalMinutes: 25,
+      plannedFocusIntervalCount: 2,
+      userId: session.user.id,
+    });
+    breakState.setCurrentTime("2026-05-01T10:25:35.000Z");
+    const breakRender = renderRoute("/settings", {
+      focusContext: breakState.focusContext,
+      session,
+    });
+    expect(await screen.findByText(`Break \u00b7 04:55`)).toBeInTheDocument();
+    breakRender.unmount();
+
+    const completeState = createTimedFocusContext();
+    completeState.focusContext.startFocusSession({
+      breakIntervalMinutes: 5,
+      focusIntervalMinutes: 25,
+      plannedFocusIntervalCount: 1,
+      userId: session.user.id,
+    });
+    completeState.setCurrentTime("2026-05-01T10:25:35.000Z");
+    renderRoute("/settings", {
+      focusContext: completeState.focusContext,
+      session,
+    });
+    expect(await screen.findByText("Focus complete")).toBeInTheDocument();
   });
 
   it("restores an active FocusSession after a reload for the same user", async () => {
