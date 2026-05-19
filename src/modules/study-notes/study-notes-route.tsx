@@ -8,6 +8,7 @@ import {
   type FormEvent,
   type ReactNode,
   type Ref,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -16,6 +17,7 @@ import {
 } from "react";
 import { z } from "zod";
 
+import { resizeTextareaToFitContent } from "../../design-system/auto-sizing-textarea";
 import { Button, ButtonLink } from "../../design-system/button";
 import { PageHeader } from "../../design-system/page-header";
 import {
@@ -298,6 +300,28 @@ function StudyNotesTextarea({
   rows: number;
   value: string;
 }>) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const setTextareaRef = useCallback(
+    (textarea: HTMLTextAreaElement | null) => {
+      textareaRef.current = textarea;
+      resizeTextareaToFitContent(textarea);
+
+      if (typeof inputRef === "function") {
+        inputRef(textarea);
+        return;
+      }
+
+      if (inputRef !== undefined && inputRef !== null) {
+        inputRef.current = textarea;
+      }
+    },
+    [inputRef],
+  );
+
+  useEffect(() => {
+    resizeTextareaToFitContent(textareaRef.current);
+  });
+
   return (
     <label
       className="study-notes-field"
@@ -309,9 +333,13 @@ function StudyNotesTextarea({
       </span>
       <textarea
         aria-label={label}
-        ref={inputRef}
+        data-auto-size="true"
+        ref={setTextareaRef}
         maxLength={maxLength}
-        onChange={onChange}
+        onChange={(event) => {
+          resizeTextareaToFitContent(event.currentTarget);
+          onChange(event);
+        }}
         placeholder={placeholder ?? label}
         rows={rows}
         value={value}

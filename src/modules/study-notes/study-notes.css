@@ -251,7 +251,7 @@
   align-items: start;
   column-gap: 0.75rem;
   width: 100%;
-  min-height: 4.55rem;
+  min-height: var(--lmd-list-row-height);
   padding: 0.72rem 0.84rem 0.66rem;
   border: 1px solid transparent;
   background: var(--color-shell-panel);
@@ -492,13 +492,15 @@
 .study-notes-editor__label-row {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-3);
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--space-2);
+  row-gap: 0.35rem;
   align-items: start;
   min-width: 0;
 }
 
 .study-notes-editor__chips {
+  grid-column: 1 / -1;
   flex-wrap: wrap;
   gap: 0.55rem;
 }
@@ -506,25 +508,25 @@
 .study-notes-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  min-height: 1.45rem;
-  padding-inline: 0.75rem;
-  border-radius: 999px;
+  gap: 0.5rem;
+  min-height: calc(var(--lmd-button-height-sm) - 2px);
+  padding-inline: 0.85rem;
+  border-radius: 0.45rem;
   background: var(--color-primary-soft);
   color: var(--color-content-strong);
-  font-size: 0.81rem;
-  font-weight: 550;
+  font-size: 0.82rem;
+  font-weight: 600;
   line-height: 1;
 }
 
 .study-notes-chip button {
   display: inline-grid;
   place-items: center;
-  width: 1.1rem;
-  height: 1.1rem;
+  width: 1.25rem;
+  height: 1.25rem;
   padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: 0.35rem;
   background: transparent;
   color: currentColor;
   font: inherit;
@@ -710,12 +712,13 @@
 }
 
 .study-notes-editor__summary-copy {
+  margin: 0;
   overflow: hidden;
   color: var(--color-content-muted);
   font-size: 0.76rem;
   line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .study-notes-field {
@@ -757,6 +760,10 @@
   min-height: 3.15rem;
   padding: 0.75rem 4rem 1rem 0.85rem;
   resize: vertical;
+}
+
+.study-notes-field textarea[data-auto-size="true"] {
+  overflow: hidden;
 }
 
 .study-notes-field input::placeholder,
