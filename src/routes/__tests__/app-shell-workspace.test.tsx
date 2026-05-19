@@ -44,8 +44,8 @@ describe("authenticated app shell", () => {
       within(appSections).getByRole("link", { name: "Repaso" }),
     ).toBeInTheDocument();
     expect(
-      within(appSections).getByRole("link", { name: "Etiquetas" }),
-    ).toBeInTheDocument();
+      within(appSections).queryByRole("link", { name: "Etiquetas" }),
+    ).not.toBeInTheDocument();
     expect(
       within(appSections).getByRole("link", { name: "Concentracion" }),
     ).toBeInTheDocument();
@@ -103,8 +103,8 @@ describe("authenticated app shell", () => {
       within(appSections).getByRole("link", { name: "Recordar" }),
     ).toBeInTheDocument();
     expect(
-      within(appSections).getByRole("link", { name: "Etiquetas" }),
-    ).toBeInTheDocument();
+      within(appSections).queryByRole("link", { name: "Etiquetas" }),
+    ).not.toBeInTheDocument();
     expect(
       within(appSections).getByRole("link", { name: "Foco" }),
     ).toHaveAttribute("aria-current", "page");
@@ -136,20 +136,6 @@ describe("authenticated app shell", () => {
     );
   });
 
-  it("keeps the empty Labels shell action area from blocking page buttons", () => {
-    const workspaceCss = readFileSync(
-      join(process.cwd(), "src/modules/workspace-shell/workspace-shell.css"),
-      "utf8",
-    );
-
-    expect(workspaceCss).toContain(
-      '.app-frame[data-workspace="labels"] .app-frame__actions {\n  display: none;\n}',
-    );
-    expect(workspaceCss).not.toContain(
-      '.app-frame[data-workspace="labels"] .app-frame__actions,\n.app-frame[data-workspace="focus"]',
-    );
-  });
-
   it("renders a Study Notes workspace shell with an account menu instead of product navigation", async () => {
     renderRoute("/settings");
 
@@ -171,8 +157,8 @@ describe("authenticated app shell", () => {
       within(appSections).getByRole("link", { name: "Study Notes" }),
     ).toBeInTheDocument();
     expect(
-      within(appSections).getByRole("link", { name: "Labels" }),
-    ).toBeInTheDocument();
+      within(appSections).queryByRole("link", { name: "Labels" }),
+    ).not.toBeInTheDocument();
     expect(
       within(appSections).getByRole("link", { name: "Recall" }),
     ).toBeInTheDocument();
@@ -268,36 +254,29 @@ describe("authenticated app shell", () => {
     const notesLink = within(appSections).getByRole("link", {
       name: "Study Notes",
     });
-    const labelsLink = within(appSections).getByRole("link", {
-      name: "Labels",
-    });
     const recallLink = within(appSections).getByRole("link", {
       name: "Recall",
     });
     const focusLink = within(appSections).getByRole("link", { name: "Focus" });
+    const insightsLink = within(appSections).getByRole("link", {
+      name: "Insights",
+    });
 
     expect(within(appSections).getAllByRole("link")).toEqual([
       notesLink,
       recallLink,
-      labelsLink,
       focusLink,
+      insightsLink,
     ]);
     expect(
       within(appSections).queryByRole("link", { name: "Recall history" }),
     ).not.toBeInTheDocument();
+    expect(
+      within(appSections).queryByRole("link", { name: "Recall results" }),
+    ).not.toBeInTheDocument();
     expect(notesLink).toHaveAttribute("href", "/study-notes");
-    expect(labelsLink).toHaveAttribute("href", "/labels");
     expect(recallLink).toHaveAttribute("href", "/recall");
     expect(notesLink).toHaveAttribute("aria-current", "page");
-
-    fireEvent.click(labelsLink);
-
-    expect(
-      await screen.findByRole("heading", { level: 2, name: "Labels" }),
-    ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/labels");
-    expect(labelsLink).toHaveAttribute("aria-current", "page");
-    expect(notesLink).not.toHaveAttribute("aria-current");
 
     fireEvent.click(recallLink);
 
@@ -309,7 +288,22 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
     expect(recallLink).toHaveAttribute("aria-current", "page");
-    expect(labelsLink).not.toHaveAttribute("aria-current");
+    expect(notesLink).not.toHaveAttribute("aria-current");
+    expect(
+      within(appSections).getByRole("link", { name: "Recall Today" }),
+    ).toHaveAttribute("href", "/recall");
+    expect(
+      within(appSections).getByRole("link", { name: "Practice Repair" }),
+    ).toHaveAttribute("href", "/recall/repair");
+    expect(
+      within(appSections).getByRole("link", { name: "Recall results" }),
+    ).toHaveAttribute("href", "/recall/results");
+    expect(
+      within(appSections).getByRole("link", { name: "Recall setup" }),
+    ).toHaveAttribute("href", "/recall/select");
+    expect(
+      within(appSections).getByRole("link", { name: "Recall session" }),
+    ).toHaveAttribute("href", "/recall/session");
   });
 
   it("adds Focus to primary navigation and opens the Focus section", async () => {

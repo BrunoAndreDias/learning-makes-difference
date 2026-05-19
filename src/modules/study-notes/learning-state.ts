@@ -1,10 +1,13 @@
 import type {
   FlashCardRecallAttemptsByNote,
   RecallSelfRating,
-} from "../recall";
+} from "../recall/recall";
+import {
+  isRecallScheduleDue,
+  type RecallSchedule,
+} from "../recall/recall-schedule";
+import { getStudyNoteReadiness } from "./study-note-readiness";
 import type { AppStudyNote } from "./study-notes";
-
-const DUE_RECALL_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type StudyNoteRecallHistoryAttempt = {
   completedAt: string;
@@ -24,7 +27,7 @@ export type StudyNoteLearningState = {
   studyNoteId: string;
 };
 
-function formatStudyNoteLearningStateScoreLabel(
+export function formatStudyNoteLearningStateScoreLabel(
   rating: RecallSelfRating | null,
 ): string | null {
   if (rating === null) {
@@ -46,6 +49,10 @@ function formatStudyNoteLearningStateScoreLabel(
 export function formatStudyNoteLearningStateCompactLabel(
   learningState: StudyNoteLearningState,
 ): string {
+  if (learningState.latestScore === null && !learningState.dueForRecall) {
+    return "Add expected answer";
+  }
+
   const scoreLabel = formatStudyNoteLearningStateScoreLabel(
     learningState.latestScore,
   );
@@ -69,27 +76,12 @@ function isNeedsPractice(rating: RecallSelfRating | null): boolean {
   return rating === "forgot" || rating === "hard";
 }
 
-function isDueForRecall(input: {
-  lastRecalledAt: string | null;
-  latestScore: RecallSelfRating | null;
-  now: string;
-}): boolean {
-  if (input.lastRecalledAt === null) {
+function isDueForRecall(schedule: RecallSchedule | null, now: string): boolean {
+  if (schedule === null) {
     return true;
   }
 
-  if (isNeedsPractice(input.latestScore)) {
-    return true;
-  }
-
-  const recalledAt = new Date(input.lastRecalledAt).getTime();
-  const now = new Date(input.now).getTime();
-
-  if (Number.isNaN(recalledAt) || Number.isNaN(now)) {
-    return false;
-  }
-
-  return now - recalledAt >= DUE_RECALL_WINDOW_MS;
+  return isRecallScheduleDue(schedule, now);
 }
 
 function getLatestStudyNoteRecallAttempt(
@@ -117,18 +109,27 @@ function getValidAttemptCompletedAt(
 function deriveStudyNoteLearningState(input: {
   history: StudyNoteRecallHistory | null;
   now: string;
+  recallSchedule: RecallSchedule | null;
   studyNote: AppStudyNote;
 }): StudyNoteLearningState {
+  const readiness = getStudyNoteReadiness(input.studyNote);
+
+  if (!readiness.learningStateEligible) {
+    return {
+      dueForRecall: false,
+      lastRecalledAt: null,
+      latestScore: null,
+      needsPractice: false,
+      studyNoteId: input.studyNote.id,
+    };
+  }
+
   const latestAttempt = getLatestStudyNoteRecallAttempt(input.history);
   const lastRecalledAt = getValidAttemptCompletedAt(latestAttempt);
   const latestScore = latestAttempt?.rating ?? null;
 
   return {
-    dueForRecall: isDueForRecall({
-      lastRecalledAt,
-      latestScore,
-      now: input.now,
-    }),
+    dueForRecall: isDueForRecall(input.recallSchedule, input.now),
     lastRecalledAt,
     latestScore,
     needsPractice: isNeedsPractice(latestScore),
@@ -139,16 +140,24 @@ function deriveStudyNoteLearningState(input: {
 export function deriveStudyNoteLearningStates(input: {
   histories: readonly StudyNoteRecallHistory[];
   now: string;
+  recallSchedules?: readonly RecallSchedule[];
   studyNotes: readonly AppStudyNote[];
 }): StudyNoteLearningState[] {
   const historyByStudyNoteId = new Map(
     input.histories.map((history) => [history.studyNoteId, history]),
+  );
+  const recallScheduleByStudyNoteId = new Map(
+    (input.recallSchedules ?? []).map((schedule) => [
+      schedule.studyNoteId,
+      schedule,
+    ]),
   );
 
   return input.studyNotes.map((studyNote) =>
     deriveStudyNoteLearningState({
       history: historyByStudyNoteId.get(studyNote.id) ?? null,
       now: input.now,
+      recallSchedule: recallScheduleByStudyNoteId.get(studyNote.id) ?? null,
       studyNote,
     }),
   );
@@ -180,6 +189,7 @@ export function listDueStudyNotesForRecall(input: {
 
   return input.studyNotes.filter(
     (studyNote) =>
+      getStudyNoteReadiness(studyNote).dueForRecallEligible &&
       learningStateByStudyNoteId.get(studyNote.id)?.dueForRecall === true,
   );
 }

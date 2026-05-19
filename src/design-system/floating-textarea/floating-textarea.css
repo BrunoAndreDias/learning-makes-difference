@@ -1,0 +1,87 @@
+.floating-textarea {
+  position: relative;
+  display: block;
+  width: 100%;
+  color: var(--color-content-strong);
+}
+
+.floating-textarea__control {
+  width: 100%;
+  min-height: var(
+    --floating-textarea-min-height,
+    var(--lmd-textarea-min-height)
+  );
+  padding: 1.45rem 0.875rem 0.7rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-shell-panel);
+  color: var(--color-content-strong);
+  font: inherit;
+  font-size: var(--lmd-body-size);
+  font-weight: 400;
+  line-height: var(--lmd-body-line-height);
+  letter-spacing: 0;
+  resize: vertical;
+  text-transform: none;
+  transition:
+    background-color var(--motion-fast),
+    border-color var(--motion-fast),
+    box-shadow var(--motion-fast);
+}
+
+.floating-textarea__control::placeholder {
+  color: transparent;
+  opacity: 0;
+}
+
+.floating-textarea__control:focus-visible {
+  border-color: var(--color-content-border);
+  background: var(--color-shell-panel);
+  outline: none;
+  box-shadow: none;
+}
+
+.floating-textarea__label {
+  position: absolute;
+  top: 0.95rem;
+  left: 0.875rem;
+  right: 0.875rem;
+  overflow: hidden;
+  color: var(--color-content-muted);
+  font-size: var(--lmd-body-size);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.2;
+  pointer-events: none;
+  text-overflow: ellipsis;
+  text-transform: none;
+  transform-origin: left top;
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast),
+    font-size var(--motion-fast),
+    font-weight var(--motion-fast),
+    top var(--motion-fast),
+    transform var(--motion-fast);
+  white-space: nowrap;
+}
+
+.floating-textarea__control:focus-visible + .floating-textarea__label,
+.floating-textarea__control:not(:placeholder-shown)
+  + .floating-textarea__label {
+  top: 0;
+  right: auto;
+  width: max-content;
+  max-width: calc(100% - 1.75rem);
+  padding-inline: 0.25rem;
+  background: var(
+    --floating-textarea-label-background,
+    var(--color-shell-panel)
+  );
+  color: var(--color-content-muted);
+  font-size: var(--lmd-meta-size);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  transform: translate(-0.25rem, -50%);
+  text-transform: uppercase;
+}

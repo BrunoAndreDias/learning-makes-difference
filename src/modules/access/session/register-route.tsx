@@ -7,6 +7,8 @@ import {
 } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
 import { z } from "zod";
+
+import { PageHeader } from "../../../design-system/page-header";
 import { detectBrowserUserLanguage, useAppTranslation } from "../../language";
 import {
   defaultUserTimeZone,
@@ -85,10 +87,13 @@ function RegisterPage() {
 
   return (
     <article className="auth-card">
-      <header className="auth-card__header">
-        <h2 className="auth-card__heading">{t("access.register.heading")}</h2>
-        <p className="auth-card__subtitle">{t("access.register.subtitle")}</p>
-      </header>
+      <PageHeader
+        className="auth-card__header"
+        description={t("access.register.subtitle")}
+        headingLevel={2}
+        headingProps={{ className: "auth-card__heading" }}
+        title={t("access.register.heading")}
+      />
 
       <form
         aria-label={t("access.register.formLabel")}

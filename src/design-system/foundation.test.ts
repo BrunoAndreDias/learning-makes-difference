@@ -118,6 +118,14 @@ describe("foundationTokens", () => {
     expect(foundationTokens.color.content.borderSoft).toBe("#e2e8f0");
     expect(foundationTokens.color.brand.primary).toBe("#2563eb");
     expect(foundationTokens.color.primary.value).toBe("#2563eb");
+    expect(foundationTokens.color.learning.ink).toBe("#17231E");
+    expect(foundationTokens.color.learning.muted).toBe("#62706A");
+    expect(foundationTokens.color.learning.warmIvory).toBe("#FAF8F3");
+    expect(foundationTokens.color.learning.deepPine).toBe("#1F6B45");
+    expect(foundationTokens.color.learning.pineMist).toBe("#E9F2EC");
+    expect(foundationTokens.color.learning.factualTeal).toBe("#287C73");
+    expect(foundationTokens.color.learning.honeyAmber).toBe("#D99126");
+    expect(foundationTokens.color.learning.terracotta).toBe("#C95646");
     expect(foundationTokens.color.secondary.value).toBe("#0f766e");
     expect(foundationTokens.color.accent.value).toBe("#f59e0b");
     expect(foundationTokens.color.accent.strong).toBe("#b45309");
@@ -145,6 +153,11 @@ describe("foundationTokens", () => {
     expect(css).toContain("--color-neutral-ink: #0f172a;");
     expect(css).toContain("--color-neutral-muted: #475569;");
     expect(css).toContain("--color-primary: #2563eb;");
+    expect(css).toContain("--color-learning-pine: #1f6b45;");
+    expect(css).toContain("--color-learning-pine-mist: #e9f2ec;");
+    expect(css).toContain("--color-learning-factual-teal: #287c73;");
+    expect(css).toContain("--color-learning-honey-amber: #d99126;");
+    expect(css).toContain("--color-learning-terracotta: #c95646;");
     expect(css).toContain("--color-secondary: #0f766e;");
     expect(css).toContain("--color-accent: #f59e0b;");
     expect(css).toContain("--color-creative: #7c3aed;");
@@ -280,6 +293,27 @@ describe("foundationTokens", () => {
     expect(css).toContain("align-content: start;");
   });
 
+  it("opens the sidebar account menu above the trigger and keeps the profile palette green", () => {
+    const css = readFileSync(
+      new URL(
+        "../modules/workspace-shell/workspace-shell.css",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const popoverRule = getCssRule(css, ".account-menu__popover");
+    const avatarRule = getCssRule(css, ".account-menu__avatar");
+    const triggerRule = getCssRule(css, ".account-menu__trigger");
+
+    expect(popoverRule).toContain("inset: auto 0 calc(100% + 0.35rem) auto;");
+    expect(popoverRule).toContain("min-width: 100%;");
+    expect(avatarRule).toContain(
+      "background: var(--color-learning-pine-mist);",
+    );
+    expect(avatarRule).toContain("color: var(--color-learning-pine);");
+    expect(triggerRule).toContain("background: transparent;");
+  });
+
   it("keeps the authenticated shell connected instead of framed as cards", () => {
     const css = readFileSync(
       new URL(
@@ -327,7 +361,9 @@ describe("foundationTokens", () => {
     );
 
     expect(workspaceShellCss).toContain("align-items: flex-start;");
-    expect(workspaceShellCss).toContain("padding-block: 0.875rem;");
+    expect(workspaceShellCss).toContain(
+      "padding-block: var(--lmd-list-row-padding-y);",
+    );
     expect(workspaceShellCss).toContain("transform: translateY(0.1875rem);");
     expect(notesResponsiveCss).toContain("align-items: start;");
   });
@@ -379,7 +415,7 @@ describe("foundationTokens", () => {
     expect(notesEditorCss).toContain(".notes-editor__layout");
     expect(notesEditorCss).toContain("align-content: start;");
     expect(notesEditorCss).toContain(
-      "padding: 0 var(--notes-workspace-inline-end) 1.5rem\n" +
+      "padding: 0 var(--notes-workspace-inline-end) var(--lmd-page-padding-y)\n" +
         "    var(--notes-workspace-inline-start);",
     );
     expect(notesEditorCss).toContain(
@@ -412,6 +448,10 @@ describe("foundationTokens", () => {
     );
     const recallResponsiveCss = readFileSync(
       new URL("../modules/recall/recall-responsive.css", import.meta.url),
+      "utf8",
+    );
+    const listCardCss = readFileSync(
+      new URL("./list-card/list-card.css", import.meta.url),
       "utf8",
     );
 
@@ -449,8 +489,20 @@ describe("foundationTokens", () => {
     ).not.toContain("background:");
     expect(recallWorkspaceCss).toContain("align-content: start;");
     expect(recallWorkspaceCss).toContain("gap: 0.5rem;");
-    expect(recallWorkspaceCss).toContain("border-left-width: 0.1875rem;");
-    expect(recallWorkspaceCss).toContain("border-radius: 0.45rem;");
+    expect(recallWorkspaceCss).not.toContain(".recall-result-row {");
+    expect(listCardCss).toContain(".list-card {");
+    expect(getCssRule(listCardCss, ".list-card")).toContain(
+      "grid-template-columns: minmax(0, 1fr) auto;",
+    );
+    expect(getCssRule(listCardCss, ".list-card__description")).toContain(
+      "overflow-wrap: anywhere;",
+    );
+    expect(getCssRule(listCardCss, ".list-card__chip")).toContain(
+      "align-self: start;",
+    );
+    expect(
+      getCssRule(listCardCss, '.list-card[data-selected="true"]'),
+    ).toContain("box-shadow: inset 0 0 0 1px");
     expect(recallWorkspaceCss).toContain(".recall-results-count");
     expect(recallWorkspaceCss).not.toContain(
       ".recall-results-list li + li .recall-result-row",

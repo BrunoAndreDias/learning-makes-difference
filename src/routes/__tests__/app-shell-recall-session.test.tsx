@@ -56,24 +56,42 @@ function completeRecallAt(input: {
 function _createPersistentRecallService(
   overrides: Partial<AppPersistentRecallService>,
 ): AppPersistentRecallService {
-  return {
-    endRecallSession: vi.fn(async () => {
-      throw new Error("not used");
-    }),
-    getActiveSession: vi.fn(async () => null),
-    listSessionResults: vi.fn(async () => []),
-    rateFlashCardAnswer: vi.fn(async () => null),
-    revealFlashCardAnswer: vi.fn(async () => {
-      throw new Error("not used");
-    }),
-    startFlashCardSession: vi.fn(async () => {
-      throw new Error("not used");
-    }),
-    updateFlashCardAttemptText: vi.fn(async () => {
-      throw new Error("not used");
-    }),
-    ...overrides,
-  };
+  return Object.assign(
+    {
+      completePracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      completeLinkedPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      confirmPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      dismissPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      endRecallSession: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      getActiveSession: vi.fn(async () => null),
+      listRecallSchedules: vi.fn(async () => []),
+      listSessionResults: vi.fn(async () => []),
+      rateFlashCardAnswer: vi.fn(async () => null),
+      revealFlashCardAnswer: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      startFlashCardSession: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      updatePracticeRepairEntryCorrection: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      updateFlashCardAttemptText: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+    } satisfies AppPersistentRecallService,
+    overrides,
+  );
 }
 
 function createStoredRecallNote(
@@ -180,6 +198,99 @@ function completeMultiQuestionRecall(input: {
   });
 }
 
+function completeStudyNoteRecallAt(input: {
+  rating: RecallSelfRating;
+  recallContext: DeterministicRecallTestContexts["recallContext"];
+  studyNoteId: string;
+  timestamp: string;
+}) {
+  vi.setSystemTime(new Date(input.timestamp));
+  const session = input.recallContext.startFlashCardSession({
+    studyNoteIds: [input.studyNoteId],
+    userId: testUser.id,
+  });
+
+  input.recallContext.revealFlashCardAnswer({
+    sessionId: session.id,
+    userId: testUser.id,
+  });
+  input.recallContext.rateFlashCardAnswer({
+    rating: input.rating,
+    sessionId: session.id,
+    userId: testUser.id,
+  });
+}
+
+function findStudyNoteQuestionResult(input: {
+  results: readonly SessionResult[];
+  studyNoteId: string;
+}): {
+  questionIndex: number;
+  questionResultId: string;
+  result: SessionResult;
+} | null {
+  for (const result of input.results) {
+    const questionIndex = result.questions.findIndex(
+      (question) => question.noteId === input.studyNoteId,
+    );
+
+    if (questionIndex < 0) {
+      continue;
+    }
+
+    const questionResultId = result.questions[questionIndex]?.questionResultId;
+
+    if (questionResultId !== undefined) {
+      return {
+        questionIndex,
+        questionResultId,
+        result,
+      };
+    }
+  }
+
+  return null;
+}
+
+function confirmStudyNotePracticeRepair(input: {
+  correction: string;
+  contexts: Pick<DeterministicRecallTestContexts, "recallContext">;
+  studyNoteId: string;
+}) {
+  const questionReference = findStudyNoteQuestionResult({
+    results: input.contexts.recallContext.listSessionResults({
+      userId: testUser.id,
+    }),
+    studyNoteId: input.studyNoteId,
+  });
+
+  if (questionReference === null) {
+    throw new Error("Expected a stored weak-recall result with a question id.");
+  }
+
+  return input.contexts.recallContext.confirmPracticeRepairEntry({
+    correction: input.correction,
+    intent: "tighten-expected-answer",
+    reference: {
+      questionIndex: questionReference.questionIndex,
+      questionResultId: questionReference.questionResultId,
+      sessionResultId: questionReference.result.id,
+      studyNoteId: input.studyNoteId,
+    },
+    userId: testUser.id,
+  });
+}
+
+function getConfirmedPracticeRepairReference(result: SessionResult) {
+  const reference = result.questions[0]?.practiceRepairEntry?.reference;
+
+  if (reference === undefined) {
+    throw new Error("Expected a confirmed Practice Repair reference.");
+  }
+
+  return reference;
+}
+
 function getControlledPanel(control: HTMLElement) {
   const panelId = control.getAttribute("aria-controls");
 
@@ -234,6 +345,7 @@ function setViewportWidth(width: number) {
 
 afterEach(() => {
   setViewportWidth(defaultViewportWidth);
+  vi.useRealTimers();
 });
 
 describe("authenticated recall workspace", () => {
@@ -316,6 +428,92 @@ describe("authenticated recall workspace", () => {
     ).toBeTruthy();
     expect(screen.getByText("Expected answer")).toBeInTheDocument();
     expect(screen.getByText("Source context")).toBeInTheDocument();
+  });
+
+  it("satisfies a completed Practice Follow-up only after the targeted recall attempt is rated", async () => {
+    vi.useFakeTimers();
+
+    const contexts = createDeterministicRecallTestContexts();
+    const studyNote = contexts.studyNotesContext.createStudyNote(testUser.id, {
+      expectedAnswer: "ATP stores transferable energy for cells.",
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: studyNote.id,
+      timestamp: "2026-05-16T09:00:00.000Z",
+    });
+
+    const confirmedResult = confirmStudyNotePracticeRepair({
+      contexts,
+      correction:
+        "State ATP directly and anchor the answer to energy transfer.",
+      studyNoteId: studyNote.id,
+    });
+    const originalReference =
+      getConfirmedPracticeRepairReference(confirmedResult);
+
+    vi.setSystemTime(new Date("2026-05-16T09:05:00.000Z"));
+
+    contexts.recallContext.completePracticeRepairEntry({
+      reference: originalReference,
+      userId: testUser.id,
+    });
+
+    vi.setSystemTime(new Date("2026-05-16T09:10:00.000Z"));
+
+    contexts.recallContext.startFlashCardSession({
+      studyNoteIds: [studyNote.id],
+      userId: testUser.id,
+    });
+
+    vi.useRealTimers();
+
+    expect(
+      contexts.recallContext.listPracticeRepairEntriesForQuestion({
+        reference: originalReference,
+        userId: testUser.id,
+      })[0]?.followUpSatisfaction,
+    ).toBeUndefined();
+
+    const { router } = renderRoute("/recall/session", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Reveal Study Note",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Hard" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next Study Note" }));
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/recall");
+    });
+    expect(
+      contexts.recallContext.listPracticeRepairEntriesForQuestion({
+        reference: originalReference,
+        userId: testUser.id,
+      })[0],
+    ).toMatchObject({
+      followUpSatisfaction: {
+        questionReference: {
+          studyNoteId: studyNote.id,
+        },
+        rating: "hard",
+        satisfiedAt: expect.any(String),
+      },
+      lifecycle: {
+        completedAt: "2026-05-16T09:05:00.000Z",
+        followUpSatisfiedAt: expect.any(String),
+      },
+    });
   });
 
   it("uses FlashCard session self-rating semantics in selected Results review", async () => {
@@ -431,7 +629,13 @@ describe("authenticated recall workspace", () => {
     });
 
     expect(
-      await screen.findByRole("navigation", { name: "Breadcrumb" }),
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Recall session",
+      }),
+    ).toHaveClass("page-header__title");
+    expect(
+      screen.getByRole("navigation", { name: "Breadcrumb" }),
     ).toHaveTextContent(/Recall\s*\/\s*Session/);
     fireEvent.click(screen.getAllByRole("button", { name: "End session" })[0]);
     expect(
@@ -700,7 +904,10 @@ describe("authenticated recall workspace", () => {
       detailPanel,
       "Expected answer",
     );
-    const referenceBlock = getDetailBlockByLabel(detailPanel, "Reference note");
+    const referenceBlock = getDetailBlockByLabel(
+      detailPanel,
+      "Reference explanation",
+    );
 
     expect(selfRatingBlock).toHaveTextContent("Good");
     expect(

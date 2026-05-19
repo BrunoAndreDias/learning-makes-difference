@@ -61,11 +61,6 @@ export default defineConfig({
               children: [
                 {
                   type: "route",
-                  path: "/labels",
-                  file: "modules/labels/label-management/labels-route.tsx",
-                },
-                {
-                  type: "route",
                   path: "/study-notes",
                   file: "modules/study-notes/study-notes-route.tsx",
                 },
@@ -76,12 +71,42 @@ export default defineConfig({
                 },
                 {
                   type: "route",
+                  path: "/insights",
+                  file: "modules/study-guidance/study-guidance-route.tsx",
+                },
+                {
+                  type: "route",
                   path: "/recall",
                   file: "modules/recall/recall-route.tsx",
                   children: [
                     {
                       type: "index",
                       file: "modules/recall/recall-results-workspace-route.tsx",
+                    },
+                    {
+                      type: "route",
+                      path: "/repair",
+                      file: "modules/recall/recall-practice-repair-queue-route.tsx",
+                    },
+                    {
+                      type: "route",
+                      path: "/repair/$practiceRepairEntryId",
+                      file: "modules/recall/recall-practice-repair-route.tsx",
+                    },
+                    {
+                      type: "route",
+                      path: "/repair/$sessionResultId/questions/$questionResultId",
+                      file: "modules/recall/recall-practice-repair-draft-route.tsx",
+                    },
+                    {
+                      type: "route",
+                      path: "/results",
+                      file: "modules/recall/recall-results-route.tsx",
+                    },
+                    {
+                      type: "route",
+                      path: "/results/$sessionResultId/questions/$questionResultId/repair",
+                      file: "modules/recall/recall-practice-repair-results-redirect-route.tsx",
                     },
                     {
                       type: "route",

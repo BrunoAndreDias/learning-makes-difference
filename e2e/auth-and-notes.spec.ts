@@ -41,6 +41,34 @@ async function registerAccount(
   return account;
 }
 
+async function createStudyNote(page: Page, input: {
+  expectedAnswer: string;
+  prompt: string;
+}) {
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("textbox", { name: "Prompt" })).toBeVisible();
+  await page.getByLabel("Note title").fill(input.prompt);
+  await page
+    .getByRole("textbox", { name: "Explanation" })
+    .fill(input.expectedAnswer);
+  const promptField = page.getByRole("textbox", { name: "Prompt" });
+  await promptField.click();
+  await promptField.press("ControlOrMeta+A");
+  await promptField.fill(input.prompt);
+  await page
+    .getByRole("textbox", { exact: true, name: "Expected answer" })
+    .fill(input.expectedAnswer);
+  await expect(promptField).toHaveValue(input.prompt);
+  await expect(
+    page.getByRole("textbox", { exact: true, name: "Expected answer" }),
+  ).toHaveValue(input.expectedAnswer);
+
+  const saveButton = page.getByRole("button", { name: /^Save/ });
+  await expect(saveButton).toBeEnabled();
+  await saveButton.click();
+  await page.waitForLoadState("networkidle");
+}
+
 test("redirects protected routes to sign in", async ({ page }) => {
   await page.goto("/study-notes");
 
@@ -57,23 +85,19 @@ test("registers, navigates the app, and persists a Study Note after refresh", as
   const expectedAnswer =
     "This Study Note proves browser registration, saving, and reload.";
 
-  await page.getByRole("button", { name: "New Study Note" }).click();
-  await page.getByLabel("Prompt").fill(studyNotePrompt);
-  await page
-    .getByRole("textbox", { name: "Expected answer" })
-    .fill(expectedAnswer);
-  await page.getByLabel("Source title").fill(studyNotePrompt);
-  await page.getByRole("textbox", { name: "Source body" }).fill(expectedAnswer);
-  await page.getByRole("button", { name: "Save" }).click();
+  await createStudyNote(page, {
+    expectedAnswer,
+    prompt: studyNotePrompt,
+  });
 
   await expect(
-    page.getByRole("button", { exact: true, name: studyNotePrompt }),
+    page.getByRole("button", { name: new RegExp(studyNotePrompt) }),
   ).toBeVisible();
 
   await page.reload();
 
   await page
-    .getByRole("button", { exact: true, name: studyNotePrompt })
+    .getByRole("button", { name: new RegExp(studyNotePrompt) })
     .click();
 
   await expect(page.getByLabel("Prompt")).toHaveValue(studyNotePrompt);
@@ -85,16 +109,46 @@ test("registers, navigates the app, and persists a Study Note after refresh", as
 
   const appSections = page.getByRole("navigation", { name: "App sections" });
 
-  await appSections.getByRole("link", { name: "Labels" }).click();
-  await expect(page).toHaveURL(/\/labels$/);
-
   await appSections.getByRole("link", { name: "Focus" }).click();
   await expect(page).toHaveURL(/\/focus$/);
 
   await appSections.getByRole("link", { name: "Recall" }).click();
   await expect(page).toHaveURL(/\/recall$/);
 
-  await page.getByRole("button", { name: /account menu/i }).click();
+  await page.getByRole("button", { name: /account menu/i }).click({
+    force: true,
+  });
   await page.getByRole("menuitem", { name: "Settings" }).click();
   await expect(page).toHaveURL(/\/settings$/);
+});
+
+test("starts persisted recall sessions from Study Notes", async ({ page }) => {
+  await registerAccount(page);
+
+  const studyNotePrompt = `E2E recall start ${Date.now()}`;
+  const expectedAnswer =
+    "This Study Note proves persisted recall session startup.";
+
+  await createStudyNote(page, {
+    expectedAnswer,
+    prompt: studyNotePrompt,
+  });
+
+  const appSections = page.getByRole("navigation", { name: "App sections" });
+  await appSections.getByRole("link", { name: "Recall" }).click();
+  await expect(page).toHaveURL(/\/recall$/);
+
+  await page.getByRole("link", { name: "Manual Recall Selection" }).click();
+  await expect(page).toHaveURL(/\/recall\/select$/);
+
+  await page
+    .getByRole("checkbox", { name: new RegExp(studyNotePrompt) })
+    .click();
+  await page.getByRole("button", { name: "Start recall" }).click();
+
+  await expect(page).toHaveURL(/\/recall\/session$/);
+  await expect(
+    page.getByRole("heading", { level: 3, name: "Recall session" }),
+  ).toBeVisible();
+  await expect(page.getByText(studyNotePrompt).first()).toBeVisible();
 });

@@ -6,18 +6,29 @@ import {
 } from "@tanstack/react-start/server";
 import { z } from "zod";
 import type { AppPersistentStudyNotesService } from "./persistent-study-notes";
-import { AppStudyNotesError } from "./study-notes";
+import {
+  AppStudyNotesError,
+  MAX_STUDY_NOTE_SUPPORT_DESCRIPTIONS_PER_KIND,
+} from "./study-notes";
 
 const SESSION_COOKIE_NAME = "learning-makes-difference-session";
 
-const memoryHookSchema = z.object({
+const supportDescriptionSchema = z.object({
   description: z.string(),
 });
 
 const createStudyNoteInputSchema = z.object({
-  acronyms: z.array(memoryHookSchema).optional(),
+  acronyms: z
+    .array(supportDescriptionSchema)
+    .max(MAX_STUDY_NOTE_SUPPORT_DESCRIPTIONS_PER_KIND)
+    .optional(),
+  expectedAnswer: z.string().optional(),
   labelIds: z.array(z.string()).optional(),
-  metaphors: z.array(memoryHookSchema).optional(),
+  metaphors: z
+    .array(supportDescriptionSchema)
+    .max(MAX_STUDY_NOTE_SUPPORT_DESCRIPTIONS_PER_KIND)
+    .optional(),
+  prompt: z.string().optional(),
   sourceBody: z.string(),
   sourceTitle: z.string(),
 });
@@ -32,10 +43,14 @@ const deleteStudyNoteInputSchema = z.object({
 });
 
 const updateStudyNoteInputSchema = z.object({
-  acronyms: z.array(memoryHookSchema),
+  acronyms: z
+    .array(supportDescriptionSchema)
+    .max(MAX_STUDY_NOTE_SUPPORT_DESCRIPTIONS_PER_KIND),
   expectedAnswer: z.string(),
   labelIds: z.array(z.string()),
-  metaphors: z.array(memoryHookSchema),
+  metaphors: z
+    .array(supportDescriptionSchema)
+    .max(MAX_STUDY_NOTE_SUPPORT_DESCRIPTIONS_PER_KIND),
   prompt: z.string(),
   sourceBody: z.string(),
   sourceTitle: z.string(),

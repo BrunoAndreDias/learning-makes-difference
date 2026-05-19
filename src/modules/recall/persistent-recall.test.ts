@@ -4,6 +4,7 @@ import {
   createPersistentRecallContext,
 } from "./persistent-recall";
 import type { RecallQuestion, RecallSession, SessionResult } from "./recall";
+import type { RecallSchedule } from "./recall-schedule";
 
 function createQuestion(
   override: Partial<RecallQuestion> & Pick<RecallQuestion, "noteId">,
@@ -90,6 +91,19 @@ function createResult(
   };
 }
 
+function createSchedule(
+  override: Partial<RecallSchedule> & Pick<RecallSchedule, "studyNoteId">,
+): RecallSchedule {
+  return {
+    ease: 2.5,
+    intervalDays: 0,
+    lastRecalledAt: null,
+    nextRecallAt: "2026-05-02T12:00:00.000Z",
+    repetitionCount: 0,
+    ...override,
+  };
+}
+
 describe("createPersistentRecallContext", () => {
   it("refreshes and mutates the in-memory recall snapshot from the async recall service", async () => {
     let activeSession: RecallSession | null = createSession({
@@ -146,8 +160,73 @@ describe("createPersistentRecallContext", () => {
         id: "result-1",
       }),
     ];
+    let recallSchedules: RecallSchedule[] = [
+      createSchedule({
+        intervalDays: 1,
+        lastRecalledAt: "2026-05-01T12:00:00.000Z",
+        nextRecallAt: "2026-05-02T12:00:00.000Z",
+        repetitionCount: 1,
+        studyNoteId: "note-2",
+      }),
+    ];
 
     const service: AppPersistentRecallService = {
+      completePracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      completeLinkedPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      confirmPracticeRepairEntry: vi.fn(
+        async ({ correction, intent, reference }) => {
+          const existingResult = sessionResults.find(
+            (result) => result.id === reference.sessionResultId,
+          );
+
+          if (existingResult === undefined) {
+            throw new Error("Missing result");
+          }
+
+          const updatedResult = {
+            ...existingResult,
+            questions: existingResult.questions.map((question, index) =>
+              index === reference.questionIndex
+                ? {
+                    ...question,
+                    practiceRepairEntry: {
+                      confirmedAt: "2026-05-02T12:15:00.000Z",
+                      correction,
+                      intent,
+                      intentMetadata: {
+                        updatedExpectedAnswer: null,
+                      },
+                      practiceRepairEntryId:
+                        "practice-repair-entry-result-weak-question-0",
+                      reference: {
+                        ...reference,
+                        questionResultId:
+                          question.questionResultId ??
+                          reference.questionResultId,
+                      },
+                    },
+                  }
+                : question,
+            ),
+          } satisfies SessionResult;
+
+          sessionResults = [
+            updatedResult,
+            ...sessionResults.filter(
+              (result) => result.id !== updatedResult.id,
+            ),
+          ];
+
+          return updatedResult;
+        },
+      ),
+      dismissPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
       endRecallSession: vi.fn(async () => {
         if (activeSession === null) {
           throw new Error("Missing session");
@@ -170,6 +249,7 @@ describe("createPersistentRecallContext", () => {
         return endedSession;
       }),
       getActiveSession: vi.fn(async () => activeSession),
+      listRecallSchedules: vi.fn(async () => recallSchedules),
       listSessionResults: vi.fn(async () => sessionResults),
       rateFlashCardAnswer: vi.fn(async ({ rating }) => {
         if (activeSession === null) {
@@ -203,6 +283,15 @@ describe("createPersistentRecallContext", () => {
         } satisfies RecallSession;
 
         activeSession = null;
+        recallSchedules = [
+          createSchedule({
+            intervalDays: 3,
+            lastRecalledAt: "2026-05-02T12:30:00.000Z",
+            nextRecallAt: "2026-05-05T12:30:00.000Z",
+            repetitionCount: 2,
+            studyNoteId: "note-2",
+          }),
+        ];
         sessionResults = [
           createResult({
             attempts: ratedSession.attempts,
@@ -249,6 +338,9 @@ describe("createPersistentRecallContext", () => {
 
         return activeSession;
       }),
+      updatePracticeRepairEntryCorrection: vi.fn(async () => {
+        throw new Error("not used");
+      }),
       updateFlashCardAttemptText: vi.fn(async ({ text }) => {
         if (activeSession === null) {
           throw new Error("Missing session");
@@ -281,6 +373,7 @@ describe("createPersistentRecallContext", () => {
           userId: "user-casey",
         },
         sessionResults: [{ id: "result-1" }],
+        recallSchedules: [{ studyNoteId: "note-2" }],
       },
     );
 
@@ -323,6 +416,13 @@ describe("createPersistentRecallContext", () => {
     });
 
     expect(persistentRecall.getSnapshot()).toBeNull();
+    expect(persistentRecall.getRecallSchedulesSnapshot()).toMatchObject([
+      {
+        intervalDays: 3,
+        nextRecallAt: "2026-05-05T12:30:00.000Z",
+        studyNoteId: "note-2",
+      },
+    ]);
     expect(persistentRecall.getSessionResultsSnapshot()).toMatchObject([
       {
         id: "session-2",
@@ -343,6 +443,428 @@ describe("createPersistentRecallContext", () => {
       },
       {
         id: "result-1",
+      },
+    ]);
+  });
+
+  it("confirms Practice Repair entries into the persisted results snapshot", async () => {
+    let sessionResults: SessionResult[] = [
+      createResult({
+        id: "result-weak",
+        notes: [
+          {
+            acronyms: [],
+            body: "ATP stores transferable energy.",
+            createdAt: "2026-05-02T12:00:00.000Z",
+            expectedAnswer: "ATP stores transferable energy.",
+            id: "study-note-1",
+            labelIds: [],
+            metaphors: [],
+            prompt: "What stores transferable energy?",
+            source: {
+              body: "Cell respiration source.",
+              id: "source-note-1",
+              title: "Cell respiration",
+              updatedAt: "2026-05-02T12:00:00.000Z",
+            },
+            sourceNoteId: "source-note-1",
+            title: "What stores transferable energy?",
+            updatedAt: "2026-05-02T12:00:00.000Z",
+          },
+        ],
+        questions: [
+          createQuestion({
+            noteId: "study-note-1",
+            noteSnapshot: {
+              acronyms: [],
+              body: "ATP stores transferable energy.",
+              createdAt: "2026-05-02T12:00:00.000Z",
+              expectedAnswer: "ATP stores transferable energy.",
+              id: "study-note-1",
+              labelIds: [],
+              metaphors: [],
+              prompt: "What stores transferable energy?",
+              source: {
+                body: "Cell respiration source.",
+                id: "source-note-1",
+                title: "Cell respiration",
+                updatedAt: "2026-05-02T12:00:00.000Z",
+              },
+              sourceNoteId: "source-note-1",
+              title: "What stores transferable energy?",
+              updatedAt: "2026-05-02T12:00:00.000Z",
+            },
+            questionResultId: "result-weak-question-0",
+            selfRating: "hard",
+          }),
+        ],
+      }),
+    ];
+    const service: AppPersistentRecallService = {
+      completePracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      completeLinkedPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      confirmPracticeRepairEntry: vi.fn(
+        async ({ correction, intent, reference }) => {
+          const existingResult = sessionResults[0];
+          const updatedResult = {
+            ...existingResult,
+            questions: existingResult.questions.map((question, index) =>
+              index === reference.questionIndex
+                ? {
+                    ...question,
+                    practiceRepairEntry: {
+                      confirmedAt: "2026-05-02T12:15:00.000Z",
+                      correction,
+                      intent,
+                      intentMetadata: {
+                        updatedExpectedAnswer: null,
+                      },
+                      practiceRepairEntryId:
+                        "practice-repair-entry-result-weak-question-0",
+                      reference,
+                    },
+                  }
+                : question,
+            ),
+          } satisfies SessionResult;
+
+          sessionResults = [updatedResult];
+
+          return updatedResult;
+        },
+      ),
+      dismissPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      endRecallSession: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      getActiveSession: vi.fn(async () => null),
+      listRecallSchedules: vi.fn(async () => []),
+      listSessionResults: vi.fn(async () => sessionResults),
+      rateFlashCardAnswer: vi.fn(async () => null),
+      revealFlashCardAnswer: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      startFlashCardSession: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      updatePracticeRepairEntryCorrection: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      updateFlashCardAttemptText: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+    };
+    const persistentRecall = createPersistentRecallContext({
+      service,
+    });
+
+    await persistentRecall.refresh("user-casey");
+    await expect(
+      persistentRecall.confirmPracticeRepairEntry("user-casey", {
+        correction: "State ATP and its energy role.",
+        intent: "tighten-expected-answer",
+        reference: {
+          questionIndex: 0,
+          questionResultId: "result-weak-question-0",
+          sessionResultId: "result-weak",
+          studyNoteId: "study-note-1",
+        },
+      }),
+    ).resolves.toMatchObject({
+      id: "result-weak",
+      questions: [
+        {
+          practiceRepairEntry: {
+            correction: "State ATP and its energy role.",
+            intent: "tighten-expected-answer",
+            intentMetadata: {
+              updatedExpectedAnswer: null,
+            },
+          },
+        },
+      ],
+    });
+
+    expect(persistentRecall.getSessionResultsSnapshot()).toMatchObject([
+      {
+        id: "result-weak",
+        questions: [
+          {
+            practiceRepairEntry: {
+              correction: "State ATP and its energy role.",
+              intent: "tighten-expected-answer",
+              intentMetadata: {
+                updatedExpectedAnswer: null,
+              },
+              practiceRepairEntryId:
+                "practice-repair-entry-result-weak-question-0",
+              reference: {
+                questionResultId: "result-weak-question-0",
+              },
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("applies Practice Repair lifecycle mutations into the persisted results snapshot", async () => {
+    let sessionResults: SessionResult[] = [
+      createResult({
+        id: "result-complete",
+        questions: [
+          createQuestion({
+            noteId: "study-note-complete",
+            noteSnapshot: {
+              acronyms: [],
+              body: "ATP stores transferable energy.",
+              createdAt: "2026-05-02T12:00:00.000Z",
+              expectedAnswer: "ATP stores transferable energy.",
+              id: "study-note-complete",
+              labelIds: [],
+              metaphors: [],
+              prompt: "What stores transferable energy?",
+              source: {
+                body: "Cell respiration source.",
+                id: "source-note-complete",
+                title: "Cell respiration",
+                updatedAt: "2026-05-02T12:00:00.000Z",
+              },
+              sourceNoteId: "source-note-complete",
+              title: "What stores transferable energy?",
+              updatedAt: "2026-05-02T12:00:00.000Z",
+            },
+            practiceRepairEntry: {
+              confirmedAt: "2026-05-02T12:15:00.000Z",
+              correction: "State ATP directly.",
+              intent: "tighten-expected-answer",
+              intentMetadata: {
+                updatedExpectedAnswer: null,
+              },
+              practiceRepairEntryId:
+                "practice-repair-entry-result-complete-question-0",
+              reference: {
+                questionIndex: 0,
+                questionResultId: "result-complete-question-0",
+                sessionResultId: "result-complete",
+                studyNoteId: "study-note-complete",
+              },
+            },
+            questionResultId: "result-complete-question-0",
+            selfRating: "hard",
+          }),
+        ],
+      }),
+      createResult({
+        id: "result-dismiss",
+        questions: [
+          createQuestion({
+            noteId: "study-note-dismiss",
+            noteSnapshot: {
+              acronyms: [],
+              body: "NADH carries electrons.",
+              createdAt: "2026-05-02T12:00:00.000Z",
+              expectedAnswer: "NADH carries electrons.",
+              id: "study-note-dismiss",
+              labelIds: [],
+              metaphors: [],
+              prompt: "What carries electrons?",
+              source: {
+                body: "Electron transport source.",
+                id: "source-note-dismiss",
+                title: "Electron transport",
+                updatedAt: "2026-05-02T12:00:00.000Z",
+              },
+              sourceNoteId: "source-note-dismiss",
+              title: "What carries electrons?",
+              updatedAt: "2026-05-02T12:00:00.000Z",
+            },
+            practiceRepairEntry: {
+              confirmedAt: "2026-05-02T12:20:00.000Z",
+              correction: "Pause this repair.",
+              intent: "tighten-expected-answer",
+              intentMetadata: {
+                updatedExpectedAnswer: null,
+              },
+              practiceRepairEntryId:
+                "practice-repair-entry-result-dismiss-question-0",
+              reference: {
+                questionIndex: 0,
+                questionResultId: "result-dismiss-question-0",
+                sessionResultId: "result-dismiss",
+                studyNoteId: "study-note-dismiss",
+              },
+            },
+            questionResultId: "result-dismiss-question-0",
+            selfRating: "hard",
+          }),
+        ],
+      }),
+    ];
+
+    function updateLifecycleResult(input: {
+      completedAt?: string;
+      dismissedAt?: string;
+      sessionResultId: string;
+    }): SessionResult {
+      const existingResult = sessionResults.find(
+        (result) => result.id === input.sessionResultId,
+      );
+
+      if (existingResult === undefined) {
+        throw new Error("Missing stored Practice Repair result.");
+      }
+
+      const existingEntry = existingResult.questions[0]?.practiceRepairEntry;
+
+      if (existingEntry === undefined) {
+        throw new Error("Missing stored Practice Repair entry.");
+      }
+
+      const updatedResult = {
+        ...existingResult,
+        questions: existingResult.questions.map((question, index) =>
+          index === 0
+            ? {
+                ...question,
+                practiceRepairEntry: {
+                  ...existingEntry,
+                  lifecycle: {
+                    ...existingEntry.lifecycle,
+                    completedAt: input.completedAt,
+                    dismissedAt: input.dismissedAt,
+                  },
+                },
+              }
+            : question,
+        ),
+      } satisfies SessionResult;
+
+      sessionResults = [
+        updatedResult,
+        ...sessionResults.filter((result) => result.id !== updatedResult.id),
+      ];
+
+      return updatedResult;
+    }
+
+    const service: AppPersistentRecallService = {
+      completePracticeRepairEntry: vi.fn(async () =>
+        updateLifecycleResult({
+          completedAt: "2026-05-02T12:40:00.000Z",
+          sessionResultId: "result-complete",
+        }),
+      ),
+      completeLinkedPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      confirmPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      dismissPracticeRepairEntry: vi.fn(async () =>
+        updateLifecycleResult({
+          dismissedAt: "2026-05-02T12:45:00.000Z",
+          sessionResultId: "result-dismiss",
+        }),
+      ),
+      endRecallSession: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      getActiveSession: vi.fn(async () => null),
+      listRecallSchedules: vi.fn(async () => []),
+      listSessionResults: vi.fn(async () => sessionResults),
+      rateFlashCardAnswer: vi.fn(async () => null),
+      revealFlashCardAnswer: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      startFlashCardSession: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      updatePracticeRepairEntryCorrection: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      updateFlashCardAttemptText: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+    };
+    const persistentRecall = createPersistentRecallContext({
+      service,
+    });
+
+    await persistentRecall.refresh("user-casey");
+    await expect(
+      persistentRecall.completePracticeRepairEntry("user-casey", {
+        reference: {
+          questionIndex: 0,
+          questionResultId: "result-complete-question-0",
+          sessionResultId: "result-complete",
+          studyNoteId: "study-note-complete",
+        },
+      }),
+    ).resolves.toMatchObject({
+      id: "result-complete",
+      questions: [
+        {
+          practiceRepairEntry: {
+            lifecycle: {
+              completedAt: "2026-05-02T12:40:00.000Z",
+            },
+          },
+        },
+      ],
+    });
+    await expect(
+      persistentRecall.dismissPracticeRepairEntry("user-casey", {
+        reference: {
+          questionIndex: 0,
+          questionResultId: "result-dismiss-question-0",
+          sessionResultId: "result-dismiss",
+          studyNoteId: "study-note-dismiss",
+        },
+      }),
+    ).resolves.toMatchObject({
+      id: "result-dismiss",
+      questions: [
+        {
+          practiceRepairEntry: {
+            lifecycle: {
+              dismissedAt: "2026-05-02T12:45:00.000Z",
+            },
+          },
+        },
+      ],
+    });
+
+    expect(persistentRecall.getSessionResultsSnapshot()).toMatchObject([
+      {
+        id: "result-dismiss",
+        questions: [
+          {
+            practiceRepairEntry: {
+              lifecycle: {
+                dismissedAt: "2026-05-02T12:45:00.000Z",
+              },
+            },
+          },
+        ],
+      },
+      {
+        id: "result-complete",
+        questions: [
+          {
+            practiceRepairEntry: {
+              lifecycle: {
+                completedAt: "2026-05-02T12:40:00.000Z",
+              },
+            },
+          },
+        ],
       },
     ]);
   });

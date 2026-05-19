@@ -18,16 +18,17 @@ import {
 
 import appLogo from "../../../../docs/layout/logo.svg";
 import { Button } from "../../../design-system/button";
+import { PageHeader } from "../../../design-system/page-header";
 import type { AppSessionSnapshot } from "../../access/session/session";
 import { useResolvedProtectedSession } from "../../access/session/use-resolved-protected-session";
 import { FocusSessionStartControl } from "../../focus";
 import { useAppTranslation } from "../../language";
 import { NotesWorkspaceProvider } from "../../notes";
 
-type NavigationIconName = "focus" | "label" | "note" | "recall" | "settings";
+type NavigationIconName = "focus" | "insights" | "note" | "recall" | "settings";
 type WorkspaceFrameName =
   | "focus"
-  | "labels"
+  | "insights"
   | "notes"
   | "recall"
   | "recall-results"
@@ -45,14 +46,37 @@ const globalNavigationItems = [
     to: "/recall",
   },
   {
-    iconName: "label",
-    labelKey: "shell.navigation.labels",
-    to: "/labels",
-  },
-  {
     iconName: "focus",
     labelKey: "shell.navigation.focus",
     to: "/focus",
+  },
+  {
+    iconName: "insights",
+    labelKey: "shell.navigation.insights",
+    to: "/insights",
+  },
+] as const;
+
+const recallSubNavigationItems = [
+  {
+    labelKey: "recall.today.title",
+    to: "/recall",
+  },
+  {
+    labelKey: "recall.practiceRepair",
+    to: "/recall/repair",
+  },
+  {
+    labelKey: "recall.results",
+    to: "/recall/results",
+  },
+  {
+    labelKey: "shell.workspace.recallSetup",
+    to: "/recall/select",
+  },
+  {
+    labelKey: "shell.workspace.recallSession",
+    to: "/recall/session",
   },
 ] as const;
 
@@ -61,16 +85,16 @@ function isWorkspacePath(pathname: string, workspacePath: string) {
 }
 
 function getWorkspaceTitleKey(pathname: string) {
-  if (isLabelsWorkspacePath(pathname)) {
-    return "shell.workspace.labels";
-  }
-
   if (isRecallWorkspacePath(pathname)) {
     return "shell.workspace.recall";
   }
 
   if (isFocusWorkspacePath(pathname)) {
     return "shell.workspace.focus";
+  }
+
+  if (isInsightsWorkspacePath(pathname)) {
+    return "shell.workspace.insights";
   }
 
   if (isSettingsWorkspacePath(pathname)) {
@@ -104,16 +128,16 @@ function isRecallWorkspacePath(pathname: string) {
   return isWorkspacePath(pathname, "/recall");
 }
 
-function isLabelsWorkspacePath(pathname: string) {
-  return isWorkspacePath(pathname, "/labels");
-}
-
 function isFocusWorkspacePath(pathname: string) {
   return isWorkspacePath(pathname, "/focus");
 }
 
 function isSettingsWorkspacePath(pathname: string) {
   return isWorkspacePath(pathname, "/settings");
+}
+
+function isInsightsWorkspacePath(pathname: string) {
+  return isWorkspacePath(pathname, "/insights");
 }
 
 function getWorkspaceFrameName(
@@ -131,12 +155,12 @@ function getWorkspaceFrameName(
     return "recall";
   }
 
-  if (isLabelsWorkspacePath(pathname)) {
-    return "labels";
-  }
-
   if (isFocusWorkspacePath(pathname)) {
     return "focus";
+  }
+
+  if (isInsightsWorkspacePath(pathname)) {
+    return "insights";
   }
 
   if (isSettingsWorkspacePath(pathname)) {
@@ -180,8 +204,8 @@ export function AppLayout() {
     location.pathname,
   );
   const isRecallWorkspaceRoute = isRecallWorkspacePath(location.pathname);
-  const isLabelsWorkspaceRoute = isLabelsWorkspacePath(location.pathname);
   const isFocusWorkspaceRoute = isFocusWorkspacePath(location.pathname);
+  const isInsightsWorkspaceRoute = isInsightsWorkspacePath(location.pathname);
   const isSettingsWorkspaceRoute = isSettingsWorkspacePath(location.pathname);
   const sidebarState = isSidebarCollapsed ? "collapsed" : "expanded";
   const sidebarToggleLabel = isSidebarCollapsed
@@ -272,11 +296,20 @@ export function AppLayout() {
           tabIndex={-1}
         >
           <div className="app-sidebar__header">
-            <AccountMenu
-              isLoggingOut={isLoggingOut}
-              onLogout={() => void handleLogout()}
-              sessionSnapshot={sessionSnapshot}
-            />
+            <Link className="app-sidebar__brand" to="/study-notes">
+              <img
+                alt=""
+                aria-hidden="true"
+                className="app-sidebar__logo"
+                height="56"
+                src={appLogo}
+                width="56"
+              />
+              <span className="app-sidebar__brand-copy">
+                <strong>Learning</strong>
+                <strong>Makes Difference</strong>
+              </span>
+            </Link>
 
             <Button
               aria-controls={navigationId}
@@ -305,7 +338,30 @@ export function AppLayout() {
             </Button>
           </div>
 
-          <GlobalNavigation onNavigate={closeMobileSidebar} />
+          <GlobalNavigation
+            currentPathname={location.pathname}
+            onNavigate={closeMobileSidebar}
+          />
+
+          <div className="app-sidebar__footer">
+            <div className="app-sidebar__streak">
+              <span aria-hidden="true" className="app-sidebar__streak-icon">
+                <StreakIcon />
+              </span>
+              <span>
+                <strong>12 day streak</strong>
+                <span>Keep it going!</span>
+              </span>
+              <span aria-hidden="true" className="app-sidebar__streak-arrow">
+                <ChevronRightIcon />
+              </span>
+            </div>
+            <AccountMenu
+              isLoggingOut={isLoggingOut}
+              onLogout={() => void handleLogout()}
+              sessionSnapshot={sessionSnapshot}
+            />
+          </div>
         </aside>
 
         <div className="app-frame" data-workspace={workspaceFrameName}>
@@ -316,8 +372,8 @@ export function AppLayout() {
             persistentFocus={persistentFocus}
             isStudyNotesWorkspaceRoute={isStudyNotesWorkspaceRoute}
             isRecallWorkspaceRoute={isRecallWorkspaceRoute}
-            isLabelsWorkspaceRoute={isLabelsWorkspaceRoute}
             isFocusWorkspaceRoute={isFocusWorkspaceRoute}
+            isInsightsWorkspaceRoute={isInsightsWorkspaceRoute}
             isSettingsWorkspaceRoute={isSettingsWorkspaceRoute}
             isSidebarCollapsed={isSidebarCollapsed}
             isMobileSidebarOpen={isMobileSidebarOpen}
@@ -346,8 +402,8 @@ function WorkspaceHeader({
   persistentFocus,
   isStudyNotesWorkspaceRoute,
   isRecallWorkspaceRoute,
-  isLabelsWorkspaceRoute,
   isFocusWorkspaceRoute,
+  isInsightsWorkspaceRoute,
   isSettingsWorkspaceRoute,
   isSidebarCollapsed,
   isMobileSidebarOpen,
@@ -369,8 +425,8 @@ function WorkspaceHeader({
   >[0]["persistentFocus"];
   isStudyNotesWorkspaceRoute: boolean;
   isRecallWorkspaceRoute: boolean;
-  isLabelsWorkspaceRoute: boolean;
   isFocusWorkspaceRoute: boolean;
+  isInsightsWorkspaceRoute: boolean;
   isSettingsWorkspaceRoute: boolean;
   isSidebarCollapsed: boolean;
   isMobileSidebarOpen: boolean;
@@ -383,10 +439,13 @@ function WorkspaceHeader({
   workspaceTitle: string;
 }) {
   const { t } = useAppTranslation();
+  const workspaceDate = new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+  }).format(new Date());
   const hasVisuallyHiddenWorkspaceTitle =
     isRecallWorkspaceRoute ||
-    isLabelsWorkspaceRoute ||
     isFocusWorkspaceRoute ||
+    isInsightsWorkspaceRoute ||
     isSettingsWorkspaceRoute;
 
   return (
@@ -417,7 +476,22 @@ function WorkspaceHeader({
             <SidebarReopenIcon />
           </Button>
         ) : null}
-        {isStudyNotesWorkspaceRoute ? null : (
+        {isStudyNotesWorkspaceRoute ? (
+          <nav aria-label="Breadcrumb" className="app-frame__breadcrumb">
+            <Link to="/study-notes">Study Notes</Link>
+            <span aria-hidden="true">/</span>
+            <span>Edit Note</span>
+          </nav>
+        ) : isFocusWorkspaceRoute ? (
+          <PageHeader
+            as="div"
+            className="app-frame__workspace-page-header"
+            copyClassName="app-frame__workspace-copy"
+            description={t("focus.description")}
+            headingLevel={2}
+            title={workspaceTitle}
+          />
+        ) : (
           <h2
             className={
               hasVisuallyHiddenWorkspaceTitle
@@ -432,7 +506,11 @@ function WorkspaceHeader({
         )}
       </div>
       <div className="app-frame__actions">
-        {isStudyNotesWorkspaceRoute || isLabelsWorkspaceRoute ? null : (
+        {isStudyNotesWorkspaceRoute ? (
+          <WorkspaceMetaActions workspaceDate={workspaceDate} />
+        ) : isFocusWorkspaceRoute ? (
+          <WorkspaceDate workspaceDate={workspaceDate} />
+        ) : (
           <FocusSessionStartControl
             activeFocusSession={activeFocusSession}
             focus={focus}
@@ -445,12 +523,48 @@ function WorkspaceHeader({
   );
 }
 
+function WorkspaceMetaActions({
+  workspaceDate,
+}: Readonly<{
+  workspaceDate: string;
+}>) {
+  return (
+    <div className="app-frame__meta-actions">
+      <WorkspaceDate workspaceDate={workspaceDate} />
+      <Button
+        aria-label="Help"
+        className="app-frame__help"
+        iconOnly
+        type="button"
+      >
+        <HelpCircleIcon />
+      </Button>
+    </div>
+  );
+}
+
+function WorkspaceDate({
+  workspaceDate,
+}: Readonly<{
+  workspaceDate: string;
+}>) {
+  return (
+    <span className="app-frame__date">
+      <CalendarHeaderIcon />
+      <span>{workspaceDate}</span>
+    </span>
+  );
+}
+
 function GlobalNavigation({
+  currentPathname,
   onNavigate,
 }: Readonly<{
+  currentPathname: string;
   onNavigate: () => void;
 }>) {
   const { t } = useAppTranslation();
+  const isRecallRouteActive = isRecallWorkspacePath(currentPathname);
 
   return (
     <nav
@@ -475,6 +589,28 @@ function GlobalNavigation({
                 {t(navigationItem.labelKey)}
               </span>
             </Link>
+            {navigationItem.to === "/recall" && isRecallRouteActive ? (
+              <ul className="app-sidebar__sublist">
+                {recallSubNavigationItems.map((subNavigationItem) => (
+                  <li key={subNavigationItem.to}>
+                    <Link
+                      activeOptions={{
+                        exact: subNavigationItem.to === "/recall",
+                      }}
+                      activeProps={{
+                        className:
+                          "app-sidebar__sublink app-sidebar__sublink-active",
+                      }}
+                      className="app-sidebar__sublink"
+                      onClick={onNavigate}
+                      to={subNavigationItem.to}
+                    >
+                      {t(subNavigationItem.labelKey)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </li>
         ))}
       </ul>
@@ -498,6 +634,7 @@ function AccountMenu({
   const displayName =
     sessionSnapshot.user?.displayName ?? t("shell.account.unknownUser");
   const email = sessionSnapshot.user?.email ?? t("shell.account.noEmail");
+  const initials = getAccountInitials(displayName);
 
   useEffect(() => {
     if (!isAccountMenuOpen) {
@@ -548,17 +685,15 @@ function AccountMenu({
         onKeyDown={handleAccountMenuKeyDown}
         type="button"
       >
-        <img
-          alt=""
-          aria-hidden="true"
-          className="account-menu__logo"
-          height="56"
-          src={appLogo}
-          width="56"
-        />
+        <span aria-hidden="true" className="account-menu__avatar">
+          {initials}
+        </span>
         <span className="app-sidebar__profile">
           <strong>{displayName}</strong>
           <span className="sr-only">{email}</span>
+          <span aria-hidden="true" className="account-menu__tier">
+            Premium
+          </span>
         </span>
         <AccountMenuChevronIcon />
       </button>
@@ -601,6 +736,22 @@ function AccountMenu({
   );
 }
 
+function getAccountInitials(displayName: string) {
+  const words = displayName
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word.length > 0);
+
+  if (words.length === 0) {
+    return "AS";
+  }
+
+  return words
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 function AccountMenuChevronIcon() {
   return (
     <svg
@@ -610,6 +761,44 @@ function AccountMenuChevronIcon() {
       viewBox="0 0 24 24"
     >
       <path d="m7 10 5 5 5-5" />
+    </svg>
+  );
+}
+
+function CalendarHeaderIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M7 3v4" />
+      <path d="M17 3v4" />
+      <path d="M4 8h16" />
+      <path d="M5 5h14v15H5V5Z" />
+    </svg>
+  );
+}
+
+function HelpCircleIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8" />
+      <path d="M9.75 9.5a2.4 2.4 0 0 1 4.5 1.2c0 1.8-2.25 2-2.25 3.8" />
+      <path d="M12 17h.01" />
+    </svg>
+  );
+}
+
+function StreakIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M12 21a7 7 0 0 0 7-7c0-4.5-3.3-6.8-5.2-9.7-.3 2.7-1.6 4.4-3.3 5.8-.2-1.3-.9-2.5-2-3.3C8.4 9.9 5 11.7 5 15a7 7 0 0 0 7 6Z" />
+      <path d="M12 18a3 3 0 0 0 3-3c0-1.7-1.1-2.6-2-3.7-.2 1-.8 1.8-1.7 2.4-.2-.7-.6-1.2-1.2-1.6-.1 1.8-1.1 2.5-1.1 3.9a3 3 0 0 0 3 2Z" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="m9 6 6 6-6 6" />
     </svg>
   );
 }
@@ -669,19 +858,21 @@ function NavigationIcon({
           <path d="M19 12h3" />
         </svg>
       );
+    case "insights":
+      return (
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M5 19V7" />
+          <path d="M11 19V11" />
+          <path d="M17 19V4" />
+          <path d="M3 19h18" />
+        </svg>
+      );
     case "recall":
       return (
         <svg aria-hidden="true" viewBox="0 0 24 24">
           <path d="M4 5v6h6" />
           <path d="M5.5 15a7 7 0 1 0 .9-7.9L4 11" />
           <path d="M12 8v4l3 2" />
-        </svg>
-      );
-    case "label":
-      return (
-        <svg aria-hidden="true" viewBox="0 0 24 24">
-          <path d="M4 5h9l7 7-7 7H4V5Z" />
-          <path d="M9 12h.01" />
         </svg>
       );
     case "settings":

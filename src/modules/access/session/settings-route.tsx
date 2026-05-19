@@ -6,8 +6,10 @@ import {
   useMemo,
   useState,
 } from "react";
+import { PageHeader } from "../../../design-system/page-header";
 import { type AppTranslationKey, useAppTranslation } from "../../language";
 import {
+  defaultShowStudyNoteTemplatesPreference,
   defaultUserTimeZone,
   fallbackUserLanguage,
   getAppAuthError,
@@ -112,6 +114,9 @@ function SettingsPage() {
   );
   const user = sessionSnapshot.user;
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
+  const [showStudyNoteTemplates, setShowStudyNoteTemplates] = useState(
+    user?.showStudyNoteTemplates ?? defaultShowStudyNoteTemplatesPreference,
+  );
   const [userLanguage, setUserLanguage] = useState<UserLanguage>(
     user?.userLanguage ?? fallbackUserLanguage,
   );
@@ -134,6 +139,9 @@ function SettingsPage() {
 
   useEffect(() => {
     setDisplayName(user?.displayName ?? "");
+    setShowStudyNoteTemplates(
+      user?.showStudyNoteTemplates ?? defaultShowStudyNoteTemplatesPreference,
+    );
     setUserLanguage(user?.userLanguage ?? fallbackUserLanguage);
     setStudyObjective(user?.studyObjective ?? null);
     setStudyIntensity(user?.studyIntensity ?? null);
@@ -145,10 +153,13 @@ function SettingsPage() {
   }
 
   const savedUserTimeZone = user.userTimeZone ?? defaultUserTimeZone;
+  const savedShowStudyNoteTemplates =
+    user.showStudyNoteTemplates ?? defaultShowStudyNoteTemplatesPreference;
   const savedStudyObjective = user.studyObjective ?? null;
   const savedStudyIntensity = user.studyIntensity ?? null;
   const hasPreferenceChanges =
     displayName !== user.displayName ||
+    showStudyNoteTemplates !== savedShowStudyNoteTemplates ||
     userLanguage !== user.userLanguage ||
     studyObjective !== savedStudyObjective ||
     studyIntensity !== savedStudyIntensity ||
@@ -163,6 +174,7 @@ function SettingsPage() {
     try {
       await session.updatePreferences({
         displayName,
+        showStudyNoteTemplates,
         userLanguage,
         studyObjective,
         studyIntensity,
@@ -184,14 +196,15 @@ function SettingsPage() {
 
   return (
     <section className="settings-layout" aria-labelledby="settings-heading">
-      <header className="settings-page-header recall-surface__header">
-        <div className="notes-editor__title-stack">
-          <h3 aria-label={t("settings.heading.aria")} id="settings-heading">
-            {t("settings.heading")}
-          </h3>
-          <p className="muted notes-editor__meta">{t("settings.subtitle")}</p>
-        </div>
-      </header>
+      <PageHeader
+        className="settings-page-header recall-surface__header"
+        description={t("settings.subtitle")}
+        headingProps={{
+          "aria-label": t("settings.heading.aria"),
+          id: "settings-heading",
+        }}
+        title={t("settings.heading")}
+      />
 
       <div className="settings-main-grid">
         <article className="settings-panel settings-panel--form">
@@ -306,6 +319,19 @@ function SettingsPage() {
               </select>
             </label>
 
+            <label className="settings-form__checkbox-field">
+              <input
+                checked={showStudyNoteTemplates}
+                name="showStudyNoteTemplates"
+                onChange={(event) => {
+                  setShowStudyNoteTemplates(event.target.checked);
+                  setStatusMessageKey(null);
+                }}
+                type="checkbox"
+              />
+              <span>{t("settings.studyNoteTemplates.label")}</span>
+            </label>
+
             {errorMessageKey !== null ? (
               <p
                 className="auth-form__error settings-form__message"
@@ -377,6 +403,14 @@ function SettingsPage() {
             <div>
               <dt>{t("settings.userTimeZone.label")}</dt>
               <dd>{userTimeZone}</dd>
+            </div>
+            <div>
+              <dt>{t("settings.studyNoteTemplates.label")}</dt>
+              <dd>
+                {showStudyNoteTemplates
+                  ? t("settings.toggle.enabled")
+                  : t("settings.toggle.disabled")}
+              </dd>
             </div>
           </dl>
         </article>

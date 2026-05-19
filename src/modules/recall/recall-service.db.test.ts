@@ -290,7 +290,7 @@ describe("createRecallService PostgreSQL integration", () => {
       id: "source-note-1",
       userId: "user-casey",
       title: "Cell respiration source",
-      body: "Source context for ATP.",
+      body: "",
       labelIds: [],
       createdAt: new Date("2026-05-02T12:00:00.000Z"),
       updatedAt: new Date("2026-05-02T12:00:00.000Z"),
@@ -340,7 +340,7 @@ describe("createRecallService PostgreSQL integration", () => {
           labels: [{ id: "label-biology", name: "Biology" }],
           prompt: "What stores transferable energy?",
           source: {
-            body: "Source context for ATP.",
+            body: "",
             id: "source-note-1",
             title: "Cell respiration source",
           },
@@ -348,5 +348,429 @@ describe("createRecallService PostgreSQL integration", () => {
         },
       ],
     });
+  });
+
+  it("persists confirmed Practice Repair entries on weak Study Note results across service reloads", async () => {
+    const database = await createPostgresIntegrationDatabase();
+    databases.add(database);
+
+    const db = drizzle(database.client, {
+      schema: {
+        ...authSchema,
+        ...labelsSchema,
+        ...notesSchema,
+        ...recallSchema,
+        ...studyNotesSchema,
+      },
+    });
+    await migrateDatabase(db, database.client);
+    await db.insert(usersTable).values({
+      id: "user-casey",
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      passwordHash: "hash",
+      userLanguage: "en",
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+    await db.insert(notesTable).values({
+      id: "source-note-practice-repair",
+      userId: "user-casey",
+      title: "Cell respiration source",
+      body: "ATP helps transfer energy in cells.",
+      labelIds: [],
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+    await db.insert(studyNotesTable).values({
+      id: "study-note-practice-repair",
+      sourceNoteId: "source-note-practice-repair",
+      prompt: "What stores transferable energy?",
+      expectedAnswer: "ATP stores transferable energy.",
+      createdAt: new Date("2026-05-02T12:05:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:05:00.000Z"),
+    });
+
+    const service = createRecallService({
+      crypto: {
+        randomUUID: () =>
+          "session-practice-repair" as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      db,
+      shuffleNotes: (notes) => [...notes],
+    });
+
+    await service.startFlashCardSession({
+      studyNoteIds: ["study-note-practice-repair"],
+      userId: "user-casey",
+    });
+    await service.revealFlashCardAnswer({
+      sessionId: "session-practice-repair",
+      userId: "user-casey",
+    });
+    await expect(
+      service.rateFlashCardAnswer({
+        rating: "hard",
+        sessionId: "session-practice-repair",
+        userId: "user-casey",
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      service.confirmPracticeRepairEntry({
+        correction: "State ATP and explain that it stores transferable energy.",
+        intent: "tighten-expected-answer",
+        reference: {
+          questionIndex: 0,
+          questionResultId: "session-practice-repair-question-0",
+          sessionResultId: "session-practice-repair",
+          studyNoteId: "study-note-practice-repair",
+        },
+        userId: "user-casey",
+      }),
+    ).resolves.toMatchObject({
+      id: "session-practice-repair",
+      questions: [
+        {
+          noteId: "study-note-practice-repair",
+          practiceRepairEntry: {
+            correction:
+              "State ATP and explain that it stores transferable energy.",
+            intent: "tighten-expected-answer",
+            intentMetadata: {
+              updatedExpectedAnswer: null,
+            },
+            practiceRepairEntryId:
+              "practice-repair-entry-session-practice-repair-question-0",
+            reference: {
+              questionResultId: "session-practice-repair-question-0",
+              sessionResultId: "session-practice-repair",
+              studyNoteId: "study-note-practice-repair",
+            },
+          },
+          selfRating: "hard",
+        },
+      ],
+    });
+
+    const reloadedService = createRecallService({
+      db,
+      shuffleNotes: (notes) => [...notes],
+    });
+
+    await expect(
+      reloadedService.listSessionResults({
+        userId: "user-casey",
+      }),
+    ).resolves.toMatchObject([
+      {
+        id: "session-practice-repair",
+        questions: [
+          {
+            noteId: "study-note-practice-repair",
+            practiceRepairEntry: {
+              correction:
+                "State ATP and explain that it stores transferable energy.",
+              intent: "tighten-expected-answer",
+              intentMetadata: {
+                updatedExpectedAnswer: null,
+              },
+              practiceRepairEntryId:
+                "practice-repair-entry-session-practice-repair-question-0",
+              reference: {
+                questionResultId: "session-practice-repair-question-0",
+              },
+            },
+            selfRating: "hard",
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("persists later recall satisfaction for completed Practice Follow-ups across service reloads", async () => {
+    const database = await createPostgresIntegrationDatabase();
+    databases.add(database);
+
+    const db = drizzle(database.client, {
+      schema: {
+        ...authSchema,
+        ...labelsSchema,
+        ...notesSchema,
+        ...recallSchema,
+        ...studyNotesSchema,
+      },
+    });
+    await migrateDatabase(db, database.client);
+    await db.insert(usersTable).values({
+      id: "user-casey",
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      passwordHash: "hash",
+      userLanguage: "en",
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+    await db.insert(notesTable).values({
+      id: "source-note-practice-follow-up",
+      userId: "user-casey",
+      title: "Cell respiration source",
+      body: "ATP helps transfer energy in cells.",
+      labelIds: [],
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+    await db.insert(studyNotesTable).values({
+      id: "study-note-practice-follow-up",
+      sourceNoteId: "source-note-practice-follow-up",
+      prompt: "What stores transferable energy?",
+      expectedAnswer: "ATP stores transferable energy.",
+      createdAt: new Date("2026-05-02T12:05:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:05:00.000Z"),
+    });
+
+    let sessionCounter = 0;
+    const service = createRecallService({
+      crypto: {
+        randomUUID: () =>
+          `practice-follow-up-session-${++sessionCounter}` as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      db,
+      shuffleNotes: (notes) => [...notes],
+    });
+
+    await service.startFlashCardSession({
+      studyNoteIds: ["study-note-practice-follow-up"],
+      userId: "user-casey",
+    });
+    await service.revealFlashCardAnswer({
+      sessionId: "practice-follow-up-session-1",
+      userId: "user-casey",
+    });
+    await expect(
+      service.rateFlashCardAnswer({
+        rating: "hard",
+        sessionId: "practice-follow-up-session-1",
+        userId: "user-casey",
+      }),
+    ).resolves.toBeNull();
+    await service.confirmPracticeRepairEntry({
+      correction: "State ATP and explain that it stores transferable energy.",
+      intent: "tighten-expected-answer",
+      reference: {
+        questionIndex: 0,
+        questionResultId: "practice-follow-up-session-1-question-0",
+        sessionResultId: "practice-follow-up-session-1",
+        studyNoteId: "study-note-practice-follow-up",
+      },
+      userId: "user-casey",
+    });
+    await service.completePracticeRepairEntry({
+      reference: {
+        questionIndex: 0,
+        questionResultId: "practice-follow-up-session-1-question-0",
+        sessionResultId: "practice-follow-up-session-1",
+        studyNoteId: "study-note-practice-follow-up",
+      },
+      userId: "user-casey",
+    });
+
+    await service.startFlashCardSession({
+      studyNoteIds: ["study-note-practice-follow-up"],
+      userId: "user-casey",
+    });
+    await service.revealFlashCardAnswer({
+      sessionId: "practice-follow-up-session-2",
+      userId: "user-casey",
+    });
+    await expect(
+      service.rateFlashCardAnswer({
+        rating: "good",
+        sessionId: "practice-follow-up-session-2",
+        userId: "user-casey",
+      }),
+    ).resolves.toBeNull();
+
+    const reloadedService = createRecallService({
+      db,
+      shuffleNotes: (notes) => [...notes],
+    });
+    const reloadedResults = await reloadedService.listSessionResults({
+      userId: "user-casey",
+    });
+    const originalResult = reloadedResults.find(
+      (result) => result.id === "practice-follow-up-session-1",
+    );
+
+    expect(originalResult).toMatchObject({
+      id: "practice-follow-up-session-1",
+      questions: [
+        {
+          noteId: "study-note-practice-follow-up",
+          practiceRepairEntry: {
+            followUpSatisfaction: {
+              questionReference: {
+                questionIndex: 0,
+                questionResultId: "practice-follow-up-session-2-question-0",
+                sessionResultId: "practice-follow-up-session-2",
+                studyNoteId: "study-note-practice-follow-up",
+              },
+              rating: "good",
+              satisfiedAt: expect.any(String),
+            },
+            lifecycle: {
+              completedAt: expect.any(String),
+              followUpSatisfiedAt: expect.any(String),
+            },
+          },
+        },
+      ],
+    });
+  });
+
+  it("rejects persistent FlashCard sessions from incomplete Study Note IDs", async () => {
+    const database = await createPostgresIntegrationDatabase();
+    databases.add(database);
+
+    const db = drizzle(database.client, {
+      schema: {
+        ...authSchema,
+        ...labelsSchema,
+        ...notesSchema,
+        ...recallSchema,
+        ...studyNotesSchema,
+      },
+    });
+    await migrateDatabase(db, database.client);
+    await db.insert(usersTable).values({
+      id: "user-casey",
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      passwordHash: "hash",
+      userLanguage: "en",
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+    await db.insert(notesTable).values({
+      id: "source-note-incomplete",
+      userId: "user-casey",
+      title: "",
+      body: "Draft source context.",
+      labelIds: [],
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+    await db.insert(studyNotesTable).values({
+      id: "study-note-incomplete",
+      sourceNoteId: "source-note-incomplete",
+      prompt: "What still needs an expected answer?",
+      expectedAnswer: "",
+      createdAt: new Date("2026-05-02T12:05:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:05:00.000Z"),
+    });
+
+    const service = createRecallService({
+      db,
+      shuffleNotes: (notes) => [...notes],
+    });
+
+    await expect(
+      service.startFlashCardSession({
+        studyNoteIds: ["study-note-incomplete"],
+        userId: "user-casey",
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_input",
+      message: "Add expected answer before recall.",
+    });
+    await expect(
+      service.getActiveSession({
+        userId: "user-casey",
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it("persists Recall Schedule updates after FlashCard self-rating", async () => {
+    const database = await createPostgresIntegrationDatabase();
+    databases.add(database);
+
+    const db = drizzle(database.client, {
+      schema: {
+        ...authSchema,
+        ...labelsSchema,
+        ...notesSchema,
+        ...recallSchema,
+        ...studyNotesSchema,
+      },
+    });
+    await migrateDatabase(db, database.client);
+    await db.insert(usersTable).values({
+      id: "user-casey",
+      displayName: "Casey Learner",
+      email: "casey@example.com",
+      passwordHash: "hash",
+      userLanguage: "en",
+      createdAt: new Date("2026-05-15T08:00:00.000Z"),
+      updatedAt: new Date("2026-05-15T08:00:00.000Z"),
+    });
+    await db.insert(notesTable).values({
+      id: "source-note-schedule",
+      userId: "user-casey",
+      title: "Schedule source",
+      body: "",
+      labelIds: [],
+      createdAt: new Date("2026-05-15T08:00:00.000Z"),
+      updatedAt: new Date("2026-05-15T08:00:00.000Z"),
+    });
+    await db.insert(studyNotesTable).values({
+      id: "study-note-schedule",
+      sourceNoteId: "source-note-schedule",
+      prompt: "What should be scheduled?",
+      expectedAnswer: "The Study Note recall target.",
+      createdAt: new Date("2026-05-15T08:05:00.000Z"),
+      updatedAt: new Date("2026-05-15T08:05:00.000Z"),
+    });
+
+    const service = createRecallService({
+      crypto: {
+        randomUUID: () =>
+          "session-schedule-db" as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      db,
+      now: () => new Date("2026-05-15T09:00:00.000Z"),
+      shuffleNotes: (notes) => [...notes],
+    });
+    const session = await service.startFlashCardSession({
+      studyNoteIds: ["study-note-schedule"],
+      userId: "user-casey",
+    });
+    await service.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId: "user-casey",
+    });
+    await service.rateFlashCardAnswer({
+      rating: "good",
+      sessionId: session.id,
+      userId: "user-casey",
+    });
+
+    const reloadedService = createRecallService({
+      db,
+      shuffleNotes: (notes) => [...notes],
+    });
+
+    await expect(
+      reloadedService.listRecallSchedules({
+        userId: "user-casey",
+      }),
+    ).resolves.toEqual([
+      {
+        ease: 2.5,
+        intervalDays: 3,
+        lastRecalledAt: "2026-05-15T09:00:00.000Z",
+        nextRecallAt: "2026-05-18T09:00:00.000Z",
+        repetitionCount: 1,
+        studyNoteId: "study-note-schedule",
+      },
+    ]);
   });
 });

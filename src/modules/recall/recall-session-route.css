@@ -26,12 +26,17 @@
   gap: 0.85rem;
 }
 
+.recall-shell__progress {
+  display: block;
+  width: 100%;
+}
+
 .recall-shell__context {
   display: grid;
   gap: 0.28rem;
 }
 
-.recall-shell__context h3 {
+.recall-shell__context .page-header__title {
   margin: 0;
   color: var(--recall-strong);
   font-family: var(--font-heading);

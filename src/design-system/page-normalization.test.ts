@@ -76,10 +76,6 @@ describe("page style normalization", () => {
       new URL("../modules/focus/focus-route.css", import.meta.url),
       "utf8",
     );
-    const labelsCss = readFileSync(
-      new URL("../modules/labels/labels.css", import.meta.url),
-      "utf8",
-    );
     const notesToolbarCss = readFileSync(
       new URL(
         "../modules/notes/notes-workspace/notes-toolbar.css",
@@ -106,7 +102,6 @@ describe("page style normalization", () => {
     expectSelectorToUsePageTypeAndColor(accessCss, ".auth-shell");
     expectSelectorToUsePageTypeAndColor(accessCss, ".settings-layout");
     expectSelectorToUsePageTypeAndColor(focusCss, ".focus-workspace");
-    expectSelectorToUsePageTypeAndColor(labelsCss, ".labels-page");
     expectSelectorToUsePageTypeAndColor(notesToolbarCss, ".notes-workspace");
     expectSelectorToUsePageTypeAndColor(recallSessionCss, ".recall-shell");
     expectSelectorToUsePageTypeAndColor(recallWorkspacesCss, ".recall-surface");
@@ -120,7 +115,11 @@ describe("page style normalization", () => {
     );
   });
 
-  it("keeps Focus route surfaces neutral with colorful metric tones", () => {
+  it("keeps Focus route on the LMD green study palette without changing its shell density", () => {
+    const globalCss = readFileSync(
+      new URL("./global.css", import.meta.url),
+      "utf8",
+    );
     const focusCss = readFileSync(
       new URL("../modules/focus/focus-route.css", import.meta.url),
       "utf8",
@@ -134,9 +133,9 @@ describe("page style normalization", () => {
     );
 
     const focusRootStyle = getCssRules(focusCss, ".focus-workspace").join("\n");
-    const focusWorkspaceHeaderStyle = getCssRules(
-      focusCss,
-      '.app-frame[data-workspace="focus"] .app-frame__workspace-header',
+    const focusShellThemeStyle = getCssRules(
+      workspaceShellCss,
+      '.authenticated-shell:has(.app-frame[data-workspace="focus"])',
     ).join("\n");
     const focusShellWorkspaceHeaderStyle = getCssRules(
       workspaceShellCss,
@@ -150,13 +149,11 @@ describe("page style normalization", () => {
       workspaceShellCss,
       ".app-frame__actions",
     ).join("\n");
-    const focusStatusStyle = getCssRules(
+    const focusCardStyle = getCssRules(focusCss, ".focus-card").join("\n");
+    const focusSessionPlanNextStyle = getCssRules(
       focusCss,
-      ".focus-session-panel__status",
+      ".focus-session-plan__next",
     ).join("\n");
-    const analyticsStyle = getCssRules(focusCss, ".focus-card--analytics").join(
-      "\n",
-    );
     const secondMetricStyle = getCssRules(
       focusCss,
       ".focus-weekly-analytics div:nth-child(2)",
@@ -170,34 +167,60 @@ describe("page style normalization", () => {
       ".focus-weekly-analytics div:nth-child(6)",
     ).join("\n");
 
-    expect(focusRootStyle).toContain("--focus-accent: var(--color-primary);");
-    expect(focusRootStyle).toContain(
-      "--focus-accent-hover: var(--color-primary-hover);",
+    expect(globalCss).toContain("--color-learning-pine: #1f6b45;");
+    expect(globalCss).toContain("--color-learning-pine-mist: #e9f2ec;");
+    expect(globalCss).toContain("--color-learning-factual-teal: #287c73;");
+    expect(globalCss).toContain("--color-learning-honey-amber: #d99126;");
+    expect(globalCss).toContain("--color-learning-terracotta: #c95646;");
+    expect(focusShellThemeStyle).toContain(
+      "--color-primary: var(--color-learning-pine);",
+    );
+    expect(focusShellThemeStyle).toContain(
+      "--color-primary-soft: var(--color-learning-pine-mist);",
+    );
+    expect(focusShellThemeStyle).toContain(
+      "--color-content-strong: var(--color-learning-ink);",
     );
     expect(focusRootStyle).toContain(
-      "--focus-accent-soft: var(--color-primary-soft);",
+      "--focus-accent: var(--color-learning-pine);",
     );
     expect(focusRootStyle).toContain(
-      "--focus-accent-border: var(--color-primary-soft-border);",
+      "--focus-accent-hover: var(--color-learning-pine-hover);",
+    );
+    expect(focusRootStyle).toContain(
+      "--focus-accent-soft: var(--color-learning-pine-mist);",
+    );
+    expect(focusRootStyle).toContain(
+      "--focus-accent-border: var(--color-learning-border-stone);",
+    );
+    expect(focusRootStyle).toContain(
+      "--focus-success-accent: var(--color-learning-leaf-success);",
+    );
+    expect(focusRootStyle).toContain(
+      "--focus-creative-accent: var(--color-learning-factual-teal);",
+    );
+    expect(focusRootStyle).toContain(
+      "--focus-warm-accent: var(--color-learning-honey-amber);",
     );
     expect(focusRootStyle).toContain("background: var(--color-shell-panel);");
-    expect(focusWorkspaceHeaderStyle).toContain("border-bottom: 0;");
-    expect(focusShellWorkspaceHeaderStyle).toContain("position: absolute;");
-    expect(focusShellWorkspaceHeaderStyle).toContain("inset: 0 0 auto 0;");
     expect(focusShellWorkspaceHeaderStyle).toContain(
-      "padding: 1rem clamp(1rem, 3vw, 1.9rem);",
+      "height: var(--lmd-header-height);",
     );
+    expect(focusShellWorkspaceHeaderStyle).toContain(
+      "min-height: var(--lmd-header-height);",
+    );
+    expect(focusShellWorkspaceHeaderStyle).toContain("border-bottom: 0;");
     expect(focusShellActionsStyle).toContain("pointer-events: auto;");
     expect(sharedShellActionsStyle).toContain("margin-left: auto;");
-    expect(focusStatusStyle).toContain(
-      "border: 1px solid var(--focus-accent-border);",
+    expect(focusCardStyle).toContain("border: 1px solid var(--focus-line);");
+    expect(focusCardStyle).toContain("background: var(--focus-panel);");
+    expect(focusCardStyle).toContain("box-shadow: var(--shadow-card);");
+    expect(focusSessionPlanNextStyle).toContain(
+      "background: var(--focus-green-soft);",
     );
-    expect(focusStatusStyle).toContain("background: var(--focus-accent-soft);");
-    expect(focusStatusStyle).toContain("color: var(--focus-accent-hover);");
-    expect(analyticsStyle).toContain(
-      "border-color: var(--color-content-border-soft);",
+    expect(focusSessionPlanNextStyle).toContain(
+      "color: var(--focus-green-strong);",
     );
-    expect(analyticsStyle).toContain("background: var(--color-shell-panel);");
     expect(secondMetricStyle).toContain(
       "--focus-metric-accent: var(--focus-success-accent);",
     );
@@ -213,6 +236,12 @@ describe("page style normalization", () => {
     const appCss = readFileSync(new URL("../styles/app.css", import.meta.url), {
       encoding: "utf8",
     });
+    const pageHeaderCss = readFileSync(
+      new URL("./page-header/page-header.css", import.meta.url),
+      {
+        encoding: "utf8",
+      },
+    );
     const breadcrumbStyle = getCssRules(appCss, ".workspace-breadcrumb").join(
       "\n",
     );
@@ -224,29 +253,13 @@ describe("page style normalization", () => {
       appCss,
       ".recall-breadcrumb span",
     ).join("\n");
-    const notesTitleStyle = getCssRules(
-      appCss,
-      ".notes-workspace__identity h1",
+    const pageHeaderTitleStyle = getCssRules(
+      pageHeaderCss,
+      ".page-header__title",
     ).join("\n");
-    const recallTitleStyle = getCssRules(
-      appCss,
-      ".recall-surface__header h3",
-    ).join("\n");
-    const focusTitleStyle = getCssRules(
-      appCss,
-      ".focus-workspace__page-header h3",
-    ).join("\n");
-    const notesDescriptionStyle = getCssRules(
-      appCss,
-      ".notes-workspace__identity p",
-    ).join("\n");
-    const recallDescriptionStyle = getCssRules(
-      appCss,
-      ".recall-surface__header .notes-editor__meta",
-    ).join("\n");
-    const focusDescriptionStyle = getCssRules(
-      appCss,
-      ".focus-workspace__page-header .notes-editor__meta",
+    const pageHeaderDescriptionStyle = getCssRules(
+      pageHeaderCss,
+      ".page-header__description",
     ).join("\n");
 
     for (const breadcrumbRule of [breadcrumbStyle, recallBreadcrumbStyle]) {
@@ -257,27 +270,41 @@ describe("page style normalization", () => {
     }
     expect(recallBreadcrumbSpanStyle).toContain("color: inherit;");
 
-    for (const titleRule of [
-      notesTitleStyle,
-      recallTitleStyle,
-      focusTitleStyle,
-    ]) {
-      expect(titleRule).toContain("color: var(--color-content-strong);");
-      expect(titleRule).toContain("font-family: var(--font-body);");
-      expect(titleRule).toContain("font-weight: 700;");
-      expect(titleRule).toContain("letter-spacing: 0;");
-    }
+    expect(pageHeaderTitleStyle).toContain(
+      "color: var(--color-content-strong);",
+    );
+    expect(pageHeaderTitleStyle).toContain("font-family: var(--font-body);");
+    expect(pageHeaderTitleStyle).toContain("font-weight: 700;");
+    expect(pageHeaderTitleStyle).toContain("letter-spacing: 0;");
+    expect(pageHeaderDescriptionStyle).toContain(
+      "color: var(--color-content-muted);",
+    );
+    expect(pageHeaderDescriptionStyle).toContain(
+      "font-family: var(--font-body);",
+    );
+    expect(pageHeaderDescriptionStyle).toContain(
+      "font-size: var(--lmd-body-size);",
+    );
+    expect(pageHeaderDescriptionStyle).toContain(
+      "line-height: var(--lmd-body-line-height);",
+    );
+  });
 
-    for (const descriptionRule of [
-      notesDescriptionStyle,
-      recallDescriptionStyle,
-      focusDescriptionStyle,
-    ]) {
-      expect(descriptionRule).toContain("color: var(--color-content-muted);");
-      expect(descriptionRule).toContain("font-family: var(--font-body);");
-      expect(descriptionRule).toContain("font-size: 0.95rem;");
-      expect(descriptionRule).toContain("line-height: 1.45;");
-    }
+  it("keeps Study Notes on the shared page header typography contract", () => {
+    const studyNotesCss = readFileSync(
+      new URL("../modules/study-notes/study-notes.css", import.meta.url),
+      "utf8",
+    );
+
+    expect(studyNotesCss).not.toMatch(
+      /\.study-notes-hero\s+\.page-header__title\s*\{/,
+    );
+    expect(studyNotesCss).not.toMatch(
+      /\.study-notes-hero\s+\.page-header__description\s*\{[^}]*font-size:/,
+    );
+    expect(studyNotesCss).not.toMatch(
+      /\.study-notes-hero\s+\.page-header__description\s*\{[^}]*font-family:/,
+    );
   });
 
   it("keeps Recall state accents aligned with the shared page palette", () => {
@@ -397,7 +424,9 @@ describe("page style normalization", () => {
       ".notes-action",
     ).join("\n");
 
-    expect(sharedActionsCss).toContain("--action-control-height: 2.5rem;");
+    expect(sharedActionsCss).toContain(
+      "--action-control-height: var(--lmd-button-height-md);",
+    );
     expect(sharedActionsCss).toContain(
       "--workspace-header-action-width: 10.75rem;",
     );

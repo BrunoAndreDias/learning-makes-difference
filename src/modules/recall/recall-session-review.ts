@@ -21,6 +21,13 @@ export type SessionReviewProjection = {
   };
 };
 
+export type SessionResultQuestionReference = {
+  questionIndex: number;
+  questionResultId?: string;
+  sessionResultId: string;
+  studyNoteId: string;
+};
+
 function getAttemptedQuestions(
   questions: readonly RecallQuestion[],
 ): RecallQuestion[] {
@@ -123,4 +130,36 @@ export function projectSessionReview(
       }),
     },
   };
+}
+
+export function resolveSessionResultQuestion(input: {
+  reference: SessionResultQuestionReference;
+  result: Pick<FlashCardSessionResult, "id" | "questions">;
+}): RecallQuestion | null {
+  const { reference, result } = input;
+
+  if (result.id !== reference.sessionResultId) {
+    return null;
+  }
+
+  if (reference.questionResultId !== undefined) {
+    const matchedQuestion = result.questions.find((question) => {
+      return (
+        question.questionResultId === reference.questionResultId &&
+        question.noteId === reference.studyNoteId
+      );
+    });
+
+    if (matchedQuestion !== undefined) {
+      return matchedQuestion;
+    }
+  }
+
+  const legacyQuestion = result.questions[reference.questionIndex];
+
+  if (legacyQuestion?.noteId !== reference.studyNoteId) {
+    return null;
+  }
+
+  return legacyQuestion;
 }

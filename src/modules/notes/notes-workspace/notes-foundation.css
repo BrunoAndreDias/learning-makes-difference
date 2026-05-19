@@ -9,17 +9,17 @@
   display: flex;
   justify-content: space-between;
   align-items: start;
-  gap: var(--space-3);
+  gap: var(--lmd-panel-header-gap);
   flex-wrap: wrap;
 }
 
 .notes-list {
-  gap: var(--space-3);
+  gap: var(--lmd-list-row-gap);
 }
 
 .notes-list__items {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--lmd-list-row-gap);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -27,8 +27,8 @@
 
 .notes-list__selection {
   display: grid;
-  gap: 0.35rem;
-  padding: var(--space-3);
+  gap: var(--lmd-label-gap);
+  padding: var(--lmd-card-padding-compact);
   border: 1px solid var(--color-content-border-soft);
   border-radius: var(--radius-lg);
   background: var(--color-shell-inset);
@@ -41,8 +41,9 @@
 .notes-list__item {
   width: 100%;
   display: grid;
-  gap: 0.35rem;
-  padding: 0.7rem 0.875rem;
+  gap: var(--lmd-label-gap);
+  min-height: var(--lmd-list-row-height-compact);
+  padding: var(--lmd-list-row-padding-y) var(--lmd-list-row-padding-x);
   border: 1px solid var(--color-content-border-soft);
   border-radius: var(--radius-lg);
   background: var(--color-shell-panel);
@@ -67,7 +68,7 @@
 
 .notes-form {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--lmd-field-gap);
 }
 
 .notes-metaphors,
@@ -75,5 +76,5 @@
 .notes-topic-context,
 .notes-labels {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--lmd-panel-gap);
 }

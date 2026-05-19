@@ -1,6 +1,5 @@
 import {
   createFileRoute,
-  Link,
   useNavigate,
   useRouteContext,
 } from "@tanstack/react-router";
@@ -11,6 +10,9 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+
+import { Button } from "../../design-system/button";
+import { PageHeader } from "../../design-system/page-header";
 import {
   type AppSessionSnapshot,
   resolveProtectedSessionSnapshot,
@@ -29,6 +31,7 @@ import {
   type FlashCardRecallRating,
   type RecallSession,
 } from "./recall";
+import { RecallBreadcrumb } from "./recall-breadcrumb";
 
 const recallSessionSavedMessageKey = "learning-makes-difference:recall-saved";
 const recallRatingOptions = [
@@ -340,47 +343,48 @@ function RecallSessionPage() {
 
   return (
     <section className="recall-shell" aria-label={t("recall.session.title")}>
-      <header className="recall-shell__header">
-        <div className="recall-shell__context">
-          <nav
-            aria-label={t("recall.breadcrumb")}
-            className="recall-breadcrumb"
-          >
-            <Link to="/recall">{t("shell.workspace.recall")}</Link> /{" "}
-            {t("recall.session.breadcrumbLabel")}
-          </nav>
-          <h3>{t("recall.session.title")}</h3>
-        </div>
-
-        <div className="recall-progress-card">
-          <div className="recall-progress-card__count">
-            <strong>{`${progress.currentPosition} of ${progress.totalCount}`}</strong>
-            <span>{t("recall.session.notes")}</span>
-          </div>
-          <div
-            aria-label={t("recall.session.progress")}
-            aria-valuemax={progress.totalCount}
-            aria-valuemin={0}
-            aria-valuenow={progress.currentPosition}
-            className="recall-progress-card__track"
-            role="progressbar"
-          >
+      <PageHeader
+        actions={
+          <div className="recall-progress-card">
+            <div className="recall-progress-card__count">
+              <strong>{`${progress.currentPosition} of ${progress.totalCount}`}</strong>
+              <span>{t("recall.session.notes")}</span>
+            </div>
             <div
-              className="recall-progress-card__fill"
-              style={{ width: `${progress.progressPercent}%` }}
-            />
+              aria-label={t("recall.session.progress")}
+              aria-valuemax={progress.totalCount}
+              aria-valuemin={0}
+              aria-valuenow={progress.currentPosition}
+              className="recall-progress-card__track"
+              role="progressbar"
+            >
+              <div
+                className="recall-progress-card__fill"
+                style={{ width: `${progress.progressPercent}%` }}
+              />
+            </div>
+            <p className="recall-progress-card__mode">
+              <FlashCardModeIcon />
+              <span>{formatRecallModeLabel(activeSession.mode)}</span>
+            </p>
+            <p className="recall-progress-card__time">
+              <ClockLineIcon />
+              <span>{formatElapsedTime(activeSession.createdAt, now)}</span>
+              <small>{t("recall.session.elapsed")}</small>
+            </p>
           </div>
-          <p className="recall-progress-card__mode">
-            <FlashCardModeIcon />
-            <span>{formatRecallModeLabel(activeSession.mode)}</span>
-          </p>
-          <p className="recall-progress-card__time">
-            <ClockLineIcon />
-            <span>{formatElapsedTime(activeSession.createdAt, now)}</span>
-            <small>{t("recall.session.elapsed")}</small>
-          </p>
-        </div>
-      </header>
+        }
+        actionsClassName="recall-shell__progress"
+        beforeTitle={
+          <RecallBreadcrumb
+            currentLabel={t("recall.session.breadcrumbLabel")}
+          />
+        }
+        className="recall-shell__header"
+        copyClassName="recall-shell__context"
+        headingLevel={3}
+        title={t("recall.session.title")}
+      />
 
       {feedbackMessage !== null ? (
         <p className="recall-shell__error" role="alert">
@@ -412,14 +416,15 @@ function RecallSessionPage() {
                     <SparkIcon />
                     <span>{t("recall.session.hint")}</span>
                   </p>
-                  <button
-                    className="notes-action notes-action-primary recall-card__reveal"
+                  <Button
+                    className="recall-card__reveal"
                     onClick={revealNote}
                     type="button"
+                    variant="primary"
                   >
                     <RevealIcon />
                     <span>{t("recall.session.reveal")}</span>
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <div className="recall-card__revealed-state">
@@ -429,10 +434,10 @@ function RecallSessionPage() {
                     <fieldset className="recall-rating-row">
                       <legend>{t("recall.session.selfRating")}</legend>
                       {recallRatingOptions.map((rating) => (
-                        <button
+                        <Button
                           aria-label={t(getRecallRatingTranslationKey(rating))}
                           aria-pressed={pendingRating === rating}
-                          className={`notes-action recall-rating recall-rating--${rating}`}
+                          className={`recall-rating recall-rating--${rating}`}
                           data-selected={pendingRating === rating}
                           key={rating}
                           onClick={() => setPendingRating(rating)}
@@ -446,17 +451,17 @@ function RecallSessionPage() {
                               getRecallRatingDescriptionTranslationKey(rating),
                             )}
                           </span>
-                        </button>
+                        </Button>
                       ))}
                     </fieldset>
-                    <button
-                      className="notes-action notes-action-primary"
+                    <Button
                       disabled={pendingRating === null}
                       onClick={submitRating}
                       type="button"
+                      variant="primary"
                     >
                       {t("recall.session.next")}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -467,24 +472,24 @@ function RecallSessionPage() {
           </article>
 
           <div className="recall-session-main__actions">
-            <button
-              className="notes-action recall-session-main__action"
+            <Button
+              className="recall-session-main__action"
               disabled={isBreakActive}
               onClick={skipNote}
               type="button"
             >
               <SkipIcon />
               <span>{t("recall.session.skip")}</span>
-            </button>
-            <button
-              className="notes-action recall-session-main__action"
+            </Button>
+            <Button
+              className="recall-session-main__action"
               disabled={isBreakActive}
               onClick={() => setEndDialogOpen(true)}
               type="button"
             >
               <EndSessionIcon />
               <span>{t("recall.session.dialog.end")}</span>
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -519,7 +524,7 @@ function RecallNoteDetails({ note }: { note: FlashCardRecallNote }) {
         <section aria-label={t("recall.session.answer.sourceContext")}>
           <h5>{t("recall.session.answer.sourceContext")}</h5>
           <p className="recall-card__body">
-            <strong>{note.source.title}</strong>
+            <strong>{note.source.displayName ?? note.source.title}</strong>
           </p>
           <p className="recall-card__body">{note.source.body}</p>
         </section>
@@ -661,18 +666,14 @@ function EndSessionDialog({
             : t("recall.session.dialog.discardBody")}
         </p>
         <div className="recall-dialog__actions">
-          <button className="notes-action" onClick={onCancel} type="button">
+          <Button onClick={onCancel} type="button">
             {t("recall.session.dialog.cancel")}
-          </button>
-          <button
-            className="notes-action notes-action-primary"
-            onClick={onConfirm}
-            type="button"
-          >
+          </Button>
+          <Button onClick={onConfirm} type="button" variant="primary">
             {hasAttempts
               ? t("recall.session.dialog.end")
               : t("recall.session.dialog.discard")}
-          </button>
+          </Button>
         </div>
       </section>
     </div>

@@ -1,17 +1,19 @@
 @import "../design-system/global.css";
+@import "../design-system/floating-textarea/floating-textarea.css";
+@import "../design-system/list-card/list-card.css";
+@import "../design-system/page-header/page-header.css";
 @import "../design-system/shared-actions.css";
 @import "../modules/workspace-shell/workspace-shell.css";
 @import "../modules/workspace-shell/app-shell/workspace-sidebar.css";
 @import "../modules/notes/notes.css";
 @import "../modules/recall/recall.css";
 @import "../modules/focus/focus.css";
-@import "../modules/labels/labels.css";
 @import "../modules/access/access.css";
 
 .app-shell:has(.authenticated-shell) {
-  --workspace-page-inline: clamp(1rem, 3vw, 1.9rem);
-  --workspace-page-block-start: 1.15rem;
-  --workspace-page-block-end: 2rem;
+  --workspace-page-inline: var(--lmd-page-padding-x);
+  --workspace-page-block-start: var(--lmd-page-padding-y);
+  --workspace-page-block-end: var(--lmd-page-padding-y);
   --workspace-collapsed-header-offset: clamp(5rem, 6vw, 6.5rem);
 }
 
@@ -36,7 +38,6 @@
 }
 
 .app-shell:has(.authenticated-shell) .recall-surface,
-.app-shell:has(.authenticated-shell) .labels-page,
 .app-shell:has(.authenticated-shell) .focus-workspace,
 .app-shell:has(.authenticated-shell) .settings-layout {
   padding-inline: var(--workspace-page-inline);
@@ -44,7 +45,6 @@
 }
 
 .app-shell:has(.authenticated-shell) .recall-surface,
-.app-shell:has(.authenticated-shell) .labels-page,
 .app-shell:has(.authenticated-shell) .focus-workspace,
 .app-shell:has(.authenticated-shell) .settings-layout {
   padding-block-end: var(--workspace-page-block-end);
@@ -63,8 +63,6 @@
   .app-frame[data-workspace="recall"],
 .authenticated-shell[data-sidebar-state="collapsed"]
   .app-frame[data-workspace="recall-results"],
-.authenticated-shell[data-sidebar-state="collapsed"]
-  .app-frame[data-workspace="labels"],
 .authenticated-shell[data-sidebar-state="collapsed"]
   .app-frame[data-workspace="focus"],
 .authenticated-shell[data-sidebar-state="collapsed"]
@@ -114,9 +112,6 @@
 .authenticated-shell[data-sidebar-state="collapsed"]
   .app-frame[data-workspace="recall-results"]
   .recall-surface,
-.authenticated-shell[data-sidebar-state="collapsed"]
-  .app-frame[data-workspace="labels"]
-  .labels-page,
 .authenticated-shell[data-sidebar-state="collapsed"]
   .app-frame[data-workspace="focus"]
   .focus-workspace,
@@ -178,9 +173,6 @@
   .authenticated-shell[data-sidebar-state="collapsed"]
     .app-frame[data-workspace="recall-results"]
     .recall-surface,
-  .authenticated-shell[data-sidebar-state="collapsed"]
-    .app-frame[data-workspace="labels"]
-    .labels-page,
   .authenticated-shell[data-sidebar-state="collapsed"]
     .app-frame[data-workspace="focus"]
     .focus-workspace,
@@ -295,7 +287,8 @@ h3 {
   color: inherit;
 }
 
-.workspace-breadcrumb ol {
+.workspace-breadcrumb ol,
+.recall-breadcrumb ol {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
@@ -313,27 +306,6 @@ h3 {
 .workspace-breadcrumb a:hover,
 .recall-breadcrumb a:hover {
   color: var(--color-content-strong);
-}
-
-.notes-workspace__identity h1,
-.recall-surface__header h3,
-.focus-workspace__page-header h3 {
-  color: var(--color-content-strong);
-  font-family: var(--font-body);
-  font-size: clamp(1.65rem, 2.2vw, 1.9rem);
-  font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: 0;
-}
-
-.notes-workspace__identity p,
-.recall-surface__header .notes-editor__meta,
-.focus-workspace__page-header .notes-editor__meta {
-  color: var(--color-content-muted);
-  font-family: var(--font-body);
-  font-size: 0.95rem;
-  font-weight: 400;
-  line-height: 1.45;
 }
 
 .nav-list,
@@ -383,8 +355,8 @@ h3 {
 .card {
   border: 1px solid var(--color-content-border-soft);
   background: var(--color-shell-panel);
-  border-radius: var(--radius-xl);
-  padding: var(--space-5);
+  border-radius: var(--lmd-card-radius);
+  padding: var(--lmd-card-padding);
   box-shadow: var(--shadow-card);
 }
 
@@ -394,7 +366,7 @@ h3 {
 
 .stack {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--lmd-card-gap);
 }
 
 .muted {
@@ -460,6 +432,8 @@ fieldset.tag-row {
 
 .card h3 {
   color: var(--color-content-strong);
+  font-size: var(--lmd-card-title-size);
+  line-height: var(--lmd-card-title-line-height);
 }
 
 @media (max-width: 720px) {
@@ -486,12 +460,12 @@ fieldset.tag-row {
 }
 
 .tag {
-  min-height: 1.4rem;
-  padding-inline: 0.4rem;
+  min-height: var(--lmd-chip-height);
+  padding-inline: var(--lmd-chip-padding-x);
   border-radius: 0.25rem;
   background: var(--color-shell-inset);
   color: var(--color-content-default);
-  font-size: 0.7rem;
+  font-size: var(--lmd-chip-font-size);
   font-weight: 500;
   letter-spacing: 0.005em;
 }

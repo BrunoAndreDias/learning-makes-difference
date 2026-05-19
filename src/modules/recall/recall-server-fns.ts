@@ -11,6 +11,11 @@ import {
   type RecallSession,
   type SessionResult,
 } from "./recall";
+import {
+  practiceRepairIntents,
+  practiceRepairMemoryAidKinds,
+} from "./recall-practice-repair";
+import type { RecallSchedule } from "./recall-schedule";
 
 const SESSION_COOKIE_NAME = "learning-makes-difference-session";
 
@@ -30,6 +35,65 @@ const answerQuestionInputSchema = updateRecallSessionInputSchema.extend({
 const updateAttemptTextInputSchema = updateRecallSessionInputSchema.extend({
   text: z.string(),
 });
+
+const practiceRepairEntryReferenceSchema = z.object({
+  questionIndex: z.number().int().nonnegative(),
+  questionResultId: z.string().optional(),
+  sessionResultId: z.string(),
+  studyNoteId: z.string(),
+});
+
+const confirmPracticeRepairEntryInputSchema = z.object({
+  correction: z.string(),
+  intent: z.enum(practiceRepairIntents),
+  nextPracticeIdea: z.string().optional(),
+  reference: practiceRepairEntryReferenceSchema,
+});
+
+const practiceRepairEntryMutationInputSchema = z.object({
+  reference: practiceRepairEntryReferenceSchema,
+});
+
+const updatePracticeRepairEntryCorrectionInputSchema = z.object({
+  correction: z.string(),
+  reference: practiceRepairEntryReferenceSchema,
+});
+
+const completeLinkedPracticeRepairEntryInputSchema = z.discriminatedUnion(
+  "intent",
+  [
+    z.object({
+      intent: z.literal("tighten-expected-answer"),
+      intentMetadata: z.object({
+        updatedExpectedAnswer: z.string().nullable(),
+      }),
+      reference: practiceRepairEntryReferenceSchema,
+    }),
+    z.object({
+      intent: z.literal("split-study-note"),
+      intentMetadata: z.object({
+        createdStudyNoteIds: z.array(z.string()),
+        narrowedOriginalStudyNoteAt: z.string().nullable(),
+      }),
+      reference: practiceRepairEntryReferenceSchema,
+    }),
+    z.object({
+      intent: z.literal("create-sibling-study-note"),
+      intentMetadata: z.object({
+        createdStudyNoteId: z.string().nullable(),
+      }),
+      reference: practiceRepairEntryReferenceSchema,
+    }),
+    z.object({
+      intent: z.literal("add-memory-aid"),
+      intentMetadata: z.object({
+        memoryAidId: z.string().nullable(),
+        memoryAidKind: z.enum(practiceRepairMemoryAidKinds).nullable(),
+      }),
+      reference: practiceRepairEntryReferenceSchema,
+    }),
+  ],
+);
 
 async function createRequestAuthService() {
   const [{ createAuthService }, { loadAppEnv }, { getAuthDb }] =
@@ -119,6 +183,22 @@ const listSessionResultsServerFn = createServerFn({
   const recall = await createRequestRecallService();
 
   return recall.listSessionResults({
+    userId,
+  });
+});
+
+const listRecallSchedulesServerFn = createServerFn({
+  method: "GET",
+}).handler(async () => {
+  const userId = await getOptionalRequestUserId();
+
+  if (userId === null) {
+    return [];
+  }
+
+  const recall = await createRequestRecallService();
+
+  return recall.listRecallSchedules({
     userId,
   });
 });
@@ -222,11 +302,113 @@ const endFlashCardSessionServerFn = createServerFn({
     });
   });
 
+const confirmPracticeRepairEntryServerFn = createServerFn({
+  method: "POST",
+})
+  .inputValidator(confirmPracticeRepairEntryInputSchema)
+  .handler(async ({ data }) => {
+    const [userId, recall] = await Promise.all([
+      requireRequestUserId(),
+      createRequestRecallService(),
+    ]);
+
+    return recall.confirmPracticeRepairEntry({
+      correction: data.correction,
+      intent: data.intent,
+      nextPracticeIdea: data.nextPracticeIdea,
+      reference: data.reference,
+      userId,
+    });
+  });
+
+const completePracticeRepairEntryServerFn = createServerFn({
+  method: "POST",
+})
+  .inputValidator(practiceRepairEntryMutationInputSchema)
+  .handler(async ({ data }) => {
+    const [userId, recall] = await Promise.all([
+      requireRequestUserId(),
+      createRequestRecallService(),
+    ]);
+
+    return recall.completePracticeRepairEntry({
+      reference: data.reference,
+      userId,
+    });
+  });
+
+const completeLinkedPracticeRepairEntryServerFn = createServerFn({
+  method: "POST",
+})
+  .inputValidator(completeLinkedPracticeRepairEntryInputSchema)
+  .handler(async ({ data }) => {
+    const [userId, recall] = await Promise.all([
+      requireRequestUserId(),
+      createRequestRecallService(),
+    ]);
+
+    return recall.completeLinkedPracticeRepairEntry({
+      ...data,
+      userId,
+    });
+  });
+
+const dismissPracticeRepairEntryServerFn = createServerFn({
+  method: "POST",
+})
+  .inputValidator(practiceRepairEntryMutationInputSchema)
+  .handler(async ({ data }) => {
+    const [userId, recall] = await Promise.all([
+      requireRequestUserId(),
+      createRequestRecallService(),
+    ]);
+
+    return recall.dismissPracticeRepairEntry({
+      reference: data.reference,
+      userId,
+    });
+  });
+
+const updatePracticeRepairEntryCorrectionServerFn = createServerFn({
+  method: "POST",
+})
+  .inputValidator(updatePracticeRepairEntryCorrectionInputSchema)
+  .handler(async ({ data }) => {
+    const [userId, recall] = await Promise.all([
+      requireRequestUserId(),
+      createRequestRecallService(),
+    ]);
+
+    return recall.updatePracticeRepairEntryCorrection({
+      correction: data.correction,
+      reference: data.reference,
+      userId,
+    });
+  });
+
 export function createServerRecallService(): AppPersistentRecallService {
   return {
+    completePracticeRepairEntry: (
+      input: z.infer<typeof practiceRepairEntryMutationInputSchema>,
+    ): Promise<SessionResult> =>
+      completePracticeRepairEntryServerFn({ data: input }),
+    completeLinkedPracticeRepairEntry: (
+      input: z.infer<typeof completeLinkedPracticeRepairEntryInputSchema>,
+    ): Promise<SessionResult> =>
+      completeLinkedPracticeRepairEntryServerFn({ data: input }),
+    confirmPracticeRepairEntry: (
+      input: z.infer<typeof confirmPracticeRepairEntryInputSchema>,
+    ): Promise<SessionResult> =>
+      confirmPracticeRepairEntryServerFn({ data: input }),
+    dismissPracticeRepairEntry: (
+      input: z.infer<typeof practiceRepairEntryMutationInputSchema>,
+    ): Promise<SessionResult> =>
+      dismissPracticeRepairEntryServerFn({ data: input }),
     endRecallSession: (input): Promise<RecallSession> =>
       endFlashCardSessionServerFn({ data: input }),
     getActiveSession: () => getActiveSessionServerFn(),
+    listRecallSchedules: (): Promise<RecallSchedule[]> =>
+      listRecallSchedulesServerFn(),
     listSessionResults: (): Promise<SessionResult[]> =>
       listSessionResultsServerFn(),
     rateFlashCardAnswer: (input) =>
@@ -237,6 +419,10 @@ export function createServerRecallService(): AppPersistentRecallService {
       skipFlashCardQuestionServerFn({ data: input }),
     startFlashCardSession: (input): Promise<RecallSession> =>
       startFlashCardSessionServerFn({ data: input }),
+    updatePracticeRepairEntryCorrection: (
+      input: z.infer<typeof updatePracticeRepairEntryCorrectionInputSchema>,
+    ): Promise<SessionResult> =>
+      updatePracticeRepairEntryCorrectionServerFn({ data: input }),
     updateFlashCardAttemptText: (input): Promise<RecallSession> =>
       updateFlashCardAttemptTextServerFn({ data: input }),
   };

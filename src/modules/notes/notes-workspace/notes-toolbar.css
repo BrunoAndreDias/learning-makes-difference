@@ -1,5 +1,5 @@
 .notes-workspace {
-  --notes-workspace-inline: clamp(1rem, 2.4vw, 1.5rem);
+  --notes-workspace-inline: var(--lmd-page-padding-x);
   --notes-workspace-inline-start: var(--notes-workspace-inline);
   --notes-workspace-inline-end: var(--notes-workspace-inline);
 
@@ -16,38 +16,18 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
-  gap: 0.45rem;
-  min-height: 5.25rem;
-  padding: 1.15rem var(--notes-workspace-inline-end) 1rem
-    var(--notes-workspace-inline-start);
+  gap: var(--lmd-label-gap);
+  min-height: var(--lmd-header-height);
+  padding: var(--lmd-page-padding-y) var(--notes-workspace-inline-end)
+    var(--lmd-section-gap) var(--notes-workspace-inline-start);
   background: var(--color-shell-panel);
-}
-
-.notes-workspace__header-copy {
-  display: grid;
-  gap: 0.45rem;
-  min-width: 0;
-}
-
-.notes-workspace__identity {
-  display: grid;
-  gap: 0.35rem;
-}
-
-.notes-workspace__identity h1,
-.notes-workspace__identity p {
-  margin: 0;
-}
-
-.notes-workspace__identity h1 {
-  font-size: clamp(1.65rem, 2.2vw, 2rem);
 }
 
 .notes-workspace__quick-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.75rem;
+  gap: var(--lmd-list-row-gap);
   min-width: 0;
 }
 
@@ -65,16 +45,16 @@
   display: grid;
   grid-template-columns: minmax(12rem, 24rem) auto;
   align-items: center;
-  gap: 0.75rem;
-  min-height: 4.5625rem;
-  padding: 0.875rem 1.25rem;
+  gap: var(--lmd-list-row-gap);
+  min-height: var(--lmd-header-height);
+  padding: var(--lmd-list-row-padding-y) var(--lmd-page-padding-x);
   border-bottom: 1px solid var(--color-content-border-soft);
   background: var(--color-shell-panel);
 }
 
 .notes-recall-entry-action {
-  height: 2.5rem;
-  padding-inline: 0.95rem;
+  height: var(--lmd-button-height-md);
+  padding-inline: var(--lmd-button-padding-x-md);
   border-radius: var(--radius-md);
   font-size: 0.8125rem;
   font-weight: 600;
@@ -86,7 +66,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.625rem;
+  gap: var(--lmd-list-row-gap);
   min-width: 0;
 }
 
@@ -101,9 +81,9 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  height: 2.5rem;
-  padding: 0 0.55rem;
+  gap: var(--lmd-label-gap);
+  height: var(--lmd-input-height);
+  padding: 0 var(--lmd-list-row-padding-y);
   border: 1px solid var(--color-content-border-soft);
   border-radius: 0.5rem;
   color: var(--color-content-muted);

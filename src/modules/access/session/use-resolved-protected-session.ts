@@ -9,7 +9,7 @@ import {
 type ProtectedSessionRouteId =
   | "/_protected"
   | "/_protected/focus"
-  | "/_protected/labels"
+  | "/_protected/insights"
   | "/_protected/recall"
   | "/_protected/settings"
   | "/_protected/study-notes";

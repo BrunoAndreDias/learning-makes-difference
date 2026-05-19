@@ -790,11 +790,13 @@ describe("recall session setup", () => {
       id: "session-study-note-start",
       notes: [
         {
+          acronyms: [{ description: "ATP: Adenosine triphosphate" }],
           body: "ATP is the expected answer.",
           expectedAnswer: "ATP is the expected answer.",
           id: updatedStudyNote.id,
           labelIds: [biology.id],
           labels: [{ id: biology.id, name: "Biology" }],
+          metaphors: [{ description: "ATP acts like a rechargeable battery." }],
           prompt: "What molecule stores transferable energy?",
           source: {
             body: "Cell respiration is the source context.",
@@ -831,6 +833,115 @@ describe("recall session setup", () => {
         },
       ],
     });
+    expect(session.questions).toHaveLength(1);
+  });
+
+  it("updates and reloads Recall Schedules for rated Study Notes", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-15T09:00:00.000Z"));
+
+    try {
+      const storage = createMemoryStorage();
+      const studyNotes = createAppStudyNotesContext({
+        keyPrefix: "recall-schedule-study-notes",
+        storage,
+      });
+      const recall = createAppRecallContext({
+        crypto: {
+          randomUUID: () =>
+            "session-recall-schedule" as `${string}-${string}-${string}-${string}-${string}`,
+        },
+        keyPrefix: "recall-schedule-session",
+        notes: createAppNotesContext({
+          keyPrefix: "recall-schedule-source-notes",
+          storage,
+        }),
+        shuffleNotes: (sessionNotes) => [...sessionNotes],
+        storage,
+        studyNotes,
+      });
+      const userId = "owner";
+      const studyNote = studyNotes.createStudyNote(userId, {
+        expectedAnswer: "Scheduled answer.",
+        prompt: "What gets scheduled?",
+        sourceBody: "",
+        sourceTitle: "",
+      });
+
+      const session = recall.startFlashCardSession({
+        studyNoteIds: [studyNote.id],
+        userId,
+      });
+      recall.revealFlashCardAnswer({ sessionId: session.id, userId });
+      recall.rateFlashCardAnswer({
+        rating: "easy",
+        sessionId: session.id,
+        userId,
+      });
+
+      expect(recall.getRecallSchedulesSnapshot()).toEqual([
+        {
+          ease: 2.65,
+          intervalDays: 7,
+          lastRecalledAt: "2026-05-15T09:00:00.000Z",
+          nextRecallAt: "2026-05-22T09:00:00.000Z",
+          repetitionCount: 1,
+          studyNoteId: studyNote.id,
+        },
+      ]);
+
+      const reloadedRecall = createAppRecallContext({
+        keyPrefix: "recall-schedule-session",
+        notes: createAppNotesContext({
+          keyPrefix: "recall-schedule-source-notes",
+          storage,
+        }),
+        storage,
+        studyNotes,
+      });
+
+      expect(reloadedRecall.getRecallSchedulesSnapshot()).toEqual(
+        recall.getRecallSchedulesSnapshot(),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not start FlashCard sessions from incomplete Study Notes", () => {
+    const storage = createMemoryStorage();
+    const studyNotes = createAppStudyNotesContext({
+      keyPrefix: "recall-incomplete-study-notes",
+      storage,
+    });
+    const recall = createAppRecallContext({
+      keyPrefix: "recall-incomplete-study-notes-session",
+      notes: createAppNotesContext({
+        keyPrefix: "recall-incomplete-study-notes-source-notes",
+        storage,
+      }),
+      storage,
+      studyNotes,
+    });
+    const userId = "owner";
+    const incompleteStudyNote = studyNotes.createStudyNote(userId, {
+      expectedAnswer: "",
+      prompt: "What needs completion?",
+      sourceBody: "",
+      sourceTitle: "",
+    });
+
+    expect(() =>
+      recall.startFlashCardSession({
+        studyNoteIds: [incompleteStudyNote.id],
+        userId,
+      }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: "invalid_input",
+        message: "Add expected answer before recall.",
+      }),
+    );
   });
 
   it("does not start FlashCard sessions from label targets", () => {
@@ -1413,6 +1524,87 @@ describe("recall session setup", () => {
           },
         ],
       },
+    ]);
+  });
+
+  it("stores stable questionResultId values on attempted SessionResult questions", () => {
+    const storage = createMemoryStorage();
+    const notes = createAppNotesContext({
+      keyPrefix: "recall-test-result-question-ids-notes",
+      storage,
+    });
+    const recall = createAppRecallContext({
+      crypto: {
+        randomUUID: () =>
+          "session-result-question-ids" as `${string}-${string}-${string}-${string}-${string}`,
+      },
+      keyPrefix: "recall-test-result-question-ids-session",
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+    });
+    const userId = "owner";
+    const firstNote = notes.createNote(userId, {
+      acronyms: [],
+      body: "First stored answer",
+      labelIds: [],
+      metaphors: [],
+      title: "First stored question",
+    });
+    const secondNote = notes.createNote(userId, {
+      acronyms: [],
+      body: "Second stored answer",
+      labelIds: [],
+      metaphors: [],
+      title: "Second stored question",
+    });
+
+    const session = recall.startFlashCardSession({
+      noteIds: [firstNote.id, secondNote.id],
+      userId,
+    });
+
+    recall.revealFlashCardAnswer({ sessionId: session.id, userId });
+    recall.rateFlashCardAnswer({
+      rating: "good",
+      sessionId: session.id,
+      userId,
+    });
+    recall.revealFlashCardAnswer({ sessionId: session.id, userId });
+    recall.rateFlashCardAnswer({
+      rating: "hard",
+      sessionId: session.id,
+      userId,
+    });
+
+    const expectedResult = {
+      id: session.id,
+      questions: [
+        {
+          noteId: firstNote.id,
+          questionResultId: `${session.id}-question-0`,
+          selfRating: "good",
+        },
+        {
+          noteId: secondNote.id,
+          questionResultId: `${session.id}-question-1`,
+          selfRating: "hard",
+        },
+      ],
+    };
+
+    expect(recall.listSessionResults({ userId })).toMatchObject([
+      expectedResult,
+    ]);
+
+    const reloadedRecall = createAppRecallContext({
+      keyPrefix: "recall-test-result-question-ids-session",
+      notes,
+      storage,
+    });
+
+    expect(reloadedRecall.listSessionResults({ userId })).toMatchObject([
+      expectedResult,
     ]);
   });
 

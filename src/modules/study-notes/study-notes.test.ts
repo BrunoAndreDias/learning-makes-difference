@@ -62,7 +62,7 @@ describe("app study notes context", () => {
     ).toEqual([createdStudyNote]);
   });
 
-  it("keeps Study Note fields, labels, and memory hooks independent after creation", () => {
+  it("keeps Study Note fields, labels, and memory aids independent after creation", () => {
     const studyNotes = createAppStudyNotesContext({
       crypto: createDeterministicCrypto(),
       keyPrefix: "study-notes-independent-test",
@@ -103,7 +103,180 @@ describe("app study notes context", () => {
     });
   });
 
-  it("creates another Study Note from an existing source and shares source edits", () => {
+  it("saves incomplete Study Notes with a prompt and rejects saving without a prompt", () => {
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-readiness-test",
+      storage: createMemoryStorage(),
+    });
+
+    const incompleteStudyNote = studyNotes.createStudyNote("user-casey", {
+      expectedAnswer: " ",
+      prompt: "What still needs an answer?",
+      sourceBody: "",
+      sourceTitle: "",
+    });
+
+    expect(incompleteStudyNote).toMatchObject({
+      expectedAnswer: "",
+      prompt: "What still needs an answer?",
+      source: {
+        body: "",
+        title: "",
+      },
+    });
+    expect(() =>
+      studyNotes.createStudyNote("user-casey", {
+        expectedAnswer: "Answer without prompt.",
+        prompt: " ",
+        sourceBody: "",
+        sourceTitle: "",
+      }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: "invalid_input",
+        message: "Prompt is required.",
+      } satisfies Pick<AppStudyNotesError, "code" | "message">),
+    );
+  });
+
+  it("keeps Metaphor and Acronym create input to one support description each", () => {
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-single-memory-aid-create-test",
+      storage: createMemoryStorage(),
+    });
+
+    const createdStudyNote = studyNotes.createStudyNote("user-casey", {
+      acronyms: [{ description: "HIP keeps the structure memorable." }],
+      expectedAnswer: "It binds context for recall.",
+      metaphors: [
+        { description: "The hippocampus is a library index for memory." },
+      ],
+      prompt: "What does the hippocampus support?",
+      sourceBody: "The hippocampus helps bind memory context.",
+      sourceTitle: "Hippocampus",
+    });
+
+    expect(createdStudyNote).toMatchObject({
+      acronyms: [{ description: "HIP keeps the structure memorable." }],
+      metaphors: [
+        { description: "The hippocampus is a library index for memory." },
+      ],
+    });
+    expect(() =>
+      studyNotes.createStudyNote("user-casey", {
+        acronyms: [
+          { description: "HIP keeps the structure memorable." },
+          { description: "IDX means index." },
+        ],
+        expectedAnswer: "It binds context for recall.",
+        metaphors: [
+          { description: "The hippocampus is a library index for memory." },
+          { description: "The hippocampus is a checkout desk." },
+        ],
+        prompt: "What does the hippocampus support?",
+        sourceBody: "The hippocampus helps bind memory context.",
+        sourceTitle: "Hippocampus",
+      }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: "invalid_input",
+        message: "Only one acronym can be saved per Study Note.",
+      } satisfies Pick<AppStudyNotesError, "code" | "message">),
+    );
+  });
+
+  it("keeps Study Notes recallable when their expected answer is filled and source body is blank", () => {
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-recallable-blank-source-test",
+      storage: createMemoryStorage(),
+    });
+
+    const studyNote = studyNotes.createStudyNote("user-casey", {
+      expectedAnswer: "The expected answer drives recall.",
+      prompt: "What drives recall?",
+      sourceBody: "",
+      sourceTitle: "",
+    });
+
+    expect(studyNote).toMatchObject({
+      expectedAnswer: "The expected answer drives recall.",
+      prompt: "What drives recall?",
+      source: {
+        body: "",
+        title: "",
+      },
+    });
+  });
+
+  it("keeps Metaphor and Acronym update input to one support description each", () => {
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-single-memory-aid-update-test",
+      storage: createMemoryStorage(),
+    });
+    const createdStudyNote = studyNotes.createStudyNote("user-casey", {
+      expectedAnswer: "It binds context for recall.",
+      prompt: "What does the hippocampus support?",
+      sourceBody: "The hippocampus helps bind memory context.",
+      sourceTitle: "Hippocampus",
+    });
+
+    expect(() =>
+      studyNotes.updateStudyNote("user-casey", createdStudyNote.id, {
+        acronyms: [{ description: "HIP." }, { description: "CTX." }],
+        expectedAnswer: "It binds context for recall.",
+        labelIds: [],
+        metaphors: [
+          { description: "The hippocampus is a library index." },
+          { description: "The hippocampus is a checkout desk." },
+        ],
+        prompt: "What does the hippocampus support?",
+        sourceBody: "The hippocampus helps bind memory context.",
+        sourceTitle: "Hippocampus source",
+      }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: "invalid_input",
+        message: "Only one acronym can be saved per Study Note.",
+      } satisfies Pick<AppStudyNotesError, "code" | "message">),
+    );
+  });
+
+  it("adds sibling Study Notes from untitled sources with a saveable prompt", () => {
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-sibling-untitled-source-test",
+      storage: createMemoryStorage(),
+    });
+    const firstStudyNote = studyNotes.createStudyNote("user-casey", {
+      expectedAnswer: "",
+      prompt: "First prompt",
+      sourceBody: "",
+      sourceTitle: "",
+    });
+
+    const siblingStudyNote = studyNotes.createStudyNoteFromSource(
+      "user-casey",
+      {
+        sourceNoteId: firstStudyNote.sourceNoteId,
+      },
+    );
+
+    expect(siblingStudyNote).toMatchObject({
+      expectedAnswer: "",
+      prompt: "First prompt",
+      source: {
+        body: "",
+        displayName: "First prompt",
+        title: "",
+      },
+    });
+  });
+
+  it("shares source material across sibling Study Notes until one is edited", () => {
     const studyNotes = createAppStudyNotesContext({
       crypto: createDeterministicCrypto(),
       keyPrefix: "study-notes-shared-source-test",
@@ -117,15 +290,25 @@ describe("app study notes context", () => {
     const secondStudyNote = studyNotes.createStudyNoteFromSource("user-casey", {
       sourceNoteId: firstStudyNote.sourceNoteId,
     });
-    studyNotes.updateStudyNote("user-casey", secondStudyNote.id, {
-      acronyms: [{ description: "SPA cues spacing." }],
-      expectedAnswer: "Use spacing for durable access.",
-      labelIds: [],
-      metaphors: [{ description: "Spacing is a path worn in over time." }],
-      prompt: "How does spacing help?",
-      sourceBody: "Edited shared source context.",
-      sourceTitle: "Edited practice source",
-    });
+    expect(secondStudyNote.sourceNoteId).toBe(firstStudyNote.sourceNoteId);
+
+    const updatedSecondStudyNote = studyNotes.updateStudyNote(
+      "user-casey",
+      secondStudyNote.id,
+      {
+        acronyms: [{ description: "SPA cues spacing." }],
+        expectedAnswer: "Use spacing for durable access.",
+        labelIds: [],
+        metaphors: [{ description: "Spacing is a path worn in over time." }],
+        prompt: "How does spacing help?",
+        sourceBody: "Edited shared source context.",
+        sourceTitle: "Edited practice source",
+      },
+    );
+
+    expect(updatedSecondStudyNote.sourceNoteId).not.toBe(
+      firstStudyNote.sourceNoteId,
+    );
 
     expect(
       listStudyNotesForUser(studyNotes.getSnapshot(), "user-casey"),
@@ -139,7 +322,7 @@ describe("app study notes context", () => {
           body: "Edited shared source context.",
           title: "Edited practice source",
         },
-        sourceNoteId: firstStudyNote.sourceNoteId,
+        sourceNoteId: updatedSecondStudyNote.sourceNoteId,
       },
       {
         acronyms: [],
@@ -147,15 +330,178 @@ describe("app study notes context", () => {
         metaphors: [],
         prompt: "Practice source",
         source: {
-          body: "Edited shared source context.",
-          title: "Edited practice source",
+          body: "Broad source about spacing and retrieval.",
+          title: "Practice source",
         },
         sourceNoteId: firstStudyNote.sourceNoteId,
       },
     ]);
   });
 
-  it("deletes shared Study Notes without orphaning the last source Note", () => {
+  it("detaches legacy shared source material when one Study Note is edited", () => {
+    const storage = createMemoryStorage();
+    storage.setItem(
+      "study-notes-legacy-detach-test:records",
+      JSON.stringify([
+        {
+          acronyms: [],
+          createdAt: "2025-01-01T00:00:00.000Z",
+          expectedAnswer: "Answer one",
+          id: "study-one",
+          labelIds: [],
+          metaphors: [],
+          prompt: "Prompt one",
+          source: {
+            body: "Original shared source.",
+            id: "source-shared",
+            title: "Shared source",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+          sourceNoteId: "source-shared",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+          userId: "user-casey",
+        },
+        {
+          acronyms: [],
+          createdAt: "2025-01-01T00:00:01.000Z",
+          expectedAnswer: "Answer two",
+          id: "study-two",
+          labelIds: [],
+          metaphors: [],
+          prompt: "Prompt two",
+          source: {
+            body: "Original shared source.",
+            id: "source-shared",
+            title: "Shared source",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+          sourceNoteId: "source-shared",
+          updatedAt: "2025-01-01T00:00:01.000Z",
+          userId: "user-casey",
+        },
+      ]),
+    );
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-legacy-detach-test",
+      storage,
+    });
+
+    studyNotes.updateStudyNote("user-casey", "study-one", {
+      acronyms: [],
+      expectedAnswer: "Answer one",
+      labelIds: [],
+      metaphors: [],
+      prompt: "Prompt one",
+      sourceBody: "Edited source for one.",
+      sourceTitle: "Edited source",
+    });
+
+    const listedStudyNotes = listStudyNotesForUser(
+      studyNotes.getSnapshot(),
+      "user-casey",
+    );
+    expect(listedStudyNotes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "study-one",
+          source: expect.objectContaining({
+            body: "Edited source for one.",
+            title: "Edited source",
+          }),
+          sourceNoteId: "id-1",
+        }),
+        expect.objectContaining({
+          id: "study-two",
+          source: expect.objectContaining({
+            body: "Original shared source.",
+            title: "Shared source",
+          }),
+          sourceNoteId: "source-shared",
+        }),
+      ]),
+    );
+  });
+
+  it("keeps source Note titles optional and derives copied source display names from each owning Study Note prompt", () => {
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-untitled-source-test",
+      storage: createMemoryStorage(),
+    });
+    const createdStudyNote = studyNotes.createStudyNote("user-casey", {
+      expectedAnswer: "First answer.",
+      prompt: "Oldest prompt",
+      sourceBody: "Shared source body.",
+      sourceTitle: "",
+    });
+    const secondStudyNote = studyNotes.createStudyNoteFromSource("user-casey", {
+      sourceNoteId: createdStudyNote.sourceNoteId,
+    });
+
+    expect(createdStudyNote.source).toMatchObject({
+      displayName: "Oldest prompt",
+      title: "",
+    });
+    expect(secondStudyNote).toMatchObject({
+      prompt: "Oldest prompt",
+      source: {
+        displayName: "Oldest prompt",
+        title: "",
+      },
+    });
+
+    studyNotes.updateStudyNote("user-casey", secondStudyNote.id, {
+      acronyms: [],
+      expectedAnswer: "Second answer.",
+      labelIds: [],
+      metaphors: [],
+      prompt: "Newer prompt",
+      sourceBody: "Shared source body.",
+      sourceTitle: "",
+    });
+    studyNotes.updateStudyNote("user-casey", createdStudyNote.id, {
+      acronyms: [],
+      expectedAnswer: "First answer.",
+      labelIds: [],
+      metaphors: [],
+      prompt: "Renamed oldest prompt",
+      sourceBody: "Shared source body.",
+      sourceTitle: "",
+    });
+
+    expect(
+      listStudyNotesForUser(studyNotes.getSnapshot(), "user-casey"),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          prompt: "Renamed oldest prompt",
+          source: expect.objectContaining({
+            displayName: "Renamed oldest prompt",
+            title: "",
+          }),
+        }),
+        expect.objectContaining({
+          prompt: "Newer prompt",
+          source: expect.objectContaining({
+            displayName: "Newer prompt",
+            title: "",
+          }),
+        }),
+      ]),
+    );
+    expect(studyNotes.getSnapshot()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: expect.objectContaining({
+            title: "",
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it("allows deleting a sibling without deleting the shared source but still protects the last source Note", () => {
     const studyNotes = createAppStudyNotesContext({
       crypto: createDeterministicCrypto(),
       keyPrefix: "study-notes-delete-test",

@@ -7,6 +7,7 @@ export {
   deriveStudyNoteLearningStates,
   formatStudyNoteDueLabel,
   formatStudyNoteLearningStateCompactLabel,
+  formatStudyNoteLearningStateScoreLabel,
   formatStudyNotePracticeSignalLabel,
   toStudyNoteRecallHistories,
 } from "./learning-state";
@@ -18,6 +19,8 @@ export {
   createPersistentStudyNotesContext,
   createReadonlyStudyNotesContext,
 } from "./persistent-study-notes";
+export type { StudyNoteReadiness } from "./study-note-readiness";
+export { getStudyNoteReadiness } from "./study-note-readiness";
 export type {
   AppStoredStudyNote,
   AppStudyNote,

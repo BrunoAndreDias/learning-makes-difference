@@ -21,11 +21,26 @@ describe("route tree", () => {
     expect(generatedRouteTree).not.toContain(
       "modules/notes/study-notes-prototype/study-notes-prototype-route",
     );
-    expect(generatedRouteTree).toContain(
+    expect(generatedRouteTree).not.toContain(
       "modules/labels/label-management/labels-route",
     );
     expect(generatedRouteTree).toContain("modules/recall/recall-route");
+    expect(generatedRouteTree).toContain(
+      "modules/recall/recall-practice-repair-queue-route",
+    );
+    expect(generatedRouteTree).toContain(
+      "modules/recall/recall-practice-repair-route",
+    );
+    expect(generatedRouteTree).toContain(
+      "modules/recall/recall-practice-repair-draft-route",
+    );
+    expect(generatedRouteTree).toContain(
+      "modules/recall/recall-practice-repair-results-redirect-route",
+    );
     expect(generatedRouteTree).toContain("modules/focus/focus-route");
+    expect(generatedRouteTree).toContain(
+      "modules/study-guidance/study-guidance-route",
+    );
     expect(generatedRouteTree).toContain(
       "modules/access/session/settings-route",
     );
@@ -43,7 +58,7 @@ describe("route tree", () => {
       "'/notes': typeof modulesNotesNotesWorkspaceNotesRouteRoute",
     );
     expect(generatedRouteTree).not.toContain("'/study-notes-prototype'");
-    expect(generatedRouteTree).toContain(
+    expect(generatedRouteTree).not.toContain(
       "'/labels': typeof modulesLabelsLabelManagementLabelsRouteRoute",
     );
     expect(generatedRouteTree).toContain(
@@ -52,8 +67,19 @@ describe("route tree", () => {
     expect(generatedRouteTree).toContain(
       "'/focus': typeof modulesFocusFocusRouteRoute",
     );
-    expect(generatedRouteTree).not.toContain(
-      "'/recall/results': typeof ProtectedRecallResultsRoute",
+    expect(generatedRouteTree).toContain(
+      "'/insights': typeof modulesStudyGuidanceStudyGuidanceRouteRoute",
+    );
+    expect(generatedRouteTree).toContain("'/recall/results':");
+    expect(generatedRouteTree).toContain("'/recall/repair':");
+    expect(generatedRouteTree).toContain(
+      "'/recall/repair/$sessionResultId/questions/$questionResultId':",
+    );
+    expect(generatedRouteTree).toContain(
+      "'/recall/results/$sessionResultId/questions/$questionResultId/repair':",
+    );
+    expect(generatedRouteTree).toContain(
+      "'/recall/repair/$practiceRepairEntryId':",
     );
     expect(generatedRouteTree).toContain(
       "'/recall/select': typeof modulesRecallRecallSelectionRouteRoute",

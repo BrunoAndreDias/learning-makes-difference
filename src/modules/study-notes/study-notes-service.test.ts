@@ -163,6 +163,96 @@ describe("createStudyNotesService", () => {
     ]);
   });
 
+  it("persists incomplete Study Notes with prompt-only readiness and optional source fields", async () => {
+    const { studyNotes } = await createStudyNotesHarness();
+
+    const incompleteStudyNote = await studyNotes.createStudyNote({
+      input: {
+        expectedAnswer: " ",
+        prompt: "What still needs an answer?",
+        sourceBody: "",
+        sourceTitle: "",
+      },
+      userId: "user-casey",
+    });
+
+    expect(incompleteStudyNote).toMatchObject({
+      expectedAnswer: "",
+      prompt: "What still needs an answer?",
+      source: {
+        body: "",
+        title: "",
+      },
+    });
+    await expect(
+      studyNotes.createStudyNote({
+        input: {
+          expectedAnswer: "Answer without prompt.",
+          prompt: " ",
+          sourceBody: "",
+          sourceTitle: "",
+        },
+        userId: "user-casey",
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_input",
+      message: "Prompt is required.",
+    });
+  });
+
+  it("persists recallable Study Notes with a blank source body", async () => {
+    const { studyNotes } = await createStudyNotesHarness();
+
+    await expect(
+      studyNotes.createStudyNote({
+        input: {
+          expectedAnswer: "The expected answer drives recall.",
+          prompt: "What drives recall?",
+          sourceBody: "",
+          sourceTitle: "",
+        },
+        userId: "user-casey",
+      }),
+    ).resolves.toMatchObject({
+      expectedAnswer: "The expected answer drives recall.",
+      prompt: "What drives recall?",
+      source: {
+        body: "",
+        title: "",
+      },
+    });
+  });
+
+  it("persists sibling Study Notes from untitled sources with a saveable prompt", async () => {
+    const { studyNotes } = await createStudyNotesHarness();
+    const firstStudyNote = await studyNotes.createStudyNote({
+      input: {
+        expectedAnswer: "",
+        prompt: "First prompt",
+        sourceBody: "",
+        sourceTitle: "",
+      },
+      userId: "user-casey",
+    });
+
+    await expect(
+      studyNotes.createStudyNoteFromSource({
+        input: {
+          sourceNoteId: firstStudyNote.sourceNoteId,
+        },
+        userId: "user-casey",
+      }),
+    ).resolves.toMatchObject({
+      expectedAnswer: "",
+      prompt: "First prompt",
+      source: {
+        body: "",
+        displayName: "First prompt",
+        title: "",
+      },
+    });
+  });
+
   it("does not rewrite copied Study Note fields when the source Note changes", async () => {
     const { studyNotes } = await createStudyNotesHarness();
     const createdStudyNote = await studyNotes.createStudyNote({
@@ -198,7 +288,102 @@ describe("createStudyNotesService", () => {
     ]);
   });
 
-  it("creates shared-source Study Notes and deletes the source only after last-link confirmation", async () => {
+  it("persists blank source Note titles and returns display names from each owning Study Note prompt", async () => {
+    const { db, studyNotes } = await createStudyNotesHarness();
+
+    const firstStudyNote = await studyNotes.createStudyNote({
+      input: {
+        expectedAnswer: "First answer.",
+        prompt: "Oldest prompt",
+        sourceBody: "Shared source body.",
+        sourceTitle: "",
+      },
+      userId: "user-casey",
+    });
+    const secondStudyNote = await studyNotes.createStudyNoteFromSource({
+      input: {
+        sourceNoteId: firstStudyNote.sourceNoteId,
+      },
+      userId: "user-casey",
+    });
+
+    expect(firstStudyNote.source).toMatchObject({
+      displayName: "Oldest prompt",
+      title: "",
+    });
+    expect(secondStudyNote).toMatchObject({
+      prompt: "Oldest prompt",
+      source: {
+        displayName: "Oldest prompt",
+        title: "",
+      },
+    });
+
+    await studyNotes.updateStudyNote({
+      input: {
+        acronyms: [],
+        expectedAnswer: "Second answer.",
+        labelIds: [],
+        metaphors: [],
+        prompt: "Newer prompt",
+        sourceBody: "Shared source body.",
+        sourceTitle: "",
+        studyNoteId: secondStudyNote.id,
+      },
+      userId: "user-casey",
+    });
+    await studyNotes.updateStudyNote({
+      input: {
+        acronyms: [],
+        expectedAnswer: "First answer.",
+        labelIds: [],
+        metaphors: [],
+        prompt: "Renamed oldest prompt",
+        sourceBody: "Shared source body.",
+        sourceTitle: "",
+        studyNoteId: firstStudyNote.id,
+      },
+      userId: "user-casey",
+    });
+
+    await expect(
+      Promise.all([
+        studyNotes
+          .listStudyNotes({ userId: "user-casey" })
+          .then((listedStudyNotes) => [...listedStudyNotes].sort(byId)),
+        db.select().from(notesTable),
+      ]),
+    ).resolves.toMatchObject([
+      [
+        {
+          prompt: "Renamed oldest prompt",
+          source: {
+            displayName: "Renamed oldest prompt",
+            title: "",
+          },
+        },
+        {
+          prompt: "Newer prompt",
+          source: {
+            displayName: "Newer prompt",
+            title: "",
+          },
+        },
+      ],
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: firstStudyNote.sourceNoteId,
+          title: "",
+        }),
+        expect.objectContaining({
+          id: secondStudyNote.sourceNoteId,
+          title: "",
+        }),
+      ]),
+    ]);
+  });
+
+  it("creates sibling Study Notes with shared source material and independent deletion until the last source Note", async () => {
     const { db, studyNotes } = await createStudyNotesHarness();
     const firstStudyNote = await studyNotes.createStudyNote({
       input: {
@@ -220,8 +405,8 @@ describe("createStudyNotesService", () => {
       labelIds: [],
       metaphors: [],
       prompt: "Shared source",
-      sourceNoteId: firstStudyNote.sourceNoteId,
     });
+    expect(secondStudyNote.sourceNoteId).toBe(firstStudyNote.sourceNoteId);
 
     await studyNotes.deleteStudyNote({
       input: {
@@ -232,31 +417,23 @@ describe("createStudyNotesService", () => {
     });
 
     await expect(
-      studyNotes.deleteStudyNote({
-        input: {
-          deleteSource: false,
-          studyNoteId: firstStudyNote.id,
-        },
-        userId: "user-casey",
-      }),
-    ).rejects.toMatchObject({
-      code: "invalid_input",
-    });
-
-    await studyNotes.deleteStudyNote({
-      input: {
-        deleteSource: true,
-        studyNoteId: firstStudyNote.id,
-      },
-      userId: "user-casey",
-    });
-
-    await expect(
       Promise.all([
         studyNotes.listStudyNotes({ userId: "user-casey" }),
         db.select().from(notesTable),
       ]),
-    ).resolves.toEqual([[], []]);
+    ).resolves.toMatchObject([
+      [
+        {
+          id: firstStudyNote.id,
+          sourceNoteId: firstStudyNote.sourceNoteId,
+        },
+      ],
+      [
+        {
+          id: firstStudyNote.sourceNoteId,
+        },
+      ],
+    ]);
   });
 
   it("assigns Labels to Study Notes independently from the source Note and protects label ownership", async () => {
@@ -394,7 +571,7 @@ describe("createStudyNotesService", () => {
     ).rejects.toThrow("Study Notes can only be assigned");
   });
 
-  it("keeps memory hooks owned by each Study Note across shared sources, clearing, and account boundaries", async () => {
+  it("keeps memory aids and source material owned by each Study Note across legacy shared sources", async () => {
     const { db, studyNotes } = await createStudyNotesHarness({
       now: () => TEST_UPDATED_AT,
       users: [
@@ -443,7 +620,9 @@ describe("createStudyNotesService", () => {
         acronyms: [{ description: "ONE keeps the first target distinct." }],
         expectedAnswer: "Answer one",
         labelIds: [],
-        metaphors: [{ description: "First hook belongs to study one." }],
+        metaphors: [
+          { description: "First support description belongs to study one." },
+        ],
         prompt: "Prompt one",
         sourceBody: "One source can support several precise recall targets.",
         sourceTitle: "Shared source",
@@ -456,7 +635,9 @@ describe("createStudyNotesService", () => {
         acronyms: [{ description: "TWO keeps the second target distinct." }],
         expectedAnswer: "Answer two",
         labelIds: [],
-        metaphors: [{ description: "Second hook belongs to study two." }],
+        metaphors: [
+          { description: "Second support description belongs to study two." },
+        ],
         prompt: "Prompt two",
         sourceBody: "One source can support several precise recall targets.",
         sourceTitle: "Shared source",
@@ -465,22 +646,26 @@ describe("createStudyNotesService", () => {
       userId: "user-casey",
     });
 
-    await expect(
-      studyNotes
-        .listStudyNotes({ userId: "user-casey" })
-        .then((listedStudyNotes) => [...listedStudyNotes].sort(byId)),
-    ).resolves.toMatchObject([
+    const listedStudyNotes = [
+      ...(await studyNotes.listStudyNotes({ userId: "user-casey" })),
+    ].sort(byId);
+    expect(listedStudyNotes[0]?.sourceNoteId).not.toBe(
+      listedStudyNotes[1]?.sourceNoteId,
+    );
+    expect(listedStudyNotes).toMatchObject([
       {
         acronyms: [{ description: "ONE keeps the first target distinct." }],
         id: "study-one",
-        metaphors: [{ description: "First hook belongs to study one." }],
-        sourceNoteId: "source-shared",
+        metaphors: [
+          { description: "First support description belongs to study one." },
+        ],
       },
       {
         acronyms: [{ description: "TWO keeps the second target distinct." }],
         id: "study-two",
-        metaphors: [{ description: "Second hook belongs to study two." }],
-        sourceNoteId: "source-shared",
+        metaphors: [
+          { description: "Second support description belongs to study two." },
+        ],
       },
     ]);
 
@@ -532,12 +717,14 @@ describe("createStudyNotesService", () => {
         {
           acronyms: [{ description: "TWO keeps the second target distinct." }],
           id: "study-two",
-          metaphors: [{ description: "Second hook belongs to study two." }],
+          metaphors: [
+            { description: "Second support description belongs to study two." },
+          ],
         },
       ],
       [
         {
-          description: "Second hook belongs to study two.",
+          description: "Second support description belongs to study two.",
           studyNoteId: "study-two",
         },
       ],
@@ -545,6 +732,72 @@ describe("createStudyNotesService", () => {
         {
           description: "TWO keeps the second target distinct.",
           studyNoteId: "study-two",
+        },
+      ],
+    ]);
+  });
+
+  it("persists one Metaphor description and one Acronym description per Study Note", async () => {
+    const { db, studyNotes } = await createStudyNotesHarness();
+
+    const createdStudyNote = await studyNotes.createStudyNote({
+      input: {
+        acronyms: [{ description: "HIP keeps the structure memorable." }],
+        metaphors: [
+          { description: "The hippocampus is a library index for memory." },
+        ],
+        sourceBody: "The hippocampus helps bind memory context.",
+        sourceTitle: "Hippocampus",
+      },
+      userId: "user-casey",
+    });
+
+    await expect(
+      studyNotes.updateStudyNote({
+        input: {
+          acronyms: [
+            { description: "HIP keeps the structure memorable." },
+            { description: "IDX means index." },
+          ],
+          expectedAnswer: "It binds context for recall.",
+          labelIds: [],
+          metaphors: [
+            { description: "The hippocampus is a library index for memory." },
+          ],
+          prompt: "What does the hippocampus support?",
+          sourceBody: "The hippocampus helps bind memory context.",
+          sourceTitle: "Hippocampus",
+          studyNoteId: createdStudyNote.id,
+        },
+        userId: "user-casey",
+      }),
+    ).rejects.toThrow("Only one acronym can be saved per Study Note.");
+    await expect(
+      studyNotes
+        .listStudyNotes({ userId: "user-casey" })
+        .then((listedStudyNotes) => listedStudyNotes[0]),
+    ).resolves.toMatchObject({
+      acronyms: [{ description: "HIP keeps the structure memorable." }],
+      metaphors: [
+        { description: "The hippocampus is a library index for memory." },
+      ],
+    });
+    await expect(
+      Promise.all([
+        db.select().from(studyNoteMetaphorsTable),
+        db.select().from(studyNoteAcronymsTable),
+      ]),
+    ).resolves.toMatchObject([
+      [
+        {
+          description: "The hippocampus is a library index for memory.",
+          studyNoteId: createdStudyNote.id,
+        },
+      ],
+      [
+        {
+          description: "HIP keeps the structure memorable.",
+          studyNoteId: createdStudyNote.id,
         },
       ],
     ]);

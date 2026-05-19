@@ -175,6 +175,7 @@ describe("createAuthService", () => {
 
     await auth.updatePreferences({
       displayName: "Casey Rivers",
+      showStudyNoteTemplates: false,
       userLanguage: "pt-PT",
       studyObjective: "specific_exam",
       studyIntensity: "intensive",
@@ -201,6 +202,7 @@ describe("createAuthService", () => {
     await expect(restoredAuth.getSessionSnapshot()).resolves.toMatchObject({
       user: {
         displayName: "Casey Rivers",
+        showStudyNoteTemplates: false,
         userLanguage: "pt-PT",
         studyObjective: "specific_exam",
         studyIntensity: "intensive",
@@ -299,6 +301,7 @@ describe("createAuthService", () => {
     await expect(
       auth.updatePreferences({
         displayName: "Casey Learner",
+        showStudyNoteTemplates: true,
         userLanguage: "en",
         studyObjective: "career_change" as never,
         studyIntensity: null,
@@ -312,6 +315,7 @@ describe("createAuthService", () => {
     await expect(
       auth.updatePreferences({
         displayName: "Casey Learner",
+        showStudyNoteTemplates: true,
         userLanguage: "en",
         studyObjective: null,
         studyIntensity: "extreme" as never,
@@ -325,6 +329,7 @@ describe("createAuthService", () => {
     await expect(
       auth.updatePreferences({
         displayName: "Casey Learner",
+        showStudyNoteTemplates: true,
         userLanguage: "en",
         studyObjective: null,
         studyIntensity: null,

@@ -1,0 +1,15 @@
+minimumReleaseAge: 1440
+blockExoticSubdeps: true
+dangerouslyAllowAllBuilds: false
+strictDepBuilds: true
+
+ignoredOptionalDependencies:
+  - "@tanstack/setup"
+
+allowBuilds:
+  "@tanstack/setup": false
+  "@parcel/watcher@2.5.6": true
+  "argon2@0.44.0": true
+  "esbuild@0.18.20 || 0.25.12 || 0.27.7": true
+  "fallow@2.66.2": false
+  "msgpackr-extract@3.0.3": false

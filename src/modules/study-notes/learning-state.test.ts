@@ -87,6 +87,24 @@ describe("Study Note learning state", () => {
         ]),
       ],
       now: "2026-05-02T12:00:00.000Z",
+      recallSchedules: [
+        {
+          ease: 2.35,
+          intervalDays: 1,
+          lastRecalledAt: "2026-05-01T09:00:00.000Z",
+          nextRecallAt: "2026-05-02T09:00:00.000Z",
+          repetitionCount: 1,
+          studyNoteId: first.id,
+        },
+        {
+          ease: 2.65,
+          intervalDays: 7,
+          lastRecalledAt: "2026-05-01T10:00:00.000Z",
+          nextRecallAt: "2026-05-08T10:00:00.000Z",
+          repetitionCount: 1,
+          studyNoteId: second.id,
+        },
+      ],
       studyNotes: [first, second, fresh],
     });
 
@@ -127,6 +145,109 @@ describe("Study Note learning state", () => {
         studyNotes: [first, second, fresh],
       }).map((studyNote) => studyNote.id),
     ).toEqual([first.id, fresh.id]);
+  });
+
+  it("keeps incomplete Study Notes out of Learning State and Due for Recall copy", () => {
+    const incomplete = buildStudyNote({
+      expectedAnswer: " ",
+      id: "study-note-incomplete",
+      prompt: "Incomplete target",
+    });
+
+    const [learningState] = deriveStudyNoteLearningStates({
+      histories: [
+        buildHistory(incomplete.id, [
+          {
+            completedAt: "2026-05-01T09:00:00.000Z",
+            rating: "hard",
+          },
+        ]),
+      ],
+      now: "2026-05-02T12:00:00.000Z",
+      studyNotes: [incomplete],
+    });
+
+    expect(learningState).toEqual({
+      dueForRecall: false,
+      lastRecalledAt: null,
+      latestScore: null,
+      needsPractice: false,
+      studyNoteId: incomplete.id,
+    });
+    expect(formatStudyNoteLearningStateCompactLabel(learningState)).toBe(
+      "Add expected answer",
+    );
+    expect(formatStudyNotePracticeSignalLabel(learningState)).toBeNull();
+    expect(formatStudyNoteDueLabel(learningState)).toBeNull();
+    expect(
+      listDueStudyNotesForRecall({
+        learningStates: [learningState],
+        studyNotes: [incomplete],
+      }),
+    ).toEqual([]);
+  });
+
+  it("derives Due for Recall from Recall Schedule while Needs practice stays evidence-based", () => {
+    const shakyButScheduledLater = buildStudyNote({
+      id: "study-note-shaky",
+      prompt: "Shaky but scheduled later",
+    });
+    const strongButDue = buildStudyNote({
+      id: "study-note-strong",
+      prompt: "Strong but scheduled due",
+    });
+
+    const learningStates = deriveStudyNoteLearningStates({
+      histories: [
+        buildHistory(shakyButScheduledLater.id, [
+          {
+            completedAt: "2026-05-14T09:00:00.000Z",
+            rating: "hard",
+          },
+        ]),
+        buildHistory(strongButDue.id, [
+          {
+            completedAt: "2026-05-14T09:00:00.000Z",
+            rating: "easy",
+          },
+        ]),
+      ],
+      now: "2026-05-15T12:00:00.000Z",
+      recallSchedules: [
+        {
+          ease: 2.35,
+          intervalDays: 1,
+          lastRecalledAt: "2026-05-14T09:00:00.000Z",
+          nextRecallAt: "2026-05-16T09:00:00.000Z",
+          repetitionCount: 1,
+          studyNoteId: shakyButScheduledLater.id,
+        },
+        {
+          ease: 2.65,
+          intervalDays: 7,
+          lastRecalledAt: "2026-05-14T09:00:00.000Z",
+          nextRecallAt: "2026-05-15T09:00:00.000Z",
+          repetitionCount: 1,
+          studyNoteId: strongButDue.id,
+        },
+      ],
+      studyNotes: [shakyButScheduledLater, strongButDue],
+    });
+
+    expect(learningStates).toMatchObject([
+      {
+        dueForRecall: false,
+        latestScore: "hard",
+        needsPractice: true,
+        studyNoteId: shakyButScheduledLater.id,
+      },
+      {
+        dueForRecall: true,
+        latestScore: "easy",
+        needsPractice: false,
+        studyNoteId: strongButDue.id,
+      },
+    ]);
   });
 
   it("maps recall attempt groups to Study Note recall histories", () => {

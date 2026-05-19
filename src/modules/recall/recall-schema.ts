@@ -1,6 +1,15 @@
-import { index, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  doublePrecision,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
 
 import { usersTable } from "../access/session/auth-schema";
+import { studyNotesTable } from "../study-notes/study-notes-schema";
 import type { RecallSession, SessionResult } from "./recall";
 
 type StoredRecallSession = RecallSession & {
@@ -50,7 +59,41 @@ export const sessionResultsTable = pgTable(
   ],
 );
 
+export const recallSchedulesTable = pgTable(
+  "recall_schedules",
+  {
+    studyNoteId: text("study_note_id")
+      .primaryKey()
+      .references(() => studyNotesTable.id, {
+        onDelete: "cascade",
+      }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => usersTable.id, {
+        onDelete: "cascade",
+      }),
+    nextRecallAt: timestamp("next_recall_at", {
+      mode: "date",
+      withTimezone: true,
+    }).notNull(),
+    intervalDays: integer("interval_days").notNull(),
+    ease: doublePrecision("ease").notNull(),
+    repetitionCount: integer("repetition_count").notNull(),
+    lastRecalledAt: timestamp("last_recalled_at", {
+      mode: "date",
+      withTimezone: true,
+    }),
+  },
+  (table) => [
+    index("recall_schedules_user_id_next_recall_at_idx").on(
+      table.userId,
+      table.nextRecallAt,
+    ),
+  ],
+);
+
 export const recallSchema = {
   activeRecallSessionsTable,
+  recallSchedulesTable,
   sessionResultsTable,
 };

@@ -24,10 +24,10 @@ describe("authenticated app shell", () => {
 
     expect(
       await screen.findByRole("heading", { name: "Bem-vindo de volta" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Entre na sua conta para continuar"),
-    ).toBeInTheDocument();
+    ).toHaveClass("page-header__title");
+    expect(screen.getByText("Entre na sua conta para continuar")).toHaveClass(
+      "page-header__description",
+    );
     expect(
       screen.getByRole("form", { name: "Formulario de inicio de sessao" }),
     ).toBeInTheDocument();
@@ -41,7 +41,7 @@ describe("authenticated app shell", () => {
 
     expect(
       await screen.findByRole("heading", { name: "Crea tu cuenta" }),
-    ).toBeInTheDocument();
+    ).toHaveClass("page-header__title");
     expect(screen.getByLabelText("Nombre visible")).toBeInTheDocument();
     expect(
       screen.getByLabelText("Codigo de registro piloto"),
@@ -49,6 +49,9 @@ describe("authenticated app shell", () => {
     expect(
       screen.getByRole("form", { name: "Formulario de registro" }),
     ).toBeInTheDocument();
+    expect(screen.getByText("Registrate para empezar a estudiar")).toHaveClass(
+      "page-header__description",
+    );
     expect(
       screen.getByRole("button", { name: "Registrarte" }),
     ).toBeInTheDocument();
@@ -61,12 +64,12 @@ describe("authenticated app shell", () => {
 
     expect(
       await screen.findByRole("heading", { name: "Reset your password" }),
-    ).toBeInTheDocument();
+    ).toHaveClass("page-header__title");
     expect(
       screen.getByText(
         "Password reset is coming soon. For now, please contact support.",
       ),
-    ).toBeInTheDocument();
+    ).toHaveClass("page-header__description");
     expect(
       screen.getByRole("link", { name: "Back to sign in" }),
     ).toBeInTheDocument();
@@ -109,7 +112,7 @@ describe("authenticated app shell", () => {
     expect(router.state.location.pathname).toBe("/study-notes");
   });
 
-  it("redirects the removed /recall/results route to the canonical Recall workspace", async () => {
+  it("keeps /recall/results as a dedicated Recall sub-route", async () => {
     const { router } = renderRoute("/recall/results");
 
     expect(
@@ -118,20 +121,39 @@ describe("authenticated app shell", () => {
         name: "Recall starts with Study Notes",
       }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall");
+    expect(router.state.location.pathname).toBe("/recall/results");
     expect(
       screen.queryByRole("heading", { level: 3, name: "Practice" }),
     ).not.toBeInTheDocument();
   });
 
-  it("redirects unauthenticated protected navigation into the public login area", async () => {
-    const { router } = renderRoute("/settings", { session: { user: null } });
+  it("keeps /recall/repair as a dedicated Recall sub-route", async () => {
+    const { router } = renderRoute("/recall/repair");
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Practice Repair Queue",
+      }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall/repair");
+  });
+
+  it.each([
+    "/insights",
+    "/recall/repair",
+    "/recall/repair/missing-entry",
+    "/recall/repair/result-1/questions/question-1",
+    "/recall/results/result-1/questions/question-1/repair",
+    "/settings",
+  ] as const)("redirects unauthenticated %s navigation into the public login area", async (pathname) => {
+    const { router } = renderRoute(pathname, { session: { user: null } });
 
     expect(
       await screen.findByRole("heading", { name: "Welcome back" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/login");
-    expect(router.state.location.search.redirect).toBe("/settings");
+    expect(router.state.location.search.redirect).toBe(pathname);
   });
 
   it("redirects to login when persisted session restoration fails", async () => {

@@ -11,11 +11,13 @@ import {
   type AppSessionSnapshot,
   type AppSessionUser,
   buildAnonymousSnapshot,
+  defaultShowStudyNoteTemplatesPreference,
   defaultUserTimeZone,
   type LoginInput,
   normalizeUserLanguage,
   type RegisterInput,
   type UpdatePreferencesInput,
+  validateShowStudyNoteTemplatesPreference,
   validateStudyIntensityPreference,
   validateStudyObjectivePreference,
   validateUserLanguagePreference,
@@ -68,6 +70,8 @@ function buildSessionUser(user: StoredUser): AppSessionUser {
     id: user.id,
     displayName: user.displayName,
     email: user.email,
+    showStudyNoteTemplates:
+      user.showStudyNoteTemplates ?? defaultShowStudyNoteTemplatesPreference,
     userLanguage: normalizeUserLanguage(user.userLanguage),
     studyObjective: user.studyObjective,
     studyIntensity: user.studyIntensity,
@@ -270,6 +274,7 @@ async function getStoredUserForActiveSession({
       displayName: usersTable.displayName,
       email: usersTable.email,
       passwordHash: usersTable.passwordHash,
+      showStudyNoteTemplates: usersTable.showStudyNoteTemplates,
       userLanguage: usersTable.userLanguage,
       studyObjective: usersTable.studyObjective,
       studyIntensity: usersTable.studyIntensity,
@@ -414,6 +419,7 @@ export function createAuthService({
         displayName: safeDisplayName,
         email: safeEmail,
         passwordHash,
+        showStudyNoteTemplates: defaultShowStudyNoteTemplatesPreference,
         userLanguage: safeUserLanguage,
         studyObjective: null,
         studyIntensity: null,
@@ -426,6 +432,7 @@ export function createAuthService({
         id: userId,
         displayName: safeDisplayName,
         email: safeEmail,
+        showStudyNoteTemplates: defaultShowStudyNoteTemplatesPreference,
         userLanguage: safeUserLanguage,
         studyObjective: null,
         studyIntensity: null,
@@ -446,6 +453,7 @@ export function createAuthService({
     },
     async updatePreferences({
       displayName,
+      showStudyNoteTemplates,
       userLanguage,
       studyObjective,
       studyIntensity,
@@ -464,6 +472,8 @@ export function createAuthService({
       }
 
       const safeDisplayName = validateDisplayName(displayName);
+      const safeShowStudyNoteTemplates =
+        validateShowStudyNoteTemplatesPreference(showStudyNoteTemplates);
       const safeUserLanguage = validateUserLanguagePreference(userLanguage);
       const safeStudyObjective =
         validateStudyObjectivePreference(studyObjective);
@@ -476,6 +486,7 @@ export function createAuthService({
         .update(usersTable)
         .set({
           displayName: safeDisplayName,
+          showStudyNoteTemplates: safeShowStudyNoteTemplates,
           userLanguage: safeUserLanguage,
           studyObjective: safeStudyObjective,
           studyIntensity: safeStudyIntensity,
@@ -489,6 +500,7 @@ export function createAuthService({
           id: storedUser.id,
           displayName: safeDisplayName,
           email: storedUser.email,
+          showStudyNoteTemplates: safeShowStudyNoteTemplates,
           userLanguage: safeUserLanguage,
           studyObjective: safeStudyObjective,
           studyIntensity: safeStudyIntensity,

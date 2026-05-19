@@ -1,17 +1,22 @@
 export type AppStudyNoteSource = {
   body: string;
+  displayName?: string;
   id: string;
   title: string;
   updatedAt: string;
 };
 
-type AppStudyNoteMemoryHook = {
+export type AppStudyNoteSupportDescription = {
   description: string;
 };
 
-export type AppStudyNoteMetaphor = AppStudyNoteMemoryHook;
+export const MAX_STUDY_NOTE_SUPPORT_DESCRIPTIONS_PER_KIND = 1;
 
-export type AppStudyNoteAcronym = AppStudyNoteMemoryHook;
+export type StudyNoteSupportDescriptionKind = "Acronym" | "Metaphor";
+
+export type AppStudyNoteMetaphor = AppStudyNoteSupportDescription;
+
+export type AppStudyNoteAcronym = AppStudyNoteSupportDescription;
 
 export type AppStudyNote = {
   acronyms: AppStudyNoteAcronym[];
@@ -26,14 +31,17 @@ export type AppStudyNote = {
   updatedAt: string;
 };
 
-export type AppStoredStudyNote = AppStudyNote & {
+export type AppStoredStudyNote = Omit<AppStudyNote, "source"> & {
+  source: AppStudyNoteSource;
   userId: string;
 };
 
 export type CreateStudyNoteInput = {
   acronyms?: AppStudyNoteAcronym[];
+  expectedAnswer?: string;
   labelIds?: string[];
   metaphors?: AppStudyNoteMetaphor[];
+  prompt?: string;
   sourceBody: string;
   sourceTitle: string;
 };
@@ -74,6 +82,7 @@ type CreateAppStudyNotesContextOptions = {
 };
 
 const DEFAULT_STORAGE_KEY_PREFIX = "learning-makes-difference-study-notes";
+const UNTITLED_SOURCE_DISPLAY_NAME = "Untitled source";
 
 export class AppStudyNotesError extends Error {
   readonly code: "invalid_input" | "not_found" | "unauthorized";
@@ -182,31 +191,36 @@ function validateOwnedLabelIds(
   );
 }
 
-function validateHookCount(hooks: readonly unknown[], label: string) {
-  if (hooks.length <= 1) {
+function validateSupportDescriptionCount(
+  supportDescriptions: readonly unknown[],
+  kind: StudyNoteSupportDescriptionKind,
+) {
+  if (
+    supportDescriptions.length <= MAX_STUDY_NOTE_SUPPORT_DESCRIPTIONS_PER_KIND
+  ) {
     return;
   }
 
   throw new AppStudyNotesError(
     "invalid_input",
-    `Only one ${label.toLowerCase()} can be saved per Study Note.`,
+    `Only one ${kind.toLowerCase()} can be saved per Study Note.`,
   );
 }
 
-function validateHooks(
-  hooks: readonly { description: string }[] | undefined,
-  label: string,
-): AppStudyNoteMemoryHook[] {
-  const safeHooks = hooks ?? [];
-  validateHookCount(safeHooks, label);
+export function validateStudyNoteSupportDescriptions(
+  supportDescriptions: readonly { description: string }[] | undefined,
+  kind: StudyNoteSupportDescriptionKind,
+): AppStudyNoteSupportDescription[] {
+  const safeSupportDescriptions = supportDescriptions ?? [];
+  validateSupportDescriptionCount(safeSupportDescriptions, kind);
 
-  return safeHooks.map((hook) => {
-    const description = hook.description.trim();
+  return safeSupportDescriptions.map((supportDescription) => {
+    const description = supportDescription.description.trim();
 
     if (description.length === 0) {
       throw new AppStudyNotesError(
         "invalid_input",
-        `${label} description is required.`,
+        `${kind} description is required.`,
       );
     }
 
@@ -219,13 +233,13 @@ function validateHooks(
 function validateMetaphors(
   metaphors: readonly AppStudyNoteMetaphor[] | undefined,
 ): AppStudyNoteMetaphor[] {
-  return validateHooks(metaphors, "Metaphor");
+  return validateStudyNoteSupportDescriptions(metaphors, "Metaphor");
 }
 
 function validateAcronyms(
   acronyms: readonly AppStudyNoteAcronym[] | undefined,
 ): AppStudyNoteAcronym[] {
-  return validateHooks(acronyms, "Acronym");
+  return validateStudyNoteSupportDescriptions(acronyms, "Acronym");
 }
 
 type PersistedStudyNoteRecord = Omit<
@@ -236,7 +250,75 @@ type PersistedStudyNoteRecord = Omit<
   metaphors?: AppStudyNoteMetaphor[];
 };
 
-function toPublicStudyNote(note: AppStoredStudyNote): AppStudyNote {
+type SourceDisplayNameStudyNote = {
+  createdAt: number | string;
+  prompt: string;
+};
+
+function compareSourceDisplayNameStudyNotes(
+  left: SourceDisplayNameStudyNote,
+  right: SourceDisplayNameStudyNote,
+): number {
+  if (
+    typeof left.createdAt === "number" &&
+    typeof right.createdAt === "number"
+  ) {
+    return left.createdAt - right.createdAt;
+  }
+
+  return String(left.createdAt).localeCompare(String(right.createdAt));
+}
+
+export function getStudyNoteSourceDisplayName(input: {
+  linkedStudyNotes: readonly SourceDisplayNameStudyNote[];
+  sourceTitle: string;
+}): string {
+  const trimmedTitle = input.sourceTitle.trim();
+
+  if (trimmedTitle.length > 0) {
+    return trimmedTitle;
+  }
+
+  const fallbackPrompt =
+    [...input.linkedStudyNotes]
+      .sort(compareSourceDisplayNameStudyNotes)
+      .find((studyNote) => studyNote.prompt.trim().length > 0)
+      ?.prompt.trim() ?? null;
+
+  return fallbackPrompt ?? UNTITLED_SOURCE_DISPLAY_NAME;
+}
+
+export function resolveCreateStudyNoteFields(
+  input: CreateStudyNoteInput,
+  defaults: Pick<AppStudyNote, "expectedAnswer" | "prompt">,
+): Pick<AppStudyNote, "expectedAnswer" | "prompt"> {
+  const prompt = input.prompt === undefined ? defaults.prompt : input.prompt;
+
+  return {
+    expectedAnswer:
+      input.expectedAnswer === undefined
+        ? defaults.expectedAnswer
+        : validateOptionalText(input.expectedAnswer),
+    prompt: validateRequiredText(prompt, "Prompt"),
+  };
+}
+
+function getStoredSourceDisplayName(
+  note: AppStoredStudyNote,
+  allStudyNotes: readonly AppStoredStudyNote[],
+): string {
+  return getStudyNoteSourceDisplayName({
+    linkedStudyNotes: allStudyNotes.filter(
+      (studyNote) => studyNote.sourceNoteId === note.sourceNoteId,
+    ),
+    sourceTitle: note.source.title,
+  });
+}
+
+function toPublicStudyNote(
+  note: AppStoredStudyNote,
+  allStudyNotes: readonly AppStoredStudyNote[],
+): AppStudyNote {
   return {
     acronyms: note.acronyms.map((acronym) => ({ ...acronym })),
     createdAt: note.createdAt,
@@ -245,7 +327,10 @@ function toPublicStudyNote(note: AppStoredStudyNote): AppStudyNote {
     labelIds: [...note.labelIds],
     metaphors: note.metaphors.map((metaphor) => ({ ...metaphor })),
     prompt: note.prompt,
-    source: { ...note.source },
+    source: {
+      ...note.source,
+      displayName: getStoredSourceDisplayName(note, allStudyNotes),
+    },
     sourceNoteId: note.sourceNoteId,
     updatedAt: note.updatedAt,
   };
@@ -273,18 +358,20 @@ function isStoredStudyNoteSource(value: unknown): value is AppStudyNoteSource {
   );
 }
 
-function isStoredMemoryHook(value: unknown): value is AppStudyNoteMemoryHook {
+function isStoredSupportDescription(
+  value: unknown,
+): value is AppStudyNoteSupportDescription {
   return isObjectRecord(value) && typeof value.description === "string";
 }
 
-function isStoredMemoryHooks(
+function isStoredSupportDescriptions(
   value: unknown,
-): value is AppStudyNoteMemoryHook[] {
-  return Array.isArray(value) && value.every(isStoredMemoryHook);
+): value is AppStudyNoteSupportDescription[] {
+  return Array.isArray(value) && value.every(isStoredSupportDescription);
 }
 
-function hasOptionalStoredMemoryHooks(value: unknown) {
-  return value === undefined || isStoredMemoryHooks(value);
+function hasOptionalStoredSupportDescriptions(value: unknown) {
+  return value === undefined || isStoredSupportDescriptions(value);
 }
 
 function isPersistedStudyNote(
@@ -292,14 +379,14 @@ function isPersistedStudyNote(
 ): value is PersistedStudyNoteRecord {
   return (
     isObjectRecord(value) &&
-    hasOptionalStoredMemoryHooks(value.acronyms) &&
+    hasOptionalStoredSupportDescriptions(value.acronyms) &&
     typeof value.createdAt === "string" &&
     typeof value.expectedAnswer === "string" &&
     typeof value.id === "string" &&
     (value.labelIds === undefined ||
       (Array.isArray(value.labelIds) &&
         value.labelIds.every((labelId) => typeof labelId === "string"))) &&
-    hasOptionalStoredMemoryHooks(value.metaphors) &&
+    hasOptionalStoredSupportDescriptions(value.metaphors) &&
     typeof value.prompt === "string" &&
     typeof value.sourceNoteId === "string" &&
     typeof value.updatedAt === "string" &&
@@ -355,7 +442,7 @@ export function listStudyNotesForUser(
         (options.labelId === undefined ||
           studyNote.labelIds.includes(options.labelId)),
     ),
-  ).map(toPublicStudyNote);
+  ).map((studyNote) => toPublicStudyNote(studyNote, studyNotes));
 }
 
 export function createAppStudyNotesContext(
@@ -388,11 +475,12 @@ export function createAppStudyNotesContext(
     createStudyNote(userId, input) {
       const validatedUserId = validateUserId(userId);
       const timestamp = new Date().toISOString();
-      const sourceTitle = validateRequiredText(
-        input.sourceTitle,
-        "Source title",
-      );
+      const sourceTitle = validateOptionalText(input.sourceTitle);
       const sourceBody = validateOptionalText(input.sourceBody);
+      const { expectedAnswer, prompt } = resolveCreateStudyNoteFields(input, {
+        expectedAnswer: sourceBody,
+        prompt: sourceTitle,
+      });
       const acronyms = validateAcronyms(input.acronyms);
       const labelIds = validateOwnedLabelIds(input.labelIds, {
         getOwnedLabelIdsForUser: options.getOwnedLabelIdsForUser,
@@ -403,11 +491,11 @@ export function createAppStudyNotesContext(
       const studyNote: AppStoredStudyNote = {
         acronyms,
         createdAt: timestamp,
-        expectedAnswer: sourceBody,
+        expectedAnswer,
         id: cryptoProvider.randomUUID(),
         labelIds,
         metaphors,
-        prompt: sourceTitle,
+        prompt,
         source: {
           body: sourceBody,
           id: sourceNoteId,
@@ -421,7 +509,7 @@ export function createAppStudyNotesContext(
 
       writeSnapshot([studyNote, ...snapshot]);
 
-      return toPublicStudyNote(studyNote);
+      return toPublicStudyNote(studyNote, [studyNote, ...snapshot]);
     },
     createStudyNoteFromSource(userId, input) {
       const validatedUserId = validateUserId(userId);
@@ -439,6 +527,13 @@ export function createAppStudyNotesContext(
       }
 
       const timestamp = new Date().toISOString();
+      const prompt = getStudyNoteSourceDisplayName({
+        linkedStudyNotes: snapshot.filter(
+          (studyNote) =>
+            studyNote.sourceNoteId === sourceStudyNote.sourceNoteId,
+        ),
+        sourceTitle: sourceStudyNote.source.title,
+      });
       const studyNote: AppStoredStudyNote = {
         acronyms: [],
         createdAt: timestamp,
@@ -446,8 +541,13 @@ export function createAppStudyNotesContext(
         id: cryptoProvider.randomUUID(),
         labelIds: [],
         metaphors: [],
-        prompt: sourceStudyNote.source.title,
-        source: { ...sourceStudyNote.source },
+        prompt,
+        source: {
+          body: sourceStudyNote.source.body,
+          id: sourceStudyNote.source.id,
+          title: sourceStudyNote.source.title,
+          updatedAt: sourceStudyNote.source.updatedAt,
+        },
         sourceNoteId: sourceStudyNote.sourceNoteId,
         updatedAt: timestamp,
         userId: validatedUserId,
@@ -455,7 +555,7 @@ export function createAppStudyNotesContext(
 
       writeSnapshot([studyNote, ...snapshot]);
 
-      return toPublicStudyNote(studyNote);
+      return toPublicStudyNote(studyNote, [studyNote, ...snapshot]);
     },
     deleteStudyNote(userId, studyNoteId, input) {
       const validatedUserId = validateUserId(userId);
@@ -524,10 +624,19 @@ export function createAppStudyNotesContext(
         userId: validatedUserId,
       });
       const metaphors = validateMetaphors(input.metaphors);
+      const shouldDetachSource = snapshot.some(
+        (studyNote) =>
+          studyNote.userId === validatedUserId &&
+          studyNote.sourceNoteId === existingStudyNote.sourceNoteId &&
+          studyNote.id !== existingStudyNote.id,
+      );
+      const sourceNoteId = shouldDetachSource
+        ? cryptoProvider.randomUUID()
+        : existingStudyNote.sourceNoteId;
       const updatedSource = {
-        ...existingStudyNote.source,
         body: validateOptionalText(input.sourceBody),
-        title: validateRequiredText(input.sourceTitle, "Source title"),
+        id: sourceNoteId,
+        title: validateOptionalText(input.sourceTitle),
         updatedAt: timestamp,
       };
       const updatedStudyNote: AppStoredStudyNote = {
@@ -538,24 +647,19 @@ export function createAppStudyNotesContext(
         metaphors,
         prompt: validateRequiredText(input.prompt, "Prompt"),
         source: updatedSource,
+        sourceNoteId,
         updatedAt: timestamp,
       };
 
       writeSnapshot([
         updatedStudyNote,
-        ...snapshot
-          .filter((studyNote) => studyNote.id !== studyNoteId)
-          .map((studyNote) =>
-            studyNote.sourceNoteId === existingStudyNote.sourceNoteId
-              ? {
-                  ...studyNote,
-                  source: updatedSource,
-                }
-              : studyNote,
-          ),
+        ...snapshot.filter((studyNote) => studyNote.id !== studyNoteId),
       ]);
 
-      return toPublicStudyNote(updatedStudyNote);
+      return toPublicStudyNote(updatedStudyNote, [
+        updatedStudyNote,
+        ...snapshot.filter((studyNote) => studyNote.id !== studyNoteId),
+      ]);
     },
   };
 }

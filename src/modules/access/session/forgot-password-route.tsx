@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
+import { PageHeader } from "../../../design-system/page-header";
 import { useAppTranslation } from "../../language";
 
 export const Route = createFileRoute("/_auth/forgot-password")({
@@ -11,14 +12,13 @@ function ForgotPasswordPage() {
 
   return (
     <article className="auth-card">
-      <header className="auth-card__header">
-        <h2 className="auth-card__heading">
-          {t("access.forgotPassword.heading")}
-        </h2>
-        <p className="auth-card__subtitle">
-          {t("access.forgotPassword.subtitle")}
-        </p>
-      </header>
+      <PageHeader
+        className="auth-card__header"
+        description={t("access.forgotPassword.subtitle")}
+        headingLevel={2}
+        headingProps={{ className: "auth-card__heading" }}
+        title={t("access.forgotPassword.heading")}
+      />
 
       <p className="auth-footer">
         <Link className="auth-link" to="/login">

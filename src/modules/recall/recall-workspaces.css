@@ -75,9 +75,9 @@
 .recall-surface {
   display: grid;
   align-content: start;
-  gap: 0.75rem;
+  gap: var(--lmd-content-gap);
   min-width: 0;
-  padding: clamp(1.55rem, 3vw, 1.9rem) clamp(1rem, 3vw, 1.9rem) 2rem;
+  padding: var(--lmd-page-padding-y) var(--lmd-page-padding-x);
   background: var(--color-shell-panel);
   color: var(--color-content-default);
   font-family: var(--font-body);
@@ -87,6 +87,621 @@
   display: grid;
   gap: 0.75rem;
   min-width: 0;
+}
+
+.recall-today-surface {
+  --recall-today-practice-emphasis: var(--color-danger-soft-foreground);
+  --recall-today-practice-surface: color-mix(
+    in srgb,
+    var(--color-danger-soft) 84%,
+    var(--color-danger-soft-border)
+  );
+  --recall-today-new-emphasis: color-mix(
+    in srgb,
+    var(--color-warning-hover) 82%,
+    black
+  );
+  --recall-today-new-surface: color-mix(
+    in srgb,
+    var(--color-warning-soft) 84%,
+    var(--color-warning-soft-border)
+  );
+  gap: 1.45rem;
+  min-height: 100%;
+  padding-block-start: 0;
+  background: var(--color-shell-panel);
+}
+
+.app-frame[data-workspace="recall-results"]:has(.recall-today-surface),
+.app-frame[data-workspace="recall-results"]:has(.recall-today-surface)
+  .app-frame__content,
+.app-frame[data-workspace="recall-results"]:has(.recall-today-surface)
+  .recall-workspace {
+  height: auto;
+  min-height: 100vh;
+  overflow: visible;
+}
+
+.recall-today-top {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.recall-today-chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 3.75rem;
+  margin-inline: calc(-1 * var(--workspace-page-inline, 1.9rem));
+  padding: 0.75rem var(--workspace-page-inline, 1.9rem);
+  border-bottom: 1px solid var(--color-content-border-soft);
+  background: var(--color-shell-panel);
+}
+
+.recall-today-chrome__meta,
+.recall-today-chrome__date {
+  display: flex;
+  align-items: center;
+}
+
+.recall-today-chrome__meta {
+  gap: 1rem;
+  color: var(--color-content-muted);
+}
+
+.recall-today-chrome__date {
+  gap: 0.5rem;
+  font-size: 0.92rem;
+  white-space: nowrap;
+}
+
+.recall-today-chrome__date svg,
+.recall-today-chrome__help svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.recall-today-chrome__help.notes-icon-button {
+  width: 2rem;
+  min-width: 2rem;
+  min-height: 2rem;
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-content-muted);
+}
+
+.recall-today-hero {
+  display: flex;
+  align-items: center;
+  padding: 0;
+}
+
+.recall-surface__header.recall-today-hero {
+  display: flex;
+}
+
+.recall-today-hero .page-header__copy {
+  gap: 0.55rem;
+}
+
+.recall-today-hero .page-header__title {
+  color: var(--color-content-strong);
+  font-size: clamp(2rem, 3vw, 2.45rem);
+  font-weight: 760;
+  letter-spacing: 0;
+}
+
+.recall-today-hero .page-header__description {
+  color: var(--color-content-muted);
+  font-size: 0.98rem;
+}
+
+.recall-today-hero__actions {
+  align-items: center;
+}
+
+.recall-today-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.recall-today-actions .notes-action {
+  min-height: 3.25rem;
+  border-radius: 0.45rem;
+  padding-inline: 1.45rem;
+  font-weight: 700;
+}
+
+.recall-today-actions__start.notes-action {
+  min-width: 16.25rem;
+  justify-content: center;
+  gap: 0.65rem;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-primary) 94%, white),
+    var(--color-primary-hover)
+  );
+  box-shadow: 0 14px 26px -22px
+    color-mix(in srgb, var(--color-primary) 80%, black);
+}
+
+.recall-today-actions__manual.notes-action {
+  min-width: 13.15rem;
+  justify-content: center;
+  gap: 0.65rem;
+  border-color: var(--color-content-border-soft);
+  background: var(--color-shell-panel);
+  color: var(--color-content-strong);
+  box-shadow: none;
+}
+
+.recall-today-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.55rem;
+  background: var(--color-shell-panel);
+  box-shadow: 0 18px 34px -32px
+    color-mix(in srgb, var(--color-content-strong) 38%, transparent);
+  list-style: none;
+}
+
+.recall-today-summary__item {
+  display: grid;
+  grid-template-columns: 3.45rem minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  padding: 0.35rem 1.05rem;
+  border-right: 1px solid var(--color-content-border-soft);
+}
+
+.recall-today-summary__item:last-child {
+  border-right: 0;
+}
+
+.recall-today-summary__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 3.1rem;
+  height: 3.1rem;
+  border-radius: 999px;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.recall-today-summary__item[data-tone="practice"] .recall-today-summary__icon {
+  color: var(--recall-today-practice-emphasis);
+  background: var(--recall-today-practice-surface);
+}
+
+.recall-today-summary__item[data-tone="new"] .recall-today-summary__icon {
+  color: var(--recall-today-new-emphasis);
+  background: var(--recall-today-new-surface);
+}
+
+.recall-today-summary__item[data-tone="due"] .recall-today-summary__icon {
+  color: var(--color-primary);
+  background: var(--color-success-soft);
+}
+
+.recall-today-summary__copy {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+  color: var(--color-content-strong);
+}
+
+.recall-today-summary__copy > span:first-child {
+  color: var(--color-content-strong);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.recall-today-summary__copy strong {
+  color: var(--color-content-strong);
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.recall-today-summary__copy > span:last-child {
+  color: var(--color-content-strong);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.recall-today-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 19.5rem);
+  gap: 2rem;
+  align-items: start;
+}
+
+.recall-today-queue {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.recall-today-section {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+  padding: 0.65rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.55rem;
+  background: var(--color-shell-panel);
+  box-shadow: 0 18px 30px -32px
+    color-mix(in srgb, var(--color-content-strong) 45%, transparent);
+}
+
+.recall-today-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.recall-today-section__title,
+.recall-today-section__helper {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.recall-today-section__title {
+  gap: 0.65rem;
+}
+
+.recall-today-section__title h2 {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: 1rem;
+  font-weight: 760;
+  line-height: 1.2;
+}
+
+.recall-today-section[data-tone="practice"] .recall-today-section__title h2,
+.recall-today-section[data-tone="practice"] .recall-today-section__helper {
+  color: var(--recall-today-practice-emphasis);
+}
+
+.recall-today-section[data-tone="new"] .recall-today-section__title h2,
+.recall-today-section[data-tone="new"] .recall-today-section__helper {
+  color: var(--recall-today-new-emphasis);
+}
+
+.recall-today-section[data-tone="due"] .recall-today-section__title h2,
+.recall-today-section[data-tone="due"] .recall-today-section__helper {
+  color: var(--color-primary);
+}
+
+.recall-today-section__badge,
+.recall-today-section__count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.55rem;
+  height: 1.55rem;
+  padding-inline: 0.4rem;
+  border-radius: 0.4rem;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 0.83rem;
+  font-weight: 800;
+}
+
+.recall-today-section[data-tone="practice"] .recall-today-section__badge,
+.recall-today-section[data-tone="practice"] .recall-today-section__count {
+  background: var(--recall-today-practice-surface);
+  color: var(--recall-today-practice-emphasis);
+}
+
+.recall-today-section[data-tone="new"] .recall-today-section__badge,
+.recall-today-section[data-tone="new"] .recall-today-section__count {
+  background: var(--recall-today-new-surface);
+  color: var(--recall-today-new-emphasis);
+}
+
+.recall-today-section__helper {
+  gap: 0.45rem;
+  color: var(--color-primary);
+  font-size: 0.82rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.recall-today-section__rows {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.55rem;
+  background: var(--color-shell-panel);
+  list-style: none;
+}
+
+.recall-today-row {
+  display: grid;
+  grid-template-columns:
+    2.6rem minmax(12rem, 1fr) minmax(6.25rem, 0.52fr)
+    minmax(6.25rem, 0.48fr) minmax(6.25rem, 0.48fr) 1.5rem;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+  min-height: var(--lmd-list-row-height-compact);
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid var(--color-content-border-soft);
+  background: var(--color-shell-panel);
+  color: var(--color-content-default);
+}
+
+.recall-today-row:last-child {
+  border-bottom: 0;
+}
+
+.recall-today-row__note-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  background: var(--color-shell-inset);
+  color: var(--color-content-strong);
+}
+
+.recall-today-row__main {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.recall-today-row__main h3,
+.recall-today-row__main p,
+.recall-today-row__score span,
+.recall-today-row__reason span,
+.recall-today-row__next span {
+  margin: 0;
+}
+
+.recall-today-row__main h3 {
+  overflow: hidden;
+  color: var(--color-content-strong);
+  font-size: 0.96rem;
+  font-weight: 760;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recall-today-row__main p {
+  overflow: hidden;
+  color: var(--color-content-muted);
+  font-size: 0.78rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recall-today-row__score,
+.recall-today-row__reason,
+.recall-today-row__next {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.recall-today-row__score > span,
+.recall-today-row__reason > span,
+.recall-today-row__next > span {
+  color: var(--color-content-muted);
+  font-size: 0.73rem;
+  line-height: 1.1;
+}
+
+.recall-today-row__score strong {
+  color: var(--color-content-strong);
+  font-size: 0.82rem;
+  line-height: 1.15;
+}
+
+.recall-today-row__reason strong {
+  justify-self: start;
+  padding: 0.28rem 0.65rem;
+  border-radius: 0.4rem;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.recall-today-row[data-tone="practice"] .recall-today-row__reason strong {
+  background: var(--recall-today-practice-surface);
+  color: var(--recall-today-practice-emphasis);
+}
+
+.recall-today-row[data-tone="new"] .recall-today-row__reason strong {
+  background: var(--recall-today-new-surface);
+  color: var(--recall-today-new-emphasis);
+}
+
+.recall-today-row[data-tone="due"] .recall-today-row__reason strong {
+  background: var(--color-success-soft);
+  color: var(--color-primary);
+}
+
+.recall-today-row__next strong {
+  color: var(--color-primary);
+  font-size: 0.82rem;
+  line-height: 1.15;
+}
+
+.recall-today-row[data-tone="practice"] .recall-today-row__next strong {
+  color: var(--recall-today-practice-emphasis);
+}
+
+.recall-today-row[data-tone="new"] .recall-today-row__next strong {
+  color: var(--recall-today-new-emphasis);
+}
+
+.recall-today-row > svg {
+  justify-self: end;
+  color: var(--color-content-muted);
+}
+
+.recall-today-rating-dots {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 0.5rem;
+}
+
+.recall-today-rating-dots span {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--color-content-border-soft);
+}
+
+.recall-today-rating-dots span[data-active="true"] {
+  background: var(--color-primary);
+}
+
+.recall-today-rating-dots[data-tone="practice"] span[data-active="true"] {
+  background: var(--recall-today-practice-emphasis);
+}
+
+.recall-today-rating-dots[data-tone="new"] span[data-active="true"] {
+  background: var(--recall-today-new-emphasis);
+}
+
+.recall-today-how {
+  display: grid;
+  gap: 1.5rem;
+  min-width: 0;
+  padding: 1.9rem 1.25rem 1.05rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.55rem;
+  background: var(--color-shell-panel);
+  box-shadow: 0 18px 34px -30px
+    color-mix(in srgb, var(--color-content-strong) 40%, transparent);
+}
+
+.recall-today-how__lock {
+  position: relative;
+  display: grid;
+  place-items: center;
+  justify-self: center;
+  width: 5.55rem;
+  height: 5.55rem;
+  border-radius: 999px;
+  background:
+    radial-gradient(
+      circle at 65% 22%,
+      color-mix(in srgb, white 64%, transparent),
+      transparent 22%
+    ),
+    var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.recall-today-how__lock::before,
+.recall-today-how__lock::after {
+  position: absolute;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--color-primary);
+  content: "";
+}
+
+.recall-today-how__lock::before {
+  top: 0.55rem;
+  right: 0.55rem;
+}
+
+.recall-today-how__lock::after {
+  top: 1.35rem;
+  right: -0.05rem;
+  width: 0.3rem;
+  height: 0.3rem;
+}
+
+.recall-today-how h2 {
+  margin: 0;
+  color: var(--color-content-strong);
+  font-size: 1.08rem;
+  font-weight: 760;
+  text-align: center;
+}
+
+.recall-today-how__steps {
+  display: grid;
+  gap: 1.55rem;
+}
+
+.recall-today-how__step {
+  display: grid;
+  grid-template-columns: 3.65rem minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.recall-today-how__step-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 3.65rem;
+  height: 3.65rem;
+  border-radius: 999px;
+  background: var(--color-shell-inset);
+  color: var(--color-content-strong);
+}
+
+.recall-today-how__step h3,
+.recall-today-how__step p,
+.recall-today-how__tip {
+  margin: 0;
+}
+
+.recall-today-how__step h3 {
+  color: var(--color-content-strong);
+  font-size: 0.94rem;
+  font-weight: 760;
+  line-height: 1.3;
+}
+
+.recall-today-how__step p {
+  margin-top: 0.35rem;
+  color: var(--color-content-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.recall-today-how__tip {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  gap: 0.95rem;
+  align-items: center;
+  padding: 1rem;
+  border-radius: 0.45rem;
+  background: linear-gradient(
+    135deg,
+    var(--color-primary-soft),
+    color-mix(in srgb, var(--color-primary-soft) 48%, var(--color-shell-panel))
+  );
+  color: var(--color-content-strong);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.recall-today-how__tip svg {
+  color: var(--color-primary);
 }
 
 .app-frame[data-workspace="recall-results"] .recall-workspace {
@@ -111,16 +726,6 @@
   padding-bottom: 0.15rem;
 }
 
-.recall-surface__header h3 {
-  margin: 0;
-  color: var(--color-content-strong);
-  font-family: var(--font-heading);
-  font-size: clamp(1.65rem, 2.2vw, 1.9rem);
-  font-weight: 600;
-  line-height: 1.15;
-  letter-spacing: 0;
-}
-
 .recall-breadcrumb {
   margin: 0;
   color: var(--color-content-muted);
@@ -132,6 +737,28 @@
 .recall-breadcrumb span,
 .recall-breadcrumb a {
   color: inherit;
+}
+
+.recall-today-chrome .recall-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  margin: 0;
+  color: var(--color-content-muted);
+  font-size: 0.92rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.recall-today-chrome .recall-breadcrumb a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.recall-today-chrome .recall-breadcrumb span:last-child {
+  color: var(--color-primary);
+  font-weight: 760;
 }
 
 .recall-dashboard,
@@ -177,7 +804,7 @@
   align-content: start;
   gap: var(--space-3);
   min-width: 0;
-  padding: 0.875rem;
+  padding: var(--lmd-card-padding-compact);
   border: 1px solid var(--color-content-border-soft);
   border-radius: 0.5rem;
   background: var(--color-shell-inset);
@@ -198,7 +825,7 @@
 
 .recall-results-detail-panel {
   min-height: 28rem;
-  padding: 0.875rem;
+  padding: var(--lmd-card-padding-compact);
 }
 
 .app-frame[data-workspace="recall-results"] .recall-results-master,
@@ -223,6 +850,67 @@
   margin: 0;
 }
 
+.recall-practice-repair-queue {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.recall-practice-repair-queue__section {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.recall-practice-repair-queue__header {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.recall-practice-repair-queue__header h4,
+.recall-practice-repair-queue__item h5 {
+  margin: 0;
+}
+
+.recall-practice-repair-queue__list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recall-practice-repair-queue__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.recall-practice-repair-queue__content {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.recall-practice-repair-queue__meta {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.recall-practice-repair-queue__eyebrow,
+.recall-practice-repair-queue__rating {
+  font-size: 0.9rem;
+}
+
+.recall-practice-repair-queue__eyebrow {
+  color: var(--color-content-strong);
+  font-weight: 600;
+}
+
+.recall-practice-repair-queue__rating {
+  color: var(--color-content-muted);
+}
+
 .recall-empty-surface,
 .recall-empty-state {
   place-content: center;
@@ -239,7 +927,7 @@
 
 .recall-field input,
 .recall-field select {
-  min-height: 2.65rem;
+  min-height: var(--lmd-input-height);
   width: 100%;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--color-content-border-soft);
@@ -304,7 +992,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.55rem;
-  min-height: 2.55rem;
+  min-height: var(--lmd-button-height-md);
   width: 100%;
   padding: 0.65rem 0.875rem;
   border: 1px solid transparent;
@@ -347,7 +1035,6 @@
   list-style: none;
 }
 
-.recall-result-row,
 .recall-note-row {
   display: grid;
   width: 100%;
@@ -420,22 +1107,6 @@
   max-height: none;
 }
 
-.recall-result-row {
-  grid-template-columns: 1.9rem minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 0.55rem;
-  min-height: 3.7rem;
-  padding: 0.5rem 0.55rem;
-  border: 1px solid var(--color-content-border-soft);
-  border-left-width: 0.1875rem;
-  border-radius: 0.45rem;
-  background: var(--color-shell-panel);
-  font-size: 0.78rem;
-}
-
-.recall-result-row:hover,
-.recall-result-row:focus-visible,
-.recall-result-row[data-selected="true"],
 .recall-note-row:hover,
 .recall-note-row:focus-within,
 .recall-note-row[data-selected="true"] {
@@ -443,58 +1114,27 @@
   background: var(--color-primary-soft);
 }
 
-.recall-result-row[data-selected="true"] {
-  border-left-color: var(--color-primary);
-  background: var(--color-primary-soft);
-}
-
-.recall-result-row__main {
-  display: grid;
-  gap: 0.05rem;
-  min-width: 0;
-  color: var(--color-content-muted);
-  line-height: 1.25;
-}
-
-.recall-result-row__main strong {
-  color: var(--color-content-strong);
-  font-size: 0.78rem;
-  font-weight: 700;
-  line-height: 1.15;
-}
-
-.recall-result-row__icon {
-  display: inline-grid;
-  place-items: center;
-  width: 1.9rem;
-  height: 1.9rem;
-  border: 1px solid var(--color-content-border-soft);
-  border-radius: 0.375rem;
-  background: var(--color-shell-inset);
-  color: var(--color-content-muted);
-}
-
-.recall-result-row__score {
+.recall-result-card__score {
   font-weight: 800;
 }
 
-.recall-result-row__score[data-score-tone="easy"] {
+.recall-result-card__score[data-score-tone="easy"] {
   color: var(--color-success);
 }
 
-.recall-result-row__score[data-score-tone="good"] {
+.recall-result-card__score[data-score-tone="good"] {
   color: var(--color-secondary);
 }
 
-.recall-result-row__score[data-score-tone="hard"] {
+.recall-result-card__score[data-score-tone="hard"] {
   color: var(--color-content-default);
 }
 
-.recall-result-row__score[data-score-tone="forgot"] {
+.recall-result-card__score[data-score-tone="forgot"] {
   color: var(--color-content-default);
 }
 
-.recall-result-row__score[data-score-tone="muted"] {
+.recall-result-card__score[data-score-tone="muted"] {
   color: var(--color-content-muted);
 }
 
@@ -542,7 +1182,6 @@
   color: var(--recall-chip-text);
 }
 
-.recall-result-row__meta,
 .recall-note-row__meta {
   color: var(--color-content-muted);
   font-size: 0.84rem;
@@ -591,6 +1230,10 @@
   border-color: var(--color-content-border-soft);
   border-radius: 0.55rem;
   background: var(--color-shell-panel);
+}
+
+.recall-select-note-row[data-disabled="true"] {
+  opacity: 0.72;
 }
 
 .recall-select-note-row__main {
@@ -1608,4 +2251,552 @@
   font-size: 0.85rem;
   line-height: 1.45;
   white-space: pre-wrap;
+}
+
+.recall-practice-repair-workspace {
+  gap: var(--space-5);
+}
+
+.recall-practice-repair-workspace-shell {
+  justify-content: start;
+  padding-block: var(--space-6);
+}
+
+.recall-practice-repair-workspace-shell .recall-practice-repair-workspace {
+  display: grid;
+  gap: var(--space-4);
+  width: min(100%, 44rem);
+}
+
+.recall-practice-repair-workspace__intro {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.recall-practice-repair-workspace__intro h1,
+.recall-practice-repair-workspace__intro p {
+  margin: 0;
+}
+
+.recall-practice-repair-workspace__intro h1 {
+  color: var(--color-content-strong);
+  font-size: clamp(2rem, 4vw, 2.45rem);
+  line-height: 1.05;
+}
+
+.recall-practice-repair-workspace__intro p {
+  max-width: 38rem;
+  color: var(--color-content-muted);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.recall-practice-repair-workspace__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.8fr);
+  align-items: start;
+  gap: var(--space-5);
+}
+
+.recall-practice-repair-workspace__main {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.recall-practice-repair-workspace__evidence {
+  gap: 0;
+  padding: var(--space-5);
+  border-radius: 0.75rem;
+  background: var(--color-shell-panel);
+  box-shadow: var(--shadow-chrome);
+}
+
+.recall-practice-repair-workspace-shell
+  .recall-practice-repair-workspace__evidence {
+  display: grid;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.6rem;
+  background: var(--color-shell-panel);
+  box-shadow: none;
+}
+
+.recall-practice-repair-workspace__evidence--compact {
+  display: grid;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.75rem;
+  background: var(--color-shell-panel);
+  box-shadow: none;
+}
+
+.recall-practice-repair-workspace__card-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-content-border-soft);
+}
+
+.recall-practice-repair-workspace-shell
+  .recall-practice-repair-workspace__card-header {
+  align-items: center;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+
+.recall-practice-repair-workspace__evidence--compact
+  .recall-practice-repair-workspace__card-header {
+  align-items: center;
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  gap: var(--space-5);
+  padding: var(--space-6) var(--space-6) var(--space-5);
+}
+
+.recall-practice-repair-workspace__note-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 999px;
+  background: var(--color-shell-inset);
+  color: var(--color-content-strong);
+}
+
+.recall-practice-repair-workspace__note-icon svg {
+  width: 1.85rem;
+  height: 1.85rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.recall-practice-repair-workspace__view-note svg,
+.recall-practice-repair-workspace__action-button svg,
+.recall-practice-repair-workspace__footer-note svg,
+.recall-practice-repair-workspace__callout-icon {
+  width: 1.2rem;
+  height: 1.2rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.recall-practice-repair-workspace__card-copy {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.recall-practice-repair-workspace__eyebrow {
+  margin: 0;
+  color: var(--color-content-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.recall-practice-repair-workspace__study-note-title {
+  margin: 0;
+  color: var(--color-content-strong);
+  font-size: clamp(1.45rem, 2.6vw, 1.9rem);
+  line-height: 1.2;
+}
+
+.recall-practice-repair-workspace-shell
+  .recall-practice-repair-workspace__study-note-title {
+  font-size: 1.1rem;
+}
+
+.recall-practice-repair-workspace__evidence--compact
+  .recall-practice-repair-workspace__study-note-title {
+  font-size: 1.45rem;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.recall-practice-repair-workspace__study-note-meta {
+  margin: 0;
+  color: var(--color-content-muted);
+  font-size: 0.94rem;
+}
+
+.recall-practice-repair-workspace__detail {
+  display: grid;
+  gap: var(--space-3);
+  padding-block: var(--space-4);
+  border-top: 1px solid var(--color-content-border-soft);
+}
+
+.recall-practice-repair-workspace-shell
+  .recall-practice-repair-workspace__detail {
+  padding: var(--space-4) var(--space-5);
+}
+
+.recall-practice-repair-workspace__evidence--compact
+  .recall-practice-repair-workspace__study-note-meta {
+  font-size: 1.05rem;
+  line-height: 1.45;
+}
+
+.recall-practice-repair-workspace__evidence--compact
+  .recall-practice-repair-workspace__detail {
+  padding: 1.85rem var(--space-6);
+}
+
+.recall-practice-repair-workspace__evidence--compact
+  .recall-practice-repair-workspace__card-header
+  + .recall-practice-repair-workspace__detail {
+  border-top: 0;
+}
+
+.recall-practice-repair-workspace__detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.recall-practice-repair-workspace__detail-label {
+  margin: 0;
+  color: var(--color-content-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.recall-practice-repair-workspace__detail-copy {
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+  color: var(--color-content-strong);
+  font-size: 1.02rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.recall-practice-repair-workspace-shell
+  .recall-practice-repair-workspace__detail-copy {
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.recall-practice-repair-workspace__evidence--compact
+  .recall-practice-repair-workspace__detail-label {
+  font-size: 1rem;
+}
+
+.recall-practice-repair-workspace__evidence--compact
+  .recall-practice-repair-workspace__detail-copy {
+  font-size: 1.06rem;
+  line-height: 1.65;
+}
+
+.recall-practice-repair-workspace__evidence--compact
+  .recall-practice-repair-workspace__card-header
+  + .recall-practice-repair-workspace__detail
+  .recall-practice-repair-workspace__detail-copy {
+  max-width: 44rem;
+  font-size: 1.28rem;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
+.recall-practice-repair-workspace__evidence--compact
+  .recall-practice-repair-workspace__detail-copy[data-empty-answer="true"] {
+  font-style: italic;
+}
+
+.recall-practice-repair-workspace__rating {
+  white-space: nowrap;
+}
+
+.recall-practice-repair-workspace__callout {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  padding: var(--space-4);
+  border: 1px solid var(--color-danger-soft-border);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--color-danger-soft) 78%, white);
+}
+
+.recall-practice-repair-workspace-shell
+  .recall-practice-repair-workspace__callout {
+  margin: var(--space-1) var(--space-5) 0;
+  border: 0;
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, var(--color-danger-soft) 58%, white);
+}
+
+.recall-practice-repair-workspace__evidence--compact
+  .recall-practice-repair-workspace__callout {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  margin: var(--space-4) var(--space-6) 0;
+  padding: var(--space-4) var(--space-5);
+  border: 0;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--color-danger-soft) 68%, white);
+}
+
+.recall-practice-repair-workspace__callout strong,
+.recall-practice-repair-workspace__callout p {
+  margin: 0;
+}
+
+.recall-practice-repair-workspace__callout strong {
+  color: color-mix(in srgb, var(--color-danger-soft-foreground) 84%, black);
+}
+
+.recall-practice-repair-workspace-shell
+  .recall-practice-repair-workspace__callout
+  strong {
+  color: color-mix(in srgb, var(--color-danger-soft-foreground) 76%, white);
+}
+
+.recall-practice-repair-workspace__evidence--compact
+  .recall-practice-repair-workspace__callout
+  strong {
+  color: color-mix(in srgb, var(--color-danger-soft-foreground) 72%, white);
+}
+
+.recall-practice-repair-workspace__callout p {
+  color: var(--color-content-muted);
+}
+
+.recall-practice-repair-workspace__callout-copy {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.recall-practice-repair-workspace__callout-icon {
+  margin-top: 0.05rem;
+  color: color-mix(in srgb, var(--color-danger-soft-foreground) 52%, white);
+}
+
+.recall-practice-repair-workspace__action-button {
+  min-height: 3.5rem;
+  font-size: 1rem;
+}
+
+.recall-practice-repair-workspace__evidence--compact
+  .recall-practice-repair-workspace__view-note.notes-action {
+  min-height: 3.75rem;
+  padding-inline: var(--space-5);
+  border-radius: 0.6rem;
+  font-size: 1.04rem;
+}
+
+.recall-practice-repair-workspace__evidence--compact
+  .recall-practice-repair-workspace__quick-actions
+  .notes-action {
+  justify-self: stretch;
+  width: 100%;
+  min-height: 4.6rem;
+  border-radius: 0.6rem;
+  font-size: 1.2rem;
+  font-weight: 750;
+}
+
+.recall-practice-repair-workspace__evidence--compact
+  .recall-practice-repair-workspace__quick-actions
+  .notes-action-primary {
+  border-color: var(--color-success);
+  background: var(--color-success);
+  color: var(--color-success-foreground);
+  box-shadow: 0 14px 28px -24px
+    color-mix(in srgb, var(--color-success) 64%, transparent);
+}
+
+.recall-practice-repair-workspace__evidence--compact
+  .recall-practice-repair-workspace__quick-actions
+  .notes-action-primary:hover:not(:disabled) {
+  border-color: var(--color-success-hover);
+  background: var(--color-success-hover);
+}
+
+.recall-practice-repair-workspace__evidence--compact
+  .recall-practice-repair-workspace__quick-actions
+  .recall-practice-repair-workspace__action-button
+  svg {
+  width: 1.55rem;
+  height: 1.55rem;
+}
+
+.recall-practice-repair-workspace__footer-note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  min-height: 3.75rem;
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.65rem;
+  background: var(--color-shell-panel);
+  color: var(--color-content-muted);
+  font-size: 1rem;
+}
+
+.recall-practice-repair-workspace__footer-note svg {
+  flex: 0 0 auto;
+}
+
+.recall-practice-repair-workspace__sidebar {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.recall-practice-repair-workspace__panel {
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-radius: 0.7rem;
+  background: var(--color-shell-panel);
+  box-shadow: 0 18px 32px -30px
+    color-mix(in srgb, var(--color-content-strong) 24%, transparent);
+}
+
+.recall-practice-repair-workspace__panel-copy {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.recall-practice-repair-workspace__panel-copy h2,
+.recall-practice-repair-workspace__panel-copy p,
+.recall-practice-repair-workspace__support {
+  margin: 0;
+}
+
+.recall-practice-repair-workspace__support {
+  color: var(--color-content-muted);
+}
+
+.recall-practice-repair-workspace__error {
+  margin: 0;
+  color: var(--color-danger-soft-foreground);
+}
+
+.recall-practice-repair-workspace__actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.recall-practice-repair-workspace-shell
+  .recall-practice-repair-workspace__actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+
+.recall-practice-repair-workspace__quick-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+
+.recall-practice-repair-workspace__evidence--compact
+  .recall-practice-repair-workspace__quick-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-6) var(--space-6);
+}
+
+.recall-practice-repair-workspace__repair-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.recall-practice-repair-workspace__repair-card {
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.7rem;
+  background: var(--color-shell-panel);
+  box-shadow: 0 18px 32px -30px
+    color-mix(in srgb, var(--color-content-strong) 24%, transparent);
+}
+
+.recall-practice-repair-workspace__repair-card[data-selected="true"] {
+  border-color: var(--color-primary-soft-border);
+  background: color-mix(
+    in srgb,
+    var(--color-primary-soft) 48%,
+    var(--color-shell-panel)
+  );
+  box-shadow: 0 20px 34px -28px
+    color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+
+.recall-practice-repair-workspace__repair-button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-4);
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  text-align: left;
+}
+
+.recall-practice-repair-workspace__repair-button {
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.recall-practice-repair-workspace__repair-button:hover,
+.recall-practice-repair-workspace__repair-button:focus-visible {
+  background: color-mix(in srgb, var(--color-primary-soft) 54%, white);
+  outline: none;
+}
+
+.recall-practice-repair-workspace__repair-copy {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.recall-practice-repair-workspace__repair-title {
+  color: var(--color-content-strong);
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.recall-practice-repair-workspace__repair-description {
+  color: var(--color-content-muted);
+  line-height: 1.55;
+}
+
+.recall-practice-repair-workspace__repair-chevron {
+  display: inline-grid;
+  align-self: center;
+  color: var(--color-content-muted);
+}
+
+.recall-practice-repair-workspace__repair-tag {
+  justify-self: start;
+  display: inline-flex;
+  min-height: 1.45rem;
+  align-items: center;
+  padding-inline: var(--space-2);
+  border: 1px solid var(--color-primary-soft-border);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-primary-soft) 72%, white);
+  color: color-mix(in srgb, var(--color-primary) 84%, black);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
 }

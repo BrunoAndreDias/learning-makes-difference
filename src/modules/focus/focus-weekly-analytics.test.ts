@@ -269,6 +269,44 @@ describe("deriveFocusWeeklyAnalytics", () => {
       value: "2",
     });
   });
+
+  it("keeps focus minutes separate from recall evidence when a FocusRecord only references recall work", () => {
+    const recallNote = createNote(
+      "recall-focus-target",
+      "2026-05-05T09:00:00.000Z",
+    );
+
+    const analytics = deriveFocusWeeklyAnalytics({
+      focusRecords: [
+        {
+          ...createFocusRecord({
+            endedAt: "2026-05-05T10:25:00.000Z",
+            focusIntervalMinutes: 25,
+            id: "focus-current-recall-reference",
+            noteIds: [],
+          }),
+          focusTargets: [createRecallSessionTarget([recallNote])],
+          targets: [createRecallSessionTarget([recallNote])],
+        },
+      ],
+      notes: [recallNote],
+      now: new Date("2026-05-06T12:00:00.000Z"),
+      sessionResults: [],
+    });
+
+    expect(analytics.metrics).toContainEqual({
+      comparisonLabel: "No change vs last week",
+      id: "recall-answered",
+      label: "Recall answered",
+      value: "0",
+    });
+    expect(analytics.metrics).toContainEqual({
+      comparisonLabel: "+25 vs last week",
+      id: "focus-minutes",
+      label: "Focus minutes",
+      value: "25",
+    });
+  });
 });
 
 function createNote(id: string, createdAt: string): AppNote {

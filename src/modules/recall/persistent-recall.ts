@@ -15,6 +15,16 @@ import {
   type SessionResult,
   summarizeAttempts,
 } from "./recall";
+import {
+  clonePracticeRepairEntry as clonePracticeRepairEntryValue,
+  listActivePracticeRepairEntriesForStudyNote as listActivePracticeRepairEntriesForStudyNoteValue,
+  listPracticeRepairEntriesForQuestion as listPracticeRepairEntriesForQuestionValue,
+  type PracticeRepairEntry,
+  type PracticeRepairEntryConfirmation,
+  type PracticeRepairLinkedCompletionInput,
+  type PracticeRepairQuestionReference,
+} from "./recall-practice-repair";
+import type { RecallSchedule } from "./recall-schedule";
 
 type PersistentRecallListener = () => void;
 
@@ -23,6 +33,10 @@ type StoredRecallSession = RecallSession & {
 };
 
 type StoredSessionResult = SessionResult & {
+  userId: string;
+};
+
+type StoredRecallSchedule = RecallSchedule & {
   userId: string;
 };
 
@@ -44,9 +58,36 @@ type UpdateAttemptTextInput = UpdateRecallSessionInput & {
   text: string;
 };
 
+type ConfirmPracticeRepairEntryInput = PracticeRepairEntryConfirmation;
+
+type PracticeRepairEntryMutationInput = {
+  reference: PracticeRepairQuestionReference;
+};
+
+type UpdatePracticeRepairEntryCorrectionInput =
+  PracticeRepairEntryMutationInput & {
+    correction: string;
+  };
+
+type CompleteLinkedPracticeRepairEntryInput =
+  PracticeRepairLinkedCompletionInput;
+
 export type AppPersistentRecallService = {
+  completePracticeRepairEntry: (
+    input: PracticeRepairEntryMutationInput,
+  ) => Promise<SessionResult>;
+  completeLinkedPracticeRepairEntry: (
+    input: CompleteLinkedPracticeRepairEntryInput,
+  ) => Promise<SessionResult>;
+  confirmPracticeRepairEntry: (
+    input: ConfirmPracticeRepairEntryInput,
+  ) => Promise<SessionResult>;
+  dismissPracticeRepairEntry: (
+    input: PracticeRepairEntryMutationInput,
+  ) => Promise<SessionResult>;
   endRecallSession: (input: UpdateRecallSessionInput) => Promise<RecallSession>;
   getActiveSession: () => Promise<RecallSession | null>;
+  listRecallSchedules: () => Promise<RecallSchedule[]>;
   listSessionResults: () => Promise<SessionResult[]>;
   rateFlashCardAnswer: (
     input: AnswerQuestionInput,
@@ -60,17 +101,37 @@ export type AppPersistentRecallService = {
   startFlashCardSession: (
     input: StartRecallSessionInput,
   ) => Promise<RecallSession>;
+  updatePracticeRepairEntryCorrection: (
+    input: UpdatePracticeRepairEntryCorrectionInput,
+  ) => Promise<SessionResult>;
   updateFlashCardAttemptText: (
     input: UpdateAttemptTextInput,
   ) => Promise<RecallSession>;
 };
 
 export type AppPersistentRecallContext = {
+  completePracticeRepairEntry: (
+    userId: string | null,
+    input: PracticeRepairEntryMutationInput,
+  ) => Promise<SessionResult>;
+  completeLinkedPracticeRepairEntry: (
+    userId: string | null,
+    input: CompleteLinkedPracticeRepairEntryInput,
+  ) => Promise<SessionResult>;
+  confirmPracticeRepairEntry: (
+    userId: string | null,
+    input: ConfirmPracticeRepairEntryInput,
+  ) => Promise<SessionResult>;
+  dismissPracticeRepairEntry: (
+    userId: string | null,
+    input: PracticeRepairEntryMutationInput,
+  ) => Promise<SessionResult>;
   endFlashCardSession: (
     userId: string | null,
     input: UpdateRecallSessionInput,
   ) => Promise<RecallSession>;
   getSessionResultsSnapshot: () => readonly SessionResult[];
+  getRecallSchedulesSnapshot: () => readonly RecallSchedule[];
   getSnapshot: () => AppRecallSnapshot;
   rateFlashCardAnswer: (
     userId: string | null,
@@ -94,6 +155,10 @@ export type AppPersistentRecallContext = {
     input: StartRecallSessionInput,
   ) => Promise<RecallSession>;
   subscribe: (listener: PersistentRecallListener) => () => void;
+  updatePracticeRepairEntryCorrection: (
+    userId: string | null,
+    input: UpdatePracticeRepairEntryCorrectionInput,
+  ) => Promise<SessionResult>;
   updateFlashCardAttemptText: (
     userId: string | null,
     input: UpdateAttemptTextInput,
@@ -132,10 +197,21 @@ function cloneNoteSnapshot(note: RecallNoteSnapshot): RecallNoteSnapshot {
   };
 }
 
+function clonePracticeRepairEntry(
+  entry: PracticeRepairEntry | undefined,
+): PracticeRepairEntry | undefined {
+  if (entry === undefined) {
+    return undefined;
+  }
+
+  return clonePracticeRepairEntryValue(entry);
+}
+
 function cloneQuestion(question: RecallQuestion): RecallQuestion {
   return {
     ...question,
     noteSnapshot: cloneNoteSnapshot(question.noteSnapshot),
+    practiceRepairEntry: clonePracticeRepairEntry(question.practiceRepairEntry),
   };
 }
 
@@ -187,6 +263,24 @@ function stripUserId(sessionResults: readonly StoredSessionResult[]) {
   );
 }
 
+function toStoredRecallSchedules(
+  recallSchedules: readonly RecallSchedule[],
+  userId: string,
+): StoredRecallSchedule[] {
+  return recallSchedules.map((schedule) => ({
+    ...schedule,
+    userId,
+  }));
+}
+
+function stripRecallScheduleUserIds(
+  recallSchedules: readonly StoredRecallSchedule[],
+) {
+  return recallSchedules.map(({ userId: _userId, ...recallSchedule }) => ({
+    ...recallSchedule,
+  }));
+}
+
 function listFilteredSessionResults(input: {
   labelId?: string;
   sessionResults: readonly StoredSessionResult[];
@@ -222,7 +316,10 @@ export function createPersistentRecallContext(
   const listeners = new Set<PersistentRecallListener>();
   let snapshot: StoredRecallSession | null = null;
   let sessionResults: StoredSessionResult[] = [];
+  let recallSchedules: StoredRecallSchedule[] = [];
   let sessionResultsSnapshot: SessionResult[] = [];
+  let recallSchedulesSnapshot: RecallSchedule[] = [];
+  let mutationRevision = 0;
 
   function notifyListeners() {
     for (const listener of listeners) {
@@ -230,19 +327,37 @@ export function createPersistentRecallContext(
     }
   }
 
-  function writeState(input: {
-    activeSession: StoredRecallSession | null;
-    sessionResults: StoredSessionResult[];
-  }) {
+  function writeState(
+    input: {
+      activeSession: StoredRecallSession | null;
+      recallSchedules?: StoredRecallSchedule[];
+      sessionResults: StoredSessionResult[];
+    },
+    options: { countAsMutation?: boolean } = {},
+  ) {
+    if (options.countAsMutation !== false) {
+      mutationRevision += 1;
+    }
+
     snapshot = input.activeSession;
     sessionResults = input.sessionResults;
+    recallSchedules = input.recallSchedules ?? recallSchedules;
     sessionResultsSnapshot = stripUserId(input.sessionResults);
+    recallSchedulesSnapshot = stripRecallScheduleUserIds(recallSchedules);
     notifyListeners();
 
     return {
       activeSession: snapshot,
+      recallSchedules: recallSchedulesSnapshot,
       sessionResults: sessionResultsSnapshot,
     };
+  }
+
+  async function listServiceRecallSchedules(userId: string) {
+    return toStoredRecallSchedules(
+      await requireService().listRecallSchedules(),
+      userId,
+    );
   }
 
   function requireService(): AppPersistentRecallService {
@@ -251,6 +366,26 @@ export function createPersistentRecallContext(
     }
 
     return service;
+  }
+
+  function writeUpdatedSessionResult(
+    updatedResult: SessionResult,
+    validatedUserId: string,
+  ) {
+    writeState({
+      activeSession: snapshot,
+      sessionResults: toStoredSessionResults(
+        [
+          updatedResult,
+          ...sessionResultsSnapshot.filter(
+            (result) => result.id !== updatedResult.id,
+          ),
+        ],
+        validatedUserId,
+      ),
+    });
+
+    return cloneSessionResult(updatedResult);
   }
 
   async function emitStudyActivity(
@@ -280,6 +415,26 @@ export function createPersistentRecallContext(
         "Readonly recall context cannot answer questions. Use persistentRecall instead.",
       );
     },
+    completePracticeRepairEntry: () => {
+      throw new Error(
+        "Readonly recall context cannot complete Practice Repair. Use persistentRecall instead.",
+      );
+    },
+    completeLinkedPracticeRepairEntry: () => {
+      throw new Error(
+        "Readonly recall context cannot complete Practice Repair. Use persistentRecall instead.",
+      );
+    },
+    confirmPracticeRepairEntry: () => {
+      throw new Error(
+        "Readonly recall context cannot confirm Practice Repair. Use persistentRecall instead.",
+      );
+    },
+    dismissPracticeRepairEntry: () => {
+      throw new Error(
+        "Readonly recall context cannot dismiss Practice Repair. Use persistentRecall instead.",
+      );
+    },
     endFlashCardSession: () => {
       throw new Error(
         "Readonly recall context cannot end sessions. Use persistentRecall instead.",
@@ -302,7 +457,20 @@ export function createPersistentRecallContext(
       return cloneSessionResult(result);
     },
     getSessionResultsSnapshot: () => sessionResultsSnapshot,
+    getRecallSchedulesSnapshot: () => recallSchedulesSnapshot,
     getSnapshot: () => snapshot,
+    listActivePracticeRepairEntriesForStudyNote: ({ studyNoteId, userId }) => {
+      return listActivePracticeRepairEntriesForStudyNoteValue({
+        results: listFilteredSessionResults({ sessionResults, userId }),
+        studyNoteId,
+      });
+    },
+    listPracticeRepairEntriesForQuestion: ({ reference, userId }) => {
+      return listPracticeRepairEntriesForQuestionValue({
+        reference,
+        results: listFilteredSessionResults({ sessionResults, userId }),
+      });
+    },
     listAttemptsByNote: ({ labelId, userId }) => {
       const currentNoteTitlesById = new Map(
         options.notes === undefined
@@ -450,6 +618,11 @@ export function createPersistentRecallContext(
         "Readonly recall context cannot start sessions. Use persistentRecall instead.",
       );
     },
+    updatePracticeRepairEntryCorrection: () => {
+      throw new Error(
+        "Readonly recall context cannot edit Practice Repair. Use persistentRecall instead.",
+      );
+    },
     subscribe(listener) {
       listeners.add(listener);
 
@@ -470,6 +643,34 @@ export function createPersistentRecallContext(
   };
 
   return {
+    async completePracticeRepairEntry(userId, input) {
+      const validatedUserId = requireUserId(userId);
+      const updatedResult =
+        await requireService().completePracticeRepairEntry(input);
+
+      return writeUpdatedSessionResult(updatedResult, validatedUserId);
+    },
+    async completeLinkedPracticeRepairEntry(userId, input) {
+      const validatedUserId = requireUserId(userId);
+      const updatedResult =
+        await requireService().completeLinkedPracticeRepairEntry(input);
+
+      return writeUpdatedSessionResult(updatedResult, validatedUserId);
+    },
+    async confirmPracticeRepairEntry(userId, input) {
+      const validatedUserId = requireUserId(userId);
+      const updatedResult =
+        await requireService().confirmPracticeRepairEntry(input);
+
+      return writeUpdatedSessionResult(updatedResult, validatedUserId);
+    },
+    async dismissPracticeRepairEntry(userId, input) {
+      const validatedUserId = requireUserId(userId);
+      const updatedResult =
+        await requireService().dismissPracticeRepairEntry(input);
+
+      return writeUpdatedSessionResult(updatedResult, validatedUserId);
+    },
     async endFlashCardSession(userId, input) {
       const validatedUserId = requireUserId(userId);
       const [endedSession, nextResults] = await Promise.all([
@@ -487,16 +688,22 @@ export function createPersistentRecallContext(
     getSessionResultsSnapshot() {
       return sessionResultsSnapshot;
     },
+    getRecallSchedulesSnapshot() {
+      return recallSchedulesSnapshot;
+    },
     getSnapshot() {
       return snapshot;
     },
     async rateFlashCardAnswer(userId, input) {
       const validatedUserId = requireUserId(userId);
       const nextSession = await requireService().rateFlashCardAnswer(input);
+      const nextRecallSchedules =
+        await listServiceRecallSchedules(validatedUserId);
 
       if (nextSession !== null) {
         writeState({
           activeSession: toStoredRecallSession(nextSession, validatedUserId),
+          recallSchedules: nextRecallSchedules,
           sessionResults,
         });
         await emitStudyActivity(validatedUserId, nextSession);
@@ -508,6 +715,7 @@ export function createPersistentRecallContext(
 
       writeState({
         activeSession: null,
+        recallSchedules: nextRecallSchedules,
         sessionResults: toStoredSessionResults(nextResults, validatedUserId),
       });
       await emitStudyActivity(
@@ -521,19 +729,37 @@ export function createPersistentRecallContext(
       if (userId === null) {
         return writeState({
           activeSession: null,
+          recallSchedules: [],
           sessionResults: [],
         });
       }
 
-      const [activeSession, nextResults] = await Promise.all([
-        requireService().getActiveSession(),
-        requireService().listSessionResults(),
-      ]);
+      const refreshStartedAtRevision = mutationRevision;
+      const [activeSession, nextResults, nextRecallSchedules] =
+        await Promise.all([
+          requireService().getActiveSession(),
+          requireService().listSessionResults(),
+          listServiceRecallSchedules(userId),
+        ]);
 
-      return writeState({
-        activeSession: toStoredRecallSession(activeSession, userId),
-        sessionResults: toStoredSessionResults(nextResults, userId),
-      });
+      if (mutationRevision !== refreshStartedAtRevision) {
+        return {
+          activeSession: snapshot,
+          recallSchedules: recallSchedulesSnapshot,
+          sessionResults: sessionResultsSnapshot,
+        };
+      }
+
+      return writeState(
+        {
+          activeSession: toStoredRecallSession(activeSession, userId),
+          recallSchedules: nextRecallSchedules,
+          sessionResults: toStoredSessionResults(nextResults, userId),
+        },
+        {
+          countAsMutation: false,
+        },
+      );
     },
     async revealFlashCardAnswer(userId, input) {
       const validatedUserId = requireUserId(userId);
@@ -594,6 +820,13 @@ export function createPersistentRecallContext(
       return () => {
         listeners.delete(listener);
       };
+    },
+    async updatePracticeRepairEntryCorrection(userId, input) {
+      const validatedUserId = requireUserId(userId);
+      const updatedResult =
+        await requireService().updatePracticeRepairEntryCorrection(input);
+
+      return writeUpdatedSessionResult(updatedResult, validatedUserId);
     },
     async updateFlashCardAttemptText(userId, input) {
       const validatedUserId = requireUserId(userId);

@@ -368,6 +368,7 @@ describe("app session context", () => {
 
     await session.updatePreferences({
       displayName: "Jordan Rivera",
+      showStudyNoteTemplates: false,
       userLanguage: "pt-PT",
       studyObjective: "self_study",
       studyIntensity: "regular",
@@ -376,6 +377,7 @@ describe("app session context", () => {
 
     expect(session.getSnapshot().user).toMatchObject({
       displayName: "Jordan Rivera",
+      showStudyNoteTemplates: false,
       userLanguage: "pt-PT",
       studyObjective: "self_study",
       studyIntensity: "regular",
@@ -384,6 +386,7 @@ describe("app session context", () => {
 
     await session.updatePreferences({
       displayName: "Jordan Rivera",
+      showStudyNoteTemplates: false,
       userLanguage: "pt-PT",
       studyObjective: null,
       studyIntensity: null,
@@ -396,6 +399,7 @@ describe("app session context", () => {
     await expect(
       session.updatePreferences({
         displayName: "Jordan Rivera",
+        showStudyNoteTemplates: false,
         userLanguage: "pt-PT",
         studyObjective: "unsupported_objective" as never,
         studyIntensity: null,
@@ -409,6 +413,7 @@ describe("app session context", () => {
     await expect(
       session.updatePreferences({
         displayName: "Jordan Rivera",
+        showStudyNoteTemplates: false,
         userLanguage: "pt-PT",
         studyObjective: null,
         studyIntensity: "extreme" as never,
@@ -422,6 +427,7 @@ describe("app session context", () => {
     await expect(
       session.updatePreferences({
         displayName: "Jordan Rivera",
+        showStudyNoteTemplates: false,
         userLanguage: "pt-PT",
         studyObjective: null,
         studyIntensity: null,

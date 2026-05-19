@@ -1,5 +1,7 @@
 import { useRouteContext } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useSyncExternalStore } from "react";
+
+import { Button } from "../../../design-system/button";
 import { useResolvedProtectedSession } from "../../access/session/use-resolved-protected-session";
 import type { AppNotesContext, AppPersistentNotesContext } from "..";
 import {
@@ -139,14 +141,15 @@ export function NotesWorkspaceSidebar({
   return (
     <section className="app-sidebar__workspace" aria-label="Notes sidebar">
       <div className="app-sidebar__workspace-header">
-        <button
-          className="notes-action notes-action-primary app-sidebar__primary-action"
+        <Button
+          className="app-sidebar__primary-action"
           disabled={isDraftingNewNote || activeNoteId === null}
           onClick={() => handleSidebarAction(startNewNoteDraft)}
           type="button"
+          variant="primary"
         >
           New note
-        </button>
+        </Button>
       </div>
 
       <nav aria-label="Notes list" className="app-sidebar__workspace-nav">

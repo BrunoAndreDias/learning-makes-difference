@@ -88,7 +88,21 @@ const getHostGitStatus = () =>
     encoding: "utf8",
   }).replace(/\n$/, "");
 
+const restoreGeneratedRouteTreeChurn = () => {
+  const status = getHostGitStatus();
+
+  if (!status.split("\n").includes(" M src/routeTree.gen.ts")) {
+    return;
+  }
+
+  execFileSync("git", ["restore", "--worktree", "src/routeTree.gen.ts"], {
+    encoding: "utf8",
+  });
+};
+
 const assertCleanHostWorktree = (phase: string) => {
+  restoreGeneratedRouteTreeChurn();
+
   const status = getHostGitStatus();
 
   if (status.length === 0) {
@@ -156,7 +170,7 @@ const runIssuePipeline = async (issue: PlanIssue) => {
       name: "implementer",
       maxIterations: 100,
       idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
-      agent: sandcastle.codex("gpt-5.5", { effort: "medium" }),
+      agent: sandcastle.codex("gpt-5.4", { effort: "xhigh" }),
       promptFile: "./.sandcastle/implement-prompt.md",
       promptArgs: {
         TASK_ID: issue.id,
@@ -217,7 +231,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     maxIterations: 1,
     idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
     // Opus for planning: dependency analysis benefits from deeper reasoning.
-    agent: sandcastle.codex("gpt-5.5"),
+    agent: sandcastle.codex("gpt-5.5", { effort: "xhigh" }),
     promptFile: "./.sandcastle/plan-prompt.md",
   });
 
@@ -348,7 +362,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     name: "merger",
     maxIterations: 1,
     idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
-    agent: sandcastle.codex("gpt-5.4", { effort: "medium" }),
+    agent: sandcastle.codex("gpt-5.4", { effort: "xhigh" }),
     promptFile: "./.sandcastle/merge-prompt.md",
     promptArgs: {
       // A markdown list of branch names, one per line.
