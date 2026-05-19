@@ -19,6 +19,11 @@ export {
   createPersistentStudyNotesContext,
   createReadonlyStudyNotesContext,
 } from "./persistent-study-notes";
+export {
+  filterStudyNotesBySelectedLabel,
+  isUnlabeledStudyNotesFilterValue,
+  unlabeledStudyNotesFilterValue,
+} from "./study-note-label-filter";
 export type { StudyNoteReadiness } from "./study-note-readiness";
 export { getStudyNoteReadiness } from "./study-note-readiness";
 export type {

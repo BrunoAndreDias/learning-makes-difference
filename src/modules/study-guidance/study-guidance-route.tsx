@@ -13,6 +13,7 @@ import {
   deriveStudyGuidance,
   getStudyGuidanceTopicStats,
   type StudyGuidancePracticeRepair,
+  type StudyGuidanceTopic,
 } from "./study-guidance";
 
 export const Route = createFileRoute("/_protected/insights")({
@@ -173,13 +174,6 @@ function StudyGuidanceWorkspace() {
                         {formatStudyGuidanceCountLabel(topic.studyNoteCount)}
                       </p>
                     </div>
-                    <ButtonLink
-                      size="compact"
-                      to="/study-notes"
-                      variant="secondary"
-                    >
-                      View notes
-                    </ButtonLink>
                   </div>
                   <dl className="study-guidance-topic__stats">
                     {getStudyGuidanceTopicStats(topic).map((stat) => (
@@ -194,6 +188,7 @@ function StudyGuidanceWorkspace() {
                       {topic.recommendation.summary}
                     </p>
                   )}
+                  <StudyGuidanceTopicActions topic={topic} />
                 </article>
               ))}
             </div>
@@ -276,6 +271,61 @@ function StudyGuidancePracticeRepairPanel({
       <ButtonLink to="/recall/repair">Open Practice Repair</ButtonLink>
     </section>
   );
+}
+
+function createStudyGuidanceTopicNotesLabel(title: string) {
+  return title.endsWith("Study Notes")
+    ? `View ${title}`
+    : `View ${title} Study Notes`;
+}
+
+function StudyGuidanceTopicActions({
+  topic,
+}: Readonly<{
+  topic: StudyGuidanceTopic;
+}>) {
+  return (
+    <div className="study-guidance-topic__actions">
+      <StudyGuidanceTopicPrimaryAction topic={topic} />
+      <ButtonLink
+        aria-label={createStudyGuidanceTopicNotesLabel(topic.title)}
+        size="compact"
+        search={{ labelId: topic.id }}
+        to="/study-notes"
+        variant="secondary"
+      >
+        View notes
+      </ButtonLink>
+    </div>
+  );
+}
+
+function StudyGuidanceTopicPrimaryAction({
+  topic,
+}: Readonly<{
+  topic: StudyGuidanceTopic;
+}>) {
+  switch (topic.action.kind) {
+    case "practice-repair":
+      return <ButtonLink to="/recall/repair">{topic.action.label}</ButtonLink>;
+    case "recall-selection":
+      return (
+        <ButtonLink
+          search={{ studyNoteIds: topic.action.studyNoteIds.join(",") }}
+          to="/recall/select"
+        >
+          {topic.action.label}
+        </ButtonLink>
+      );
+    case "recall-today":
+      return <ButtonLink to="/recall">{topic.action.label}</ButtonLink>;
+    case "study-notes":
+      return (
+        <ButtonLink search={{ labelId: topic.id }} to="/study-notes">
+          {topic.action.label}
+        </ButtonLink>
+      );
+  }
 }
 
 function formatStudyGuidanceCountLabel(

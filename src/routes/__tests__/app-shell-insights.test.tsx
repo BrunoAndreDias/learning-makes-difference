@@ -152,6 +152,35 @@ function findStudyNoteQuestionResult(input: {
   return null;
 }
 
+function getStudyGuidanceTopicCard(name: string) {
+  const heading = screen.getByRole("heading", { name });
+  const card = heading.closest("article");
+
+  if (!(card instanceof HTMLElement)) {
+    throw new Error(`Expected ${name} to render inside a topic card.`);
+  }
+
+  return card;
+}
+
+function getStudyGuidancePracticeRepairPanel() {
+  const heading = screen.getByRole("heading", { name: "Practice Repair" });
+  const panel = heading.closest("section");
+
+  if (!(panel instanceof HTMLElement)) {
+    throw new Error("Expected Practice Repair to render inside a panel.");
+  }
+
+  return panel;
+}
+
+function getSelectedStudyNoteIdsFromHref(href: string) {
+  const search = href.split("?")[1] ?? "";
+  const studyNoteIds = new URLSearchParams(search).get("studyNoteIds");
+
+  return studyNoteIds?.split(",").filter(Boolean) ?? [];
+}
+
 describe("authenticated Study Guidance workspace", () => {
   it("refreshes factual guidance when recall evidence changes", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -207,7 +236,9 @@ describe("authenticated Study Guidance workspace", () => {
       screen.getByText("1 new repair candidate is waiting in Recall."),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Open Practice Repair" }),
+      within(getStudyGuidancePracticeRepairPanel()).getByRole("link", {
+        name: "Open Practice Repair",
+      }),
     ).toHaveAttribute("href", "/recall/repair");
     expect(
       screen.getByText(
@@ -311,7 +342,9 @@ describe("authenticated Study Guidance workspace", () => {
       screen.getByRole("link", { name: "Manual selection" }),
     ).toHaveAttribute("href", "/recall/select");
     expect(
-      screen.getByRole("link", { name: "Open Practice Repair" }),
+      within(getStudyGuidancePracticeRepairPanel()).getByRole("link", {
+        name: "Open Practice Repair",
+      }),
     ).toHaveAttribute("href", "/recall/repair");
 
     expect(screen.getAllByText("Recall Today").length).toBeGreaterThan(0);
@@ -336,6 +369,129 @@ describe("authenticated Study Guidance workspace", () => {
     expect(screen.queryByText(/beginner/i)).toBeNull();
     expect(screen.queryByText(/intermediate/i)).toBeNull();
     expect(screen.queryByText(/advanced/i)).toBeNull();
+  });
+
+  it("routes label-backed Study Guidance cards into existing workspaces without starting recall directly", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-study-guidance-topic-actions";
+    const biology = contexts.labelsContext.createLabel({
+      name: "Biology",
+      userId,
+    });
+    const chemistry = contexts.labelsContext.createLabel({
+      name: "Chemistry",
+      userId,
+    });
+
+    const weakBiology = createRecallableStudyNote(contexts, {
+      expectedAnswer:
+        "Diffusion moves particles down a concentration gradient.",
+      labelIds: [biology.id],
+      prompt: "Diffusion vs. osmosis",
+      sourceBody: "Biology source explanation.",
+      sourceTitle: "Biology source",
+      userId,
+    });
+    const chemistryStudyNotes = Array.from({ length: 4 }, (_, index) =>
+      createRecallableStudyNote(contexts, {
+        expectedAnswer: `Chemistry answer ${index + 1}.`,
+        labelIds: [chemistry.id],
+        prompt: `Chemistry prompt ${index + 1}`,
+        sourceBody: `Chemistry source ${index + 1}.`,
+        sourceTitle: "Chemistry source",
+        userId,
+      }),
+    );
+    createRecallableStudyNote(contexts, {
+      expectedAnswer: "Outline the layers of the atmosphere.",
+      labelIds: [],
+      prompt: "Atmosphere layers",
+      sourceBody: "Earth science source explanation.",
+      sourceTitle: "Earth science source",
+      userId,
+    });
+
+    completeStudyNoteRecall(contexts, {
+      rating: "hard",
+      studyNoteId: weakBiology.id,
+      timestamp: "2026-05-14T09:00:00.000Z",
+      userId,
+    });
+
+    chemistryStudyNotes.forEach((studyNote) => {
+      completeStudyNoteRecall(contexts, {
+        rating: "good",
+        studyNoteId: studyNote.id,
+        timestamp: "2026-05-10T09:00:00.000Z",
+        userId,
+      });
+      completeStudyNoteRecall(contexts, {
+        rating: "easy",
+        studyNoteId: studyNote.id,
+        timestamp: "2026-05-12T09:00:00.000Z",
+        userId,
+      });
+    });
+
+    vi.setSystemTime(new Date("2026-05-15T12:00:00.000Z"));
+
+    renderRoute("/insights", {
+      ...contexts,
+      session: {
+        user: {
+          displayName: "Jordan Guidance",
+          email: "jordan.guidance@example.com",
+          id: userId,
+          userLanguage: "en",
+          userTimeZone: "America/New_York",
+        },
+      },
+    });
+
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "Study Guidance",
+    });
+
+    const biologyCard = getStudyGuidanceTopicCard("Biology");
+    expect(
+      within(biologyCard).getByRole("link", { name: "Open Practice Repair" }),
+    ).toHaveAttribute("href", "/recall/repair");
+    expect(
+      within(biologyCard).getByRole("link", {
+        name: "View Biology Study Notes",
+      }),
+    ).toHaveAttribute("href", `/study-notes?labelId=${biology.id}`);
+
+    const chemistryCard = getStudyGuidanceTopicCard("Chemistry");
+    const chemistrySelectionLink = within(chemistryCard).getByRole("link", {
+      name: "Open Recall Selection",
+    });
+    expect(chemistrySelectionLink).toHaveAttribute(
+      "href",
+      expect.stringContaining("/recall/select?studyNoteIds="),
+    );
+    expect(
+      new Set(
+        getSelectedStudyNoteIdsFromHref(
+          chemistrySelectionLink.getAttribute("href") ?? "",
+        ),
+      ),
+    ).toEqual(new Set(chemistryStudyNotes.map((studyNote) => studyNote.id)));
+    expect(
+      within(chemistryCard).getByRole("link", {
+        name: "View Chemistry Study Notes",
+      }),
+    ).toHaveAttribute("href", `/study-notes?labelId=${chemistry.id}`);
+
+    const unlabeledCard = getStudyGuidanceTopicCard("Unlabeled Study Notes");
+    expect(
+      within(unlabeledCard).getByRole("link", {
+        name: "View Unlabeled Study Notes",
+      }),
+    ).toHaveAttribute("href", "/study-notes?labelId=__unlabeled__");
   });
 
   it("surfaces active Practice Repair work and new repair candidates before generic needs-practice guidance", async () => {
@@ -408,7 +564,9 @@ describe("authenticated Study Guidance workspace", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Open Practice Repair" }),
+      within(getStudyGuidancePracticeRepairPanel()).getByRole("link", {
+        name: "Open Practice Repair",
+      }),
     ).toHaveAttribute("href", "/recall/repair");
     expect(
       screen.getByText(

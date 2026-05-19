@@ -15,7 +15,10 @@ import {
   listPracticeRepairQueueItems,
   type PracticeRepairQueueListItem,
 } from "../recall/recall-practice-repair";
-import type { AppStudyNote } from "../study-notes";
+import {
+  type AppStudyNote,
+  unlabeledStudyNotesFilterValue,
+} from "../study-notes";
 
 export type StudyGuidanceSignalId =
   | "interleaving-ready"
@@ -45,7 +48,27 @@ export type StudyGuidanceTopicRecommendation =
       summary: string;
     };
 
+export type StudyGuidanceTopicAction =
+  | {
+      kind: "practice-repair";
+      label: "Open Practice Repair";
+    }
+  | {
+      kind: "recall-selection";
+      label: "Open Recall Selection";
+      studyNoteIds: readonly string[];
+    }
+  | {
+      kind: "recall-today";
+      label: "Open Recall Today";
+    }
+  | {
+      kind: "study-notes";
+      label: "Open Study Notes";
+    };
+
 export type StudyGuidanceTopic = {
+  action: StudyGuidanceTopicAction;
   id: string;
   interleavingReadyCount: number;
   needsPracticeCount: number;
@@ -156,7 +179,7 @@ function createTopicDrafts(input: {
   if (unlabeledGuidanceEntries.length > 0) {
     topicDrafts.push({
       guidanceEntries: unlabeledGuidanceEntries,
-      id: "__unlabeled__",
+      id: unlabeledStudyNotesFilterValue,
       title: "Unlabeled Study Notes",
     });
   }
@@ -378,6 +401,55 @@ function getStudyGuidanceTopicRecommendation(input: {
   );
 }
 
+function createRecallSelectionStudyNoteIds(
+  entries: readonly RecallGuidanceEntry[],
+) {
+  return entries
+    .filter((entry) => entry.interleavingReady)
+    .map((entry) => entry.studyNote.id);
+}
+
+function createStudyGuidanceTopicAction(input: {
+  entries: readonly RecallGuidanceEntry[];
+  recommendation: StudyGuidanceTopicRecommendation | null;
+}): StudyGuidanceTopicAction {
+  switch (input.recommendation?.kind) {
+    case "practice-repair":
+      return {
+        kind: "practice-repair",
+        label: "Open Practice Repair",
+      };
+    case "interleaving-ready": {
+      const studyNoteIds = createRecallSelectionStudyNoteIds(input.entries);
+
+      if (studyNoteIds.length === 0) {
+        return {
+          kind: "study-notes",
+          label: "Open Study Notes",
+        };
+      }
+
+      return {
+        kind: "recall-selection",
+        label: "Open Recall Selection",
+        studyNoteIds,
+      };
+    }
+    case "needs-practice":
+    case "recall-today":
+      return {
+        kind: "recall-today",
+        label: "Open Recall Today",
+      };
+    case "reinforce":
+    default:
+      return {
+        kind: "study-notes",
+        label: "Open Study Notes",
+      };
+  }
+}
+
 export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
   const recallGuidance = deriveRecallGuidance({
     attemptsByNote: input.attemptsByNote,
@@ -403,17 +475,22 @@ export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
         queueItems: practiceRepairQueueItems,
         studyNoteIds: createStudyNoteIdSet(topicDraft.guidanceEntries),
       });
+      const recommendation = getStudyGuidanceTopicRecommendation({
+        counts: practiceRepairCounts,
+        entries: topicDraft.guidanceEntries,
+        title: topicDraft.title,
+      });
 
       return {
+        action: createStudyGuidanceTopicAction({
+          entries: topicDraft.guidanceEntries,
+          recommendation,
+        }),
         id: topicDraft.id,
         ...signalCounts,
         practiceRepairActiveCount: practiceRepairCounts.activeEntryCount,
         practiceRepairCandidateCount: practiceRepairCounts.candidateCount,
-        recommendation: getStudyGuidanceTopicRecommendation({
-          counts: practiceRepairCounts,
-          entries: topicDraft.guidanceEntries,
-          title: topicDraft.title,
-        }),
+        recommendation,
         studyNoteCount: topicDraft.guidanceEntries.length,
         title: topicDraft.title,
       } satisfies StudyGuidanceTopic;

@@ -26,7 +26,10 @@ import {
   type SessionResult,
 } from "../../modules/recall";
 import type { PracticeRepairIntent } from "../../modules/recall/recall-practice-repair";
-import { createAppStudyNotesContext } from "../../modules/study-notes";
+import {
+  createAppStudyNotesContext,
+  unlabeledStudyNotesFilterValue,
+} from "../../modules/study-notes";
 import {
   type AppSessionSnapshot,
   createDeterministicRecallTestContexts,
@@ -1604,6 +1607,98 @@ describe("authenticated Study Notes workspace", () => {
     expect(
       within(catalog).getByRole("button", { name: "Biology recall" }),
     ).toBeInTheDocument();
+  });
+
+  it("reads the Study Notes label filter from the route search, including the unlabeled fallback", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-label-route-filter-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const studyNotesContext = createAppStudyNotesContext({
+      getOwnedLabelIdsForUser: (ownerId) =>
+        labelsContext.getLabelsForUser(ownerId).map((label) => label.id),
+      keyPrefix: `test-study-notes-route-filter-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-jordan-route-filter";
+    const biology = labelsContext.createLabel({
+      name: "Biology",
+      userId,
+    });
+    const history = labelsContext.createLabel({
+      name: "History",
+      userId,
+    });
+
+    studyNotesContext.createStudyNote(userId, {
+      labelIds: [biology.id],
+      prompt: "Biology recall",
+      sourceBody: "Biology source context.",
+      sourceTitle: "Biology source",
+    });
+    studyNotesContext.createStudyNote(userId, {
+      labelIds: [history.id],
+      prompt: "History recall",
+      sourceBody: "History source context.",
+      sourceTitle: "History source",
+    });
+    studyNotesContext.createStudyNote(userId, {
+      labelIds: [],
+      prompt: "Unlabeled recall",
+      sourceBody: "Unlabeled source context.",
+      sourceTitle: "Unlabeled source",
+    });
+
+    const { router } = renderRoute(`/study-notes?labelId=${biology.id}`, {
+      labelsContext,
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan.route-filter@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+      studyNotesContext,
+    });
+
+    const labelFilter = await screen.findByLabelText(
+      "Filter Study Notes by label",
+    );
+    const catalog = screen.getByRole("complementary", {
+      name: "Study Notes catalog",
+    });
+
+    expect(labelFilter).toHaveValue(biology.id);
+    expect(
+      within(catalog).getByRole("button", { name: "Biology recall" }),
+    ).toBeInTheDocument();
+    expect(
+      within(catalog).queryByRole("button", { name: "History recall" }),
+    ).toBeNull();
+    expect(
+      within(catalog).queryByRole("button", { name: "Unlabeled recall" }),
+    ).toBeNull();
+
+    await router.navigate({
+      search: { labelId: unlabeledStudyNotesFilterValue },
+      to: "/study-notes",
+    });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Filter Study Notes by label")).toHaveValue(
+        unlabeledStudyNotesFilterValue,
+      ),
+    );
+    expect(
+      within(catalog).getByRole("button", { name: "Unlabeled recall" }),
+    ).toBeInTheDocument();
+    expect(
+      within(catalog).queryByRole("button", { name: "Biology recall" }),
+    ).toBeNull();
+    expect(
+      within(catalog).queryByRole("button", { name: "History recall" }),
+    ).toBeNull();
   });
 
   it("creates a Label from the Study Note editor and assigns it to the draft", async () => {

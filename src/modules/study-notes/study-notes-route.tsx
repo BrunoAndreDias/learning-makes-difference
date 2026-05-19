@@ -66,14 +66,17 @@ import {
   type AppStudyNotesContext,
   AppStudyNotesError,
   deriveStudyNoteLearningStates,
+  filterStudyNotesBySelectedLabel,
   formatStudyNoteDueLabel,
   formatStudyNoteLearningStateCompactLabel,
   formatStudyNotePracticeSignalLabel,
   getStudyNoteReadiness,
+  isUnlabeledStudyNotesFilterValue,
   listStudyNotesForUser,
   type StudyNoteLearningState,
   toStudyNoteRecallHistories,
   type UpdateStudyNoteInput,
+  unlabeledStudyNotesFilterValue,
 } from ".";
 import { getStudyNotePracticeRepair } from "./practice-repair";
 import {
@@ -82,6 +85,7 @@ import {
 } from "./study-note-recall-insight";
 
 const studyNotesSearchSchema = z.object({
+  labelId: z.string().optional(),
   practiceRepairAction: z.enum(practiceRepairIntents).optional(),
   practiceRepairEntryId: z.string().optional(),
 });
@@ -1033,19 +1037,6 @@ function getAttachedLabels(
   return labels.filter((label) => attachedLabelIds.has(label.id));
 }
 
-function filterStudyNotesBySelectedLabel(
-  studyNotes: readonly AppStudyNote[],
-  selectedLabelId: string,
-) {
-  if (selectedLabelId === "") {
-    return studyNotes;
-  }
-
-  return studyNotes.filter((studyNote) =>
-    studyNote.labelIds.includes(selectedLabelId),
-  );
-}
-
 function PracticeRepairOriginDetails({
   origin,
 }: Readonly<{
@@ -1160,9 +1151,13 @@ function StudyNotesWorkspace() {
     focusContext.getSnapshot,
     focusContext.getSnapshot,
   );
-  const [availableLabels, setAvailableLabels] = useState<AppLabel[]>([]);
+  const [availableLabels, setAvailableLabels] = useState<AppLabel[]>(() =>
+    userId === null ? [] : labelsContext.getLabelsForUser(userId),
+  );
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedLabelId, setSelectedLabelId] = useState("");
+  const [selectedLabelId, setSelectedLabelId] = useState(
+    () => search.labelId ?? "",
+  );
   const [isStudyNotesCatalogExpanded, setStudyNotesCatalogExpanded] =
     useState(false);
   const [collapsedStudyNotesCount, setCollapsedStudyNotesCount] = useState(
@@ -1421,15 +1416,33 @@ function StudyNotesWorkspace() {
   }, [labelsContext, userId]);
 
   useEffect(() => {
+    const nextSelectedLabelId = search.labelId ?? "";
+
+    setSelectedLabelId((currentSelectedLabelId) =>
+      currentSelectedLabelId === nextSelectedLabelId
+        ? currentSelectedLabelId
+        : nextSelectedLabelId,
+    );
+  }, [search.labelId]);
+
+  useEffect(() => {
     if (
       selectedLabelId === "" ||
+      isUnlabeledStudyNotesFilterValue(selectedLabelId) ||
       availableLabels.some((label) => label.id === selectedLabelId)
     ) {
       return;
     }
 
-    setSelectedLabelId("");
-  }, [availableLabels, selectedLabelId]);
+    void navigate({
+      replace: true,
+      search: (previousSearch) => ({
+        ...previousSearch,
+        labelId: undefined,
+      }),
+      to: "/study-notes",
+    });
+  }, [availableLabels, navigate, selectedLabelId]);
 
   useEffect(() => {
     const listElement = studyNotesCatalogListRef.current;
@@ -2650,10 +2663,24 @@ function StudyNotesWorkspace() {
                 onChange={(event) => {
                   setSelectedLabelId(event.target.value);
                   setStudyNotesCatalogExpanded(false);
+                  void navigate({
+                    replace: true,
+                    search: (previousSearch) => ({
+                      ...previousSearch,
+                      labelId:
+                        event.target.value.length === 0
+                          ? undefined
+                          : event.target.value,
+                    }),
+                    to: "/study-notes",
+                  });
                 }}
                 value={selectedLabelId}
               >
                 <option value="">All labels</option>
+                <option value={unlabeledStudyNotesFilterValue}>
+                  Unlabeled Study Notes
+                </option>
                 {availableLabels.map((label) => (
                   <option key={label.id} value={label.id}>
                     {label.name}

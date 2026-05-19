@@ -6,7 +6,10 @@ import type {
   RecallSchedule,
   SessionResult,
 } from "../recall";
-import type { AppStudyNote } from "../study-notes";
+import {
+  type AppStudyNote,
+  unlabeledStudyNotesFilterValue,
+} from "../study-notes";
 import { deriveStudyGuidance } from "./study-guidance";
 
 const timestamp = "2026-05-01T09:00:00.000Z";
@@ -365,5 +368,139 @@ describe("Study Guidance", () => {
         title: "Biology",
       }),
     ]);
+  });
+
+  it("creates actionable Label groups with an unlabeled Study Notes fallback", () => {
+    const biology: AppLabel = {
+      id: "label-biology",
+      name: "Biology",
+      parentIds: [],
+    };
+    const chemistry: AppLabel = {
+      id: "label-chemistry",
+      name: "Chemistry",
+      parentIds: [],
+    };
+    const weakBiology = buildStudyNote({
+      id: "study-note-biology-weak",
+      labelIds: [biology.id],
+      prompt: "Diffusion vs. osmosis",
+    });
+    const chemistryStudyNotes = Array.from({ length: 4 }, (_, index) =>
+      buildStudyNote({
+        id: `study-note-chemistry-${index + 1}`,
+        labelIds: [chemistry.id],
+        prompt: `Chemistry prompt ${index + 1}`,
+      }),
+    );
+    const unlabeledStudyNote = buildStudyNote({
+      id: "study-note-unlabeled",
+      labelIds: [],
+      prompt: "Atmosphere layers",
+    });
+
+    const guidance = deriveStudyGuidance({
+      attemptsByNote: [
+        buildAttempts(weakBiology.id, [
+          {
+            bodySnapshot: "Weak biology answer",
+            completedAt: "2026-05-14T09:00:00.000Z",
+            rating: "hard",
+            sessionId: "session-biology-weak",
+            snapshotTitle: weakBiology.prompt,
+          },
+        ]),
+        ...chemistryStudyNotes.map((studyNote, index) =>
+          buildAttempts(studyNote.id, [
+            {
+              bodySnapshot: `Chemistry answer ${index + 1}`,
+              completedAt: "2026-05-10T09:00:00.000Z",
+              rating: "good",
+              sessionId: `session-chemistry-good-${index + 1}`,
+              snapshotTitle: studyNote.prompt,
+            },
+            {
+              bodySnapshot: `Chemistry answer ${index + 1}`,
+              completedAt: "2026-05-12T09:00:00.000Z",
+              rating: "easy",
+              sessionId: `session-chemistry-easy-${index + 1}`,
+              snapshotTitle: studyNote.prompt,
+            },
+          ]),
+        ),
+        buildAttempts(unlabeledStudyNote.id, [
+          {
+            bodySnapshot: "Atmosphere answer",
+            completedAt: "2026-05-14T09:00:00.000Z",
+            rating: "good",
+            sessionId: "session-unlabeled-good",
+            snapshotTitle: unlabeledStudyNote.prompt,
+          },
+        ]),
+      ],
+      labels: [biology, chemistry],
+      now: "2026-05-15T12:00:00.000Z",
+      recallSchedules: [
+        buildSchedule(weakBiology.id, {}),
+        ...chemistryStudyNotes.map((studyNote) =>
+          buildSchedule(studyNote.id, {
+            ease: 2.65,
+            intervalDays: 7,
+            lastRecalledAt: "2026-05-12T09:00:00.000Z",
+            nextRecallAt: "2026-05-19T09:00:00.000Z",
+            repetitionCount: 2,
+          }),
+        ),
+        buildSchedule(unlabeledStudyNote.id, {
+          ease: 2.5,
+          intervalDays: 3,
+          lastRecalledAt: "2026-05-14T09:00:00.000Z",
+          nextRecallAt: "2026-05-18T09:00:00.000Z",
+          repetitionCount: 1,
+        }),
+      ],
+      sessionResults: [],
+      studyNotes: [weakBiology, ...chemistryStudyNotes, unlabeledStudyNote],
+      userTimeZone: "America/New_York",
+    });
+
+    const biologyTopic = guidance.topics.find(
+      (topic) => topic.title === "Biology",
+    );
+    const chemistryTopic = guidance.topics.find(
+      (topic) => topic.title === "Chemistry",
+    );
+    const unlabeledTopic = guidance.topics.find(
+      (topic) => topic.id === unlabeledStudyNotesFilterValue,
+    );
+
+    expect(biologyTopic).toEqual(
+      expect.objectContaining({
+        action: {
+          kind: "recall-today",
+          label: "Open Recall Today",
+        },
+      }),
+    );
+    expect(chemistryTopic).toEqual(
+      expect.objectContaining({
+        action: {
+          kind: "recall-selection",
+          label: "Open Recall Selection",
+          studyNoteIds: chemistryStudyNotes.map((studyNote) => studyNote.id),
+        },
+      }),
+    );
+    expect(unlabeledTopic).toEqual(
+      expect.objectContaining({
+        action: {
+          kind: "study-notes",
+          label: "Open Study Notes",
+        },
+        id: unlabeledStudyNotesFilterValue,
+        studyNoteCount: 1,
+        title: "Unlabeled Study Notes",
+      }),
+    );
   });
 });
