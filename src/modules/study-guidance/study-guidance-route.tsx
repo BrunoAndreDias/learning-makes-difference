@@ -12,6 +12,7 @@ import "./study-guidance.css";
 import {
   deriveStudyGuidance,
   getStudyGuidanceTopicStats,
+  type StudyGuidancePracticeRepair,
 } from "./study-guidance";
 
 export const Route = createFileRoute("/_protected/insights")({
@@ -44,7 +45,8 @@ function StudyGuidanceWorkspace() {
     studyNotesStore.getSnapshot,
     studyNotesStore.getSnapshot,
   );
-  const sessionResults = useSyncExternalStore(
+  // The raw snapshot only drives re-renders; listSessionResults keeps repair data user-scoped.
+  useSyncExternalStore(
     recallContext.subscribe,
     recallContext.getSessionResultsSnapshot,
     recallContext.getSessionResultsSnapshot,
@@ -60,6 +62,8 @@ function StudyGuidanceWorkspace() {
     () => listStudyNotesForUser(studyNotesSnapshot, userId),
     [studyNotesSnapshot, userId],
   );
+  const sessionResults =
+    userId === null ? [] : recallContext.listSessionResults({ userId });
 
   useEffect(() => {
     function syncLabels() {
@@ -133,39 +137,9 @@ function StudyGuidanceWorkspace() {
       <div className="study-guidance-content">
         <div className="study-guidance-content__main">
           {guidance.practiceRepair === null ? null : (
-            <section className="study-guidance-practice-repair">
-              <div className="study-guidance-practice-repair__copy">
-                <h2>Practice Repair</h2>
-                <p>{guidance.practiceRepair.summary}</p>
-              </div>
-              <dl className="study-guidance-practice-repair__facts">
-                {guidance.practiceRepair.hasActiveEntries ? (
-                  <div>
-                    <dt>Active entries</dt>
-                    <dd>
-                      {formatStudyGuidanceCountLabel(
-                        guidance.practiceRepair.activeEntryCount,
-                        "active entry",
-                        "active entries",
-                      )}
-                    </dd>
-                  </div>
-                ) : null}
-                {guidance.practiceRepair.hasCandidates ? (
-                  <div>
-                    <dt>New candidates</dt>
-                    <dd>
-                      {formatStudyGuidanceCountLabel(
-                        guidance.practiceRepair.candidateCount,
-                        "new candidate",
-                        "new candidates",
-                      )}
-                    </dd>
-                  </div>
-                ) : null}
-              </dl>
-              <ButtonLink to="/recall/repair">Open Practice Repair</ButtonLink>
-            </section>
+            <StudyGuidancePracticeRepairPanel
+              practiceRepair={guidance.practiceRepair}
+            />
           )}
 
           <section className="study-guidance-callout">
@@ -258,6 +232,48 @@ function StudyGuidanceWorkspace() {
           </section>
         </aside>
       </div>
+    </section>
+  );
+}
+
+function StudyGuidancePracticeRepairPanel({
+  practiceRepair,
+}: Readonly<{
+  practiceRepair: StudyGuidancePracticeRepair;
+}>) {
+  return (
+    <section className="study-guidance-practice-repair">
+      <div className="study-guidance-practice-repair__copy">
+        <h2>Practice Repair</h2>
+        <p>{practiceRepair.summary}</p>
+      </div>
+      <dl className="study-guidance-practice-repair__facts">
+        {practiceRepair.hasActiveEntries ? (
+          <div>
+            <dt>Active entries</dt>
+            <dd>
+              {formatStudyGuidanceCountLabel(
+                practiceRepair.activeEntryCount,
+                "active entry",
+                "active entries",
+              )}
+            </dd>
+          </div>
+        ) : null}
+        {practiceRepair.hasCandidates ? (
+          <div>
+            <dt>New candidates</dt>
+            <dd>
+              {formatStudyGuidanceCountLabel(
+                practiceRepair.candidateCount,
+                "new candidate",
+                "new candidates",
+              )}
+            </dd>
+          </div>
+        ) : null}
+      </dl>
+      <ButtonLink to="/recall/repair">Open Practice Repair</ButtonLink>
     </section>
   );
 }

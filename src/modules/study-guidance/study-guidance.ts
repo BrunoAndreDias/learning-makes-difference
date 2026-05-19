@@ -96,6 +96,8 @@ type StudyGuidancePracticeRepairCounts = Pick<
   StudyGuidancePracticeRepair,
   "activeEntryCount" | "candidateCount"
 >;
+type StudyGuidancePracticeRepairQueueItem =
+  PracticeRepairQueueListItem<SessionResult>;
 
 type StudyGuidanceSignalDefinition = Omit<StudyGuidanceStat, "count"> & {
   countKey: keyof RecallGuidanceSignalCounts;
@@ -224,7 +226,7 @@ function compareTopics(left: StudyGuidanceTopic, right: StudyGuidanceTopic) {
   );
 }
 
-function createEmptyPracticeRepairCounts(): StudyGuidancePracticeRepairCounts {
+function createPracticeRepairCounts(): StudyGuidancePracticeRepairCounts {
   return {
     activeEntryCount: 0,
     candidateCount: 0,
@@ -232,26 +234,31 @@ function createEmptyPracticeRepairCounts(): StudyGuidancePracticeRepairCounts {
 }
 
 function getPracticeRepairQueueItemStudyNoteId(
-  item: PracticeRepairQueueListItem<SessionResult>,
+  item: StudyGuidancePracticeRepairQueueItem,
 ) {
-  return item.kind === "active"
-    ? item.entry.reference.studyNoteId
-    : item.question.noteId;
+  if (item.kind === "active") {
+    return item.entry.reference.studyNoteId;
+  }
+
+  return item.question.noteId;
+}
+
+function createStudyNoteIdSet(
+  entries: readonly RecallGuidanceEntry[],
+): ReadonlySet<string> {
+  return new Set(entries.map((entry) => entry.studyNote.id));
 }
 
 function countPracticeRepairQueueItems(input: {
-  queueItems: readonly PracticeRepairQueueListItem<SessionResult>[];
-  studyNoteIds?: ReadonlySet<string>;
+  queueItems: readonly StudyGuidancePracticeRepairQueueItem[];
+  studyNoteIds: ReadonlySet<string> | null;
 }): StudyGuidancePracticeRepairCounts {
-  const counts = createEmptyPracticeRepairCounts();
+  const counts = createPracticeRepairCounts();
 
   for (const item of input.queueItems) {
     const studyNoteId = getPracticeRepairQueueItemStudyNoteId(item);
 
-    if (
-      input.studyNoteIds !== undefined &&
-      !input.studyNoteIds.has(studyNoteId)
-    ) {
+    if (input.studyNoteIds !== null && !input.studyNoteIds.has(studyNoteId)) {
       continue;
     }
 
@@ -313,9 +320,12 @@ function formatPracticeRepairWorkSummary(input: {
 }
 
 function createStudyGuidancePracticeRepair(
-  queueItems: readonly PracticeRepairQueueListItem<SessionResult>[],
+  queueItems: readonly StudyGuidancePracticeRepairQueueItem[],
 ): StudyGuidancePracticeRepair | null {
-  const counts = countPracticeRepairQueueItems({ queueItems });
+  const counts = countPracticeRepairQueueItems({
+    queueItems,
+    studyNoteIds: null,
+  });
   const summary = formatPracticeRepairWorkSummary({
     counts,
     location: "in Recall",
@@ -391,9 +401,7 @@ export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
       );
       const practiceRepairCounts = countPracticeRepairQueueItems({
         queueItems: practiceRepairQueueItems,
-        studyNoteIds: new Set(
-          topicDraft.guidanceEntries.map((entry) => entry.studyNote.id),
-        ),
+        studyNoteIds: createStudyNoteIdSet(topicDraft.guidanceEntries),
       });
 
       return {

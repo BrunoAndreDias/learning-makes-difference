@@ -104,6 +104,7 @@
 .study-guidance-stat__label,
 .study-guidance-stat__notes,
 .study-guidance-stat__detail,
+.study-guidance-practice-repair__copy p,
 .study-guidance-topic__header p,
 .study-guidance-sidebar__list span {
   margin: 0;
@@ -170,10 +171,6 @@
   gap: var(--space-2);
 }
 
-.study-guidance-practice-repair__copy p {
-  margin: 0;
-}
-
 .study-guidance-practice-repair__copy h2,
 .study-guidance-callout h2,
 .study-guidance-topic h2,
@@ -185,21 +182,27 @@
   line-height: 1.2;
 }
 
-.study-guidance-practice-repair__facts {
+.study-guidance-practice-repair__facts,
+.study-guidance-topic__stats {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
   margin: 0;
 }
 
-.study-guidance-practice-repair__facts div {
+.study-guidance-practice-repair__facts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.study-guidance-practice-repair__facts div,
+.study-guidance-topic__stats div {
   display: grid;
   gap: var(--space-1);
   padding-top: var(--space-3);
   border-top: 1px solid var(--color-content-border-soft);
 }
 
-.study-guidance-practice-repair__facts dt {
+.study-guidance-practice-repair__facts dt,
+.study-guidance-topic__stats dt {
   color: var(--color-content-muted);
   font-size: 0.75rem;
   font-weight: 700;
@@ -207,7 +210,8 @@
   text-transform: uppercase;
 }
 
-.study-guidance-practice-repair__facts dd {
+.study-guidance-practice-repair__facts dd,
+.study-guidance-topic__stats dd {
   margin: 0;
   color: var(--color-content-strong);
   font-weight: 700;
@@ -247,31 +251,7 @@
 }
 
 .study-guidance-topic__stats {
-  display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-3);
-  margin: 0;
-}
-
-.study-guidance-topic__stats div {
-  display: grid;
-  gap: var(--space-1);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--color-content-border-soft);
-}
-
-.study-guidance-topic__stats dt {
-  color: var(--color-content-muted);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.study-guidance-topic__stats dd {
-  margin: 0;
-  color: var(--color-content-strong);
-  font-weight: 700;
 }
 
 .study-guidance-sidebar__list {

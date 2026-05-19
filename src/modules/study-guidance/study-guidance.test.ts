@@ -103,6 +103,29 @@ function buildRecallQuestionSnapshot(studyNote: AppStudyNote) {
   };
 }
 
+function buildPracticeRepairEntry(input: {
+  completedAt: string;
+  correction: string;
+  questionResultId: string;
+  resultId: string;
+  studyNoteId: string;
+}): NonNullable<SessionResult["questions"][number]["practiceRepairEntry"]> {
+  return {
+    confirmedAt: input.completedAt,
+    correction: input.correction,
+    intent: "tighten-expected-answer",
+    intentMetadata: {
+      updatedExpectedAnswer: null,
+    },
+    reference: {
+      questionIndex: 0,
+      questionResultId: input.questionResultId,
+      sessionResultId: input.resultId,
+      studyNoteId: input.studyNoteId,
+    },
+  };
+}
+
 function buildSessionResult(input: {
   completedAt: string;
   id: string;
@@ -128,20 +151,13 @@ function buildSessionResult(input: {
         practiceRepairEntry:
           input.practiceRepairCorrection === undefined
             ? undefined
-            : {
-                confirmedAt: input.completedAt,
+            : buildPracticeRepairEntry({
+                completedAt: input.completedAt,
                 correction: input.practiceRepairCorrection,
-                intent: "tighten-expected-answer",
-                intentMetadata: {
-                  updatedExpectedAnswer: null,
-                },
-                reference: {
-                  questionIndex: 0,
-                  questionResultId: input.questionResultId,
-                  sessionResultId: input.id,
-                  studyNoteId: input.studyNote.id,
-                },
-              },
+                questionResultId: input.questionResultId,
+                resultId: input.id,
+                studyNoteId: input.studyNote.id,
+              }),
         questionResultId: input.questionResultId,
         selfRating: input.selfRating,
       },

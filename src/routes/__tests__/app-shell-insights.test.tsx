@@ -422,6 +422,62 @@ describe("authenticated Study Guidance workspace", () => {
     ).toBeNull();
   });
 
+  it("does not surface Practice Repair work from another user", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    const contexts = createDeterministicRecallTestContexts();
+    const currentUserId = "user-study-guidance-current";
+    const otherUserId = "user-study-guidance-other";
+    const biology = contexts.labelsContext.createLabel({
+      name: "Biology",
+      userId: otherUserId,
+    });
+    const otherUserStudyNote = createRecallableStudyNote(contexts, {
+      expectedAnswer:
+        "Photosynthesis converts light, carbon dioxide, and water into glucose.",
+      labelIds: [biology.id],
+      prompt: "Photosynthesis inputs and output",
+      sourceBody: "Biology source explanation.",
+      sourceTitle: "Biology source",
+      userId: otherUserId,
+    });
+
+    completeStudyNoteRecall(contexts, {
+      rating: "hard",
+      studyNoteId: otherUserStudyNote.id,
+      timestamp: "2026-05-15T12:05:00.000Z",
+      userId: otherUserId,
+    });
+
+    vi.setSystemTime(new Date("2026-05-15T12:10:00.000Z"));
+
+    renderRoute("/insights", {
+      ...contexts,
+      session: {
+        user: {
+          displayName: "Jordan Guidance",
+          email: "jordan.guidance@example.com",
+          id: currentUserId,
+          userLanguage: "en",
+          userTimeZone: "America/New_York",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Study Guidance",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Practice Repair" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("link", { name: "Open Practice Repair" }),
+    ).toBeNull();
+  });
+
   it("uses the four agreed factual signal labels in the Study Guidance summary", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-study-guidance-signal-labels";
