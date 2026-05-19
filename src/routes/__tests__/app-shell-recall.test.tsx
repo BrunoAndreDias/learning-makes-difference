@@ -534,7 +534,7 @@ describe("authenticated recall workspace", () => {
       },
     });
 
-    const results = await screen.findByRole("region", {
+    await screen.findByRole("region", {
       name: "Resultados de repaso",
     });
     expect(

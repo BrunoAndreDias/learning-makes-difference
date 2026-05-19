@@ -51,7 +51,6 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .recall-today-actions,
   .recall-toolbar__actions,
   .recall-selection-controls {
     justify-content: flex-start;

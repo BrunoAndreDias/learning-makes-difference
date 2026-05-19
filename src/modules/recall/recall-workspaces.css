@@ -250,23 +250,9 @@
   align-items: center;
 }
 
-.recall-today-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.recall-today-actions .notes-action {
-  min-height: var(--lmd-button-height-md);
-  border-radius: 0.45rem;
-  padding-inline: 1.45rem;
-  font-weight: 700;
-}
-
-.recall-today-actions__start.notes-action {
+.recall-page-primary-action.notes-action {
   min-width: 16.25rem;
+  min-height: var(--lmd-button-height-md);
   justify-content: center;
   gap: 0.65rem;
   background: linear-gradient(
@@ -276,16 +262,6 @@
   );
   box-shadow: 0 14px 26px -22px
     color-mix(in srgb, var(--color-primary) 80%, black);
-}
-
-.recall-today-actions__manual.notes-action {
-  min-width: 13.15rem;
-  justify-content: center;
-  gap: 0.65rem;
-  border-color: var(--color-content-border-soft);
-  background: var(--color-shell-panel);
-  color: var(--color-content-strong);
-  box-shadow: none;
 }
 
 .recall-today-summary {

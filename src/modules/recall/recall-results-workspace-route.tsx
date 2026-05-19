@@ -286,6 +286,78 @@ function useRecallWorkspaceState() {
   };
 }
 
+type RecallWorkspaceState = ReturnType<typeof useRecallWorkspaceState>;
+
+type WorkspaceDueTodayQueueInput = {
+  now: string;
+  recallContext: RecallWorkspaceState["recallContext"];
+  recallSchedules: RecallWorkspaceState["recallSchedules"];
+  sessionResults: RecallWorkspaceState["sessionResults"];
+  studyNotes: RecallWorkspaceState["studyNotes"];
+  userId: RecallWorkspaceState["userId"];
+  userTimeZone: RecallWorkspaceState["userTimeZone"];
+};
+
+type StartWorkspaceDueTodayRecallInput = {
+  dueTodayQueue: readonly DueTodayQueueItem[];
+  persistentRecallContext: RecallWorkspaceState["persistentRecallContext"];
+  recallContext: RecallWorkspaceState["recallContext"];
+  userId: RecallWorkspaceState["userId"];
+};
+
+function buildWorkspaceDueTodayQueue({
+  now,
+  recallContext,
+  recallSchedules,
+  sessionResults,
+  studyNotes,
+  userId,
+  userTimeZone,
+}: WorkspaceDueTodayQueueInput): readonly DueTodayQueueItem[] {
+  if (userId === null) {
+    return [];
+  }
+
+  return buildDueTodayQueue({
+    histories: toStudyNoteRecallHistories(
+      recallContext.listAttemptsByNote({ userId }),
+    ),
+    now,
+    recallSchedules,
+    sessionResults,
+    studyNotes,
+    userTimeZone,
+  });
+}
+
+async function startWorkspaceDueTodayRecall({
+  dueTodayQueue,
+  persistentRecallContext,
+  recallContext,
+  userId,
+}: StartWorkspaceDueTodayRecallInput): Promise<boolean> {
+  if (userId === null || dueTodayQueue.length === 0) {
+    return false;
+  }
+
+  const studyNoteIds = dueTodayQueue.map((item) => item.studyNote.id);
+
+  if (persistentRecallContext === undefined) {
+    recallContext.startFlashCardSession({
+      mode: "FlashCard",
+      studyNoteIds,
+      userId,
+    });
+  } else {
+    await persistentRecallContext.startFlashCardSession(userId, {
+      mode: "FlashCard",
+      studyNoteIds,
+    });
+  }
+
+  return true;
+}
+
 export function RecallDueTodayWorkspacePage() {
   const navigate = useNavigate();
   const {
@@ -300,42 +372,30 @@ export function RecallDueTodayWorkspacePage() {
     userTimeZone,
   } = useRecallWorkspaceState();
   const now = new Date().toISOString();
-  const dueTodayQueue =
-    userId === null
-      ? []
-      : buildDueTodayQueue({
-          histories: toStudyNoteRecallHistories(
-            recallContext.listAttemptsByNote({ userId }),
-          ),
-          now,
-          recallSchedules,
-          sessionResults,
-          studyNotes,
-          userTimeZone,
-        });
+  const dueTodayQueue = buildWorkspaceDueTodayQueue({
+    now,
+    recallContext,
+    recallSchedules,
+    sessionResults,
+    studyNotes,
+    userId,
+    userTimeZone,
+  });
   const hasNoRecallContent =
     notes.length === 0 &&
     studyNotes.length === 0 &&
     sessionResults.length === 0;
 
   async function startDueTodayRecall() {
-    if (userId === null || dueTodayQueue.length === 0) {
+    const startedRecall = await startWorkspaceDueTodayRecall({
+      dueTodayQueue,
+      persistentRecallContext,
+      recallContext,
+      userId,
+    });
+
+    if (!startedRecall) {
       return;
-    }
-
-    const studyNoteIds = dueTodayQueue.map((item) => item.studyNote.id);
-
-    if (persistentRecallContext === undefined) {
-      recallContext.startFlashCardSession({
-        mode: "FlashCard",
-        studyNoteIds,
-        userId,
-      });
-    } else {
-      await persistentRecallContext.startFlashCardSession(userId, {
-        mode: "FlashCard",
-        studyNoteIds,
-      });
     }
 
     await navigate({ to: appRoutePaths.recallSession });
@@ -430,39 +490,22 @@ export function RecallResultsWorkspacePage() {
     notes.length === 0 &&
     studyNotes.length === 0 &&
     sessionResults.length === 0;
-  const dueTodayQueue =
-    userId === null
-      ? []
-      : buildDueTodayQueue({
-          histories: toStudyNoteRecallHistories(
-            recallContext.listAttemptsByNote({ userId }),
-          ),
-          now,
-          recallSchedules,
-          sessionResults,
-          studyNotes,
-          userTimeZone,
-        });
+  const dueTodayQueue = buildWorkspaceDueTodayQueue({
+    now,
+    recallContext,
+    recallSchedules,
+    sessionResults,
+    studyNotes,
+    userId,
+    userTimeZone,
+  });
 
   async function startDueTodayRecall() {
-    if (userId === null || dueTodayQueue.length === 0) {
-      return;
-    }
-
-    const studyNoteIds = dueTodayQueue.map((item) => item.studyNote.id);
-
-    if (persistentRecallContext === undefined) {
-      recallContext.startFlashCardSession({
-        mode: "FlashCard",
-        studyNoteIds,
-        userId,
-      });
-      return;
-    }
-
-    await persistentRecallContext.startFlashCardSession(userId, {
-      mode: "FlashCard",
-      studyNoteIds,
+    await startWorkspaceDueTodayRecall({
+      dueTodayQueue,
+      persistentRecallContext,
+      recallContext,
+      userId,
     });
   }
 
@@ -483,9 +526,9 @@ export function RecallResultsWorkspacePage() {
           <RecallPageTabs />
           <PageHeader
             actions={
-              <RecallPagePrimaryAction
+              <RecallDueTodayPrimaryAction
+                dueTodayQueue={dueTodayQueue}
                 onStartDueToday={startDueTodayRecall}
-                queue={dueTodayQueue}
               />
             }
             className="recall-surface__header"
@@ -679,9 +722,9 @@ function RecallDueTodayPage({
           <RecallPageTabs />
           <PageHeader
             actions={
-              <RecallPagePrimaryAction
+              <RecallDueTodayPrimaryAction
+                dueTodayQueue={queue}
                 onStartDueToday={onStartDueToday}
-                queue={queue}
               />
             }
             actionsClassName="recall-today-hero__actions"
@@ -722,19 +765,19 @@ function RecallDueTodayPage({
   );
 }
 
-function RecallPagePrimaryAction({
+function RecallDueTodayPrimaryAction({
+  dueTodayQueue,
   onStartDueToday,
-  queue,
 }: Readonly<{
+  dueTodayQueue: readonly DueTodayQueueItem[];
   onStartDueToday: () => void;
-  queue: readonly DueTodayQueueItem[];
 }>) {
   const { t } = useAppTranslation();
 
-  if (queue.length > 0) {
+  if (dueTodayQueue.length > 0) {
     return (
       <Button
-        className="recall-today-actions__start"
+        className="recall-page-primary-action"
         onClick={onStartDueToday}
         type="button"
         variant="primary"
@@ -747,7 +790,7 @@ function RecallPagePrimaryAction({
 
   return (
     <ButtonLink
-      className="recall-today-actions__start"
+      className="recall-page-primary-action"
       to={appRoutePaths.recallSelect}
       variant="primary"
     >

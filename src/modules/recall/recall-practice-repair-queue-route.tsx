@@ -6,6 +6,7 @@ import { PageHeader } from "../../design-system/page-header";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { useAppTranslation } from "../language";
 import { getStudyNoteReadiness, listStudyNotesForUser } from "../study-notes";
+import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import { getRecallRatingTranslationKey } from "./learner-copy";
 import {
   formatPracticeRepairIntentLabel,
@@ -116,19 +117,19 @@ function PracticeRepairQueueHeaderAction({
   switch (emptyStateAction) {
     case "review-results":
       return (
-        <ButtonLink to="/recall/results" variant="primary">
+        <ButtonLink to={appRoutePaths.recallResults} variant="primary">
           Review results
         </ButtonLink>
       );
     case "start-custom-recall":
       return (
-        <ButtonLink to="/recall/select" variant="primary">
+        <ButtonLink to={appRoutePaths.recallSelect} variant="primary">
           Start custom recall
         </ButtonLink>
       );
     case "create-first-study-note":
       return (
-        <ButtonLink to="/study-notes" variant="primary">
+        <ButtonLink to={appRoutePaths.studyNotes} variant="primary">
           Create first Study Note
         </ButtonLink>
       );

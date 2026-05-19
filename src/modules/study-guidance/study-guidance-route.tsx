@@ -8,6 +8,7 @@ import { useResolvedProtectedSession } from "../access/session/use-resolved-prot
 import type { AppLabel } from "../labels/label-management/labels";
 import type { FlashCardRecallAttemptsByNote } from "../recall";
 import { listStudyNotesForUser } from "../study-notes";
+import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import "./study-guidance.css";
 import {
   deriveStudyGuidance,
@@ -209,7 +210,7 @@ function StudyGuidanceHeaderAction({
 }>) {
   if (emptyState !== null) {
     return (
-      <ButtonLink to="/study-notes" variant="primary">
+      <ButtonLink to={appRoutePaths.studyNotes} variant="primary">
         {emptyState.action.label}
       </ButtonLink>
     );
@@ -220,7 +221,7 @@ function StudyGuidanceHeaderAction({
   }
 
   return (
-    <ButtonLink to="/recall/select" variant="primary">
+    <ButtonLink to={appRoutePaths.recallSelect} variant="primary">
       Manual selection
     </ButtonLink>
   );
@@ -252,7 +253,9 @@ function StudyGuidanceEmptyStatePanel({
     <section className="study-guidance-empty" role="status">
       <h2>{emptyState.title}</h2>
       <p>{emptyState.description}</p>
-      <ButtonLink to="/study-notes">{emptyState.action.label}</ButtonLink>
+      <ButtonLink to={appRoutePaths.studyNotes}>
+        {emptyState.action.label}
+      </ButtonLink>
     </section>
   );
 }
@@ -292,7 +295,7 @@ function StudyGuidanceActionLink({
       );
     case "recall-due-today":
       return (
-        <ButtonLink to="/recall/due-today" variant={variant}>
+        <ButtonLink to={appRoutePaths.recallDueToday} variant={variant}>
           {action.label}
         </ButtonLink>
       );
@@ -300,7 +303,7 @@ function StudyGuidanceActionLink({
       return (
         <ButtonLink
           search={{ studyNoteIds: action.studyNoteIds.join(",") }}
-          to="/recall/select"
+          to={appRoutePaths.recallSelect}
           variant={variant}
         >
           {action.label}
@@ -308,7 +311,7 @@ function StudyGuidanceActionLink({
       );
     case "study-notes":
       return (
-        <ButtonLink to="/study-notes" variant={variant}>
+        <ButtonLink to={appRoutePaths.studyNotes} variant={variant}>
           {action.label}
         </ButtonLink>
       );
