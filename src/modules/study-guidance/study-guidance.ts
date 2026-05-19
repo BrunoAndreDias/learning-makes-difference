@@ -17,6 +17,7 @@ import {
 } from "../recall/recall-practice-repair";
 import {
   type AppStudyNote,
+  unlabeledStudyNotesFilterLabel,
   unlabeledStudyNotesFilterValue,
 } from "../study-notes";
 
@@ -180,7 +181,7 @@ function createTopicDrafts(input: {
     topicDrafts.push({
       guidanceEntries: unlabeledGuidanceEntries,
       id: unlabeledStudyNotesFilterValue,
-      title: "Unlabeled Study Notes",
+      title: unlabeledStudyNotesFilterLabel,
     });
   }
 
@@ -401,7 +402,7 @@ function getStudyGuidanceTopicRecommendation(input: {
   );
 }
 
-function createRecallSelectionStudyNoteIds(
+function getInterleavingReadyStudyNoteIds(
   entries: readonly RecallGuidanceEntry[],
 ) {
   return entries
@@ -413,14 +414,16 @@ function createStudyGuidanceTopicAction(input: {
   entries: readonly RecallGuidanceEntry[];
   recommendation: StudyGuidanceTopicRecommendation | null;
 }): StudyGuidanceTopicAction {
-  switch (input.recommendation?.kind) {
+  const { entries, recommendation } = input;
+
+  switch (recommendation?.kind) {
     case "practice-repair":
       return {
         kind: "practice-repair",
         label: "Open Practice Repair",
       };
     case "interleaving-ready": {
-      const studyNoteIds = createRecallSelectionStudyNoteIds(input.entries);
+      const studyNoteIds = getInterleavingReadyStudyNoteIds(entries);
 
       if (studyNoteIds.length === 0) {
         return {
@@ -441,7 +444,6 @@ function createStudyGuidanceTopicAction(input: {
         kind: "recall-today",
         label: "Open Recall Today",
       };
-    case "reinforce":
     default:
       return {
         kind: "study-notes",

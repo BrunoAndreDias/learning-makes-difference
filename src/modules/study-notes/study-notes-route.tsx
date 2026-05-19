@@ -76,6 +76,7 @@ import {
   type StudyNoteLearningState,
   toStudyNoteRecallHistories,
   type UpdateStudyNoteInput,
+  unlabeledStudyNotesFilterLabel,
   unlabeledStudyNotesFilterValue,
 } from ".";
 import { getStudyNotePracticeRepair } from "./practice-repair";
@@ -1416,13 +1417,7 @@ function StudyNotesWorkspace() {
   }, [labelsContext, userId]);
 
   useEffect(() => {
-    const nextSelectedLabelId = search.labelId ?? "";
-
-    setSelectedLabelId((currentSelectedLabelId) =>
-      currentSelectedLabelId === nextSelectedLabelId
-        ? currentSelectedLabelId
-        : nextSelectedLabelId,
-    );
+    setSelectedLabelId(search.labelId ?? "");
   }, [search.labelId]);
 
   useEffect(() => {
@@ -2661,16 +2656,18 @@ function StudyNotesWorkspace() {
               <select
                 aria-label="Filter Study Notes by label"
                 onChange={(event) => {
-                  setSelectedLabelId(event.target.value);
+                  const nextSelectedLabelId = event.target.value;
+
+                  setSelectedLabelId(nextSelectedLabelId);
                   setStudyNotesCatalogExpanded(false);
                   void navigate({
                     replace: true,
                     search: (previousSearch) => ({
                       ...previousSearch,
                       labelId:
-                        event.target.value.length === 0
+                        nextSelectedLabelId.length === 0
                           ? undefined
-                          : event.target.value,
+                          : nextSelectedLabelId,
                     }),
                     to: "/study-notes",
                   });
@@ -2679,7 +2676,7 @@ function StudyNotesWorkspace() {
               >
                 <option value="">All labels</option>
                 <option value={unlabeledStudyNotesFilterValue}>
-                  Unlabeled Study Notes
+                  {unlabeledStudyNotesFilterLabel}
                 </option>
                 {availableLabels.map((label) => (
                   <option key={label.id} value={label.id}>

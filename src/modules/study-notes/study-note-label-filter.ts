@@ -1,6 +1,7 @@
 import type { AppStudyNote } from "./study-notes";
 
 export const unlabeledStudyNotesFilterValue = "__unlabeled__";
+export const unlabeledStudyNotesFilterLabel = "Unlabeled Study Notes";
 
 export function isUnlabeledStudyNotesFilterValue(value: string) {
   return value === unlabeledStudyNotesFilterValue;

@@ -8,6 +8,7 @@ import type {
 } from "../recall";
 import {
   type AppStudyNote,
+  unlabeledStudyNotesFilterLabel,
   unlabeledStudyNotesFilterValue,
 } from "../study-notes";
 import { deriveStudyGuidance } from "./study-guidance";
@@ -365,6 +366,10 @@ describe("Study Guidance", () => {
           summary:
             "1 active Practice Repair entry and 1 new repair candidate are waiting for Biology. Open Practice Repair before repeating generic Needs practice work.",
         },
+        action: {
+          kind: "practice-repair",
+          label: "Open Practice Repair",
+        },
         title: "Biology",
       }),
     ]);
@@ -499,7 +504,7 @@ describe("Study Guidance", () => {
         },
         id: unlabeledStudyNotesFilterValue,
         studyNoteCount: 1,
-        title: "Unlabeled Study Notes",
+        title: unlabeledStudyNotesFilterLabel,
       }),
     );
   });
