@@ -6,7 +6,11 @@ import { join } from "node:path";
 import { fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { createAppStudyNotesContext } from "../../modules/study-notes";
-import { openAccountMenu, renderRoute } from "./app-shell-test-support";
+import {
+  createAppFocusContext,
+  openAccountMenu,
+  renderRoute,
+} from "./app-shell-test-support";
 
 function setBrowserLanguages(languages: readonly string[]) {
   Object.defineProperty(window.navigator, "languages", {
@@ -55,11 +59,10 @@ describe("authenticated app shell", () => {
     expect(
       screen.getByRole("button", { name: "Abrir menu de navegacion" }),
     ).toBeInTheDocument();
-    const focusDock = screen.getByRole("region", {
-      name: "Concentracion ahora",
-    });
     expect(
-      within(focusDock).getByRole("button", { name: "Iniciar Pomodoro" }),
+      within(appSections).getByRole("button", {
+        name: "Iniciar concentracion",
+      }),
     ).toBeInTheDocument();
 
     fireEvent.click(
@@ -229,27 +232,104 @@ describe("authenticated app shell", () => {
     ).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("moves the global Focus control into the Focus Dock instead of the workspace header", async () => {
-    renderRoute("/settings");
+  it("uses the expanded sidebar Focus row to start a default FocusSession without navigating away", async () => {
+    const userId = "user-focus-nav-idle";
+    const focusContext = createAppFocusContext({
+      keyPrefix: `test-focus-nav-idle-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const { router } = renderRoute("/settings", {
+      focusContext,
+      session: {
+        user: {
+          displayName: "Casey Focus Nav Idle",
+          email: "casey.focus.nav.idle@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+    });
 
     expect(
       await screen.findByRole("heading", { level: 2, name: "Settings" }),
     ).toBeInTheDocument();
 
+    const sidebar = screen.getByRole("complementary", {
+      name: "Study Notes workspace",
+    });
+    const appSections = within(sidebar).getByRole("navigation", {
+      name: "App sections",
+    });
+    const focusLink = within(appSections).getByRole("link", { name: "Focus" });
+    const startButton = within(appSections).getByRole("button", {
+      name: "Start Focus",
+    });
+
+    expect(screen.queryByRole("region", { name: "Focus now" })).toBeNull();
+    expect(focusLink).toHaveAttribute("href", "/focus");
+
+    fireEvent.click(startButton);
+
+    expect(router.state.location.pathname).toBe("/settings");
     expect(
-      document.querySelector(".app-frame__actions .app-focus-session-start"),
-    ).toBeNull();
+      within(appSections).getByRole("button", { name: "End focus" }),
+    ).toBeInTheDocument();
+    expect(focusContext.getActiveSession({ userId })).toMatchObject({
+      breakIntervalMinutes: 5,
+      currentInterval: "Focus",
+      focusIntervalMinutes: 25,
+      method: "Pomodoro",
+      plannedFocusIntervalCount: null,
+    });
+  });
+
+  it("uses the expanded sidebar Focus row to end an active FocusSession without navigating away", async () => {
+    const userId = "user-focus-nav-active";
+    const focusContext = createAppFocusContext({
+      keyPrefix: `test-focus-nav-active-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    focusContext.startFocusSession({
+      breakIntervalMinutes: 5,
+      focusIntervalMinutes: 25,
+      plannedFocusIntervalCount: null,
+      userId,
+    });
+    const { router } = renderRoute("/settings", {
+      focusContext,
+      session: {
+        user: {
+          displayName: "Casey Focus Nav Active",
+          email: "casey.focus.nav.active@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Settings" }),
+    ).toBeInTheDocument();
 
     const sidebar = screen.getByRole("complementary", {
       name: "Study Notes workspace",
     });
-    const focusDock = within(sidebar).getByRole("region", {
-      name: "Focus now",
+    const appSections = within(sidebar).getByRole("navigation", {
+      name: "App sections",
     });
 
+    expect(screen.queryByRole("region", { name: "Focus now" })).toBeNull();
+    expect(within(appSections).getByText("25:00")).toBeInTheDocument();
+
+    fireEvent.click(
+      within(appSections).getByRole("button", { name: "End focus" }),
+    );
+
+    expect(router.state.location.pathname).toBe("/settings");
     expect(
-      within(focusDock).getByRole("button", { name: "Start Pomodoro" }),
-    ).toHaveClass("notes-action-secondary");
+      within(appSections).getByRole("button", { name: "Start Focus" }),
+    ).toBeInTheDocument();
+    expect(focusContext.getActiveSession({ userId })).toBeNull();
   });
 
   it("renders global workspace navigation and updates the active link when navigating", async () => {
