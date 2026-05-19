@@ -336,9 +336,15 @@ _Avoid_: Difficulty, RecallMode, FocusMethod, streak target
 
 **Study Guidance**:
 The app's contextual recommendation for what the User should do next in the Learning Loop.
+In v1, Study Guidance may live under broader Insights navigation, but Insights is navigation language rather than a separate learning concept.
 In v1, Study Guidance should adapt from local Study Note and Label evidence rather than a broad beginner, intermediate, or advanced User profile.
+In v1, Study Guidance groups recommendations by Label, with an unlabeled group for Study Notes without Labels; these groups are not separate durable Topics.
+In v1, Study Guidance summarizes factual recall work with Recall Today, Needs practice, Not recalled yet, and Interleaved Recall readiness rather than broad analytics or mastery metrics.
 In v1, daily Study Guidance should center on Recall Today and Practice Repair; a full weekly planning or weekly review feature is deferred.
-_Avoid_: Learner level, study persona, difficulty profile
+When active Practice Repair entries or repair candidates exist, Study Guidance surfaces Practice Repair explicitly instead of burying it inside Needs practice copy.
+In v1, Study Guidance routes Users into existing workspaces such as Recall Today, Recall Selection Mode, Practice Repair, or Study Notes; it does not directly start RecallSessions from guidance groups.
+In v1, explanatory Study Guidance panels clarify evidence rules, while actionable guidance belongs in the main recommendation area.
+_Avoid_: Insights as the domain term, Topic, learner level, study persona, difficulty profile
 
 **BYOK** (Bring Your Own Key):
 The current premium access model. A User supplies their own AI provider API key; the app uses it for AiAssisted and AiGraded RecallModes. Future model: per-use credits. BYOK key persistence is deferred until AiAssisted or AiGraded is in scope.
