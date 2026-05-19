@@ -17,6 +17,7 @@ import { useFocusTimerTick } from "./focus-session-start-control";
 import type { AppPersistentFocusContext } from "./persistent-focus";
 
 const FOCUS_DOCK_TIMER_SEPARATOR = " \u00b7 ";
+const FOCUS_DOCK_CLASS_NAME = "focus-dock focus-dock--pill";
 
 type FocusDockAction = () => Promise<void> | void;
 type AppTranslate = ReturnType<typeof useAppTranslation>["t"];
@@ -38,7 +39,6 @@ export function FocusDock({
   useFocusTimerTick(activeFocusSession);
   const currentActiveFocusSession =
     userId === null ? activeFocusSession : focus.getActiveSession({ userId });
-  const dockClassName = "focus-dock focus-dock--pill";
   const errorDescriptionId = errorMessage === null ? undefined : errorId;
   const isActionDisabled = userId === null;
   const focusActionInput = { focus, persistentFocus, userId };
@@ -97,7 +97,10 @@ export function FocusDock({
 
   if (currentActiveFocusSession === null) {
     return (
-      <section aria-label={t("focus.dock.heading")} className={dockClassName}>
+      <section
+        aria-label={t("focus.dock.heading")}
+        className={FOCUS_DOCK_CLASS_NAME}
+      >
         <div className="focus-dock__body">
           <div className="focus-dock__actions">
             <Button
@@ -134,7 +137,7 @@ export function FocusDock({
   return (
     <section
       aria-label={t("focus.dock.heading")}
-      className={dockClassName}
+      className={FOCUS_DOCK_CLASS_NAME}
       data-state={getFocusDockDataState(currentActiveFocusSession)}
     >
       <div className="focus-dock__body">

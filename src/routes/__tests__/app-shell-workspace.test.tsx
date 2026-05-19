@@ -21,22 +21,28 @@ function setBrowserLanguages(languages: readonly string[]) {
 
 const defaultViewportWidth = window.innerWidth;
 const defaultMatchMedia = window.matchMedia;
+const rootRemPixels = 16;
+
+function queryMatchesViewportWidth(query: string, width: number) {
+  const maxWidthRemMatch = query.match(/^\(max-width:\s*([0-9.]+)rem\)$/);
+  if (maxWidthRemMatch !== null) {
+    return width <= Number(maxWidthRemMatch[1]) * rootRemPixels;
+  }
+
+  const maxWidthPxMatch = query.match(/^\(max-width:\s*([0-9.]+)px\)$/);
+  if (maxWidthPxMatch !== null) {
+    return width <= Number(maxWidthPxMatch[1]);
+  }
+
+  return false;
+}
 
 function createMediaQueryList(query: string, width: number): MediaQueryList {
-  const maxWidthRemMatch = query.match(/^\(max-width:\s*([0-9.]+)rem\)$/);
-  const maxWidthPxMatch = query.match(/^\(max-width:\s*([0-9.]+)px\)$/);
-  const matches =
-    maxWidthRemMatch !== null
-      ? width <= Number(maxWidthRemMatch[1]) * 16
-      : maxWidthPxMatch !== null
-        ? width <= Number(maxWidthPxMatch[1])
-        : false;
-
   return {
     addEventListener: () => undefined,
     addListener: () => undefined,
     dispatchEvent: () => false,
-    matches,
+    matches: queryMatchesViewportWidth(query, width),
     media: query,
     onchange: null,
     removeEventListener: () => undefined,
@@ -58,14 +64,21 @@ function setViewportWidth(width: number) {
   fireEvent(window, new Event("resize"));
 }
 
-afterEach(() => {
+function restoreViewport() {
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: defaultViewportWidth,
+    writable: true,
+  });
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     value: defaultMatchMedia,
     writable: true,
   });
-  setViewportWidth(defaultViewportWidth);
-});
+  fireEvent(window, new Event("resize"));
+}
+
+afterEach(restoreViewport);
 
 describe("authenticated app shell", () => {
   it("uses the stored User Language for authenticated shell chrome instead of browser detection", async () => {
