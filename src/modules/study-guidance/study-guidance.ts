@@ -1,58 +1,57 @@
 import type { UserTimeZonePreference } from "../access/session/session-contract";
 import type { AppLabel } from "../labels/label-management/labels";
+import { getInterleavedRecallRecommendation } from "../recall/interleaved-recall";
+import { getLocalDateKey } from "../recall/local-date";
 import type {
   FlashCardRecallAttemptsByNote,
-  RecallGuidanceEntry,
-  RecallGuidanceRecommendation,
-  RecallSchedule,
   SessionResult,
-} from "../recall";
+} from "../recall/recall";
+import { buildDueTodayQueue } from "../recall/recall-due-today";
 import {
-  deriveRecallGuidance,
-  getRecallGuidanceRecommendation,
-} from "../recall";
-import {
+  formatPracticeRepairIntentLabel,
+  getPracticeRepairEntryId,
+  listActionablePracticeFollowUps,
   listPracticeRepairQueueItems,
+  type PracticeRepairEntry,
   type PracticeRepairQueueListItem,
 } from "../recall/recall-practice-repair";
+import type { RecallSchedule } from "../recall/recall-schedule";
+import { type AppStudyNote, getStudyNoteReadiness } from "../study-notes";
 import {
-  type AppStudyNote,
-  unlabeledStudyNotesFilterLabel,
-  unlabeledStudyNotesFilterValue,
-} from "../study-notes";
+  type StudyNoteRecallHistory,
+  toStudyNoteRecallHistories,
+} from "../study-notes/learning-state";
 
-export type StudyGuidanceSignalId =
-  | "interleaving-ready"
-  | "needs-practice"
-  | "not-recalled-yet"
-  | "recall-today";
+export type StudyGuidanceBucketId =
+  | "practice-repair"
+  | "practice-follow-up"
+  | "due-today"
+  | "completion-blocker"
+  | "first-recall"
+  | "interleaving-ready";
 
-export type StudyGuidanceStat = {
+export type StudyGuidanceSummaryCard = {
   count: number;
   detail: string;
-  id: StudyGuidanceSignalId;
+  id: StudyGuidanceBucketId;
   label: string;
 };
 
-export type StudyGuidancePracticeRepair = {
-  activeEntryCount: number;
-  candidateCount: number;
-  hasActiveEntries: boolean;
-  hasCandidates: boolean;
-  summary: string;
-};
-
-export type StudyGuidanceTopicRecommendation =
-  | RecallGuidanceRecommendation
+export type StudyGuidanceRowAction =
   | {
-      kind: "practice-repair";
-      summary: string;
-    };
-
-export type StudyGuidanceTopicAction =
-  | {
-      kind: "practice-repair";
+      kind: "practice-repair-draft";
       label: "Open Practice Repair";
+      questionResultId: string;
+      sessionResultId: string;
+    }
+  | {
+      kind: "practice-repair-entry";
+      label: "Open Practice Repair";
+      practiceRepairEntryId: string;
+    }
+  | {
+      kind: "recall-due-today";
+      label: "Open Recall Due today";
     }
   | {
       kind: "recall-selection";
@@ -60,37 +59,33 @@ export type StudyGuidanceTopicAction =
       studyNoteIds: readonly string[];
     }
   | {
-      kind: "recall-today";
-      label: "Open Recall Today";
-    }
-  | {
       kind: "study-notes";
       label: "Open Study Notes";
     };
 
-export type StudyGuidanceTopic = {
-  action: StudyGuidanceTopicAction;
+export type StudyGuidanceRow = {
+  action: StudyGuidanceRowAction;
+  bucketId: StudyGuidanceBucketId;
+  bucketLabel: string;
+  evidence: string;
   id: string;
-  interleavingReadyCount: number;
-  needsPracticeCount: number;
-  notRecalledYetCount: number;
-  practiceRepairActiveCount: number;
-  practiceRepairCandidateCount: number;
-  recommendation: StudyGuidanceTopicRecommendation | null;
-  recallTodayCount: number;
-  studyNoteCount: number;
+  metadata: readonly string[];
   title: string;
 };
 
-export type StudyGuidanceTopicStat = Pick<
-  StudyGuidanceStat,
-  "count" | "id" | "label"
->;
+export type StudyGuidanceEmptyState = {
+  action: {
+    kind: "study-notes";
+    label: "Create first Study Note";
+  };
+  description: string;
+  title: string;
+};
 
 export type StudyGuidance = {
-  practiceRepair: StudyGuidancePracticeRepair | null;
-  stats: readonly StudyGuidanceStat[];
-  topics: readonly StudyGuidanceTopic[];
+  emptyState: StudyGuidanceEmptyState | null;
+  rows: readonly StudyGuidanceRow[];
+  summaryCards: readonly StudyGuidanceSummaryCard[];
 };
 
 type StudyGuidanceInput = {
@@ -103,406 +98,688 @@ type StudyGuidanceInput = {
   userTimeZone: UserTimeZonePreference;
 };
 
-type StudyGuidanceTopicDraft = {
-  guidanceEntries: readonly RecallGuidanceEntry[];
-  id: string;
-  title: string;
+type StudyGuidanceRowDraft = StudyGuidanceRow & {
+  studyNoteIds: readonly string[];
 };
 
-type RecallGuidanceSignalCounts = {
-  interleavingReadyCount: number;
-  needsPracticeCount: number;
-  notRecalledYetCount: number;
-  recallTodayCount: number;
-};
+type BucketDefinition = Omit<StudyGuidanceSummaryCard, "count">;
+type PracticeRepairQueueItem = PracticeRepairQueueListItem<SessionResult>;
 
-type StudyGuidancePracticeRepairCounts = Pick<
-  StudyGuidancePracticeRepair,
-  "activeEntryCount" | "candidateCount"
->;
-type StudyGuidancePracticeRepairQueueItem =
-  PracticeRepairQueueListItem<SessionResult>;
-
-type StudyGuidanceSignalDefinition = Omit<StudyGuidanceStat, "count"> & {
-  countKey: keyof RecallGuidanceSignalCounts;
-};
-
-const studyGuidanceSignalDefinitions = [
+const bucketDefinitions = [
   {
-    countKey: "recallTodayCount",
-    detail: "Recommended recall work exists today.",
-    id: "recall-today",
-    label: "Recall Today",
+    detail: "Resolve weak recall evidence in Practice Repair first.",
+    id: "practice-repair",
+    label: "Practice Repair",
   },
   {
-    countKey: "needsPracticeCount",
-    detail: "Latest recall was Hard or Forgot.",
-    id: "needs-practice",
-    label: "Needs practice",
+    detail: "Completed repairs still waiting for recall again soon.",
+    id: "practice-follow-up",
+    label: "Practice Follow-up",
   },
   {
-    countKey: "notRecalledYetCount",
-    detail: "No recall attempts yet.",
-    id: "not-recalled-yet",
-    label: "Not recalled yet",
+    detail: "Scheduled recall due today or already overdue.",
+    id: "due-today",
+    label: "Due today",
   },
   {
-    countKey: "interleavingReadyCount",
-    detail: "Ready for Interleaved Recall after repeated Good or Easy recalls.",
+    detail: "Saved Study Notes that still need an expected answer.",
+    id: "completion-blocker",
+    label: "Completion blocker",
+  },
+  {
+    detail: "Recallable Study Notes with no recall attempts yet.",
+    id: "first-recall",
+    label: "First recall",
+  },
+  {
+    detail: "Related Study Notes ready for mixed practice.",
     id: "interleaving-ready",
-    label: "Interleaved Recall",
+    label: "Interleaving ready",
   },
-] as const satisfies readonly StudyGuidanceSignalDefinition[];
+] as const satisfies readonly BucketDefinition[];
 
-function createTopicDrafts(input: {
-  guidanceEntries: readonly RecallGuidanceEntry[];
-  labels: readonly AppLabel[];
-}) {
-  const topicDrafts = input.labels.flatMap((label) => {
-    const labelGuidanceEntries = input.guidanceEntries.filter((entry) =>
-      entry.studyNote.labelIds.includes(label.id),
-    );
+function getBucketDefinition(id: StudyGuidanceBucketId): BucketDefinition {
+  const definition = bucketDefinitions.find((bucket) => bucket.id === id);
 
-    return labelGuidanceEntries.length === 0
-      ? []
-      : [
-          {
-            guidanceEntries: labelGuidanceEntries,
-            id: label.id,
-            title: label.name,
-          } satisfies StudyGuidanceTopicDraft,
-        ];
+  if (definition === undefined) {
+    throw new Error(`Unknown Study Guidance bucket: ${id}`);
+  }
+
+  return definition;
+}
+
+function createEmptyState(): StudyGuidanceEmptyState {
+  return {
+    action: {
+      kind: "study-notes",
+      label: "Create first Study Note",
+    },
+    description:
+      "Start the Learning Loop with one clear Study Note, then use recall and Practice Repair to strengthen it over time.",
+    title: "Create your first Study Note",
+  };
+}
+
+function getStudyNoteTitle(studyNote: AppStudyNote): string {
+  const prompt = studyNote.prompt.trim();
+
+  if (prompt.length > 0) {
+    return prompt;
+  }
+
+  const sourceTitle = studyNote.source.title.trim();
+
+  if (sourceTitle.length > 0) {
+    return sourceTitle;
+  }
+
+  const sourceBody = studyNote.source.body.trim();
+
+  return sourceBody.length > 0 ? sourceBody : "Untitled Study Note";
+}
+
+function getStudyNoteSourceTitle(studyNote: AppStudyNote): string {
+  const sourceTitle = studyNote.source.title.trim();
+
+  if (sourceTitle.length > 0) {
+    return sourceTitle;
+  }
+
+  return "Untitled source";
+}
+
+function getStudyNoteLabelNames(input: {
+  labelsById: ReadonlyMap<string, AppLabel>;
+  studyNote: AppStudyNote;
+}): string[] {
+  return input.studyNote.labelIds
+    .map((labelId) => input.labelsById.get(labelId)?.name)
+    .filter((labelName): labelName is string => labelName !== undefined);
+}
+
+function createStudyNoteMetadata(input: {
+  labelsById: ReadonlyMap<string, AppLabel>;
+  studyNote: AppStudyNote;
+}): string[] {
+  const labelNames = getStudyNoteLabelNames(input);
+  const labelMetadata =
+    labelNames.length === 0
+      ? "Label: None"
+      : `Label${labelNames.length === 1 ? "" : "s"}: ${labelNames.join(", ")}`;
+
+  return [labelMetadata, `Source: ${getStudyNoteSourceTitle(input.studyNote)}`];
+}
+
+function getLatestHistoryAttempt(
+  history: StudyNoteRecallHistory | null,
+): StudyNoteRecallHistory["attempts"][number] | null {
+  return history?.attempts.at(-1) ?? null;
+}
+
+function getDueState(input: {
+  now: string;
+  schedule: RecallSchedule;
+  userTimeZone: UserTimeZonePreference;
+}): "due-today" | "overdue" | null {
+  const nextRecallDateKey = getLocalDateKey({
+    timestamp: input.schedule.nextRecallAt,
+    userTimeZone: input.userTimeZone,
   });
-  const unlabeledGuidanceEntries = input.guidanceEntries.filter(
-    (entry) => entry.studyNote.labelIds.length === 0,
+  const todayDateKey = getLocalDateKey({
+    timestamp: input.now,
+    userTimeZone: input.userTimeZone,
+  });
+
+  if (nextRecallDateKey === null || todayDateKey === null) {
+    return null;
+  }
+
+  if (nextRecallDateKey < todayDateKey) {
+    return "overdue";
+  }
+
+  return nextRecallDateKey === todayDateKey ? "due-today" : null;
+}
+
+function compareDueSchedules(input: {
+  left: RecallSchedule;
+  now: string;
+  right: RecallSchedule;
+  userTimeZone: UserTimeZonePreference;
+}) {
+  const leftDueState = getDueState({
+    now: input.now,
+    schedule: input.left,
+    userTimeZone: input.userTimeZone,
+  });
+  const rightDueState = getDueState({
+    now: input.now,
+    schedule: input.right,
+    userTimeZone: input.userTimeZone,
+  });
+
+  if (leftDueState === "overdue" && rightDueState !== "overdue") {
+    return -1;
+  }
+
+  if (leftDueState !== "overdue" && rightDueState === "overdue") {
+    return 1;
+  }
+
+  return (
+    input.left.nextRecallAt.localeCompare(input.right.nextRecallAt) ||
+    input.left.studyNoteId.localeCompare(input.right.studyNoteId)
+  );
+}
+
+function createSummaryCards(rows: readonly StudyGuidanceRow[]) {
+  return bucketDefinitions.map((bucket) => ({
+    ...bucket,
+    count: rows.filter((row) => row.bucketId === bucket.id).length,
+  }));
+}
+
+function createPracticeRepairEvidence(item: PracticeRepairQueueItem): string {
+  if (item.kind === "active") {
+    return `${formatPracticeRepairIntentLabel(item.entry.intent)} is still unresolved.`;
+  }
+
+  return [item.draft.summary, item.recentWeakAttemptsSummary]
+    .filter((part): part is string => part !== null && part !== undefined)
+    .join(" ");
+}
+
+function createPracticeRepairRows(input: {
+  labelsById: ReadonlyMap<string, AppLabel>;
+  queueItems: readonly PracticeRepairQueueItem[];
+  studyNotesById: ReadonlyMap<string, AppStudyNote>;
+}): StudyGuidanceRowDraft[] {
+  const { labelsById, queueItems, studyNotesById } = input;
+
+  return queueItems.flatMap((item) => {
+    const studyNoteId =
+      item.kind === "active"
+        ? item.entry.reference.studyNoteId
+        : item.question.noteId;
+    const studyNote = studyNotesById.get(studyNoteId);
+
+    if (studyNote === undefined) {
+      return [];
+    }
+
+    const action =
+      item.kind === "active"
+        ? ({
+            kind: "practice-repair-entry",
+            label: "Open Practice Repair",
+            practiceRepairEntryId: getPracticeRepairEntryId(item.entry),
+          } satisfies StudyGuidanceRowAction)
+        : ({
+            kind: "practice-repair-draft",
+            label: "Open Practice Repair",
+            questionResultId: item.question.questionResultId,
+            sessionResultId: item.result.id,
+          } satisfies StudyGuidanceRowAction);
+
+    return [
+      {
+        action,
+        bucketId: "practice-repair",
+        bucketLabel: getBucketDefinition("practice-repair").label,
+        evidence: createPracticeRepairEvidence(item),
+        id:
+          item.kind === "active"
+            ? getPracticeRepairEntryId(item.entry)
+            : item.question.questionResultId,
+        metadata: createStudyNoteMetadata({
+          labelsById,
+          studyNote,
+        }),
+        studyNoteIds: [studyNote.id],
+        title: getStudyNoteTitle(studyNote),
+      } satisfies StudyGuidanceRowDraft,
+    ];
+  });
+}
+
+function createPracticeFollowUpEvidence(
+  entry: Pick<PracticeRepairEntry, "intent">,
+): string {
+  return `${formatPracticeRepairIntentLabel(entry.intent)} is complete. Recall again soon is still pending.`;
+}
+
+function createPracticeFollowUpRows(input: {
+  blockedStudyNoteIds: ReadonlySet<string>;
+  labelsById: ReadonlyMap<string, AppLabel>;
+  sessionResults: readonly SessionResult[];
+  studyNotesById: ReadonlyMap<string, AppStudyNote>;
+}): StudyGuidanceRowDraft[] {
+  return listActionablePracticeFollowUps({
+    results: input.sessionResults,
+  }).flatMap((entry) => {
+    const studyNoteId = entry.reference.studyNoteId;
+
+    if (input.blockedStudyNoteIds.has(studyNoteId)) {
+      return [];
+    }
+
+    const studyNote = input.studyNotesById.get(studyNoteId);
+
+    if (studyNote === undefined) {
+      return [];
+    }
+
+    return [
+      {
+        action: {
+          kind: "practice-repair-entry",
+          label: "Open Practice Repair",
+          practiceRepairEntryId: getPracticeRepairEntryId(entry),
+        },
+        bucketId: "practice-follow-up",
+        bucketLabel: getBucketDefinition("practice-follow-up").label,
+        evidence: createPracticeFollowUpEvidence(entry),
+        id: `follow-up:${getPracticeRepairEntryId(entry)}`,
+        metadata: createStudyNoteMetadata({
+          labelsById: input.labelsById,
+          studyNote,
+        }),
+        studyNoteIds: [studyNote.id],
+        title: getStudyNoteTitle(studyNote),
+      } satisfies StudyGuidanceRowDraft,
+    ];
+  });
+}
+
+function createDueTodayEvidence(input: {
+  now: string;
+  schedule: RecallSchedule;
+  userTimeZone: UserTimeZonePreference;
+}): string {
+  return getDueState({
+    now: input.now,
+    schedule: input.schedule,
+    userTimeZone: input.userTimeZone,
+  }) === "overdue"
+    ? "Scheduled recall is overdue."
+    : "Scheduled recall is due today.";
+}
+
+function createDueTodayRows(input: {
+  blockedStudyNoteIds: ReadonlySet<string>;
+  histories: readonly StudyNoteRecallHistory[];
+  labelsById: ReadonlyMap<string, AppLabel>;
+  now: string;
+  recallSchedules: readonly RecallSchedule[];
+  sessionResults: readonly SessionResult[];
+  studyNotes: readonly AppStudyNote[];
+  userTimeZone: UserTimeZonePreference;
+}): StudyGuidanceRowDraft[] {
+  return buildDueTodayQueue({
+    histories: input.histories,
+    now: input.now,
+    recallSchedules: input.recallSchedules,
+    sessionResults: input.sessionResults,
+    studyNotes: input.studyNotes,
+    userTimeZone: input.userTimeZone,
+  })
+    .filter((item) => !input.blockedStudyNoteIds.has(item.studyNote.id))
+    .sort((left, right) =>
+      compareDueSchedules({
+        left: left.schedule,
+        now: input.now,
+        right: right.schedule,
+        userTimeZone: input.userTimeZone,
+      }),
+    )
+    .map(
+      (item) =>
+        ({
+          action: {
+            kind: "recall-due-today",
+            label: "Open Recall Due today",
+          },
+          bucketId: "due-today",
+          bucketLabel: getBucketDefinition("due-today").label,
+          evidence: createDueTodayEvidence({
+            now: input.now,
+            schedule: item.schedule,
+            userTimeZone: input.userTimeZone,
+          }),
+          id: `due:${item.studyNote.id}`,
+          metadata: createStudyNoteMetadata({
+            labelsById: input.labelsById,
+            studyNote: item.studyNote,
+          }),
+          studyNoteIds: [item.studyNote.id],
+          title: getStudyNoteTitle(item.studyNote),
+        }) satisfies StudyGuidanceRowDraft,
+    );
+}
+
+function createCompletionBlockerRows(input: {
+  blockedStudyNoteIds: ReadonlySet<string>;
+  labelsById: ReadonlyMap<string, AppLabel>;
+  studyNotes: readonly AppStudyNote[];
+}): StudyGuidanceRowDraft[] {
+  return input.studyNotes
+    .filter((studyNote) => !input.blockedStudyNoteIds.has(studyNote.id))
+    .filter((studyNote) => getStudyNoteReadiness(studyNote).incomplete)
+    .map(
+      (studyNote) =>
+        ({
+          action: {
+            kind: "study-notes",
+            label: "Open Study Notes",
+          },
+          bucketId: "completion-blocker",
+          bucketLabel: getBucketDefinition("completion-blocker").label,
+          evidence:
+            "Add the expected answer before this Study Note can enter recall.",
+          id: `completion-blocker:${studyNote.id}`,
+          metadata: createStudyNoteMetadata({
+            labelsById: input.labelsById,
+            studyNote,
+          }),
+          studyNoteIds: [studyNote.id],
+          title: getStudyNoteTitle(studyNote),
+        }) satisfies StudyGuidanceRowDraft,
+    );
+}
+
+function createFirstRecallRows(input: {
+  blockedStudyNoteIds: ReadonlySet<string>;
+  historiesByStudyNoteId: ReadonlyMap<string, StudyNoteRecallHistory>;
+  labelsById: ReadonlyMap<string, AppLabel>;
+  studyNotes: readonly AppStudyNote[];
+}): StudyGuidanceRowDraft[] {
+  return input.studyNotes
+    .filter((studyNote) => !input.blockedStudyNoteIds.has(studyNote.id))
+    .filter((studyNote) => getStudyNoteReadiness(studyNote).recallable)
+    .filter((studyNote) => {
+      const history = input.historiesByStudyNoteId.get(studyNote.id) ?? null;
+
+      return getLatestHistoryAttempt(history) === null;
+    })
+    .map(
+      (studyNote) =>
+        ({
+          action: {
+            kind: "recall-selection",
+            label: "Open Recall Selection",
+            studyNoteIds: [studyNote.id],
+          },
+          bucketId: "first-recall",
+          bucketLabel: getBucketDefinition("first-recall").label,
+          evidence: "No recall attempts yet.",
+          id: `first-recall:${studyNote.id}`,
+          metadata: createStudyNoteMetadata({
+            labelsById: input.labelsById,
+            studyNote,
+          }),
+          studyNoteIds: [studyNote.id],
+          title: getStudyNoteTitle(studyNote),
+        }) satisfies StudyGuidanceRowDraft,
+    );
+}
+
+function getSharedLabelNames(input: {
+  labelsById: ReadonlyMap<string, AppLabel>;
+  studyNotes: readonly AppStudyNote[];
+}) {
+  const [firstStudyNote, ...rest] = input.studyNotes;
+
+  if (firstStudyNote === undefined) {
+    return [];
+  }
+
+  return firstStudyNote.labelIds
+    .filter((labelId) =>
+      rest.every((studyNote) => studyNote.labelIds.includes(labelId)),
+    )
+    .map((labelId) => input.labelsById.get(labelId)?.name)
+    .filter((labelName): labelName is string => labelName !== undefined);
+}
+
+function getInterleavingRowTitle(input: {
+  labelsById: ReadonlyMap<string, AppLabel>;
+  studyNotes: readonly AppStudyNote[];
+}) {
+  const sharedLabelNames = getSharedLabelNames(input);
+
+  if (sharedLabelNames.length > 0) {
+    return sharedLabelNames[0];
+  }
+
+  const [firstStudyNote, ...rest] = input.studyNotes;
+
+  if (firstStudyNote === undefined) {
+    return "Interleaving Recall";
+  }
+
+  if (
+    rest.every(
+      (studyNote) => studyNote.sourceNoteId === firstStudyNote.sourceNoteId,
+    )
+  ) {
+    return getStudyNoteSourceTitle(firstStudyNote);
+  }
+
+  return getStudyNoteTitle(firstStudyNote);
+}
+
+function createInterleavingMetadata(input: {
+  labelsById: ReadonlyMap<string, AppLabel>;
+  studyNotes: readonly AppStudyNote[];
+}) {
+  const labelNames = new Set<string>();
+
+  for (const studyNote of input.studyNotes) {
+    for (const labelName of getStudyNoteLabelNames({
+      labelsById: input.labelsById,
+      studyNote,
+    })) {
+      labelNames.add(labelName);
+    }
+  }
+
+  const labelsMetadata =
+    labelNames.size === 0
+      ? "Label: None"
+      : `Label${labelNames.size === 1 ? "" : "s"}: ${[...labelNames].join(", ")}`;
+
+  return [`${input.studyNotes.length} related Study Notes`, labelsMetadata];
+}
+
+function compareInterleavingRows(
+  left: Pick<StudyGuidanceRow, "title" | "id">,
+  right: Pick<StudyGuidanceRow, "title" | "id">,
+) {
+  return (
+    left.title.localeCompare(right.title) || left.id.localeCompare(right.id)
+  );
+}
+
+function createInterleavingRows(input: {
+  blockedStudyNoteIds: ReadonlySet<string>;
+  histories: readonly StudyNoteRecallHistory[];
+  labelsById: ReadonlyMap<string, AppLabel>;
+  studyNotes: readonly AppStudyNote[];
+}): StudyGuidanceRowDraft[] {
+  const groups = new Map<string, StudyGuidanceRowDraft>();
+  const visibleStudyNotes = input.studyNotes.filter(
+    (studyNote) =>
+      !input.blockedStudyNoteIds.has(studyNote.id) &&
+      getStudyNoteReadiness(studyNote).recallable,
+  );
+  const visibleStudyNotesById = new Map(
+    visibleStudyNotes.map((studyNote) => [studyNote.id, studyNote] as const),
   );
 
-  if (unlabeledGuidanceEntries.length > 0) {
-    topicDrafts.push({
-      guidanceEntries: unlabeledGuidanceEntries,
-      id: unlabeledStudyNotesFilterValue,
-      title: unlabeledStudyNotesFilterLabel,
+  for (const studyNote of visibleStudyNotes) {
+    const recommendation = getInterleavedRecallRecommendation({
+      histories: input.histories,
+      studyNote,
+      studyNotes: visibleStudyNotes,
+    });
+
+    if (recommendation === null) {
+      continue;
+    }
+
+    if (
+      recommendation.studyNoteIds.some((studyNoteId) =>
+        input.blockedStudyNoteIds.has(studyNoteId),
+      )
+    ) {
+      continue;
+    }
+
+    const groupStudyNotes = recommendation.studyNoteIds
+      .map((studyNoteId) => visibleStudyNotesById.get(studyNoteId))
+      .filter(
+        (candidate): candidate is AppStudyNote => candidate !== undefined,
+      );
+
+    if (groupStudyNotes.length === 0) {
+      continue;
+    }
+
+    const stableStudyNoteIds = visibleStudyNotes
+      .filter((candidate) => recommendation.studyNoteIds.includes(candidate.id))
+      .map((candidate) => candidate.id);
+    const groupKey = [...stableStudyNoteIds].sort().join("|");
+
+    if (groups.has(groupKey)) {
+      continue;
+    }
+
+    groups.set(groupKey, {
+      action: {
+        kind: "recall-selection",
+        label: "Open Recall Selection",
+        studyNoteIds: stableStudyNoteIds,
+      },
+      bucketId: "interleaving-ready",
+      bucketLabel: getBucketDefinition("interleaving-ready").label,
+      evidence: recommendation.summary,
+      id: `interleaving:${groupKey}`,
+      metadata: createInterleavingMetadata({
+        labelsById: input.labelsById,
+        studyNotes: groupStudyNotes,
+      }),
+      studyNoteIds: stableStudyNoteIds,
+      title: getInterleavingRowTitle({
+        labelsById: input.labelsById,
+        studyNotes: groupStudyNotes,
+      }),
     });
   }
 
-  return topicDrafts;
+  return [...groups.values()].sort(compareInterleavingRows);
 }
 
-function countRecallGuidanceSignals(
-  guidanceEntries: readonly RecallGuidanceEntry[],
-): RecallGuidanceSignalCounts {
-  const counts: RecallGuidanceSignalCounts = {
-    interleavingReadyCount: 0,
-    needsPracticeCount: 0,
-    notRecalledYetCount: 0,
-    recallTodayCount: 0,
-  };
-
-  for (const entry of guidanceEntries) {
-    if (entry.interleavingReady) {
-      counts.interleavingReadyCount += 1;
-    }
-
-    if (entry.needsPractice) {
-      counts.needsPracticeCount += 1;
-    }
-
-    if (entry.notRecalledYet) {
-      counts.notRecalledYetCount += 1;
-    }
-
-    if (entry.recallToday) {
-      counts.recallTodayCount += 1;
-    }
-  }
-
-  return counts;
-}
-
-function createStudyGuidanceStats(
-  signalCounts: RecallGuidanceSignalCounts,
-): StudyGuidanceStat[] {
-  return studyGuidanceSignalDefinitions.map(({ countKey, ...stat }) => ({
-    ...stat,
-    count: signalCounts[countKey],
-  }));
-}
-
-export function getStudyGuidanceTopicStats(
-  topic: StudyGuidanceTopic,
-): StudyGuidanceTopicStat[] {
-  return studyGuidanceSignalDefinitions.map(({ countKey, id, label }) => ({
-    count: topic[countKey],
-    id,
-    label,
-  }));
-}
-
-function compareTopics(left: StudyGuidanceTopic, right: StudyGuidanceTopic) {
-  return (
-    right.practiceRepairActiveCount - left.practiceRepairActiveCount ||
-    right.practiceRepairCandidateCount - left.practiceRepairCandidateCount ||
-    right.needsPracticeCount - left.needsPracticeCount ||
-    right.recallTodayCount - left.recallTodayCount ||
-    right.interleavingReadyCount - left.interleavingReadyCount ||
-    right.notRecalledYetCount - left.notRecalledYetCount ||
-    left.title.localeCompare(right.title)
-  );
-}
-
-function createPracticeRepairCounts(): StudyGuidancePracticeRepairCounts {
-  return {
-    activeEntryCount: 0,
-    candidateCount: 0,
-  };
-}
-
-function getPracticeRepairQueueItemStudyNoteId(
-  item: StudyGuidancePracticeRepairQueueItem,
+function addStudyNoteIdsToBlockedSet(
+  blockedStudyNoteIds: Set<string>,
+  rows: readonly StudyGuidanceRowDraft[],
 ) {
-  if (item.kind === "active") {
-    return item.entry.reference.studyNoteId;
-  }
-
-  return item.question.noteId;
-}
-
-function createStudyNoteIdSet(
-  entries: readonly RecallGuidanceEntry[],
-): ReadonlySet<string> {
-  return new Set(entries.map((entry) => entry.studyNote.id));
-}
-
-function countPracticeRepairQueueItems(input: {
-  queueItems: readonly StudyGuidancePracticeRepairQueueItem[];
-  studyNoteIds: ReadonlySet<string> | null;
-}): StudyGuidancePracticeRepairCounts {
-  const counts = createPracticeRepairCounts();
-
-  for (const item of input.queueItems) {
-    const studyNoteId = getPracticeRepairQueueItemStudyNoteId(item);
-
-    if (input.studyNoteIds !== null && !input.studyNoteIds.has(studyNoteId)) {
-      continue;
+  for (const row of rows) {
+    for (const studyNoteId of row.studyNoteIds) {
+      blockedStudyNoteIds.add(studyNoteId);
     }
-
-    if (item.kind === "active") {
-      counts.activeEntryCount += 1;
-      continue;
-    }
-
-    counts.candidateCount += 1;
   }
-
-  return counts;
 }
 
-function formatPracticeRepairCountLabel(
-  count: number,
-  singular: string,
-  plural: string,
-) {
-  return `${count} ${count === 1 ? singular : plural}`;
-}
-
-function formatPracticeRepairWorkSummary(input: {
-  counts: StudyGuidancePracticeRepairCounts;
-  location: string;
-}) {
-  const parts: string[] = [];
-
-  if (input.counts.activeEntryCount > 0) {
-    parts.push(
-      formatPracticeRepairCountLabel(
-        input.counts.activeEntryCount,
-        "active Practice Repair entry",
-        "active Practice Repair entries",
-      ),
-    );
-  }
-
-  if (input.counts.candidateCount > 0) {
-    parts.push(
-      formatPracticeRepairCountLabel(
-        input.counts.candidateCount,
-        "new repair candidate",
-        "new repair candidates",
-      ),
-    );
-  }
-
-  if (parts.length === 0) {
-    return null;
-  }
-
-  const totalCount =
-    input.counts.activeEntryCount + input.counts.candidateCount;
-  const workSummary =
-    parts.length === 1 ? parts[0] : `${parts[0]} and ${parts[1]}`;
-
-  return `${workSummary} ${totalCount === 1 ? "is" : "are"} waiting ${input.location}.`;
-}
-
-function createStudyGuidancePracticeRepair(
-  queueItems: readonly StudyGuidancePracticeRepairQueueItem[],
-): StudyGuidancePracticeRepair | null {
-  const counts = countPracticeRepairQueueItems({
-    queueItems,
-    studyNoteIds: null,
-  });
-  const summary = formatPracticeRepairWorkSummary({
-    counts,
-    location: "in Recall",
-  });
-
-  if (summary === null) {
-    return null;
-  }
-
-  return {
-    ...counts,
-    hasActiveEntries: counts.activeEntryCount > 0,
-    hasCandidates: counts.candidateCount > 0,
-    summary,
-  };
-}
-
-function createPracticeRepairTopicRecommendation(input: {
-  counts: StudyGuidancePracticeRepairCounts;
-  title: string;
-}): StudyGuidanceTopicRecommendation | null {
-  const summary = formatPracticeRepairWorkSummary({
-    counts: input.counts,
-    location: `for ${input.title}`,
-  });
-
-  if (summary === null) {
-    return null;
-  }
-
-  return {
-    kind: "practice-repair",
-    summary: `${summary} Open Practice Repair before repeating generic Needs practice work.`,
-  };
-}
-
-function getStudyGuidanceTopicRecommendation(input: {
-  counts: StudyGuidancePracticeRepairCounts;
-  entries: readonly RecallGuidanceEntry[];
-  title: string;
-}): StudyGuidanceTopicRecommendation | null {
-  return (
-    createPracticeRepairTopicRecommendation({
-      counts: input.counts,
-      title: input.title,
-    }) ??
-    getRecallGuidanceRecommendation({
-      entries: input.entries,
-    })
-  );
-}
-
-function getInterleavingReadyStudyNoteIds(
-  entries: readonly RecallGuidanceEntry[],
-) {
-  return entries
-    .filter((entry) => entry.interleavingReady)
-    .map((entry) => entry.studyNote.id);
-}
-
-function createStudyGuidanceTopicAction(input: {
-  entries: readonly RecallGuidanceEntry[];
-  recommendation: StudyGuidanceTopicRecommendation | null;
-}): StudyGuidanceTopicAction {
-  const { entries, recommendation } = input;
-
-  switch (recommendation?.kind) {
-    case "practice-repair":
-      return {
-        kind: "practice-repair",
-        label: "Open Practice Repair",
-      };
-    case "interleaving-ready": {
-      const studyNoteIds = getInterleavingReadyStudyNoteIds(entries);
-
-      if (studyNoteIds.length === 0) {
-        return {
-          kind: "study-notes",
-          label: "Open Study Notes",
-        };
-      }
-
-      return {
-        kind: "recall-selection",
-        label: "Open Recall Selection",
-        studyNoteIds,
-      };
-    }
-    case "needs-practice":
-    case "recall-today":
-      return {
-        kind: "recall-today",
-        label: "Open Recall Today",
-      };
-    default:
-      return {
-        kind: "study-notes",
-        label: "Open Study Notes",
-      };
-  }
+function stripRowDraftMetadata(rows: readonly StudyGuidanceRowDraft[]) {
+  return rows.map(({ studyNoteIds: _studyNoteIds, ...row }) => row);
 }
 
 export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
-  const recallGuidance = deriveRecallGuidance({
-    attemptsByNote: input.attemptsByNote,
+  const emptyState = input.studyNotes.length === 0 ? createEmptyState() : null;
+
+  if (emptyState !== null) {
+    return {
+      emptyState,
+      rows: [],
+      summaryCards: createSummaryCards([]),
+    };
+  }
+
+  const histories = toStudyNoteRecallHistories(input.attemptsByNote);
+  const historiesByStudyNoteId = new Map(
+    histories.map((history) => [history.studyNoteId, history] as const),
+  );
+  const labelsById = new Map(
+    input.labels.map((label) => [label.id, label] as const),
+  );
+  const studyNotesById = new Map(
+    input.studyNotes.map((studyNote) => [studyNote.id, studyNote] as const),
+  );
+  const blockedStudyNoteIds = new Set<string>();
+
+  const practiceRepairRows = createPracticeRepairRows({
+    labelsById,
+    queueItems: listPracticeRepairQueueItems({
+      results: input.sessionResults,
+    }),
+    studyNotesById,
+  });
+  addStudyNoteIdsToBlockedSet(blockedStudyNoteIds, practiceRepairRows);
+
+  const practiceFollowUpRows = createPracticeFollowUpRows({
+    blockedStudyNoteIds,
+    labelsById,
+    sessionResults: input.sessionResults,
+    studyNotesById,
+  });
+  addStudyNoteIdsToBlockedSet(blockedStudyNoteIds, practiceFollowUpRows);
+
+  const dueTodayRows = createDueTodayRows({
+    blockedStudyNoteIds,
+    histories,
+    labelsById,
     now: input.now,
     recallSchedules: input.recallSchedules,
     sessionResults: input.sessionResults,
     studyNotes: input.studyNotes,
     userTimeZone: input.userTimeZone,
   });
-  const practiceRepairQueueItems = listPracticeRepairQueueItems({
-    results: input.sessionResults,
-  });
-  const topicDrafts = createTopicDrafts({
-    guidanceEntries: recallGuidance,
-    labels: input.labels,
-  });
-  const topics = topicDrafts
-    .map((topicDraft) => {
-      const signalCounts = countRecallGuidanceSignals(
-        topicDraft.guidanceEntries,
-      );
-      const practiceRepairCounts = countPracticeRepairQueueItems({
-        queueItems: practiceRepairQueueItems,
-        studyNoteIds: createStudyNoteIdSet(topicDraft.guidanceEntries),
-      });
-      const recommendation = getStudyGuidanceTopicRecommendation({
-        counts: practiceRepairCounts,
-        entries: topicDraft.guidanceEntries,
-        title: topicDraft.title,
-      });
+  addStudyNoteIdsToBlockedSet(blockedStudyNoteIds, dueTodayRows);
 
-      return {
-        action: createStudyGuidanceTopicAction({
-          entries: topicDraft.guidanceEntries,
-          recommendation,
-        }),
-        id: topicDraft.id,
-        ...signalCounts,
-        practiceRepairActiveCount: practiceRepairCounts.activeEntryCount,
-        practiceRepairCandidateCount: practiceRepairCounts.candidateCount,
-        recommendation,
-        studyNoteCount: topicDraft.guidanceEntries.length,
-        title: topicDraft.title,
-      } satisfies StudyGuidanceTopic;
-    })
-    .sort(compareTopics);
-  const signalCounts = countRecallGuidanceSignals(recallGuidance);
+  const completionBlockerRows = createCompletionBlockerRows({
+    blockedStudyNoteIds,
+    labelsById,
+    studyNotes: input.studyNotes,
+  });
+  addStudyNoteIdsToBlockedSet(blockedStudyNoteIds, completionBlockerRows);
+
+  const firstRecallRows = createFirstRecallRows({
+    blockedStudyNoteIds,
+    historiesByStudyNoteId,
+    labelsById,
+    studyNotes: input.studyNotes,
+  });
+  addStudyNoteIdsToBlockedSet(blockedStudyNoteIds, firstRecallRows);
+
+  const interleavingRows = createInterleavingRows({
+    blockedStudyNoteIds,
+    histories,
+    labelsById,
+    studyNotes: input.studyNotes,
+  });
+
+  const rows = stripRowDraftMetadata([
+    ...practiceRepairRows,
+    ...practiceFollowUpRows,
+    ...dueTodayRows,
+    ...completionBlockerRows,
+    ...firstRecallRows,
+    ...interleavingRows,
+  ]);
 
   return {
-    practiceRepair: createStudyGuidancePracticeRepair(practiceRepairQueueItems),
-    stats: createStudyGuidanceStats(signalCounts),
-    topics,
+    emptyState: null,
+    rows,
+    summaryCards: createSummaryCards(rows),
   };
 }

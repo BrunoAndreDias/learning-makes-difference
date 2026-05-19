@@ -18,7 +18,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function createRecallableStudyNote(
+function createStudyNote(
   contexts: DeterministicRecallTestContexts,
   input: {
     expectedAnswer: string;
@@ -78,6 +78,33 @@ function completeStudyNoteRecall(
   });
 }
 
+function findStudyNoteQuestionResult(input: {
+  results: readonly SessionResult[];
+  studyNoteId: string;
+}) {
+  for (const result of input.results) {
+    const questionIndex = result.questions.findIndex(
+      (question) => question.noteId === input.studyNoteId,
+    );
+
+    if (questionIndex < 0) {
+      continue;
+    }
+
+    const questionResultId = result.questions[questionIndex]?.questionResultId;
+
+    if (questionResultId !== undefined) {
+      return {
+        questionIndex,
+        questionResultId,
+        result,
+      };
+    }
+  }
+
+  return null;
+}
+
 function confirmStudyNotePracticeRepair(
   contexts: DeterministicRecallTestContexts,
   input: {
@@ -121,140 +148,57 @@ function confirmStudyNotePracticeRepair(
   return updatedResult;
 }
 
-function findStudyNoteQuestionResult(input: {
-  results: readonly SessionResult[];
-  studyNoteId: string;
-}): {
-  questionIndex: number;
-  questionResultId: string;
-  result: SessionResult;
-} | null {
-  for (const result of input.results) {
-    const questionIndex = result.questions.findIndex(
-      (question) => question.noteId === input.studyNoteId,
-    );
+function completePracticeRepair(
+  contexts: DeterministicRecallTestContexts,
+  input: {
+    result: SessionResult;
+    userId: string;
+  },
+) {
+  const reference = input.result.questions[0]?.practiceRepairEntry?.reference;
 
-    if (questionIndex < 0) {
-      continue;
-    }
-
-    const questionResultId = result.questions[questionIndex]?.questionResultId;
-
-    if (questionResultId !== undefined) {
-      return {
-        questionIndex,
-        questionResultId,
-        result,
-      };
-    }
+  if (reference === undefined) {
+    throw new Error("Expected a confirmed Practice Repair reference.");
   }
 
-  return null;
+  act(() => {
+    contexts.recallContext.completePracticeRepairEntry({
+      reference,
+      userId: input.userId,
+    });
+  });
 }
 
-function getStudyGuidanceTopicCard(name: string) {
-  const heading = screen.getByRole("heading", { name });
-  const card = heading.closest("article");
+function getPracticeRepairEntryId(result: SessionResult) {
+  const entryId =
+    result.questions[0]?.practiceRepairEntry?.practiceRepairEntryId;
 
-  if (!(card instanceof HTMLElement)) {
-    throw new Error(`Expected ${name} to render inside a topic card.`);
+  if (entryId === undefined) {
+    throw new Error("Expected a durable Practice Repair entry id.");
   }
 
-  return card;
+  return entryId;
 }
 
-function getStudyGuidancePracticeRepairPanel() {
-  const heading = screen.getByRole("heading", { name: "Practice Repair" });
-  const panel = heading.closest("section");
+function getTodayRow(name: string) {
+  const heading = screen.getByRole("heading", { level: 2, name });
+  const row = heading.closest("article");
 
-  if (!(panel instanceof HTMLElement)) {
-    throw new Error("Expected Practice Repair to render inside a panel.");
+  if (!(row instanceof HTMLElement)) {
+    throw new Error(`Expected ${name} to render inside a Today row.`);
   }
 
-  return panel;
-}
-
-function getSelectedStudyNoteIdsFromHref(href: string) {
-  const search = href.split("?")[1] ?? "";
-  const studyNoteIds = new URLSearchParams(search).get("studyNoteIds");
-
-  return studyNoteIds?.split(",").filter(Boolean) ?? [];
+  return row;
 }
 
 describe("authenticated Today workspace", () => {
-  it("presents the summary strip, recommendations, and explanatory side panel as separate guidance areas", async () => {
-    const contexts = createDeterministicRecallTestContexts();
-    const userId = "user-study-guidance-presentation";
-
+  it("shows the new-user empty state with one obvious Study Notes action", async () => {
     renderRoute("/today", {
-      ...contexts,
       session: {
         user: {
-          displayName: "Jordan Guidance",
-          email: "jordan.guidance@example.com",
-          id: userId,
-          userLanguage: "en",
-          userTimeZone: "America/New_York",
-        },
-      },
-    });
-
-    await screen.findByRole("heading", {
-      level: 1,
-      name: "Study Guidance",
-    });
-
-    const summary = screen.getByRole("region", {
-      name: "Study Guidance summary",
-    });
-    expect(within(summary).getAllByRole("listitem")).toHaveLength(4);
-
-    expect(
-      screen.getByRole("region", {
-        name: "Study Guidance recommendations",
-      }),
-    ).toBeInTheDocument();
-
-    const explanation = screen.getByRole("complementary", {
-      name: "How this guidance works",
-    });
-    expect(
-      within(explanation).getByRole("heading", {
-        name: "How this guidance works",
-      }),
-    ).toBeInTheDocument();
-    expect(within(explanation).queryByRole("link")).toBeNull();
-    expect(within(explanation).queryByRole("button")).toBeNull();
-  });
-
-  it("refreshes factual guidance when recall evidence changes", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-
-    const contexts = createDeterministicRecallTestContexts();
-    const userId = "user-study-guidance-refresh";
-    const biology = contexts.labelsContext.createLabel({
-      name: "Biology",
-      userId,
-    });
-    const photosynthesis = createRecallableStudyNote(contexts, {
-      expectedAnswer:
-        "Photosynthesis converts light, carbon dioxide, and water into glucose.",
-      labelIds: [biology.id],
-      prompt: "Photosynthesis inputs and output",
-      sourceBody: "Biology source explanation.",
-      sourceTitle: "Biology source",
-      userId,
-    });
-
-    vi.setSystemTime(new Date("2026-05-15T12:00:00.000Z"));
-
-    renderRoute("/today", {
-      ...contexts,
-      session: {
-        user: {
-          displayName: "Jordan Guidance",
-          email: "jordan.guidance@example.com",
-          id: userId,
+          displayName: "Jordan Today",
+          email: "jordan.today@example.com",
+          id: "user-today-empty-state",
           userLanguage: "en",
           userTimeZone: "America/New_York",
         },
@@ -262,41 +206,30 @@ describe("authenticated Today workspace", () => {
     });
 
     expect(
-      await screen.findByText(
-        "Photosynthesis inputs and output is ready for Recall Today. Next recall: Recall today.",
-      ),
+      await screen.findByRole("heading", { level: 1, name: "Today" }),
     ).toBeInTheDocument();
 
-    completeStudyNoteRecall(contexts, {
-      rating: "hard",
-      studyNoteId: photosynthesis.id,
-      timestamp: "2026-05-15T12:05:00.000Z",
-      userId,
-    });
-
+    const emptyState = screen.getByRole("status");
     expect(
-      await screen.findByRole("heading", { name: "Practice Repair" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("1 new repair candidate is waiting in Recall."),
-    ).toBeInTheDocument();
-    expect(
-      within(getStudyGuidancePracticeRepairPanel()).getByRole("link", {
-        name: "Open Practice Repair",
+      within(emptyState).getByRole("heading", {
+        level: 2,
+        name: "Create your first Study Note",
       }),
-    ).toHaveAttribute("href", "/practice-repair");
-    expect(
-      screen.getByText(
-        "1 new repair candidate is waiting for Biology. Open Practice Repair before repeating generic Needs practice work.",
-      ),
     ).toBeInTheDocument();
+    expect(
+      within(emptyState).getByText(/start the learning loop/i),
+    ).toBeInTheDocument();
+    expect(
+      within(emptyState).getByRole("link", { name: "Create first Study Note" }),
+    ).toHaveAttribute("href", "/study-notes");
+    expect(screen.queryByRole("region", { name: "Today summary" })).toBeNull();
   });
 
-  it("shows factual guidance from Study Notes and Labels without mastery or passive-progress rewards", async () => {
+  it("renders the prioritized Today rows and routes each bucket to the correct workspace", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
 
     const contexts = createDeterministicRecallTestContexts();
-    const userId = "user-study-guidance";
+    const userId = "user-today-prioritized";
     const biology = contexts.labelsContext.createLabel({
       name: "Biology",
       userId,
@@ -305,294 +238,118 @@ describe("authenticated Today workspace", () => {
       name: "Chemistry",
       userId,
     });
-
-    const weakBiology = createRecallableStudyNote(contexts, {
-      expectedAnswer:
-        "Diffusion moves particles down a concentration gradient.",
-      labelIds: [biology.id],
-      prompt: "Diffusion vs. osmosis",
-      sourceBody: "Biology source explanation.",
-      sourceTitle: "Biology source",
-      userId,
-    });
-    createRecallableStudyNote(contexts, {
-      expectedAnswer: "Mitosis creates two matching daughter cells.",
-      labelIds: [biology.id],
-      prompt: "Phases of mitosis",
-      sourceBody: "Another biology source explanation.",
-      sourceTitle: "Cell division source",
-      userId,
-    });
-
-    const chemistryStudyNotes = Array.from({ length: 4 }, (_, index) =>
-      createRecallableStudyNote(contexts, {
-        expectedAnswer: `Chemistry answer ${index + 1}.`,
-        labelIds: [chemistry.id],
-        prompt: `Chemistry prompt ${index + 1}`,
-        sourceBody: `Chemistry source ${index + 1}.`,
-        sourceTitle: "Chemistry source",
-        userId,
-      }),
-    );
-
-    completeStudyNoteRecall(contexts, {
-      rating: "hard",
-      studyNoteId: weakBiology.id,
-      timestamp: "2026-05-14T09:00:00.000Z",
-      userId,
-    });
-
-    chemistryStudyNotes.forEach((studyNote) => {
-      completeStudyNoteRecall(contexts, {
-        rating: "good",
-        studyNoteId: studyNote.id,
-        timestamp: "2026-05-10T09:00:00.000Z",
-        userId,
-      });
-      completeStudyNoteRecall(contexts, {
-        rating: "easy",
-        studyNoteId: studyNote.id,
-        timestamp: "2026-05-12T09:00:00.000Z",
-        userId,
-      });
-    });
-
-    vi.setSystemTime(new Date("2026-05-15T12:00:00.000Z"));
-
-    renderRoute("/today", {
-      ...contexts,
-      session: {
-        user: {
-          displayName: "Jordan Guidance",
-          email: "jordan.guidance@example.com",
-          id: userId,
-          userLanguage: "en",
-          userTimeZone: "America/New_York",
-        },
-      },
-    });
-
-    expect(
-      await screen.findByRole("heading", {
-        level: 1,
-        name: "Study Guidance",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      within(
-        screen.getByRole("navigation", { name: "App sections" }),
-      ).getByRole("link", { name: "Today" }),
-    ).toHaveAttribute("aria-current", "page");
-    expect(
-      screen.getByRole("link", { name: "Manual selection" }),
-    ).toHaveAttribute("href", "/recall/select");
-    expect(
-      within(getStudyGuidancePracticeRepairPanel()).getByRole("link", {
-        name: "Open Practice Repair",
-      }),
-    ).toHaveAttribute("href", "/practice-repair");
-
-    expect(screen.getAllByText("Recall Today").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Needs practice").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Not recalled yet").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Interleaved Recall").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("2 notes").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("1 note").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("4 notes").length).toBeGreaterThan(0);
-
-    expect(
-      screen.getByText("Passive activity does not count as learning evidence."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Biology" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Chemistry" }),
-    ).toBeInTheDocument();
-
-    expect(screen.queryByText(/mastery/i)).toBeNull();
-    expect(screen.queryByText(/beginner/i)).toBeNull();
-    expect(screen.queryByText(/intermediate/i)).toBeNull();
-    expect(screen.queryByText(/advanced/i)).toBeNull();
-  });
-
-  it("routes label-backed Study Guidance cards into existing workspaces without starting recall directly", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-
-    const contexts = createDeterministicRecallTestContexts();
-    const userId = "user-study-guidance-topic-actions";
-    const biology = contexts.labelsContext.createLabel({
-      name: "Biology",
-      userId,
-    });
-    const chemistry = contexts.labelsContext.createLabel({
-      name: "Chemistry",
-      userId,
-    });
-
-    const weakBiology = createRecallableStudyNote(contexts, {
-      expectedAnswer:
-        "Diffusion moves particles down a concentration gradient.",
-      labelIds: [biology.id],
-      prompt: "Diffusion vs. osmosis",
-      sourceBody: "Biology source explanation.",
-      sourceTitle: "Biology source",
-      userId,
-    });
-    const chemistryStudyNotes = Array.from({ length: 4 }, (_, index) =>
-      createRecallableStudyNote(contexts, {
-        expectedAnswer: `Chemistry answer ${index + 1}.`,
-        labelIds: [chemistry.id],
-        prompt: `Chemistry prompt ${index + 1}`,
-        sourceBody: `Chemistry source ${index + 1}.`,
-        sourceTitle: "Chemistry source",
-        userId,
-      }),
-    );
-    createRecallableStudyNote(contexts, {
-      expectedAnswer: "Outline the layers of the atmosphere.",
-      labelIds: [],
-      prompt: "Atmosphere layers",
-      sourceBody: "Earth science source explanation.",
-      sourceTitle: "Earth science source",
-      userId,
-    });
-
-    completeStudyNoteRecall(contexts, {
-      rating: "hard",
-      studyNoteId: weakBiology.id,
-      timestamp: "2026-05-14T09:00:00.000Z",
-      userId,
-    });
-
-    chemistryStudyNotes.forEach((studyNote) => {
-      completeStudyNoteRecall(contexts, {
-        rating: "good",
-        studyNoteId: studyNote.id,
-        timestamp: "2026-05-10T09:00:00.000Z",
-        userId,
-      });
-      completeStudyNoteRecall(contexts, {
-        rating: "easy",
-        studyNoteId: studyNote.id,
-        timestamp: "2026-05-12T09:00:00.000Z",
-        userId,
-      });
-    });
-
-    vi.setSystemTime(new Date("2026-05-15T12:00:00.000Z"));
-
-    renderRoute("/today", {
-      ...contexts,
-      session: {
-        user: {
-          displayName: "Jordan Guidance",
-          email: "jordan.guidance@example.com",
-          id: userId,
-          userLanguage: "en",
-          userTimeZone: "America/New_York",
-        },
-      },
-    });
-
-    await screen.findByRole("heading", {
-      level: 1,
-      name: "Study Guidance",
-    });
-
-    const biologyCard = getStudyGuidanceTopicCard("Biology");
-    expect(
-      within(biologyCard).getByRole("link", { name: "Open Practice Repair" }),
-    ).toHaveAttribute("href", "/practice-repair");
-    expect(
-      within(biologyCard).getByRole("link", {
-        name: "View Biology Study Notes",
-      }),
-    ).toHaveAttribute("href", `/study-notes?labelId=${biology.id}`);
-
-    const chemistryCard = getStudyGuidanceTopicCard("Chemistry");
-    const chemistrySelectionLink = within(chemistryCard).getByRole("link", {
-      name: "Open Recall Selection",
-    });
-    expect(chemistrySelectionLink).toHaveAttribute(
-      "href",
-      expect.stringContaining("/recall/select?studyNoteIds="),
-    );
-    expect(
-      new Set(
-        getSelectedStudyNoteIdsFromHref(
-          chemistrySelectionLink.getAttribute("href") ?? "",
-        ),
-      ),
-    ).toEqual(new Set(chemistryStudyNotes.map((studyNote) => studyNote.id)));
-    expect(
-      within(chemistryCard).getByRole("link", {
-        name: "View Chemistry Study Notes",
-      }),
-    ).toHaveAttribute("href", `/study-notes?labelId=${chemistry.id}`);
-
-    const unlabeledCard = getStudyGuidanceTopicCard("Unlabeled Study Notes");
-    expect(
-      within(unlabeledCard).getByRole("link", {
-        name: "View Unlabeled Study Notes",
-      }),
-    ).toHaveAttribute("href", "/study-notes?labelId=__unlabeled__");
-  });
-
-  it("surfaces active Practice Repair work and new repair candidates before generic needs-practice guidance", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-
-    const contexts = createDeterministicRecallTestContexts();
-    const userId = "user-study-guidance-practice-repair";
-    const biology = contexts.labelsContext.createLabel({
-      name: "Biology",
-      userId,
-    });
-
-    const activeRepairStudyNote = createRecallableStudyNote(contexts, {
-      expectedAnswer: "Active transport uses ATP to move substances uphill.",
+    const activeRepair = createStudyNote(contexts, {
+      expectedAnswer: "Active transport uses ATP.",
       labelIds: [biology.id],
       prompt: "Explain active transport",
-      sourceBody: "Cell transport source.",
-      sourceTitle: "Cell transport",
+      sourceBody: "Cell membranes source.",
+      sourceTitle: "Cell membranes",
       userId,
     });
-    const repairCandidateStudyNote = createRecallableStudyNote(contexts, {
+    const practiceFollowUp = createStudyNote(contexts, {
       expectedAnswer: "Osmosis moves water across a semipermeable membrane.",
       labelIds: [biology.id],
       prompt: "Explain osmosis",
-      sourceBody: "Membrane transport source.",
-      sourceTitle: "Membrane transport",
+      sourceBody: "Cell membranes source.",
+      sourceTitle: "Cell membranes",
+      userId,
+    });
+    const dueRecall = createStudyNote(contexts, {
+      expectedAnswer:
+        "Diffusion moves particles down a concentration gradient.",
+      labelIds: [biology.id],
+      prompt: "Explain diffusion",
+      sourceBody: "Cell membranes source.",
+      sourceTitle: "Cell membranes",
+      userId,
+    });
+    const completionBlocker = createStudyNote(contexts, {
+      expectedAnswer: " ",
+      labelIds: [biology.id],
+      prompt: "Define mitochondria",
+      sourceBody: "Cell energy source.",
+      sourceTitle: "Cell energy",
+      userId,
+    });
+    const firstRecall = createStudyNote(contexts, {
+      expectedAnswer: "ATP stores transferable energy.",
+      labelIds: [biology.id],
+      prompt: "Describe ATP",
+      sourceBody: "Cell energy source.",
+      sourceTitle: "Cell energy",
+      userId,
+    });
+    const interleavingStudyNotes = Array.from({ length: 4 }, (_, index) =>
+      createStudyNote(contexts, {
+        expectedAnswer: `Chemistry answer ${index + 1}.`,
+        labelIds: [chemistry.id],
+        prompt: `Chemistry prompt ${index + 1}`,
+        sourceBody: `Chemistry source ${index + 1}.`,
+        sourceTitle: "Chemistry source",
+        userId,
+      }),
+    );
+
+    completeStudyNoteRecall(contexts, {
+      rating: "hard",
+      studyNoteId: activeRepair.id,
+      timestamp: "2026-05-12T09:00:00.000Z",
+      userId,
+    });
+    const activeRepairResult = confirmStudyNotePracticeRepair(contexts, {
+      correction: "State ATP use directly in the expected answer.",
+      intent: "tighten-expected-answer",
+      studyNoteId: activeRepair.id,
       userId,
     });
 
     completeStudyNoteRecall(contexts, {
       rating: "hard",
-      studyNoteId: activeRepairStudyNote.id,
-      timestamp: "2026-05-14T09:00:00.000Z",
+      studyNoteId: practiceFollowUp.id,
+      timestamp: "2026-05-11T09:00:00.000Z",
       userId,
     });
-    completeStudyNoteRecall(contexts, {
-      rating: "forgot",
-      studyNoteId: repairCandidateStudyNote.id,
-      timestamp: "2026-05-15T08:00:00.000Z",
-      userId,
-    });
-    confirmStudyNotePracticeRepair(contexts, {
-      correction: "Call out ATP directly in the expected answer.",
+    const followUpResult = confirmStudyNotePracticeRepair(contexts, {
+      correction: "Differentiate solvent movement from solute movement.",
       intent: "tighten-expected-answer",
-      studyNoteId: activeRepairStudyNote.id,
+      studyNoteId: practiceFollowUp.id,
+      userId,
+    });
+    completePracticeRepair(contexts, {
+      result: followUpResult,
       userId,
     });
 
-    vi.setSystemTime(new Date("2026-05-15T12:00:00.000Z"));
+    completeStudyNoteRecall(contexts, {
+      rating: "good",
+      studyNoteId: dueRecall.id,
+      timestamp: "2026-05-15T09:00:00.000Z",
+      userId,
+    });
+
+    interleavingStudyNotes.forEach((studyNote) => {
+      completeStudyNoteRecall(contexts, {
+        rating: "good",
+        studyNoteId: studyNote.id,
+        timestamp: "2026-05-13T09:00:00.000Z",
+        userId,
+      });
+      completeStudyNoteRecall(contexts, {
+        rating: "easy",
+        studyNoteId: studyNote.id,
+        timestamp: "2026-05-18T09:00:00.000Z",
+        userId,
+      });
+    });
+
+    vi.setSystemTime(new Date("2026-05-19T12:00:00.000Z"));
 
     renderRoute("/today", {
       ...contexts,
       session: {
         user: {
-          displayName: "Jordan Guidance",
-          email: "jordan.guidance@example.com",
+          displayName: "Jordan Today",
+          email: "jordan.today@example.com",
           id: userId,
           userLanguage: "en",
           userTimeZone: "America/New_York",
@@ -601,96 +358,97 @@ describe("authenticated Today workspace", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Practice Repair" }),
+      await screen.findByRole("heading", { level: 1, name: "Today" }),
     ).toBeInTheDocument();
+
+    const summary = screen.getByRole("region", { name: "Today summary" });
+    expect(within(summary).getAllByRole("listitem")).toHaveLength(6);
+
+    const nextActions = screen.getByRole("region", {
+      name: "Today next actions",
+    });
     expect(
-      screen.getByText(
-        "1 active Practice Repair entry and 1 new repair candidate are waiting in Recall.",
-      ),
-    ).toBeInTheDocument();
+      within(nextActions)
+        .getAllByRole("heading", { level: 2 })
+        .map((heading) => heading.textContent),
+    ).toEqual([
+      "Explain active transport",
+      "Explain osmosis",
+      "Explain diffusion",
+      "Define mitochondria",
+      "Describe ATP",
+      "Chemistry",
+    ]);
+
     expect(
-      within(getStudyGuidancePracticeRepairPanel()).getByRole("link", {
+      within(getTodayRow("Explain active transport")).getByRole("link", {
         name: "Open Practice Repair",
       }),
-    ).toHaveAttribute("href", "/practice-repair");
+    ).toHaveAttribute(
+      "href",
+      `/practice-repair/${getPracticeRepairEntryId(activeRepairResult)}`,
+    );
     expect(
-      screen.getByText(
-        "1 active Practice Repair entry and 1 new repair candidate are waiting for Biology. Open Practice Repair before repeating generic Needs practice work.",
-      ),
-    ).toBeInTheDocument();
+      within(getTodayRow("Explain osmosis")).getByRole("link", {
+        name: "Open Practice Repair",
+      }),
+    ).toHaveAttribute(
+      "href",
+      `/practice-repair/${getPracticeRepairEntryId(followUpResult)}`,
+    );
     expect(
-      screen.queryByText(
-        /Explain active transport needs practice\. Last score: Hard\./,
-      ),
-    ).toBeNull();
+      within(getTodayRow("Explain diffusion")).getByRole("link", {
+        name: "Open Recall Due today",
+      }),
+    ).toHaveAttribute("href", "/recall/due-today");
+    expect(
+      within(getTodayRow("Define mitochondria")).getByRole("link", {
+        name: "Open Study Notes",
+      }),
+    ).toHaveAttribute("href", "/study-notes");
+    expect(
+      within(getTodayRow("Describe ATP")).getByRole("link", {
+        name: "Open Recall Selection",
+      }),
+    ).toHaveAttribute("href", `/recall/select?studyNoteIds=${firstRecall.id}`);
+    const chemistryLink = within(getTodayRow("Chemistry")).getByRole("link", {
+      name: "Open Recall Selection",
+    });
+    const chemistryHref = chemistryLink.getAttribute("href") ?? "";
+
+    expect(chemistryHref).toContain("/recall/select?studyNoteIds=");
+    interleavingStudyNotes.forEach((studyNote) => {
+      expect(decodeURIComponent(chemistryHref)).toContain(studyNote.id);
+    });
   });
 
-  it("does not surface Practice Repair work from another user", async () => {
+  it("refreshes Today when weak recall evidence becomes Practice Repair work", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
 
     const contexts = createDeterministicRecallTestContexts();
-    const currentUserId = "user-study-guidance-current";
-    const otherUserId = "user-study-guidance-other";
+    const userId = "user-today-refresh";
     const biology = contexts.labelsContext.createLabel({
       name: "Biology",
-      userId: otherUserId,
+      userId,
     });
-    const otherUserStudyNote = createRecallableStudyNote(contexts, {
+    const studyNote = createStudyNote(contexts, {
       expectedAnswer:
         "Photosynthesis converts light, carbon dioxide, and water into glucose.",
       labelIds: [biology.id],
       prompt: "Photosynthesis inputs and output",
       sourceBody: "Biology source explanation.",
       sourceTitle: "Biology source",
-      userId: otherUserId,
+      userId,
     });
 
-    completeStudyNoteRecall(contexts, {
-      rating: "hard",
-      studyNoteId: otherUserStudyNote.id,
-      timestamp: "2026-05-15T12:05:00.000Z",
-      userId: otherUserId,
-    });
-
-    vi.setSystemTime(new Date("2026-05-15T12:10:00.000Z"));
+    vi.setSystemTime(new Date("2026-05-19T12:00:00.000Z"));
 
     renderRoute("/today", {
       ...contexts,
       session: {
         user: {
-          displayName: "Jordan Guidance",
-          email: "jordan.guidance@example.com",
-          id: currentUserId,
-          userLanguage: "en",
-          userTimeZone: "America/New_York",
-        },
-      },
-    });
-
-    expect(
-      await screen.findByRole("heading", {
-        level: 1,
-        name: "Study Guidance",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", { name: "Practice Repair" }),
-    ).toBeNull();
-    expect(
-      screen.queryByRole("link", { name: "Open Practice Repair" }),
-    ).toBeNull();
-  });
-
-  it("uses the four agreed factual signal labels in the Study Guidance summary", async () => {
-    const contexts = createDeterministicRecallTestContexts();
-    const userId = "user-study-guidance-signal-labels";
-
-    renderRoute("/today", {
-      ...contexts,
-      session: {
-        user: {
-          displayName: "Jordan Guidance",
-          email: "jordan.guidance@example.com",
+          displayName: "Jordan Today",
+          email: "jordan.today@example.com",
           id: userId,
           userLanguage: "en",
           userTimeZone: "America/New_York",
@@ -698,24 +456,41 @@ describe("authenticated Today workspace", () => {
       },
     });
 
-    const summary = await screen.findByRole("region", {
-      name: "Study Guidance summary",
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Today" }),
+    ).toBeInTheDocument();
+    expect(
+      within(getTodayRow("Photosynthesis inputs and output")).getByRole(
+        "link",
+        {
+          name: "Open Recall Selection",
+        },
+      ),
+    ).toHaveAttribute("href", `/recall/select?studyNoteIds=${studyNote.id}`);
+
+    completeStudyNoteRecall(contexts, {
+      rating: "forgot",
+      studyNoteId: studyNote.id,
+      timestamp: "2026-05-19T12:05:00.000Z",
+      userId,
     });
 
-    for (const label of [
-      "Recall Today",
-      "Needs practice",
-      "Not recalled yet",
-      "Interleaved Recall",
-    ]) {
-      expect(within(summary).getByText(label)).toBeInTheDocument();
+    const practiceRepairRow = await screen.findByRole("heading", {
+      level: 2,
+      name: "Photosynthesis inputs and output",
+    });
+    const row = practiceRepairRow.closest("article");
+
+    if (!(row instanceof HTMLElement)) {
+      throw new Error("Expected Practice Repair row to render as an article.");
     }
-    expect(within(summary).queryByText("Interleaving ready")).toBeNull();
+
+    expect(within(row).getByText("Practice Repair")).toBeInTheDocument();
     expect(
-      screen.queryByRole("link", { name: "Open Practice Repair" }),
-    ).toBeNull();
-    expect(
-      screen.queryByRole("heading", { name: "Practice Repair" }),
-    ).toBeNull();
+      within(row).getByRole("link", { name: "Open Practice Repair" }),
+    ).toHaveAttribute(
+      "href",
+      expect.stringContaining("/practice-repair/results/"),
+    );
   });
 });

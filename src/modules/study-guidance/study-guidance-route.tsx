@@ -11,9 +11,10 @@ import { listStudyNotesForUser } from "../study-notes";
 import "./study-guidance.css";
 import {
   deriveStudyGuidance,
-  getStudyGuidanceTopicStats,
-  type StudyGuidancePracticeRepair,
-  type StudyGuidanceTopic,
+  type StudyGuidanceEmptyState,
+  type StudyGuidanceRow,
+  type StudyGuidanceRowAction,
+  type StudyGuidanceSummaryCard,
 } from "./study-guidance";
 
 export const Route = createFileRoute("/_protected/today")({
@@ -44,12 +45,13 @@ function StudyGuidanceWorkspace() {
     studyNotesStore.getSnapshot,
     studyNotesStore.getSnapshot,
   );
-  // The raw snapshot only drives re-renders; listSessionResults keeps repair data user-scoped.
+
   useSyncExternalStore(
     recallContext.subscribe,
     recallContext.getSessionResultsSnapshot,
     recallContext.getSessionResultsSnapshot,
   );
+
   const recallSchedules = useSyncExternalStore(
     recallContext.subscribe,
     recallContext.getRecallSchedulesSnapshot,
@@ -103,292 +105,177 @@ function StudyGuidanceWorkspace() {
   return (
     <section className="study-guidance-workspace">
       <PageHeader
-        actions={
-          <ButtonLink size="compact" to="/recall/select" variant="secondary">
-            Manual selection
-          </ButtonLink>
-        }
+        actions={<StudyGuidanceHeaderAction emptyState={guidance.emptyState} />}
         beforeTitle={
-          <p className="study-guidance-workspace__eyebrow">
-            Today <span aria-hidden="true">/</span> Study Guidance
-          </p>
+          <p className="study-guidance-workspace__eyebrow">Study Guidance</p>
         }
         className="study-guidance-workspace__page-header"
-        description="Recommendations based on your Study Notes and recall evidence."
+        description="One prioritized next-action plan across Practice Repair, recall schedules, and Study Notes."
         headingLevel={1}
-        title="Study Guidance"
+        title="Today"
       />
 
-      <section
-        aria-label="Study Guidance summary"
-        className="study-guidance-summary"
-      >
-        <ul className="study-guidance-summary__list">
-          {guidance.stats.map((stat) => (
-            <li
-              className="study-guidance-stat"
-              data-signal-id={stat.id}
-              key={stat.id}
-            >
-              <span aria-hidden="true" className="study-guidance-stat__icon" />
-              <div className="study-guidance-stat__copy">
-                <p className="study-guidance-stat__label">{stat.label}</p>
-                <p className="study-guidance-stat__metric">
-                  <strong className="study-guidance-stat__count">
-                    {stat.count}
-                  </strong>
-                  <span className="study-guidance-stat__notes">
-                    {formatStudyGuidanceCountLabel(stat.count)}
-                  </span>
-                </p>
-                <p className="study-guidance-stat__detail">{stat.detail}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <div className="study-guidance-content">
-        <section
-          aria-label="Study Guidance recommendations"
-          className="study-guidance-content__main"
-        >
-          {guidance.practiceRepair === null ? null : (
-            <StudyGuidancePracticeRepairPanel
-              practiceRepair={guidance.practiceRepair}
-            />
-          )}
-
-          <section className="study-guidance-callout">
-            <span aria-hidden="true" className="study-guidance-callout__icon" />
-            <div className="study-guidance-callout__copy">
-              <h2>Passive activity does not count as learning evidence.</h2>
-              <p>
-                Rereading, highlighting, watching videos, and time spent are
-                supportive activities.
-              </p>
-              <p>
-                They only become useful when they help you create or improve
-                Study Notes and generate recall evidence.
-              </p>
-            </div>
+      {guidance.emptyState !== null ? (
+        <StudyGuidanceEmptyStatePanel emptyState={guidance.emptyState} />
+      ) : (
+        <>
+          <section
+            aria-label="Today summary"
+            className="study-guidance-summary"
+          >
+            <ul className="study-guidance-summary__list">
+              {guidance.summaryCards.map((card) => (
+                <StudyGuidanceSummaryCardView card={card} key={card.id} />
+              ))}
+            </ul>
           </section>
 
-          {guidance.topics.length === 0 ? (
-            <section className="study-guidance-empty">
-              <h2>No Study Guidance yet</h2>
+          {guidance.rows.length === 0 ? (
+            <section className="study-guidance-idle" role="status">
+              <h2>Nothing urgent today</h2>
               <p>
-                Create recallable Study Notes, then complete RecallSessions to
-                surface factual guidance here.
+                No repairs, due recall, or first-recall work is queued right
+                now. Use manual selection when you want extra practice.
               </p>
             </section>
           ) : (
-            <div className="study-guidance-topics">
-              {guidance.topics.map((topic) => (
-                <article className="study-guidance-topic" key={topic.id}>
-                  <header className="study-guidance-topic__header">
-                    <div className="study-guidance-topic__title-row">
-                      <span
-                        aria-hidden="true"
-                        className="study-guidance-topic__icon"
-                      />
-                      <div>
-                        <p className="study-guidance-topic__kicker">Label</p>
-                        <h2>{topic.title}</h2>
-                        <p>
-                          {formatStudyGuidanceCountLabel(topic.studyNoteCount)}
+            <section
+              aria-label="Today next actions"
+              className="study-guidance-plan"
+            >
+              <ol className="study-guidance-plan__list">
+                {guidance.rows.map((row) => (
+                  <li key={row.id}>
+                    <article
+                      className="study-guidance-row"
+                      data-bucket-id={row.bucketId}
+                    >
+                      <div className="study-guidance-row__content">
+                        <div className="study-guidance-row__header">
+                          <p className="study-guidance-row__bucket">
+                            {row.bucketLabel}
+                          </p>
+                          <h2>{row.title}</h2>
+                        </div>
+
+                        <ul className="study-guidance-row__metadata">
+                          {row.metadata.map((metadata) => (
+                            <li key={metadata}>{metadata}</li>
+                          ))}
+                        </ul>
+
+                        <p className="study-guidance-row__evidence">
+                          {row.evidence}
                         </p>
                       </div>
-                    </div>
-                    <div className="study-guidance-topic__primary-action">
-                      <StudyGuidanceTopicPrimaryAction topic={topic} />
-                    </div>
-                  </header>
-                  <div className="study-guidance-topic__body">
-                    <dl className="study-guidance-topic__stats">
-                      {getStudyGuidanceTopicStats(topic).map((stat) => (
-                        <div key={stat.id}>
-                          <dt>{stat.label}</dt>
-                          <dd>{formatStudyGuidanceCountLabel(stat.count)}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                    <ButtonLink
-                      aria-label={createStudyGuidanceTopicNotesLabel(
-                        topic.title,
-                      )}
-                      size="compact"
-                      search={{ labelId: topic.id }}
-                      to="/study-notes"
-                      variant="secondary"
-                    >
-                      View notes
-                    </ButtonLink>
-                  </div>
-                  {topic.recommendation === null ? null : (
-                    <div className="study-guidance-topic__recommendation">
-                      <span
-                        aria-hidden="true"
-                        className="study-guidance-topic__recommendation-icon"
-                      />
-                      <p>{topic.recommendation.summary}</p>
-                    </div>
-                  )}
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
 
-        <aside
-          aria-label="How this guidance works"
-          className="study-guidance-sidebar"
-        >
-          <section className="study-guidance-sidebar__panel">
-            <h2>How this guidance works</h2>
-            <ul className="study-guidance-sidebar__list">
-              <li>
-                <span
-                  aria-hidden="true"
-                  className="study-guidance-sidebar__icon"
-                />
-                <div className="study-guidance-sidebar__copy">
-                  <strong>Based on your notes</strong>
-                  <span>We use only your Study Notes and recall attempts.</span>
-                </div>
-              </li>
-              <li>
-                <span
-                  aria-hidden="true"
-                  className="study-guidance-sidebar__icon"
-                />
-                <div className="study-guidance-sidebar__copy">
-                  <strong>Factual signals only</strong>
-                  <span>
-                    We look at last score, Recall Today, Needs practice, not
-                    recalled yet, next recall, and Interleaved Recall readiness.
-                  </span>
-                </div>
-              </li>
-              <li>
-                <span
-                  aria-hidden="true"
-                  className="study-guidance-sidebar__icon"
-                />
-                <div className="study-guidance-sidebar__copy">
-                  <strong>Actionable, not passive</strong>
-                  <span>
-                    Guidance focuses on what to practice, not passive review.
-                  </span>
-                </div>
-              </li>
-              <li>
-                <span
-                  aria-hidden="true"
-                  className="study-guidance-sidebar__icon"
-                />
-                <div className="study-guidance-sidebar__copy">
-                  <strong>Interleaved Recall when ready</strong>
-                  <span>
-                    Notes are suggested for Interleaved Recall only after
-                    repeated Good or Easy recalls.
-                  </span>
-                </div>
-              </li>
-            </ul>
-            <p className="study-guidance-sidebar__evidence-note">
-              Use this guidance to decide what to practice next. Evidence comes
-              from recall.
-            </p>
-          </section>
-        </aside>
-      </div>
+                      <div className="study-guidance-row__action">
+                        <StudyGuidanceRowActionLink action={row.action} />
+                      </div>
+                    </article>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+        </>
+      )}
     </section>
   );
 }
 
-function StudyGuidancePracticeRepairPanel({
-  practiceRepair,
+function StudyGuidanceHeaderAction({
+  emptyState,
 }: Readonly<{
-  practiceRepair: StudyGuidancePracticeRepair;
+  emptyState: StudyGuidanceEmptyState | null;
+}>) {
+  if (emptyState !== null) {
+    return <ButtonLink to="/study-notes">{emptyState.action.label}</ButtonLink>;
+  }
+
+  return (
+    <ButtonLink size="compact" to="/recall/select" variant="secondary">
+      Manual selection
+    </ButtonLink>
+  );
+}
+
+function StudyGuidanceSummaryCardView({
+  card,
+}: Readonly<{
+  card: StudyGuidanceSummaryCard;
 }>) {
   return (
-    <section className="study-guidance-practice-repair">
-      <div className="study-guidance-practice-repair__copy">
-        <h2>Practice Repair</h2>
-        <p>{practiceRepair.summary}</p>
-      </div>
-      <dl className="study-guidance-practice-repair__facts">
-        {practiceRepair.hasActiveEntries ? (
-          <div>
-            <dt>Active entries</dt>
-            <dd>
-              {formatStudyGuidanceCountLabel(
-                practiceRepair.activeEntryCount,
-                "active entry",
-                "active entries",
-              )}
-            </dd>
-          </div>
-        ) : null}
-        {practiceRepair.hasCandidates ? (
-          <div>
-            <dt>New candidates</dt>
-            <dd>
-              {formatStudyGuidanceCountLabel(
-                practiceRepair.candidateCount,
-                "new candidate",
-                "new candidates",
-              )}
-            </dd>
-          </div>
-        ) : null}
-      </dl>
-      <ButtonLink to="/practice-repair">Open Practice Repair</ButtonLink>
+    <li className="study-guidance-card" data-bucket-id={card.id}>
+      <p className="study-guidance-card__label">{card.label}</p>
+      <p className="study-guidance-card__metric">
+        <strong>{card.count}</strong>
+        <span>{formatItemCountLabel(card.count)}</span>
+      </p>
+      <p className="study-guidance-card__detail">{card.detail}</p>
+    </li>
+  );
+}
+
+function StudyGuidanceEmptyStatePanel({
+  emptyState,
+}: Readonly<{
+  emptyState: StudyGuidanceEmptyState;
+}>) {
+  return (
+    <section className="study-guidance-empty" role="status">
+      <h2>{emptyState.title}</h2>
+      <p>{emptyState.description}</p>
+      <ButtonLink to="/study-notes">{emptyState.action.label}</ButtonLink>
     </section>
   );
 }
 
-function createStudyGuidanceTopicNotesLabel(title: string) {
-  return title.endsWith("Study Notes")
-    ? `View ${title}`
-    : `View ${title} Study Notes`;
-}
-
-function StudyGuidanceTopicPrimaryAction({
-  topic,
+function StudyGuidanceRowActionLink({
+  action,
 }: Readonly<{
-  topic: StudyGuidanceTopic;
+  action: StudyGuidanceRowAction;
 }>) {
-  switch (topic.action.kind) {
-    case "practice-repair":
+  switch (action.kind) {
+    case "practice-repair-draft":
       return (
-        <ButtonLink to="/practice-repair">{topic.action.label}</ButtonLink>
+        <ButtonLink
+          params={{
+            questionResultId: action.questionResultId,
+            sessionResultId: action.sessionResultId,
+          }}
+          to="/practice-repair/results/$sessionResultId/questions/$questionResultId"
+        >
+          {action.label}
+        </ButtonLink>
       );
+    case "practice-repair-entry":
+      return (
+        <ButtonLink
+          params={{
+            practiceRepairEntryId: action.practiceRepairEntryId,
+          }}
+          to="/practice-repair/$practiceRepairEntryId"
+        >
+          {action.label}
+        </ButtonLink>
+      );
+    case "recall-due-today":
+      return <ButtonLink to="/recall/due-today">{action.label}</ButtonLink>;
     case "recall-selection":
       return (
         <ButtonLink
-          search={{ studyNoteIds: topic.action.studyNoteIds.join(",") }}
+          search={{ studyNoteIds: action.studyNoteIds.join(",") }}
           to="/recall/select"
         >
-          {topic.action.label}
+          {action.label}
         </ButtonLink>
       );
-    case "recall-today":
-      return <ButtonLink to="/recall">{topic.action.label}</ButtonLink>;
     case "study-notes":
-      return (
-        <ButtonLink search={{ labelId: topic.id }} to="/study-notes">
-          {topic.action.label}
-        </ButtonLink>
-      );
+      return <ButtonLink to="/study-notes">{action.label}</ButtonLink>;
   }
 }
 
-function formatStudyGuidanceCountLabel(
-  count: number,
-  singular = "note",
-  plural = `${singular}s`,
-) {
-  return `${count} ${count === 1 ? singular : plural}`;
+function formatItemCountLabel(count: number) {
+  return `${count} ${count === 1 ? "item" : "items"}`;
 }

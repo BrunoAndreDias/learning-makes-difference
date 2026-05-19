@@ -166,7 +166,7 @@ describe("authenticated app shell", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Sign up form" }));
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Study Guidance" }),
+      await screen.findByRole("heading", { level: 1, name: "Today" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/today");
   });
@@ -197,7 +197,7 @@ describe("authenticated app shell", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Sign in form" }));
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Study Guidance" }),
+      await screen.findByRole("heading", { level: 1, name: "Today" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/today");
   });

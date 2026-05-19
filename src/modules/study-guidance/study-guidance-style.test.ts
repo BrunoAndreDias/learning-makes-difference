@@ -20,15 +20,14 @@ function getMediaRule(css: string, mediaQuery: string, selector: string) {
 }
 
 describe("Study Guidance styling", () => {
-  it("keeps the reference layout as a summary strip, recommendation column, and explanatory side panel", () => {
+  it("keeps Today as a bucket summary above an ordered next-action list", () => {
     const css = readFileSync(
       new URL("./study-guidance.css", import.meta.url),
       "utf8",
     );
     const summaryListStyle = getCssRule(css, ".study-guidance-summary__list");
-    const statStyle = getCssRule(css, ".study-guidance-stat");
-    const contentStyle = getCssRule(css, ".study-guidance-content");
-    const sidebarStyle = getCssRule(css, ".study-guidance-sidebar");
+    const planListStyle = getCssRule(css, ".study-guidance-plan__list");
+    const rowStyle = getCssRule(css, ".study-guidance-row");
     const mobileSummaryListStyle = getMediaRule(
       css,
       "@media (max-width: 640px)",
@@ -36,17 +35,11 @@ describe("Study Guidance styling", () => {
     );
 
     expect(summaryListStyle).toContain(
-      "grid-template-columns: repeat(4, minmax(0, 1fr));",
+      "grid-template-columns: repeat(3, minmax(0, 1fr));",
     );
-    expect(summaryListStyle).toContain(
-      "border: 1px solid var(--color-content-border-soft);",
-    );
-    expect(summaryListStyle).toContain("box-shadow: var(--shadow-card);");
-    expect(statStyle).toContain("grid-template-columns: auto minmax(0, 1fr);");
-    expect(contentStyle).toContain(
-      "grid-template-columns: minmax(0, 2fr) minmax(17rem, 0.75fr);",
-    );
-    expect(sidebarStyle).toContain("position: sticky;");
+    expect(planListStyle).toContain("display: grid;");
+    expect(planListStyle).toContain("gap: var(--space-4);");
+    expect(rowStyle).toContain("grid-template-columns: minmax(0, 1fr) auto;");
     expect(mobileSummaryListStyle).toContain(
       "grid-template-columns: minmax(0, 1fr);",
     );
