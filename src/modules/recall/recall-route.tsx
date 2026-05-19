@@ -17,6 +17,7 @@ import {
   getStudyNoteReadiness,
   listStudyNotesForUser,
 } from "../study-notes";
+import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import {
   formatRecallModeLabel,
   getRecallModeTranslationKey,
@@ -31,7 +32,7 @@ export const Route = createFileRoute("/_protected/recall")({
 });
 
 function RecallRouteNotFoundRedirect() {
-  return <Navigate to="/recall" />;
+  return <Navigate to={appRoutePaths.recall} />;
 }
 
 function RecallRouteShell() {
@@ -311,7 +312,7 @@ export function RecallSelectionPage({
         });
       }
       setErrorMessage(null);
-      await navigate({ to: "/recall/session" });
+      await navigate({ to: appRoutePaths.recallSession });
     } catch (error) {
       if (error instanceof AppRecallError) {
         setErrorMessage(error.message);
@@ -325,7 +326,7 @@ export function RecallSelectionPage({
   async function cancelSelection() {
     setSelectedStudyNoteIds([]);
     setErrorMessage(null);
-    await navigate({ to: "/recall" });
+    await navigate({ to: appRoutePaths.recall });
   }
 
   return (

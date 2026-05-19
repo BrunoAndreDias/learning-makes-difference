@@ -1,5 +1,7 @@
 import { Link } from "@tanstack/react-router";
+
 import { useAppTranslation } from "../language";
+import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 
 export function RecallBreadcrumb({
   currentLabel,
@@ -10,7 +12,7 @@ export function RecallBreadcrumb({
     <nav aria-label={t("recall.breadcrumb")} className="recall-breadcrumb">
       <ol>
         <li>
-          <Link to="/recall">{t("shell.workspace.recall")}</Link>
+          <Link to={appRoutePaths.recall}>{t("shell.workspace.recall")}</Link>
         </li>
         <li aria-hidden="true">/</li>
         <li aria-current="page">{currentLabel}</li>

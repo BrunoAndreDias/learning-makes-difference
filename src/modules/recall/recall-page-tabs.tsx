@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
 import { useAppTranslation } from "../language";
+import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 
 export function RecallPageTabs() {
   const { t } = useAppTranslation();
@@ -14,7 +15,7 @@ export function RecallPageTabs() {
         }}
         activeOptions={{ exact: true }}
         className="recall-page-tabs__link"
-        to="/recall/due-today"
+        to={appRoutePaths.recallDueToday}
       >
         {t("recall.dueToday.title")}
       </Link>
@@ -25,7 +26,7 @@ export function RecallPageTabs() {
         }}
         activeOptions={{ exact: true }}
         className="recall-page-tabs__link"
-        to="/recall/results"
+        to={appRoutePaths.recallResults}
       >
         {t("recall.tabs.results")}
       </Link>

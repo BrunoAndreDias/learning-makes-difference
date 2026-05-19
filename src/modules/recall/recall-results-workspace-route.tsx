@@ -12,6 +12,7 @@ import { useAppTranslation } from "../language";
 import { listNotesForUser } from "../notes";
 import { listStudyNotesForUser } from "../study-notes";
 import { toStudyNoteRecallHistories } from "../study-notes/learning-state";
+import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import {
   getRecallModeTranslationKey,
   getRecallRatingTone,
@@ -286,7 +287,6 @@ function useRecallWorkspaceState() {
 }
 
 export function RecallDueTodayWorkspacePage() {
-  const { t } = useAppTranslation();
   const navigate = useNavigate();
   const {
     currentLabelsById,
@@ -299,6 +299,7 @@ export function RecallDueTodayWorkspacePage() {
     userId,
     userTimeZone,
   } = useRecallWorkspaceState();
+  const now = new Date().toISOString();
   const dueTodayQueue =
     userId === null
       ? []
@@ -306,7 +307,7 @@ export function RecallDueTodayWorkspacePage() {
           histories: toStudyNoteRecallHistories(
             recallContext.listAttemptsByNote({ userId }),
           ),
-          now: new Date().toISOString(),
+          now,
           recallSchedules,
           sessionResults,
           studyNotes,
@@ -337,7 +338,7 @@ export function RecallDueTodayWorkspacePage() {
       });
     }
 
-    await navigate({ to: "/recall/session" });
+    await navigate({ to: appRoutePaths.recallSession });
   }
 
   if (hasNoRecallContent) {
@@ -347,6 +348,7 @@ export function RecallDueTodayWorkspacePage() {
   return (
     <RecallDueTodayPage
       labelsById={currentLabelsById}
+      now={now}
       onStartDueToday={startDueTodayRecall}
       queue={dueTodayQueue}
       userTimeZone={userTimeZone}
@@ -486,11 +488,12 @@ export function RecallResultsWorkspacePage() {
   );
 }
 
-type QueueTone = "due" | "new" | "practice";
+type QueueTone = "due" | "practice";
 type DueTodayStatus = "due-today" | "overdue";
 
 type DueTodayPageProps = {
   labelsById: ReadonlyMap<string, AppLabel>;
+  now: string;
   onStartDueToday: () => void;
   queue: readonly DueTodayQueueItem[];
   userTimeZone: string;
@@ -579,6 +582,7 @@ function formatDueTodayScheduledDate(input: {
 
 function RecallDueTodayPage({
   labelsById,
+  now,
   onStartDueToday,
   queue,
   userTimeZone,
@@ -586,7 +590,7 @@ function RecallDueTodayPage({
   const { t } = useAppTranslation();
   const workspaceDate = new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
-  }).format(new Date());
+  }).format(new Date(now));
 
   return (
     <section
@@ -599,7 +603,7 @@ function RecallDueTodayPage({
             aria-label={t("recall.breadcrumb")}
             className="recall-breadcrumb"
           >
-            <Link to="/recall">{t("shell.workspace.recall")}</Link>
+            <Link to={appRoutePaths.recall}>{t("shell.workspace.recall")}</Link>
             <span aria-hidden="true">/</span>
             <span>{t("recall.dueToday.title")}</span>
           </nav>
@@ -637,7 +641,7 @@ function RecallDueTodayPage({
                 ) : (
                   <ButtonLink
                     className="recall-today-actions__start"
-                    to="/recall/select"
+                    to={appRoutePaths.recallSelect}
                     variant="primary"
                   >
                     <ListIcon />
@@ -647,7 +651,7 @@ function RecallDueTodayPage({
                 {queue.length > 0 ? (
                   <ButtonLink
                     className="recall-today-actions__manual"
-                    to="/recall/select"
+                    to={appRoutePaths.recallSelect}
                   >
                     <ListIcon />
                     {t("recall.dueToday.manualSelection")}
@@ -655,7 +659,7 @@ function RecallDueTodayPage({
                 ) : null}
                 <ButtonLink
                   className="recall-today-actions__manual"
-                  to="/today"
+                  to={appRoutePaths.today}
                 >
                   <CalendarIcon />
                   {t("shell.navigation.today")}
@@ -670,7 +674,11 @@ function RecallDueTodayPage({
           />
         </div>
 
-        <RecallDueTodaySummary queue={queue} userTimeZone={userTimeZone} />
+        <RecallDueTodaySummary
+          now={now}
+          queue={queue}
+          userTimeZone={userTimeZone}
+        />
 
         <div className="recall-today-layout">
           <div className="recall-today-queue">
@@ -682,13 +690,14 @@ function RecallDueTodayPage({
             ) : (
               <RecallDueTodayQueue
                 labelsById={labelsById}
+                now={now}
                 queue={queue}
                 userTimeZone={userTimeZone}
               />
             )}
           </div>
 
-          <RecallTodayHowPanel />
+          <RecallDueTodayHowPanel />
         </div>
       </article>
     </section>
@@ -696,14 +705,15 @@ function RecallDueTodayPage({
 }
 
 function RecallDueTodaySummary({
+  now,
   queue,
   userTimeZone,
 }: {
+  now: string;
   queue: readonly DueTodayQueueItem[];
   userTimeZone: string;
 }) {
   const { t } = useAppTranslation();
-  const now = new Date().toISOString();
   const overdueCount = queue.filter(
     (item) =>
       getDueTodayStatus({
@@ -761,10 +771,12 @@ function RecallDueTodaySummary({
 
 function RecallDueTodayQueue({
   labelsById,
+  now,
   queue,
   userTimeZone,
 }: {
   labelsById: ReadonlyMap<string, AppLabel>;
+  now: string;
   queue: readonly DueTodayQueueItem[];
   userTimeZone: string;
 }) {
@@ -794,6 +806,7 @@ function RecallDueTodayQueue({
             item={item}
             key={item.studyNote.id}
             labelsById={labelsById}
+            now={now}
             userTimeZone={userTimeZone}
           />
         ))}
@@ -805,14 +818,15 @@ function RecallDueTodayQueue({
 function RecallDueTodayQueueRow({
   item,
   labelsById,
+  now,
   userTimeZone,
 }: {
   item: DueTodayQueueItem;
   labelsById: ReadonlyMap<string, AppLabel>;
+  now: string;
   userTimeZone: string;
 }) {
   const { t } = useAppTranslation();
-  const now = new Date().toISOString();
   const status = getDueTodayStatus({
     item,
     now,
@@ -880,7 +894,7 @@ function RatingDots({
   );
 }
 
-function RecallTodayHowPanel() {
+function RecallDueTodayHowPanel() {
   const { t } = useAppTranslation();
   const steps = [
     {
@@ -990,7 +1004,7 @@ function ResultsMasterPanel({
       className="recall-panel recall-results-master"
     >
       <div className="recall-results-master__actions">
-        <Link className="recall-start-button" to="/recall/select">
+        <Link className="recall-start-button" to={appRoutePaths.recallSelect}>
           <PlusCircleIcon />
           {t("recall.action.start")}
         </Link>
@@ -1264,27 +1278,6 @@ function WarningIcon() {
       <path d="M12 4 3.5 19h17L12 4Z" fill="currentColor" opacity="0.2" />
       <path
         d="M12 8.5v4.7M12 16.8h.01M12 4 3.5 19h17L12 4Z"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-      />
-    </svg>
-  );
-}
-
-function ClockIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="20"
-      viewBox="0 0 24 24"
-      width="20"
-    >
-      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.8" />
-      <path
-        d="M12 7.5V12l3.2 2"
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"

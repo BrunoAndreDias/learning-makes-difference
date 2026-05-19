@@ -74,11 +74,11 @@ const globalNavigationItems = [
 const recallSubNavigationItems = [
   {
     labelKey: "recall.dueToday.title",
-    to: "/recall/due-today",
+    to: appRoutePaths.recallDueToday,
   },
   {
     labelKey: "recall.tabs.results",
-    to: "/recall/results",
+    to: appRoutePaths.recallResults,
   },
 ] as const;
 
@@ -111,11 +111,11 @@ function getWorkspaceTitleKey(pathname: string) {
 }
 
 function getRecallWorkspaceTitleKey(pathname: string) {
-  if (pathname === "/recall/select") {
+  if (pathname === appRoutePaths.recallSelect) {
     return "shell.workspace.recallSetup";
   }
 
-  if (pathname === "/recall/session") {
+  if (pathname === appRoutePaths.recallSession) {
     return "shell.workspace.recallSession";
   }
 
@@ -135,7 +135,10 @@ function isRecallWorkspacePath(pathname: string) {
 }
 
 function isRecallSurfacePath(pathname: string) {
-  return pathname === "/recall/due-today" || pathname === "/recall/results";
+  return (
+    pathname === appRoutePaths.recallDueToday ||
+    pathname === appRoutePaths.recallResults
+  );
 }
 
 function isFocusWorkspacePath(pathname: string) {

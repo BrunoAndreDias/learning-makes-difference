@@ -20,6 +20,7 @@ import {
 } from "../access/session/session";
 import { BreakIntervalOverlay, isBreakIntervalActive } from "../focus";
 import { useAppTranslation } from "../language";
+import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import {
   formatRecallModeLabel,
   getRecallRatingDescriptionTranslationKey,
@@ -41,8 +42,9 @@ const recallRatingOptions = [
   "good",
   "easy",
 ] as const satisfies readonly FlashCardRecallRating[];
-const recallDueTodayPath = "/recall/due-today";
-const recallResultsPath = "/recall/results";
+type RecallSessionExitTarget =
+  | typeof appRoutePaths.recallDueToday
+  | typeof appRoutePaths.recallResults;
 
 export const Route = createFileRoute("/_protected/recall/session")({
   component: RecallSessionPage,
@@ -75,6 +77,14 @@ function formatElapsedTime(startedAt: string, now: number) {
   }
 
   return `${hours} hr ${minutes} min`;
+}
+
+function getRecallSessionExitTarget(
+  session: Pick<RecallSession, "attempts">,
+): RecallSessionExitTarget {
+  return session.attempts.length > 0
+    ? appRoutePaths.recallResults
+    : appRoutePaths.recallDueToday;
 }
 
 function RecallSessionPage() {
@@ -140,7 +150,7 @@ function RecallSessionPage() {
     useState<FlashCardRecallRating | null>(null);
   const [isEndDialogOpen, setEndDialogOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const sessionExitTargetRef = useRef<string | null>(null);
+  const sessionExitTargetRef = useRef<RecallSessionExitTarget | null>(null);
 
   useEffect(() => {
     if (activeSession !== null) {
@@ -149,7 +159,7 @@ function RecallSessionPage() {
 
     void navigate({
       replace: true,
-      to: sessionExitTargetRef.current ?? recallDueTodayPath,
+      to: sessionExitTargetRef.current ?? appRoutePaths.recallDueToday,
     });
   }, [activeSession, navigate]);
 
@@ -217,10 +227,7 @@ function RecallSessionPage() {
     }
 
     try {
-      const exitTarget =
-        activeSession.attempts.length > 0
-          ? recallResultsPath
-          : recallDueTodayPath;
+      const exitTarget = getRecallSessionExitTarget(activeSession);
       sessionExitTargetRef.current = exitTarget;
       let nextSession: RecallSession | null;
 
@@ -266,7 +273,7 @@ function RecallSessionPage() {
     }
 
     try {
-      sessionExitTargetRef.current = recallResultsPath;
+      sessionExitTargetRef.current = appRoutePaths.recallResults;
       let nextSession: RecallSession | null;
 
       if (persistentRecallContext === undefined) {
@@ -290,7 +297,7 @@ function RecallSessionPage() {
 
       if (nextSession === null) {
         setRecallSavedMessage();
-        await navigate({ to: recallResultsPath });
+        await navigate({ to: appRoutePaths.recallResults });
         return;
       }
 
@@ -307,10 +314,7 @@ function RecallSessionPage() {
     }
 
     try {
-      const exitTarget =
-        activeSession.attempts.length > 0
-          ? recallResultsPath
-          : recallDueTodayPath;
+      const exitTarget = getRecallSessionExitTarget(activeSession);
       sessionExitTargetRef.current = exitTarget;
       if (persistentRecallContext === undefined) {
         recallContext.endFlashCardSession({

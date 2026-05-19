@@ -20,13 +20,9 @@ function getLatestRating(
 
 function isScheduleDueOnOrBeforeToday(input: {
   now: string;
-  schedule: RecallSchedule | null;
+  schedule: RecallSchedule;
   userTimeZone: UserTimeZonePreference;
 }) {
-  if (input.schedule === null) {
-    return false;
-  }
-
   const nextRecallDateKey = getLocalDateKey({
     timestamp: input.schedule.nextRecallAt,
     userTimeZone: input.userTimeZone,
@@ -73,7 +69,11 @@ export function buildDueTodayQueue(input: {
       continue;
     }
 
-    const schedule = scheduleByStudyNoteId.get(studyNote.id) ?? null;
+    const schedule = scheduleByStudyNoteId.get(studyNote.id);
+
+    if (schedule === undefined) {
+      continue;
+    }
 
     if (
       !isScheduleDueOnOrBeforeToday({
@@ -82,10 +82,6 @@ export function buildDueTodayQueue(input: {
         userTimeZone: input.userTimeZone,
       })
     ) {
-      continue;
-    }
-
-    if (schedule === null) {
       continue;
     }
 
