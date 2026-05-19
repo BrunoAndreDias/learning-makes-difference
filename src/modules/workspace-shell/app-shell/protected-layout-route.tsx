@@ -25,10 +25,12 @@ import {
   type AppFocusContext,
   AppFocusError,
   type AppPersistentFocusContext,
+  endActiveFocusSession,
   FocusDock,
   type FocusSession,
+  startDefaultFocusSession,
+  useFocusTimerTick,
 } from "../../focus";
-import { useFocusTimerTick } from "../../focus/focus-session-start-control";
 import { useAppTranslation } from "../../language";
 import { NotesWorkspaceProvider } from "../../notes";
 import { isPracticeRepairPath } from "../../recall/recall-practice-repair-paths";
@@ -89,8 +91,6 @@ const recallSubNavigationItems = [
 ] as const;
 
 const SIDEBAR_DOCK_UNAVAILABLE_QUERY = "(max-width: 51.99rem)";
-const DEFAULT_FOCUS_MINUTES = 25;
-const DEFAULT_BREAK_MINUTES = 5;
 
 function isWorkspacePath(pathname: string, workspacePath: string) {
   return pathname === workspacePath || pathname.startsWith(`${workspacePath}/`);
@@ -379,12 +379,11 @@ export function AppLayout() {
           </div>
 
           <GlobalNavigation
-            activeFocusSession={activeFocusSession}
             currentPathname={location.pathname}
             focus={focus}
-            isSidebarDockUnavailable={isSidebarDockUnavailable}
             onNavigate={closeMobileSidebar}
             persistentFocus={persistentFocus}
+            showFocusAction={!isSidebarDockUnavailable}
             userId={userId}
           />
 
@@ -664,20 +663,18 @@ function WorkspaceDate({
 }
 
 function GlobalNavigation({
-  activeFocusSession,
   currentPathname,
   focus,
-  isSidebarDockUnavailable,
   onNavigate,
   persistentFocus,
+  showFocusAction,
   userId,
 }: Readonly<{
-  activeFocusSession: FocusSession | null;
   currentPathname: string;
   focus: AppFocusContext;
-  isSidebarDockUnavailable: boolean;
   onNavigate: () => void;
   persistentFocus: AppPersistentFocusContext | undefined;
+  showFocusAction: boolean;
   userId: string | null;
 }>) {
   const { t } = useAppTranslation();
@@ -695,13 +692,12 @@ function GlobalNavigation({
             <li key={navigationItem.to}>
               {navigationItem.to === appRoutePaths.focus ? (
                 <FocusNavigationRow
-                  activeFocusSession={activeFocusSession}
                   focus={focus}
                   isRouteActive={isFocusRouteActive}
                   label={t(navigationItem.labelKey)}
                   onNavigate={onNavigate}
                   persistentFocus={persistentFocus}
-                  showAction={!isSidebarDockUnavailable}
+                  showAction={showFocusAction}
                   userId={userId}
                 />
               ) : (
@@ -751,7 +747,6 @@ function GlobalNavigation({
 }
 
 function FocusNavigationRow({
-  activeFocusSession,
   focus,
   isRouteActive,
   label,
@@ -760,7 +755,6 @@ function FocusNavigationRow({
   showAction,
   userId,
 }: Readonly<{
-  activeFocusSession: FocusSession | null;
   focus: AppFocusContext;
   isRouteActive: boolean;
   label: string;
@@ -771,10 +765,21 @@ function FocusNavigationRow({
 }>) {
   const { t } = useAppTranslation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const errorId = useId();
   const currentActiveFocusSession =
-    userId === null ? activeFocusSession : focus.getActiveSession({ userId });
+    userId === null ? null : focus.getActiveSession({ userId });
   useFocusTimerTick(currentActiveFocusSession);
   const isSessionActive = currentActiveFocusSession !== null;
+  const isActionDisabled = userId === null;
+  const errorDescriptionId = errorMessage === null ? undefined : errorId;
+  const focusActionInput = { focus, persistentFocus, userId };
+  const focusNavClassName = [
+    "app-sidebar__focus-nav",
+    isRouteActive ? "app-sidebar__focus-nav--route-active" : "",
+    isSessionActive ? "app-sidebar__focus-nav--session-active" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   const timerLabel =
     currentActiveFocusSession === null
       ? null
@@ -798,17 +803,9 @@ function FocusNavigationRow({
 
     try {
       if (currentActiveFocusSession === null) {
-        await startDefaultFocusSession({
-          focus,
-          persistentFocus,
-          userId,
-        });
+        await startDefaultFocusSession(focusActionInput);
       } else {
-        await endFocusSession({
-          focus,
-          persistentFocus,
-          userId,
-        });
+        await endActiveFocusSession(focusActionInput);
       }
 
       setErrorMessage(null);
@@ -842,13 +839,7 @@ function FocusNavigationRow({
 
   return (
     <div
-      className={[
-        "app-sidebar__focus-nav",
-        isRouteActive ? "app-sidebar__focus-nav--route-active" : "",
-        isSessionActive ? "app-sidebar__focus-nav--session-active" : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      className={focusNavClassName}
       data-focus-active={isSessionActive ? "true" : "false"}
     >
       <Link
@@ -873,8 +864,9 @@ function FocusNavigationRow({
       </Link>
       <div className="app-sidebar__focus-action-slot">
         <Button
+          aria-describedby={errorDescriptionId}
           className="app-sidebar__focus-action"
-          disabled={userId === null}
+          disabled={isActionDisabled}
           onClick={() => void runAction()}
           size="compact"
           type="button"
@@ -884,52 +876,12 @@ function FocusNavigationRow({
         </Button>
       </div>
       {errorMessage === null ? null : (
-        <span className="app-sidebar__focus-error" role="status">
+        <span className="app-sidebar__focus-error" id={errorId} role="status">
           {errorMessage}
         </span>
       )}
     </div>
   );
-}
-
-async function startDefaultFocusSession({
-  focus,
-  persistentFocus,
-  userId,
-}: {
-  focus: AppFocusContext;
-  persistentFocus: AppPersistentFocusContext | undefined;
-  userId: string;
-}) {
-  const input = {
-    breakIntervalMinutes: DEFAULT_BREAK_MINUTES,
-    focusIntervalMinutes: DEFAULT_FOCUS_MINUTES,
-    plannedFocusIntervalCount: null,
-  };
-
-  if (persistentFocus === undefined) {
-    focus.startFocusSession({ ...input, userId });
-    return;
-  }
-
-  await persistentFocus.startFocusSession(userId, input);
-}
-
-async function endFocusSession({
-  focus,
-  persistentFocus,
-  userId,
-}: {
-  focus: AppFocusContext;
-  persistentFocus: AppPersistentFocusContext | undefined;
-  userId: string;
-}) {
-  if (persistentFocus === undefined) {
-    focus.endFocusSession({ userId });
-    return;
-  }
-
-  await persistentFocus.endFocusSession(userId);
 }
 
 function formatFocusNavTimerLabel(session: FocusSession) {
