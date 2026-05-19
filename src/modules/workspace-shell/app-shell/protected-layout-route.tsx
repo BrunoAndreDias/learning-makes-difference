@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-router";
 import {
   type KeyboardEvent,
+  type ReactNode,
   type RefObject,
   useEffect,
   useId,
@@ -24,6 +25,7 @@ import { useResolvedProtectedSession } from "../../access/session/use-resolved-p
 import { FocusSessionStartControl } from "../../focus";
 import { useAppTranslation } from "../../language";
 import { NotesWorkspaceProvider } from "../../notes";
+import { appRoutePaths, authenticatedLandingPath } from "./route-paths";
 
 type NavigationIconName = "focus" | "note" | "recall" | "settings" | "today";
 type WorkspaceFrameName =
@@ -38,29 +40,29 @@ const globalNavigationItems = [
   {
     iconName: "today",
     labelKey: "shell.navigation.today",
-    to: "/today",
+    to: authenticatedLandingPath,
   },
   {
     iconName: "note",
     labelKey: "shell.navigation.notes",
-    to: "/study-notes",
+    to: appRoutePaths.studyNotes,
   },
   {
     iconName: "recall",
     labelKey: "shell.navigation.recall",
-    to: "/recall",
+    to: appRoutePaths.recall,
   },
   {
     iconName: "focus",
     labelKey: "shell.navigation.focus",
-    to: "/focus",
+    to: appRoutePaths.focus,
   },
 ] as const;
 
 const recallSubNavigationItems = [
   {
     labelKey: "recall.today.title",
-    to: "/recall",
+    to: appRoutePaths.recall,
   },
   {
     labelKey: "recall.practiceRepair",
@@ -121,23 +123,23 @@ function getRecallWorkspaceTitleKey(pathname: string) {
 }
 
 function isStudyNotesWorkspacePath(pathname: string) {
-  return isWorkspacePath(pathname, "/study-notes");
+  return isWorkspacePath(pathname, appRoutePaths.studyNotes);
 }
 
 function isRecallWorkspacePath(pathname: string) {
-  return isWorkspacePath(pathname, "/recall");
+  return isWorkspacePath(pathname, appRoutePaths.recall);
 }
 
 function isFocusWorkspacePath(pathname: string) {
-  return isWorkspacePath(pathname, "/focus");
+  return isWorkspacePath(pathname, appRoutePaths.focus);
 }
 
 function isSettingsWorkspacePath(pathname: string) {
-  return isWorkspacePath(pathname, "/settings");
+  return isWorkspacePath(pathname, appRoutePaths.settings);
 }
 
 function isTodayWorkspacePath(pathname: string) {
-  return isWorkspacePath(pathname, "/today");
+  return isWorkspacePath(pathname, authenticatedLandingPath);
 }
 
 function getWorkspaceFrameName(
@@ -147,7 +149,7 @@ function getWorkspaceFrameName(
     return "notes";
   }
 
-  if (pathname === "/recall") {
+  if (pathname === appRoutePaths.recall) {
     return "recall-results";
   }
 
@@ -234,7 +236,7 @@ export function AppLayout() {
       await session.logout();
       await router.invalidate();
       await navigate({
-        to: "/login",
+        to: appRoutePaths.login,
       });
     } finally {
       setLoggingOut(false);
@@ -296,7 +298,7 @@ export function AppLayout() {
           tabIndex={-1}
         >
           <div className="app-sidebar__header">
-            <Link className="app-sidebar__brand" to="/today">
+            <Link className="app-sidebar__brand" to={authenticatedLandingPath}>
               <img
                 alt=""
                 aria-hidden="true"
@@ -447,6 +449,61 @@ function WorkspaceHeader({
     isFocusWorkspaceRoute ||
     isTodayWorkspaceRoute ||
     isSettingsWorkspaceRoute;
+  let titlebarContent: ReactNode;
+  let workspaceActions: ReactNode;
+
+  if (isStudyNotesWorkspaceRoute) {
+    titlebarContent = (
+      <nav aria-label="Breadcrumb" className="app-frame__breadcrumb">
+        <Link to={appRoutePaths.studyNotes}>Study Notes</Link>
+        <span aria-hidden="true">/</span>
+        <span>Edit Note</span>
+      </nav>
+    );
+    workspaceActions = (
+      <WorkspaceMetaActions
+        activeFocusSession={activeFocusSession}
+        focus={focus}
+        persistentFocus={persistentFocus}
+        userId={userId}
+        workspaceDate={workspaceDate}
+      />
+    );
+  } else if (isFocusWorkspaceRoute) {
+    titlebarContent = (
+      <PageHeader
+        as="div"
+        className="app-frame__workspace-page-header"
+        copyClassName="app-frame__workspace-copy"
+        description={t("focus.description")}
+        headingLevel={2}
+        title={workspaceTitle}
+      />
+    );
+    workspaceActions = <WorkspaceDate workspaceDate={workspaceDate} />;
+  } else {
+    titlebarContent = (
+      <h2
+        className={
+          hasVisuallyHiddenWorkspaceTitle
+            ? "app-frame__workspace-title sr-only"
+            : "app-frame__workspace-title"
+        }
+      >
+        {isRecallWorkspaceRoute
+          ? (recallWorkspaceTitle ?? workspaceTitle)
+          : workspaceTitle}
+      </h2>
+    );
+    workspaceActions = (
+      <FocusSessionStartControl
+        activeFocusSession={activeFocusSession}
+        focus={focus}
+        persistentFocus={persistentFocus}
+        userId={userId}
+      />
+    );
+  }
 
   return (
     <header className="app-frame__workspace-header">
@@ -476,55 +533,9 @@ function WorkspaceHeader({
             <SidebarReopenIcon />
           </Button>
         ) : null}
-        {isStudyNotesWorkspaceRoute ? (
-          <nav aria-label="Breadcrumb" className="app-frame__breadcrumb">
-            <Link to="/study-notes">Study Notes</Link>
-            <span aria-hidden="true">/</span>
-            <span>Edit Note</span>
-          </nav>
-        ) : isFocusWorkspaceRoute ? (
-          <PageHeader
-            as="div"
-            className="app-frame__workspace-page-header"
-            copyClassName="app-frame__workspace-copy"
-            description={t("focus.description")}
-            headingLevel={2}
-            title={workspaceTitle}
-          />
-        ) : (
-          <h2
-            className={
-              hasVisuallyHiddenWorkspaceTitle
-                ? "app-frame__workspace-title sr-only"
-                : "app-frame__workspace-title"
-            }
-          >
-            {isRecallWorkspaceRoute
-              ? (recallWorkspaceTitle ?? workspaceTitle)
-              : workspaceTitle}
-          </h2>
-        )}
+        {titlebarContent}
       </div>
-      <div className="app-frame__actions">
-        {isStudyNotesWorkspaceRoute ? (
-          <WorkspaceMetaActions
-            activeFocusSession={activeFocusSession}
-            focus={focus}
-            persistentFocus={persistentFocus}
-            userId={userId}
-            workspaceDate={workspaceDate}
-          />
-        ) : isFocusWorkspaceRoute ? (
-          <WorkspaceDate workspaceDate={workspaceDate} />
-        ) : (
-          <FocusSessionStartControl
-            activeFocusSession={activeFocusSession}
-            focus={focus}
-            persistentFocus={persistentFocus}
-            userId={userId}
-          />
-        )}
-      </div>
+      <div className="app-frame__actions">{workspaceActions}</div>
     </header>
   );
 }
@@ -614,13 +625,14 @@ function GlobalNavigation({
                 {t(navigationItem.labelKey)}
               </span>
             </Link>
-            {navigationItem.to === "/recall" && isRecallRouteActive ? (
+            {navigationItem.to === appRoutePaths.recall &&
+            isRecallRouteActive ? (
               <ul className="app-sidebar__sublist">
                 {recallSubNavigationItems.map((subNavigationItem) => (
                   <li key={subNavigationItem.to}>
                     <Link
                       activeOptions={{
-                        exact: subNavigationItem.to === "/recall",
+                        exact: subNavigationItem.to === appRoutePaths.recall,
                       }}
                       activeProps={{
                         className:
@@ -737,7 +749,7 @@ function AccountMenu({
             className="account-menu__item"
             onClick={closeAccountMenu}
             role="menuitem"
-            to="/settings"
+            to={appRoutePaths.settings}
           >
             <span aria-hidden="true" className="app-sidebar__icon">
               <NavigationIcon name="settings" />

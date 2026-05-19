@@ -11,6 +11,10 @@ import { z } from "zod";
 import { PageHeader } from "../../../design-system/page-header";
 import { detectBrowserUserLanguage, useAppTranslation } from "../../language";
 import {
+  appRoutePaths,
+  authenticatedLandingPath,
+} from "../../workspace-shell/app-shell/route-paths";
+import {
   defaultUserTimeZone,
   getAppAuthError,
   hasActiveSession,
@@ -26,7 +30,7 @@ export const Route = createFileRoute("/_auth/register")({
 
     if (hasActiveSession(sessionSnapshot)) {
       throw redirect({
-        to: search.redirect ?? "/today",
+        to: search.redirect ?? authenticatedLandingPath,
       });
     }
   },
@@ -48,7 +52,7 @@ function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
-  const redirectTarget = search.redirect ?? "/today";
+  const redirectTarget = search.redirect ?? authenticatedLandingPath;
   const passwordVisibilityLabel = showPassword
     ? t("access.login.password.hide")
     : t("access.login.password.show");
@@ -286,7 +290,11 @@ function RegisterPage() {
 
       <p className="auth-footer">
         {t("access.register.footer.prompt")}{" "}
-        <Link className="auth-link" search={(prev) => prev} to="/login">
+        <Link
+          className="auth-link"
+          search={(prev) => prev}
+          to={appRoutePaths.login}
+        >
           {t("access.register.footer.login")}
         </Link>
       </p>

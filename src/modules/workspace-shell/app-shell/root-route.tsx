@@ -31,14 +31,19 @@ import type {
   AppPersistentStudyNotesContext,
   AppStudyNotesContext,
 } from "../../study-notes";
+import { appRoutePaths, authenticatedLandingPath } from "./route-paths";
 import { shouldShowRouterDevtools } from "./router-devtools-gate";
 
-const authRoutePaths = new Set(["/forgot-password", "/login", "/register"]);
+const authRoutePaths = new Set<string>([
+  appRoutePaths.forgotPassword,
+  appRoutePaths.login,
+  appRoutePaths.register,
+]);
 const redirectableProtectedPaths = [
-  "/recall",
-  "/settings",
-  "/study-notes",
-  "/today",
+  appRoutePaths.recall,
+  appRoutePaths.settings,
+  appRoutePaths.studyNotes,
+  authenticatedLandingPath,
 ];
 
 function isProtectedPath(pathname: string): boolean {
@@ -92,7 +97,7 @@ export const Route = createRootRouteWithContext<{
     }
 
     throw redirect({
-      to: "/login",
+      to: appRoutePaths.login,
       search: isProtectedPath(location.pathname)
         ? { redirect: location.href }
         : undefined,
@@ -111,7 +116,9 @@ function NotFoundRedirect() {
     session.getSnapshot,
     session.getSnapshot,
   );
-  const redirectTo = hasActiveSession(sessionSnapshot) ? "/today" : "/login";
+  const redirectTo = hasActiveSession(sessionSnapshot)
+    ? authenticatedLandingPath
+    : appRoutePaths.login;
 
   return <Navigate to={redirectTo} />;
 }
@@ -188,7 +195,7 @@ function RootDocumentBody({ children }: Readonly<{ children: ReactNode }>) {
                 </li>
                 <li>
                   <Link
-                    to="/today"
+                    to={authenticatedLandingPath}
                     activeProps={{ className: "nav-link nav-link-active" }}
                     className="nav-link"
                   >
@@ -197,7 +204,7 @@ function RootDocumentBody({ children }: Readonly<{ children: ReactNode }>) {
                 </li>
                 <li>
                   <Link
-                    to="/login"
+                    to={appRoutePaths.login}
                     activeProps={{ className: "nav-link nav-link-active" }}
                     className="nav-link nav-link--ghost"
                   >

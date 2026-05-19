@@ -11,6 +11,10 @@ import { z } from "zod";
 import { PageHeader } from "../../../design-system/page-header";
 
 import { useAppTranslation } from "../../language";
+import {
+  appRoutePaths,
+  authenticatedLandingPath,
+} from "../../workspace-shell/app-shell/route-paths";
 import { getAppAuthError, hasActiveSession } from "./session";
 
 export const Route = createFileRoute("/_auth/login")({
@@ -22,7 +26,7 @@ export const Route = createFileRoute("/_auth/login")({
 
     if (hasActiveSession(sessionSnapshot)) {
       throw redirect({
-        to: search.redirect ?? "/today",
+        to: search.redirect ?? authenticatedLandingPath,
       });
     }
   },
@@ -42,7 +46,7 @@ function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
-  const redirectTarget = search.redirect ?? "/today";
+  const redirectTarget = search.redirect ?? authenticatedLandingPath;
   const passwordVisibilityLabel = showPassword
     ? t("access.login.password.hide")
     : t("access.login.password.show");
@@ -185,7 +189,7 @@ function LoginPage() {
         </div>
 
         <div className="auth-row">
-          <Link className="auth-link" to="/forgot-password">
+          <Link className="auth-link" to={appRoutePaths.forgotPassword}>
             {t("access.login.forgotPassword")}
           </Link>
         </div>
@@ -207,7 +211,11 @@ function LoginPage() {
 
       <p className="auth-footer">
         {t("access.login.footer.prompt")}{" "}
-        <Link className="auth-link" search={(prev) => prev} to="/register">
+        <Link
+          className="auth-link"
+          search={(prev) => prev}
+          to={appRoutePaths.register}
+        >
           {t("access.login.footer.signup")}
         </Link>
       </p>
