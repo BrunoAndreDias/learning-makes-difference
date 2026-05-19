@@ -332,6 +332,56 @@ describe("authenticated app shell", () => {
     expect(focusContext.getActiveSession({ userId })).toBeNull();
   });
 
+  it("keeps the active Focus row timer on the navigation target and separate from the End action", async () => {
+    const userId = "user-focus-nav-active-timer";
+    const focusContext = createAppFocusContext({
+      keyPrefix: `test-focus-nav-active-timer-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    focusContext.startFocusSession({
+      breakIntervalMinutes: 5,
+      focusIntervalMinutes: 25,
+      plannedFocusIntervalCount: null,
+      userId,
+    });
+    const { router } = renderRoute("/settings", {
+      focusContext,
+      session: {
+        user: {
+          displayName: "Casey Focus Nav Timer",
+          email: "casey.focus.nav.timer@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Settings" }),
+    ).toBeInTheDocument();
+
+    const sidebar = screen.getByRole("complementary", {
+      name: "Study Notes workspace",
+    });
+    const appSections = within(sidebar).getByRole("navigation", {
+      name: "App sections",
+    });
+    const focusLink = within(appSections).getByRole("link", { name: "Focus" });
+    const timer = within(focusLink).getByText("25:00");
+
+    expect(focusLink).toHaveAccessibleDescription("25:00");
+    expect(
+      within(appSections).getByRole("button", { name: "End focus" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(timer);
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Focus" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/focus");
+  });
+
   it("renders global workspace navigation and updates the active link when navigating", async () => {
     const { router } = renderRoute("/study-notes");
 

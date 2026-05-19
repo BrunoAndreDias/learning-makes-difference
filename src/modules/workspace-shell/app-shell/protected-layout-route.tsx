@@ -766,6 +766,7 @@ function FocusNavigationRow({
   const { t } = useAppTranslation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const errorId = useId();
+  const timerId = useId();
   const currentActiveFocusSession =
     userId === null ? null : focus.getActiveSession({ userId });
   useFocusTimerTick(currentActiveFocusSession);
@@ -784,6 +785,7 @@ function FocusNavigationRow({
     currentActiveFocusSession === null
       ? null
       : formatFocusNavTimerLabel(currentActiveFocusSession);
+  const timerDescriptionId = timerLabel === null ? undefined : timerId;
   const actionLabel = isSessionActive
     ? t("focus.action.end")
     : t("focus.action.start");
@@ -847,6 +849,7 @@ function FocusNavigationRow({
           className:
             "app-sidebar__link app-sidebar__focus-link app-sidebar__focus-link-active",
         }}
+        aria-describedby={timerDescriptionId}
         aria-label={label}
         className="app-sidebar__link app-sidebar__focus-link"
         onClick={onNavigate}
@@ -857,7 +860,7 @@ function FocusNavigationRow({
         </span>
         <span className="app-sidebar__label">{label}</span>
         {timerLabel === null ? null : (
-          <span aria-hidden="true" className="app-sidebar__focus-timer">
+          <span className="app-sidebar__focus-timer" id={timerId}>
             {timerLabel}
           </span>
         )}
