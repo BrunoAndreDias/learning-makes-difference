@@ -111,7 +111,9 @@ function StudyGuidanceWorkspace() {
           </ButtonLink>
         }
         beforeTitle={
-          <p className="study-guidance-workspace__eyebrow">Insights</p>
+          <p className="study-guidance-workspace__eyebrow">
+            Insights <span aria-hidden="true">/</span> Study Guidance
+          </p>
         }
         className="study-guidance-workspace__page-header"
         description="Recommendations based on your Study Notes and recall evidence."
@@ -123,20 +125,36 @@ function StudyGuidanceWorkspace() {
         aria-label="Study Guidance summary"
         className="study-guidance-summary"
       >
-        {guidance.stats.map((stat) => (
-          <article className="study-guidance-stat" key={stat.id}>
-            <p className="study-guidance-stat__label">{stat.label}</p>
-            <strong className="study-guidance-stat__count">{stat.count}</strong>
-            <p className="study-guidance-stat__notes">
-              {formatStudyGuidanceCountLabel(stat.count)}
-            </p>
-            <p className="study-guidance-stat__detail">{stat.detail}</p>
-          </article>
-        ))}
+        <ul className="study-guidance-summary__list">
+          {guidance.stats.map((stat) => (
+            <li
+              className="study-guidance-stat"
+              data-signal-id={stat.id}
+              key={stat.id}
+            >
+              <span aria-hidden="true" className="study-guidance-stat__icon" />
+              <div className="study-guidance-stat__copy">
+                <p className="study-guidance-stat__label">{stat.label}</p>
+                <p className="study-guidance-stat__metric">
+                  <strong className="study-guidance-stat__count">
+                    {stat.count}
+                  </strong>
+                  <span className="study-guidance-stat__notes">
+                    {formatStudyGuidanceCountLabel(stat.count)}
+                  </span>
+                </p>
+                <p className="study-guidance-stat__detail">{stat.detail}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <div className="study-guidance-content">
-        <div className="study-guidance-content__main">
+        <section
+          aria-label="Study Guidance recommendations"
+          className="study-guidance-content__main"
+        >
           {guidance.practiceRepair === null ? null : (
             <StudyGuidancePracticeRepairPanel
               practiceRepair={guidance.practiceRepair}
@@ -144,15 +162,18 @@ function StudyGuidanceWorkspace() {
           )}
 
           <section className="study-guidance-callout">
-            <h2>Passive activity does not count as learning evidence.</h2>
-            <p>
-              Rereading, highlighting, watching videos, and time spent are
-              supportive activities.
-            </p>
-            <p>
-              They only become useful when they help you create or improve Study
-              Notes and generate recall evidence.
-            </p>
+            <span aria-hidden="true" className="study-guidance-callout__icon" />
+            <div className="study-guidance-callout__copy">
+              <h2>Passive activity does not count as learning evidence.</h2>
+              <p>
+                Rereading, highlighting, watching videos, and time spent are
+                supportive activities.
+              </p>
+              <p>
+                They only become useful when they help you create or improve
+                Study Notes and generate recall evidence.
+              </p>
+            </div>
           </section>
 
           {guidance.topics.length === 0 ? (
@@ -167,63 +188,120 @@ function StudyGuidanceWorkspace() {
             <div className="study-guidance-topics">
               {guidance.topics.map((topic) => (
                 <article className="study-guidance-topic" key={topic.id}>
-                  <div className="study-guidance-topic__header">
-                    <div>
-                      <h2>{topic.title}</h2>
-                      <p>
-                        {formatStudyGuidanceCountLabel(topic.studyNoteCount)}
-                      </p>
-                    </div>
-                  </div>
-                  <dl className="study-guidance-topic__stats">
-                    {getStudyGuidanceTopicStats(topic).map((stat) => (
-                      <div key={stat.id}>
-                        <dt>{stat.label}</dt>
-                        <dd>{formatStudyGuidanceCountLabel(stat.count)}</dd>
+                  <header className="study-guidance-topic__header">
+                    <div className="study-guidance-topic__title-row">
+                      <span
+                        aria-hidden="true"
+                        className="study-guidance-topic__icon"
+                      />
+                      <div>
+                        <p className="study-guidance-topic__kicker">Label</p>
+                        <h2>{topic.title}</h2>
+                        <p>
+                          {formatStudyGuidanceCountLabel(topic.studyNoteCount)}
+                        </p>
                       </div>
-                    ))}
-                  </dl>
+                    </div>
+                    <div className="study-guidance-topic__primary-action">
+                      <StudyGuidanceTopicPrimaryAction topic={topic} />
+                    </div>
+                  </header>
+                  <div className="study-guidance-topic__body">
+                    <dl className="study-guidance-topic__stats">
+                      {getStudyGuidanceTopicStats(topic).map((stat) => (
+                        <div key={stat.id}>
+                          <dt>{stat.label}</dt>
+                          <dd>{formatStudyGuidanceCountLabel(stat.count)}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <ButtonLink
+                      aria-label={createStudyGuidanceTopicNotesLabel(
+                        topic.title,
+                      )}
+                      size="compact"
+                      search={{ labelId: topic.id }}
+                      to="/study-notes"
+                      variant="secondary"
+                    >
+                      View notes
+                    </ButtonLink>
+                  </div>
                   {topic.recommendation === null ? null : (
-                    <p className="study-guidance-topic__recommendation">
-                      {topic.recommendation.summary}
-                    </p>
+                    <div className="study-guidance-topic__recommendation">
+                      <span
+                        aria-hidden="true"
+                        className="study-guidance-topic__recommendation-icon"
+                      />
+                      <p>{topic.recommendation.summary}</p>
+                    </div>
                   )}
-                  <StudyGuidanceTopicActions topic={topic} />
                 </article>
               ))}
             </div>
           )}
-        </div>
+        </section>
 
-        <aside className="study-guidance-sidebar">
+        <aside
+          aria-label="How this guidance works"
+          className="study-guidance-sidebar"
+        >
           <section className="study-guidance-sidebar__panel">
             <h2>How this guidance works</h2>
             <ul className="study-guidance-sidebar__list">
               <li>
-                <strong>Based on your notes</strong>
-                <span>We use only your Study Notes and recall attempts.</span>
+                <span
+                  aria-hidden="true"
+                  className="study-guidance-sidebar__icon"
+                />
+                <div className="study-guidance-sidebar__copy">
+                  <strong>Based on your notes</strong>
+                  <span>We use only your Study Notes and recall attempts.</span>
+                </div>
               </li>
               <li>
-                <strong>Factual signals only</strong>
-                <span>
-                  We look at last score, Recall Today, Needs practice, not
-                  recalled yet, next recall, and Interleaved Recall readiness.
-                </span>
+                <span
+                  aria-hidden="true"
+                  className="study-guidance-sidebar__icon"
+                />
+                <div className="study-guidance-sidebar__copy">
+                  <strong>Factual signals only</strong>
+                  <span>
+                    We look at last score, Recall Today, Needs practice, not
+                    recalled yet, next recall, and Interleaved Recall readiness.
+                  </span>
+                </div>
               </li>
               <li>
-                <strong>Actionable, not passive</strong>
-                <span>
-                  Guidance focuses on what to practice, not passive review.
-                </span>
+                <span
+                  aria-hidden="true"
+                  className="study-guidance-sidebar__icon"
+                />
+                <div className="study-guidance-sidebar__copy">
+                  <strong>Actionable, not passive</strong>
+                  <span>
+                    Guidance focuses on what to practice, not passive review.
+                  </span>
+                </div>
               </li>
               <li>
-                <strong>AI is optional support</strong>
-                <span>
-                  The Core Learning Loop works from Study Notes and recall
-                  evidence alone.
-                </span>
+                <span
+                  aria-hidden="true"
+                  className="study-guidance-sidebar__icon"
+                />
+                <div className="study-guidance-sidebar__copy">
+                  <strong>Interleaved Recall when ready</strong>
+                  <span>
+                    Notes are suggested for Interleaved Recall only after
+                    repeated Good or Easy recalls.
+                  </span>
+                </div>
               </li>
             </ul>
+            <p className="study-guidance-sidebar__evidence-note">
+              Use this guidance to decide what to practice next. Evidence comes
+              from recall.
+            </p>
           </section>
         </aside>
       </div>
@@ -277,27 +355,6 @@ function createStudyGuidanceTopicNotesLabel(title: string) {
   return title.endsWith("Study Notes")
     ? `View ${title}`
     : `View ${title} Study Notes`;
-}
-
-function StudyGuidanceTopicActions({
-  topic,
-}: Readonly<{
-  topic: StudyGuidanceTopic;
-}>) {
-  return (
-    <div className="study-guidance-topic__actions">
-      <StudyGuidanceTopicPrimaryAction topic={topic} />
-      <ButtonLink
-        aria-label={createStudyGuidanceTopicNotesLabel(topic.title)}
-        size="compact"
-        search={{ labelId: topic.id }}
-        to="/study-notes"
-        variant="secondary"
-      >
-        View notes
-      </ButtonLink>
-    </div>
-  );
 }
 
 function StudyGuidanceTopicPrimaryAction({

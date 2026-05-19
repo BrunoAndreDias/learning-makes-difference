@@ -182,6 +182,51 @@ function getSelectedStudyNoteIdsFromHref(href: string) {
 }
 
 describe("authenticated Study Guidance workspace", () => {
+  it("presents the summary strip, recommendations, and explanatory side panel as separate guidance areas", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-study-guidance-presentation";
+
+    renderRoute("/insights", {
+      ...contexts,
+      session: {
+        user: {
+          displayName: "Jordan Guidance",
+          email: "jordan.guidance@example.com",
+          id: userId,
+          userLanguage: "en",
+          userTimeZone: "America/New_York",
+        },
+      },
+    });
+
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "Study Guidance",
+    });
+
+    const summary = screen.getByRole("region", {
+      name: "Study Guidance summary",
+    });
+    expect(within(summary).getAllByRole("listitem")).toHaveLength(4);
+
+    expect(
+      screen.getByRole("region", {
+        name: "Study Guidance recommendations",
+      }),
+    ).toBeInTheDocument();
+
+    const explanation = screen.getByRole("complementary", {
+      name: "How this guidance works",
+    });
+    expect(
+      within(explanation).getByRole("heading", {
+        name: "How this guidance works",
+      }),
+    ).toBeInTheDocument();
+    expect(within(explanation).queryByRole("link")).toBeNull();
+    expect(within(explanation).queryByRole("button")).toBeNull();
+  });
+
   it("refreshes factual guidance when recall evidence changes", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
 
