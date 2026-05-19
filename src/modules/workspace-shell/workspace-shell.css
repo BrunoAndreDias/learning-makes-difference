@@ -286,30 +286,6 @@
   .sidebar-toggle {
     display: none;
   }
-
-  .app-frame[data-workspace="notes"] .app-frame__workspace-header {
-    position: sticky;
-    inset: 0 0 auto 0;
-    align-items: center;
-    width: auto;
-    min-height: var(--lmd-header-height);
-    padding: var(--lmd-page-padding-y) var(--lmd-page-padding-x);
-    border-bottom: 1px solid var(--color-content-border-soft);
-    background: var(--color-shell-panel);
-    pointer-events: auto;
-  }
-
-  .app-frame[data-workspace="notes"] .app-frame__titlebar {
-    height: auto;
-    min-height: 0;
-    transform: none;
-  }
-
-  .app-frame[data-workspace="notes"]
-    .app-frame__workspace-header
-    .app-frame__actions {
-    display: flex;
-  }
 }
 
 .app-shell:has(.authenticated-shell) {
@@ -580,10 +556,6 @@
   border-top-color: var(--color-content-border-soft);
 }
 
-.app-sidebar__footer .focus-dock {
-  grid-column: 1 / -1;
-}
-
 .app-sidebar__avatar {
   width: 2.25rem;
   height: 2.25rem;
@@ -851,31 +823,24 @@
 .authenticated-shell[data-sidebar-state="collapsed"]
   .app-frame[data-workspace="notes"]
   .app-frame__workspace-header {
-  position: sticky;
+  position: absolute;
   z-index: 22;
-  inset: 0 0 auto 0;
-  align-items: center;
-  width: auto;
-  min-height: var(--lmd-header-height);
-  padding: var(--lmd-page-padding-y) var(--lmd-page-padding-x);
-  border-bottom: 1px solid var(--color-content-border-soft);
-  background: var(--color-shell-panel);
-  pointer-events: auto;
+  inset: 0 auto auto 0;
+  align-items: flex-start;
+  width: 9.75rem;
+  height: var(--lmd-header-height);
+  min-height: 0;
+  padding-block: var(--lmd-list-row-padding-y);
+  border-bottom: 0;
+  background: transparent;
+  pointer-events: none;
 }
 
 .authenticated-shell[data-sidebar-state="collapsed"]
   .app-frame[data-workspace="notes"]
   .app-frame__workspace-header
   .app-frame__actions {
-  display: flex;
-}
-
-.authenticated-shell[data-sidebar-state="collapsed"]
-  .app-frame[data-workspace="notes"]
-  .app-frame__titlebar {
-  height: auto;
-  min-height: 0;
-  transform: none;
+  display: none;
 }
 
 .app-frame__titlebar {

@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from "react";
 
-import { Button, type ButtonVariant } from "../../design-system/button";
+import { Button } from "../../design-system/button";
 import { useAppTranslation } from "../language";
 import {
   type AppFocusContext,
@@ -15,6 +15,8 @@ const DEFAULT_BREAK_MINUTES = 5;
 const FOCUS_DOCK_TIMER_SEPARATOR = " \u00b7 ";
 
 type FocusDockVariant = "pill" | "sidebar";
+type FocusDockAction = () => Promise<void> | void;
+type AppTranslate = ReturnType<typeof useAppTranslation>["t"];
 
 export function FocusDock({
   activeFocusSession,
@@ -35,8 +37,10 @@ export function FocusDock({
   useFocusTimerTick(activeFocusSession);
   const currentActiveFocusSession =
     userId === null ? activeFocusSession : focus.getActiveSession({ userId });
+  const dockClassName = `focus-dock focus-dock--${variant}`;
+  const errorDescriptionId = errorMessage === null ? undefined : errorId;
+  const isActionDisabled = userId === null;
   const isSidebarVariant = variant === "sidebar";
-  const primaryActionVariant: ButtonVariant = "secondary";
 
   useEffect(() => {
     if (currentActiveFocusSession === null) {
@@ -46,7 +50,7 @@ export function FocusDock({
     setErrorMessage(null);
   }, [currentActiveFocusSession]);
 
-  async function runDockAction(action: () => Promise<void> | void) {
+  async function runDockAction(action: FocusDockAction) {
     try {
       await action();
       setErrorMessage(null);
@@ -72,46 +76,107 @@ export function FocusDock({
     );
   }
 
+  async function startDefaultFocusSession() {
+    if (userId === null) {
+      return;
+    }
+
+    if (persistentFocus === undefined) {
+      focus.startFocusSession({
+        ...createDefaultFocusSessionInput(),
+        userId,
+      });
+      return;
+    }
+
+    await persistentFocus.startFocusSession(
+      userId,
+      createDefaultFocusSessionInput(),
+    );
+  }
+
+  async function endActiveFocusSession() {
+    if (userId === null) {
+      return;
+    }
+
+    if (persistentFocus === undefined) {
+      focus.endFocusSession({ userId });
+      return;
+    }
+
+    await persistentFocus.endFocusSession(userId);
+  }
+
+  async function startNextFocusInterval() {
+    if (userId === null) {
+      return;
+    }
+
+    if (persistentFocus === undefined) {
+      focus.startNextFocusInterval({ userId });
+      return;
+    }
+
+    await persistentFocus.startNextFocusInterval(userId);
+  }
+
+  async function restartFocusSession() {
+    if (userId === null) {
+      return;
+    }
+
+    if (persistentFocus === undefined) {
+      focus.endFocusSession({ userId });
+      focus.startFocusSession({
+        ...createDefaultFocusSessionInput(),
+        userId,
+      });
+      return;
+    }
+
+    await persistentFocus.endFocusSession(userId);
+    await persistentFocus.startFocusSession(
+      userId,
+      createDefaultFocusSessionInput(),
+    );
+  }
+
+  async function runPrimaryAction(session: FocusSession) {
+    if (isCompletedFocusSession(session)) {
+      await restartFocusSession();
+      return;
+    }
+
+    switch (session.intervalState) {
+      case "Focus":
+        await endActiveFocusSession();
+        return;
+      case "Transition":
+      case "Break":
+      case "AwaitingNextFocus":
+        await startNextFocusInterval();
+        return;
+    }
+  }
+
   if (currentActiveFocusSession === null) {
     return (
-      <section
-        aria-label={t("focus.dock.heading")}
-        className={`focus-dock focus-dock--${variant}`}
-      >
+      <section aria-label={t("focus.dock.heading")} className={dockClassName}>
         {isSidebarVariant ? (
           <p className="focus-dock__heading">{t("focus.dock.heading")}</p>
         ) : null}
         <div className="focus-dock__body">
           <div className="focus-dock__actions">
             <Button
-              aria-describedby={errorMessage === null ? undefined : errorId}
-              disabled={userId === null}
+              aria-describedby={errorDescriptionId}
+              disabled={isActionDisabled}
               onClick={() => {
-                void runDockAction(async () => {
-                  if (userId === null) {
-                    return;
-                  }
-
-                  if (persistentFocus === undefined) {
-                    focus.startFocusSession({
-                      breakIntervalMinutes: DEFAULT_BREAK_MINUTES,
-                      focusIntervalMinutes: DEFAULT_FOCUS_MINUTES,
-                      plannedFocusIntervalCount: null,
-                      userId,
-                    });
-                    return;
-                  }
-
-                  await persistentFocus.startFocusSession(userId, {
-                    breakIntervalMinutes: DEFAULT_BREAK_MINUTES,
-                    focusIntervalMinutes: DEFAULT_FOCUS_MINUTES,
-                    plannedFocusIntervalCount: null,
-                  });
-                });
+                void runDockAction(startDefaultFocusSession);
               }}
               size="compact"
               type="button"
-              variant={primaryActionVariant}
+              variant="secondary"
             >
               {t("focus.dock.start")}
             </Button>
@@ -131,56 +196,6 @@ export function FocusDock({
   const primaryActionLabel = isCompletedSession
     ? t("focus.dock.start")
     : getFocusDockPrimaryActionLabel(currentActiveFocusSession, t);
-  const primaryAction = isCompletedSession
-    ? async () => {
-        if (userId === null) {
-          return;
-        }
-
-        if (persistentFocus === undefined) {
-          focus.endFocusSession({ userId });
-          focus.startFocusSession({
-            breakIntervalMinutes: DEFAULT_BREAK_MINUTES,
-            focusIntervalMinutes: DEFAULT_FOCUS_MINUTES,
-            plannedFocusIntervalCount: null,
-            userId,
-          });
-          return;
-        }
-
-        await persistentFocus.endFocusSession(userId);
-        await persistentFocus.startFocusSession(userId, {
-          breakIntervalMinutes: DEFAULT_BREAK_MINUTES,
-          focusIntervalMinutes: DEFAULT_FOCUS_MINUTES,
-          plannedFocusIntervalCount: null,
-        });
-      }
-    : async () => {
-        if (userId === null) {
-          return;
-        }
-
-        switch (currentActiveFocusSession.intervalState) {
-          case "Focus":
-            if (persistentFocus === undefined) {
-              focus.endFocusSession({ userId });
-              return;
-            }
-
-            await persistentFocus.endFocusSession(userId);
-            return;
-          case "Transition":
-          case "Break":
-          case "AwaitingNextFocus":
-            if (persistentFocus === undefined) {
-              focus.startNextFocusInterval({ userId });
-              return;
-            }
-
-            await persistentFocus.startNextFocusInterval(userId);
-            return;
-        }
-      };
 
   const showEndAction =
     isSidebarVariant &&
@@ -190,7 +205,7 @@ export function FocusDock({
   return (
     <section
       aria-label={t("focus.dock.heading")}
-      className={`focus-dock focus-dock--${variant}`}
+      className={dockClassName}
       data-state={getFocusDockDataState(currentActiveFocusSession)}
     >
       {isSidebarVariant ? (
@@ -200,34 +215,25 @@ export function FocusDock({
         <span className="focus-dock__status">{focusDockStatusLabel}</span>
         <div className="focus-dock__actions">
           <Button
-            aria-describedby={errorMessage === null ? undefined : errorId}
-            disabled={userId === null}
+            aria-describedby={errorDescriptionId}
+            disabled={isActionDisabled}
             onClick={() => {
-              void runDockAction(primaryAction);
+              void runDockAction(() =>
+                runPrimaryAction(currentActiveFocusSession),
+              );
             }}
             size="compact"
             type="button"
-            variant={primaryActionVariant}
+            variant="secondary"
           >
             {primaryActionLabel}
           </Button>
           {showEndAction ? (
             <Button
-              aria-describedby={errorMessage === null ? undefined : errorId}
-              disabled={userId === null}
+              aria-describedby={errorDescriptionId}
+              disabled={isActionDisabled}
               onClick={() => {
-                void runDockAction(async () => {
-                  if (userId === null) {
-                    return;
-                  }
-
-                  if (persistentFocus === undefined) {
-                    focus.endFocusSession({ userId });
-                    return;
-                  }
-
-                  await persistentFocus.endFocusSession(userId);
-                });
+                void runDockAction(endActiveFocusSession);
               }}
               size="compact"
               type="button"
@@ -244,7 +250,7 @@ export function FocusDock({
 
 function getFocusDockPrimaryActionLabel(
   session: FocusSession,
-  t: ReturnType<typeof useAppTranslation>["t"],
+  t: AppTranslate,
 ) {
   switch (session.intervalState) {
     case "Focus":
@@ -258,23 +264,27 @@ function getFocusDockPrimaryActionLabel(
   }
 }
 
-function getFocusDockStatusLabel(
-  session: FocusSession,
-  t: ReturnType<typeof useAppTranslation>["t"],
-) {
+function getFocusDockStatusLabel(session: FocusSession, t: AppTranslate) {
   if (isCompletedFocusSession(session)) {
     return t("focus.dock.state.complete");
   }
 
+  const timerLabel = formatRemainingTimerLabel(session);
+
   switch (session.intervalState) {
     case "Focus":
-      return `${t("focus.dock.state.active")}${FOCUS_DOCK_TIMER_SEPARATOR}${formatRemainingTimerLabel(session)}`;
+      return formatFocusDockStatusLabel(
+        t("focus.dock.state.active"),
+        timerLabel,
+      );
     case "Transition":
-      return `${t("focus.dock.state.paused")}${FOCUS_DOCK_TIMER_SEPARATOR}${formatRemainingTimerLabel(session)}`;
-    case "Break":
-      return `${t("focus.status.break")}${FOCUS_DOCK_TIMER_SEPARATOR}${formatRemainingTimerLabel(session)}`;
     case "AwaitingNextFocus":
-      return `${t("focus.dock.state.paused")}${FOCUS_DOCK_TIMER_SEPARATOR}${formatRemainingTimerLabel(session)}`;
+      return formatFocusDockStatusLabel(
+        t("focus.dock.state.paused"),
+        timerLabel,
+      );
+    case "Break":
+      return formatFocusDockStatusLabel(t("focus.status.break"), timerLabel);
   }
 }
 
@@ -287,12 +297,23 @@ function getFocusDockDataState(session: FocusSession) {
     case "Focus":
       return "focus";
     case "Transition":
+    case "AwaitingNextFocus":
       return "paused";
     case "Break":
       return "break";
-    case "AwaitingNextFocus":
-      return "paused";
   }
+}
+
+function formatFocusDockStatusLabel(stateLabel: string, timerLabel: string) {
+  return `${stateLabel}${FOCUS_DOCK_TIMER_SEPARATOR}${timerLabel}`;
+}
+
+function createDefaultFocusSessionInput() {
+  return {
+    breakIntervalMinutes: DEFAULT_BREAK_MINUTES,
+    focusIntervalMinutes: DEFAULT_FOCUS_MINUTES,
+    plannedFocusIntervalCount: null,
+  };
 }
 
 function isCompletedFocusSession(session: FocusSession) {

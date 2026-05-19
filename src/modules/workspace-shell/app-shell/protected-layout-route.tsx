@@ -86,6 +86,8 @@ const recallSubNavigationItems = [
   },
 ] as const;
 
+const SIDEBAR_DOCK_UNAVAILABLE_QUERY = "(max-width: 51.99rem)";
+
 function isWorkspacePath(pathname: string, workspacePath: string) {
   return pathname === workspacePath || pathname.startsWith(`${workspacePath}/`);
 }
@@ -239,14 +241,17 @@ export function AppLayout() {
   const sidebarToggleLabel = isSidebarCollapsed
     ? t("shell.navigation.expandSidebar")
     : t("shell.navigation.collapseSidebar");
-  const isSidebarUnavailable = useMediaQuery("(max-width: 51.99rem)");
+  const isSidebarDockUnavailable = useMediaQuery(
+    SIDEBAR_DOCK_UNAVAILABLE_QUERY,
+  );
   const userId = sessionSnapshot.user?.id ?? null;
   const activeFocusSession =
     userId === null ? null : focus.getActiveSession({ userId });
+  const shouldRenderFocusDock = !isFocusWorkspaceRoute;
   const showHeaderFocusDock =
-    !isFocusWorkspaceRoute && (isSidebarCollapsed || isSidebarUnavailable);
+    shouldRenderFocusDock && (isSidebarCollapsed || isSidebarDockUnavailable);
   const showSidebarFocusDock =
-    !isFocusWorkspaceRoute && !isSidebarCollapsed && !isSidebarUnavailable;
+    shouldRenderFocusDock && !isSidebarCollapsed && !isSidebarDockUnavailable;
 
   function closeMobileSidebar(options?: { returnFocusToToggle?: boolean }) {
     setMobileSidebarOpen(false);
