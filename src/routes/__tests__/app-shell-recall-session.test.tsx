@@ -694,7 +694,9 @@ describe("authenticated recall workspace", () => {
       detailScope.queryByRole("link", { name: "Start another recall" }),
     ).not.toBeInTheDocument();
 
-    const restartLinks = screen.getAllByRole("link", { name: "Start Recall" });
+    const restartLinks = screen.getAllByRole("link", {
+      name: "Custom recall",
+    });
     expect(restartLinks).toHaveLength(1);
   });
 

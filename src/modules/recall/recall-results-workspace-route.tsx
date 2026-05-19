@@ -358,8 +358,18 @@ export function RecallDueTodayWorkspacePage() {
 
 export function RecallResultsWorkspacePage() {
   const { t } = useAppTranslation();
-  const { currentLabels, notes, sessionResults, studyNotes } =
-    useRecallWorkspaceState();
+  const {
+    currentLabels,
+    notes,
+    persistentRecallContext,
+    recallContext,
+    recallSchedules,
+    sessionResults,
+    studyNotes,
+    userId,
+    userTimeZone,
+  } = useRecallWorkspaceState();
+  const now = new Date().toISOString();
   const availableLabels = listRecallResultLabels({
     currentLabels,
     sessionResults,
@@ -420,6 +430,41 @@ export function RecallResultsWorkspacePage() {
     notes.length === 0 &&
     studyNotes.length === 0 &&
     sessionResults.length === 0;
+  const dueTodayQueue =
+    userId === null
+      ? []
+      : buildDueTodayQueue({
+          histories: toStudyNoteRecallHistories(
+            recallContext.listAttemptsByNote({ userId }),
+          ),
+          now,
+          recallSchedules,
+          sessionResults,
+          studyNotes,
+          userTimeZone,
+        });
+
+  async function startDueTodayRecall() {
+    if (userId === null || dueTodayQueue.length === 0) {
+      return;
+    }
+
+    const studyNoteIds = dueTodayQueue.map((item) => item.studyNote.id);
+
+    if (persistentRecallContext === undefined) {
+      recallContext.startFlashCardSession({
+        mode: "FlashCard",
+        studyNoteIds,
+        userId,
+      });
+      return;
+    }
+
+    await persistentRecallContext.startFlashCardSession(userId, {
+      mode: "FlashCard",
+      studyNoteIds,
+    });
+  }
 
   if (hasNoRecallContent) {
     return <NoNotesRecallState />;
@@ -437,8 +482,15 @@ export function RecallResultsWorkspacePage() {
         <div className="recall-results-top">
           <RecallPageTabs />
           <PageHeader
+            actions={
+              <RecallPagePrimaryAction
+                onStartDueToday={startDueTodayRecall}
+                queue={dueTodayQueue}
+              />
+            }
             className="recall-surface__header"
             description={t("recall.results.description")}
+            headingLevel={1}
             title={t("recall.tabs.results")}
           />
 
@@ -627,44 +679,10 @@ function RecallDueTodayPage({
           <RecallPageTabs />
           <PageHeader
             actions={
-              <div className="recall-today-actions">
-                {queue.length > 0 ? (
-                  <Button
-                    className="recall-today-actions__start"
-                    onClick={onStartDueToday}
-                    type="button"
-                    variant="primary"
-                  >
-                    <PlayIcon />
-                    {t("recall.dueToday.start")}
-                  </Button>
-                ) : (
-                  <ButtonLink
-                    className="recall-today-actions__start"
-                    to={appRoutePaths.recallSelect}
-                    variant="primary"
-                  >
-                    <ListIcon />
-                    {t("recall.dueToday.manualSelection")}
-                  </ButtonLink>
-                )}
-                {queue.length > 0 ? (
-                  <ButtonLink
-                    className="recall-today-actions__manual"
-                    to={appRoutePaths.recallSelect}
-                  >
-                    <ListIcon />
-                    {t("recall.dueToday.manualSelection")}
-                  </ButtonLink>
-                ) : null}
-                <ButtonLink
-                  className="recall-today-actions__manual"
-                  to={appRoutePaths.today}
-                >
-                  <CalendarIcon />
-                  {t("shell.navigation.today")}
-                </ButtonLink>
-              </div>
+              <RecallPagePrimaryAction
+                onStartDueToday={onStartDueToday}
+                queue={queue}
+              />
             }
             actionsClassName="recall-today-hero__actions"
             className="recall-surface__header recall-today-hero"
@@ -701,6 +719,41 @@ function RecallDueTodayPage({
         </div>
       </article>
     </section>
+  );
+}
+
+function RecallPagePrimaryAction({
+  onStartDueToday,
+  queue,
+}: Readonly<{
+  onStartDueToday: () => void;
+  queue: readonly DueTodayQueueItem[];
+}>) {
+  const { t } = useAppTranslation();
+
+  if (queue.length > 0) {
+    return (
+      <Button
+        className="recall-today-actions__start"
+        onClick={onStartDueToday}
+        type="button"
+        variant="primary"
+      >
+        <PlayIcon />
+        {t("recall.dueToday.start")}
+      </Button>
+    );
+  }
+
+  return (
+    <ButtonLink
+      className="recall-today-actions__start"
+      to={appRoutePaths.recallSelect}
+      variant="primary"
+    >
+      <ListIcon />
+      {t("recall.dueToday.manualSelection")}
+    </ButtonLink>
   );
 }
 
@@ -1003,13 +1056,6 @@ function ResultsMasterPanel({
       aria-label={t("recall.results")}
       className="recall-panel recall-results-master"
     >
-      <div className="recall-results-master__actions">
-        <Link className="recall-start-button" to={appRoutePaths.recallSelect}>
-          <PlusCircleIcon />
-          {t("recall.action.start")}
-        </Link>
-      </div>
-
       <label
         className="recall-field recall-search-field"
         htmlFor="recall-results-search"
@@ -1455,27 +1501,6 @@ function LightbulbIcon() {
         strokeLinejoin="round"
         strokeWidth="1.8"
       />
-    </svg>
-  );
-}
-
-function PlusCircleIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="18"
-      viewBox="0 0 24 24"
-      width="18"
-    >
-      <path
-        d="M12 8v8M8 12h8"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-      />
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
     </svg>
   );
 }

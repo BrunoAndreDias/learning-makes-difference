@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
-import { ButtonLink } from "../../design-system/button";
+import { ButtonLink, type ButtonVariant } from "../../design-system/button";
 import { PageHeader } from "../../design-system/page-header";
 import { defaultUserTimeZone } from "../access/session/session-contract";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
@@ -106,7 +106,12 @@ function StudyGuidanceWorkspace() {
   return (
     <section className="study-guidance-workspace">
       <PageHeader
-        actions={<StudyGuidanceHeaderAction emptyState={guidance.emptyState} />}
+        actions={
+          <StudyGuidanceHeaderAction
+            emptyState={guidance.emptyState}
+            nextAction={guidance.rows[0]?.action ?? null}
+          />
+        }
         beforeTitle={
           <p className="study-guidance-workspace__eyebrow">Study Guidance</p>
         }
@@ -189,7 +194,7 @@ function StudyGuidanceRowView({
       </div>
 
       <div className="study-guidance-row__action">
-        <StudyGuidanceRowActionLink action={row.action} />
+        <StudyGuidanceActionLink action={row.action} />
       </div>
     </article>
   );
@@ -197,15 +202,25 @@ function StudyGuidanceRowView({
 
 function StudyGuidanceHeaderAction({
   emptyState,
+  nextAction,
 }: Readonly<{
   emptyState: StudyGuidanceEmptyState | null;
+  nextAction: StudyGuidanceRowAction | null;
 }>) {
   if (emptyState !== null) {
-    return <ButtonLink to="/study-notes">{emptyState.action.label}</ButtonLink>;
+    return (
+      <ButtonLink to="/study-notes" variant="primary">
+        {emptyState.action.label}
+      </ButtonLink>
+    );
+  }
+
+  if (nextAction !== null) {
+    return <StudyGuidanceActionLink action={nextAction} variant="primary" />;
   }
 
   return (
-    <ButtonLink size="compact" to="/recall/select" variant="secondary">
+    <ButtonLink to="/recall/select" variant="primary">
       Manual selection
     </ButtonLink>
   );
@@ -242,10 +257,12 @@ function StudyGuidanceEmptyStatePanel({
   );
 }
 
-function StudyGuidanceRowActionLink({
+function StudyGuidanceActionLink({
   action,
+  variant = "standard",
 }: Readonly<{
   action: StudyGuidanceRowAction;
+  variant?: ButtonVariant;
 }>) {
   switch (action.kind) {
     case "practice-repair-draft":
@@ -256,6 +273,7 @@ function StudyGuidanceRowActionLink({
             sessionResultId: action.sessionResultId,
           }}
           to="/practice-repair/results/$sessionResultId/questions/$questionResultId"
+          variant={variant}
         >
           {action.label}
         </ButtonLink>
@@ -267,23 +285,33 @@ function StudyGuidanceRowActionLink({
             practiceRepairEntryId: action.practiceRepairEntryId,
           }}
           to="/practice-repair/$practiceRepairEntryId"
+          variant={variant}
         >
           {action.label}
         </ButtonLink>
       );
     case "recall-due-today":
-      return <ButtonLink to="/recall/due-today">{action.label}</ButtonLink>;
+      return (
+        <ButtonLink to="/recall/due-today" variant={variant}>
+          {action.label}
+        </ButtonLink>
+      );
     case "recall-selection":
       return (
         <ButtonLink
           search={{ studyNoteIds: action.studyNoteIds.join(",") }}
           to="/recall/select"
+          variant={variant}
         >
           {action.label}
         </ButtonLink>
       );
     case "study-notes":
-      return <ButtonLink to="/study-notes">{action.label}</ButtonLink>;
+      return (
+        <ButtonLink to="/study-notes" variant={variant}>
+          {action.label}
+        </ButtonLink>
+      );
   }
 }
 

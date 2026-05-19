@@ -137,12 +137,12 @@ describe("authenticated app shell", () => {
     });
 
     const pageHeading = await screen.findByRole("heading", {
-      level: 2,
+      level: 1,
       name: "Focus",
     });
     expect(pageHeading).toHaveClass("page-header__title");
     expect(
-      screen.getAllByRole("heading", { level: 2, name: "Focus" }),
+      screen.getAllByRole("heading", { level: 1, name: "Focus" }),
     ).toHaveLength(1);
     expect(
       screen.getByText(
@@ -163,6 +163,7 @@ describe("authenticated app shell", () => {
     expect(
       document.querySelector(".app-frame__actions .app-focus-session-start"),
     ).toBeNull();
+    expect(screen.getByRole("button", { name: "Start Focus" })).toBeEnabled();
 
     const sessionDashboard = screen.getByRole("region", {
       name: "Start a focus session",
@@ -175,7 +176,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
     expect(
       within(sessionDashboard).getByRole("button", {
-        name: "Start Focus",
+        name: "Start focus session",
       }),
     ).toBeEnabled();
     const sessionPlan = within(sessionDashboard).getByRole("list", {
@@ -264,7 +265,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 2, name: "Focus" }),
+      await screen.findByRole("heading", { level: 1, name: "Focus" }),
     ).toBeInTheDocument();
 
     const supportPanel = screen.getByRole("region", {
@@ -332,7 +333,7 @@ describe("authenticated app shell", () => {
 
     expect(
       await screen.findByRole("heading", {
-        level: 2,
+        level: 1,
         name: "Foco",
       }),
     ).toBeInTheDocument();
@@ -350,7 +351,7 @@ describe("authenticated app shell", () => {
     );
     expect(
       within(setupPanel).getByRole("button", {
-        name: "Iniciar Foco",
+        name: "Iniciar sessao de foco",
       }),
     ).toBeEnabled();
 
@@ -404,7 +405,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 2, name: "Focus" }),
+      await screen.findByRole("heading", { level: 1, name: "Focus" }),
     ).toBeInTheDocument();
 
     const activePanel = screen.getByRole("region", {
@@ -456,7 +457,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 2, name: "Focus" }),
+      await screen.findByRole("heading", { level: 1, name: "Focus" }),
     ).toBeInTheDocument();
 
     const setupPanel = screen.getByRole("form", { name: "Session setup" });
@@ -476,7 +477,7 @@ describe("authenticated app shell", () => {
     expect(breakMinutes).toHaveValue(5);
     expect(plannedIntervals).toHaveValue(4);
     expect(
-      within(setupPanel).getByRole("button", { name: "Start Focus" }),
+      within(setupPanel).getByRole("button", { name: "Start focus session" }),
     ).toBeEnabled();
   });
 
@@ -560,7 +561,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 2, name: "Focus" }),
+      await screen.findByRole("heading", { level: 1, name: "Focus" }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -612,7 +613,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 2, name: "Focus" }),
+      await screen.findByRole("heading", { level: 1, name: "Focus" }),
     ).toBeInTheDocument();
 
     const analyticsStrip = screen.getByRole("region", {
@@ -653,7 +654,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 2, name: "Focus" }),
+      await screen.findByRole("heading", { level: 1, name: "Focus" }),
     ).toBeInTheDocument();
 
     const focusControls = screen.getByRole("form", {
@@ -674,7 +675,9 @@ describe("authenticated app shell", () => {
       },
     );
     fireEvent.click(
-      within(focusControls).getByRole("button", { name: "Start Focus" }),
+      within(focusControls).getByRole("button", {
+        name: "Start focus session",
+      }),
     );
 
     expect(router.state.location.pathname).toBe("/focus");
@@ -797,7 +800,7 @@ describe("authenticated app shell", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 2, name: "Focus" }),
+      await screen.findByRole("heading", { level: 1, name: "Focus" }),
     ).toBeInTheDocument();
 
     const focusControls = screen.getByRole("form", {

@@ -538,7 +538,7 @@ describe("authenticated recall workspace", () => {
       name: "Resultados de repaso",
     });
     expect(
-      within(results).getByRole("link", { name: "Iniciar repaso" }),
+      screen.getByRole("link", { name: "Repaso personalizado" }),
     ).toHaveAttribute("href", "/recall/select");
     expect(screen.getByLabelText("Buscar resultados")).toBeInTheDocument();
     expect(
@@ -2401,18 +2401,23 @@ describe("authenticated recall workspace", () => {
     renderRoute("/recall/results", { ...contexts, session: createSession() });
 
     expect(
-      await screen.findByRole("region", { name: "Recall results" }),
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Results",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Recall results" }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("No results yet").length).toBeGreaterThan(0);
     expect(
       screen.getAllByText("Results will appear here.").length,
     ).toBeGreaterThan(0);
-    expect(
-      screen.getAllByRole("link", { name: "Start Recall" })[0],
-    ).toHaveAttribute("href", "/recall/select");
-    expect(screen.getAllByRole("link", { name: "Start Recall" })).toHaveLength(
-      1,
+    expect(screen.getByRole("link", { name: "Custom recall" })).toHaveAttribute(
+      "href",
+      "/recall/select",
     );
+    expect(screen.queryByRole("link", { name: "Start Recall" })).toBeNull();
     expect(
       screen.getByRole("option", { name: "All modes" }),
     ).toBeInTheDocument();
@@ -2558,10 +2563,7 @@ describe("authenticated recall workspace", () => {
     ).toHaveAttribute("href", "/recall");
     expect(within(breadcrumb).getByText("Due today")).toBeInTheDocument();
     expect(screen.getAllByText("May 15, 2026").length).toBeGreaterThan(0);
-    expect(screen.getByRole("link", { name: "Custom recall" })).toHaveAttribute(
-      "href",
-      "/recall/select",
-    );
+    expect(screen.queryByRole("link", { name: "Custom recall" })).toBeNull();
 
     const summary = screen.getByRole("list", { name: "Due today summary" });
     expect(within(summary).getByText("Due now")).toBeInTheDocument();

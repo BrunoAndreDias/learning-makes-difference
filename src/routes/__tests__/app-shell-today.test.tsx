@@ -357,9 +357,30 @@ describe("authenticated Today workspace", () => {
       },
     });
 
+    const pageHeading = await screen.findByRole("heading", {
+      level: 1,
+      name: "Today",
+    });
+    expect(pageHeading).toBeInTheDocument();
+    const pageHeader = pageHeading.closest("header");
+
+    if (!(pageHeader instanceof HTMLElement)) {
+      throw new Error("Expected Today heading to render inside a page header.");
+    }
+
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Today" }),
-    ).toBeInTheDocument();
+      within(pageHeader).getByRole("link", {
+        name: "Open Practice Repair",
+      }),
+    ).toHaveAttribute(
+      "href",
+      `/practice-repair/${getPracticeRepairEntryId(activeRepairResult)}`,
+    );
+    expect(
+      within(pageHeader).queryByRole("link", {
+        name: "Manual selection",
+      }),
+    ).toBeNull();
 
     const summary = screen.getByRole("region", { name: "Today summary" });
     expect(within(summary).getAllByRole("listitem")).toHaveLength(6);

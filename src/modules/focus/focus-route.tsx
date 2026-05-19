@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { type FormEvent, useId, useState, useSyncExternalStore } from "react";
 
 import { Button, ButtonLink } from "../../design-system/button";
+import { PageHeader } from "../../design-system/page-header";
 import { defaultUserTimeZone } from "../access/session/session-contract";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { type AppTranslationKey, useAppTranslation } from "../language";
@@ -13,7 +14,10 @@ import {
   type FocusRecord,
   type FocusSession,
 } from "./focus";
-import { useFocusTimerTick } from "./focus-session-start-control";
+import {
+  FocusSessionStartControl,
+  useFocusTimerTick,
+} from "./focus-session-start-control";
 import {
   deriveFocusWeeklyAnalytics,
   type FocusWeeklyAnalytics,
@@ -223,6 +227,21 @@ function FocusPage() {
           : "focus-workspace"
       }
     >
+      <PageHeader
+        actions={
+          <FocusSessionStartControl
+            activeFocusSession={activeSession}
+            focus={focus}
+            persistentFocus={persistentFocus}
+            userId={userId}
+          />
+        }
+        className="focus-page-header"
+        description={t("focus.description")}
+        headingLevel={1}
+        title={t("focus.heading")}
+      />
+
       <section className="focus-session-workspace">
         <ActiveFocusSessionPanel
           activeSession={activeSession}
@@ -502,7 +521,7 @@ function ActiveFocusSessionPanel({
               void handleEndFocusSession();
             }}
             type="button"
-            variant="primary"
+            variant="secondary"
           >
             {t("focus.panel.endSession")}
           </Button>
@@ -637,10 +656,10 @@ function FocusSessionConfig({
               className="focus-start-button"
               disabled={isFocusSessionActive}
               type="submit"
-              variant="primary"
+              variant="secondary"
             >
               <PlayIcon />
-              <span>{t("focus.action.start")}</span>
+              <span>{t("focus.form.startSession")}</span>
             </Button>
           )}
           <Button

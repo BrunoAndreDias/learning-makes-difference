@@ -91,6 +91,7 @@ function PracticeRepairQueueHeaderAction({
           ),
         }}
         to="/practice-repair/$practiceRepairEntryId"
+        variant="primary"
       >
         Open next repair
       </ButtonLink>
@@ -105,6 +106,7 @@ function PracticeRepairQueueHeaderAction({
           sessionResultId: nextCandidateEntry.result.id,
         }}
         to="/practice-repair/results/$sessionResultId/questions/$questionResultId"
+        variant="primary"
       >
         Open next repair
       </ButtonLink>
@@ -113,11 +115,23 @@ function PracticeRepairQueueHeaderAction({
 
   switch (emptyStateAction) {
     case "review-results":
-      return <ButtonLink to="/recall/results">Review results</ButtonLink>;
+      return (
+        <ButtonLink to="/recall/results" variant="primary">
+          Review results
+        </ButtonLink>
+      );
     case "start-custom-recall":
-      return <ButtonLink to="/recall/select">Start custom recall</ButtonLink>;
+      return (
+        <ButtonLink to="/recall/select" variant="primary">
+          Start custom recall
+        </ButtonLink>
+      );
     case "create-first-study-note":
-      return <ButtonLink to="/study-notes">Create first Study Note</ButtonLink>;
+      return (
+        <ButtonLink to="/study-notes" variant="primary">
+          Create first Study Note
+        </ButtonLink>
+      );
   }
 }
 

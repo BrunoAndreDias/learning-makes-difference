@@ -226,7 +226,7 @@ describe("authenticated app shell", () => {
     ).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("keeps the shared top-right Focus action primary in shell headers", async () => {
+  it("keeps the shared shell Focus action secondary beside page-specific CTAs", async () => {
     renderRoute("/settings");
 
     expect(
@@ -234,7 +234,7 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
 
     expect(screen.getByRole("button", { name: "Start Focus" })).toHaveClass(
-      "notes-action-primary",
+      "notes-action-secondary",
     );
   });
 
@@ -332,7 +332,7 @@ describe("authenticated app shell", () => {
     fireEvent.click(focusLink);
 
     expect(
-      await screen.findByRole("heading", { level: 2, name: "Focus" }),
+      await screen.findByRole("heading", { level: 1, name: "Focus" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/focus");
     expect(focusLink).toHaveAttribute("aria-current", "page");

@@ -19,7 +19,6 @@ import {
 
 import appLogo from "../../../../docs/layout/logo.svg";
 import { Button } from "../../../design-system/button";
-import { PageHeader } from "../../../design-system/page-header";
 import type { AppSessionSnapshot } from "../../access/session/session";
 import { useResolvedProtectedSession } from "../../access/session/use-resolved-protected-session";
 import { FocusSessionStartControl } from "../../focus";
@@ -497,14 +496,7 @@ function WorkspaceHeader({
     );
   } else if (isFocusWorkspaceRoute) {
     titlebarContent = (
-      <PageHeader
-        as="div"
-        className="app-frame__workspace-page-header"
-        copyClassName="app-frame__workspace-copy"
-        description={t("focus.description")}
-        headingLevel={2}
-        title={workspaceTitle}
-      />
+      <h2 className="app-frame__workspace-title sr-only">{workspaceTitle}</h2>
     );
     workspaceActions = <WorkspaceDate workspaceDate={workspaceDate} />;
   } else {
@@ -523,6 +515,7 @@ function WorkspaceHeader({
     );
     workspaceActions = (
       <FocusSessionStartControl
+        actionButtonVariant="secondary"
         activeFocusSession={activeFocusSession}
         focus={focus}
         persistentFocus={persistentFocus}
@@ -587,6 +580,7 @@ function WorkspaceMetaActions({
     <div className="app-frame__meta-actions">
       <FocusSessionStartControl
         actionButtonClassName="app-frame__focus-control"
+        actionButtonVariant="secondary"
         activeFocusSession={activeFocusSession}
         focus={focus}
         persistentFocus={persistentFocus}
