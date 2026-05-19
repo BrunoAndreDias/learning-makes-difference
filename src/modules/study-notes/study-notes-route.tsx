@@ -55,10 +55,6 @@ import {
   type PracticeRepairQuestionReference,
   practiceRepairIntents,
 } from "../recall/recall-practice-repair";
-import {
-  getPracticeRepairQuestionRouteParams,
-  type PracticeRepairQuestionRouteParams,
-} from "../recall/recall-practice-repair-routing";
 import "./study-notes.css";
 import {
   type AppPersistentStudyNotesContext,
@@ -103,7 +99,6 @@ type LinkedPracticeRepairContext = {
   action: PracticeRepairIntent;
   entry: PracticeRepairEntry;
   practiceRepairEntryId: string;
-  repairRouteParams: PracticeRepairQuestionRouteParams | null;
 };
 
 function createBlankDraft(): UpdateStudyNoteInput {
@@ -141,10 +136,6 @@ function findLinkedPracticeRepairContext(input: {
           action: practiceRepairAction ?? entry.intent,
           entry,
           practiceRepairEntryId,
-          repairRouteParams: getPracticeRepairQuestionRouteParams({
-            entry,
-            question,
-          }),
         };
       }
     }

@@ -13,6 +13,7 @@ import {
   getPracticeRepairQuestionPrompt,
   getPracticeRepairQuestionReferenceTitle,
   listPracticeRepairQueueItems,
+  type PracticeRepairQueueListItem,
   type PracticeRepairQueueQuestionLike,
 } from "./recall-practice-repair";
 
@@ -24,6 +25,14 @@ type PracticeRepairEmptyStateAction =
   | "review-results"
   | "start-custom-recall"
   | "create-first-study-note";
+type ActivePracticeRepairQueueItem = Extract<
+  PracticeRepairQueueListItem,
+  { kind: "active" }
+>;
+type CandidatePracticeRepairQueueItem = Extract<
+  PracticeRepairQueueListItem,
+  { kind: "candidate" }
+>;
 
 function getPracticeRepairEmptyStateAction(input: {
   hasResults: boolean;
@@ -38,6 +47,78 @@ function getPracticeRepairEmptyStateAction(input: {
   }
 
   return "create-first-study-note";
+}
+
+function getPracticeRepairEmptyStateDescription(
+  action: PracticeRepairEmptyStateAction,
+) {
+  switch (action) {
+    case "review-results":
+      return "Results already has weak recall evidence. Review the latest results to start Practice Repair from the original questions.";
+    case "start-custom-recall":
+      return "No stored results exist yet. Start custom recall to generate the weak evidence that can become Practice Repair work.";
+    case "create-first-study-note":
+      return "Practice Repair starts after recall evidence exists. Create your first recallable Study Note first.";
+  }
+}
+
+function getPracticeRepairQueueRating(
+  question: Pick<PracticeRepairQueueQuestionLike, "selfRating">,
+  translate: (key: string) => string,
+) {
+  if (question.selfRating === null) {
+    return "Not rated";
+  }
+
+  return translate(getRecallRatingTranslationKey(question.selfRating));
+}
+
+function PracticeRepairQueueHeaderAction({
+  emptyStateAction,
+  nextActiveEntry,
+  nextCandidateEntry,
+}: Readonly<{
+  emptyStateAction: PracticeRepairEmptyStateAction;
+  nextActiveEntry: ActivePracticeRepairQueueItem | undefined;
+  nextCandidateEntry: CandidatePracticeRepairQueueItem | undefined;
+}>) {
+  if (nextActiveEntry !== undefined) {
+    return (
+      <ButtonLink
+        params={{
+          practiceRepairEntryId: getPracticeRepairEntryId(
+            nextActiveEntry.entry,
+          ),
+        }}
+        to="/practice-repair/$practiceRepairEntryId"
+      >
+        Open next repair
+      </ButtonLink>
+    );
+  }
+
+  if (nextCandidateEntry !== undefined) {
+    return (
+      <ButtonLink
+        params={{
+          questionResultId: nextCandidateEntry.question.questionResultId,
+          sessionResultId: nextCandidateEntry.result.id,
+        }}
+        to="/practice-repair/results/$sessionResultId/questions/$questionResultId"
+      >
+        Open next repair
+      </ButtonLink>
+    );
+  }
+
+  switch (emptyStateAction) {
+    case "review-results":
+      return <ButtonLink to="/recall/results">Review results</ButtonLink>;
+    case "start-custom-recall":
+      return <ButtonLink to="/recall/select">Start custom recall</ButtonLink>;
+    case "create-first-study-note":
+      return <ButtonLink to="/study-notes">Create first Study Note</ButtonLink>;
+  }
 }
 
 function PracticeRepairQueueCard({
@@ -75,6 +156,19 @@ function PracticeRepairQueueCard({
 
       {action}
     </article>
+  );
+}
+
+function PracticeRepairQueueEmptyState({
+  action,
+}: Readonly<{
+  action: PracticeRepairEmptyStateAction;
+}>) {
+  return (
+    <section className="recall-panel recall-empty-state" role="status">
+      <h4>No active Practice Repair entries.</h4>
+      <p className="muted">{getPracticeRepairEmptyStateDescription(action)}</p>
+    </section>
   );
 }
 
@@ -124,35 +218,11 @@ function RecallPracticeRepairQueueRoute() {
       <article className="recall-surface">
         <PageHeader
           actions={
-            nextActiveEntry !== undefined ? (
-              <ButtonLink
-                params={{
-                  practiceRepairEntryId: getPracticeRepairEntryId(
-                    nextActiveEntry.entry,
-                  ),
-                }}
-                to="/practice-repair/$practiceRepairEntryId"
-              >
-                Open next repair
-              </ButtonLink>
-            ) : nextCandidateEntry !== undefined ? (
-              <ButtonLink
-                params={{
-                  questionResultId:
-                    nextCandidateEntry.question.questionResultId,
-                  sessionResultId: nextCandidateEntry.result.id,
-                }}
-                to="/practice-repair/results/$sessionResultId/questions/$questionResultId"
-              >
-                Open next repair
-              </ButtonLink>
-            ) : emptyStateAction === "review-results" ? (
-              <ButtonLink to="/recall/results">Review results</ButtonLink>
-            ) : emptyStateAction === "start-custom-recall" ? (
-              <ButtonLink to="/recall/select">Start custom recall</ButtonLink>
-            ) : (
-              <ButtonLink to="/study-notes">Create first Study Note</ButtonLink>
-            )
+            <PracticeRepairQueueHeaderAction
+              emptyStateAction={emptyStateAction}
+              nextActiveEntry={nextActiveEntry}
+              nextCandidateEntry={nextCandidateEntry}
+            />
           }
           className="recall-surface__header"
           description="Resume active Practice Repair work first, then open the newest repair candidates from weak Results evidence."
@@ -161,25 +231,7 @@ function RecallPracticeRepairQueueRoute() {
         />
 
         {queueItems.length === 0 ? (
-          <section className="recall-panel recall-empty-state" role="status">
-            <h4>No active Practice Repair entries.</h4>
-            {emptyStateAction === "review-results" ? (
-              <p className="muted">
-                Results already has weak recall evidence. Review the latest
-                results to start Practice Repair from the original questions.
-              </p>
-            ) : emptyStateAction === "start-custom-recall" ? (
-              <p className="muted">
-                No stored results exist yet. Start custom recall to generate the
-                weak evidence that can become Practice Repair work.
-              </p>
-            ) : (
-              <p className="muted">
-                Practice Repair starts after recall evidence exists. Create your
-                first recallable Study Note first.
-              </p>
-            )}
-          </section>
+          <PracticeRepairQueueEmptyState action={emptyStateAction} />
         ) : (
           <section className="recall-practice-repair-queue">
             {activeQueue.length === 0 ? null : (
@@ -196,10 +248,7 @@ function RecallPracticeRepairQueueRoute() {
                   className="recall-practice-repair-queue__list"
                 >
                   {activeQueue.map(({ entry, question }) => {
-                    const rating =
-                      question.selfRating === null
-                        ? "Not rated"
-                        : t(getRecallRatingTranslationKey(question.selfRating));
+                    const rating = getPracticeRepairQueueRating(question, t);
                     const practiceRepairEntryId =
                       getPracticeRepairEntryId(entry);
 
@@ -248,10 +297,7 @@ function RecallPracticeRepairQueueRoute() {
                 >
                   {candidateQueue.map((item) => {
                     const { draft, question, result } = item;
-                    const rating =
-                      question.selfRating === null
-                        ? "Not rated"
-                        : t(getRecallRatingTranslationKey(question.selfRating));
+                    const rating = getPracticeRepairQueueRating(question, t);
 
                     return (
                       <li key={question.questionResultId}>
