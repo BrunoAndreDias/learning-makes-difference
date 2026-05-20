@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { fireEvent, screen, within } from "@testing-library/react";
@@ -23,6 +23,24 @@ const sidebarFocusRowNonEndActionNames = [
   "Keep focusing",
   "Skip break",
   "Start next focus",
+] as const;
+const appShellDirectoryPath = join(
+  process.cwd(),
+  "src/modules/workspace-shell/app-shell",
+);
+const focusNavRowPrototypeNotesPath = join(
+  appShellDirectoryPath,
+  "focus-nav-row-prototype-notes.md",
+);
+const protectedLayoutRoutePath = join(
+  appShellDirectoryPath,
+  "protected-layout-route.tsx",
+);
+const retiredFocusNavRowPrototypeMarkers = [
+  "?variant=",
+  "variant=A",
+  "variant=B",
+  "variant=C",
 ] as const;
 
 type SidebarFocusRowActiveSessionScenario =
@@ -265,23 +283,14 @@ describe("authenticated app shell", () => {
   });
 
   it("removes Focus nav row prototype artifacts from the app shell", () => {
-    const appShellDirectory = join(
-      process.cwd(),
-      "src/modules/workspace-shell/app-shell",
-    );
-    const appShellFiles = readdirSync(appShellDirectory);
-    const protectedLayoutRoute = readFileSync(
-      join(appShellDirectory, "protected-layout-route.tsx"),
-      {
-        encoding: "utf8",
-      },
-    );
+    const protectedLayoutRouteSource = readFileSync(protectedLayoutRoutePath, {
+      encoding: "utf8",
+    });
 
-    expect(appShellFiles).not.toContain("focus-nav-row-prototype-notes.md");
-    expect(protectedLayoutRoute).not.toContain("?variant=");
-    expect(protectedLayoutRoute).not.toContain("variant=A");
-    expect(protectedLayoutRoute).not.toContain("variant=B");
-    expect(protectedLayoutRoute).not.toContain("variant=C");
+    expect(existsSync(focusNavRowPrototypeNotesPath)).toBe(false);
+    for (const marker of retiredFocusNavRowPrototypeMarkers) {
+      expect(protectedLayoutRouteSource).not.toContain(marker);
+    }
   });
 
   it("renders a Study Notes workspace shell with an account menu instead of product navigation", async () => {
