@@ -305,16 +305,15 @@ type WorkspaceRecallQueueInput = {
   userTimeZone: RecallWorkspaceState["userTimeZone"];
 };
 
-type StartWorkspaceDueTodayRecallInput = {
-  dueTodayQueue: readonly DueTodayQueueItem[];
-  persistentRecallContext: RecallWorkspaceState["persistentRecallContext"];
-  recallContext: RecallWorkspaceState["recallContext"];
-  userId: RecallWorkspaceState["userId"];
+type WorkspaceFlashCardRecallQueueItem = {
+  readonly studyNote: {
+    readonly id: string;
+  };
 };
 
-type StartWorkspaceRecallTodayRecallInput = {
+type StartWorkspaceFlashCardRecallInput = {
   persistentRecallContext: RecallWorkspaceState["persistentRecallContext"];
-  queue: readonly RecallTodayQueueItem[];
+  queue: readonly WorkspaceFlashCardRecallQueueItem[];
   recallContext: RecallWorkspaceState["recallContext"];
   userId: RecallWorkspaceState["userId"];
 };
@@ -369,57 +368,29 @@ function buildWorkspaceRecallTodayQueue({
   });
 }
 
-async function startWorkspaceDueTodayRecall({
-  dueTodayQueue,
-  persistentRecallContext,
-  recallContext,
-  userId,
-}: StartWorkspaceDueTodayRecallInput): Promise<boolean> {
-  if (userId === null || dueTodayQueue.length === 0) {
-    return false;
-  }
-
-  const studyNoteIds = dueTodayQueue.map((item) => item.studyNote.id);
-
-  if (persistentRecallContext === undefined) {
-    recallContext.startFlashCardSession({
-      mode: "FlashCard",
-      studyNoteIds,
-      userId,
-    });
-  } else {
-    await persistentRecallContext.startFlashCardSession(userId, {
-      mode: "FlashCard",
-      studyNoteIds,
-    });
-  }
-
-  return true;
-}
-
-async function startWorkspaceRecallTodayRecall({
+async function startWorkspaceFlashCardRecall({
   persistentRecallContext,
   queue,
   recallContext,
   userId,
-}: StartWorkspaceRecallTodayRecallInput): Promise<boolean> {
+}: StartWorkspaceFlashCardRecallInput): Promise<boolean> {
   if (userId === null || queue.length === 0) {
     return false;
   }
 
   const studyNoteIds = queue.map((item) => item.studyNote.id);
+  const sessionInput = {
+    mode: "FlashCard" as const,
+    studyNoteIds,
+  };
 
   if (persistentRecallContext === undefined) {
     recallContext.startFlashCardSession({
-      mode: "FlashCard",
-      studyNoteIds,
+      ...sessionInput,
       userId,
     });
   } else {
-    await persistentRecallContext.startFlashCardSession(userId, {
-      mode: "FlashCard",
-      studyNoteIds,
-    });
+    await persistentRecallContext.startFlashCardSession(userId, sessionInput);
   }
 
   return true;
@@ -449,7 +420,7 @@ export function RecallTodayWorkspacePage() {
   });
 
   async function startRecallToday() {
-    const startedRecall = await startWorkspaceRecallTodayRecall({
+    const startedRecall = await startWorkspaceFlashCardRecall({
       persistentRecallContext,
       queue: recallTodayQueue,
       recallContext,
@@ -502,9 +473,9 @@ export function RecallDueTodayWorkspacePage() {
     sessionResults.length === 0;
 
   async function startDueTodayRecall() {
-    const startedRecall = await startWorkspaceDueTodayRecall({
-      dueTodayQueue,
+    const startedRecall = await startWorkspaceFlashCardRecall({
       persistentRecallContext,
+      queue: dueTodayQueue,
       recallContext,
       userId,
     });
@@ -616,9 +587,9 @@ export function RecallResultsWorkspacePage() {
   });
 
   async function startDueTodayRecall() {
-    await startWorkspaceDueTodayRecall({
-      dueTodayQueue,
+    await startWorkspaceFlashCardRecall({
       persistentRecallContext,
+      queue: dueTodayQueue,
       recallContext,
       userId,
     });
