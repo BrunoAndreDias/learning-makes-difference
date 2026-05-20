@@ -12,11 +12,21 @@ import {
   renderRoute,
 } from "./app-shell-test-support";
 
-type SidebarFocusRowSessionState =
-  | "AwaitingNextFocus"
-  | "Break"
-  | "Focus"
-  | "Transition";
+const sidebarFocusRowActiveSessionScenarios = [
+  { currentTime: "2026-05-19T10:00:00.000Z", state: "Focus" },
+  { currentTime: "2026-05-19T10:25:12.000Z", state: "Transition" },
+  { currentTime: "2026-05-19T10:25:31.000Z", state: "Break" },
+  { currentTime: "2026-05-19T10:30:30.000Z", state: "AwaitingNextFocus" },
+] as const;
+
+const sidebarFocusRowNonEndActionNames = [
+  "Keep focusing",
+  "Skip break",
+  "Start next focus",
+] as const;
+
+type SidebarFocusRowActiveSessionScenario =
+  (typeof sidebarFocusRowActiveSessionScenarios)[number];
 
 function setBrowserLanguages(languages: readonly string[]) {
   Object.defineProperty(window.navigator, "languages", {
@@ -96,14 +106,14 @@ function restoreViewport() {
 }
 
 function createFocusContextForSidebarState(
-  state: SidebarFocusRowSessionState,
+  scenario: SidebarFocusRowActiveSessionScenario,
   userId: string,
 ) {
-  let now = new Date("2026-05-19T10:00:00.000Z");
+  let currentTime = "2026-05-19T10:00:00.000Z";
 
   const focusContext = createAppFocusContext({
-    keyPrefix: `test-focus-nav-state-${state.toLowerCase()}-${Math.random().toString(36).slice(2)}`,
-    now: () => now,
+    keyPrefix: `test-focus-nav-state-${scenario.state.toLowerCase()}-${Math.random().toString(36).slice(2)}`,
+    now: () => new Date(currentTime),
     storage: window.localStorage,
   });
 
@@ -113,20 +123,7 @@ function createFocusContextForSidebarState(
     plannedFocusIntervalCount: null,
     userId,
   });
-
-  switch (state) {
-    case "Focus":
-      break;
-    case "Transition":
-      now = new Date("2026-05-19T10:25:12.000Z");
-      break;
-    case "Break":
-      now = new Date("2026-05-19T10:25:31.000Z");
-      break;
-    case "AwaitingNextFocus":
-      now = new Date("2026-05-19T10:30:30.000Z");
-      break;
-  }
+  currentTime = scenario.currentTime;
 
   return focusContext;
 }
@@ -445,53 +442,37 @@ describe("authenticated app shell", () => {
     expect(focusContext.getActiveSession({ userId })).toBeNull();
   });
 
-  it("locks the expanded sidebar Focus row to End across all active FocusSession states", async () => {
-    const scenarios: readonly SidebarFocusRowSessionState[] = [
-      "Focus",
-      "Transition",
-      "Break",
-      "AwaitingNextFocus",
-    ];
-
-    for (const state of scenarios) {
-      const userId = `user-focus-nav-simple-${state.toLowerCase()}`;
-      const focusContext = createFocusContextForSidebarState(state, userId);
-      const view = renderRoute("/settings", {
-        focusContext,
-        session: {
-          user: {
-            displayName: `Casey Focus ${state}`,
-            email: `casey.focus.${state.toLowerCase()}@example.com`,
-            id: userId,
-            userLanguage: "en",
-          },
+  it.each(
+    sidebarFocusRowActiveSessionScenarios,
+  )("locks the sidebar Focus row to End in $state", async (scenario) => {
+    const userId = `user-focus-nav-simple-${scenario.state.toLowerCase()}`;
+    const focusContext = createFocusContextForSidebarState(scenario, userId);
+    renderRoute("/settings", {
+      focusContext,
+      session: {
+        user: {
+          displayName: `Casey Focus ${scenario.state}`,
+          email: `casey.focus.${scenario.state.toLowerCase()}@example.com`,
+          id: userId,
+          userLanguage: "en",
         },
-      });
+      },
+    });
 
-      expect(
-        await screen.findByRole("heading", { level: 2, name: "Settings" }),
-      ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Settings" }),
+    ).toBeInTheDocument();
 
-      const appSections = getAppSections();
+    const appSections = getAppSections();
+    const appSectionQueries = within(appSections);
 
+    expect(
+      appSectionQueries.getByRole("button", { name: "End focus" }),
+    ).toBeInTheDocument();
+    for (const actionName of sidebarFocusRowNonEndActionNames) {
       expect(
-        within(appSections).getByRole("button", { name: "End focus" }),
-      ).toBeInTheDocument();
-      expect(
-        within(appSections).queryByRole("button", {
-          name: "Keep focusing",
-        }),
-      ).toBeNull();
-      expect(
-        within(appSections).queryByRole("button", { name: "Skip break" }),
-      ).toBeNull();
-      expect(
-        within(appSections).queryByRole("button", {
-          name: "Start next focus",
-        }),
-      ).toBeNull();
-
-      view.unmount();
+        appSectionQueries.queryByRole("button", { name: actionName }),
+      ).not.toBeInTheDocument();
     }
   });
 
