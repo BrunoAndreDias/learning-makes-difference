@@ -3517,6 +3517,83 @@ describe("authenticated recall workspace", () => {
     expect(router.state.location.pathname).toBe("/recall/session");
   });
 
+  it("shows informational Label context for manually selected Study Notes and Study Notes added from Labels", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const biologyLabel = contexts.labelsContext.createLabel({
+      name: "Biology",
+      userId: testUser.id,
+    });
+    const examOneLabel = contexts.labelsContext.createLabel({
+      name: "Exam 1",
+      userId: testUser.id,
+    });
+    const chemistryLabel = contexts.labelsContext.createLabel({
+      name: "Chemistry",
+      userId: testUser.id,
+    });
+    const manualStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        labelIds: [chemistryLabel.id],
+        sourceBody: "Manual chemistry answer.",
+        sourceTitle: "Manual chemistry Study Note",
+      },
+    );
+    contexts.studyNotesContext.createStudyNote(testUser.id, {
+      labelIds: [biologyLabel.id, examOneLabel.id],
+      sourceBody: "Added biology exam answer.",
+      sourceTitle: "Added biology exam Study Note",
+    });
+
+    renderRoute("/recall/select", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    const sessionSetup = await screen.findByRole("complementary", {
+      name: "Session setup",
+    });
+
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /Manual chemistry Study Note/ }),
+    );
+    fireEvent.click(
+      within(sessionSetup).getByRole("checkbox", { name: "Exam 1" }),
+    );
+    fireEvent.click(
+      within(sessionSetup).getByRole("button", { name: "Add Study Notes" }),
+    );
+
+    const selectedStudyNotesList = within(sessionSetup).getByRole("list", {
+      name: "Selected Study Notes",
+    });
+    const getSelectedStudyNoteRow = (prompt: string) => {
+      const row = within(selectedStudyNotesList)
+        .getByText(prompt)
+        .closest("li");
+
+      if (row === null) {
+        throw new Error(`Missing selected Study Note row for "${prompt}".`);
+      }
+
+      return row;
+    };
+    const manualSelectedRow = getSelectedStudyNoteRow(manualStudyNote.prompt);
+    const addedFromLabelsRow = getSelectedStudyNoteRow(
+      "Added biology exam Study Note",
+    );
+
+    expect(
+      within(manualSelectedRow).getByText("Chemistry"),
+    ).toBeInTheDocument();
+    expect(within(addedFromLabelsRow).getByText("Biology")).toBeInTheDocument();
+    expect(within(addedFromLabelsRow).getByText("Exam 1")).toBeInTheDocument();
+    expect(within(manualSelectedRow).queryByRole("button")).toBeNull();
+    expect(within(manualSelectedRow).queryByRole("checkbox")).toBeNull();
+    expect(within(addedFromLabelsRow).queryByRole("button")).toBeNull();
+    expect(within(addedFromLabelsRow).queryByRole("checkbox")).toBeNull();
+  });
+
   it("shows Add Study Notes from Labels as unavailable when the User has no Labels", async () => {
     const contexts = createDeterministicRecallTestContexts();
     contexts.studyNotesContext.createStudyNote(testUser.id, {

@@ -162,9 +162,16 @@ function getLabelNames(
   studyNote: AppStudyNote,
   labelsById: ReadonlyMap<string, AppLabel>,
 ) {
+  return getStudyNoteLabels(studyNote, labelsById).map((label) => label.name);
+}
+
+function getStudyNoteLabels(
+  studyNote: AppStudyNote,
+  labelsById: ReadonlyMap<string, AppLabel>,
+) {
   return studyNote.labelIds
-    .map((labelId) => labelsById.get(labelId)?.name)
-    .filter((labelName): labelName is string => labelName !== undefined);
+    .map((labelId) => labelsById.get(labelId))
+    .filter((label): label is AppLabel => label !== undefined);
 }
 
 function studyNoteMatchesQuery(
@@ -702,6 +709,9 @@ function SessionSetupPanel({
 }: SessionSetupPanelProps) {
   const { t } = useAppTranslation();
   const hasAvailableLabels = availableLabels.length > 0;
+  const labelsById = new Map(
+    availableLabels.map((label) => [label.id, label] as const),
+  );
   const selectedLabelIdSet = new Set(selectedLabelIds);
   const selectedRecallOption = recallTypeOptions.find(
     (option) => option.mode === selectedRecallType,
@@ -731,6 +741,27 @@ function SessionSetupPanel({
         <p className="recall-select-session-setup__selected-count">
           {selectedStudyNotes.length}
         </p>
+        {selectedStudyNotes.length > 0 ? (
+          <ol
+            aria-label={t("recall.selection.selectedNotes")}
+            className="recall-select-session-setup__selected-list"
+          >
+            {selectedStudyNotes.map((studyNote) => {
+              const attachedLabels = getStudyNoteLabels(studyNote, labelsById);
+
+              return (
+                <li key={studyNote.id}>
+                  <div className="recall-select-session-setup__selected-row">
+                    <strong>{studyNote.prompt}</strong>
+                    <span className="recall-select-session-setup__selected-labels">
+                      <SelectedStudyNoteLabels labels={attachedLabels} />
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        ) : null}
       </div>
 
       <div className="recall-select-session-setup__divider" />
@@ -879,6 +910,30 @@ function SessionSetupPanel({
       ) : null}
     </aside>
   );
+}
+
+function SelectedStudyNoteLabels({ labels }: { labels: readonly AppLabel[] }) {
+  const { t } = useAppTranslation();
+
+  if (labels.length === 0) {
+    return (
+      <span
+        className="recall-select-session-setup__selected-label"
+        data-tone="muted"
+      >
+        {t("recall.selection.noLabel")}
+      </span>
+    );
+  }
+
+  return labels.map((label) => (
+    <span
+      className="recall-select-session-setup__selected-label"
+      key={label.id}
+    >
+      {label.name}
+    </span>
+  ));
 }
 
 function SearchIcon() {
