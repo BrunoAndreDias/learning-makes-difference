@@ -208,7 +208,7 @@ Authenticated study data that remains available to the same User across browsers
 _Avoid_: Local cache, browser storage
 
 **Label**:
-A named concept used to group Study Notes. Labels form a DAG — a Label can have multiple parent Labels and multiple child Labels. A Study Note can belong to multiple Labels directly.
+A named concept group used to connect related Study Notes for filtering, focused recall, interleaving, and study planning. Labels are flat; they do not have parent or child Labels. A Study Note can belong to multiple Labels directly.
 _Avoid_: Tag, category, folder, topic, study field
 
 ### Recall
@@ -375,7 +375,7 @@ _Avoid_: Insights page, Recall Today, analytics dashboard
 
 **Study Notes Workspace**:
 The authenticated workspace where the User creates Study Notes, captures or edits their source Notes, and edits Study Note prompts, expected answers, Labels, Metaphors, and Acronyms.
-In the Study Notes Workspace, the User may assign existing Labels to a Study Note and create a new Label inline while editing that Study Note. v1 does not expose a standalone Labels workspace or parent-label graph management surface.
+In the Study Notes Workspace, the User may assign existing Labels to a Study Note and create a new Label inline while editing that Study Note. v1 does not expose a standalone Labels workspace.
 The primary navigation label for the Study Notes Workspace is "Study Notes".
 The Study Notes Workspace route is `/study-notes`.
 The old `/notes` route is removed rather than redirected.
@@ -435,6 +435,25 @@ _Avoid_: Product menu, primary navigation
 
 **Recall Selection Mode**:
 A temporary Recall Section route, such as `/recall/select`, with a dedicated recall picker where the User searches/filters Notes and selects Study Notes for a new RecallSession.
+Recall Selection Mode may let the User add Study Notes by Label group inside the normal manual recall picker; this does not create a separate Label-study route or mode.
+Adding by one Label group adds all current recallable Study Notes in that Label to the temporary RecallSession selection, regardless of whether they are in Recall Today.
+Adding by multiple Label groups narrows the added Study Notes to those that belong to every selected Label, regardless of whether they are in Recall Today.
+Adding by Label group is additive: it preserves already selected Study Notes and ignores duplicates.
+Adding by Label group skips incomplete Study Notes because only recallable Study Notes can enter a RecallSession.
+When adding by Label group finds no recallable Study Notes, it leaves the temporary selection unchanged and explains that nothing was added.
+After adding by Label group, the User may continue manually adding or removing Study Notes before starting the RecallSession.
+Adding by Label group belongs to the temporary RecallSession selection flow rather than general filtering because it changes the selected Study Notes.
+Preferred user-facing copy for the action is "Add Study Notes from Labels" because the action adds Study Notes and does not target Labels.
+Recall Selection Mode should keep selected Study Notes' Label context visible so the User can understand why a Study Note was included by Label-group selection.
+Selected Study Note Label context in Recall Selection Mode is informational and non-editable; Label editing belongs in the Study Notes Workspace.
+The Label choices inside "Add Study Notes from Labels" may be remembered only during the current Recall Selection Mode flow; exiting, cancelling, or starting the RecallSession clears them.
+After the User confirms the Label choices, "Add Study Notes from Labels" applies immediately and reports what changed, including added, duplicate, or skipped Study Notes when relevant.
+"Add Study Notes from Labels" requires at least one Label; unlabeled Study Notes remain manually selectable but are not added by this action.
+"Add Study Notes from Labels" is unavailable when the User has no Labels.
+"Add Study Notes from Labels" is determined by the chosen Labels, not by the current Recall Selection Mode search or filter.
+"Add Study Notes from Labels" uses only current active Labels and current active recallable Study Notes, not historical Label snapshots from past SessionResults.
+When the User adds by Label group, the RecallSession still targets the selected Study Notes rather than the Label itself.
+RecallSessions do not store whether selected Study Notes were added by Label group; SessionResults snapshot the selected Study Notes and their Label context as usual.
 _Avoid_: Bulk edit mode, saved set builder, deck builder
 
 **Practice Repair Workspace**:
@@ -476,8 +495,7 @@ _Avoid_: Product menu, sidebar navigation
 
 ## Relationships
 
-- A **Label** can have zero or more parent **Labels** and zero or more child **Labels** (DAG, not a tree)
-- Label graph cycles are invalid; v1 prevents them in application logic and relies on database constraints only for duplicate edges and self-parent edges.
+- **Labels** are flat concept groups, not a hierarchy or graph.
 - A **Study Note** can belong to zero or more **Labels**
 - A **Study Note** belongs to exactly one **Note**
 - A **Study Note** never belongs to multiple source **Notes**
@@ -575,7 +593,13 @@ _Avoid_: Product menu, sidebar navigation
 - In **RecallSessions**, answer reveal shows the Study Note expected answer before the source **Note**
 - In v1, a **User** can have at most one active **RecallSession** at a time.
 - The selected Study Notes used to start a **RecallSession** are a temporary one-off selection, not a saved set, collection, deck, or Label.
-- In v1, **Labels** may help filter or group **Study Notes**, but **Labels** are not the foundation of **RecallSession** targeting.
+- In v1, **Labels** may help filter or group **Study Notes**, including adding a whole Label group to the temporary selection in **Recall Selection Mode**, but **Labels** are not durable **RecallSession** targets.
+- Adding by multiple **Labels** in **Recall Selection Mode** narrows the added set to **Study Notes** that belong to every selected Label.
+- Adding by **Label** group includes all recallable matching **Study Notes**, not only **Recall Today** work.
+- Adding by **Label** group preserves already selected **Study Notes** and ignores duplicates.
+- Adding by **Label** group skips incomplete **Study Notes**.
+- Adding by **Label** group leaves the temporary selection unchanged when no recallable **Study Notes** match.
+- Adding by **Label** group changes the temporary selected **Study Notes**, so it belongs to **Recall Selection Mode** selection flow rather than general filtering.
 - Unlabeled **Study Notes** are recallable because **RecallSessions** target selected **Study Notes** directly.
 - A **RecallSession** has exactly one **RecallMode**
 - A **RecallSession** has a **SessionResult** — date, targeted Study Notes, and the full list of Questions with answers and scores
@@ -997,9 +1021,19 @@ _Avoid_: Product menu, sidebar navigation
 - "Source Note creation" could have remained a separate source-only workflow — resolved: source Notes are created or edited inside the **New Study Note** flow.
 - "New Study Note" could have always reused an existing source or always created a new source — resolved: create a new source **Note** by default and use an explicit action to add another Study Note from an existing source.
 - "Shared source Note editing" could have looked local to one **Study Note** — resolved: source edits are allowed from any linked Study Note, but the UI must show that the source is shared.
-- "Study field" was used in early discussion to mean the top-level organizer — resolved: this is just a **Label** with no parent.
+- "Study field" was used in early discussion to mean the top-level organizer — resolved: this is just a **Label**.
+- **Labels** could have formed a parent/child DAG for taxonomy management — resolved: Labels are flat concept groups because the study value is grouping related **Study Notes**, not maintaining a hierarchy.
 - "Menu options" could have treated **Metaphors** and **Acronyms** as standalone destinations — resolved: they are Study Note-owned memory aids inside the **Learning Loop**, not primary workspace screens.
 - "Recall target" previously meant a chosen **Label** and its descendants, then explicitly selected **Notes** — resolved: a **RecallSession** targets explicitly selected **Study Notes**.
+- "Studying a Label" could have meant that a **RecallSession** targets the **Label** — resolved: adding by Label group expands to the current recallable **Study Notes** in that Label, and the **RecallSession** targets the resulting selected Study Notes.
+- Selecting multiple **Labels** for recall could have combined all matching **Study Notes** — resolved: adding by multiple Labels narrows to Study Notes that have every selected Label.
+- Label-group recall could have required a separate route or mode — resolved: adding by Label group happens inside normal **Recall Selection Mode**.
+- Adding by Label group could have replaced the current manual recall selection — resolved: it adds matching **Study Notes** to the existing temporary selection and ignores duplicates.
+- Adding by Label group could have included only scheduled or recommended recall work — resolved: it includes all recallable matching **Study Notes** because manual selection can override schedule.
+- Adding by Label group could have included incomplete **Study Notes** — resolved: incomplete Study Notes are skipped because they cannot enter a **RecallSession**.
+- Adding by Label group with zero recallable matches could have navigated away from **Recall Selection Mode** — resolved: it stays in place, adds nothing, and explains that nothing was added.
+- Label-group recall could have introduced saved sets — resolved: adding by Label group only affects the temporary **Recall Selection Mode** selection.
+- Adding by Label group could have been treated as a filter — resolved: it is a selection-building action because it changes the temporary selected Study Notes.
 - "Unlabeled Notes" were previously excluded from recall — resolved for v1: Study Notes remain recallable without Labels.
 - "Saved recall set" could have introduced a new grouping concept — resolved for v1: Recall Study Note selection is temporary and not reusable.
 - "Recall" could have meant only an action started from Study Notes — resolved for v1: the **Recall Section** is a primary Learning Loop section beside the **Study Notes Workspace**.

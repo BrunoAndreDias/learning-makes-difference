@@ -13,7 +13,7 @@ Status markers:
 | Status | Opportunities |
 | --- | --- |
 | Covered | Recall-first Study Notes; Simple Recall Schedule; Recall Today Queue; Practice Repair After Weak Recall; Feedback-Rich Results Review; Interleaved Recall; Focus Session Learning Loop |
-| Partial | Worked-Example Capture; Self-Explanation Prompts; Atomicity and Split Guidance; Label-Based Concept Networks; Memory Aid Suggestions |
+| Partial | Worked-Example Capture; Self-Explanation Prompts; Atomicity and Split Guidance; Label-Based Concept Groups; Memory Aid Suggestions |
 | Explore | Dual-Coding Support; Weekly Recall Planning; Guided Beginner Mode; Transfer Prompts; Source Import; AI Drafting Assistance; Exam Simulation; Teaching Mode; Deliberate Practice Targets; Biological Support Nudges; Social Learning Hooks |
 
 ## Core things
@@ -74,11 +74,11 @@ Status: Covered
 
 After a Study Note has enough successful recall evidence, mix it with related Study Notes by Label or sibling source concept. This trains discrimination: the User learns when to use an idea, not only how to repeat it.
 
-### Label-Based Concept Networks
+### Label-Based Concept Groups
 
 Status: Partial
 
-Use Labels to connect related Study Notes and support future interleaving, focused recall, and study planning. Labels should behave like concept structure, not folders or generic tags.
+Use flat Labels to connect related Study Notes and support future interleaving, focused recall, and study planning. Labels should behave like concept groups, not folders, generic tags, or parent-child taxonomy.
 
 ### Dual-Coding Support
 
