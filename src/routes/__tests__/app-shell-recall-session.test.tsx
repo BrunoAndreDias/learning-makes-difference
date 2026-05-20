@@ -9,6 +9,7 @@ import type {
   RecallSelfRating,
   SessionResult,
 } from "../../modules/recall";
+import type { AppStudyNote } from "../../modules/study-notes";
 import {
   createDeterministicRecallTestContexts,
   createRecallNote,
@@ -25,9 +26,38 @@ const testUser = {
 type DeterministicRecallTestContexts = ReturnType<
   typeof createDeterministicRecallTestContexts
 >;
+type RecallableStudyNoteInput = {
+  expectedAnswer: string;
+  prompt: string;
+  sourceBody: string;
+  sourceTitle: string;
+};
 
 function createSession() {
   return { user: testUser };
+}
+
+function createRecallableStudyNote(
+  contexts: DeterministicRecallTestContexts,
+  input: RecallableStudyNoteInput,
+): AppStudyNote {
+  const source = {
+    sourceBody: input.sourceBody,
+    sourceTitle: input.sourceTitle,
+  };
+  const studyNote = contexts.studyNotesContext.createStudyNote(
+    testUser.id,
+    source,
+  );
+
+  return contexts.studyNotesContext.updateStudyNote(testUser.id, studyNote.id, {
+    acronyms: [],
+    expectedAnswer: input.expectedAnswer,
+    labelIds: [],
+    metaphors: [],
+    prompt: input.prompt,
+    ...source,
+  });
 }
 
 function completeRecallAt(input: {
@@ -386,25 +416,14 @@ describe("authenticated recall workspace", () => {
 
   it("reveals Study Note expected answer before source Note context", async () => {
     const contexts = createDeterministicRecallTestContexts();
-    const studyNote = contexts.studyNotesContext.createStudyNote(testUser.id, {
+    const studyNote = createRecallableStudyNote(contexts, {
+      expectedAnswer: "Specific expected answer comes first.",
+      prompt: "Practice prompt",
       sourceBody: "Broader source context comes second.",
       sourceTitle: "Source context title",
     });
-    const updatedStudyNote = contexts.studyNotesContext.updateStudyNote(
-      testUser.id,
-      studyNote.id,
-      {
-        acronyms: [],
-        expectedAnswer: "Specific expected answer comes first.",
-        labelIds: [],
-        metaphors: [],
-        prompt: "Practice prompt",
-        sourceBody: "Broader source context comes second.",
-        sourceTitle: "Source context title",
-      },
-    );
     contexts.recallContext.startFlashCardSession({
-      studyNoteIds: [updatedStudyNote.id],
+      studyNoteIds: [studyNote.id],
       userId: testUser.id,
     });
 
@@ -614,25 +633,14 @@ describe("authenticated recall workspace", () => {
 
   it("returns a zero-attempt session to Recall Today after confirmation", async () => {
     const contexts = createDeterministicRecallTestContexts();
-    const studyNote = contexts.studyNotesContext.createStudyNote(testUser.id, {
+    const studyNote = createRecallableStudyNote(contexts, {
+      expectedAnswer: "Expected answer stays recallable.",
+      prompt: "Discarded session prompt",
       sourceBody: "Source context stays available for Recall Today.",
       sourceTitle: "Discarded session source",
     });
-    const recallableStudyNote = contexts.studyNotesContext.updateStudyNote(
-      testUser.id,
-      studyNote.id,
-      {
-        acronyms: [],
-        expectedAnswer: "Expected answer stays recallable.",
-        labelIds: [],
-        metaphors: [],
-        prompt: "Discarded session prompt",
-        sourceBody: "Source context stays available for Recall Today.",
-        sourceTitle: "Discarded session source",
-      },
-    );
     contexts.recallContext.startFlashCardSession({
-      studyNoteIds: [recallableStudyNote.id],
+      studyNoteIds: [studyNote.id],
       userId: testUser.id,
     });
 
