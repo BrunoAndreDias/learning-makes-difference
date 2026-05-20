@@ -612,14 +612,27 @@ describe("authenticated recall workspace", () => {
     });
   });
 
-  it("discards a zero-attempt session after confirmation", async () => {
+  it("returns a zero-attempt session to Recall Today after confirmation", async () => {
     const contexts = createDeterministicRecallTestContexts();
-    const note = createRecallNote(contexts.notesContext, testUser.id, {
-      body: "Discarded body.",
-      title: "Discarded note",
+    const studyNote = contexts.studyNotesContext.createStudyNote(testUser.id, {
+      sourceBody: "Source context stays available for Recall Today.",
+      sourceTitle: "Discarded session source",
     });
+    const recallableStudyNote = contexts.studyNotesContext.updateStudyNote(
+      testUser.id,
+      studyNote.id,
+      {
+        acronyms: [],
+        expectedAnswer: "Expected answer stays recallable.",
+        labelIds: [],
+        metaphors: [],
+        prompt: "Discarded session prompt",
+        sourceBody: "Source context stays available for Recall Today.",
+        sourceTitle: "Discarded session source",
+      },
+    );
     contexts.recallContext.startFlashCardSession({
-      noteIds: [note.id],
+      studyNoteIds: [recallableStudyNote.id],
       userId: testUser.id,
     });
 
@@ -643,10 +656,72 @@ describe("authenticated recall workspace", () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Discard session" }));
 
-    expect(router.state.location.pathname).toBe("/recall/due-today");
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/recall");
+    });
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Recall Today",
+      }),
+    ).toBeInTheDocument();
+    const recallTodayQueue = screen.getByRole("region", {
+      name: "Recall Today queue",
+    });
+    expect(recallTodayQueue).toHaveTextContent("Discarded session prompt");
+    expect(recallTodayQueue).toHaveTextContent("Not recalled yet");
+    expect(
+      screen.getByRole("link", { name: "Manual selection" }),
+    ).toHaveAttribute("href", "/recall/select");
     expect(
       contexts.recallContext.listSessionResults({ userId: testUser.id }),
     ).toEqual([]);
+  });
+
+  it("routes an early-ended attempted session to Results", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const firstNote = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "First routed result body.",
+      title: "First routed result prompt",
+    });
+    const secondNote = createRecallNote(contexts.notesContext, testUser.id, {
+      body: "Second unreached body.",
+      title: "Second unreached prompt",
+    });
+    contexts.recallContext.startFlashCardSession({
+      noteIds: [firstNote.id, secondNote.id],
+      userId: testUser.id,
+    });
+
+    const { router } = renderRoute("/recall/session", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Reveal Study Note" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next Study Note" }));
+
+    fireEvent.click(screen.getAllByRole("button", { name: "End session" })[0]);
+    const endDialog = screen.getByRole("dialog", {
+      name: "End recall session?",
+    });
+    expect(endDialog).toBeInTheDocument();
+    fireEvent.click(
+      within(endDialog).getByRole("button", { name: "End session" }),
+    );
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/recall/results");
+    });
+    expect(
+      await screen.findByText("Recall session saved to results"),
+    ).toBeInTheDocument();
+    expect(
+      contexts.recallContext.listSessionResults({ userId: testUser.id }),
+    ).toHaveLength(1);
   });
 
   it("shows session review headings and keeps recall restart actions in the master panel only", async () => {
@@ -948,10 +1023,10 @@ describe("authenticated recall workspace", () => {
 
     expect(
       await screen.findByRole("heading", {
-        level: 3,
-        name: "Recall starts with Study Notes",
+        level: 1,
+        name: "Recall Today",
       }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall/due-today");
+    expect(router.state.location.pathname).toBe("/recall");
   });
 });

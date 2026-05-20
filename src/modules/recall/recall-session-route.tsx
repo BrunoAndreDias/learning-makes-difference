@@ -43,7 +43,7 @@ const recallRatingOptions = [
   "easy",
 ] as const satisfies readonly FlashCardRecallRating[];
 type RecallSessionExitTarget =
-  | typeof appRoutePaths.recallDueToday
+  | typeof appRoutePaths.recall
   | typeof appRoutePaths.recallResults;
 
 export const Route = createFileRoute("/_protected/recall/session")({
@@ -84,7 +84,7 @@ function getRecallSessionExitTarget(
 ): RecallSessionExitTarget {
   return session.attempts.length > 0
     ? appRoutePaths.recallResults
-    : appRoutePaths.recallDueToday;
+    : appRoutePaths.recall;
 }
 
 function RecallSessionPage() {
@@ -159,7 +159,7 @@ function RecallSessionPage() {
 
     void navigate({
       replace: true,
-      to: sessionExitTargetRef.current ?? appRoutePaths.recallDueToday,
+      to: sessionExitTargetRef.current ?? appRoutePaths.recall,
     });
   }, [activeSession, navigate]);
 
