@@ -12,6 +12,12 @@ import {
   renderRoute,
 } from "./app-shell-test-support";
 
+type SidebarFocusRowSessionState =
+  | "AwaitingNextFocus"
+  | "Break"
+  | "Focus"
+  | "Transition";
+
 function setBrowserLanguages(languages: readonly string[]) {
   Object.defineProperty(window.navigator, "languages", {
     configurable: true,
@@ -87,6 +93,42 @@ function restoreViewport() {
     writable: true,
   });
   fireEvent(window, new Event("resize"));
+}
+
+function createFocusContextForSidebarState(
+  state: SidebarFocusRowSessionState,
+  userId: string,
+) {
+  let now = new Date("2026-05-19T10:00:00.000Z");
+
+  const focusContext = createAppFocusContext({
+    keyPrefix: `test-focus-nav-state-${state.toLowerCase()}-${Math.random().toString(36).slice(2)}`,
+    now: () => now,
+    storage: window.localStorage,
+  });
+
+  focusContext.startFocusSession({
+    breakIntervalMinutes: 5,
+    focusIntervalMinutes: 25,
+    plannedFocusIntervalCount: null,
+    userId,
+  });
+
+  switch (state) {
+    case "Focus":
+      break;
+    case "Transition":
+      now = new Date("2026-05-19T10:25:12.000Z");
+      break;
+    case "Break":
+      now = new Date("2026-05-19T10:25:31.000Z");
+      break;
+    case "AwaitingNextFocus":
+      now = new Date("2026-05-19T10:30:30.000Z");
+      break;
+  }
+
+  return focusContext;
 }
 
 afterEach(restoreViewport);
@@ -401,6 +443,56 @@ describe("authenticated app shell", () => {
       within(appSections).getByRole("button", { name: "Start Focus" }),
     ).toBeInTheDocument();
     expect(focusContext.getActiveSession({ userId })).toBeNull();
+  });
+
+  it("locks the expanded sidebar Focus row to End across all active FocusSession states", async () => {
+    const scenarios: readonly SidebarFocusRowSessionState[] = [
+      "Focus",
+      "Transition",
+      "Break",
+      "AwaitingNextFocus",
+    ];
+
+    for (const state of scenarios) {
+      const userId = `user-focus-nav-simple-${state.toLowerCase()}`;
+      const focusContext = createFocusContextForSidebarState(state, userId);
+      const view = renderRoute("/settings", {
+        focusContext,
+        session: {
+          user: {
+            displayName: `Casey Focus ${state}`,
+            email: `casey.focus.${state.toLowerCase()}@example.com`,
+            id: userId,
+            userLanguage: "en",
+          },
+        },
+      });
+
+      expect(
+        await screen.findByRole("heading", { level: 2, name: "Settings" }),
+      ).toBeInTheDocument();
+
+      const appSections = getAppSections();
+
+      expect(
+        within(appSections).getByRole("button", { name: "End focus" }),
+      ).toBeInTheDocument();
+      expect(
+        within(appSections).queryByRole("button", {
+          name: "Keep focusing",
+        }),
+      ).toBeNull();
+      expect(
+        within(appSections).queryByRole("button", { name: "Skip break" }),
+      ).toBeNull();
+      expect(
+        within(appSections).queryByRole("button", {
+          name: "Start next focus",
+        }),
+      ).toBeNull();
+
+      view.unmount();
+    }
   });
 
   it("keeps the active Focus row timer on the navigation target and separate from the End action", async () => {
