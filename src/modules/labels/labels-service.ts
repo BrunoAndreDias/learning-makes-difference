@@ -1,12 +1,17 @@
 import { eq } from "drizzle-orm";
 
-import { sortLabelsByName } from "./label-graph";
 import type { AppLabel } from "./label-management/labels";
 import { AppLabelError } from "./label-management/labels";
+import { sortLabelsByName } from "./label-sorting";
 import { labelsTable } from "./labels-schema";
 
 type LabelsCrypto = Pick<Crypto, "randomUUID">;
 type Awaitable<T> = PromiseLike<T> | T;
+
+type StoredLabelRow = {
+  id: string;
+  name: string;
+};
 
 type LabelsDatabaseRuntime = {
   delete: (table: typeof labelsTable) => {
@@ -23,12 +28,7 @@ type LabelsDatabaseRuntime = {
   };
   select: () => {
     from: (table: typeof labelsTable) => {
-      where: (condition: unknown) => Awaitable<
-        Array<{
-          id: string;
-          name: string;
-        }>
-      >;
+      where: (condition: unknown) => Awaitable<StoredLabelRow[]>;
     };
   };
   update: (table: typeof labelsTable) => {
@@ -58,17 +58,14 @@ function normalizeLabelName(name: string): string {
   return trimmedName;
 }
 
-async function readOwnedLabels(db: LabelsDatabaseRuntime, userId: string) {
-  const storedLabels = (await db
+async function readOwnedLabels(
+  db: LabelsDatabaseRuntime,
+  userId: string,
+): Promise<AppLabel[]> {
+  const storedLabels = await db
     .select()
     .from(labelsTable)
-    .where(eq(labelsTable.userId, userId))) as Array<{
-    createdAt?: Date;
-    id: string;
-    name: string;
-    updatedAt?: Date;
-    userId?: string;
-  }>;
+    .where(eq(labelsTable.userId, userId));
 
   return sortLabelsByName(
     storedLabels.map((label) => ({
@@ -78,14 +75,13 @@ async function readOwnedLabels(db: LabelsDatabaseRuntime, userId: string) {
   );
 }
 
-function getOwnedLabel(labels: readonly AppLabel[], labelId: string): AppLabel {
-  const label = labels.find((candidate) => candidate.id === labelId);
-
-  if (label === undefined) {
+function assertOwnedLabelExists(
+  labels: readonly Pick<AppLabel, "id">[],
+  labelId: string,
+) {
+  if (!labels.some((candidate) => candidate.id === labelId)) {
     throw new AppLabelError("not_found", "Label not found.");
   }
-
-  return label;
 }
 
 export function createLabelsService({
@@ -114,7 +110,7 @@ export function createLabelsService({
       return label;
     },
     async deleteLabel(input: { labelId: string; userId: string }) {
-      getOwnedLabel(
+      assertOwnedLabelExists(
         await readOwnedLabels(database, input.userId),
         input.labelId,
       );
@@ -131,7 +127,7 @@ export function createLabelsService({
       name: string;
       userId: string;
     }) {
-      getOwnedLabel(
+      assertOwnedLabelExists(
         await readOwnedLabels(database, input.userId),
         input.labelId,
       );

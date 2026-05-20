@@ -1,4 +1,4 @@
-import { sortLabelsByName } from "../label-graph";
+import { sortLabelsByName } from "../label-sorting";
 
 export type AppLabel = {
   id: string;
@@ -9,7 +9,7 @@ type StoredLabelRecord = AppLabel & {
   userId: string;
 };
 
-type LabelStorageAdapter = Pick<Storage, "getItem" | "removeItem" | "setItem">;
+type LabelStorageAdapter = Pick<Storage, "getItem" | "setItem">;
 
 type LabelCrypto = Pick<Crypto, "randomUUID">;
 

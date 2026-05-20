@@ -1,9 +1,9 @@
-import { sortLabelsByName } from "./label-graph";
 import {
   type AppLabel,
   AppLabelError,
   type AppLabelsContext,
 } from "./label-management/labels";
+import { sortLabelsByName } from "./label-sorting";
 
 type PersistentLabelsListener = () => void;
 
@@ -125,7 +125,10 @@ export function createPersistentLabelsContext(
   function replaceSnapshotLabel(label: AppLabel, userId: string) {
     writeSnapshot([
       toStoredLabel(label, userId),
-      ...snapshot.filter((storedLabel) => storedLabel.id !== label.id),
+      ...snapshot.filter(
+        (storedLabel) =>
+          storedLabel.userId !== userId || storedLabel.id !== label.id,
+      ),
     ]);
   }
 
@@ -158,12 +161,16 @@ export function createPersistentLabelsContext(
       return createdLabel;
     },
     async deleteLabel(userId, labelId) {
-      requireUserId(userId);
+      const validatedUserId = requireUserId(userId);
       await requireService().deleteLabel({
         labelId,
       });
 
-      writeSnapshot(snapshot.filter((label) => label.id !== labelId));
+      writeSnapshot(
+        snapshot.filter(
+          (label) => label.userId !== validatedUserId || label.id !== labelId,
+        ),
+      );
     },
     getSnapshot() {
       return snapshot;
