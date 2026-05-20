@@ -7,7 +7,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createAppFocusContext } from "../../modules/focus";
 import {
@@ -169,8 +169,10 @@ function completeStudyNoteRecallAt(
     userId: string;
   },
 ) {
-  vi.setSystemTime(new Date(input.timestamp));
-  completeStudyNoteRecall(contexts, input);
+  const { timestamp, ...recallInput } = input;
+
+  vi.setSystemTime(new Date(timestamp));
+  completeStudyNoteRecall(contexts, recallInput);
 }
 
 function confirmStudyNotePracticeRepair(
@@ -395,7 +397,7 @@ function createRecallTodayStudyNotesScenario(
     sourceTitle: "Cell organelles source",
     userId,
   });
-  const newlyRecallableStudyNote = createStudyNoteSnapshot(contexts, {
+  createStudyNoteSnapshot(contexts, {
     expectedAnswer: "Fresh recall answer.",
     prompt: "Not recalled prompt",
     sourceBody: "Fresh recall source.",
@@ -446,6 +448,7 @@ function createRecallTodayStudyNotesScenario(
     timestamp: "2024-05-11T11:00:00.000Z",
     userId,
   });
+  vi.setSystemTime(new Date("2024-05-15T10:00:00.000Z"));
 
   return {
     queuePrompts: [
@@ -487,6 +490,10 @@ function createTestPersistentLabelsService(
     ),
   };
 }
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("authenticated Study Notes workspace", () => {
   it("renders Study Notes as the primary workspace with source context below the Study Note fields", async () => {
@@ -1996,12 +2003,11 @@ describe("authenticated Study Notes workspace", () => {
   });
 
   it("starts the current Recall Today queue from Study Notes without preselecting the selected Study Note", async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
 
     const contexts = createDeterministicRecallTestContexts();
     const userId = "user-study-notes-recall-today";
     const scenario = createRecallTodayStudyNotesScenario(contexts, userId);
-    vi.useRealTimers();
     const { router } = renderRoute("/study-notes", {
       ...contexts,
       session: {

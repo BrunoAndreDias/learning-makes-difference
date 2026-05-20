@@ -70,7 +70,6 @@ import {
   formatStudyNoteDueLabel,
   formatStudyNoteLearningStateCompactLabel,
   formatStudyNotePracticeSignalLabel,
-  getStudyNoteReadiness,
   isUnlabeledStudyNotesFilterValue,
   listStudyNotesForUser,
   type StudyNoteLearningState,
@@ -1213,27 +1212,31 @@ function StudyNotesWorkspace() {
       }),
     [now, recallHistories, recallSchedulesSnapshot, studyNotes],
   );
-  const recallTodayQueue = useMemo(
-    () =>
-      userId === null
-        ? []
-        : buildRecallTodayQueue({
-            histories: recallHistories,
-            now,
-            recallSchedules: recallSchedulesSnapshot,
-            sessionResults: recallResultsSnapshot,
-            studyNotes: allStudyNotes,
-            userTimeZone,
-          }),
-    [
-      allStudyNotes,
+  const recallTodayQueue = useMemo(() => {
+    if (userId === null) {
+      return [];
+    }
+
+    return buildRecallTodayQueue({
+      histories: recallHistories,
       now,
-      recallHistories,
-      recallResultsSnapshot,
-      recallSchedulesSnapshot,
-      userId,
+      recallSchedules: recallSchedulesSnapshot,
+      sessionResults: recallResultsSnapshot,
+      studyNotes: allStudyNotes,
       userTimeZone,
-    ],
+    });
+  }, [
+    allStudyNotes,
+    now,
+    recallHistories,
+    recallResultsSnapshot,
+    recallSchedulesSnapshot,
+    userId,
+    userTimeZone,
+  ]);
+  const recallTodayStudyNoteIds = useMemo(
+    () => recallTodayQueue.map((queueItem) => queueItem.studyNote.id),
+    [recallTodayQueue],
   );
   const recallScheduleByStudyNoteId = useMemo(
     () =>
@@ -2106,10 +2109,6 @@ function StudyNotesWorkspace() {
       return;
     }
 
-    const recallTodayStudyNoteIds = recallTodayQueue.map(
-      (queueItem) => queueItem.studyNote.id,
-    );
-
     if (recallTodayStudyNoteIds.length === 0) {
       await navigate({ to: appRoutePaths.recall });
       return;
@@ -2147,7 +2146,7 @@ function StudyNotesWorkspace() {
         studyNoteIds: interleavedRecallRecommendation.studyNoteIds,
         userId,
       });
-      await navigate({ to: "/recall/session" });
+      await navigate({ to: appRoutePaths.recallSession });
     } catch (error) {
       if (error instanceof AppRecallError) {
         setErrorMessage(error.message);
