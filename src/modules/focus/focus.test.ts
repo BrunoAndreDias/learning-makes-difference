@@ -616,6 +616,102 @@ describe("focus sessions", () => {
     });
   });
 
+  it("captures recall session activity with stored label snapshots before live label fallback", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
+
+    const focus = createAppFocusContext({
+      getLabelsForUser: () => [
+        {
+          id: "label-biology",
+          name: "Current Biology",
+        },
+        {
+          id: "label-chemistry",
+          name: "Chemistry",
+        },
+      ],
+      keyPrefix: "focus-test-recall-target",
+      storage: createMemoryStorage(),
+    });
+
+    focus.startFocusSession({
+      focusIntervalMinutes: 25,
+      userId: "owner",
+    });
+
+    focus.captureRecallSessionStudyActivity({
+      recallSession: {
+        createdAt: "2026-04-30T10:05:00.000Z",
+        id: "recall-session-1",
+        mode: "FlashCard",
+        notes: [
+          {
+            acronyms: [],
+            body: "Stored biology snapshot.",
+            createdAt: "2026-04-30T09:00:00.000Z",
+            id: "study-note-1",
+            labelIds: ["label-biology", "label-archive"],
+            labels: [
+              {
+                id: "label-biology",
+                name: "Snapshot Biology",
+              },
+              {
+                id: "label-archive",
+                name: "Archive",
+              },
+            ],
+            metaphors: [],
+            title: "Biology snapshot",
+            updatedAt: "2026-04-30T09:30:00.000Z",
+          },
+          {
+            acronyms: [],
+            body: "Stored chemistry snapshot.",
+            createdAt: "2026-04-30T09:10:00.000Z",
+            id: "study-note-2",
+            labelIds: ["label-chemistry"],
+            metaphors: [],
+            title: "Chemistry snapshot",
+            updatedAt: "2026-04-30T09:35:00.000Z",
+          },
+        ],
+      },
+      userId: "owner",
+    });
+
+    vi.setSystemTime(new Date("2026-04-30T10:25:12.000Z"));
+
+    const record = focus.endFocusSession({ userId: "owner" });
+
+    expect(record).toMatchObject({
+      focusTargets: [
+        {
+          kind: "RecallSession",
+          labels: [
+            {
+              id: "label-biology",
+              name: "Snapshot Biology",
+            },
+            {
+              id: "label-archive",
+              name: "Archive",
+            },
+            {
+              id: "label-chemistry",
+              name: "Chemistry",
+            },
+          ],
+          recallSession: {
+            id: "recall-session-1",
+            mode: "FlashCard",
+          },
+        },
+      ],
+    });
+  });
+
   it("ignores note study activity outside an active FocusInterval", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-30T10:00:00.000Z"));
