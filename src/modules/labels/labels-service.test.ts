@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { createPgliteServiceTestDatabase } from "../../lib/db/pglite-service-test-db";
 import { authSchema, usersTable } from "../access/session/auth-schema";
-import { labelEdgesTable, labelsSchema } from "./labels-schema";
+import { labelsSchema } from "./labels-schema";
 import { createLabelsService } from "./labels-service";
 
 const labelsTestSchema = {
@@ -27,7 +27,7 @@ describe("createLabelsService", () => {
     await testDatabase.close();
   });
 
-  it("returns flat labels across create, rename, list, and delete while ignoring legacy edges", async () => {
+  it("returns flat labels across create, rename, list, and delete without hierarchy storage", async () => {
     const db = testDatabase.db;
     await db.insert(usersTable).values({
       id: "user-casey",
@@ -75,12 +75,6 @@ describe("createLabelsService", () => {
       name: "Biology",
       userId: "user-casey",
     });
-
-    await db.insert(labelEdgesTable).values({
-      childLabelId: biology.id,
-      parentLabelId: "00000000-0000-0000-0000-000000000001",
-    });
-
     await expect(
       labels.listLabels({
         userId: "user-casey",

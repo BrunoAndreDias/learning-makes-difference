@@ -1,6 +1,4 @@
-import { sql } from "drizzle-orm";
 import {
-  check,
   index,
   pgTable,
   primaryKey,
@@ -33,33 +31,6 @@ export const labelsTable = pgTable(
   },
   (table) => [
     index("labels_user_id_updated_at_idx").on(table.userId, table.updatedAt),
-  ],
-);
-
-export const labelEdgesTable = pgTable(
-  "label_edges",
-  {
-    childLabelId: text("child_label_id")
-      .notNull()
-      .references(() => labelsTable.id, {
-        onDelete: "cascade",
-      }),
-    parentLabelId: text("parent_label_id")
-      .notNull()
-      .references(() => labelsTable.id, {
-        onDelete: "cascade",
-      }),
-  },
-  (table) => [
-    primaryKey({
-      columns: [table.childLabelId, table.parentLabelId],
-      name: "label_edges_pk",
-    }),
-    check(
-      "label_edges_no_self_parent_check",
-      sql`${table.childLabelId} <> ${table.parentLabelId}`,
-    ),
-    index("label_edges_parent_label_id_idx").on(table.parentLabelId),
   ],
 );
 
@@ -110,7 +81,6 @@ export const studyNoteLabelsTable = pgTable(
 );
 
 export const labelsSchema = {
-  labelEdgesTable,
   labelsTable,
   noteLabelsTable,
   studyNoteLabelsTable,
