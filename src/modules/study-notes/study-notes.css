@@ -600,9 +600,10 @@
 }
 
 .study-notes-label {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.45rem;
+  justify-content: space-between;
+  gap: var(--space-2);
   min-height: 2rem;
   padding: 0.35rem 0.45rem;
   border: 0;
@@ -613,6 +614,31 @@
 
 .study-notes-label:hover {
   background: var(--color-shell-inset);
+}
+
+.study-notes-label__selection {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.study-notes-label__delete {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-danger);
+  font-size: 0.74rem;
+  font-weight: 650;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.study-notes-label__delete:hover,
+.study-notes-label__delete:focus-visible {
+  color: color-mix(in srgb, var(--color-danger) 78%, black);
+  outline: none;
 }
 
 .study-notes-editor__fields {

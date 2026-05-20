@@ -602,6 +602,18 @@ function setLabelIdSelection(
   return labelIds.filter((currentLabelId) => currentLabelId !== labelId);
 }
 
+function countStudyNotesWithLabel(
+  studyNotes: readonly Pick<AppStudyNote, "labelIds">[],
+  labelId: string,
+) {
+  return studyNotes.filter((studyNote) => studyNote.labelIds.includes(labelId))
+    .length;
+}
+
+function formatAffectedStudyNotesCount(count: number) {
+  return `${count} active Study Note${count === 1 ? "" : "s"}`;
+}
+
 function createSingleSupportDescriptionDraft(description: string) {
   if (description.trim().length === 0) {
     return [];
@@ -1346,6 +1358,10 @@ function StudyNotesWorkspace() {
   const metaphorInputRef = useRef<HTMLTextAreaElement>(null);
   const acronymInputRef = useRef<HTMLInputElement>(null);
   const labelManagerRef = useRef<HTMLDivElement>(null);
+  const pendingDeletedLabelDraftRef = useRef<{
+    labelId: string;
+    studyNoteId: string;
+  } | null>(null);
   const studyNotesCatalogListRef = useRef<HTMLElement>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [practiceRepairMutationKey, setPracticeRepairMutationKey] = useState<
@@ -1542,6 +1558,26 @@ function StudyNotesWorkspace() {
   }, [appliedLinkedPracticeRepairKey, linkedPracticeRepair]);
 
   useEffect(() => {
+    const pendingDeletedLabelDraft = pendingDeletedLabelDraftRef.current;
+
+    if (
+      pendingDeletedLabelDraft !== null &&
+      selectedStudyNote?.id === pendingDeletedLabelDraft.studyNoteId
+    ) {
+      pendingDeletedLabelDraftRef.current = null;
+      setDraft((current) => ({
+        ...current,
+        labelIds: setLabelIdSelection(
+          current.labelIds,
+          pendingDeletedLabelDraft.labelId,
+          false,
+        ),
+      }));
+      setPendingEditorTarget(null);
+      setPendingPracticeRepairMemoryAidAction(null);
+      return;
+    }
+
     const nextDraft = createDraftFromStudyNote(selectedStudyNote);
 
     setDraft(nextDraft);
@@ -1715,6 +1751,62 @@ function StudyNotesWorkspace() {
       throw error;
     } finally {
       setCreatingLabel(false);
+    }
+  }
+
+  async function handleDeleteLabel(label: AppLabel) {
+    if (userId === null) {
+      return;
+    }
+
+    const affectedStudyNotesCount = countStudyNotesWithLabel(
+      allStudyNotes,
+      label.id,
+    );
+    const shouldDeleteLabel = window.confirm(
+      `Delete "${label.name}"? This will remove it from ${formatAffectedStudyNotesCount(affectedStudyNotesCount)}. Historical SessionResult snapshots stay unchanged.`,
+    );
+
+    if (!shouldDeleteLabel) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setSaveStatus(null);
+
+    if (selectedStudyNote !== null && draft.labelIds.includes(label.id)) {
+      pendingDeletedLabelDraftRef.current = {
+        labelId: label.id,
+        studyNoteId: selectedStudyNote.id,
+      };
+    }
+
+    try {
+      if (persistentLabelsContext === undefined) {
+        labelsContext.deleteLabel({
+          labelId: label.id,
+          userId,
+        });
+      } else {
+        await persistentLabelsContext.deleteLabel(userId, label.id);
+      }
+
+      storeMutation.removeLabelAssignments(userId, label.id);
+      setDraft((current) => ({
+        ...current,
+        labelIds: setLabelIdSelection(current.labelIds, label.id, false),
+      }));
+      setSaveStatus(`Deleted ${label.name} label`);
+    } catch (error) {
+      if (
+        error instanceof AppLabelError ||
+        error instanceof AppStudyNotesError
+      ) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
     }
   }
 
@@ -3041,22 +3133,29 @@ function StudyNotesWorkspace() {
                         ) : (
                           <div className="study-notes-labels">
                             {availableLabels.map((label) => (
-                              <label
-                                key={label.id}
-                                className="study-notes-label"
-                              >
-                                <input
-                                  checked={draft.labelIds.includes(label.id)}
-                                  onChange={(event) =>
-                                    updateDraftLabelSelection(
-                                      label.id,
-                                      event.target.checked,
-                                    )
-                                  }
-                                  type="checkbox"
-                                />
-                                <span>{label.name}</span>
-                              </label>
+                              <div className="study-notes-label" key={label.id}>
+                                <label className="study-notes-label__selection">
+                                  <input
+                                    checked={draft.labelIds.includes(label.id)}
+                                    onChange={(event) =>
+                                      updateDraftLabelSelection(
+                                        label.id,
+                                        event.target.checked,
+                                      )
+                                    }
+                                    type="checkbox"
+                                  />
+                                  <span>{label.name}</span>
+                                </label>
+                                <button
+                                  aria-label={`Delete ${label.name} label`}
+                                  className="study-notes-label__delete"
+                                  onClick={() => void handleDeleteLabel(label)}
+                                  type="button"
+                                >
+                                  Delete
+                                </button>
+                              </div>
                             ))}
                           </div>
                         )}

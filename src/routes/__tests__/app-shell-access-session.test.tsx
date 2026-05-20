@@ -438,6 +438,7 @@ describe("authenticated app shell", () => {
         createStudyNoteFromSource: vi.fn(),
         deleteStudyNote: vi.fn(),
         getSnapshot: () => emptyStudyNotes,
+        removeLabelAssignments: vi.fn(),
         refresh,
         subscribe: () => () => undefined,
         updateStudyNote: vi.fn(),

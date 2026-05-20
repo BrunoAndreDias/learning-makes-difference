@@ -40,6 +40,7 @@ export type AppPersistentStudyNotesContext = {
     input: DeleteStudyNoteInput,
   ) => Promise<void>;
   getSnapshot: () => readonly AppStoredStudyNote[];
+  removeLabelAssignments: (userId: string | null, labelId: string) => void;
   refresh: (userId: string | null) => Promise<readonly AppStoredStudyNote[]>;
   subscribe: (listener: PersistentStudyNotesListener) => () => void;
   updateStudyNote: (
@@ -76,6 +77,38 @@ function sortStoredStudyNotes(studyNotes: readonly AppStoredStudyNote[]) {
   );
 }
 
+function removeLabelAssignmentsFromSnapshot(
+  snapshot: readonly AppStoredStudyNote[],
+  input: {
+    labelId: string;
+    userId: string;
+  },
+) {
+  let didChange = false;
+  const nextSnapshot = snapshot.map((studyNote) => {
+    if (
+      studyNote.userId !== input.userId ||
+      !studyNote.labelIds.includes(input.labelId)
+    ) {
+      return studyNote;
+    }
+
+    didChange = true;
+
+    return {
+      ...studyNote,
+      labelIds: studyNote.labelIds.filter(
+        (labelId) => labelId !== input.labelId,
+      ),
+    };
+  });
+
+  return {
+    didChange,
+    snapshot: nextSnapshot,
+  };
+}
+
 function createMissingServiceError(): Error {
   return new Error("Persistent Study Notes service is not configured.");
 }
@@ -83,7 +116,7 @@ function createMissingServiceError(): Error {
 export function createReadonlyStudyNotesContext(
   persistentStudyNotes: Pick<
     AppPersistentStudyNotesContext,
-    "getSnapshot" | "subscribe"
+    "getSnapshot" | "removeLabelAssignments" | "subscribe"
   >,
 ): AppStudyNotesContext {
   return {
@@ -103,6 +136,7 @@ export function createReadonlyStudyNotesContext(
       );
     },
     getSnapshot: persistentStudyNotes.getSnapshot,
+    removeLabelAssignments: persistentStudyNotes.removeLabelAssignments,
     subscribe: persistentStudyNotes.subscribe,
     updateStudyNote: () => {
       throw new Error(
@@ -176,6 +210,22 @@ export function createPersistentStudyNotesContext(
     },
     getSnapshot() {
       return snapshot;
+    },
+    removeLabelAssignments(userId, labelId) {
+      if (userId === null) {
+        throw createNotAuthenticatedError();
+      }
+
+      const nextSnapshot = removeLabelAssignmentsFromSnapshot(snapshot, {
+        labelId,
+        userId,
+      });
+
+      if (!nextSnapshot.didChange) {
+        return;
+      }
+
+      writeSnapshot(nextSnapshot.snapshot);
     },
     async refresh(userId) {
       if (userId === null) {

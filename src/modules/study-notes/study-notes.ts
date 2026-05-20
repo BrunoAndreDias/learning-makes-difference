@@ -111,6 +111,7 @@ export type AppStudyNotesContext = {
     input: DeleteStudyNoteInput,
   ) => void;
   getSnapshot: () => readonly AppStoredStudyNote[];
+  removeLabelAssignments: (userId: string | null, labelId: string) => void;
   subscribe: (listener: StudyNotesListener) => () => void;
   updateStudyNote: (
     userId: string | null,
@@ -342,6 +343,38 @@ function sortStoredStudyNotes(
   return [...studyNotes].sort((left, right) =>
     right.updatedAt.localeCompare(left.updatedAt),
   );
+}
+
+function removeLabelAssignmentsFromSnapshot(
+  snapshot: readonly AppStoredStudyNote[],
+  input: {
+    labelId: string;
+    userId: string;
+  },
+) {
+  let didChange = false;
+  const nextSnapshot = snapshot.map((studyNote) => {
+    if (
+      studyNote.userId !== input.userId ||
+      !studyNote.labelIds.includes(input.labelId)
+    ) {
+      return studyNote;
+    }
+
+    didChange = true;
+
+    return {
+      ...studyNote,
+      labelIds: studyNote.labelIds.filter(
+        (labelId) => labelId !== input.labelId,
+      ),
+    };
+  });
+
+  return {
+    didChange,
+    snapshot: nextSnapshot,
+  };
 }
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
@@ -593,6 +626,19 @@ export function createAppStudyNotesContext(
     },
     getSnapshot() {
       return snapshot;
+    },
+    removeLabelAssignments(userId, labelId) {
+      const validatedUserId = validateUserId(userId);
+      const nextSnapshot = removeLabelAssignmentsFromSnapshot(snapshot, {
+        labelId,
+        userId: validatedUserId,
+      });
+
+      if (!nextSnapshot.didChange) {
+        return;
+      }
+
+      writeSnapshot(nextSnapshot.snapshot);
     },
     subscribe(listener) {
       listeners.add(listener);

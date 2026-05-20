@@ -202,6 +202,11 @@ function createReadonlyStudyNotesContext(
     getSnapshot() {
       return snapshot;
     },
+    removeLabelAssignments: () => {
+      throw new Error(
+        "Readonly recall Study Notes context cannot remove Label assignments.",
+      );
+    },
     subscribe() {
       return () => undefined;
     },

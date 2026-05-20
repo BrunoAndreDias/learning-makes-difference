@@ -546,6 +546,46 @@ describe("app study notes context", () => {
     ).toEqual([]);
   });
 
+  it("removes deleted Label assignments only from the owning account's active Study Notes", () => {
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-delete-label-assignments-test",
+      storage: createMemoryStorage(),
+    });
+
+    studyNotes.createStudyNote("user-casey", {
+      labelIds: ["label-biology", "label-history"],
+      sourceBody: "Casey source.",
+      sourceTitle: "Casey note",
+    });
+    studyNotes.createStudyNote("user-jordan", {
+      labelIds: ["label-biology"],
+      sourceBody: "Jordan source.",
+      sourceTitle: "Jordan note",
+    });
+
+    studyNotes.removeLabelAssignments("user-casey", "label-biology");
+
+    expect(
+      listStudyNotesForUser(studyNotes.getSnapshot(), "user-casey"),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          labelIds: ["label-history"],
+        }),
+      ]),
+    );
+    expect(
+      listStudyNotesForUser(studyNotes.getSnapshot(), "user-jordan"),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          labelIds: ["label-biology"],
+        }),
+      ]),
+    );
+  });
+
   it("keeps Study Notes scoped to the owning account", () => {
     const studyNotes = createAppStudyNotesContext({
       keyPrefix: "study-notes-scope-test",

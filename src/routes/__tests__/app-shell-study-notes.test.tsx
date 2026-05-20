@@ -840,6 +840,161 @@ describe("authenticated Study Notes workspace", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("confirms Label deletion with the affected Study Note count and removes active assignments", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-label-delete-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const studyNotesContext = createAppStudyNotesContext({
+      getOwnedLabelIdsForUser: (ownerId) =>
+        labelsContext.getLabelsForUser(ownerId).map((label) => label.id),
+      keyPrefix: `test-study-notes-label-delete-${Math.random()
+        .toString(36)
+        .slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-study-notes-label-delete";
+    const biology = labelsContext.createLabel({
+      name: "Biology",
+      userId,
+    });
+    const history = labelsContext.createLabel({
+      name: "History",
+      userId,
+    });
+
+    studyNotesContext.createStudyNote(userId, {
+      labelIds: [biology.id],
+      sourceBody: "Concept grouping should stay visible.",
+      sourceTitle: "Biology one",
+    });
+    studyNotesContext.createStudyNote(userId, {
+      labelIds: [biology.id, history.id],
+      sourceBody: "Deleting one Label should keep the other.",
+      sourceTitle: "Biology two",
+    });
+
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    renderRoute("/study-notes", {
+      labelsContext,
+      session: {
+        user: {
+          displayName: "Jordan Labels",
+          email: "jordan.label-delete@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+      studyNotesContext,
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Manage labels" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete Biology label" }),
+    );
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Delete "Biology"? This will remove it from 2 active Study Notes. Historical SessionResult snapshots stay unchanged.',
+    );
+
+    await waitFor(() =>
+      expect(labelsContext.getLabelsForUser(userId)).toEqual([
+        expect.objectContaining({
+          id: history.id,
+          name: "History",
+        }),
+      ]),
+    );
+    await waitFor(() =>
+      expect(screen.queryByLabelText("Biology")).not.toBeInTheDocument(),
+    );
+    expect(studyNotesContext.getSnapshot()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          labelIds: [],
+        }),
+        expect.objectContaining({
+          labelIds: [history.id],
+        }),
+      ]),
+    );
+
+    confirmSpy.mockRestore();
+  });
+
+  it("keeps the Label and Study Note assignments unchanged when deletion is cancelled", async () => {
+    const labelsContext = createAppLabelsContext({
+      keyPrefix: `test-label-delete-cancel-${Math.random()
+        .toString(36)
+        .slice(2)}`,
+      storage: window.localStorage,
+    });
+    const studyNotesContext = createAppStudyNotesContext({
+      getOwnedLabelIdsForUser: (ownerId) =>
+        labelsContext.getLabelsForUser(ownerId).map((label) => label.id),
+      keyPrefix: `test-study-notes-label-delete-cancel-${Math.random()
+        .toString(36)
+        .slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-study-notes-label-delete-cancel";
+    const biology = labelsContext.createLabel({
+      name: "Biology",
+      userId,
+    });
+
+    studyNotesContext.createStudyNote(userId, {
+      labelIds: [biology.id],
+      sourceBody: "Cancelled deletion should leave this assignment untouched.",
+      sourceTitle: "Biology one",
+    });
+
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    renderRoute("/study-notes", {
+      labelsContext,
+      session: {
+        user: {
+          displayName: "Jordan Labels",
+          email: "jordan.label-cancel@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+      studyNotesContext,
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Manage labels" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete Biology label" }),
+    );
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Delete "Biology"? This will remove it from 1 active Study Note. Historical SessionResult snapshots stay unchanged.',
+    );
+    expect(labelsContext.getLabelsForUser(userId)).toEqual([
+      expect.objectContaining({
+        id: biology.id,
+        name: "Biology",
+      }),
+    ]);
+    expect(screen.getByLabelText("Biology")).toBeInTheDocument();
+    expect(studyNotesContext.getSnapshot()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          labelIds: [biology.id],
+        }),
+      ]),
+    );
+
+    confirmSpy.mockRestore();
+  });
+
   it("creates, edits, and saves a Study Note without rewriting source fields into Study Note fields", async () => {
     const studyNotesContext = createAppStudyNotesContext({
       keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
