@@ -293,8 +293,9 @@ function useRecallWorkspaceState() {
 }
 
 type RecallWorkspaceState = ReturnType<typeof useRecallWorkspaceState>;
+type AppTranslate = ReturnType<typeof useAppTranslation>["t"];
 
-type WorkspaceDueTodayQueueInput = {
+type WorkspaceRecallQueueInput = {
   now: string;
   recallContext: RecallWorkspaceState["recallContext"];
   recallSchedules: RecallWorkspaceState["recallSchedules"];
@@ -303,8 +304,6 @@ type WorkspaceDueTodayQueueInput = {
   userId: RecallWorkspaceState["userId"];
   userTimeZone: RecallWorkspaceState["userTimeZone"];
 };
-
-type WorkspaceRecallTodayQueueInput = WorkspaceDueTodayQueueInput;
 
 type StartWorkspaceDueTodayRecallInput = {
   dueTodayQueue: readonly DueTodayQueueItem[];
@@ -321,7 +320,7 @@ function buildWorkspaceDueTodayQueue({
   studyNotes,
   userId,
   userTimeZone,
-}: WorkspaceDueTodayQueueInput): readonly DueTodayQueueItem[] {
+}: WorkspaceRecallQueueInput): readonly DueTodayQueueItem[] {
   if (userId === null) {
     return [];
   }
@@ -346,7 +345,7 @@ function buildWorkspaceRecallTodayQueue({
   studyNotes,
   userId,
   userTimeZone,
-}: WorkspaceRecallTodayQueueInput): readonly RecallTodayQueueItem[] {
+}: WorkspaceRecallQueueInput): readonly RecallTodayQueueItem[] {
   if (userId === null) {
     return [];
   }
@@ -649,10 +648,21 @@ export function RecallResultsWorkspacePage() {
 type QueueTone = "due" | "new" | "practice";
 type DueTodayStatus = "due-today" | "overdue";
 
+const recallTodaySectionTones: readonly QueueTone[] = [
+  "practice",
+  "new",
+  "due",
+];
+
 type RecallTodayPageProps = {
   labelsById: ReadonlyMap<string, AppLabel>;
   now: string;
   queue: readonly RecallTodayQueueItem[];
+};
+
+type RecallTodayQueueSection = {
+  items: readonly RecallTodayQueueItem[];
+  tone: QueueTone;
 };
 
 type DueTodayPageProps = {
@@ -665,7 +675,7 @@ type DueTodayPageProps = {
 
 function getLastScoreText(
   lastRating: RecallSelfRating | null,
-  t: ReturnType<typeof useAppTranslation>["t"],
+  t: AppTranslate,
 ) {
   if (lastRating === null) {
     return t("recall.today.lastScore.notAttempted");
@@ -709,10 +719,7 @@ function getStudyNoteMetaLine(
   return sourceTitle;
 }
 
-function getRecallTodayReasonText(
-  reason: RecallTodayReason,
-  t: ReturnType<typeof useAppTranslation>["t"],
-) {
+function getRecallTodayReasonText(reason: RecallTodayReason, t: AppTranslate) {
   switch (reason) {
     case "practice-follow-up":
       return t("recall.today.reason.practiceFollowUp");
@@ -739,10 +746,7 @@ function getRecallTodayQueueTone(item: RecallTodayQueueItem): QueueTone {
   }
 }
 
-function getRecallTodaySectionTitleText(
-  tone: QueueTone,
-  t: ReturnType<typeof useAppTranslation>["t"],
-) {
+function getRecallTodaySectionTitleText(tone: QueueTone, t: AppTranslate) {
   switch (tone) {
     case "practice":
       return t("recall.today.section.focusFirst");
@@ -753,10 +757,7 @@ function getRecallTodaySectionTitleText(
   }
 }
 
-function getRecallTodaySectionHelperText(
-  tone: QueueTone,
-  t: ReturnType<typeof useAppTranslation>["t"],
-) {
+function getRecallTodaySectionHelperText(tone: QueueTone, t: AppTranslate) {
   switch (tone) {
     case "practice":
       return `${t("recall.today.reason.practiceFollowUp")} · ${t("recall.today.reason.needsPractice")}`;
@@ -769,7 +770,7 @@ function getRecallTodaySectionHelperText(
 
 function getRecallTodaySupportingReasonText(
   item: RecallTodayQueueItem,
-  t: ReturnType<typeof useAppTranslation>["t"],
+  t: AppTranslate,
 ) {
   const primaryReason = getPrimaryRecallTodayReason(item);
   const supportingReason = item.reasons.find(
@@ -793,7 +794,7 @@ function getRecallTodaySupportingReasonText(
 function getRecallTodayMetaLine(input: {
   item: RecallTodayQueueItem;
   labelsById: ReadonlyMap<string, AppLabel>;
-  t: ReturnType<typeof useAppTranslation>["t"];
+  t: AppTranslate;
 }) {
   const metaLine = getStudyNoteMetaLine(input.item, input.labelsById);
   const supportingReason = getRecallTodaySupportingReasonText(
@@ -810,6 +811,7 @@ function getRecallTodayMetaLine(input: {
 
 function RecallTodayPage({ labelsById, now, queue }: RecallTodayPageProps) {
   const { t } = useAppTranslation();
+  const queueSections = buildRecallTodayQueueSections(queue);
   const workspaceDate = new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
   }).format(new Date(now));
@@ -857,7 +859,10 @@ function RecallTodayPage({ labelsById, now, queue }: RecallTodayPageProps) {
           />
         </div>
 
-        <RecallTodaySummary queue={queue} />
+        <RecallTodaySummary
+          queueSections={queueSections}
+          totalCount={queue.length}
+        />
 
         <div className="recall-today-layout">
           {queue.length === 0 ? (
@@ -868,7 +873,10 @@ function RecallTodayPage({ labelsById, now, queue }: RecallTodayPageProps) {
               </div>
             </div>
           ) : (
-            <RecallTodayQueue labelsById={labelsById} queue={queue} />
+            <RecallTodayQueue
+              labelsById={labelsById}
+              queueSections={queueSections}
+            />
           )}
 
           <RecallTodayHowPanel />
@@ -878,42 +886,67 @@ function RecallTodayPage({ labelsById, now, queue }: RecallTodayPageProps) {
   );
 }
 
+function buildRecallTodayQueueSections(
+  queue: readonly RecallTodayQueueItem[],
+): readonly RecallTodayQueueSection[] {
+  const queueByTone: Record<QueueTone, RecallTodayQueueItem[]> = {
+    due: [],
+    new: [],
+    practice: [],
+  };
+
+  for (const item of queue) {
+    queueByTone[getRecallTodayQueueTone(item)].push(item);
+  }
+
+  return recallTodaySectionTones.map((tone) => ({
+    items: queueByTone[tone],
+    tone,
+  }));
+}
+
+function getRecallTodaySectionCount(
+  queueSections: readonly RecallTodayQueueSection[],
+  tone: QueueTone,
+) {
+  return (
+    queueSections.find((section) => section.tone === tone)?.items.length ?? 0
+  );
+}
+
+function formatSummaryUnitLabel(count: number) {
+  return formatCount(count, "note").replace(/^\d+\s/, "");
+}
+
 function RecallTodaySummary({
-  queue,
+  queueSections,
+  totalCount,
 }: Readonly<{
-  queue: readonly RecallTodayQueueItem[];
+  queueSections: readonly RecallTodayQueueSection[];
+  totalCount: number;
 }>) {
   const { t } = useAppTranslation();
-  const focusFirstCount = queue.filter(
-    (item) => getRecallTodayQueueTone(item) === "practice",
-  ).length;
-  const newlyRecallableCount = queue.filter(
-    (item) => getRecallTodayQueueTone(item) === "new",
-  ).length;
-  const scheduledTodayCount = queue.filter(
-    (item) => getRecallTodayQueueTone(item) === "due",
-  ).length;
   const summaryItems = [
     {
-      count: queue.length,
+      count: totalCount,
       icon: <CalendarQueueIcon />,
       label: t("recall.today.metric.total"),
       tone: "total",
     },
     {
-      count: focusFirstCount,
+      count: getRecallTodaySectionCount(queueSections, "practice"),
       icon: <WarningIcon />,
       label: t("recall.today.section.focusFirst"),
       tone: "practice",
     },
     {
-      count: newlyRecallableCount,
+      count: getRecallTodaySectionCount(queueSections, "new"),
       icon: <NoteIcon />,
       label: t("recall.today.section.newlyRecallable"),
       tone: "new",
     },
     {
-      count: scheduledTodayCount,
+      count: getRecallTodaySectionCount(queueSections, "due"),
       icon: <CheckIcon />,
       label: t("recall.today.section.scheduledToday"),
       tone: "due",
@@ -934,7 +967,7 @@ function RecallTodaySummary({
           <span className="recall-today-summary__copy">
             <span>{item.label}</span>
             <strong>{item.count}</strong>
-            <span>{formatCount(item.count, "note").replace(/^\d+\s/, "")}</span>
+            <span>{formatSummaryUnitLabel(item.count)}</span>
           </span>
         </li>
       ))}
@@ -944,48 +977,47 @@ function RecallTodaySummary({
 
 function RecallTodayQueue({
   labelsById,
-  queue,
+  queueSections,
 }: Readonly<{
   labelsById: ReadonlyMap<string, AppLabel>;
-  queue: readonly RecallTodayQueueItem[];
+  queueSections: readonly RecallTodayQueueSection[];
 }>) {
   const { t } = useAppTranslation();
-  const sectionTones: readonly QueueTone[] = ["practice", "new", "due"];
 
   return (
     <section
       aria-label={t("recall.today.queue")}
       className="recall-today-queue"
     >
-      {sectionTones.map((tone) => {
-        const sectionQueue = queue.filter(
-          (item) => getRecallTodayQueueTone(item) === tone,
-        );
-
-        if (sectionQueue.length === 0) {
+      {queueSections.map((section) => {
+        if (section.items.length === 0) {
           return null;
         }
 
         return (
-          <section className="recall-today-section" data-tone={tone} key={tone}>
+          <section
+            className="recall-today-section"
+            data-tone={section.tone}
+            key={section.tone}
+          >
             <header className="recall-today-section__header">
               <div className="recall-today-section__title">
                 <span className="recall-today-section__badge">
-                  {sectionQueue.length}
+                  {section.items.length}
                 </span>
-                <h2>{getRecallTodaySectionTitleText(tone, t)}</h2>
+                <h2>{getRecallTodaySectionTitleText(section.tone, t)}</h2>
                 <span className="recall-today-section__count">
-                  {sectionQueue.length}
+                  {section.items.length}
                 </span>
               </div>
               <div className="recall-today-section__helper">
-                <span>{getRecallTodaySectionHelperText(tone, t)}</span>
+                <span>{getRecallTodaySectionHelperText(section.tone, t)}</span>
                 <InfoIcon />
               </div>
             </header>
 
             <ul className="recall-today-section__rows">
-              {sectionQueue.map((item) => (
+              {section.items.map((item) => (
                 <RecallTodayQueueRow
                   item={item}
                   key={item.studyNote.id}
@@ -1313,7 +1345,7 @@ function RecallDueTodaySummary({
           <span className="recall-today-summary__copy">
             <span>{item.label}</span>
             <strong>{item.count}</strong>
-            <span>{formatCount(item.count, "note").replace(/^\d+\s/, "")}</span>
+            <span>{formatSummaryUnitLabel(item.count)}</span>
           </span>
         </li>
       ))}

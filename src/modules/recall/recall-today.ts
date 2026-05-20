@@ -18,7 +18,7 @@ export type RecallTodayReason =
 export type RecallTodayQueueItem = {
   lastRating: RecallSelfRating | null;
   practiceFollowUpEntry: PracticeRepairEntry | null;
-  reasons: RecallTodayReason[];
+  reasons: readonly RecallTodayReason[];
   studyNote: AppStudyNote;
 };
 
