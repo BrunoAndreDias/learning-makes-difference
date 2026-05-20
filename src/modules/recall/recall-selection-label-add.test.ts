@@ -31,6 +31,24 @@ function buildStudyNote(
 }
 
 describe("recall selection label add", () => {
+  it("preserves current selections when no Labels are selected", () => {
+    const biologyStudyNote = buildStudyNote({
+      id: "study-note-biology",
+      labelIds: ["label-biology"],
+    });
+
+    const result = addRecallableStudyNotesFromLabels({
+      selectedLabelIds: [],
+      selectedStudyNoteIds: ["study-note-manual"],
+      studyNotes: [biologyStudyNote],
+    });
+
+    expect(result).toEqual({
+      addedStudyNoteIds: [],
+      selectedStudyNoteIds: ["study-note-manual"],
+    });
+  });
+
   it("adds recallable Study Notes from one Label while preserving prior selections", () => {
     const selectedBiologyStudyNote = buildStudyNote({
       id: "study-note-biology-selected",

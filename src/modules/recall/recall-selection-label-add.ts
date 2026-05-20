@@ -11,16 +11,29 @@ type AddRecallableStudyNotesFromLabelsResult = {
   selectedStudyNoteIds: string[];
 };
 
+function getRequiredLabelIds(selectedLabelIds: readonly string[]) {
+  return [
+    ...new Set(
+      selectedLabelIds.filter((selectedLabelId) => selectedLabelId.length > 0),
+    ),
+  ];
+}
+
+function studyNoteHasAllLabels(
+  studyNote: Pick<AppStudyNote, "labelIds">,
+  requiredLabelIds: readonly string[],
+) {
+  return requiredLabelIds.every((requiredLabelId) =>
+    studyNote.labelIds.includes(requiredLabelId),
+  );
+}
+
 export function addRecallableStudyNotesFromLabels({
   selectedLabelIds,
   selectedStudyNoteIds,
   studyNotes,
 }: AddRecallableStudyNotesFromLabelsInput): AddRecallableStudyNotesFromLabelsResult {
-  const requiredLabelIds = [
-    ...new Set(
-      selectedLabelIds.filter((selectedLabelId) => selectedLabelId.length > 0),
-    ),
-  ];
+  const requiredLabelIds = getRequiredLabelIds(selectedLabelIds);
 
   if (requiredLabelIds.length === 0) {
     return {
@@ -34,11 +47,7 @@ export function addRecallableStudyNotesFromLabels({
   const addedStudyNoteIds: string[] = [];
 
   for (const studyNote of studyNotes) {
-    if (
-      !requiredLabelIds.every((selectedLabelId) =>
-        studyNote.labelIds.includes(selectedLabelId),
-      )
-    ) {
+    if (!studyNoteHasAllLabels(studyNote, requiredLabelIds)) {
       continue;
     }
 

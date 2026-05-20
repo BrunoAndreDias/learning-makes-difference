@@ -208,6 +208,16 @@ function resolveSelectedLabelIds(
   return labels[0] === undefined ? [] : [labels[0].id];
 }
 
+function areStringArraysEqual(
+  leftValues: readonly string[],
+  rightValues: readonly string[],
+) {
+  return (
+    leftValues.length === rightValues.length &&
+    leftValues.every((leftValue, index) => leftValue === rightValues[index])
+  );
+}
+
 function getDisabledStartReason(input: {
   selectedCount: number;
   selectedRecallType: RecallMode;
@@ -302,12 +312,7 @@ export function RecallSelectionPage({
       selectedLabelIds,
     );
 
-    if (
-      nextSelectedLabelIds.length === selectedLabelIds.length &&
-      nextSelectedLabelIds.every(
-        (selectedLabelId, index) => selectedLabelId === selectedLabelIds[index],
-      )
-    ) {
+    if (areStringArraysEqual(nextSelectedLabelIds, selectedLabelIds)) {
       return;
     }
 
@@ -337,6 +342,10 @@ export function RecallSelectionPage({
         return currentSelectedLabelIds.includes(labelId)
           ? currentSelectedLabelIds
           : [...currentSelectedLabelIds, labelId];
+      }
+
+      if (!currentSelectedLabelIds.includes(labelId)) {
+        return currentSelectedLabelIds;
       }
 
       return currentSelectedLabelIds.filter(
@@ -529,8 +538,8 @@ export function RecallSelectionPage({
             disabledStartReason={disabledStartReason}
             onAddStudyNotesFromLabels={addStudyNotesFromLabels}
             onCancel={cancelSelection}
+            onLabelSelectionChange={toggleSelectedLabel}
             onRecallTypeChange={setSelectedRecallType}
-            onSelectedLabelChange={toggleSelectedLabel}
             onStartRecall={startRecall}
             selectedLabelIds={selectedLabelIds}
             selectedRecallType={selectedRecallType}
@@ -553,8 +562,8 @@ type SessionSetupPanelProps = {
   disabledStartReason: string | null;
   onAddStudyNotesFromLabels: () => void;
   onCancel: () => void;
+  onLabelSelectionChange: (labelId: string, isSelected: boolean) => void;
   onRecallTypeChange: (mode: RecallMode) => void;
-  onSelectedLabelChange: (labelId: string, isSelected: boolean) => void;
   onStartRecall: () => void;
   selectedLabelIds: readonly string[];
   selectedRecallType: RecallMode;
@@ -566,8 +575,8 @@ function SessionSetupPanel({
   onAddStudyNotesFromLabels,
   disabledStartReason,
   onCancel,
+  onLabelSelectionChange,
   onRecallTypeChange,
-  onSelectedLabelChange,
   onStartRecall,
   selectedLabelIds,
   selectedStudyNotes,
@@ -623,7 +632,7 @@ function SessionSetupPanel({
                   <input
                     checked={selectedLabelIdSet.has(label.id)}
                     onChange={(event) =>
-                      onSelectedLabelChange(label.id, event.target.checked)
+                      onLabelSelectionChange(label.id, event.target.checked)
                     }
                     type="checkbox"
                   />
