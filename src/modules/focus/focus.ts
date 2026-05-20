@@ -1032,7 +1032,7 @@ function getRecallTargetLabelSnapshots(input: {
   noteSnapshots: readonly StudyActivityNoteSnapshot[];
   userId: string;
 }) {
-  const labelsById = new Map(
+  const liveLabelsById = new Map(
     (input.getLabelsForUser?.(input.userId) ?? []).map((label) => [
       label.id,
       label,
@@ -1041,7 +1041,7 @@ function getRecallTargetLabelSnapshots(input: {
   const seenLabelIds = new Set<string>();
   const labelSnapshots: AppLabel[] = [];
 
-  function appendLabelSnapshot(label: Pick<AppLabel, "id" | "name">) {
+  function appendUniqueLabelSnapshot(label: Pick<AppLabel, "id" | "name">) {
     if (seenLabelIds.has(label.id)) {
       return;
     }
@@ -1055,17 +1055,17 @@ function getRecallTargetLabelSnapshots(input: {
 
   for (const note of input.noteSnapshots) {
     for (const label of note.labels ?? []) {
-      appendLabelSnapshot(label);
+      appendUniqueLabelSnapshot(label);
     }
 
     for (const labelId of note.labelIds) {
-      const label = labelsById.get(labelId);
+      const label = liveLabelsById.get(labelId);
 
       if (label === undefined) {
         continue;
       }
 
-      appendLabelSnapshot(label);
+      appendUniqueLabelSnapshot(label);
     }
   }
 
