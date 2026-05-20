@@ -2,7 +2,10 @@
 
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createAppLabelsContext } from "../../modules/labels/label-management/labels";
+import {
+  type AppLabel,
+  createAppLabelsContext,
+} from "../../modules/labels/label-management/labels";
 import { createAppNotesContext } from "../../modules/notes";
 import {
   type AppPersistentRecallService,
@@ -11,6 +14,7 @@ import {
   type RecallNoteSnapshot,
   type RecallQuestion,
   type RecallSelfRating,
+  type RecallSession,
   type SessionResult,
 } from "../../modules/recall";
 import {
@@ -488,6 +492,59 @@ function createStudyNoteSnapshot(
   });
 
   return updateStudyNoteSnapshot(contexts, studyNote.id, input);
+}
+
+function createRecallLabelSnapshot(label: AppLabel) {
+  return {
+    id: label.id,
+    name: label.name,
+  };
+}
+
+function createRecallNoteSnapshotFromStudyNote(
+  studyNote: ReturnType<typeof createStudyNoteSnapshot>,
+  overrides: Partial<RecallNoteSnapshot> = {},
+): RecallNoteSnapshot {
+  return createStoredRecallNote({
+    body: studyNote.expectedAnswer,
+    createdAt: studyNote.createdAt,
+    id: studyNote.id,
+    labelIds: [...studyNote.labelIds],
+    title: studyNote.prompt,
+    updatedAt: studyNote.updatedAt,
+    ...overrides,
+  });
+}
+
+function createStartedFlashCardQuestion(
+  note: RecallNoteSnapshot,
+): RecallQuestion {
+  return {
+    isAnswerRevealed: false,
+    noteId: note.id,
+    noteSnapshot: note,
+    score: null,
+    selfRating: null,
+    typedAnswer: "",
+  };
+}
+
+function createStartedFlashCardSession(input: {
+  id: string;
+  note: RecallNoteSnapshot;
+}): RecallSession {
+  return {
+    attempts: [],
+    createdAt: "2026-05-15T12:00:00.000Z",
+    currentIndex: 0,
+    currentQuestionIndex: 0,
+    draftAnswer: "",
+    id: input.id,
+    isAnswerRevealed: false,
+    mode: "FlashCard",
+    notes: [input.note],
+    questions: [createStartedFlashCardQuestion(input.note)],
+  };
 }
 
 function createRecallTodayQueueScenario(
@@ -3599,6 +3656,7 @@ describe("authenticated recall workspace", () => {
       name: "Biology",
       userId: testUser.id,
     });
+    const biologyLabelSnapshot = createRecallLabelSnapshot(biologyLabel);
     const selectedBiologyStudyNote = createStudyNoteSnapshot(contexts, {
       expectedAnswer: "Selected biology answer.",
       labelIds: [biologyLabel.id],
@@ -3641,16 +3699,16 @@ describe("authenticated recall workspace", () => {
       {
         id: selectedBiologyStudyNote.id,
         labelIds: [biologyLabel.id],
-        labels: [{ id: biologyLabel.id, name: "Biology" }],
+        labels: [biologyLabelSnapshot],
       },
       {
         id: addedBiologyStudyNote.id,
         labelIds: [biologyLabel.id],
-        labels: [{ id: biologyLabel.id, name: "Biology" }],
+        labels: [biologyLabelSnapshot],
       },
     ]);
-    expect("labelId" in activeSession).toBe(false);
-    expect("labelName" in activeSession).toBe(false);
+    expect(activeSession).not.toHaveProperty("labelId");
+    expect(activeSession).not.toHaveProperty("labelName");
 
     contexts.recallContext.revealFlashCardAnswer({
       sessionId: activeSession.id,
@@ -3678,16 +3736,16 @@ describe("authenticated recall workspace", () => {
       {
         id: selectedBiologyStudyNote.id,
         labelIds: [biologyLabel.id],
-        labels: [{ id: biologyLabel.id, name: "Biology" }],
+        labels: [biologyLabelSnapshot],
       },
       {
         id: addedBiologyStudyNote.id,
         labelIds: [biologyLabel.id],
-        labels: [{ id: biologyLabel.id, name: "Biology" }],
+        labels: [biologyLabelSnapshot],
       },
     ]);
-    expect("labelId" in storedResultBeforeDelete).toBe(false);
-    expect("labelName" in storedResultBeforeDelete).toBe(false);
+    expect(storedResultBeforeDelete).not.toHaveProperty("labelId");
+    expect(storedResultBeforeDelete).not.toHaveProperty("labelName");
 
     contexts.labelsContext.deleteLabel({
       labelId: biologyLabel.id,
@@ -3700,11 +3758,11 @@ describe("authenticated recall workspace", () => {
       notes: [
         {
           id: selectedBiologyStudyNote.id,
-          labels: [{ id: biologyLabel.id, name: "Biology" }],
+          labels: [biologyLabelSnapshot],
         },
         {
           id: addedBiologyStudyNote.id,
-          labels: [{ id: biologyLabel.id, name: "Biology" }],
+          labels: [biologyLabelSnapshot],
         },
       ],
     });
@@ -3795,6 +3853,7 @@ describe("authenticated recall workspace", () => {
       name: "Biology",
       userId: testUser.id,
     });
+    const biologyLabelSnapshot = createRecallLabelSnapshot(biologyLabel);
     const selectedBiologyStudyNote = createStudyNoteSnapshot(contexts, {
       expectedAnswer: "Selected biology answer.",
       labelIds: [biologyLabel.id],
@@ -3809,49 +3868,16 @@ describe("authenticated recall workspace", () => {
       sourceBody: "Added biology source.",
       sourceTitle: "Added biology source",
     });
-    const startedSession = {
-      attempts: [],
-      createdAt: "2026-05-15T12:00:00.000Z",
-      currentIndex: 0,
-      currentQuestionIndex: 0,
-      draftAnswer: "",
+    const addedBiologyRecallNote = createRecallNoteSnapshotFromStudyNote(
+      addedBiologyStudyNote,
+      {
+        labels: [biologyLabelSnapshot],
+      },
+    );
+    const startedSession = createStartedFlashCardSession({
       id: "persistent-label-add-session",
-      isAnswerRevealed: false,
-      mode: "FlashCard" as const,
-      notes: [
-        {
-          acronyms: [],
-          body: addedBiologyStudyNote.expectedAnswer,
-          createdAt: addedBiologyStudyNote.createdAt,
-          id: addedBiologyStudyNote.id,
-          labelIds: [biologyLabel.id],
-          labels: [{ id: biologyLabel.id, name: "Biology" }],
-          metaphors: [],
-          title: addedBiologyStudyNote.prompt,
-          updatedAt: addedBiologyStudyNote.updatedAt,
-        },
-      ],
-      questions: [
-        {
-          isAnswerRevealed: false,
-          noteId: addedBiologyStudyNote.id,
-          noteSnapshot: {
-            acronyms: [],
-            body: addedBiologyStudyNote.expectedAnswer,
-            createdAt: addedBiologyStudyNote.createdAt,
-            id: addedBiologyStudyNote.id,
-            labelIds: [biologyLabel.id],
-            labels: [{ id: biologyLabel.id, name: "Biology" }],
-            metaphors: [],
-            title: addedBiologyStudyNote.prompt,
-            updatedAt: addedBiologyStudyNote.updatedAt,
-          },
-          score: null,
-          selfRating: null,
-          typedAnswer: "",
-        },
-      ],
-    };
+      note: addedBiologyRecallNote,
+    });
     const startFlashCardSession = vi.fn<
       AppPersistentRecallService["startFlashCardSession"]
     >(async () => startedSession);
@@ -3907,47 +3933,10 @@ describe("authenticated recall workspace", () => {
       sourceBody: "Persistent source context.",
       sourceTitle: "Persistent source",
     });
-    const startedSession = {
-      attempts: [],
-      createdAt: "2026-05-15T12:00:00.000Z",
-      currentIndex: 0,
-      currentQuestionIndex: 0,
-      draftAnswer: "",
+    const startedSession = createStartedFlashCardSession({
       id: "persistent-start-session",
-      isAnswerRevealed: false,
-      mode: "FlashCard" as const,
-      notes: [
-        {
-          acronyms: [],
-          body: studyNote.expectedAnswer,
-          createdAt: studyNote.createdAt,
-          id: studyNote.id,
-          labelIds: [],
-          metaphors: [],
-          title: studyNote.prompt,
-          updatedAt: studyNote.updatedAt,
-        },
-      ],
-      questions: [
-        {
-          isAnswerRevealed: false,
-          noteId: studyNote.id,
-          noteSnapshot: {
-            acronyms: [],
-            body: studyNote.expectedAnswer,
-            createdAt: studyNote.createdAt,
-            id: studyNote.id,
-            labelIds: [],
-            metaphors: [],
-            title: studyNote.prompt,
-            updatedAt: studyNote.updatedAt,
-          },
-          score: null,
-          selfRating: null,
-          typedAnswer: "",
-        },
-      ],
-    };
+      note: createRecallNoteSnapshotFromStudyNote(studyNote),
+    });
     const startFlashCardSession = vi.fn(async () => startedSession);
     const persistentRecallContext = createPersistentRecallContext({
       service: createPersistentRecallService({
