@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { fireEvent, screen, within } from "@testing-library/react";
@@ -262,6 +262,26 @@ describe("authenticated app shell", () => {
 
     expect(shellCss).not.toContain(".focus-dock--sidebar");
     expect(shellCss).toContain(".focus-dock--pill");
+  });
+
+  it("removes Focus nav row prototype artifacts from the app shell", () => {
+    const appShellDirectory = join(
+      process.cwd(),
+      "src/modules/workspace-shell/app-shell",
+    );
+    const appShellFiles = readdirSync(appShellDirectory);
+    const protectedLayoutRoute = readFileSync(
+      join(appShellDirectory, "protected-layout-route.tsx"),
+      {
+        encoding: "utf8",
+      },
+    );
+
+    expect(appShellFiles).not.toContain("focus-nav-row-prototype-notes.md");
+    expect(protectedLayoutRoute).not.toContain("?variant=");
+    expect(protectedLayoutRoute).not.toContain("variant=A");
+    expect(protectedLayoutRoute).not.toContain("variant=B");
+    expect(protectedLayoutRoute).not.toContain("variant=C");
   });
 
   it("renders a Study Notes workspace shell with an account menu instead of product navigation", async () => {
