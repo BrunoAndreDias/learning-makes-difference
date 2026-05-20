@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { AppStudyNote } from "../study-notes";
 import { addRecallableStudyNotesFromLabel } from "./recall-selection-label-add";
 
+const timestamp = "2026-05-20T10:00:00.000Z";
+
 function buildStudyNote(
   overrides: Partial<AppStudyNote> & Pick<AppStudyNote, "id" | "labelIds">,
 ): AppStudyNote {
@@ -10,7 +12,7 @@ function buildStudyNote(
 
   return {
     acronyms: [],
-    createdAt: "2026-05-20T10:00:00.000Z",
+    createdAt: timestamp,
     expectedAnswer: "Expected answer.",
     id,
     labelIds: [...labelIds],
@@ -20,10 +22,10 @@ function buildStudyNote(
       body: "Source body.",
       id: `source-${id}`,
       title: `Source ${id}`,
-      updatedAt: "2026-05-20T10:00:00.000Z",
+      updatedAt: timestamp,
     },
-    sourceNoteId: `source-note-${id}`,
-    updatedAt: "2026-05-20T10:00:00.000Z",
+    sourceNoteId: `source-${id}`,
+    updatedAt: timestamp,
     ...rest,
   };
 }
@@ -59,11 +61,13 @@ describe("recall selection label add", () => {
       ],
     });
 
-    expect(result.selectedStudyNoteIds).toEqual([
-      "study-note-manual",
-      selectedBiologyStudyNote.id,
-      addedBiologyStudyNote.id,
-    ]);
-    expect(result.addedStudyNoteIds).toEqual([addedBiologyStudyNote.id]);
+    expect(result).toEqual({
+      addedStudyNoteIds: [addedBiologyStudyNote.id],
+      selectedStudyNoteIds: [
+        "study-note-manual",
+        selectedBiologyStudyNote.id,
+        addedBiologyStudyNote.id,
+      ],
+    });
   });
 });

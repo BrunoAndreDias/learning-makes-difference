@@ -1,16 +1,27 @@
 import { type AppStudyNote, getStudyNoteReadiness } from "../study-notes";
 
-export function addRecallableStudyNotesFromLabel(input: {
+type AddRecallableStudyNotesFromLabelInput = {
   selectedLabelId: string;
   selectedStudyNoteIds: readonly string[];
   studyNotes: readonly AppStudyNote[];
-}) {
-  const selectedStudyNoteIds = [...input.selectedStudyNoteIds];
-  const selectedStudyNoteIdSet = new Set(selectedStudyNoteIds);
+};
+
+type AddRecallableStudyNotesFromLabelResult = {
+  addedStudyNoteIds: string[];
+  selectedStudyNoteIds: string[];
+};
+
+export function addRecallableStudyNotesFromLabel({
+  selectedLabelId,
+  selectedStudyNoteIds,
+  studyNotes,
+}: AddRecallableStudyNotesFromLabelInput): AddRecallableStudyNotesFromLabelResult {
+  const nextSelectedStudyNoteIds = [...selectedStudyNoteIds];
+  const selectedStudyNoteIdSet = new Set(nextSelectedStudyNoteIds);
   const addedStudyNoteIds: string[] = [];
 
-  for (const studyNote of input.studyNotes) {
-    if (!studyNote.labelIds.includes(input.selectedLabelId)) {
+  for (const studyNote of studyNotes) {
+    if (!studyNote.labelIds.includes(selectedLabelId)) {
       continue;
     }
 
@@ -22,13 +33,13 @@ export function addRecallableStudyNotesFromLabel(input: {
       continue;
     }
 
-    selectedStudyNoteIds.push(studyNote.id);
+    nextSelectedStudyNoteIds.push(studyNote.id);
     selectedStudyNoteIdSet.add(studyNote.id);
     addedStudyNoteIds.push(studyNote.id);
   }
 
   return {
     addedStudyNoteIds,
-    selectedStudyNoteIds,
+    selectedStudyNoteIds: nextSelectedStudyNoteIds,
   };
 }

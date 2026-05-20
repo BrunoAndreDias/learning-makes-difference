@@ -192,6 +192,17 @@ function getRecallableSelectedStudyNotes(input: {
     );
 }
 
+function resolveSelectedLabelId(
+  labels: readonly AppLabel[],
+  selectedLabelId: string,
+) {
+  if (labels.some((label) => label.id === selectedLabelId)) {
+    return selectedLabelId;
+  }
+
+  return labels[0]?.id ?? "";
+}
+
 function getDisabledStartReason(input: {
   selectedCount: number;
   selectedRecallType: RecallMode;
@@ -281,19 +292,13 @@ export function RecallSelectionPage({
   const canStart = disabledStartReason === null;
 
   useEffect(() => {
-    if (labels.length === 0) {
-      if (selectedLabelId !== "") {
-        setSelectedLabelId("");
-      }
+    const nextSelectedLabelId = resolveSelectedLabelId(labels, selectedLabelId);
 
+    if (nextSelectedLabelId === selectedLabelId) {
       return;
     }
 
-    if (labels.some((label) => label.id === selectedLabelId)) {
-      return;
-    }
-
-    setSelectedLabelId(labels[0].id);
+    setSelectedLabelId(nextSelectedLabelId);
   }, [labels, selectedLabelId]);
 
   function toggleStudyNote(studyNoteId: string) {
@@ -314,7 +319,7 @@ export function RecallSelectionPage({
   }
 
   function addStudyNotesFromLabel() {
-    if (selectedLabelId.length === 0) {
+    if (selectedLabelId === "") {
       return;
     }
 
@@ -494,15 +499,15 @@ export function RecallSelectionPage({
 
           <SessionSetupPanel
             availableLabels={labels}
-            onAddStudyNotesFromLabel={addStudyNotesFromLabel}
             disabledStartReason={disabledStartReason}
-            onRecallTypeChange={setSelectedRecallType}
+            onAddStudyNotesFromLabel={addStudyNotesFromLabel}
             onCancel={cancelSelection}
+            onRecallTypeChange={setSelectedRecallType}
             onSelectedLabelChange={setSelectedLabelId}
             onStartRecall={startRecall}
             selectedLabelId={selectedLabelId}
-            selectedStudyNotes={recallableSelectedStudyNotes}
             selectedRecallType={selectedRecallType}
+            selectedStudyNotes={recallableSelectedStudyNotes}
           />
         </div>
       )}
@@ -516,6 +521,19 @@ export function RecallSelectionPage({
   );
 }
 
+type SessionSetupPanelProps = {
+  availableLabels: readonly AppLabel[];
+  disabledStartReason: string | null;
+  onAddStudyNotesFromLabel: () => void;
+  onCancel: () => void;
+  onRecallTypeChange: (mode: RecallMode) => void;
+  onSelectedLabelChange: (labelId: string) => void;
+  onStartRecall: () => void;
+  selectedLabelId: string;
+  selectedRecallType: RecallMode;
+  selectedStudyNotes: readonly AppStudyNote[];
+};
+
 function SessionSetupPanel({
   availableLabels,
   onAddStudyNotesFromLabel,
@@ -527,18 +545,7 @@ function SessionSetupPanel({
   selectedLabelId,
   selectedStudyNotes,
   selectedRecallType,
-}: {
-  availableLabels: readonly AppLabel[];
-  onAddStudyNotesFromLabel: () => void;
-  disabledStartReason: string | null;
-  onCancel: () => void;
-  onRecallTypeChange: (mode: RecallMode) => void;
-  onSelectedLabelChange: (labelId: string) => void;
-  onStartRecall: () => void;
-  selectedLabelId: string;
-  selectedStudyNotes: readonly AppStudyNote[];
-  selectedRecallType: RecallMode;
-}) {
+}: SessionSetupPanelProps) {
   const { t } = useAppTranslation();
   const selectedRecallOption = recallTypeOptions.find(
     (option) => option.mode === selectedRecallType,
