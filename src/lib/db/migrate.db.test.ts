@@ -1,62 +1,32 @@
-import { copyFile, mkdtemp, readdir, rm } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-
 import { afterEach, describe, expect, it } from "vitest";
 
 import { migrateDatabase } from "./migrate";
+import {
+  createMigrationsDirBefore,
+  DROP_LABEL_EDGES_MIGRATION,
+  expectedLegacyFixtureLabels,
+  expectedLegacyFixtureStudyNoteLabels,
+  legacyLabelHierarchyFixtureSql,
+  readExpectedMigrationHistory,
+  removeTemporaryMigrationDirs,
+  selectLabelEdgesTableSql,
+} from "./migrate-test-support";
 import {
   closePostgresIntegrationDatabases,
   createPostgresIntegrationDatabase,
   type PostgresIntegrationDatabase,
 } from "./postgres-integration-test-db";
 
-const migrationsDir = path.resolve(process.cwd(), "drizzle", "migrations");
-
-async function readExpectedMigrationHistory() {
-  return (await readdir(migrationsDir))
-    .filter((fileName) => fileName.endsWith(".sql"))
-    .sort()
-    .map((name) => ({ name }));
-}
-
 describe("migrateDatabase PostgreSQL integration", () => {
   const databases = new Set<PostgresIntegrationDatabase>();
   const temporaryMigrationDirs = new Set<string>();
 
-  async function createLegacyMigrationsDir() {
-    const temporaryDir = await mkdtemp(
-      path.join(os.tmpdir(), "lmd-legacy-migrations-"),
-    );
-    temporaryMigrationDirs.add(temporaryDir);
-    const migrationFiles = (await readdir(migrationsDir))
-      .filter((fileName) => fileName.endsWith(".sql"))
-      .sort()
-      .filter((fileName) => fileName !== "0012_drop_label_edges.sql");
-
-    await Promise.all(
-      migrationFiles.map((fileName) =>
-        copyFile(
-          path.join(migrationsDir, fileName),
-          path.join(temporaryDir, fileName),
-        ),
-      ),
-    );
-
-    return temporaryDir;
-  }
-
   afterEach(async () => {
-    await closePostgresIntegrationDatabases(databases);
-    await Promise.all(
-      Array.from(temporaryMigrationDirs, (temporaryDir) =>
-        rm(temporaryDir, {
-          force: true,
-          recursive: true,
-        }),
-      ),
-    );
-    temporaryMigrationDirs.clear();
+    try {
+      await closePostgresIntegrationDatabases(databases);
+    } finally {
+      await removeTemporaryMigrationDirs(temporaryMigrationDirs);
+    }
   });
 
   it("migrates a clean PostgreSQL database repeatedly without duplicating migration history", async () => {
@@ -120,107 +90,16 @@ describe("migrateDatabase PostgreSQL integration", () => {
     const database = await createPostgresIntegrationDatabase();
     databases.add(database);
 
-    const legacyMigrationsDir = await createLegacyMigrationsDir();
+    const legacyMigrationsDir = await createMigrationsDirBefore(
+      DROP_LABEL_EDGES_MIGRATION,
+      temporaryMigrationDirs,
+    );
 
     await migrateDatabase(null, database.client, {
       migrationsDir: legacyMigrationsDir,
     });
 
-    await database.client.unsafe(`
-      insert into users (
-        id,
-        display_name,
-        email,
-        password_hash,
-        created_at,
-        updated_at,
-        user_time_zone,
-        user_language,
-        show_study_note_templates
-      ) values (
-        'user-casey',
-        'Casey Learner',
-        'casey@example.com',
-        'hash',
-        '2026-05-02T12:00:00.000Z',
-        '2026-05-02T12:00:00.000Z',
-        'UTC',
-        'en',
-        true
-      );
-
-      insert into labels (
-        id,
-        user_id,
-        name,
-        created_at,
-        updated_at
-      ) values
-        (
-          'label-science',
-          'user-casey',
-          'Science',
-          '2026-05-02T12:00:00.000Z',
-          '2026-05-02T12:00:00.000Z'
-        ),
-        (
-          'label-biology',
-          'user-casey',
-          'Biology',
-          '2026-05-02T12:00:00.000Z',
-          '2026-05-02T12:00:00.000Z'
-        );
-
-      insert into label_edges (
-        child_label_id,
-        parent_label_id
-      ) values (
-        'label-biology',
-        'label-science'
-      );
-
-      insert into notes (
-        id,
-        user_id,
-        title,
-        body,
-        label_ids,
-        created_at,
-        updated_at
-      ) values (
-        'note-1',
-        'user-casey',
-        'Cell respiration',
-        'ATP stores transferable energy.',
-        '{}',
-        '2026-05-02T12:00:00.000Z',
-        '2026-05-02T12:00:00.000Z'
-      );
-
-      insert into study_notes (
-        id,
-        source_note_id,
-        prompt,
-        expected_answer,
-        created_at,
-        updated_at
-      ) values (
-        'study-note-1',
-        'note-1',
-        'What stores transferable energy?',
-        'ATP',
-        '2026-05-02T12:00:00.000Z',
-        '2026-05-02T12:00:00.000Z'
-      );
-
-      insert into study_note_labels (
-        study_note_id,
-        label_id
-      ) values (
-        'study-note-1',
-        'label-biology'
-      );
-    `);
+    await database.client.unsafe(legacyLabelHierarchyFixtureSql);
 
     await migrateDatabase(null, database.client);
 
@@ -230,16 +109,7 @@ describe("migrateDatabase PostgreSQL integration", () => {
         from labels
         order by id;
       `),
-    ).resolves.toEqual([
-      {
-        id: "label-biology",
-        name: "Biology",
-      },
-      {
-        id: "label-science",
-        name: "Science",
-      },
-    ]);
+    ).resolves.toEqual(expectedLegacyFixtureLabels);
 
     await expect(
       database.client.unsafe<
@@ -248,20 +118,12 @@ describe("migrateDatabase PostgreSQL integration", () => {
         select label_id, study_note_id
         from study_note_labels;
       `),
-    ).resolves.toEqual([
-      {
-        label_id: "label-biology",
-        study_note_id: "study-note-1",
-      },
-    ]);
+    ).resolves.toEqual(expectedLegacyFixtureStudyNoteLabels);
 
     await expect(
-      database.client.unsafe<Array<{ table_name: string }>>(`
-        select table_name
-        from information_schema.tables
-        where table_schema = 'public'
-          and table_name = 'label_edges';
-      `),
+      database.client.unsafe<Array<{ table_name: string }>>(
+        selectLabelEdgesTableSql,
+      ),
     ).resolves.toEqual([]);
   });
 });
