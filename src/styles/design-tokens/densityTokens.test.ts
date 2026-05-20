@@ -135,13 +135,14 @@ describe("desktop density tokens", () => {
   });
 
   it("applies density variables to Recall workspace surfaces", () => {
+    const appCss = readFileSync(new URL("../app.css", import.meta.url), "utf8");
     const recallCss = readFileSync(
       new URL("../../modules/recall/recall-workspaces.css", import.meta.url),
       "utf8",
     );
 
-    expect(recallCss).toContain(
-      "padding: var(--lmd-page-padding-y) var(--lmd-page-padding-x);",
+    expect(appCss).toContain(
+      "> .recall-workspace:not(.page-layout) {\n  padding: var(--workspace-page-block-start) var(--workspace-page-inline)\n    var(--workspace-page-block-end);",
     );
     expect(recallCss).toContain("gap: var(--lmd-content-gap);");
     expect(recallCss).toContain("padding: var(--lmd-card-padding-compact);");
@@ -153,13 +154,14 @@ describe("desktop density tokens", () => {
   });
 
   it("applies density variables to Study Notes workspace surfaces", () => {
+    const appCss = readFileSync(new URL("../app.css", import.meta.url), "utf8");
     const studyNotesCss = readFileSync(
       new URL("../../modules/study-notes/study-notes.css", import.meta.url),
       "utf8",
     );
 
-    expect(studyNotesCss).toContain(
-      "padding: var(--lmd-page-padding-y) var(--lmd-page-padding-x);",
+    expect(appCss).toContain(
+      ".notes-workspace__page-header {\n  padding-inline: var(--notes-workspace-inline-start)\n    var(--notes-workspace-inline-end);\n  padding-block-start: var(--workspace-page-block-start);",
     );
     expect(studyNotesCss).toContain("gap: var(--lmd-content-gap);");
     expect(studyNotesCss).toContain("min-height: var(--lmd-button-height-md);");
