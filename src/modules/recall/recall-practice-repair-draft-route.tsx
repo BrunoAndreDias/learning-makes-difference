@@ -10,6 +10,7 @@ import { Button, ButtonLink } from "../../design-system/button";
 import { PageHeader } from "../../design-system/page-header";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { useAppTranslation } from "../language";
+import { listStudyNotesForUser } from "../study-notes";
 import {
   getRecallRatingTone,
   getRecallRatingTranslationKey,
@@ -130,6 +131,8 @@ function getDraftPracticeRepairEntryId(
 
 function getDraftCorrection(intent: PracticeRepairIntent): string {
   switch (intent) {
+    case "tighten-prompt":
+      return "Tighten the prompt using the weak recall evidence.";
     case "tighten-expected-answer":
       return "Tighten the expected answer using the weak recall evidence.";
     case "split-study-note":
@@ -206,19 +209,37 @@ function RecallPracticeRepairDraftRoute() {
     from: "/_protected",
     select: (context) => context.persistentRecall,
   });
+  const studyNotesContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.studyNotes,
+  });
+  const persistentStudyNotesContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.persistentStudyNotes,
+  });
   const recallResultsContext =
     persistentRecallContext?.readonlyContext ?? recallContext;
   const recallResultsStore: RecallResultsStore =
     persistentRecallContext ?? recallContext;
+  const studyNotesStore = persistentStudyNotesContext ?? studyNotesContext;
   useSyncExternalStore(
     recallResultsStore.subscribe,
     recallResultsStore.getSessionResultsSnapshot,
     recallResultsStore.getSessionResultsSnapshot,
   );
+  useSyncExternalStore(
+    studyNotesStore.subscribe,
+    studyNotesStore.getSnapshot,
+    studyNotesStore.getSnapshot,
+  );
   const { sessionSnapshot } = useResolvedProtectedSession("/_protected");
   const userId = sessionSnapshot.user?.id ?? null;
   const sessionResults =
     userId === null ? [] : recallResultsContext.listSessionResults({ userId });
+  const studyNotes =
+    userId === null
+      ? []
+      : listStudyNotesForUser(studyNotesStore.getSnapshot(), userId);
   const workspace = findPracticeRepairDraftWorkspace({
     questionResultId,
     sessionResultId,
@@ -235,8 +256,17 @@ function RecallPracticeRepairDraftRoute() {
     return (
       <RecallPracticeRepairWorkspacePage
         persistentRecallContext={persistentRecallContext}
+        persistentStudyNotesContext={persistentStudyNotesContext}
         recallContext={recallContext}
         sessionResults={sessionResults}
+        studyNote={
+          studyNotes.find(
+            (studyNote) =>
+              studyNote.id ===
+              confirmedPracticeRepairEntry.reference.studyNoteId,
+          ) ?? null
+        }
+        studyNotesContext={studyNotesContext}
         userId={userId}
         workspace={
           {

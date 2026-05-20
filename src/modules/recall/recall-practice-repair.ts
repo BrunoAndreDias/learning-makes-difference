@@ -1,4 +1,5 @@
 export const practiceRepairIntents = [
+  "tighten-prompt",
   "tighten-expected-answer",
   "split-study-note",
   "create-sibling-study-note",
@@ -21,6 +22,10 @@ export type PracticeFollowUpSatisfaction = {
   questionReference: PracticeRepairQuestionReference;
   rating: "easy" | "forgot" | "good" | "hard";
   satisfiedAt: string;
+};
+
+export type TightenPromptPracticeRepairMetadata = {
+  updatedPrompt: string | null;
 };
 
 export type TightenExpectedAnswerPracticeRepairMetadata = {
@@ -46,9 +51,11 @@ export type PracticeRepairIntentMetadataByIntent = {
   "create-sibling-study-note": CreateSiblingStudyNotePracticeRepairMetadata;
   "split-study-note": SplitStudyNotePracticeRepairMetadata;
   "tighten-expected-answer": TightenExpectedAnswerPracticeRepairMetadata;
+  "tighten-prompt": TightenPromptPracticeRepairMetadata;
 };
 
 export type PracticeRepairLinkedCompletionIntent =
+  | "tighten-prompt"
   | "tighten-expected-answer"
   | "split-study-note"
   | "create-sibling-study-note"
@@ -240,6 +247,7 @@ type PracticeRepairQueueCandidateProjectionState<
     };
 
 const practiceRepairSuggestions = [
+  "Tighten the prompt if the question wording is unclear or too broad.",
   "Tighten the expected answer so the next recall target is specific.",
   "Split a broad Study Note or create a sibling from the same source explanation.",
   "Add a Metaphor or Acronym only if it solves this recall problem.",
@@ -437,6 +445,10 @@ export function createPracticeRepairIntentMetadata(
   intent: PracticeRepairIntent,
 ): PracticeRepairIntentMetadata {
   switch (intent) {
+    case "tighten-prompt":
+      return {
+        updatedPrompt: null,
+      };
     case "tighten-expected-answer":
       return {
         updatedExpectedAnswer: null,
@@ -495,6 +507,11 @@ function clonePracticeRepairIntentMetadata(
   metadata: PracticeRepairIntentMetadata,
 ): PracticeRepairIntentMetadata {
   switch (intent) {
+    case "tighten-prompt":
+      return {
+        updatedPrompt: (metadata as TightenPromptPracticeRepairMetadata)
+          .updatedPrompt,
+      };
     case "tighten-expected-answer":
       return {
         updatedExpectedAnswer: (
@@ -574,6 +591,8 @@ function isPracticeRepairIntentMetadata(
   }
 
   switch (intent) {
+    case "tighten-prompt":
+      return isNullableString(candidate.updatedPrompt);
     case "tighten-expected-answer":
       return isNullableString(candidate.updatedExpectedAnswer);
     case "split-study-note":
@@ -1099,6 +1118,8 @@ export function formatPracticeRepairIntentLabel(
   intent: PracticeRepairIntent,
 ): string {
   switch (intent) {
+    case "tighten-prompt":
+      return "Tighten prompt";
     case "tighten-expected-answer":
       return "Tighten expected answer";
     case "split-study-note":

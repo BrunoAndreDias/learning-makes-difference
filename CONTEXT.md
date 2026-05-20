@@ -87,7 +87,7 @@ _Avoid_: Report card, spaced-repetition engine, analytics widget, card state
 
 **Practice Repair**:
 A lightweight first-class repair flow after weak recall evidence that helps the User improve a Study Note before or alongside future recall.
-Practice Repair may suggest editing the expected answer, splitting a broad Study Note, adding a Metaphor or Acronym, creating a sibling Study Note, or recalling the Study Note again soon through Recall Today.
+Practice Repair may suggest tightening the prompt, editing the expected answer, splitting a broad Study Note, adding a Metaphor or Acronym, creating a sibling Study Note, or recalling the Study Note again soon through Recall Today.
 In v1, Practice Repair may persist queryable Practice Repair Entries so mistakes can become future practice.
 In v1, Practice Repair has two entry points: a Practice Repair Queue for repair-focused work and Results repair candidates tied to weak Questions.
 In v1, Practice Repair is not a full error log or mistake taxonomy.
@@ -136,7 +136,8 @@ _Avoid_: Error log entry, mistake record, remediation ticket
 
 **Practice Repair Intent**:
 The structured action the User plans to take when repairing a Study Note after weak recall evidence.
-In v1, Practice Repair Intent describes content repair only: tightening the expected answer, splitting a Study Note, adding a memory aid, or creating a sibling Study Note.
+In v1, Practice Repair Intent describes content repair only: tightening the prompt, tightening the expected answer, splitting a Study Note, adding a memory aid, or creating a sibling Study Note.
+The `tighten-prompt` intent applies when weak recall evidence suggests the Study Note prompt itself was unclear, too broad, or asking the wrong thing.
 The `split-study-note` intent uses a lightweight split flow that creates one or more sibling Study Notes from the same source Note and requires narrowing the original Study Note.
 Completing a `split-study-note` Practice Repair Entry requires at least one sibling Study Note from the same source Note and explicit narrowing of the original Study Note through the split flow.
 Additional split targets may be added later without blocking completion of the original `split-study-note` Practice Repair Entry.
@@ -164,6 +165,7 @@ A per-Study Note scheduling state meaning the Study Note's recall due date is to
 Incomplete Study Notes are not Due for Recall.
 In v1, Due for Recall is assigned by the Study Note's Recall Schedule rather than inferred only from the latest recall score.
 The User does not manually assign Due for Recall; the app updates it from recall evidence.
+A focused Recall Section view may show only Study Notes that are Due for Recall.
 _Avoid_: Review Today, ready for review, due review, due card
 
 **Recall Schedule**:
@@ -177,6 +179,7 @@ _Avoid_: Spaced-repetition engine, SM-2 card state, review interval
 A user-facing prioritized recall queue for recallable Study Notes the app recommends now.
 Recall Today may include Study Notes with Needs practice evidence, actionable Practice Follow-ups, or Due for Recall schedules, but those remain separate domain signals.
 By default, Recall Today prioritizes Needs practice and actionable Practice Follow-ups first, then recallable Study Notes with no recall evidence, then Study Notes that are Due for Recall by schedule.
+Starting Recall Today creates one RecallSession from all current Recall Today Study Notes.
 When Recall Today includes a Study Note because of an actionable Practice Follow-up, it shows that as an explicit recall reason.
 When a Study Note has both Needs practice evidence and an actionable Practice Follow-up, Recall Today shows one high-priority row, uses Practice Follow-up as the primary displayed reason, and shows Needs practice as supporting context.
 _Avoid_: Review Today, due review queue, weak notes queue
@@ -385,12 +388,15 @@ The Study Note editor may show compact recall insight copy that combines Learnin
 The Study Notes Workspace protects unsaved Study Note edits before replacing the selected Study Note or abandoning a new Study Note draft.
 When a selected Study Note shares its source Note with other Study Notes, the editor should make that shared source context clear before the User edits it.
 Shared source Note editing should not require confirmation; confirmation is reserved for destructive actions such as deleting the last Study Note and its source Note.
+Starting recall from the Study Notes Workspace uses the current Recall Today queue.
 _Avoid_: Product menu, notes page, Notes Workspace
 
 **Recall Section**:
 The primary authenticated section that acts as the base entry point for recall capabilities, including starting RecallSessions and reviewing SessionResults.
+The base Recall Section route is the Recall Today screen.
 In v1, the Recall Section should open on Recall Today by default when the User has recommended recall work.
-The User may still enter Recall Selection Mode to search, filter, and manually select Study Notes for a RecallSession.
+Recallable Study Notes with no recall evidence count as recommended recall work for the Recall Section.
+Recall Today keeps Recall Selection Mode available as a secondary action so the User can search, filter, and manually select Study Notes for a RecallSession.
 _Avoid_: Recall dashboard, Recall home, Practice (possible future user-facing label), Recall history, quiz area
 
 **Results Workspace**:
@@ -414,10 +420,11 @@ _Avoid_: Timer page, Pomodoro page, focus history
 
 **Focus Dock**:
 A compact global workspace utility for starting and controlling the active FocusSession without navigating away from the current workspace.
+In v1, the Focus Dock lives in the top-right workspace header on authenticated routes outside the Focus Section.
 In v1, the expanded sidebar does not show a separate Focus Dock footer card.
-In v1, the expanded sidebar Focus navigation row globally surfaces compact FocusSession status and a simple Start or End action inside the same row surface while the non-action row area still navigates to the Focus Section.
-In v1, the expanded sidebar Focus navigation row does not show state-specific BreakInterval or IntervalTransitionWindow actions; richer FocusSession controls belong in the Focus Section or header fallback.
-In v1, when the sidebar is collapsed or unavailable, compact FocusSession status and controls remain available in the workspace header.
+In v1, the expanded sidebar Focus navigation row is navigation-only; it does not show FocusSession status, a timer, or FocusSession controls.
+In v1, compact FocusSession status and controls remain available from the workspace header whether the sidebar is expanded, collapsed, or unavailable.
+In v1, richer FocusSession controls belong in the Focus Section, while the header Focus Dock keeps a compact cross-workspace control surface.
 In v1, Pomodoro timing settings are hidden behind a "Configure" disclosure by default.
 In v1, active-session actions appear only when relevant to the current FocusSession state, such as keeping focus during an IntervalTransitionWindow, skipping a BreakInterval, or starting the next FocusInterval.
 _Avoid_: Timer page, Focus page control, sidebar nav item
@@ -432,8 +439,8 @@ _Avoid_: Bulk edit mode, saved set builder, deck builder
 
 **Practice Repair Workspace**:
 A Practice Repair Section subroute, such as `/practice-repair/:practiceRepairEntryId`, where the User works through one confirmed Practice Repair Entry from correction through completion or follow-up.
-The Practice Repair Workspace explains the active repair and links to the relevant Study Notes Workspace repair action for content changes.
-The Practice Repair Workspace does not duplicate Study Note editing, split, sibling creation, Metaphor, or Acronym editing flows.
+The Practice Repair Workspace explains the active repair and owns quick repair editing for the linked Study Note prompt and expected answer.
+The Practice Repair Workspace does not duplicate full Study Note editing, split, sibling creation, Metaphor, Acronym, Label, or source Note editing flows.
 When the Practice Repair Workspace deep-links to a Study Notes Workspace repair action, it carries the Practice Repair Entry identity as an explicit return target.
 After the linked Study Notes action completes, the UI shows a visible return action to the originating Practice Repair Workspace rather than automatically navigating away.
 When the Practice Repair Entry is completed, the Practice Repair Workspace shows a completion state and makes "Recall again soon" the primary next step.
@@ -510,6 +517,7 @@ _Avoid_: Product menu, sidebar navigation
 - Selecting a suggested repair in the **Practice Repair Draft View** opens an intent-specific confirmation panel on the same page rather than creating workflow state immediately.
 - Confirming from a **Practice Repair Draft View** creates a durable **Practice Repair Entry** and redirects to that entry's **Practice Repair Workspace**.
 - A **Practice Repair Entry** has exactly one **Practice Repair Intent** and one free-text correction.
+- The `tighten-prompt` **Practice Repair Intent** applies when weak recall evidence suggests the **Study Note** prompt itself was unclear, too broad, or asking the wrong thing.
 - The `split-study-note` **Practice Repair Intent** creates one or more sibling **Study Notes** from the same source **Note** and requires narrowing the original **Study Note**.
 - Completing a `split-study-note` **Practice Repair Entry** requires at least one sibling **Study Note** from the same source **Note** and explicit narrowing of the original **Study Note** through the split flow.
 - The `create-sibling-study-note` **Practice Repair Intent** creates another **Study Note** from the same source **Note** without requiring the original **Study Note** to be narrowed.
@@ -520,8 +528,8 @@ _Avoid_: Product menu, sidebar navigation
 - Going forward, **Practice Repair Entries** reference stored **Questions** by stable questionResultId; question index references are legacy fallback only.
 - **Practice Repair Entries** rely on **SessionResult** snapshots for historical recall context rather than duplicating those snapshots.
 - Results review is the creation surface for **Practice Repair Entries**; the **Practice Repair Workspace** is the active workspace after confirmation.
-- The **Practice Repair Workspace** orchestrates active repair work and deep-links to the **Study Notes Workspace** for content changes.
-- Study Note editing, split repair, sibling Study Note creation, and memory-aid creation remain owned by the **Study Notes Workspace**.
+- The **Practice Repair Workspace** orchestrates active repair work and owns quick prompt and expected-answer edits for the linked **Study Note**.
+- Full Study Note editing, split repair, sibling Study Note creation, memory-aid creation, Label editing, and source **Note** editing remain owned by the **Study Notes Workspace**.
 - Deep links from the **Practice Repair Workspace** to the **Study Notes Workspace** carry the originating **Practice Repair Entry** identity as an explicit return target.
 - After the matching linked Study Notes action completes, the UI shows a visible "Return to Practice Repair" action rather than automatically navigating away.
 - When a **Practice Repair Entry** is completed, the **Practice Repair Workspace** shows a completion state and makes "Recall again soon" the primary next step.
@@ -562,7 +570,7 @@ _Avoid_: Product menu, sidebar navigation
 - Searching for a **Note** includes its own title and body plus the titles/content of **Metaphors** and **Acronyms** attached to its Study Notes, but the search result is still the **Note**.
 - Searching/filtering Notes for a **RecallSession** includes the Note title/body and the titles/content of **Metaphors** and **Acronyms** attached to its Study Notes, but the RecallSession target is a **Study Note** extracted from the owning **Note**.
 - A **RecallSession** targets one or more **Study Notes** selected by the **User**
-- The **Recall Section** opens on **Recall Today** by default when recommended recall work exists.
+- The **Recall Section** opens on **Recall Today** by default.
 - **Study Notes** are the durable recall targets used by **RecallSessions**
 - In **RecallSessions**, answer reveal shows the Study Note expected answer before the source **Note**
 - In v1, a **User** can have at most one active **RecallSession** at a time.
@@ -647,14 +655,14 @@ _Avoid_: Product menu, sidebar navigation
 - In v1, the **Focus Section** starts from the standard 25/5 Pomodoro setup with 4 planned **FocusIntervals**
 - In v1, resetting **FocusSession** setup restores the standard 25/5 Pomodoro setup with 4 planned **FocusIntervals**
 - Compact active **FocusSession** controls remain globally available across the authenticated workspace through the **Focus Dock**
-- In v1, the **Focus Dock** is primarily a sidebar footer card when the app sidebar has enough space, with a compact text-pill workspace-header fallback when the sidebar is collapsed or unavailable
+- In v1, the **Focus Dock** is a compact workspace-header utility on authenticated routes outside the **Focus Section**; the sidebar remains navigation-only
 - Starting a **FocusSession** from the **Focus Dock** does not navigate the **User** away from their current workspace screen
 - Route-local FocusSession start and control buttons are used in the **Focus Section**; the **Focus Dock** remains the compact active FocusSession control surface on other authenticated workspace routes
 - In v1, the **Focus Section** does not need chart-based analytics
 - In v1, the primary navigation label for the **Focus Section** is "Focus"
 - In v1, the **Focus Section** route is `/focus`
 - In v1, **FocusRecords** are not editable or deletable
-- The "Focus" sidebar navigation item opens the **Focus Section** for active FocusSessions, completed FocusRecords, and focus analytics, while the "Focus now" **Focus Dock** provides compact active FocusSession controls elsewhere
+- The "Focus" sidebar navigation item opens the **Focus Section** for active FocusSessions, completed FocusRecords, and focus analytics, while the top-right "Focus now" **Focus Dock** provides compact active FocusSession controls elsewhere
 - The **Study Notes Workspace** owns Study Note search/filter, Study Note selection, Study Note editing, source Note editing, and source Note creation through the New Study Note flow.
 - The **Study Notes Workspace** supports adding another **Study Note** from an existing source **Note** when the User splits a source into multiple recall targets.
 - A linked split repair flow in the **Study Notes Workspace** creates one or more sibling **Study Notes** from the same source **Note** and requires narrowing the original **Study Note**.
@@ -665,10 +673,10 @@ _Avoid_: Product menu, sidebar navigation
 - The **Study Note** editor does not create **Practice Repair Entries** without recall evidence in v1.
 - The source **Note** title/body is visible by default in the Study Note editor.
 - The **Recall Section** owns starting **RecallSessions** and reviewing **SessionResults**.
-- The **Study Notes Workspace** may provide a lightweight "Start Recall" entry point for convenience, but it only opens the **Recall Section**; Study Note selection happens inside Recall.
+- The **Study Notes Workspace** may provide a lightweight "Start Recall" entry point for convenience; when Recall Today has work, it starts the current Recall Today queue, and when Recall Today is empty, it opens the base **Recall Section**.
 - In v1, the primary navigation label for the **Recall Section** is "Recall".
 - The default `/recall` screen does not need a separate domain term; it is the base **Recall Section**.
-- The base **Recall Section** may open on **Recall Today** when recommended recall work exists; completed recall work has its own **Results Workspace**.
+- The base **Recall Section** is **Recall Today**; completed recall work has its own **Results Workspace**.
 - The **Results Workspace** route is `/recall/results`.
 - The **Results Workspace** presents completed **SessionResults** in a master-detail layout, similar to the **Study Notes Workspace**.
 - The **Results Workspace** includes a persistent selectable list of **SessionResults**, sorted newest first.
@@ -710,7 +718,7 @@ _Avoid_: Product menu, sidebar navigation
 - Starting a new **RecallSession** remains a prominent action in the **Recall Section** and **Results Workspace**.
 - The **Results Workspace** places **Start Recall** above the **SessionResult** list, mirroring the **Study Notes Workspace** list action placement while keeping recall-specific wording.
 - In v1, starting a new **RecallSession** from the **Results Workspace** happens from the master-panel **Start Recall** action, not from selected-result footer actions.
-- **Start Recall** opens **Recall Selection Mode**.
+- **Start Recall** from the **Results Workspace** opens **Recall Selection Mode**.
 - The **Results Workspace** supports filtering **SessionResults** by **Label**, but **Labels** remain grouping/filtering aids rather than the foundation of **RecallSession** targeting.
 - The **Results Workspace** remains available when there are no **SessionResults** and shows an empty Results state with **Start Recall** prominent.
 - If the **Recall Section** has no recallable **Study Notes**, it owns the empty state and provides a path to the **Study Notes Workspace** to create Study Notes.
@@ -725,9 +733,9 @@ _Avoid_: Product menu, sidebar navigation
 - Exiting **Recall Selection Mode** clears the temporary selected Study Notes unless a **RecallSession** has already been started.
 - Cancelling **Recall Selection Mode** returns the User to the base **Recall Section** and clears the temporary selected Study Notes.
 - Starting a **RecallSession** takes the User from the **Recall Section** to a **Recall Session View**.
-- Ending or completing a **RecallSession** returns the User to the base **Recall Section**.
-- A completed **RecallSession** creates a **SessionResult** and appears in the base **Recall Section** after returning there.
-- A **RecallSession** ended early after at least one attempted Question creates a **SessionResult** and appears in the base **Recall Section** like any completed session.
+- Ending a **RecallSession** with no attempted Questions returns the User to the base **Recall Section**.
+- A completed **RecallSession** creates a **SessionResult** and takes the User to the **Results Workspace**.
+- A **RecallSession** ended early after at least one attempted Question creates a **SessionResult** and takes the User to the **Results Workspace** like any completed session.
 - The **Recall Session View** is only valid while there is an active **RecallSession**; without one, the User returns to the **Recall Section**.
 - The **Workspace Breadcrumb** shows the User whether they are in the **Study Notes Workspace**, the base **Recall Section**, or an active **Recall Session View**.
 - The **Workspace Breadcrumb** is structural, such as Recall / Session; RecallSession progress belongs inside the **Recall Session View**, not in the breadcrumb.
@@ -860,7 +868,7 @@ _Avoid_: Product menu, sidebar navigation
 > **Dev:** "If one **FocusSession** touches `React`, `CSS`, and unlabeled Study Note work, how many minutes does each one get?"
 > **Domain expert:** "In v1 we only record that those **FocusTargets** appeared in the **FocusSession**; exact per-target minute splitting is deferred."
 
-> **Dev:** "If the **Focus Dock** lives in the sidebar, is focus just another navigation destination?"
+> **Dev:** "If the **Focus Dock** sits near the sidebar navigation, is focus just another navigation destination?"
 > **Domain expert:** "No — the **Focus Dock** is a persistent utility for the active **FocusSession**. The **Focus Section** remains the destination for reviewing **FocusRecords**."
 
 > **Dev:** "Does v1 need a product-menu sidebar with Study Notes, Recall, Labels, History, and Settings?"
@@ -870,22 +878,22 @@ _Avoid_: Product menu, sidebar navigation
 > **Domain expert:** "No — the User enters **Recall Selection Mode** from the **Recall Section**, then searches/filters Study Notes for the new **RecallSession**."
 
 > **Dev:** "Can the **Study Notes Workspace** still offer a way to start recall?"
-> **Domain expert:** "Yes — it can provide a lightweight Start Recall entry point, but it only opens the **Recall Section**; the User selects Study Notes for recall there."
+> **Domain expert:** "Yes — it can start the current **Recall Today** queue when one exists; otherwise it opens the base **Recall Section**."
 
 > **Dev:** "Should Start Recall from Study Notes carry the currently selected Study Note into Recall?"
-> **Domain expert:** "No — starting from Study Notes opens Recall without preselection. Selection happens in the **Recall Section**."
+> **Domain expert:** "No — starting from Study Notes uses **Recall Today**, not the currently selected Study Note. Manual selection happens in **Recall Selection Mode**."
 
 > **Dev:** "Should **Recall Selection Mode** show the full Note editor?"
 > **Domain expert:** "No — it is a dedicated recall picker. It can reuse Note search/filter behaviour, but selection means adding a Study Note to the RecallSession target set."
 
 > **Dev:** "After the User starts a **RecallSession**, does the session stay on the same Study Notes screen?"
-> **Domain expert:** "No — the active session opens in a **Recall Session View**, and ending the session returns to the **Recall Section**."
+> **Domain expert:** "No — the active session opens in a **Recall Session View**; after it ends, the destination depends on whether any Questions were attempted."
 
 > **Dev:** "After a **RecallSession** completes, should the User go directly to full **Results**?"
-> **Domain expert:** "Return to the **Recall Section**; the completed session appears as a **SessionResult** in the **Results Workspace**."
+> **Domain expert:** "Yes — a completed **RecallSession** creates a **SessionResult** and takes the User to the **Results Workspace**."
 
 > **Dev:** "If the User ends a **RecallSession** early after one attempted Question, does it appear in **Results**?"
-> **Domain expert:** "Yes — it created a **SessionResult**, so it appears anywhere SessionResults are shown."
+> **Domain expert:** "Yes — it creates a **SessionResult** and takes the User to the **Results Workspace**."
 
 > **Dev:** "Can the User open the **Recall Session View** directly when no **RecallSession** is active?"
 > **Domain expert:** "No — without an active **RecallSession**, they return to the **Recall Section**."
@@ -995,9 +1003,9 @@ _Avoid_: Product menu, sidebar navigation
 - "Unlabeled Notes" were previously excluded from recall — resolved for v1: Study Notes remain recallable without Labels.
 - "Saved recall set" could have introduced a new grouping concept — resolved for v1: Recall Study Note selection is temporary and not reusable.
 - "Recall" could have meant only an action started from Study Notes — resolved for v1: the **Recall Section** is a primary Learning Loop section beside the **Study Notes Workspace**.
-- The **Recall Section** could have required the User to manually select Study Notes for every **RecallSession** — resolved: it opens on **Recall Today** by default when recommended recall work exists, while **Recall Selection Mode** remains available.
+- The **Recall Section** could have required the User to manually select Study Notes for every **RecallSession** — resolved: it opens on **Recall Today** by default, while **Recall Selection Mode** remains available.
 - Automatic mixed recall could have started immediately for all **Study Notes** — resolved: **Interleaved Recall** waits for two Good/Easy recall attempts per Study Note and a related pool of at least four eligible Study Notes.
-- "Start Recall" in the **Study Notes Workspace** could have meant Study Notes owns recall setup or passes selected Study Notes into Recall — resolved for v1: it only opens the **Recall Section** without preselection.
+- "Start Recall" in the **Study Notes Workspace** could have meant Study Notes owns recall setup or passes selected Study Notes into Recall — resolved for v1: it starts the current **Recall Today** queue when one exists, otherwise it opens the base **Recall Section** without preselection.
 - "Recall" may be less familiar than "Practice" to general users — resolved for v1: keep "Recall" as the navigation label and revisit after user feedback.
 - "Selecting Notes" could mean opening source material for editing or choosing practice material for recall — resolved: in the **Study Notes Workspace**, selection opens a Study Note for editing; in **Recall Selection Mode**, selection toggles Study Notes into the temporary RecallSession target set.
 - "Recall view" could have meant the base **Recall Section**, the **Results Workspace**, a **Practice Repair Workspace**, or an active **Recall Session View** — resolved: `/recall` is the base entry route, `/recall/results` reviews SessionResults, `/recall/session` only represents an active RecallSession, and `/practice-repair/:practiceRepairEntryId` handles confirmed Practice Repair work.
@@ -1008,7 +1016,7 @@ _Avoid_: Product menu, sidebar navigation
 - "Language selector" could have been a stored preference without visible translated UI — resolved for v1: **User Language** must translate app chrome for all supported languages.
 - "Initial language" could have required a registration form choice — resolved for v1: detect from browser on first visit, fall back to English, and let the User change it later in Settings.
 - "Anonymous language" could have stayed English until login — resolved for v1: anonymous pages use detected **User Language**, while authenticated pages use stored **User Language**.
-- "Recall Dashboard" or "Recall Home" could have named the default `/recall` screen — resolved: use **Recall Section** only; it may open on **Recall Today** when recommended recall work exists, while completed recall work belongs to the **Results Workspace**.
+- "Recall Dashboard" or "Recall Home" could have named the default `/recall` screen — resolved: use **Recall Section** only; the base route is **Recall Today**, while completed recall work belongs to the **Results Workspace**.
 - "Exam notes" could have meant the app is already the primary source of truth for exam material — resolved: for the exam-support pilot, the app is a **Study Layer** over material that remains available elsewhere, while the long-term direction is to become the **User**'s primary study workspace.
 - "notes from other platforms" could have meant external pages become recall targets — resolved: future **Source Import** may bring external material into the **Study Layer**, but **Study Notes** remain the practiced memory unit.
 - "Breadcrumb" could have acted like primary navigation — resolved: the **Workspace Breadcrumb** indicates position inside the current workspace section, not product sections.
@@ -1104,4 +1112,4 @@ _Avoid_: Product menu, sidebar navigation
 - "Starting focus" could have navigated to the **Focus Section** — resolved: starting a **FocusSession** from the global control keeps the **User** on the current workspace screen.
 - "Focus Section controls" could have diverged from the global controls — resolved: `/focus` may show the same active **FocusSession** state, but there is still one control model and one active **FocusSession**.
 - "Per-target analytics" could have implied exact time allocation — resolved: in v1, target presence is recorded without minute-level attribution.
-- "Side app menu" could have made the active **FocusSession** control disappear behind navigation or feel like a route — resolved: use a sidebar-first **Focus Dock** with a workspace-header fallback when the sidebar is collapsed or unavailable.
+- "Side app menu" could have made the active **FocusSession** control disappear behind navigation or feel like a route — resolved: keep the sidebar Focus item navigation-only and use a top-right workspace-header **Focus Dock** for compact controls.

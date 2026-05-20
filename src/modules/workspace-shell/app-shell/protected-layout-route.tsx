@@ -23,13 +23,9 @@ import type { AppSessionSnapshot } from "../../access/session/session";
 import { useResolvedProtectedSession } from "../../access/session/use-resolved-protected-session";
 import {
   type AppFocusContext,
-  AppFocusError,
   type AppPersistentFocusContext,
-  endActiveFocusSession,
   FocusDock,
   type FocusSession,
-  startDefaultFocusSession,
-  useFocusTimerTick,
 } from "../../focus";
 import { useAppTranslation } from "../../language";
 import { NotesWorkspaceProvider } from "../../notes";
@@ -89,8 +85,6 @@ const recallSubNavigationItems = [
     to: appRoutePaths.recallResults,
   },
 ] as const;
-
-const SIDEBAR_DOCK_UNAVAILABLE_QUERY = "(max-width: 51.99rem)";
 
 function isWorkspacePath(pathname: string, workspacePath: string) {
   return pathname === workspacePath || pathname.startsWith(`${workspacePath}/`);
@@ -245,15 +239,10 @@ export function AppLayout() {
   const sidebarToggleLabel = isSidebarCollapsed
     ? t("shell.navigation.expandSidebar")
     : t("shell.navigation.collapseSidebar");
-  const isSidebarDockUnavailable = useMediaQuery(
-    SIDEBAR_DOCK_UNAVAILABLE_QUERY,
-  );
   const userId = sessionSnapshot.user?.id ?? null;
   const activeFocusSession =
     userId === null ? null : focus.getActiveSession({ userId });
-  const shouldRenderFocusDock = !isFocusWorkspaceRoute;
-  const showHeaderFocusDock =
-    shouldRenderFocusDock && (isSidebarCollapsed || isSidebarDockUnavailable);
+  const showHeaderFocusDock = !isFocusWorkspaceRoute;
 
   function closeMobileSidebar(options?: { returnFocusToToggle?: boolean }) {
     setMobileSidebarOpen(false);
@@ -380,11 +369,7 @@ export function AppLayout() {
 
           <GlobalNavigation
             currentPathname={location.pathname}
-            focus={focus}
             onNavigate={closeMobileSidebar}
-            persistentFocus={persistentFocus}
-            showFocusAction={!isSidebarDockUnavailable}
-            userId={userId}
           />
 
           <div className="app-sidebar__footer">
@@ -601,53 +586,6 @@ function WorkspaceMetaActions({
   );
 }
 
-function useMediaQuery(query: string) {
-  const [matches, setMatches] = useState(() => getMatchesMediaQuery(query));
-
-  useEffect(() => {
-    if (
-      typeof window === "undefined" ||
-      typeof window.matchMedia !== "function"
-    ) {
-      return;
-    }
-
-    const mediaQueryList = window.matchMedia(query);
-    const handleChange = () => {
-      setMatches(mediaQueryList.matches);
-    };
-
-    handleChange();
-
-    if (typeof mediaQueryList.addEventListener === "function") {
-      mediaQueryList.addEventListener("change", handleChange);
-
-      return () => {
-        mediaQueryList.removeEventListener("change", handleChange);
-      };
-    }
-
-    mediaQueryList.addListener(handleChange);
-
-    return () => {
-      mediaQueryList.removeListener(handleChange);
-    };
-  }, [query]);
-
-  return matches;
-}
-
-function getMatchesMediaQuery(query: string) {
-  if (
-    typeof window === "undefined" ||
-    typeof window.matchMedia !== "function"
-  ) {
-    return false;
-  }
-
-  return window.matchMedia(query).matches;
-}
-
 function WorkspaceDate({
   workspaceDate,
 }: Readonly<{
@@ -663,22 +601,13 @@ function WorkspaceDate({
 
 function GlobalNavigation({
   currentPathname,
-  focus,
   onNavigate,
-  persistentFocus,
-  showFocusAction,
-  userId,
 }: Readonly<{
   currentPathname: string;
-  focus: AppFocusContext;
   onNavigate: () => void;
-  persistentFocus: AppPersistentFocusContext | undefined;
-  showFocusAction: boolean;
-  userId: string | null;
 }>) {
   const { t } = useAppTranslation();
   const isRecallRouteActive = isRecallWorkspacePath(currentPathname);
-  const isFocusRouteActive = isFocusWorkspacePath(currentPathname);
 
   return (
     <nav
@@ -689,33 +618,21 @@ function GlobalNavigation({
         {globalNavigationItems.map((navigationItem) => {
           return (
             <li key={navigationItem.to}>
-              {navigationItem.to === appRoutePaths.focus ? (
-                <FocusNavigationRow
-                  focus={focus}
-                  isRouteActive={isFocusRouteActive}
-                  label={t(navigationItem.labelKey)}
-                  onNavigate={onNavigate}
-                  persistentFocus={persistentFocus}
-                  showAction={showFocusAction}
-                  userId={userId}
-                />
-              ) : (
-                <Link
-                  activeProps={{
-                    className: "app-sidebar__link app-sidebar__link-active",
-                  }}
-                  className="app-sidebar__link"
-                  onClick={onNavigate}
-                  to={navigationItem.to}
-                >
-                  <span aria-hidden="true" className="app-sidebar__icon">
-                    <NavigationIcon name={navigationItem.iconName} />
-                  </span>
-                  <span className="app-sidebar__label">
-                    {t(navigationItem.labelKey)}
-                  </span>
-                </Link>
-              )}
+              <Link
+                activeProps={{
+                  className: "app-sidebar__link app-sidebar__link-active",
+                }}
+                className="app-sidebar__link"
+                onClick={onNavigate}
+                to={navigationItem.to}
+              >
+                <span aria-hidden="true" className="app-sidebar__icon">
+                  <NavigationIcon name={navigationItem.iconName} />
+                </span>
+                <span className="app-sidebar__label">
+                  {t(navigationItem.labelKey)}
+                </span>
+              </Link>
               {navigationItem.to === appRoutePaths.recall &&
               isRecallRouteActive ? (
                 <ul className="app-sidebar__sublist">
@@ -743,160 +660,6 @@ function GlobalNavigation({
       </ul>
     </nav>
   );
-}
-
-function FocusNavigationRow({
-  focus,
-  isRouteActive,
-  label,
-  onNavigate,
-  persistentFocus,
-  showAction,
-  userId,
-}: Readonly<{
-  focus: AppFocusContext;
-  isRouteActive: boolean;
-  label: string;
-  onNavigate: () => void;
-  persistentFocus: AppPersistentFocusContext | undefined;
-  showAction: boolean;
-  userId: string | null;
-}>) {
-  const { t } = useAppTranslation();
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const actionErrorId = useId();
-  const timerElementId = useId();
-  const currentActiveFocusSession =
-    userId === null ? null : focus.getActiveSession({ userId });
-  useFocusTimerTick(currentActiveFocusSession);
-  const isSessionActive = currentActiveFocusSession !== null;
-  const isActionDisabled = userId === null;
-  const errorDescriptionId = errorMessage === null ? undefined : actionErrorId;
-  const focusActionInput = { focus, persistentFocus, userId };
-  const focusNavClassName = [
-    "app-sidebar__focus-nav",
-    isRouteActive ? "app-sidebar__focus-nav--route-active" : "",
-    isSessionActive ? "app-sidebar__focus-nav--session-active" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const timerLabel =
-    currentActiveFocusSession === null
-      ? null
-      : formatFocusNavTimerLabel(currentActiveFocusSession);
-  const timerDescriptionId = timerLabel === null ? undefined : timerElementId;
-  const actionLabel = isSessionActive
-    ? t("focus.action.end")
-    : t("focus.action.start");
-
-  useEffect(() => {
-    if (currentActiveFocusSession === null) {
-      return;
-    }
-
-    setErrorMessage(null);
-  }, [currentActiveFocusSession]);
-
-  async function runAction() {
-    if (userId === null) {
-      return;
-    }
-
-    try {
-      if (currentActiveFocusSession === null) {
-        await startDefaultFocusSession(focusActionInput);
-      } else {
-        await endActiveFocusSession(focusActionInput);
-      }
-
-      setErrorMessage(null);
-    } catch (error) {
-      if (error instanceof AppFocusError) {
-        setErrorMessage(error.message);
-        return;
-      }
-
-      throw error;
-    }
-  }
-
-  if (!showAction) {
-    return (
-      <Link
-        activeProps={{
-          className: "app-sidebar__link app-sidebar__link-active",
-        }}
-        className="app-sidebar__link"
-        onClick={onNavigate}
-        to={appRoutePaths.focus}
-      >
-        <span aria-hidden="true" className="app-sidebar__icon">
-          <NavigationIcon name="focus" />
-        </span>
-        <span className="app-sidebar__label">{label}</span>
-      </Link>
-    );
-  }
-
-  return (
-    <div
-      className={focusNavClassName}
-      data-focus-active={isSessionActive ? "true" : "false"}
-    >
-      <Link
-        activeProps={{
-          className:
-            "app-sidebar__link app-sidebar__focus-link app-sidebar__focus-link-active",
-        }}
-        aria-describedby={timerDescriptionId}
-        aria-label={label}
-        className="app-sidebar__link app-sidebar__focus-link"
-        onClick={onNavigate}
-        to={appRoutePaths.focus}
-      >
-        <span aria-hidden="true" className="app-sidebar__icon">
-          <NavigationIcon name="focus" />
-        </span>
-        <span className="app-sidebar__label">{label}</span>
-        {timerLabel === null ? null : (
-          <span className="app-sidebar__focus-timer" id={timerElementId}>
-            {timerLabel}
-          </span>
-        )}
-      </Link>
-      <div className="app-sidebar__focus-action-slot">
-        <Button
-          aria-describedby={errorDescriptionId}
-          className="app-sidebar__focus-action"
-          disabled={isActionDisabled}
-          onClick={() => void runAction()}
-          size="compact"
-          type="button"
-          variant={isSessionActive ? "standard" : "secondary"}
-        >
-          {actionLabel}
-        </Button>
-      </div>
-      {errorMessage === null ? null : (
-        <span
-          className="app-sidebar__focus-error"
-          id={actionErrorId}
-          role="status"
-        >
-          {errorMessage}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function formatFocusNavTimerLabel(session: FocusSession) {
-  const remainingSeconds = session.remainingSeconds ?? 0;
-  const normalizedSeconds = remainingSeconds <= 0 ? 0 : remainingSeconds;
-  const minutes = Math.floor(normalizedSeconds / 60);
-  const seconds = normalizedSeconds % 60;
-
-  return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 }
 
 function AccountMenu({

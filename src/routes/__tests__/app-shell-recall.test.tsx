@@ -1795,10 +1795,22 @@ describe("authenticated recall workspace", () => {
       within(evidence).getByText("No answer provided."),
     ).toBeInTheDocument();
     expect(
-      within(evidence).getByText(
+      within(evidence).getAllByText(
         "An action potential has resting, depolarization, peak, repolarization, and hyperpolarization phases.",
-      ),
+      )[0],
     ).toBeInTheDocument();
+    expect(
+      within(evidence).getByRole("textbox", { name: "Current prompt" }),
+    ).toHaveValue(
+      "List and briefly describe the phases of an action potential in a neuron.",
+    );
+    expect(
+      within(evidence).getByRole("textbox", {
+        name: "Current expected answer",
+      }),
+    ).toHaveValue(
+      "An action potential has resting, depolarization, peak, repolarization, and hyperpolarization phases.",
+    );
     expect(
       within(evidence).getByText(
         "It's okay--weak recall is a signal to adjust and reinforce.",
@@ -1819,8 +1831,11 @@ describe("authenticated recall workspace", () => {
       within(evidence).getByRole("link", { name: /View note/ }),
     ).toBeInTheDocument();
     expect(
-      within(evidence).getByRole("link", { name: /Edit note/ }),
-    ).toBeInTheDocument();
+      within(evidence).queryByRole("link", { name: /Edit note/ }),
+    ).toBeNull();
+    expect(
+      within(evidence).queryByRole("button", { name: /Save changes/ }),
+    ).toBeNull();
     expect(
       within(evidence).getByRole("button", { name: /Recall again/ }),
     ).toBeInTheDocument();
@@ -1939,7 +1954,7 @@ describe("authenticated recall workspace", () => {
     });
   });
 
-  it("deep-links Edit note with the saved repair intent and return target", async () => {
+  it("saves current prompt and expected answer edits from Practice Repair without completing the entry", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const weakStudyNote = contexts.studyNotesContext.createStudyNote(
       testUser.id,
@@ -1965,25 +1980,49 @@ describe("authenticated recall workspace", () => {
       intent: "tighten-expected-answer",
       studyNoteId: weakStudyNote.id,
     });
-    const practiceRepairEntryId =
-      getConfirmedPracticeRepairEntryId(confirmedResult);
-    const { router } = renderRoute(
-      getConfirmedPracticeRepairPath(confirmedResult),
-      {
-        ...contexts,
-        session: createSession(),
+    renderRoute(getConfirmedPracticeRepairPath(confirmedResult), {
+      ...contexts,
+      session: createSession(),
+    });
+
+    const evidence = await screen.findByRole("region", {
+      name: "Practice Repair evidence",
+    });
+    const promptInput = within(evidence).getByRole("textbox", {
+      name: "Current prompt",
+    });
+    const expectedAnswerInput = within(evidence).getByRole("textbox", {
+      name: "Current expected answer",
+    });
+
+    fireEvent.change(promptInput, {
+      target: { value: "What molecule transfers energy in cells?" },
+    });
+    fireEvent.change(expectedAnswerInput, {
+      target: {
+        value: "ATP transfers usable energy between cellular reactions.",
       },
+    });
+
+    fireEvent.click(
+      within(evidence).getByRole("button", { name: /Save changes/ }),
     );
 
-    fireEvent.click(await screen.findByRole("link", { name: /Edit note/ }));
+    await screen.findByText("Study Note changes saved");
 
-    await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/study-notes");
+    const updatedStudyNote = contexts.studyNotesContext
+      .getSnapshot()
+      .find((studyNote) => studyNote.id === weakStudyNote.id);
+    expect(updatedStudyNote).toMatchObject({
+      expectedAnswer: "ATP transfers usable energy between cellular reactions.",
+      prompt: "What molecule transfers energy in cells?",
     });
-    expect(router.state.location.search).toMatchObject({
-      practiceRepairAction: "tighten-expected-answer",
-      practiceRepairEntryId,
-    });
+    const updatedResult = contexts.recallContext
+      .getSessionResultsSnapshot()
+      .find((result) => result.id === confirmedResult.id);
+    expect(
+      updatedResult?.questions[0]?.practiceRepairEntry?.lifecycle?.completedAt,
+    ).toBeUndefined();
   });
 
   it("shows the next step for a completed Practice Repair workspace", async () => {

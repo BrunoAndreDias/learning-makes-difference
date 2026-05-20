@@ -2514,6 +2514,74 @@
   font-style: italic;
 }
 
+.recall-practice-repair-workspace__current-editor {
+  display: grid;
+  gap: var(--space-4);
+  margin: var(--space-2) var(--space-6) 0;
+  padding: var(--space-5);
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--color-shell-panel) 92%, white);
+}
+
+.recall-practice-repair-workspace__current-editor-copy h3 {
+  margin: 0;
+  color: var(--color-content-strong);
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.recall-practice-repair-workspace__current-fields {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.recall-practice-repair-workspace__current-field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.recall-practice-repair-workspace__current-field span {
+  color: var(--color-content-muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.recall-practice-repair-workspace__current-field input,
+.recall-practice-repair-workspace__current-field textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--color-content-border);
+  border-radius: 0.55rem;
+  background: var(--color-shell-panel);
+  color: var(--color-content-strong);
+  font: inherit;
+  line-height: 1.45;
+}
+
+.recall-practice-repair-workspace__current-field input {
+  min-height: var(--lmd-input-height);
+  padding: 0 var(--space-3);
+}
+
+.recall-practice-repair-workspace__current-field textarea {
+  min-height: calc(var(--lmd-textarea-min-height) * 1.2);
+  padding: var(--space-3);
+  resize: vertical;
+}
+
+.recall-practice-repair-workspace__current-field input:focus,
+.recall-practice-repair-workspace__current-field textarea:focus {
+  border-color: var(--color-accent-strong);
+  outline: 3px solid
+    color-mix(in srgb, var(--color-accent-strong) 20%, transparent);
+}
+
+.recall-practice-repair-workspace__current-editor-unavailable {
+  margin: 0;
+  color: var(--color-content-muted);
+}
+
 .recall-practice-repair-workspace__rating {
   white-space: nowrap;
 }
@@ -2707,6 +2775,11 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-5);
   padding: var(--space-5) var(--space-6) var(--space-6);
+}
+
+.recall-practice-repair-workspace__evidence--compact
+  .recall-practice-repair-workspace__quick-actions[data-has-save-action="false"] {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .recall-practice-repair-workspace__repair-list {

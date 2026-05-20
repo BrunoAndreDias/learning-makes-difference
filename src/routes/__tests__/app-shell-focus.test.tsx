@@ -16,6 +16,19 @@ type DeterministicRecallTestContexts = ReturnType<
   typeof createDeterministicRecallTestContexts
 >;
 
+function getWorkspaceHeader() {
+  const workspaceHeader = document.querySelector(
+    ".app-frame__workspace-header",
+  );
+  expect(workspaceHeader).toBeInstanceOf(HTMLElement);
+
+  return workspaceHeader as HTMLElement;
+}
+
+function getHeaderFocusDock(name = "Focus now") {
+  return within(getWorkspaceHeader()).getByRole("region", { name });
+}
+
 function createRecallableStudyNote(
   contexts: DeterministicRecallTestContexts,
   input: {
@@ -163,6 +176,7 @@ describe("authenticated app shell", () => {
     expect(
       document.querySelector(".app-frame__actions .app-focus-session-start"),
     ).toBeNull();
+    expect(screen.queryByRole("region", { name: "Focus now" })).toBeNull();
     const sidebar = screen.getByRole("complementary", {
       name: "Study Notes workspace",
     });
@@ -170,8 +184,9 @@ describe("authenticated app shell", () => {
       name: "App sections",
     });
     expect(
-      within(appSections).getByRole("button", { name: "Start Focus" }),
-    ).toBeEnabled();
+      within(appSections).getByRole("link", { name: "Focus" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(within(appSections).queryByRole("button")).toBeNull();
 
     const sessionDashboard = screen.getByRole("region", {
       name: "Start a focus session",
@@ -723,20 +738,15 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "Settings" }),
     ).toBeInTheDocument();
 
-    const sidebar = screen.getByRole("complementary", {
-      name: "Study Notes workspace",
-    });
-    const appSections = within(sidebar).getByRole("navigation", {
-      name: "App sections",
-    });
+    const focusDock = getHeaderFocusDock();
 
     fireEvent.click(
-      within(appSections).getByRole("button", { name: "Start Focus" }),
+      within(focusDock).getByRole("button", { name: "Start focus" }),
     );
 
     expect(router.state.location.pathname).toBe("/settings");
     expect(
-      screen.getByRole("button", { name: "End focus" }),
+      within(focusDock).getByRole("button", { name: /End focus/ }),
     ).toBeInTheDocument();
     expect(focusContext.getActiveSession({ userId })).toMatchObject({
       breakIntervalMinutes: 5,
@@ -747,7 +757,7 @@ describe("authenticated app shell", () => {
     });
   });
 
-  it("keeps the global Focus row available across recall, Study Notes, and settings", async () => {
+  it("keeps the global header Focus Dock available across recall, Study Notes, and settings", async () => {
     const focusContext = createAppFocusContext({
       keyPrefix: `test-focus-global-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
@@ -769,10 +779,13 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { level: 2, name: "Recall" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Start Focus" }));
+    let focusDock = getHeaderFocusDock();
+    fireEvent.click(
+      within(focusDock).getByRole("button", { name: "Start focus" }),
+    );
 
     expect(
-      screen.getByRole("button", { name: "End focus" }),
+      within(focusDock).getByRole("button", { name: /End focus/ }),
     ).toBeInTheDocument();
 
     await router.navigate({ to: "/study-notes" });
@@ -780,8 +793,9 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/study-notes");
+    focusDock = getHeaderFocusDock();
     expect(
-      screen.getByRole("button", { name: "End focus" }),
+      within(focusDock).getByRole("button", { name: /End focus/ }),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /account menu/i }));
@@ -790,12 +804,13 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { name: "Settings" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/settings");
+    focusDock = getHeaderFocusDock();
     expect(
-      screen.getByRole("button", { name: "End focus" }),
+      within(focusDock).getByRole("button", { name: /End focus/ }),
     ).toBeInTheDocument();
   });
 
-  it("renders the collapsed-header Focus Dock copy for idle, active, paused, break, and complete states", async () => {
+  it("renders the header Focus Dock copy for idle, active, paused, break, and complete states", async () => {
     const session = {
       user: {
         displayName: "Casey Dock",
@@ -820,7 +835,7 @@ describe("authenticated app shell", () => {
     collapseSidebar();
     const idleDock = await screen.findByRole("region", { name: "Focus now" });
     expect(
-      within(idleDock).getByRole("button", { name: "Start Pomodoro" }),
+      within(idleDock).getByRole("button", { name: "Start focus" }),
     ).toBeInTheDocument();
     idleRender.unmount();
 
@@ -973,7 +988,7 @@ describe("authenticated app shell", () => {
       await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "End focus" }),
+      screen.getByRole("button", { name: /End focus/ }),
     ).toBeInTheDocument();
     expect(reloadedFocusContext.getActiveSession({ userId })).toMatchObject({
       breakIntervalMinutes: 7,

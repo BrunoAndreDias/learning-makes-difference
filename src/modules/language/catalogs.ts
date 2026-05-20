@@ -76,7 +76,7 @@ const englishTranslations = {
   "settings.userTimeZone.label": "User Time Zone",
   "focus.activeSession.legend": "Active focus session",
   "focus.action.end": "End focus",
-  "focus.action.start": "Start Focus",
+  "focus.action.start": "Start focus",
   "focus.action.startNew": "Start new focus",
   "focus.activity.description":
     "Focus supports your ability to show up for recall and study.",
@@ -105,7 +105,7 @@ const englishTranslations = {
   "focus.description":
     "Focus time supports your attention and recovery so you can study well. It does not count as recall evidence.",
   "focus.dock.heading": "Focus now",
-  "focus.dock.start": "Start Pomodoro",
+  "focus.dock.start": "Start focus",
   "focus.dock.state.active": "Focus session",
   "focus.dock.state.complete": "Focus complete",
   "focus.dock.state.paused": "Focus paused",
@@ -593,7 +593,7 @@ const portugueseTranslations = {
   "settings.userTimeZone.label": "Fuso horario",
   "focus.activeSession.legend": "Sessao de foco ativa",
   "focus.action.end": "Terminar foco",
-  "focus.action.start": "Iniciar Foco",
+  "focus.action.start": "Iniciar foco",
   "focus.action.startNew": "Iniciar novo foco",
   "focus.activity.description":
     "O foco apoia a sua capacidade de aparecer para recordar e estudar.",
@@ -622,7 +622,7 @@ const portugueseTranslations = {
   "focus.description":
     "O tempo de foco apoia a sua atencao e recuperacao para estudar bem. Nao conta como evidencia de recordacao.",
   "focus.dock.heading": "Foco agora",
-  "focus.dock.start": "Iniciar Pomodoro",
+  "focus.dock.start": "Iniciar foco",
   "focus.dock.state.active": "Sessao de foco",
   "focus.dock.state.complete": "Foco concluido",
   "focus.dock.state.paused": "Foco em pausa",
@@ -1148,7 +1148,7 @@ const spanishTranslations = {
   "focus.description":
     "El tiempo de concentracion apoya tu atencion y recuperacion para estudiar bien. No cuenta como evidencia de repaso.",
   "focus.dock.heading": "Concentracion ahora",
-  "focus.dock.start": "Iniciar Pomodoro",
+  "focus.dock.start": "Iniciar concentracion",
   "focus.dock.state.active": "Sesion de concentracion",
   "focus.dock.state.complete": "Concentracion completa",
   "focus.dock.state.paused": "Concentracion en pausa",

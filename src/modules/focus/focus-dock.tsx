@@ -133,6 +133,40 @@ export function FocusDock({
   const primaryActionLabel = isCompletedSession
     ? t("focus.dock.start")
     : getFocusDockPrimaryActionLabel(currentActiveFocusSession, t);
+  const timerLabel = isCompletedSession
+    ? null
+    : formatRemainingTimerLabel(currentActiveFocusSession);
+
+  if (isCompletedSession) {
+    return (
+      <section
+        aria-label={t("focus.dock.heading")}
+        className={FOCUS_DOCK_CLASS_NAME}
+        data-state={getFocusDockDataState(currentActiveFocusSession)}
+      >
+        <div className="focus-dock__body">
+          <span className="focus-dock__status">{focusDockStatusLabel}</span>
+          <div className="focus-dock__actions">
+            <Button
+              aria-describedby={errorDescriptionId}
+              disabled={isActionDisabled}
+              onClick={() => {
+                void runDockAction(() =>
+                  runPrimaryAction(currentActiveFocusSession),
+                );
+              }}
+              size="compact"
+              type="button"
+              variant="secondary"
+            >
+              {primaryActionLabel}
+            </Button>
+          </div>
+          {renderErrorMessage()}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section
@@ -141,10 +175,11 @@ export function FocusDock({
       data-state={getFocusDockDataState(currentActiveFocusSession)}
     >
       <div className="focus-dock__body">
-        <span className="focus-dock__status">{focusDockStatusLabel}</span>
+        <span className="sr-only">{focusDockStatusLabel}</span>
         <div className="focus-dock__actions">
           <Button
             aria-describedby={errorDescriptionId}
+            className="focus-dock__control"
             disabled={isActionDisabled}
             onClick={() => {
               void runDockAction(() =>
@@ -155,7 +190,12 @@ export function FocusDock({
             type="button"
             variant="secondary"
           >
-            {primaryActionLabel}
+            <span className="focus-dock__control-label">
+              {primaryActionLabel}
+            </span>
+            {timerLabel === null ? null : (
+              <span className="focus-dock__timer">{timerLabel}</span>
+            )}
           </Button>
         </div>
         {renderErrorMessage()}

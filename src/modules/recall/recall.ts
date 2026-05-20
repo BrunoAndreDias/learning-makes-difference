@@ -1742,6 +1742,18 @@ export function createAppRecallContext(
       reference: input.reference,
       updateEntry: (entry) => {
         switch (input.intent) {
+          case "tighten-prompt": {
+            assertLinkedCompletionEntryIntent(entry, "tighten-prompt");
+
+            const updatedPrompt = requireLinkedCompletionValue(
+              input.intentMetadata.updatedPrompt,
+              "Edit prompt requires the updated prompt.",
+            );
+
+            return createCompletedPracticeRepairEntry(entry, {
+              updatedPrompt,
+            });
+          }
           case "tighten-expected-answer": {
             assertLinkedCompletionEntryIntent(entry, "tighten-expected-answer");
 

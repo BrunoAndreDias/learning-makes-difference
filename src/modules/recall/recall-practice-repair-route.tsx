@@ -5,8 +5,10 @@ import {
   useRouteContext,
 } from "@tanstack/react-router";
 import {
+  type ChangeEvent,
   type KeyboardEvent,
   type ReactNode,
+  useEffect,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -15,6 +17,14 @@ import { Button, ButtonLink } from "../../design-system/button";
 import { PageHeader } from "../../design-system/page-header";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { useAppTranslation } from "../language";
+import {
+  type AppPersistentStudyNotesContext,
+  type AppStudyNote,
+  type AppStudyNotesContext,
+  AppStudyNotesError,
+  listStudyNotesForUser,
+  type UpdateStudyNoteInput,
+} from "../study-notes";
 import {
   getRecallRatingTone,
   getRecallRatingTranslationKey,
@@ -91,6 +101,12 @@ type RecallResultsStore = Pick<
   AppRecallContext,
   "getSessionResultsSnapshot" | "subscribe"
 >;
+type StudyNotesStore = Pick<AppStudyNotesContext, "getSnapshot" | "subscribe">;
+
+type PracticeRepairCurrentStudyNoteDraft = Pick<
+  UpdateStudyNoteInput,
+  "expectedAnswer" | "prompt"
+>;
 
 function findPracticeRepairWorkspace(input: {
   practiceRepairEntryId: string;
@@ -134,6 +150,44 @@ function getStudyNoteMeta(question: Pick<RecallQuestion, "noteSnapshot">) {
   }
 
   return "Results evidence";
+}
+
+function createCurrentStudyNoteDraft(
+  studyNote: AppStudyNote | null,
+): PracticeRepairCurrentStudyNoteDraft {
+  return {
+    expectedAnswer: studyNote?.expectedAnswer ?? "",
+    prompt: studyNote?.prompt ?? "",
+  };
+}
+
+function hasCurrentStudyNoteDraftChanges(input: {
+  draft: PracticeRepairCurrentStudyNoteDraft;
+  studyNote: AppStudyNote | null;
+}) {
+  if (input.studyNote === null) {
+    return false;
+  }
+
+  return (
+    input.draft.prompt.trim() !== input.studyNote.prompt.trim() ||
+    input.draft.expectedAnswer.trim() !== input.studyNote.expectedAnswer.trim()
+  );
+}
+
+function createQuickRepairStudyNoteUpdate(input: {
+  draft: PracticeRepairCurrentStudyNoteDraft;
+  studyNote: AppStudyNote;
+}): UpdateStudyNoteInput {
+  return {
+    acronyms: input.studyNote.acronyms.map((acronym) => ({ ...acronym })),
+    expectedAnswer: input.draft.expectedAnswer,
+    labelIds: [...input.studyNote.labelIds],
+    metaphors: input.studyNote.metaphors.map((metaphor) => ({ ...metaphor })),
+    prompt: input.draft.prompt,
+    sourceBody: input.studyNote.source.body,
+    sourceTitle: input.studyNote.source.title,
+  };
 }
 
 function findSupersedingPracticeRepairEntryId(input: {
@@ -308,11 +362,46 @@ async function mutatePracticeRepairLifecycle(input: {
   }
 }
 
+async function updatePracticeRepairStudyNote(input: {
+  draft: PracticeRepairCurrentStudyNoteDraft;
+  persistentStudyNotesContext: AppPersistentStudyNotesContext | undefined;
+  studyNote: AppStudyNote;
+  studyNotesContext: AppStudyNotesContext;
+  userId: string | null;
+}) {
+  const updateInput = createQuickRepairStudyNoteUpdate({
+    draft: input.draft,
+    studyNote: input.studyNote,
+  });
+
+  if (input.persistentStudyNotesContext !== undefined) {
+    return input.persistentStudyNotesContext.updateStudyNote(
+      input.userId,
+      input.studyNote.id,
+      updateInput,
+    );
+  }
+
+  return input.studyNotesContext.updateStudyNote(
+    input.userId,
+    input.studyNote.id,
+    updateInput,
+  );
+}
+
 function useSessionResultsSubscription(recallResultsStore: RecallResultsStore) {
   useSyncExternalStore(
     recallResultsStore.subscribe,
     recallResultsStore.getSessionResultsSnapshot,
     recallResultsStore.getSessionResultsSnapshot,
+  );
+}
+
+function useStudyNotesSubscription(studyNotesStore: StudyNotesStore) {
+  useSyncExternalStore(
+    studyNotesStore.subscribe,
+    studyNotesStore.getSnapshot,
+    studyNotesStore.getSnapshot,
   );
 }
 
@@ -445,14 +534,28 @@ function RecallPracticeRepairRoute() {
     from: "/_protected",
     select: (context) => context.persistentRecall,
   });
+  const studyNotesContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.studyNotes,
+  });
+  const persistentStudyNotesContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.persistentStudyNotes,
+  });
   const { sessionSnapshot } = useResolvedProtectedSession("/_protected");
   const recallResultsStore = persistentRecallContext ?? recallContext;
   const recallResultsContext =
     persistentRecallContext?.readonlyContext ?? recallContext;
+  const studyNotesStore = persistentStudyNotesContext ?? studyNotesContext;
   useSessionResultsSubscription(recallResultsStore);
+  useStudyNotesSubscription(studyNotesStore);
   const userId = sessionSnapshot.user?.id ?? null;
   const sessionResults =
     userId === null ? [] : recallResultsContext.listSessionResults({ userId });
+  const studyNotes =
+    userId === null
+      ? []
+      : listStudyNotesForUser(studyNotesStore.getSnapshot(), userId);
   const workspace = findPracticeRepairWorkspace({
     practiceRepairEntryId,
     sessionResults,
@@ -465,8 +568,15 @@ function RecallPracticeRepairRoute() {
   return (
     <RecallPracticeRepairWorkspacePage
       persistentRecallContext={persistentRecallContext}
+      persistentStudyNotesContext={persistentStudyNotesContext}
       recallContext={recallContext}
       sessionResults={sessionResults}
+      studyNote={
+        studyNotes.find(
+          (studyNote) => studyNote.id === workspace.entry.reference.studyNoteId,
+        ) ?? null
+      }
+      studyNotesContext={studyNotesContext}
       userId={userId}
       workspace={workspace}
     />
@@ -475,14 +585,20 @@ function RecallPracticeRepairRoute() {
 
 export function RecallPracticeRepairWorkspacePage({
   persistentRecallContext,
+  persistentStudyNotesContext,
   recallContext,
   sessionResults,
+  studyNote,
+  studyNotesContext,
   userId,
   workspace,
 }: Readonly<{
   persistentRecallContext: AppPersistentRecallContext | undefined;
+  persistentStudyNotesContext: AppPersistentStudyNotesContext | undefined;
   recallContext: AppRecallContext;
   sessionResults: readonly FlashCardSessionResult[];
+  studyNote: AppStudyNote | null;
+  studyNotesContext: AppStudyNotesContext;
   userId: string | null;
   workspace: PracticeRepairWorkspace;
 }>) {
@@ -491,8 +607,13 @@ export function RecallPracticeRepairWorkspacePage({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [isFollowUpRecallPending, setIsFollowUpRecallPending] = useState(false);
+  const [isStudyNoteSavePending, setIsStudyNoteSavePending] = useState(false);
   const [pendingAction, setPendingAction] =
     useState<PracticeRepairLifecycleAction | null>(null);
+  const [studyNoteDraft, setStudyNoteDraft] =
+    useState<PracticeRepairCurrentStudyNoteDraft>(() =>
+      createCurrentStudyNoteDraft(studyNote),
+    );
   const { entry, question } = workspace;
   const practiceRepairEntryId = getPracticeRepairEntryId(entry);
   const prompt = getPracticeRepairQuestionPrompt(question);
@@ -526,7 +647,66 @@ export function RecallPracticeRepairWorkspacePage({
   const hasRecordedAnswer = (question.typedAnswer?.trim() ?? "").length > 0;
   const canOpenStudyNotes = lifecycleKind !== "study-note-deleted";
   const isMutationPending = pendingAction !== null;
+  const hasStudyNoteDraftChanges = hasCurrentStudyNoteDraftChanges({
+    draft: studyNoteDraft,
+    studyNote,
+  });
+  const canEditCurrentStudyNote =
+    lifecycleKind === "active" && canOpenStudyNotes && studyNote !== null;
   const showSuggestedRepairs = lifecycleKind === "active";
+
+  useEffect(() => {
+    if (hasStudyNoteDraftChanges) {
+      return;
+    }
+
+    setStudyNoteDraft(createCurrentStudyNoteDraft(studyNote));
+  }, [hasStudyNoteDraftChanges, studyNote]);
+
+  function updateStudyNoteDraft(
+    field: keyof PracticeRepairCurrentStudyNoteDraft,
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) {
+    const value = event.target.value;
+
+    setStudyNoteDraft((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  async function handleSaveStudyNoteChanges() {
+    if (
+      studyNote === null ||
+      !hasStudyNoteDraftChanges ||
+      isStudyNoteSavePending
+    ) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setFeedbackMessage(null);
+    setIsStudyNoteSavePending(true);
+
+    try {
+      await updatePracticeRepairStudyNote({
+        draft: studyNoteDraft,
+        persistentStudyNotesContext,
+        studyNote,
+        studyNotesContext,
+        userId,
+      });
+      setFeedbackMessage("Study Note changes saved");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof AppStudyNotesError
+          ? error.message
+          : "Study Note changes could not be saved.",
+      );
+    } finally {
+      setIsStudyNoteSavePending(false);
+    }
+  }
 
   async function handleLifecycleMutation(
     action: PracticeRepairLifecycleAction,
@@ -703,6 +883,50 @@ export function RecallPracticeRepairWorkspacePage({
                 {expectedAnswer}
               </PracticeRepairWorkspaceDetail>
 
+              {lifecycleKind === "active" ? (
+                <section
+                  aria-label="Current Study Note quick edit"
+                  className="recall-practice-repair-workspace__current-editor"
+                >
+                  <div className="recall-practice-repair-workspace__current-editor-copy">
+                    <h3>Current Study Note</h3>
+                  </div>
+
+                  {studyNote === null ? (
+                    <p className="recall-practice-repair-workspace__current-editor-unavailable">
+                      This Study Note is not available for quick editing.
+                    </p>
+                  ) : (
+                    <div className="recall-practice-repair-workspace__current-fields">
+                      <label className="recall-practice-repair-workspace__current-field">
+                        <span>Current prompt</span>
+                        <input
+                          disabled={!canEditCurrentStudyNote}
+                          maxLength={500}
+                          onChange={(event) =>
+                            updateStudyNoteDraft("prompt", event)
+                          }
+                          value={studyNoteDraft.prompt}
+                        />
+                      </label>
+
+                      <label className="recall-practice-repair-workspace__current-field">
+                        <span>Current expected answer</span>
+                        <textarea
+                          disabled={!canEditCurrentStudyNote}
+                          maxLength={1000}
+                          onChange={(event) =>
+                            updateStudyNoteDraft("expectedAnswer", event)
+                          }
+                          rows={5}
+                          value={studyNoteDraft.expectedAnswer}
+                        />
+                      </label>
+                    </div>
+                  )}
+                </section>
+              ) : null}
+
               {lifecycleKind === "active" ? null : (
                 <PracticeRepairWorkspaceDetail label="Reference explanation">
                   <strong>{referenceTitle}</strong>
@@ -735,19 +959,26 @@ export function RecallPracticeRepairWorkspacePage({
               </section>
 
               {lifecycleKind === "active" ? (
-                <div className="recall-practice-repair-workspace__actions recall-practice-repair-workspace__quick-actions">
-                  <ButtonLink
-                    className="recall-practice-repair-workspace__action-button"
-                    search={createStudyNotesPracticeRepairSearch({
-                      practiceRepairAction: entry.intent,
-                      practiceRepairEntryId,
-                    })}
-                    to="/study-notes"
-                    variant="secondary"
-                  >
-                    <PencilIcon />
-                    <span>Edit note</span>
-                  </ButtonLink>
+                <div
+                  className="recall-practice-repair-workspace__actions recall-practice-repair-workspace__quick-actions"
+                  data-has-save-action={
+                    hasStudyNoteDraftChanges ? "true" : "false"
+                  }
+                >
+                  {hasStudyNoteDraftChanges ? (
+                    <Button
+                      className="recall-practice-repair-workspace__action-button"
+                      disabled={isStudyNoteSavePending}
+                      onClick={() => void handleSaveStudyNoteChanges()}
+                      type="button"
+                      variant="secondary"
+                    >
+                      <SaveIcon />
+                      <span>
+                        {isStudyNoteSavePending ? "Saving..." : "Save changes"}
+                      </span>
+                    </Button>
+                  ) : null}
                   <Button
                     className="recall-practice-repair-workspace__action-button"
                     disabled={isFollowUpRecallPending}
@@ -946,6 +1177,16 @@ export function ExternalLinkIcon() {
       <path d="M14 5h5v5" />
       <path d="m10 14 9-9" />
       <path d="M19 14v5H5V5h5" />
+    </svg>
+  );
+}
+
+function SaveIcon() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M5 4h12l2 2v14H5V4Z" />
+      <path d="M8 4v6h8V4" />
+      <path d="M8 20v-6h8v6" />
     </svg>
   );
 }

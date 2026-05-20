@@ -934,6 +934,8 @@ function getLinkedPracticeRepairReturnTarget(
 
 function formatLinkedPracticeRepairSummary(action: PracticeRepairIntent) {
   switch (action) {
+    case "tighten-prompt":
+      return "Update the prompt here, then return to Practice Repair when the correction is ready.";
     case "tighten-expected-answer":
       return "Update the expected answer here, then return to Practice Repair when the correction is ready.";
     case "add-memory-aid":
@@ -1544,13 +1546,20 @@ function StudyNotesWorkspace() {
 
   useEffect(() => {
     if (
-      linkedPracticeRepair?.action !== "tighten-expected-answer" ||
+      linkedPracticeRepair === null ||
       selectedStudyNote?.id !== linkedPracticeRepair.entry.reference.studyNoteId
     ) {
       return;
     }
 
-    expectedAnswerInputRef.current?.focus();
+    if (linkedPracticeRepair.action === "tighten-prompt") {
+      promptInputRef.current?.focus();
+      return;
+    }
+
+    if (linkedPracticeRepair.action === "tighten-expected-answer") {
+      expectedAnswerInputRef.current?.focus();
+    }
   }, [linkedPracticeRepair, selectedStudyNote?.id]);
 
   useEffect(() => {
@@ -2538,6 +2547,7 @@ function StudyNotesWorkspace() {
       : getLinkedPracticeRepairReturnTarget(linkedPracticeRepair);
   const linkedPracticeRepairAction = linkedPracticeRepair?.action ?? null;
   const isPromptPracticeRepairFocus =
+    linkedPracticeRepairAction === "tighten-prompt" ||
     linkedPracticeRepairAction === "split-study-note";
   const isExpectedAnswerPracticeRepairFocus =
     linkedPracticeRepairAction === "tighten-expected-answer";
