@@ -502,6 +502,7 @@ function setViewportWidth(width: number) {
 
 afterEach(() => {
   setViewportWidth(defaultViewportWidth);
+  vi.useRealTimers();
 });
 
 describe("authenticated recall workspace", () => {
@@ -752,6 +753,114 @@ describe("authenticated recall workspace", () => {
     expect(
       screen.getByRole("link", { name: "Manual selection" }),
     ).toHaveAttribute("href", "/recall/select");
+  });
+
+  it("shows newly recallable Study Notes in the Recall Today queue with prioritized reasons", async () => {
+    vi.useFakeTimers();
+
+    const contexts = createDeterministicRecallTestContexts();
+    const practiceFollowUp = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "ATP stores transferable energy for cells.",
+      labelIds: [],
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+    const needsPractice = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Mitochondria generate ATP.",
+      labelIds: [],
+      prompt: "What organelle generates ATP?",
+      sourceBody: "Cell organelles source context.",
+      sourceTitle: "Cell organelles source",
+    });
+    createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Fresh recall answer.",
+      labelIds: [],
+      prompt: "Not recalled prompt",
+      sourceBody: "Fresh recall source.",
+      sourceTitle: "Fresh recall source",
+    });
+    const dueForRecall = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Due answer.",
+      labelIds: [],
+      prompt: "Due prompt",
+      sourceBody: "Due source.",
+      sourceTitle: "Due source",
+    });
+    createStudyNoteSnapshot(contexts, {
+      expectedAnswer: " ",
+      labelIds: [],
+      prompt: "Incomplete prompt",
+      sourceBody: "Incomplete source.",
+      sourceTitle: "Incomplete source",
+    });
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: practiceFollowUp.id,
+      timestamp: "2026-05-14T09:00:00.000Z",
+    });
+    const confirmedRepair = confirmStudyNotePracticeRepair({
+      contexts,
+      correction: "State ATP and explain that it stores transferable energy.",
+      intent: "tighten-expected-answer",
+      studyNoteId: practiceFollowUp.id,
+    });
+    contexts.recallContext.completePracticeRepairEntry({
+      reference: getConfirmedPracticeRepairReference(confirmedRepair),
+      userId: testUser.id,
+    });
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: needsPractice.id,
+      timestamp: "2026-05-14T10:00:00.000Z",
+    });
+    completeStudyNoteRecallAt({
+      rating: "good",
+      recallContext: contexts.recallContext,
+      studyNoteId: dueForRecall.id,
+      timestamp: "2026-05-11T11:00:00.000Z",
+    });
+    vi.setSystemTime(new Date("2026-05-15T10:00:00.000Z"));
+
+    renderRoute("/recall", {
+      ...contexts,
+      session: {
+        user: {
+          ...testUser,
+          userTimeZone: "America/New_York",
+        },
+      },
+    });
+
+    await vi.runAllTimersAsync();
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Recall Today" }),
+    ).toBeInTheDocument();
+
+    const queue = screen.getByRole("region", {
+      name: "Recall Today queue",
+    });
+    expect(queue).toHaveTextContent("Practice Follow-up");
+    expect(queue).toHaveTextContent("Needs practice");
+    expect(queue).toHaveTextContent("Not recalled yet");
+    expect(queue).toHaveTextContent("Due for recall");
+    expect(queue).not.toHaveTextContent("Incomplete prompt");
+
+    expect(
+      within(queue)
+        .getAllByRole("heading", { level: 3 })
+        .map((heading) => heading.textContent),
+    ).toEqual([
+      "What stores transferable energy?",
+      "What organelle generates ATP?",
+      "Not recalled prompt",
+      "Due prompt",
+    ]);
   });
 
   it("uses the route-hydrated session to show Recall results immediately", async () => {
