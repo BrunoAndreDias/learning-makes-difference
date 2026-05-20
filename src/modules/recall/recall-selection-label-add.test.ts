@@ -45,7 +45,9 @@ describe("recall selection label add", () => {
 
     expect(result).toEqual({
       addedStudyNoteIds: [],
+      alreadySelectedStudyNoteIds: [],
       selectedStudyNoteIds: ["study-note-manual"],
+      skippedIncompleteStudyNoteIds: [],
     });
   });
 
@@ -81,11 +83,13 @@ describe("recall selection label add", () => {
 
     expect(result).toEqual({
       addedStudyNoteIds: [addedBiologyStudyNote.id],
+      alreadySelectedStudyNoteIds: [selectedBiologyStudyNote.id],
       selectedStudyNoteIds: [
         "study-note-manual",
         selectedBiologyStudyNote.id,
         addedBiologyStudyNote.id,
       ],
+      skippedIncompleteStudyNoteIds: [incompleteBiologyStudyNote.id],
     });
   });
 
@@ -129,11 +133,13 @@ describe("recall selection label add", () => {
 
     expect(result).toEqual({
       addedStudyNoteIds: [addedBiologyExamStudyNote.id],
+      alreadySelectedStudyNoteIds: [selectedBiologyExamStudyNote.id],
       selectedStudyNoteIds: [
         "study-note-manual",
         selectedBiologyExamStudyNote.id,
         addedBiologyExamStudyNote.id,
       ],
+      skippedIncompleteStudyNoteIds: [incompleteBiologyExamStudyNote.id],
     });
   });
 });

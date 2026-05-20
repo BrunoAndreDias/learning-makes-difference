@@ -234,6 +234,76 @@ function getDisabledStartReason(input: {
   return null;
 }
 
+function getPluralizedTranslation(input: {
+  count: number;
+  pluralKey: AppTranslationKey;
+  singularKey: AppTranslationKey;
+  t: ReturnType<typeof useAppTranslation>["t"];
+}) {
+  return input.t(input.count === 1 ? input.singularKey : input.pluralKey, {
+    count: input.count,
+  });
+}
+
+function getLabelAddFeedbackMessage(input: {
+  result: ReturnType<typeof addRecallableStudyNotesFromLabels>;
+  t: ReturnType<typeof useAppTranslation>["t"];
+}) {
+  const { result, t } = input;
+  const messages: string[] = [];
+
+  if (result.addedStudyNoteIds.length === 0) {
+    messages.push(t("recall.selection.addFromLabels.feedback.noneAdded"));
+  } else {
+    messages.push(
+      getPluralizedTranslation({
+        count: result.addedStudyNoteIds.length,
+        pluralKey: "recall.selection.addFromLabels.feedback.added_plural",
+        singularKey: "recall.selection.addFromLabels.feedback.added",
+        t,
+      }),
+    );
+  }
+
+  if (
+    result.addedStudyNoteIds.length === 0 &&
+    result.alreadySelectedStudyNoteIds.length === 0 &&
+    result.skippedIncompleteStudyNoteIds.length === 0
+  ) {
+    messages.push(
+      t("recall.selection.addFromLabels.feedback.noRecallableMatches"),
+    );
+    return messages.join(" ");
+  }
+
+  if (result.alreadySelectedStudyNoteIds.length > 0) {
+    messages.push(
+      getPluralizedTranslation({
+        count: result.alreadySelectedStudyNoteIds.length,
+        pluralKey:
+          "recall.selection.addFromLabels.feedback.alreadySelected_plural",
+        singularKey: "recall.selection.addFromLabels.feedback.alreadySelected",
+        t,
+      }),
+    );
+  }
+
+  if (result.skippedIncompleteStudyNoteIds.length > 0) {
+    messages.push(
+      getPluralizedTranslation({
+        count: result.skippedIncompleteStudyNoteIds.length,
+        pluralKey:
+          "recall.selection.addFromLabels.feedback.skippedIncomplete_plural",
+        singularKey:
+          "recall.selection.addFromLabels.feedback.skippedIncomplete",
+        t,
+      }),
+    );
+  }
+
+  return messages.join(" ");
+}
+
 export function RecallSelectionPage({
   initialSelectedStudyNoteIds = [],
 }: {
@@ -284,6 +354,7 @@ export function RecallSelectionPage({
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>(() =>
     labels[0] === undefined ? [] : [labels[0].id],
   );
+  const [labelAddFeedback, setLabelAddFeedback] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const visibleStudyNotes = useMemo(
     () => filterStudyNotes(studyNotes, searchQuery),
@@ -333,6 +404,7 @@ export function RecallSelectionPage({
           )
         : [...currentStudyNoteIds, studyNoteId],
     );
+    setLabelAddFeedback(null);
     setErrorMessage(null);
   }
 
@@ -352,20 +424,27 @@ export function RecallSelectionPage({
         (currentSelectedLabelId) => currentSelectedLabelId !== labelId,
       );
     });
+    setLabelAddFeedback(null);
   }
 
   function addStudyNotesFromLabels() {
     if (selectedLabelIds.length === 0) {
+      setLabelAddFeedback(null);
       return;
     }
 
-    setSelectedStudyNoteIds(
-      (currentSelectedStudyNoteIds) =>
-        addRecallableStudyNotesFromLabels({
-          selectedLabelIds,
-          selectedStudyNoteIds: currentSelectedStudyNoteIds,
-          studyNotes,
-        }).selectedStudyNoteIds,
+    const result = addRecallableStudyNotesFromLabels({
+      selectedLabelIds,
+      selectedStudyNoteIds,
+      studyNotes,
+    });
+
+    setSelectedStudyNoteIds(result.selectedStudyNoteIds);
+    setLabelAddFeedback(
+      getLabelAddFeedbackMessage({
+        result,
+        t,
+      }),
     );
     setErrorMessage(null);
   }
@@ -388,6 +467,7 @@ export function RecallSelectionPage({
           studyNoteIds: recallableSelectedStudyNoteIds,
         });
       }
+      setLabelAddFeedback(null);
       setErrorMessage(null);
       await navigate({ to: appRoutePaths.recallSession });
     } catch (error) {
@@ -402,6 +482,7 @@ export function RecallSelectionPage({
 
   async function cancelSelection() {
     setSelectedStudyNoteIds([]);
+    setLabelAddFeedback(null);
     setErrorMessage(null);
     await navigate({ to: appRoutePaths.recall });
   }
@@ -538,6 +619,7 @@ export function RecallSelectionPage({
             disabledStartReason={disabledStartReason}
             onAddStudyNotesFromLabels={addStudyNotesFromLabels}
             onCancel={cancelSelection}
+            labelAddFeedback={labelAddFeedback}
             onLabelSelectionChange={toggleSelectedLabel}
             onRecallTypeChange={setSelectedRecallType}
             onStartRecall={startRecall}
@@ -560,6 +642,7 @@ export function RecallSelectionPage({
 type SessionSetupPanelProps = {
   availableLabels: readonly AppLabel[];
   disabledStartReason: string | null;
+  labelAddFeedback: string | null;
   onAddStudyNotesFromLabels: () => void;
   onCancel: () => void;
   onLabelSelectionChange: (labelId: string, isSelected: boolean) => void;
@@ -574,6 +657,7 @@ function SessionSetupPanel({
   availableLabels,
   onAddStudyNotesFromLabels,
   disabledStartReason,
+  labelAddFeedback,
   onCancel,
   onLabelSelectionChange,
   onRecallTypeChange,
@@ -583,6 +667,7 @@ function SessionSetupPanel({
   selectedRecallType,
 }: SessionSetupPanelProps) {
   const { t } = useAppTranslation();
+  const hasAvailableLabels = availableLabels.length > 0;
   const selectedLabelIdSet = new Set(selectedLabelIds);
   const selectedRecallOption = recallTypeOptions.find(
     (option) => option.mode === selectedRecallType,
@@ -590,6 +675,11 @@ function SessionSetupPanel({
   const recallTypeWarning =
     selectedRecallOption?.disabled === true
       ? `Connect API key to start ${formatRecallModeLabel(selectedRecallType)}.`
+      : null;
+  const addFromLabelsDisabledReason = !hasAvailableLabels
+    ? t("recall.selection.addFromLabels.feedback.noLabels")
+    : selectedLabelIds.length === 0
+      ? t("recall.selection.addFromLabels.feedback.selectOne")
       : null;
 
   return (
@@ -611,15 +701,17 @@ function SessionSetupPanel({
 
       <div className="recall-select-session-setup__divider" />
 
-      {availableLabels.length > 0 ? (
-        <section className="recall-select-session-setup__label-add">
-          <h5 className="recall-select-session-setup__section-title">
-            {t("recall.selection.addFromLabels")}
-          </h5>
-          <p className="muted recall-select-session-setup__label-add-rule">
-            {t("recall.selection.addFromLabels.matchRule")}
-          </p>
-          <div className="recall-select-session-setup__label-add-controls">
+      <section className="recall-select-session-setup__label-add">
+        <h5 className="recall-select-session-setup__section-title">
+          {t("recall.selection.addFromLabels")}
+        </h5>
+        <p className="muted recall-select-session-setup__label-add-rule">
+          {hasAvailableLabels
+            ? t("recall.selection.addFromLabels.matchRule")
+            : t("recall.selection.addFromLabels.feedback.noLabels")}
+        </p>
+        <div className="recall-select-session-setup__label-add-controls">
+          {hasAvailableLabels ? (
             <fieldset className="recall-select-session-setup__label-options">
               <legend className="sr-only">
                 {t("recall.selection.addFromLabels.selectLabel")}
@@ -640,17 +732,30 @@ function SessionSetupPanel({
                 </label>
               ))}
             </fieldset>
-            <Button
-              disabled={selectedLabelIds.length === 0}
-              onClick={onAddStudyNotesFromLabels}
-              size="compact"
-              type="button"
-            >
-              {t("recall.selection.addFromLabels.action")}
-            </Button>
-          </div>
-        </section>
-      ) : null}
+          ) : null}
+          <Button
+            disabled={addFromLabelsDisabledReason !== null}
+            onClick={onAddStudyNotesFromLabels}
+            size="compact"
+            type="button"
+          >
+            {t("recall.selection.addFromLabels.action")}
+          </Button>
+        </div>
+        {hasAvailableLabels && addFromLabelsDisabledReason !== null ? (
+          <p className="muted recall-select-session-setup__label-add-rule">
+            {addFromLabelsDisabledReason}
+          </p>
+        ) : null}
+        {labelAddFeedback !== null ? (
+          <p
+            className="recall-feedback recall-select-session-setup__label-add-feedback"
+            role="status"
+          >
+            {labelAddFeedback}
+          </p>
+        ) : null}
+      </section>
 
       <fieldset className="recall-type-selector recall-select-type-selector">
         <legend>Recall type</legend>

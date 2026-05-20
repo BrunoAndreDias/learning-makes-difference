@@ -433,6 +433,25 @@ const englishTranslations = {
   "recall.selection.addFromLabels.matchRule":
     "Study Notes with all selected Labels",
   "recall.selection.addFromLabels.selectLabel": "Select Labels",
+  "recall.selection.addFromLabels.feedback.added":
+    "Added {{count}} Study Note.",
+  "recall.selection.addFromLabels.feedback.added_plural":
+    "Added {{count}} Study Notes.",
+  "recall.selection.addFromLabels.feedback.alreadySelected":
+    "{{count}} Study Note already selected.",
+  "recall.selection.addFromLabels.feedback.alreadySelected_plural":
+    "{{count}} Study Notes already selected.",
+  "recall.selection.addFromLabels.feedback.noLabels":
+    "No Labels yet. Create Labels in Study Notes to use this action.",
+  "recall.selection.addFromLabels.feedback.noRecallableMatches":
+    "No recallable Study Notes match the selected Labels.",
+  "recall.selection.addFromLabels.feedback.noneAdded": "No Study Notes added.",
+  "recall.selection.addFromLabels.feedback.selectOne":
+    "Select at least one Label to add Study Notes.",
+  "recall.selection.addFromLabels.feedback.skippedIncomplete":
+    "Skipped {{count}} incomplete Study Note.",
+  "recall.selection.addFromLabels.feedback.skippedIncomplete_plural":
+    "Skipped {{count}} incomplete Study Notes.",
   "recall.selection.noLabel": "No label",
   "recall.selection.noSearchMatches": "No Study Notes match this search.",
   "recall.selection.questionStyle": "Question style",
@@ -962,6 +981,26 @@ const portugueseTranslations = {
   "recall.selection.addFromLabels.matchRule":
     "Notas de estudo com todas as etiquetas selecionadas",
   "recall.selection.addFromLabels.selectLabel": "Selecionar etiquetas",
+  "recall.selection.addFromLabels.feedback.added":
+    "Adicionada {{count}} nota de estudo.",
+  "recall.selection.addFromLabels.feedback.added_plural":
+    "Adicionadas {{count}} notas de estudo.",
+  "recall.selection.addFromLabels.feedback.alreadySelected":
+    "{{count}} nota de estudo ja estava selecionada.",
+  "recall.selection.addFromLabels.feedback.alreadySelected_plural":
+    "{{count}} notas de estudo ja estavam selecionadas.",
+  "recall.selection.addFromLabels.feedback.noLabels":
+    "Ainda nao ha etiquetas. Crie etiquetas em Notas de estudo para usar esta acao.",
+  "recall.selection.addFromLabels.feedback.noRecallableMatches":
+    "Nenhuma nota de estudo recordavel corresponde as etiquetas selecionadas.",
+  "recall.selection.addFromLabels.feedback.noneAdded":
+    "Nenhuma nota de estudo foi adicionada.",
+  "recall.selection.addFromLabels.feedback.selectOne":
+    "Selecione pelo menos uma etiqueta para adicionar notas de estudo.",
+  "recall.selection.addFromLabels.feedback.skippedIncomplete":
+    "Ignorada {{count}} nota de estudo incompleta.",
+  "recall.selection.addFromLabels.feedback.skippedIncomplete_plural":
+    "Ignoradas {{count}} notas de estudo incompletas.",
   "recall.selection.noLabel": "Sem etiqueta",
   "recall.selection.noSearchMatches":
     "Nenhuma nota de estudo corresponde a esta pesquisa.",
@@ -1494,6 +1533,26 @@ const spanishTranslations = {
   "recall.selection.addFromLabels.matchRule":
     "Notas de estudio con todas las etiquetas seleccionadas",
   "recall.selection.addFromLabels.selectLabel": "Seleccionar etiquetas",
+  "recall.selection.addFromLabels.feedback.added":
+    "Se agrego {{count}} nota de estudio.",
+  "recall.selection.addFromLabels.feedback.added_plural":
+    "Se agregaron {{count}} notas de estudio.",
+  "recall.selection.addFromLabels.feedback.alreadySelected":
+    "{{count}} nota de estudio ya estaba seleccionada.",
+  "recall.selection.addFromLabels.feedback.alreadySelected_plural":
+    "{{count}} notas de estudio ya estaban seleccionadas.",
+  "recall.selection.addFromLabels.feedback.noLabels":
+    "Todavia no hay etiquetas. Crea etiquetas en Notas de estudio para usar esta accion.",
+  "recall.selection.addFromLabels.feedback.noRecallableMatches":
+    "Ninguna nota de estudio repasable coincide con las etiquetas seleccionadas.",
+  "recall.selection.addFromLabels.feedback.noneAdded":
+    "No se agregaron notas de estudio.",
+  "recall.selection.addFromLabels.feedback.selectOne":
+    "Selecciona al menos una etiqueta para agregar notas de estudio.",
+  "recall.selection.addFromLabels.feedback.skippedIncomplete":
+    "Se omitio {{count}} nota de estudio incompleta.",
+  "recall.selection.addFromLabels.feedback.skippedIncomplete_plural":
+    "Se omitieron {{count}} notas de estudio incompletas.",
   "recall.selection.noLabel": "Sin etiqueta",
   "recall.selection.noSearchMatches":
     "Ninguna nota de estudio coincide con esta busqueda.",

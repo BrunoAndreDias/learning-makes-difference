@@ -8,7 +8,9 @@ type AddRecallableStudyNotesFromLabelsInput = {
 
 type AddRecallableStudyNotesFromLabelsResult = {
   addedStudyNoteIds: string[];
+  alreadySelectedStudyNoteIds: string[];
   selectedStudyNoteIds: string[];
+  skippedIncompleteStudyNoteIds: string[];
 };
 
 function getRequiredLabelIds(selectedLabelIds: readonly string[]) {
@@ -38,13 +40,17 @@ export function addRecallableStudyNotesFromLabels({
   if (requiredLabelIds.length === 0) {
     return {
       addedStudyNoteIds: [],
+      alreadySelectedStudyNoteIds: [],
       selectedStudyNoteIds: [...selectedStudyNoteIds],
+      skippedIncompleteStudyNoteIds: [],
     };
   }
 
   const nextSelectedStudyNoteIds = [...selectedStudyNoteIds];
   const selectedStudyNoteIdSet = new Set(nextSelectedStudyNoteIds);
   const addedStudyNoteIds: string[] = [];
+  const alreadySelectedStudyNoteIds: string[] = [];
+  const skippedIncompleteStudyNoteIds: string[] = [];
 
   for (const studyNote of studyNotes) {
     if (!studyNoteHasAllLabels(studyNote, requiredLabelIds)) {
@@ -52,10 +58,12 @@ export function addRecallableStudyNotesFromLabels({
     }
 
     if (!getStudyNoteReadiness(studyNote).recallable) {
+      skippedIncompleteStudyNoteIds.push(studyNote.id);
       continue;
     }
 
     if (selectedStudyNoteIdSet.has(studyNote.id)) {
+      alreadySelectedStudyNoteIds.push(studyNote.id);
       continue;
     }
 
@@ -66,6 +74,8 @@ export function addRecallableStudyNotesFromLabels({
 
   return {
     addedStudyNoteIds,
+    alreadySelectedStudyNoteIds,
     selectedStudyNoteIds: nextSelectedStudyNoteIds,
+    skippedIncompleteStudyNoteIds,
   };
 }
