@@ -112,6 +112,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .recall-select-session-setup__label-add-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .recall-select-note-row__main {
     grid-template-columns: minmax(0, 1fr);
   }

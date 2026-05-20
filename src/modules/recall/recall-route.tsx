@@ -25,6 +25,7 @@ import {
 } from "./learner-copy";
 import { AppRecallError, type RecallMode } from "./recall";
 import { RecallBreadcrumb } from "./recall-breadcrumb";
+import { addRecallableStudyNotesFromLabel } from "./recall-selection-label-add";
 
 export const Route = createFileRoute("/_protected/recall")({
   component: RecallRouteShell,
@@ -191,6 +192,17 @@ function getRecallableSelectedStudyNotes(input: {
     );
 }
 
+function resolveSelectedLabelId(
+  labels: readonly AppLabel[],
+  selectedLabelId: string,
+) {
+  if (labels.some((label) => label.id === selectedLabelId)) {
+    return selectedLabelId;
+  }
+
+  return labels[0]?.id ?? "";
+}
+
 function getDisabledStartReason(input: {
   selectedCount: number;
   selectedRecallType: RecallMode;
@@ -254,6 +266,9 @@ export function RecallSelectionPage({
   );
   const [selectedRecallType, setSelectedRecallType] =
     useState<RecallMode>("FlashCard");
+  const [selectedLabelId, setSelectedLabelId] = useState(
+    () => labels[0]?.id ?? "",
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const visibleStudyNotes = useMemo(
     () => filterStudyNotes(studyNotes, searchQuery),
@@ -276,6 +291,16 @@ export function RecallSelectionPage({
   });
   const canStart = disabledStartReason === null;
 
+  useEffect(() => {
+    const nextSelectedLabelId = resolveSelectedLabelId(labels, selectedLabelId);
+
+    if (nextSelectedLabelId === selectedLabelId) {
+      return;
+    }
+
+    setSelectedLabelId(nextSelectedLabelId);
+  }, [labels, selectedLabelId]);
+
   function toggleStudyNote(studyNoteId: string) {
     const studyNote = studyNotesById.get(studyNoteId);
 
@@ -289,6 +314,22 @@ export function RecallSelectionPage({
             (currentStudyNoteId) => currentStudyNoteId !== studyNoteId,
           )
         : [...currentStudyNoteIds, studyNoteId],
+    );
+    setErrorMessage(null);
+  }
+
+  function addStudyNotesFromLabel() {
+    if (selectedLabelId === "") {
+      return;
+    }
+
+    setSelectedStudyNoteIds(
+      (currentSelectedStudyNoteIds) =>
+        addRecallableStudyNotesFromLabel({
+          selectedLabelId,
+          selectedStudyNoteIds: currentSelectedStudyNoteIds,
+          studyNotes,
+        }).selectedStudyNoteIds,
     );
     setErrorMessage(null);
   }
@@ -457,12 +498,16 @@ export function RecallSelectionPage({
           </section>
 
           <SessionSetupPanel
+            availableLabels={labels}
             disabledStartReason={disabledStartReason}
-            onRecallTypeChange={setSelectedRecallType}
+            onAddStudyNotesFromLabel={addStudyNotesFromLabel}
             onCancel={cancelSelection}
+            onRecallTypeChange={setSelectedRecallType}
+            onSelectedLabelChange={setSelectedLabelId}
             onStartRecall={startRecall}
-            selectedStudyNotes={recallableSelectedStudyNotes}
+            selectedLabelId={selectedLabelId}
             selectedRecallType={selectedRecallType}
+            selectedStudyNotes={recallableSelectedStudyNotes}
           />
         </div>
       )}
@@ -476,21 +521,31 @@ export function RecallSelectionPage({
   );
 }
 
+type SessionSetupPanelProps = {
+  availableLabels: readonly AppLabel[];
+  disabledStartReason: string | null;
+  onAddStudyNotesFromLabel: () => void;
+  onCancel: () => void;
+  onRecallTypeChange: (mode: RecallMode) => void;
+  onSelectedLabelChange: (labelId: string) => void;
+  onStartRecall: () => void;
+  selectedLabelId: string;
+  selectedRecallType: RecallMode;
+  selectedStudyNotes: readonly AppStudyNote[];
+};
+
 function SessionSetupPanel({
+  availableLabels,
+  onAddStudyNotesFromLabel,
   disabledStartReason,
   onCancel,
   onRecallTypeChange,
+  onSelectedLabelChange,
   onStartRecall,
+  selectedLabelId,
   selectedStudyNotes,
   selectedRecallType,
-}: {
-  disabledStartReason: string | null;
-  onCancel: () => void;
-  onRecallTypeChange: (mode: RecallMode) => void;
-  onStartRecall: () => void;
-  selectedStudyNotes: readonly AppStudyNote[];
-  selectedRecallType: RecallMode;
-}) {
+}: SessionSetupPanelProps) {
   const { t } = useAppTranslation();
   const selectedRecallOption = recallTypeOptions.find(
     (option) => option.mode === selectedRecallType,
@@ -518,6 +573,39 @@ function SessionSetupPanel({
       </div>
 
       <div className="recall-select-session-setup__divider" />
+
+      {availableLabels.length > 0 ? (
+        <section className="recall-select-session-setup__label-add">
+          <h5 className="recall-select-session-setup__section-title">
+            {t("recall.selection.addFromLabels")}
+          </h5>
+          <div className="recall-select-session-setup__label-add-controls">
+            <label className="recall-field" htmlFor="recall-label-add-select">
+              <span className="sr-only">
+                {t("recall.selection.addFromLabels.selectLabel")}
+              </span>
+              <select
+                id="recall-label-add-select"
+                onChange={(event) => onSelectedLabelChange(event.target.value)}
+                value={selectedLabelId}
+              >
+                {availableLabels.map((label) => (
+                  <option key={label.id} value={label.id}>
+                    {label.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button
+              onClick={onAddStudyNotesFromLabel}
+              size="compact"
+              type="button"
+            >
+              {t("recall.selection.addFromLabels.action")}
+            </Button>
+          </div>
+        </section>
+      ) : null}
 
       <fieldset className="recall-type-selector recall-select-type-selector">
         <legend>Recall type</legend>
