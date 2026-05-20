@@ -160,6 +160,19 @@ function completeStudyNoteRecall(
   });
 }
 
+function completeStudyNoteRecallAt(
+  contexts: DeterministicRecallTestContexts,
+  input: {
+    rating: RecallSelfRating;
+    studyNoteId: string;
+    timestamp: string;
+    userId: string;
+  },
+) {
+  vi.setSystemTime(new Date(input.timestamp));
+  completeStudyNoteRecall(contexts, input);
+}
+
 function confirmStudyNotePracticeRepair(
   contexts: DeterministicRecallTestContexts,
   input: {
@@ -362,6 +375,87 @@ function renderStudyNotesRouteForUser(
     ...contexts,
     session: { user },
   });
+}
+
+function createRecallTodayStudyNotesScenario(
+  contexts: DeterministicRecallTestContexts,
+  userId: string,
+) {
+  const practiceFollowUpStudyNote = createStudyNoteSnapshot(contexts, {
+    expectedAnswer: "ATP stores transferable energy for cells.",
+    prompt: "What stores transferable energy?",
+    sourceBody: "Cell respiration source context.",
+    sourceTitle: "Cell respiration source",
+    userId,
+  });
+  const needsPracticeStudyNote = createStudyNoteSnapshot(contexts, {
+    expectedAnswer: "Mitochondria generate ATP.",
+    prompt: "What organelle generates ATP?",
+    sourceBody: "Cell organelles source context.",
+    sourceTitle: "Cell organelles source",
+    userId,
+  });
+  const newlyRecallableStudyNote = createStudyNoteSnapshot(contexts, {
+    expectedAnswer: "Fresh recall answer.",
+    prompt: "Not recalled prompt",
+    sourceBody: "Fresh recall source.",
+    sourceTitle: "Fresh recall source",
+    userId,
+  });
+  const dueForRecallStudyNote = createStudyNoteSnapshot(contexts, {
+    expectedAnswer: "Due answer.",
+    prompt: "Due prompt",
+    sourceBody: "Due source.",
+    sourceTitle: "Due source",
+    userId,
+  });
+  createStudyNoteSnapshot(contexts, {
+    expectedAnswer: " ",
+    prompt: "Selected incomplete prompt",
+    sourceBody: "Incomplete source.",
+    sourceTitle: "Incomplete source",
+    userId,
+  });
+
+  completeStudyNoteRecallAt(contexts, {
+    rating: "hard",
+    studyNoteId: practiceFollowUpStudyNote.id,
+    timestamp: "2024-05-14T09:00:00.000Z",
+    userId,
+  });
+  const confirmedRepair = confirmStudyNotePracticeRepair(contexts, {
+    correction: "State ATP and explain that it stores transferable energy.",
+    intent: "tighten-expected-answer",
+    studyNoteId: practiceFollowUpStudyNote.id,
+    userId,
+  });
+  contexts.recallContext.completePracticeRepairEntry({
+    reference: getConfirmedPracticeRepairReference(confirmedRepair),
+    userId,
+  });
+
+  completeStudyNoteRecallAt(contexts, {
+    rating: "hard",
+    studyNoteId: needsPracticeStudyNote.id,
+    timestamp: "2024-05-14T10:00:00.000Z",
+    userId,
+  });
+  completeStudyNoteRecallAt(contexts, {
+    rating: "good",
+    studyNoteId: dueForRecallStudyNote.id,
+    timestamp: "2024-05-11T11:00:00.000Z",
+    userId,
+  });
+
+  return {
+    queuePrompts: [
+      "What stores transferable energy?",
+      "What organelle generates ATP?",
+      "Not recalled prompt",
+      "Due prompt",
+    ],
+    selectedStudyNotePrompt: "Selected incomplete prompt",
+  } as const;
 }
 
 function createTestPersistentLabelsService(
@@ -1899,6 +1993,91 @@ describe("authenticated Study Notes workspace", () => {
       screen.getByRole("link", { name: "Open Recall Today" }),
     ).toHaveAttribute("href", "/recall");
     expect(screen.queryByText("Error log")).not.toBeInTheDocument();
+  });
+
+  it("starts the current Recall Today queue from Study Notes without preselecting the selected Study Note", async () => {
+    vi.useFakeTimers();
+
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-study-notes-recall-today";
+    const scenario = createRecallTodayStudyNotesScenario(contexts, userId);
+    vi.useRealTimers();
+    const { router } = renderRoute("/study-notes", {
+      ...contexts,
+      session: {
+        user: {
+          displayName: "Jordan Recall Today",
+          email: "jordan.recall.today@example.com",
+          id: userId,
+          userLanguage: "en",
+          userTimeZone: "America/New_York",
+        },
+      },
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: scenario.selectedStudyNotePrompt,
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Start Recall Session" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Recall session",
+      }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall/session");
+    expect(
+      contexts.recallContext.getSnapshot()?.notes.map((note) => note.title),
+    ).toEqual(scenario.queuePrompts);
+    expect(
+      contexts.recallContext
+        .getSnapshot()
+        ?.notes.some((note) => note.title === scenario.selectedStudyNotePrompt),
+    ).toBe(false);
+  });
+
+  it("opens the base Recall section when Study Notes has no Recall Today work", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-study-notes-recall-empty";
+    createStudyNoteSnapshot(contexts, {
+      expectedAnswer: " ",
+      prompt: "Selected incomplete prompt",
+      sourceBody: "Incomplete source.",
+      sourceTitle: "Incomplete source",
+      userId,
+    });
+    const { router } = renderRoute("/study-notes", {
+      ...contexts,
+      session: {
+        user: {
+          displayName: "Jordan Empty Recall",
+          email: "jordan.empty.recall@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Start Recall Session" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Recall Today",
+      }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall");
+    expect(screen.getByText("No Recall Today work")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Manual selection" }),
+    ).toHaveAttribute("href", "/recall/select");
   });
 
   it("shows active Practice Repair entries in the editor, lets the user edit the correction, and moves completed repairs into Practice Follow-up", async () => {

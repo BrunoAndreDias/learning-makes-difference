@@ -57,6 +57,8 @@ import {
   type PracticeRepairQuestionReference,
   practiceRepairIntents,
 } from "../recall/recall-practice-repair";
+import { buildRecallTodayQueue } from "../recall/recall-today";
+import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import "./study-notes.css";
 import {
   type AppPersistentStudyNotesContext,
@@ -1211,6 +1213,28 @@ function StudyNotesWorkspace() {
       }),
     [now, recallHistories, recallSchedulesSnapshot, studyNotes],
   );
+  const recallTodayQueue = useMemo(
+    () =>
+      userId === null
+        ? []
+        : buildRecallTodayQueue({
+            histories: recallHistories,
+            now,
+            recallSchedules: recallSchedulesSnapshot,
+            sessionResults: recallResultsSnapshot,
+            studyNotes: allStudyNotes,
+            userTimeZone,
+          }),
+    [
+      allStudyNotes,
+      now,
+      recallHistories,
+      recallResultsSnapshot,
+      recallSchedulesSnapshot,
+      userId,
+      userTimeZone,
+    ],
+  );
   const recallScheduleByStudyNoteId = useMemo(
     () =>
       new Map(
@@ -2082,19 +2106,12 @@ function StudyNotesWorkspace() {
       return;
     }
 
-    const recallableStudyNoteIds = studyNotes
-      .filter((studyNote) => {
-        const learningState = learningStateByStudyNoteId.get(studyNote.id);
+    const recallTodayStudyNoteIds = recallTodayQueue.map(
+      (queueItem) => queueItem.studyNote.id,
+    );
 
-        return (
-          getStudyNoteReadiness(studyNote).dueForRecallEligible &&
-          learningState?.dueForRecall === true
-        );
-      })
-      .map((studyNote) => studyNote.id);
-
-    if (recallableStudyNoteIds.length === 0) {
-      await navigate({ to: "/recall" });
+    if (recallTodayStudyNoteIds.length === 0) {
+      await navigate({ to: appRoutePaths.recall });
       return;
     }
 
@@ -2103,10 +2120,10 @@ function StudyNotesWorkspace() {
 
     try {
       await startFlashCardRecallForStudyNotes({
-        studyNoteIds: recallableStudyNoteIds,
+        studyNoteIds: recallTodayStudyNoteIds,
         userId,
       });
-      await navigate({ to: "/recall/session" });
+      await navigate({ to: appRoutePaths.recallSession });
     } catch (error) {
       if (error instanceof AppRecallError) {
         setErrorMessage(error.message);
