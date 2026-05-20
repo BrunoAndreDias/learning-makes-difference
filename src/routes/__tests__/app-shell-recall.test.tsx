@@ -736,20 +736,22 @@ describe("authenticated recall workspace", () => {
     );
   });
 
-  it("shows no-note guidance on /recall", async () => {
+  it("shows the Recall Today empty shell on /recall", async () => {
     renderRoute("/recall", { session: createSession() });
 
     expect(
       await screen.findByRole("heading", {
-        name: "Recall starts with Study Notes",
+        level: 1,
+        name: "Recall Today",
       }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("navigation", { name: "Breadcrumb" }),
     ).not.toBeInTheDocument();
+    expect(screen.getByText("No Recall Today work")).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Open Study Notes" }),
-    ).toHaveAttribute("href", "/study-notes");
+      screen.getByRole("link", { name: "Manual selection" }),
+    ).toHaveAttribute("href", "/recall/select");
   });
 
   it("uses the route-hydrated session to show Recall results immediately", async () => {
@@ -2328,13 +2330,13 @@ describe("authenticated recall workspace", () => {
     expect(
       await screen.findByRole("heading", {
         level: 1,
-        name: "Due today",
+        name: "Recall Today",
       }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall/due-today");
+    expect(router.state.location.pathname).toBe("/recall");
     expect(
-      screen.getByRole("navigation", { name: "Breadcrumb" }),
-    ).toHaveTextContent(/Recall\s*\/\s*Due today/);
+      screen.queryByRole("navigation", { name: "Breadcrumb" }),
+    ).not.toBeInTheDocument();
   });
 
   it("uses the route-hydrated session to load Recall setup notes immediately", async () => {
@@ -2472,7 +2474,10 @@ describe("authenticated recall workspace", () => {
       sourceTitle: "Draft source",
     });
 
-    renderRoute("/recall", { ...contexts, session: createSession() });
+    renderRoute("/recall/due-today", {
+      ...contexts,
+      session: createSession(),
+    });
 
     expect(
       await screen.findByRole("heading", { level: 1, name: "Due today" }),
@@ -2491,7 +2496,7 @@ describe("authenticated recall workspace", () => {
     ).toBeNull();
   });
 
-  it("redirects /recall to /recall/due-today and exposes Due today and Results tabs only", async () => {
+  it("keeps /recall on the Recall Today shell and exposes Recall Today, Due today, and Results tabs", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const dueToday = createStudyNoteSnapshot(contexts, {
       expectedAnswer: "Due today answer.",
@@ -2520,11 +2525,22 @@ describe("authenticated recall workspace", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Due today" }),
+      await screen.findByRole("heading", { level: 1, name: "Recall Today" }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall/due-today");
+    expect(
+      screen.getByText(
+        "Your recommended recall queue for today. Focus on what matters most.",
+      ),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall");
+    expect(
+      screen.getByRole("link", { name: "Manual selection" }),
+    ).toHaveAttribute("href", "/recall/select");
 
     const tabs = screen.getByRole("navigation", { name: "Recall pages" });
+    expect(
+      within(tabs).getByRole("link", { name: "Recall Today" }),
+    ).toHaveAttribute("href", "/recall");
     expect(
       within(tabs).getByRole("link", { name: "Due today" }),
     ).toHaveAttribute("href", "/recall/due-today");
@@ -2532,13 +2548,9 @@ describe("authenticated recall workspace", () => {
       "href",
       "/recall/results",
     );
-    expect(
-      within(tabs).queryByRole("link", { name: "Select Study Notes" }),
-    ).toBeNull();
-    expect(within(tabs).queryByRole("link", { name: "Session" })).toBeNull();
   });
 
-  it("opens Due today by default and starts a FlashCard session from its queue", async () => {
+  it("opens Due today directly and starts a FlashCard session from its queue", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const needsPractice = createStudyNoteSnapshot(contexts, {
       expectedAnswer: "Needs practice answer.",
@@ -2583,7 +2595,7 @@ describe("authenticated recall workspace", () => {
     });
     vi.setSystemTime(new Date("2026-05-15T10:00:00.000Z"));
 
-    const { router } = renderRoute("/recall", {
+    const { router } = renderRoute("/recall/due-today", {
       ...contexts,
       session: {
         user: {
@@ -2656,7 +2668,7 @@ describe("authenticated recall workspace", () => {
     });
     vi.setSystemTime(new Date("2026-05-15T10:00:00.000Z"));
 
-    renderRoute("/recall", {
+    renderRoute("/recall/due-today", {
       ...contexts,
       session: {
         user: {
@@ -2721,7 +2733,7 @@ describe("authenticated recall workspace", () => {
     });
     vi.setSystemTime(new Date("2026-05-15T10:00:00.000Z"));
 
-    renderRoute("/recall", {
+    renderRoute("/recall/due-today", {
       ...contexts,
       session: {
         user: {
@@ -2772,7 +2784,7 @@ describe("authenticated recall workspace", () => {
 
     vi.setSystemTime(new Date("2026-05-14T10:00:00.000Z"));
 
-    renderRoute("/recall", {
+    renderRoute("/recall/due-today", {
       ...contexts,
       session: {
         user: {

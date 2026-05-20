@@ -250,6 +250,12 @@
   align-items: center;
 }
 
+.recall-today-actions {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 .recall-page-primary-action.notes-action {
   min-width: 16.25rem;
   min-height: var(--lmd-button-height-md);

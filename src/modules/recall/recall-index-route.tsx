@@ -1,11 +1,9 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
-
-import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
+import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_protected/recall/")({
   component: RecallIndexRoute,
 });
 
 function RecallIndexRoute() {
-  return <Navigate to={appRoutePaths.recallDueToday} />;
+  return null;
 }

@@ -15,6 +15,17 @@ export function RecallPageTabs() {
         }}
         activeOptions={{ exact: true }}
         className="recall-page-tabs__link"
+        to={appRoutePaths.recall}
+      >
+        {t("recall.today.title")}
+      </Link>
+      <Link
+        activeProps={{
+          "aria-current": "page",
+          className: "recall-page-tabs__link recall-page-tabs__link-active",
+        }}
+        activeOptions={{ exact: true }}
+        className="recall-page-tabs__link"
         to={appRoutePaths.recallDueToday}
       >
         {t("recall.dueToday.title")}

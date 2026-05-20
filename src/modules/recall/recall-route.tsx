@@ -2,6 +2,7 @@ import {
   createFileRoute,
   Navigate,
   Outlet,
+  useLocation,
   useNavigate,
   useRouteContext,
 } from "@tanstack/react-router";
@@ -25,6 +26,7 @@ import {
 } from "./learner-copy";
 import { AppRecallError, type RecallMode } from "./recall";
 import { RecallBreadcrumb } from "./recall-breadcrumb";
+import { RecallTodayWorkspacePage } from "./recall-results-workspace-route";
 
 export const Route = createFileRoute("/_protected/recall")({
   component: RecallRouteShell,
@@ -36,6 +38,7 @@ function RecallRouteNotFoundRedirect() {
 }
 
 function RecallRouteShell() {
+  const location = useLocation();
   const persistentRecallContext = useRouteContext({
     from: "/_protected/recall",
     select: (context) => context.persistentRecall,
@@ -80,6 +83,13 @@ function RecallRouteShell() {
 
   if (!isReady) {
     return null;
+  }
+
+  if (
+    location.pathname === appRoutePaths.recall ||
+    location.pathname === `${appRoutePaths.recall}/`
+  ) {
+    return <RecallTodayWorkspacePage />;
   }
 
   return <Outlet />;

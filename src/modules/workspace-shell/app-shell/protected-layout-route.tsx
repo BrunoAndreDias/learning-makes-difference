@@ -77,6 +77,10 @@ const globalNavigationItems = [
 
 const recallSubNavigationItems = [
   {
+    labelKey: "recall.today.title",
+    to: appRoutePaths.recall,
+  },
+  {
     labelKey: "recall.dueToday.title",
     to: appRoutePaths.recallDueToday,
   },

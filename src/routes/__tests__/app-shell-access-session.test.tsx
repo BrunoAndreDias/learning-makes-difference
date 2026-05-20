@@ -484,7 +484,7 @@ describe("authenticated app shell", () => {
     );
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/recall/due-today");
+      expect(router.state.location.pathname).toBe("/recall");
     });
     expect(screen.getByText("Skip to main content")).toBeInTheDocument();
     expect(screen.getByText("Jordan Review")).toBeInTheDocument();

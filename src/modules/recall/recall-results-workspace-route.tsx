@@ -358,6 +358,64 @@ async function startWorkspaceDueTodayRecall({
   return true;
 }
 
+export function RecallTodayWorkspacePage() {
+  const { t } = useAppTranslation();
+  const workspaceDate = new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+  }).format(new Date());
+
+  return (
+    <section
+      aria-label={t("shell.workspace.recall")}
+      className="recall-workspace"
+    >
+      <article className="recall-surface recall-today-surface">
+        <div className="recall-today-chrome">
+          <div className="recall-today-chrome__meta">
+            <span className="recall-today-chrome__date">
+              <CalendarHeaderIcon />
+              <span>{workspaceDate}</span>
+            </span>
+          </div>
+          <Button
+            aria-label="Help"
+            className="recall-today-chrome__help"
+            iconOnly
+            type="button"
+          >
+            <HelpCircleIcon />
+          </Button>
+        </div>
+
+        <div className="recall-today-top">
+          <RecallPageTabs />
+          <PageHeader
+            actions={
+              <fieldset className="recall-today-actions">
+                <legend className="sr-only">{t("recall.today.actions")}</legend>
+                <ButtonLink to={appRoutePaths.recallSelect} variant="secondary">
+                  <ListIcon />
+                  {t("recall.today.manualSelection")}
+                </ButtonLink>
+              </fieldset>
+            }
+            actionsClassName="recall-today-hero__actions"
+            className="recall-surface__header recall-today-hero"
+            description={t("recall.today.description")}
+            headingLevel={1}
+            title={t("recall.today.title")}
+          />
+        </div>
+
+        <div className="recall-results-empty" role="status">
+          <h4>{t("recall.today.emptyTitle")}</h4>
+          <p className="muted">{t("recall.today.emptyBody")}</p>
+        </div>
+      </article>
+    </section>
+  );
+}
+
 export function RecallDueTodayWorkspacePage() {
   const navigate = useNavigate();
   const {

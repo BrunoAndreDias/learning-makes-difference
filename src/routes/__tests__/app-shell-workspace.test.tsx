@@ -687,13 +687,16 @@ describe("authenticated app shell", () => {
 
     expect(
       await screen.findByRole("heading", {
-        level: 3,
-        name: "Recall starts with Study Notes",
+        level: 1,
+        name: "Recall Today",
       }),
     ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall/due-today");
+    expect(router.state.location.pathname).toBe("/recall");
     expect(recallLink).toHaveAttribute("aria-current", "page");
     expect(notesLink).not.toHaveAttribute("aria-current");
+    expect(
+      within(appSections).getByRole("link", { name: "Recall Today" }),
+    ).toHaveAttribute("href", "/recall");
     expect(
       within(appSections).getByRole("link", { name: "Due today" }),
     ).toHaveAttribute("href", "/recall/due-today");
