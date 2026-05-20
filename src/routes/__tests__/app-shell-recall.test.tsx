@@ -2574,6 +2574,58 @@ describe("authenticated recall workspace", () => {
     expect(screen.queryByText(/Showing/)).toBeNull();
   });
 
+  it("keeps Results start recall focused on Recall Selection when Due today has work", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const dueTodayStudyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Due today answer.",
+      labelIds: [],
+      prompt: "Due today prompt",
+      sourceBody: "Due today source.",
+      sourceTitle: "Due today source",
+    });
+
+    completeStudyNoteRecallAt({
+      rating: "good",
+      recallContext: contexts.recallContext,
+      studyNoteId: dueTodayStudyNote.id,
+      timestamp: "2026-05-11T09:00:00.000Z",
+    });
+    vi.setSystemTime(new Date("2026-05-15T10:00:00.000Z"));
+
+    const { router } = renderRoute("/recall/results", {
+      ...contexts,
+      session: {
+        user: {
+          ...testUser,
+          userTimeZone: "America/New_York",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Results",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Selected result" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Custom recall" })).toHaveAttribute(
+      "href",
+      "/recall/select",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Start due recall" }),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole("link", { name: "Custom recall" }));
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/recall/select");
+    });
+  });
+
   it("explains empty Due today when Study Notes are not schedule-due", async () => {
     const contexts = createDeterministicRecallTestContexts();
     contexts.studyNotesContext.createStudyNote(testUser.id, {
