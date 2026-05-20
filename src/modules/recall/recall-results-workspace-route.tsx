@@ -559,7 +559,7 @@ export function RecallResultsWorkspacePage() {
         <div className="recall-results-top">
           <RecallPageTabs />
           <PageHeader
-            actions={<RecallResultsPrimaryAction />}
+            actions={<RecallSelectionPrimaryAction />}
             className="recall-surface__header"
             description={t("recall.results.description")}
             headingLevel={1}
@@ -1243,19 +1243,10 @@ function RecallDueTodayPrimaryAction({
     );
   }
 
-  return (
-    <ButtonLink
-      className="recall-page-primary-action"
-      to={appRoutePaths.recallSelect}
-      variant="primary"
-    >
-      <ListIcon />
-      {t("recall.dueToday.manualSelection")}
-    </ButtonLink>
-  );
+  return <RecallSelectionPrimaryAction />;
 }
 
-function RecallResultsPrimaryAction() {
+function RecallSelectionPrimaryAction() {
   const { t } = useAppTranslation();
 
   return (
