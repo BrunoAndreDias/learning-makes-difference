@@ -1,4 +1,4 @@
-import { collectLabelDescendantIds, sortLabelsByName } from "./label-graph";
+import { sortLabelsByName } from "./label-graph";
 import {
   type AppLabel,
   AppLabelError,
@@ -9,7 +9,6 @@ type PersistentLabelsListener = () => void;
 
 type CreateLabelInput = {
   name: string;
-  parentIds?: string[];
 };
 
 type RenameLabelInput = {
@@ -17,36 +16,18 @@ type RenameLabelInput = {
   name: string;
 };
 
-type UpdateLabelInput = {
-  labelId: string;
-  name: string;
-  parentIds: string[];
-};
-
-type LabelRelationshipInput = {
-  labelId: string;
-  parentId: string;
-};
-
 type StoredLabel = AppLabel & {
   userId: string;
 };
 
 export type AppPersistentLabelsService = {
-  addParent: (input: LabelRelationshipInput) => Promise<AppLabel>;
   createLabel: (input: CreateLabelInput) => Promise<AppLabel>;
   deleteLabel: (input: { labelId: string }) => Promise<void>;
   listLabels: () => Promise<AppLabel[]>;
-  removeParent: (input: LabelRelationshipInput) => Promise<AppLabel>;
   renameLabel: (input: RenameLabelInput) => Promise<AppLabel>;
-  updateLabel: (input: UpdateLabelInput) => Promise<AppLabel>;
 };
 
 export type AppPersistentLabelsContext = {
-  addParent: (
-    userId: string | null,
-    input: LabelRelationshipInput,
-  ) => Promise<AppLabel>;
   createLabel: (
     userId: string | null,
     input: CreateLabelInput,
@@ -54,18 +35,10 @@ export type AppPersistentLabelsContext = {
   deleteLabel: (userId: string | null, labelId: string) => Promise<void>;
   getSnapshot: () => readonly StoredLabel[];
   refresh: (userId: string | null) => Promise<readonly StoredLabel[]>;
-  removeParent: (
-    userId: string | null,
-    input: LabelRelationshipInput,
-  ) => Promise<AppLabel>;
   renameLabel: (
     userId: string | null,
     labelId: string,
     name: string,
-  ) => Promise<AppLabel>;
-  updateLabel: (
-    userId: string | null,
-    input: UpdateLabelInput,
   ) => Promise<AppLabel>;
   subscribe: (listener: PersistentLabelsListener) => () => void;
 };
@@ -109,11 +82,6 @@ export function createReadonlyLabelsContext(
   >,
 ): AppLabelsContext {
   return {
-    addParent: () => {
-      throw new Error(
-        "Readonly labels context cannot add parents. Use persistentLabels instead.",
-      );
-    },
     createLabel: () => {
       throw new Error(
         "Readonly labels context cannot create labels. Use persistentLabels instead.",
@@ -124,31 +92,11 @@ export function createReadonlyLabelsContext(
         "Readonly labels context cannot delete labels. Use persistentLabels instead.",
       );
     },
-    getDescendantIds: ({ labelId, userId }) => {
-      const labels = getUserLabels(persistentLabels.getSnapshot(), userId);
-      const label = labels.find((candidate) => candidate.id === labelId);
-
-      if (label === undefined) {
-        throw new AppLabelError("not_found", "Label not found.");
-      }
-
-      return collectLabelDescendantIds(labels, label.id);
-    },
     getLabelsForUser: (userId) =>
       getUserLabels(persistentLabels.getSnapshot(), userId),
-    removeParent: () => {
-      throw new Error(
-        "Readonly labels context cannot remove parents. Use persistentLabels instead.",
-      );
-    },
     renameLabel: () => {
       throw new Error(
         "Readonly labels context cannot rename labels. Use persistentLabels instead.",
-      );
-    },
-    updateLabel: () => {
-      throw new Error(
-        "Readonly labels context cannot update labels. Use persistentLabels instead.",
       );
     },
     subscribe: persistentLabels.subscribe,
@@ -198,14 +146,6 @@ export function createPersistentLabelsContext(
   }
 
   return {
-    async addParent(userId, input) {
-      const validatedUserId = requireUserId(userId);
-      const updatedLabel = await requireService().addParent(input);
-
-      replaceSnapshotLabel(updatedLabel, validatedUserId);
-
-      return updatedLabel;
-    },
     async createLabel(userId, input) {
       const validatedUserId = requireUserId(userId);
       const createdLabel = await requireService().createLabel(input);
@@ -223,16 +163,7 @@ export function createPersistentLabelsContext(
         labelId,
       });
 
-      writeSnapshot(
-        snapshot
-          .filter((label) => label.id !== labelId)
-          .map((label) => ({
-            ...label,
-            parentIds: label.parentIds.filter(
-              (parentId) => parentId !== labelId,
-            ),
-          })),
-      );
+      writeSnapshot(snapshot.filter((label) => label.id !== labelId));
     },
     getSnapshot() {
       return snapshot;
@@ -246,28 +177,12 @@ export function createPersistentLabelsContext(
 
       return writeSnapshot(labels.map((label) => toStoredLabel(label, userId)));
     },
-    async removeParent(userId, input) {
-      const validatedUserId = requireUserId(userId);
-      const updatedLabel = await requireService().removeParent(input);
-
-      replaceSnapshotLabel(updatedLabel, validatedUserId);
-
-      return updatedLabel;
-    },
     async renameLabel(userId, labelId, name) {
       const validatedUserId = requireUserId(userId);
       const updatedLabel = await requireService().renameLabel({
         labelId,
         name,
       });
-
-      replaceSnapshotLabel(updatedLabel, validatedUserId);
-
-      return updatedLabel;
-    },
-    async updateLabel(userId, input) {
-      const validatedUserId = requireUserId(userId);
-      const updatedLabel = await requireService().updateLabel(input);
 
       replaceSnapshotLabel(updatedLabel, validatedUserId);
 

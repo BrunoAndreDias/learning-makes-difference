@@ -95,7 +95,6 @@ describe("recall session search", () => {
       {
         id: "biology",
         name: "Biology",
-        parentIds: [],
       },
     ];
     const sessionResults = [

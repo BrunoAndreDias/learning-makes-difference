@@ -40,7 +40,6 @@ describe("recall result labels", () => {
           {
             id: "science",
             name: "Current Science",
-            parentIds: ["stem"],
           },
         ],
         sessionResults: [
@@ -76,22 +75,19 @@ describe("recall result labels", () => {
       {
         id: "archive",
         name: "Archive",
-        parentIds: [],
       },
       {
         id: "science",
         name: "Current Science",
-        parentIds: ["stem"],
       },
     ]);
   });
 
-  it("returns independent current label parent id arrays", () => {
+  it("returns independent current label objects", () => {
     const currentLabels = [
       {
         id: "science",
         name: "Science",
-        parentIds: ["stem"],
       },
     ];
     const labels = listRecallResultLabels({
@@ -99,13 +95,12 @@ describe("recall result labels", () => {
       sessionResults: [],
     });
 
-    labels[0].parentIds.push("mutated");
+    labels[0].name = "Mutated";
 
     expect(currentLabels).toEqual([
       {
         id: "science",
         name: "Science",
-        parentIds: ["stem"],
       },
     ]);
   });
@@ -117,7 +112,6 @@ describe("recall result labels", () => {
           {
             id: "science",
             name: "Current Science",
-            parentIds: ["stem"],
           },
         ],
         sessionResults: [
@@ -142,7 +136,6 @@ describe("recall result labels", () => {
       {
         id: "science",
         name: "Current Science",
-        parentIds: ["stem"],
       },
     ]);
   });

@@ -1,79 +1,34 @@
-import { and, eq, inArray } from "drizzle-orm";
-import {
-  collectLabelDescendantIds,
-  normalizeLabelParentIds,
-  sortLabelsByName,
-} from "./label-graph";
+import { eq } from "drizzle-orm";
+
+import { sortLabelsByName } from "./label-graph";
 import type { AppLabel } from "./label-management/labels";
 import { AppLabelError } from "./label-management/labels";
-import { labelEdgesTable, labelsTable } from "./labels-schema";
+import { labelsTable } from "./labels-schema";
 
 type LabelsCrypto = Pick<Crypto, "randomUUID">;
 type Awaitable<T> = PromiseLike<T> | T;
 
 type LabelsDatabaseRuntime = {
-  delete: {
-    (
-      table: typeof labelEdgesTable,
-    ): {
-      where: (condition: unknown) => Awaitable<unknown>;
-    };
-    (
-      table: typeof labelsTable,
-    ): {
-      where: (condition: unknown) => Awaitable<unknown>;
-    };
+  delete: (table: typeof labelsTable) => {
+    where: (condition: unknown) => Awaitable<unknown>;
   };
-  insert: {
-    (
-      table: typeof labelEdgesTable,
-    ): {
-      values: (
-        values:
-          | {
-              childLabelId: string;
-              parentLabelId: string;
-            }
-          | Array<{
-              childLabelId: string;
-              parentLabelId: string;
-            }>,
-      ) => Awaitable<unknown>;
-    };
-    (
-      table: typeof labelsTable,
-    ): {
-      values: (values: {
-        createdAt: Date;
-        id: string;
-        name: string;
-        updatedAt: Date;
-        userId: string;
-      }) => Awaitable<unknown>;
-    };
+  insert: (table: typeof labelsTable) => {
+    values: (values: {
+      createdAt: Date;
+      id: string;
+      name: string;
+      updatedAt: Date;
+      userId: string;
+    }) => Awaitable<unknown>;
   };
   select: () => {
-    from: {
-      (
-        table: typeof labelEdgesTable,
-      ): {
-        where: (condition: unknown) => Awaitable<
-          Array<{
-            childLabelId: string;
-            parentLabelId: string;
-          }>
-        >;
-      };
-      (
-        table: typeof labelsTable,
-      ): {
-        where: (condition: unknown) => Awaitable<
-          Array<{
-            id: string;
-            name: string;
-          }>
-        >;
-      };
+    from: (table: typeof labelsTable) => {
+      where: (condition: unknown) => Awaitable<
+        Array<{
+          id: string;
+          name: string;
+        }>
+      >;
     };
   };
   update: (table: typeof labelsTable) => {
@@ -108,35 +63,17 @@ async function readOwnedLabels(db: LabelsDatabaseRuntime, userId: string) {
     .select()
     .from(labelsTable)
     .where(eq(labelsTable.userId, userId))) as Array<{
+    createdAt?: Date;
     id: string;
     name: string;
+    updatedAt?: Date;
+    userId?: string;
   }>;
-
-  if (storedLabels.length === 0) {
-    return [];
-  }
-
-  const labelIds = storedLabels.map((label) => label.id);
-  const storedEdges = (await db
-    .select()
-    .from(labelEdgesTable)
-    .where(inArray(labelEdgesTable.childLabelId, labelIds))) as Array<{
-    childLabelId: string;
-    parentLabelId: string;
-  }>;
-  const parentIdsByChildId = new Map<string, string[]>();
-
-  for (const edge of storedEdges) {
-    const parentIds = parentIdsByChildId.get(edge.childLabelId) ?? [];
-    parentIds.push(edge.parentLabelId);
-    parentIdsByChildId.set(edge.childLabelId, parentIds);
-  }
 
   return sortLabelsByName(
     storedLabels.map((label) => ({
       id: label.id,
       name: label.name,
-      parentIds: [...(parentIdsByChildId.get(label.id) ?? [])].sort(),
     })),
   );
 }
@@ -159,74 +96,11 @@ export function createLabelsService({
   const database = db as LabelsDatabaseRuntime;
 
   return {
-    async addParent(input: {
-      labelId: string;
-      parentId: string;
-      userId: string;
-    }) {
-      if (input.labelId === input.parentId) {
-        throw new AppLabelError(
-          "cycle_detected",
-          "A label cannot be its own parent.",
-        );
-      }
-
-      const labels = await readOwnedLabels(database, input.userId);
-      const label = getOwnedLabel(labels, input.labelId);
-
-      getOwnedLabel(labels, input.parentId);
-
-      if (label.parentIds.includes(input.parentId)) {
-        return label;
-      }
-
-      if (
-        collectLabelDescendantIds(labels, input.labelId).includes(
-          input.parentId,
-        )
-      ) {
-        throw new AppLabelError(
-          "cycle_detected",
-          "This relationship would create a cycle.",
-        );
-      }
-
-      await database.insert(labelEdgesTable).values({
-        childLabelId: input.labelId,
-        parentLabelId: input.parentId,
-      });
-
-      return {
-        ...label,
-        parentIds: [...label.parentIds, input.parentId].sort(),
-      };
-    },
-    async createLabel(input: {
-      name: string;
-      parentIds?: string[];
-      userId: string;
-    }) {
-      const id = crypto.randomUUID();
-      const parentIds = normalizeLabelParentIds(input.parentIds ?? []);
-
-      if (parentIds.includes(id)) {
-        throw new AppLabelError(
-          "cycle_detected",
-          "A label cannot be its own parent.",
-        );
-      }
-
-      const ownedLabels = await readOwnedLabels(database, input.userId);
-
-      for (const parentId of parentIds) {
-        getOwnedLabel(ownedLabels, parentId);
-      }
-
+    async createLabel(input: { name: string; userId: string }) {
       const timestamp = now();
       const label = {
-        id,
+        id: crypto.randomUUID(),
         name: normalizeLabelName(input.name),
-        parentIds,
       } satisfies AppLabel;
 
       await database.insert(labelsTable).values({
@@ -236,15 +110,6 @@ export function createLabelsService({
         createdAt: timestamp,
         updatedAt: timestamp,
       });
-
-      if (label.parentIds.length > 0) {
-        await database.insert(labelEdgesTable).values(
-          label.parentIds.map((parentId) => ({
-            childLabelId: label.id,
-            parentLabelId: parentId,
-          })),
-        );
-      }
 
       return label;
     },
@@ -260,30 +125,6 @@ export function createLabelsService({
     },
     async listLabels(input: { userId: string }) {
       return readOwnedLabels(database, input.userId);
-    },
-    async removeParent(input: {
-      labelId: string;
-      parentId: string;
-      userId: string;
-    }) {
-      const labels = await readOwnedLabels(database, input.userId);
-      const label = getOwnedLabel(labels, input.labelId);
-
-      await database
-        .delete(labelEdgesTable)
-        .where(
-          and(
-            eq(labelEdgesTable.childLabelId, input.labelId),
-            eq(labelEdgesTable.parentLabelId, input.parentId),
-          ),
-        );
-
-      return {
-        ...label,
-        parentIds: label.parentIds.filter(
-          (parentId) => parentId !== input.parentId,
-        ),
-      };
     },
     async renameLabel(input: {
       labelId: string;
@@ -307,75 +148,7 @@ export function createLabelsService({
       return {
         id: input.labelId,
         name,
-        parentIds: getOwnedLabel(
-          await readOwnedLabels(database, input.userId),
-          input.labelId,
-        ).parentIds,
-      };
-    },
-    async updateLabel(input: {
-      labelId: string;
-      name: string;
-      parentIds: string[];
-      userId: string;
-    }) {
-      const labels = await readOwnedLabels(database, input.userId);
-
-      getOwnedLabel(labels, input.labelId);
-
-      const name = normalizeLabelName(input.name);
-      const parentIds = normalizeLabelParentIds(input.parentIds);
-
-      if (parentIds.includes(input.labelId)) {
-        throw new AppLabelError(
-          "cycle_detected",
-          "A label cannot be its own parent.",
-        );
-      }
-
-      for (const parentId of parentIds) {
-        getOwnedLabel(labels, parentId);
-      }
-
-      const descendantIds = new Set(
-        collectLabelDescendantIds(labels, input.labelId),
-      );
-
-      for (const parentId of parentIds) {
-        if (descendantIds.has(parentId)) {
-          throw new AppLabelError(
-            "cycle_detected",
-            "This relationship would create a cycle.",
-          );
-        }
-      }
-
-      await database
-        .update(labelsTable)
-        .set({
-          name,
-          updatedAt: now(),
-        })
-        .where(eq(labelsTable.id, input.labelId));
-
-      await database
-        .delete(labelEdgesTable)
-        .where(eq(labelEdgesTable.childLabelId, input.labelId));
-
-      if (parentIds.length > 0) {
-        await database.insert(labelEdgesTable).values(
-          parentIds.map((parentId) => ({
-            childLabelId: input.labelId,
-            parentLabelId: parentId,
-          })),
-        );
-      }
-
-      return {
-        id: input.labelId,
-        name,
-        parentIds,
-      };
+      } satisfies AppLabel;
     },
   };
 }

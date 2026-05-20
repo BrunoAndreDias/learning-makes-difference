@@ -496,7 +496,6 @@ describe("focus sessions", () => {
         {
           id: "label-biology",
           name: "Biology",
-          parentIds: [],
         },
       ],
       note: {
@@ -524,7 +523,6 @@ describe("focus sessions", () => {
             {
               id: "label-biology",
               name: "Biology",
-              parentIds: [],
             },
           ],
           note: {
@@ -574,12 +572,10 @@ describe("focus sessions", () => {
         {
           id: "label-biology",
           name: "Biology",
-          parentIds: [],
         },
         {
           id: "label-history",
           name: "History",
-          parentIds: [],
         },
       ],
       studyNote,
@@ -601,7 +597,6 @@ describe("focus sessions", () => {
             {
               id: "label-biology",
               name: "Biology",
-              parentIds: [],
             },
           ],
           sourceNote: {
@@ -703,7 +698,6 @@ describe("focus sessions", () => {
         {
           id: "label-1",
           name: "Biology",
-          parentIds: [],
         },
       ],
       note: {

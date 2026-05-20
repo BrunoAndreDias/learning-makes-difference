@@ -13,7 +13,6 @@ const SESSION_COOKIE_NAME = "learning-makes-difference-session";
 const labelSchema = z.object({
   id: z.string(),
   name: z.string(),
-  parentIds: z.array(z.string()),
 });
 
 const noteSchema = z.object({
@@ -290,10 +289,7 @@ export function createServerFocusService(): AppPersistentFocusService {
     captureNoteStudyActivity: (input) =>
       captureNoteStudyActivityServerFn({
         data: {
-          labels: input.labels.map((label) => ({
-            ...label,
-            parentIds: [...label.parentIds],
-          })),
+          labels: input.labels.map((label) => ({ ...label })),
           note: {
             ...input.note,
             acronyms: input.note.acronyms.map((acronym) => ({ ...acronym })),
@@ -324,10 +320,7 @@ export function createServerFocusService(): AppPersistentFocusService {
     captureStudyNoteStudyActivity: (input) =>
       captureStudyNoteStudyActivityServerFn({
         data: {
-          labels: input.labels.map((label) => ({
-            ...label,
-            parentIds: [...label.parentIds],
-          })),
+          labels: input.labels.map((label) => ({ ...label })),
           studyNote: {
             ...input.studyNote,
             acronyms: input.studyNote.acronyms.map((acronym) => ({

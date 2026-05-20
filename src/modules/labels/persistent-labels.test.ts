@@ -15,32 +15,14 @@ describe("createPersistentLabelsContext", () => {
         {
           id: "label-1",
           name: "Science",
-          parentIds: [],
         },
       ],
     ]);
     const service: AppPersistentLabelsService = {
-      addParent: vi.fn(async ({ labelId, parentId }) => {
-        const label = labelsById.get(labelId);
-
-        if (label === undefined) {
-          throw new Error("Missing label");
-        }
-
-        const updatedLabel = {
-          ...label,
-          parentIds: [...new Set([...label.parentIds, parentId])].sort(),
-        };
-
-        labelsById.set(labelId, updatedLabel);
-
-        return updatedLabel;
-      }),
-      createLabel: vi.fn(async ({ name, parentIds }) => {
+      createLabel: vi.fn(async ({ name }) => {
         const createdLabel = {
           id: "label-2",
           name,
-          parentIds: [...(parentIds ?? [])].sort(),
         };
 
         labelsById.set(createdLabel.id, createdLabel);
@@ -55,24 +37,6 @@ describe("createPersistentLabelsContext", () => {
           left.name.localeCompare(right.name),
         ),
       ),
-      removeParent: vi.fn(async ({ labelId, parentId }) => {
-        const label = labelsById.get(labelId);
-
-        if (label === undefined) {
-          throw new Error("Missing label");
-        }
-
-        const updatedLabel = {
-          ...label,
-          parentIds: label.parentIds.filter(
-            (candidateId) => candidateId !== parentId,
-          ),
-        };
-
-        labelsById.set(labelId, updatedLabel);
-
-        return updatedLabel;
-      }),
       renameLabel: vi.fn(async ({ labelId, name }) => {
         const label = labelsById.get(labelId);
 
@@ -89,33 +53,6 @@ describe("createPersistentLabelsContext", () => {
 
         return updatedLabel;
       }),
-      updateLabel: vi.fn(
-        async ({
-          labelId,
-          name,
-          parentIds,
-        }: {
-          labelId: string;
-          name: string;
-          parentIds: string[];
-        }) => {
-          const label = labelsById.get(labelId);
-
-          if (label === undefined) {
-            throw new Error("Missing label");
-          }
-
-          const updatedLabel = {
-            ...label,
-            name,
-            parentIds: [...new Set(parentIds)].sort(),
-          };
-
-          labelsById.set(labelId, updatedLabel);
-
-          return updatedLabel;
-        },
-      ),
     };
     const persistentLabels = createPersistentLabelsContext({
       service,
@@ -134,16 +71,13 @@ describe("createPersistentLabelsContext", () => {
     await expect(
       persistentLabels.createLabel("user-casey", {
         name: "Biology",
-        parentIds: ["label-1"],
       }),
     ).resolves.toMatchObject({
       id: "label-2",
       name: "Biology",
-      parentIds: ["label-1"],
     });
     expect(service.createLabel).toHaveBeenCalledWith({
       name: "Biology",
-      parentIds: ["label-1"],
     });
     await expect(
       persistentLabels.renameLabel("user-casey", "label-1", "Natural Science"),
@@ -151,43 +85,13 @@ describe("createPersistentLabelsContext", () => {
       id: "label-1",
       name: "Natural Science",
     });
-    await expect(
-      persistentLabels.updateLabel("user-casey", {
-        labelId: "label-1",
-        name: "Applied Science",
-        parentIds: [],
-      }),
-    ).resolves.toMatchObject({
-      id: "label-1",
-      name: "Applied Science",
-      parentIds: [],
-    });
-    await expect(
-      persistentLabels.addParent("user-casey", {
-        labelId: "label-2",
-        parentId: "label-1",
-      }),
-    ).resolves.toMatchObject({
-      id: "label-2",
-      parentIds: ["label-1"],
-    });
-    await expect(
-      persistentLabels.removeParent("user-casey", {
-        labelId: "label-2",
-        parentId: "label-1",
-      }),
-    ).resolves.toMatchObject({
-      id: "label-2",
-      parentIds: [],
-    });
 
     await persistentLabels.deleteLabel("user-casey", "label-2");
 
     expect(labels.getLabelsForUser("user-casey")).toEqual([
       {
         id: "label-1",
-        name: "Applied Science",
-        parentIds: [],
+        name: "Natural Science",
       },
     ]);
   });

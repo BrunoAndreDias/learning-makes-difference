@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { createPgliteServiceTestDatabase } from "../../lib/db/pglite-service-test-db";
@@ -569,6 +570,63 @@ describe("createStudyNotesService", () => {
         userId: "user-casey",
       }),
     ).rejects.toThrow("Study Notes can only be assigned");
+  });
+
+  it("drops deleted Labels from active Study Note assignments", async () => {
+    const { db, studyNotes } = await createStudyNotesHarness({
+      users: [
+        createUserValues({
+          displayName: "Casey Learner",
+          email: "casey@example.com",
+          id: "user-casey",
+        }),
+      ],
+    });
+    await db.insert(labelsTable).values([
+      {
+        createdAt: TEST_CREATED_AT,
+        id: "label-biology",
+        name: "Biology",
+        updatedAt: TEST_CREATED_AT,
+        userId: "user-casey",
+      },
+      {
+        createdAt: TEST_CREATED_AT,
+        id: "label-history",
+        name: "History",
+        updatedAt: TEST_CREATED_AT,
+        userId: "user-casey",
+      },
+    ]);
+
+    const createdStudyNote = await studyNotes.createStudyNote({
+      input: {
+        labelIds: ["label-biology", "label-history"],
+        sourceBody: "One source body.",
+        sourceTitle: "Shared source one",
+      },
+      userId: "user-casey",
+    });
+
+    await db.delete(labelsTable).where(eq(labelsTable.id, "label-history"));
+
+    await expect(
+      studyNotes.listStudyNotes({ userId: "user-casey" }),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: createdStudyNote.id,
+          labelIds: ["label-biology"],
+        }),
+      ]),
+    );
+
+    await expect(db.select().from(studyNoteLabelsTable)).resolves.toEqual([
+      {
+        labelId: "label-biology",
+        studyNoteId: createdStudyNote.id,
+      },
+    ]);
   });
 
   it("keeps memory aids and source material owned by each Study Note across legacy shared sources", async () => {

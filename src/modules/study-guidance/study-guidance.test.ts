@@ -180,12 +180,10 @@ describe("Study Guidance", () => {
     const biology: AppLabel = {
       id: "label-biology",
       name: "Biology",
-      parentIds: [],
     };
     const chemistry: AppLabel = {
       id: "label-chemistry",
       name: "Chemistry",
-      parentIds: [],
     };
     const activeRepair = buildStudyNote({
       id: "study-note-active-repair",
@@ -425,7 +423,6 @@ describe("Study Guidance", () => {
     const biology: AppLabel = {
       id: "label-biology",
       name: "Biology",
-      parentIds: [],
     };
     const repairCandidate = buildStudyNote({
       id: "study-note-repair-candidate",
@@ -539,12 +536,10 @@ describe("Study Guidance", () => {
     const biology: AppLabel = {
       id: "label-biology",
       name: "Biology",
-      parentIds: [],
     };
     const chemistry: AppLabel = {
       id: "label-chemistry",
       name: "Chemistry",
-      parentIds: [],
     };
     const firstRecall = buildStudyNote({
       id: "study-note-first-recall",

@@ -31,7 +31,6 @@ function buildLabel(
   return {
     id,
     name,
-    parentIds: [],
     ...rest,
   };
 }

@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -8,34 +9,16 @@ import {
   type PostgresIntegrationDatabase,
 } from "../../lib/db/postgres-integration-test-db";
 import { authSchema, usersTable } from "../access/session/auth-schema";
-import { labelEdgesTable, labelsSchema, labelsTable } from "./labels-schema";
-
-function findSqlState(error: unknown): string | undefined {
-  if (typeof error !== "object" || error === null) {
-    return undefined;
-  }
-
-  if ("code" in error && typeof error.code === "string") {
-    return error.code;
-  }
-
-  if ("cause" in error) {
-    return findSqlState(error.cause);
-  }
-
-  return undefined;
-}
-
-async function expectSqlState(promise: Promise<unknown>, expectedCode: string) {
-  try {
-    await promise;
-  } catch (error) {
-    expect(findSqlState(error)).toBe(expectedCode);
-    return;
-  }
-
-  throw new Error(`Expected PostgreSQL SQLSTATE ${expectedCode}.`);
-}
+import { notesSchema, notesTable } from "../notes/notes-schema";
+import {
+  studyNotesSchema,
+  studyNotesTable,
+} from "../study-notes/study-notes-schema";
+import {
+  labelsSchema,
+  labelsTable,
+  studyNoteLabelsTable,
+} from "./labels-schema";
 
 describe("labels schema PostgreSQL integration", () => {
   const databases = new Set<PostgresIntegrationDatabase>();
@@ -44,7 +27,7 @@ describe("labels schema PostgreSQL integration", () => {
     await closePostgresIntegrationDatabases(databases);
   });
 
-  it("rejects duplicate edges and self-parent edges with database constraints", async () => {
+  it("cascades deleted Labels out of active Study Note assignments", async () => {
     const database = await createPostgresIntegrationDatabase();
     databases.add(database);
 
@@ -52,6 +35,8 @@ describe("labels schema PostgreSQL integration", () => {
       schema: {
         ...authSchema,
         ...labelsSchema,
+        ...notesSchema,
+        ...studyNotesSchema,
       },
     });
     await migrateDatabase(db, database.client);
@@ -64,41 +49,37 @@ describe("labels schema PostgreSQL integration", () => {
       createdAt: new Date("2026-05-02T12:00:00.000Z"),
       updatedAt: new Date("2026-05-02T12:00:00.000Z"),
     });
-    await db.insert(labelsTable).values([
-      {
-        id: "label-science",
-        userId: "user-casey",
-        name: "Science",
-        createdAt: new Date("2026-05-02T12:00:00.000Z"),
-        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
-      },
-      {
-        id: "label-biology",
-        userId: "user-casey",
-        name: "Biology",
-        createdAt: new Date("2026-05-02T12:00:00.000Z"),
-        updatedAt: new Date("2026-05-02T12:00:00.000Z"),
-      },
-    ]);
-
-    await db.insert(labelEdgesTable).values({
-      childLabelId: "label-biology",
-      parentLabelId: "label-science",
+    await db.insert(labelsTable).values({
+      id: "label-biology",
+      userId: "user-casey",
+      name: "Biology",
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+    await db.insert(notesTable).values({
+      id: "note-1",
+      userId: "user-casey",
+      title: "Cell respiration",
+      body: "ATP stores transferable energy.",
+      labelIds: [],
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+    await db.insert(studyNotesTable).values({
+      id: "study-note-1",
+      sourceNoteId: "note-1",
+      prompt: "What stores transferable energy?",
+      expectedAnswer: "ATP",
+      createdAt: new Date("2026-05-02T12:00:00.000Z"),
+      updatedAt: new Date("2026-05-02T12:00:00.000Z"),
+    });
+    await db.insert(studyNoteLabelsTable).values({
+      studyNoteId: "study-note-1",
+      labelId: "label-biology",
     });
 
-    await expectSqlState(
-      db.insert(labelEdgesTable).values({
-        childLabelId: "label-biology",
-        parentLabelId: "label-science",
-      }),
-      "23505",
-    );
-    await expectSqlState(
-      db.insert(labelEdgesTable).values({
-        childLabelId: "label-science",
-        parentLabelId: "label-science",
-      }),
-      "23514",
-    );
+    await db.delete(labelsTable).where(eq(labelsTable.id, "label-biology"));
+
+    await expect(db.select().from(studyNoteLabelsTable)).resolves.toEqual([]);
   });
 });

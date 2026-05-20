@@ -465,9 +465,6 @@ function createTestPersistentLabelsService(
   initialLabels: readonly AppLabel[],
 ): AppPersistentLabelsService {
   return {
-    addParent: vi.fn<AppPersistentLabelsService["addParent"]>(
-      createUnusedPersistentLabelMutation(),
-    ),
     createLabel: vi.fn<AppPersistentLabelsService["createLabel"]>(
       createUnusedPersistentLabelMutation(),
     ),
@@ -479,13 +476,7 @@ function createTestPersistentLabelsService(
         left.name.localeCompare(right.name),
       ),
     ),
-    removeParent: vi.fn<AppPersistentLabelsService["removeParent"]>(
-      createUnusedPersistentLabelMutation(),
-    ),
     renameLabel: vi.fn<AppPersistentLabelsService["renameLabel"]>(
-      createUnusedPersistentLabelMutation(),
-    ),
-    updateLabel: vi.fn<AppPersistentLabelsService["updateLabel"]>(
       createUnusedPersistentLabelMutation(),
     ),
   };
@@ -747,7 +738,6 @@ describe("authenticated Study Notes workspace", () => {
       {
         id: "label-biology",
         name: "Biology",
-        parentIds: [],
       },
     ]);
     const persistentLabelsContext = createPersistentLabelsContext({

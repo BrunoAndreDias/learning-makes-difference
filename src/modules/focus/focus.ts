@@ -315,7 +315,6 @@ function cloneStoredFocusRecord(record: StoredFocusRecord): StoredFocusRecord {
 function cloneLabel(label: AppLabel): AppLabel {
   return {
     ...label,
-    parentIds: [...label.parentIds],
   };
 }
 
@@ -486,12 +485,7 @@ function isAppLabel(entry: unknown): entry is AppLabel {
 
   const candidate = entry as Partial<AppLabel>;
 
-  return (
-    typeof candidate.id === "string" &&
-    typeof candidate.name === "string" &&
-    Array.isArray(candidate.parentIds) &&
-    candidate.parentIds.every((parentId) => typeof parentId === "string")
-  );
+  return typeof candidate.id === "string" && typeof candidate.name === "string";
 }
 
 function isAppAcronym(entry: unknown): entry is AppAcronym {

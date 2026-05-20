@@ -13,23 +13,11 @@ const SESSION_COOKIE_NAME = "learning-makes-difference-session";
 
 const createLabelInputSchema = z.object({
   name: z.string(),
-  parentIds: z.array(z.string()).optional(),
 });
 
 const renameLabelInputSchema = z.object({
   labelId: z.string(),
   name: z.string(),
-});
-
-const updateLabelInputSchema = z.object({
-  labelId: z.string(),
-  name: z.string(),
-  parentIds: z.array(z.string()),
-});
-
-const labelRelationshipInputSchema = z.object({
-  labelId: z.string(),
-  parentId: z.string(),
 });
 
 async function createRequestAuthService() {
@@ -120,7 +108,6 @@ const createLabelServerFn = createServerFn({
 
     return labels.createLabel({
       name: data.name,
-      parentIds: data.parentIds,
       userId,
     });
   });
@@ -138,24 +125,6 @@ const renameLabelServerFn = createServerFn({
     return labels.renameLabel({
       labelId: data.labelId,
       name: data.name,
-      userId,
-    });
-  });
-
-const updateLabelServerFn = createServerFn({
-  method: "POST",
-})
-  .inputValidator(updateLabelInputSchema)
-  .handler(async ({ data }) => {
-    const [userId, labels] = await Promise.all([
-      requireRequestUserId(),
-      createRequestLabelsService(),
-    ]);
-
-    return labels.updateLabel({
-      labelId: data.labelId,
-      name: data.name,
-      parentIds: data.parentIds,
       userId,
     });
   });
@@ -180,59 +149,16 @@ const deleteLabelServerFn = createServerFn({
     });
   });
 
-const addParentServerFn = createServerFn({
-  method: "POST",
-})
-  .inputValidator(labelRelationshipInputSchema)
-  .handler(async ({ data }) => {
-    const [userId, labels] = await Promise.all([
-      requireRequestUserId(),
-      createRequestLabelsService(),
-    ]);
-
-    return labels.addParent({
-      labelId: data.labelId,
-      parentId: data.parentId,
-      userId,
-    });
-  });
-
-const removeParentServerFn = createServerFn({
-  method: "POST",
-})
-  .inputValidator(labelRelationshipInputSchema)
-  .handler(async ({ data }) => {
-    const [userId, labels] = await Promise.all([
-      requireRequestUserId(),
-      createRequestLabelsService(),
-    ]);
-
-    return labels.removeParent({
-      labelId: data.labelId,
-      parentId: data.parentId,
-      userId,
-    });
-  });
-
 export function createServerLabelsService(): AppPersistentLabelsService {
   return {
-    addParent: (
-      input: z.infer<typeof labelRelationshipInputSchema>,
-    ): Promise<AppLabel> => addParentServerFn({ data: input }),
     createLabel: (
       input: z.infer<typeof createLabelInputSchema>,
     ): Promise<AppLabel> => createLabelServerFn({ data: input }),
     deleteLabel: (input: { labelId: string }) =>
       deleteLabelServerFn({ data: input }),
     listLabels: () => listLabelsServerFn(),
-    removeParent: (
-      input: z.infer<typeof labelRelationshipInputSchema>,
-    ): Promise<AppLabel> => removeParentServerFn({ data: input }),
     renameLabel: (
       input: z.infer<typeof renameLabelInputSchema>,
     ): Promise<AppLabel> => renameLabelServerFn({ data: input }),
-    updateLabel: (
-      input: z.infer<typeof updateLabelInputSchema>,
-    ): Promise<AppLabel> => updateLabelServerFn({ data: input }),
   };
 }

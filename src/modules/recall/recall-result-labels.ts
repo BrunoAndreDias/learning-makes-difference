@@ -6,13 +6,7 @@ export function listRecallResultLabels(input: {
   sessionResults: readonly FlashCardSessionResult[];
 }): AppLabel[] {
   const labelsById = new Map(
-    input.currentLabels.map((label) => [
-      label.id,
-      {
-        ...label,
-        parentIds: [...label.parentIds],
-      },
-    ]),
+    input.currentLabels.map((label) => [label.id, { ...label }]),
   );
 
   for (const result of input.sessionResults) {
@@ -22,7 +16,6 @@ export function listRecallResultLabels(input: {
           labelsById.set(label.id, {
             id: label.id,
             name: label.name,
-            parentIds: [],
           });
         }
       }

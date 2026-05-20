@@ -1,13 +1,8 @@
-import {
-  collectLabelDescendantIds,
-  normalizeLabelParentIds,
-  sortLabelsByName,
-} from "../label-graph";
+import { sortLabelsByName } from "../label-graph";
 
 export type AppLabel = {
   id: string;
   name: string;
-  parentIds: string[];
 };
 
 type StoredLabelRecord = AppLabel & {
@@ -32,23 +27,11 @@ type UserScopedLabelInput = {
 
 type CreateLabelInput = UserScopedLabelInput & {
   name: string;
-  parentIds?: string[];
 };
 
 type RenameLabelInput = UserScopedLabelInput & {
   labelId: string;
   name: string;
-};
-
-type UpdateLabelInput = UserScopedLabelInput & {
-  labelId: string;
-  name: string;
-  parentIds: string[];
-};
-
-type LabelRelationshipInput = UserScopedLabelInput & {
-  labelId: string;
-  parentId: string;
 };
 
 export class AppLabelError extends Error {
@@ -66,15 +49,9 @@ export class AppLabelError extends Error {
 export type AppLabelsContext = {
   subscribe: (listener: LabelListener) => () => void;
   getLabelsForUser: (userId: string) => AppLabel[];
-  getDescendantIds: (
-    input: UserScopedLabelInput & { labelId: string },
-  ) => string[];
   createLabel: (input: CreateLabelInput) => AppLabel;
   renameLabel: (input: RenameLabelInput) => AppLabel;
-  updateLabel: (input: UpdateLabelInput) => AppLabel;
   deleteLabel: (input: UserScopedLabelInput & { labelId: string }) => void;
-  addParent: (input: LabelRelationshipInput) => AppLabel;
-  removeParent: (input: LabelRelationshipInput) => AppLabel;
 };
 
 const DEFAULT_STORAGE_KEY_PREFIX = "learning-makes-difference-labels";
@@ -113,11 +90,7 @@ function parseStoredLabels(value: string | null): StoredLabelRecord[] {
         record !== null &&
         typeof record.id === "string" &&
         typeof record.name === "string" &&
-        typeof record.userId === "string" &&
-        Array.isArray(record.parentIds) &&
-        record.parentIds.every(
-          (parentId: unknown) => typeof parentId === "string",
-        )
+        typeof record.userId === "string"
       );
     });
   } catch {
@@ -129,7 +102,6 @@ function toAppLabel(record: StoredLabelRecord): AppLabel {
   return {
     id: record.id,
     name: record.name,
-    parentIds: [...record.parentIds],
   };
 }
 
@@ -197,14 +169,6 @@ export function createAppLabelsContext(
     storage?.setItem(getLabelsStorageKey(keyPrefix), JSON.stringify(records));
   }
 
-  function getOwnedLabelRecord(
-    records: StoredLabelRecord[],
-    userId: string,
-    labelId: string,
-  ): StoredLabelRecord {
-    return getOwnedLabelEntry(records, userId, labelId).record;
-  }
-
   return {
     subscribe: (listener) => {
       listeners.add(listener);
@@ -220,35 +184,11 @@ export function createAppLabelsContext(
           .map(toAppLabel),
       );
     },
-    getDescendantIds: ({ labelId, userId }) => {
-      const records = readRecords().filter(
-        (record) => record.userId === userId,
-      );
-
-      getOwnedLabelRecord(records, userId, labelId);
-
-      return collectLabelDescendantIds(records, labelId);
-    },
-    createLabel: ({ name, parentIds, userId }) => {
+    createLabel: ({ name, userId }) => {
       const records = readRecords();
-      const id = cryptoProvider.randomUUID();
-      const normalizedParentIds = normalizeLabelParentIds(parentIds ?? []);
-
-      if (normalizedParentIds.includes(id)) {
-        throw new AppLabelError(
-          "cycle_detected",
-          "A label cannot be its own parent.",
-        );
-      }
-
-      for (const parentId of normalizedParentIds) {
-        getOwnedLabelRecord(records, userId, parentId);
-      }
-
       const nextRecord: StoredLabelRecord = {
-        id,
+        id: cryptoProvider.randomUUID(),
         name: normalizeLabelName(name),
-        parentIds: normalizedParentIds,
         userId,
       };
 
@@ -276,138 +216,17 @@ export function createAppLabelsContext(
 
       return toAppLabel(nextRecord);
     },
-    updateLabel: ({ labelId, name, parentIds, userId }) => {
-      const records = readRecords();
-      const { index: labelIndex, record: label } = getOwnedLabelEntry(
-        records,
-        userId,
-        labelId,
-      );
-      const normalizedParentIds = normalizeLabelParentIds(parentIds);
-
-      if (normalizedParentIds.includes(labelId)) {
-        throw new AppLabelError(
-          "cycle_detected",
-          "A label cannot be its own parent.",
-        );
-      }
-
-      for (const parentId of normalizedParentIds) {
-        getOwnedLabelRecord(records, userId, parentId);
-      }
-
-      const userOwnedRecords = records.filter(
-        (record) => record.userId === userId,
-      );
-      const descendantIds = new Set(
-        collectLabelDescendantIds(userOwnedRecords, labelId),
-      );
-
-      for (const parentId of normalizedParentIds) {
-        if (descendantIds.has(parentId)) {
-          throw new AppLabelError(
-            "cycle_detected",
-            "This relationship would create a cycle.",
-          );
-        }
-      }
-
-      const nextRecord = {
-        ...label,
-        name: normalizeLabelName(name),
-        parentIds: normalizedParentIds,
-      };
-
-      records[labelIndex] = nextRecord;
-      writeRecords(records);
-      notifyListeners();
-
-      return toAppLabel(nextRecord);
-    },
     deleteLabel: ({ labelId, userId }) => {
       const records = readRecords();
 
       getOwnedLabelEntry(records, userId, labelId);
 
-      const nextRecords = records
-        .filter(
+      writeRecords(
+        records.filter(
           (record) => !(record.userId === userId && record.id === labelId),
-        )
-        .map((record) => {
-          if (record.userId !== userId || !record.parentIds.includes(labelId)) {
-            return record;
-          }
-
-          return {
-            ...record,
-            parentIds: record.parentIds.filter(
-              (parentId) => parentId !== labelId,
-            ),
-          };
-        });
-
-      writeRecords(nextRecords);
-      notifyListeners();
-    },
-    addParent: ({ labelId, parentId, userId }) => {
-      if (labelId === parentId) {
-        throw new AppLabelError(
-          "cycle_detected",
-          "A label cannot be its own parent.",
-        );
-      }
-
-      const records = readRecords();
-      const { index: labelIndex, record: label } = getOwnedLabelEntry(
-        records,
-        userId,
-        labelId,
-      );
-
-      getOwnedLabelRecord(records, userId, parentId);
-
-      if (label.parentIds.includes(parentId)) {
-        return toAppLabel(label);
-      }
-
-      if (collectLabelDescendantIds(records, labelId).includes(parentId)) {
-        throw new AppLabelError(
-          "cycle_detected",
-          "This relationship would create a cycle.",
-        );
-      }
-
-      const nextRecord = {
-        ...label,
-        parentIds: [...label.parentIds, parentId].sort(),
-      };
-
-      records[labelIndex] = nextRecord;
-      writeRecords(records);
-      notifyListeners();
-
-      return toAppLabel(nextRecord);
-    },
-    removeParent: ({ labelId, parentId, userId }) => {
-      const records = readRecords();
-      const { index: labelIndex, record: label } = getOwnedLabelEntry(
-        records,
-        userId,
-        labelId,
-      );
-
-      const nextRecord = {
-        ...label,
-        parentIds: label.parentIds.filter(
-          (candidateId) => candidateId !== parentId,
         ),
-      };
-
-      records[labelIndex] = nextRecord;
-      writeRecords(records);
+      );
       notifyListeners();
-
-      return toAppLabel(nextRecord);
     },
   };
 }

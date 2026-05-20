@@ -91,7 +91,6 @@ describe("createFocusService PostgreSQL integration", () => {
         {
           id: "label-biology",
           name: "Biology",
-          parentIds: [],
         },
       ],
       note: {

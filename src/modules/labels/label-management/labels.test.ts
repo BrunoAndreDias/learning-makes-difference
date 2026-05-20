@@ -19,9 +19,9 @@ function createMemoryStorage() {
 }
 
 describe("label management", () => {
-  it("returns descendants across a DAG and rejects relationship cycles", () => {
+  it("creates, renames, lists, and deletes flat labels", () => {
     const labels = createAppLabelsContext({
-      keyPrefix: "labels-test-dag",
+      keyPrefix: "labels-test-flat-crud",
       storage: createMemoryStorage(),
     });
     const userId = "user-1";
@@ -34,47 +34,40 @@ describe("label management", () => {
       name: "Biology",
       userId,
     });
-    const chemistry = labels.createLabel({
-      name: "Chemistry",
-      userId,
-    });
-    const biochemistry = labels.createLabel({
-      name: "Biochemistry",
-      userId,
-    });
 
-    labels.addParent({
-      labelId: biology.id,
-      parentId: science.id,
-      userId,
-    });
-    labels.addParent({
-      labelId: chemistry.id,
-      parentId: science.id,
-      userId,
-    });
-    labels.addParent({
-      labelId: biochemistry.id,
-      parentId: biology.id,
-      userId,
-    });
-    labels.addParent({
-      labelId: biochemistry.id,
-      parentId: chemistry.id,
-      userId,
-    });
+    expect(labels.getLabelsForUser(userId)).toEqual([
+      {
+        id: biology.id,
+        name: "Biology",
+      },
+      {
+        id: science.id,
+        name: "Science",
+      },
+    ]);
 
     expect(
-      [...labels.getDescendantIds({ labelId: science.id, userId })].sort(),
-    ).toEqual([biology.id, biochemistry.id, chemistry.id].sort());
-
-    expect(() =>
-      labels.addParent({
-        labelId: science.id,
-        parentId: biochemistry.id,
+      labels.renameLabel({
+        labelId: biology.id,
+        name: "  Life Science  ",
         userId,
       }),
-    ).toThrowError(expect.objectContaining({ code: "cycle_detected" }));
+    ).toEqual({
+      id: biology.id,
+      name: "Life Science",
+    });
+
+    labels.deleteLabel({
+      labelId: biology.id,
+      userId,
+    });
+
+    expect(labels.getLabelsForUser(userId)).toEqual([
+      {
+        id: science.id,
+        name: "Science",
+      },
+    ]);
   });
 
   it("keeps label ownership scoped to the authenticated account", () => {
@@ -100,93 +93,29 @@ describe("label management", () => {
     expect(labels.getLabelsForUser("other-user")).toHaveLength(0);
   });
 
-  it("creates a label with deduplicated parent IDs owned by the same user", () => {
+  it("loads legacy stored labels with hierarchy fields as flat labels", () => {
+    const storage = createMemoryStorage();
+    storage.setItem(
+      "labels-test-legacy:records",
+      JSON.stringify([
+        {
+          id: "label-biology",
+          name: "Biology",
+          parentIds: ["label-science"],
+          userId: "user-1",
+        },
+      ]),
+    );
     const labels = createAppLabelsContext({
-      keyPrefix: "labels-test-create-with-parents",
-      storage: createMemoryStorage(),
-    });
-    const userId = "user-1";
-    const science = labels.createLabel({
-      name: "Science",
-      userId,
+      keyPrefix: "labels-test-legacy",
+      storage,
     });
 
-    const biology = labels.createLabel({
-      name: "Biology",
-      parentIds: [science.id, science.id],
-      userId,
-    });
-
-    expect(biology.parentIds).toEqual([science.id]);
-    expect(labels.getLabelsForUser(userId)).toEqual([
-      expect.objectContaining({
-        id: biology.id,
-        parentIds: [science.id],
-      }),
-      expect.objectContaining({
-        id: science.id,
-        parentIds: [],
-      }),
+    expect(labels.getLabelsForUser("user-1")).toEqual([
+      {
+        id: "label-biology",
+        name: "Biology",
+      },
     ]);
-  });
-
-  it("updates label name and full parent set while rejecting self and cycle-causing parents", () => {
-    const labels = createAppLabelsContext({
-      keyPrefix: "labels-test-update-with-parents",
-      storage: createMemoryStorage(),
-    });
-    const userId = "user-1";
-    const science = labels.createLabel({
-      name: "Science",
-      userId,
-    });
-    const chemistry = labels.createLabel({
-      name: "Chemistry",
-      userId,
-    });
-    const biology = labels.createLabel({
-      name: "Biology",
-      parentIds: [science.id],
-      userId,
-    });
-    const molecularBiology = labels.createLabel({
-      name: "Molecular Biology",
-      parentIds: [biology.id],
-      userId,
-    });
-
-    expect(
-      labels.updateLabel({
-        labelId: biology.id,
-        name: "  Life Science  ",
-        parentIds: [chemistry.id],
-        userId,
-      }),
-    ).toEqual({
-      id: biology.id,
-      name: "Life Science",
-      parentIds: [chemistry.id],
-    });
-    expect(
-      labels.getLabelsForUser(userId).find((label) => label.id === biology.id)
-        ?.parentIds,
-    ).toEqual([chemistry.id]);
-
-    expect(() =>
-      labels.updateLabel({
-        labelId: biology.id,
-        name: "Life Science",
-        parentIds: [biology.id],
-        userId,
-      }),
-    ).toThrowError(expect.objectContaining({ code: "cycle_detected" }));
-    expect(() =>
-      labels.updateLabel({
-        labelId: biology.id,
-        name: "Life Science",
-        parentIds: [molecularBiology.id],
-        userId,
-      }),
-    ).toThrowError(expect.objectContaining({ code: "cycle_detected" }));
   });
 });
