@@ -504,18 +504,8 @@ export function RecallDueTodayWorkspacePage() {
 
 export function RecallResultsWorkspacePage() {
   const { t } = useAppTranslation();
-  const {
-    currentLabels,
-    notes,
-    persistentRecallContext,
-    recallContext,
-    recallSchedules,
-    sessionResults,
-    studyNotes,
-    userId,
-    userTimeZone,
-  } = useRecallWorkspaceState();
-  const now = new Date().toISOString();
+  const { currentLabels, notes, sessionResults, studyNotes } =
+    useRecallWorkspaceState();
   const availableLabels = listRecallResultLabels({
     currentLabels,
     sessionResults,
@@ -576,24 +566,6 @@ export function RecallResultsWorkspacePage() {
     notes.length === 0 &&
     studyNotes.length === 0 &&
     sessionResults.length === 0;
-  const dueTodayQueue = buildWorkspaceDueTodayQueue({
-    now,
-    recallContext,
-    recallSchedules,
-    sessionResults,
-    studyNotes,
-    userId,
-    userTimeZone,
-  });
-
-  async function startDueTodayRecall() {
-    await startWorkspaceFlashCardRecall({
-      persistentRecallContext,
-      queue: dueTodayQueue,
-      recallContext,
-      userId,
-    });
-  }
 
   if (hasNoRecallContent) {
     return <NoNotesRecallState />;
@@ -611,12 +583,7 @@ export function RecallResultsWorkspacePage() {
         <div className="recall-results-top">
           <RecallPageTabs />
           <PageHeader
-            actions={
-              <RecallDueTodayPrimaryAction
-                dueTodayQueue={dueTodayQueue}
-                onStartDueToday={startDueTodayRecall}
-              />
-            }
+            actions={<RecallSelectionPrimaryAction />}
             className="recall-surface__header"
             description={t("recall.results.description")}
             headingLevel={1}
@@ -1309,6 +1276,12 @@ function RecallDueTodayPrimaryAction({
       </Button>
     );
   }
+
+  return <RecallSelectionPrimaryAction />;
+}
+
+function RecallSelectionPrimaryAction() {
+  const { t } = useAppTranslation();
 
   return (
     <ButtonLink
