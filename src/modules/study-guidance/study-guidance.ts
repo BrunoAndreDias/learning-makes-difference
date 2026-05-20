@@ -52,7 +52,7 @@ export type StudyGuidanceRowAction =
     }
   | {
       kind: "recall-due-today";
-      label: "Open Recall Due today";
+      label: "Open Scheduled recall";
     }
   | {
       kind: "recall-selection";
@@ -118,9 +118,9 @@ const bucketDefinitions = [
     label: "Practice Follow-up",
   },
   {
-    detail: "Scheduled recall due today or already overdue.",
+    detail: "Study Notes scheduled for recall today or already overdue.",
     id: "due-today",
-    label: "Due today",
+    label: "Scheduled",
   },
   {
     detail: "Saved Study Notes that still need an expected answer.",
@@ -419,7 +419,7 @@ function createDueTodayEvidence(input: {
     userTimeZone: input.userTimeZone,
   }) === "overdue"
     ? "Scheduled recall is overdue."
-    : "Scheduled recall is due today.";
+    : "Scheduled for recall today.";
 }
 
 function createDueTodayRows(input: {
@@ -453,7 +453,7 @@ function createDueTodayRows(input: {
       createStudyNoteRowDraft({
         action: {
           kind: "recall-due-today",
-          label: "Open Recall Due today",
+          label: "Open Scheduled recall",
         },
         bucketId: "due-today",
         evidence: createDueTodayEvidence({

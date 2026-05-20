@@ -8,7 +8,7 @@ import {
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { Button, ButtonLink } from "../../design-system/button";
-import { PageHeader } from "../../design-system/page-header";
+import { PageLayout } from "../../design-system/page-layout";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import type { AppLabel } from "../labels/label-management/labels";
 import { type AppTranslationKey, useAppTranslation } from "../language";
@@ -330,155 +330,149 @@ export function RecallSelectionPage({
   }
 
   return (
-    <section
+    <PageLayout
       aria-label={t("shell.workspace.recallSetup")}
-      className="recall-workspace"
+      as="section"
+      beforeTitle={
+        <RecallBreadcrumb currentLabel={t("recall.selection.title")} />
+      }
+      className="recall-workspace recall-surface"
+      description={t("recall.selection.description")}
+      headerClassName="recall-surface__header recall-select__header"
+      title={t("recall.selection.title")}
     >
-      <article className="recall-surface">
-        <PageHeader
-          beforeTitle={
-            <RecallBreadcrumb currentLabel={t("recall.selection.title")} />
-          }
-          className="recall-surface__header recall-select__header"
-          description={t("recall.selection.description")}
-          title={t("recall.selection.title")}
-        />
-
-        {studyNotes.length === 0 ? (
-          <section className="recall-panel recall-empty-state">
-            <h4>{t("recall.empty.title")}</h4>
-            <p className="muted">{t("recall.empty.selectionBody")}</p>
-            <ButtonLink to="/study-notes" variant="primary">
-              {t("recall.action.openNotes")}
-            </ButtonLink>
-          </section>
-        ) : (
-          <div className="recall-selection-layout recall-selection-layout--picker">
-            <section
-              aria-label={t("recall.selection.availableNotes")}
-              className="recall-panel recall-note-picker recall-select-note-picker"
+      {studyNotes.length === 0 ? (
+        <section className="recall-panel recall-empty-state">
+          <h4>{t("recall.empty.title")}</h4>
+          <p className="muted">{t("recall.empty.selectionBody")}</p>
+          <ButtonLink to="/study-notes" variant="primary">
+            {t("recall.action.openNotes")}
+          </ButtonLink>
+        </section>
+      ) : (
+        <div className="recall-selection-layout recall-selection-layout--picker">
+          <section
+            aria-label={t("recall.selection.availableNotes")}
+            className="recall-panel recall-note-picker recall-select-note-picker"
+          >
+            <label
+              className="recall-field recall-search-field"
+              htmlFor="recall-note-search"
             >
-              <label
-                className="recall-field recall-search-field"
-                htmlFor="recall-note-search"
-              >
-                <span className="sr-only">{t("recall.selection.search")}</span>
-                <SearchIcon />
-                <input
-                  id="recall-note-search"
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder={t("recall.selection.searchPlaceholder")}
-                  type="search"
-                  value={searchQuery}
-                />
-              </label>
+              <span className="sr-only">{t("recall.selection.search")}</span>
+              <SearchIcon />
+              <input
+                id="recall-note-search"
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={t("recall.selection.searchPlaceholder")}
+                type="search"
+                value={searchQuery}
+              />
+            </label>
 
-              <ol className="recall-note-picker__list">
-                {visibleStudyNotes.map((studyNote) => {
-                  const labelNames = getLabelNames(studyNote, labelsById);
-                  const isRecallable = isStudyNoteRecallable(studyNote);
+            <ol className="recall-note-picker__list">
+              {visibleStudyNotes.map((studyNote) => {
+                const labelNames = getLabelNames(studyNote, labelsById);
+                const isRecallable = isStudyNoteRecallable(studyNote);
 
-                  return (
-                    <li key={studyNote.id}>
-                      <label
-                        className="recall-note-row recall-select-note-row"
-                        data-disabled={!isRecallable}
-                        data-selected={recallableSelectedStudyNoteIdSet.has(
-                          studyNote.id,
-                        )}
-                      >
-                        <span className="recall-note-row__check">
-                          <input
-                            checked={recallableSelectedStudyNoteIdSet.has(
-                              studyNote.id,
+                return (
+                  <li key={studyNote.id}>
+                    <label
+                      className="recall-note-row recall-select-note-row"
+                      data-disabled={!isRecallable}
+                      data-selected={recallableSelectedStudyNoteIdSet.has(
+                        studyNote.id,
+                      )}
+                    >
+                      <span className="recall-note-row__check">
+                        <input
+                          checked={recallableSelectedStudyNoteIdSet.has(
+                            studyNote.id,
+                          )}
+                          disabled={!isRecallable}
+                          onChange={() => toggleStudyNote(studyNote.id)}
+                          type="checkbox"
+                        />
+                      </span>
+                      <span className="recall-select-note-row__main">
+                        <span className="recall-select-note-row__content">
+                          <strong>{studyNote.prompt}</strong>
+                          <span>
+                            {getStudyNotePreview(
+                              studyNote,
+                              t("recall.selection.addExpectedAnswer"),
                             )}
-                            disabled={!isRecallable}
-                            onChange={() => toggleStudyNote(studyNote.id)}
-                            type="checkbox"
-                          />
-                        </span>
-                        <span className="recall-select-note-row__main">
-                          <span className="recall-select-note-row__content">
-                            <strong>{studyNote.prompt}</strong>
-                            <span>
-                              {getStudyNotePreview(
-                                studyNote,
-                                t("recall.selection.addExpectedAnswer"),
-                              )}
-                            </span>
-                            <span className="recall-select-note-row__labels">
-                              {labelNames.length > 0 ? (
-                                labelNames.slice(0, 2).map((labelName) => (
-                                  <span
-                                    className="recall-select-note-row__label"
-                                    key={`${studyNote.id}-${labelName}`}
-                                  >
-                                    {labelName}
-                                  </span>
-                                ))
-                              ) : (
+                          </span>
+                          <span className="recall-select-note-row__labels">
+                            {labelNames.length > 0 ? (
+                              labelNames.slice(0, 2).map((labelName) => (
                                 <span
                                   className="recall-select-note-row__label"
-                                  data-tone="muted"
+                                  key={`${studyNote.id}-${labelName}`}
                                 >
-                                  {t("recall.selection.noLabel")}
+                                  {labelName}
                                 </span>
-                              )}
-                            </span>
-                          </span>
-                          <span className="recall-select-note-row__counts">
-                            <span className="recall-select-note-row__count">
-                              <span>
-                                {t("recall.selection.counts.metaphors")}
+                              ))
+                            ) : (
+                              <span
+                                className="recall-select-note-row__label"
+                                data-tone="muted"
+                              >
+                                {t("recall.selection.noLabel")}
                               </span>
-                              <strong>{studyNote.metaphors.length}</strong>
-                            </span>
-                            <span className="recall-select-note-row__count">
-                              <span>
-                                {t("recall.selection.counts.acronyms")}
-                              </span>
-                              <strong>{studyNote.acronyms.length}</strong>
-                            </span>
+                            )}
                           </span>
                         </span>
-                      </label>
-                    </li>
-                  );
-                })}
-              </ol>
+                        <span className="recall-select-note-row__counts">
+                          <span className="recall-select-note-row__count">
+                            <span>
+                              {t("recall.selection.counts.metaphors")}
+                            </span>
+                            <strong>{studyNote.metaphors.length}</strong>
+                          </span>
+                          <span className="recall-select-note-row__count">
+                            <span>{t("recall.selection.counts.acronyms")}</span>
+                            <strong>{studyNote.acronyms.length}</strong>
+                          </span>
+                        </span>
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ol>
 
-              {visibleStudyNotes.length === 0 ? (
-                <p className="notes-search__empty" role="status">
-                  {t("recall.selection.noSearchMatches")}
-                </p>
-              ) : null}
+            {visibleStudyNotes.length === 0 ? (
+              <p className="notes-search__empty" role="status">
+                {t("recall.selection.noSearchMatches")}
+              </p>
+            ) : null}
 
-              <footer className="recall-note-picker__footer">
-                {t("recall.selection.showingNotes", {
-                  totalCount: studyNotes.length,
-                  visibleCount: visibleStudyNotes.length,
-                })}
-              </footer>
-            </section>
+            <footer className="recall-note-picker__footer">
+              {t("recall.selection.showingNotes", {
+                totalCount: studyNotes.length,
+                visibleCount: visibleStudyNotes.length,
+              })}
+            </footer>
+          </section>
 
-            <SessionSetupPanel
-              disabledStartReason={disabledStartReason}
-              onRecallTypeChange={setSelectedRecallType}
-              onCancel={cancelSelection}
-              onStartRecall={startRecall}
-              selectedStudyNotes={recallableSelectedStudyNotes}
-              selectedRecallType={selectedRecallType}
-            />
-          </div>
-        )}
+          <SessionSetupPanel
+            disabledStartReason={disabledStartReason}
+            onRecallTypeChange={setSelectedRecallType}
+            onCancel={cancelSelection}
+            onStartRecall={startRecall}
+            selectedStudyNotes={recallableSelectedStudyNotes}
+            selectedRecallType={selectedRecallType}
+          />
+        </div>
+      )}
 
-        {errorMessage !== null ? (
-          <p className="auth-form__error" role="alert">
-            {errorMessage}
-          </p>
-        ) : null}
-      </article>
-    </section>
+      {errorMessage !== null ? (
+        <p className="auth-form__error" role="alert">
+          {errorMessage}
+        </p>
+      ) : null}
+    </PageLayout>
   );
 }
 

@@ -14,7 +14,7 @@ import {
 } from "react";
 
 import { Button, ButtonLink } from "../../design-system/button";
-import { PageHeader } from "../../design-system/page-header";
+import { PageLayout } from "../../design-system/page-layout";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { useAppTranslation } from "../language";
 import {
@@ -776,300 +776,293 @@ export function RecallPracticeRepairWorkspacePage({
   }
 
   return (
-    <section
+    <PageLayout
+      actions={
+        <ButtonLink to="/practice-repair" variant="secondary">
+          Practice Repair Queue
+        </ButtonLink>
+      }
       aria-label="Practice Repair workspace"
-      className="recall-workspace"
+      as="section"
+      beforeTitle={<PracticeRepairBreadcrumb currentLabel="Practice Repair" />}
+      className="recall-workspace recall-surface recall-practice-repair-workspace"
+      description="Keep the original Needs practice evidence visible while you finish one concrete repair from Recall."
+      headerClassName="recall-surface__header"
+      headingLevel={1}
+      title="Practice Repair"
     >
-      <article className="recall-surface recall-practice-repair-workspace">
-        <PageHeader
-          actions={
-            <ButtonLink to="/practice-repair" variant="secondary">
-              Practice Repair Queue
-            </ButtonLink>
-          }
-          beforeTitle={
-            <PracticeRepairBreadcrumb currentLabel="Practice Repair" />
-          }
-          className="recall-surface__header"
-          description="Keep the original Needs practice evidence visible while you finish one concrete repair from Recall."
-          headingLevel={1}
-          title="Practice Repair"
-        />
-
-        <div className="recall-practice-repair-workspace__layout">
-          <div className="recall-practice-repair-workspace__main">
-            <section
-              aria-label="Practice Repair evidence"
-              className={
-                lifecycleKind === "active"
-                  ? "recall-panel recall-practice-repair-workspace__evidence recall-practice-repair-workspace__evidence--compact"
-                  : "recall-panel recall-practice-repair-workspace__evidence"
-              }
-            >
-              <header className="recall-practice-repair-workspace__card-header">
-                {lifecycleKind === "active" ? (
-                  <span
-                    aria-hidden="true"
-                    className="recall-practice-repair-workspace__note-icon"
-                  >
-                    <StudyNoteDocumentIcon />
-                  </span>
-                ) : null}
-
-                <div className="recall-practice-repair-workspace__card-copy">
-                  {lifecycleKind === "active" ? null : (
-                    <p className="recall-practice-repair-workspace__eyebrow">
-                      Study Note
-                    </p>
-                  )}
-                  <h2 className="recall-practice-repair-workspace__study-note-title">
-                    {cardTitle}
-                  </h2>
-                  <p className="recall-practice-repair-workspace__study-note-meta">
-                    {getStudyNoteMeta(question)}
-                  </p>
-                </div>
-
-                {canOpenStudyNotes ? (
-                  <ButtonLink
-                    className={
-                      lifecycleKind === "active"
-                        ? "recall-practice-repair-workspace__view-note"
-                        : undefined
-                    }
-                    search={createStudyNotesPracticeRepairSearch({
-                      practiceRepairEntryId,
-                    })}
-                    to="/study-notes"
-                    variant="secondary"
-                  >
-                    {lifecycleKind === "active" ? (
-                      <>
-                        <span>View note</span>
-                        <ExternalLinkIcon />
-                      </>
-                    ) : (
-                      "View note"
-                    )}
-                  </ButtonLink>
-                ) : null}
-              </header>
-
-              <PracticeRepairWorkspaceDetail label="Prompt (what you were asked)">
-                {prompt}
-              </PracticeRepairWorkspaceDetail>
-
-              <section className="recall-practice-repair-workspace__detail">
-                <div className="recall-practice-repair-workspace__detail-header">
-                  <p className="recall-practice-repair-workspace__detail-label">
-                    Your answer
-                  </p>
-                  <span
-                    className="recall-selected-result__row-pill recall-practice-repair-workspace__rating"
-                    data-rating-tone={ratingTone}
-                  >
-                    {ratingLabel}
-                  </span>
-                </div>
-                <div
-                  className="recall-practice-repair-workspace__detail-copy"
-                  data-empty-answer={hasRecordedAnswer ? undefined : "true"}
-                >
-                  {recordedAnswer}
-                </div>
-              </section>
-
-              <PracticeRepairWorkspaceDetail label="Expected answer">
-                {expectedAnswer}
-              </PracticeRepairWorkspaceDetail>
-
+      <div className="recall-practice-repair-workspace__layout">
+        <div className="recall-practice-repair-workspace__main">
+          <section
+            aria-label="Practice Repair evidence"
+            className={
+              lifecycleKind === "active"
+                ? "recall-panel recall-practice-repair-workspace__evidence recall-practice-repair-workspace__evidence--compact"
+                : "recall-panel recall-practice-repair-workspace__evidence"
+            }
+          >
+            <header className="recall-practice-repair-workspace__card-header">
               {lifecycleKind === "active" ? (
-                <section
-                  aria-label="Current Study Note quick edit"
-                  className="recall-practice-repair-workspace__current-editor"
+                <span
+                  aria-hidden="true"
+                  className="recall-practice-repair-workspace__note-icon"
                 >
-                  <div className="recall-practice-repair-workspace__current-editor-copy">
-                    <h3>Current Study Note</h3>
-                  </div>
-
-                  {studyNote === null ? (
-                    <p className="recall-practice-repair-workspace__current-editor-unavailable">
-                      This Study Note is not available for quick editing.
-                    </p>
-                  ) : (
-                    <div className="recall-practice-repair-workspace__current-fields">
-                      <label className="recall-practice-repair-workspace__current-field">
-                        <span>Current prompt</span>
-                        <input
-                          disabled={!canEditCurrentStudyNote}
-                          maxLength={500}
-                          onChange={(event) =>
-                            updateStudyNoteDraft("prompt", event)
-                          }
-                          value={studyNoteDraft.prompt}
-                        />
-                      </label>
-
-                      <label className="recall-practice-repair-workspace__current-field">
-                        <span>Current expected answer</span>
-                        <textarea
-                          disabled={!canEditCurrentStudyNote}
-                          maxLength={1000}
-                          onChange={(event) =>
-                            updateStudyNoteDraft("expectedAnswer", event)
-                          }
-                          rows={5}
-                          value={studyNoteDraft.expectedAnswer}
-                        />
-                      </label>
-                    </div>
-                  )}
-                </section>
+                  <StudyNoteDocumentIcon />
+                </span>
               ) : null}
 
-              {lifecycleKind === "active" ? null : (
-                <PracticeRepairWorkspaceDetail label="Reference explanation">
-                  <strong>{referenceTitle}</strong>
-                  <span>{referenceText}</span>
-                </PracticeRepairWorkspaceDetail>
-              )}
+              <div className="recall-practice-repair-workspace__card-copy">
+                {lifecycleKind === "active" ? null : (
+                  <p className="recall-practice-repair-workspace__eyebrow">
+                    Study Note
+                  </p>
+                )}
+                <h2 className="recall-practice-repair-workspace__study-note-title">
+                  {cardTitle}
+                </h2>
+                <p className="recall-practice-repair-workspace__study-note-meta">
+                  {getStudyNoteMeta(question)}
+                </p>
+              </div>
 
-              <section className="recall-practice-repair-workspace__callout">
-                {lifecycleKind === "active" ? (
-                  <WarningIcon className="recall-practice-repair-workspace__callout-icon" />
-                ) : null}
-                <div className="recall-practice-repair-workspace__callout-copy">
-                  <strong>
-                    {lifecycleKind === "active"
-                      ? `Your last score: ${ratingLabel}`
-                      : `Last score: ${ratingLabel}`}
-                  </strong>
-                  {lifecycleKind === "active" ? (
-                    <p>
-                      It's okay--weak recall is a signal to adjust and
-                      reinforce.
-                    </p>
-                  ) : (
-                    <p>
-                      Needs practice is a signal to adjust and reinforce before
-                      the next recall.
-                    </p>
-                  )}
-                </div>
-              </section>
-
-              {lifecycleKind === "active" ? (
-                <div
-                  className="recall-practice-repair-workspace__actions recall-practice-repair-workspace__quick-actions"
-                  data-has-save-action={
-                    hasStudyNoteDraftChanges ? "true" : "false"
+              {canOpenStudyNotes ? (
+                <ButtonLink
+                  className={
+                    lifecycleKind === "active"
+                      ? "recall-practice-repair-workspace__view-note"
+                      : undefined
                   }
+                  search={createStudyNotesPracticeRepairSearch({
+                    practiceRepairEntryId,
+                  })}
+                  to="/study-notes"
+                  variant="secondary"
                 >
-                  {hasStudyNoteDraftChanges ? (
-                    <Button
-                      className="recall-practice-repair-workspace__action-button"
-                      disabled={isStudyNoteSavePending}
-                      onClick={() => void handleSaveStudyNoteChanges()}
-                      type="button"
-                      variant="secondary"
-                    >
-                      <SaveIcon />
-                      <span>
-                        {isStudyNoteSavePending ? "Saving..." : "Save changes"}
-                      </span>
-                    </Button>
-                  ) : null}
-                  <Button
-                    className="recall-practice-repair-workspace__action-button"
-                    disabled={isFollowUpRecallPending}
-                    onClick={() => void handleStartFollowUpRecall()}
-                    type="button"
-                    variant="primary"
-                  >
-                    <RefreshIcon />
-                    <span>Recall again</span>
-                  </Button>
-                </div>
+                  {lifecycleKind === "active" ? (
+                    <>
+                      <span>View note</span>
+                      <ExternalLinkIcon />
+                    </>
+                  ) : (
+                    "View note"
+                  )}
+                </ButtonLink>
               ) : null}
+            </header>
+
+            <PracticeRepairWorkspaceDetail label="Prompt (what you were asked)">
+              {prompt}
+            </PracticeRepairWorkspaceDetail>
+
+            <section className="recall-practice-repair-workspace__detail">
+              <div className="recall-practice-repair-workspace__detail-header">
+                <p className="recall-practice-repair-workspace__detail-label">
+                  Your answer
+                </p>
+                <span
+                  className="recall-selected-result__row-pill recall-practice-repair-workspace__rating"
+                  data-rating-tone={ratingTone}
+                >
+                  {ratingLabel}
+                </span>
+              </div>
+              <div
+                className="recall-practice-repair-workspace__detail-copy"
+                data-empty-answer={hasRecordedAnswer ? undefined : "true"}
+              >
+                {recordedAnswer}
+              </div>
+            </section>
+
+            <PracticeRepairWorkspaceDetail label="Expected answer">
+              {expectedAnswer}
+            </PracticeRepairWorkspaceDetail>
+
+            {lifecycleKind === "active" ? (
+              <section
+                aria-label="Current Study Note quick edit"
+                className="recall-practice-repair-workspace__current-editor"
+              >
+                <div className="recall-practice-repair-workspace__current-editor-copy">
+                  <h3>Current Study Note</h3>
+                </div>
+
+                {studyNote === null ? (
+                  <p className="recall-practice-repair-workspace__current-editor-unavailable">
+                    This Study Note is not available for quick editing.
+                  </p>
+                ) : (
+                  <div className="recall-practice-repair-workspace__current-fields">
+                    <label className="recall-practice-repair-workspace__current-field">
+                      <span>Current prompt</span>
+                      <input
+                        disabled={!canEditCurrentStudyNote}
+                        maxLength={500}
+                        onChange={(event) =>
+                          updateStudyNoteDraft("prompt", event)
+                        }
+                        value={studyNoteDraft.prompt}
+                      />
+                    </label>
+
+                    <label className="recall-practice-repair-workspace__current-field">
+                      <span>Current expected answer</span>
+                      <textarea
+                        disabled={!canEditCurrentStudyNote}
+                        maxLength={1000}
+                        onChange={(event) =>
+                          updateStudyNoteDraft("expectedAnswer", event)
+                        }
+                        rows={5}
+                        value={studyNoteDraft.expectedAnswer}
+                      />
+                    </label>
+                  </div>
+                )}
+              </section>
+            ) : null}
+
+            {lifecycleKind === "active" ? null : (
+              <PracticeRepairWorkspaceDetail label="Reference explanation">
+                <strong>{referenceTitle}</strong>
+                <span>{referenceText}</span>
+              </PracticeRepairWorkspaceDetail>
+            )}
+
+            <section className="recall-practice-repair-workspace__callout">
+              {lifecycleKind === "active" ? (
+                <WarningIcon className="recall-practice-repair-workspace__callout-icon" />
+              ) : null}
+              <div className="recall-practice-repair-workspace__callout-copy">
+                <strong>
+                  {lifecycleKind === "active"
+                    ? `Your last score: ${ratingLabel}`
+                    : `Last score: ${ratingLabel}`}
+                </strong>
+                {lifecycleKind === "active" ? (
+                  <p>
+                    It's okay--weak recall is a signal to adjust and reinforce.
+                  </p>
+                ) : (
+                  <p>
+                    Needs practice is a signal to adjust and reinforce before
+                    the next recall.
+                  </p>
+                )}
+              </div>
             </section>
 
             {lifecycleKind === "active" ? (
-              <p className="recall-practice-repair-workspace__footer-note">
-                <InfoIcon />
-                <span>
-                  Metaphors and acronyms are optional support material, not
-                  required.
-                </span>
-              </p>
-            ) : null}
-          </div>
-
-          <aside
-            aria-label="Practice Repair actions"
-            className="recall-practice-repair-workspace__sidebar"
-          >
-            <section className="recall-panel recall-practice-repair-workspace__panel">
-              <div className="recall-practice-repair-workspace__panel-copy">
-                <h2>
-                  {showSuggestedRepairs ? "Suggested repairs" : "Next step"}
-                </h2>
-                <p>
-                  {showSuggestedRepairs
-                    ? "Open the Study Notes action you want to make next. The highlighted card is the repair saved on this entry."
-                    : nextStepCopy}
-                </p>
-              </div>
-
-              {showSuggestedRepairs ? (
-                <div className="recall-practice-repair-workspace__repair-list">
-                  {workspaceActionCards.map((card) => (
-                    <PracticeRepairWorkspaceActionButton
-                      card={card}
-                      isSelected={entry.intent === card.intent}
-                      key={card.intent}
-                      onSelect={openStudyNotesPracticeRepair}
-                    />
-                  ))}
-                </div>
-              ) : null}
-
-              {feedbackMessage === null ? null : (
-                <p className="recall-feedback" role="status">
-                  {feedbackMessage}
-                </p>
-              )}
-
-              {errorMessage === null ? null : (
-                <p
-                  className="recall-practice-repair-workspace__error"
-                  role="alert"
+              <div
+                className="recall-practice-repair-workspace__actions recall-practice-repair-workspace__quick-actions"
+                data-has-save-action={
+                  hasStudyNoteDraftChanges ? "true" : "false"
+                }
+              >
+                {hasStudyNoteDraftChanges ? (
+                  <Button
+                    className="recall-practice-repair-workspace__action-button"
+                    disabled={isStudyNoteSavePending}
+                    onClick={() => void handleSaveStudyNoteChanges()}
+                    type="button"
+                    variant="secondary"
+                  >
+                    <SaveIcon />
+                    <span>
+                      {isStudyNoteSavePending ? "Saving..." : "Save changes"}
+                    </span>
+                  </Button>
+                ) : null}
+                <Button
+                  className="recall-practice-repair-workspace__action-button"
+                  disabled={isFollowUpRecallPending}
+                  onClick={() => void handleStartFollowUpRecall()}
+                  type="button"
+                  variant="primary"
                 >
-                  {errorMessage}
-                </p>
-              )}
-
-              <div className="recall-practice-repair-workspace__actions">
-                <PracticeRepairWorkspaceActions
-                  isFollowUpRecallPending={isFollowUpRecallPending}
-                  isMutationPending={isMutationPending}
-                  lifecycleKind={lifecycleKind}
-                  onComplete={() => void handleLifecycleMutation("complete")}
-                  onDismiss={() => void handleLifecycleMutation("dismiss")}
-                  onStartFollowUpRecall={() => void handleStartFollowUpRecall()}
-                  supersedingPracticeRepairEntryId={
-                    supersedingPracticeRepairEntryId
-                  }
-                />
+                  <RefreshIcon />
+                  <span>Recall again</span>
+                </Button>
               </div>
+            ) : null}
+          </section>
 
-              <p className="recall-practice-repair-workspace__support">
-                {supportCopy}
-              </p>
-            </section>
-          </aside>
+          {lifecycleKind === "active" ? (
+            <p className="recall-practice-repair-workspace__footer-note">
+              <InfoIcon />
+              <span>
+                Metaphors and acronyms are optional support material, not
+                required.
+              </span>
+            </p>
+          ) : null}
         </div>
-      </article>
-    </section>
+
+        <aside
+          aria-label="Practice Repair actions"
+          className="recall-practice-repair-workspace__sidebar"
+        >
+          <section className="recall-panel recall-practice-repair-workspace__panel">
+            <div className="recall-practice-repair-workspace__panel-copy">
+              <h2>
+                {showSuggestedRepairs ? "Suggested repairs" : "Next step"}
+              </h2>
+              <p>
+                {showSuggestedRepairs
+                  ? "Open the Study Notes action you want to make next. The highlighted card is the repair saved on this entry."
+                  : nextStepCopy}
+              </p>
+            </div>
+
+            {showSuggestedRepairs ? (
+              <div className="recall-practice-repair-workspace__repair-list">
+                {workspaceActionCards.map((card) => (
+                  <PracticeRepairWorkspaceActionButton
+                    card={card}
+                    isSelected={entry.intent === card.intent}
+                    key={card.intent}
+                    onSelect={openStudyNotesPracticeRepair}
+                  />
+                ))}
+              </div>
+            ) : null}
+
+            {feedbackMessage === null ? null : (
+              <p className="recall-feedback" role="status">
+                {feedbackMessage}
+              </p>
+            )}
+
+            {errorMessage === null ? null : (
+              <p
+                className="recall-practice-repair-workspace__error"
+                role="alert"
+              >
+                {errorMessage}
+              </p>
+            )}
+
+            <div className="recall-practice-repair-workspace__actions">
+              <PracticeRepairWorkspaceActions
+                isFollowUpRecallPending={isFollowUpRecallPending}
+                isMutationPending={isMutationPending}
+                lifecycleKind={lifecycleKind}
+                onComplete={() => void handleLifecycleMutation("complete")}
+                onDismiss={() => void handleLifecycleMutation("dismiss")}
+                onStartFollowUpRecall={() => void handleStartFollowUpRecall()}
+                supersedingPracticeRepairEntryId={
+                  supersedingPracticeRepairEntryId
+                }
+              />
+            </div>
+
+            <p className="recall-practice-repair-workspace__support">
+              {supportCopy}
+            </p>
+          </section>
+        </aside>
+      </div>
+    </PageLayout>
   );
 }
 

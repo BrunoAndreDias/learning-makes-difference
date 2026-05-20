@@ -7,7 +7,7 @@ import {
 import { type KeyboardEvent, useState, useSyncExternalStore } from "react";
 
 import { Button, ButtonLink } from "../../design-system/button";
-import { PageHeader } from "../../design-system/page-header";
+import { PageLayout } from "../../design-system/page-layout";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { useAppTranslation } from "../language";
 import { listStudyNotesForUser } from "../study-notes";
@@ -415,179 +415,175 @@ function RecallPracticeRepairDraftPage({
   }
 
   return (
-    <section
+    <PageLayout
+      actions={
+        <ButtonLink to="/practice-repair" variant="secondary">
+          Practice Repair Queue
+        </ButtonLink>
+      }
       aria-label="Practice Repair workspace"
-      className="recall-workspace"
+      as="section"
+      beforeTitle={<PracticeRepairBreadcrumb currentLabel="Draft" />}
+      className="recall-workspace recall-surface recall-practice-repair-workspace"
+      description="Keep the original Needs practice evidence visible while you choose the smallest repair."
+      headerClassName="recall-surface__header"
+      headingLevel={1}
+      title="Practice Repair"
     >
-      <article className="recall-surface recall-practice-repair-workspace">
-        <PageHeader
-          actions={
-            <ButtonLink to="/practice-repair" variant="secondary">
-              Practice Repair Queue
-            </ButtonLink>
-          }
-          beforeTitle={<PracticeRepairBreadcrumb currentLabel="Draft" />}
-          className="recall-surface__header"
-          description="Keep the original Needs practice evidence visible while you choose the smallest repair."
-          headingLevel={1}
-          title="Practice Repair"
-        />
-
-        <div className="recall-practice-repair-workspace__layout">
-          <div className="recall-practice-repair-workspace__main">
-            <section
-              aria-label="Practice Repair evidence"
-              className="recall-panel recall-practice-repair-workspace__evidence recall-practice-repair-workspace__evidence--compact"
-            >
-              <header className="recall-practice-repair-workspace__card-header">
-                <span
-                  aria-hidden="true"
-                  className="recall-practice-repair-workspace__note-icon"
-                >
-                  <StudyNoteDocumentIcon />
-                </span>
-
-                <div className="recall-practice-repair-workspace__card-copy">
-                  <h2 className="recall-practice-repair-workspace__study-note-title">
-                    {referenceTitle}
-                  </h2>
-                  <p className="recall-practice-repair-workspace__study-note-meta">
-                    {getStudyNoteMeta(question)}
-                  </p>
-                </div>
-
-                <ButtonLink
-                  className="recall-practice-repair-workspace__view-note"
-                  to="/study-notes"
-                  variant="secondary"
-                >
-                  <span>View note</span>
-                  <ExternalLinkIcon />
-                </ButtonLink>
-              </header>
-
-              <section className="recall-practice-repair-workspace__detail">
-                <p className="recall-practice-repair-workspace__detail-label">
-                  Prompt (what you were asked)
-                </p>
-                <div className="recall-practice-repair-workspace__detail-copy">
-                  {prompt}
-                </div>
-              </section>
-
-              <section className="recall-practice-repair-workspace__detail">
-                <div className="recall-practice-repair-workspace__detail-header">
-                  <p className="recall-practice-repair-workspace__detail-label">
-                    Your answer
-                  </p>
-                  <span
-                    className="recall-selected-result__row-pill recall-practice-repair-workspace__rating"
-                    data-rating-tone={ratingTone}
-                  >
-                    {ratingLabel}
-                  </span>
-                </div>
-                <div
-                  className="recall-practice-repair-workspace__detail-copy"
-                  data-empty-answer={hasRecordedAnswer ? undefined : "true"}
-                >
-                  {recordedAnswer}
-                </div>
-              </section>
-
-              <section className="recall-practice-repair-workspace__detail">
-                <p className="recall-practice-repair-workspace__detail-label">
-                  Expected answer
-                </p>
-                <div className="recall-practice-repair-workspace__detail-copy">
-                  {expectedAnswer}
-                </div>
-              </section>
-
-              <section className="recall-practice-repair-workspace__callout">
-                <WarningIcon className="recall-practice-repair-workspace__callout-icon" />
-                <div className="recall-practice-repair-workspace__callout-copy">
-                  <strong>{`Your last score: ${ratingLabel}`}</strong>
-                  <p>
-                    It's okay--weak recall is a signal to adjust and reinforce.
-                  </p>
-                </div>
-              </section>
-
-              <div className="recall-practice-repair-workspace__actions recall-practice-repair-workspace__quick-actions">
-                <Button
-                  className="recall-practice-repair-workspace__action-button"
-                  disabled={pendingIntent !== null}
-                  onClick={() =>
-                    void startPracticeRepair("tighten-expected-answer")
-                  }
-                  type="button"
-                  variant="secondary"
-                >
-                  <PencilIcon />
-                  <span>Edit note</span>
-                </Button>
-                <Button
-                  className="recall-practice-repair-workspace__action-button"
-                  disabled={isRecallPending}
-                  onClick={() => void handleStartRecallAgain()}
-                  type="button"
-                  variant="primary"
-                >
-                  <RefreshIcon />
-                  <span>Recall again</span>
-                </Button>
-              </div>
-            </section>
-
-            <p className="recall-practice-repair-workspace__footer-note">
-              <InfoIcon />
-              <span>
-                Metaphors and acronyms are optional support material, not
-                required.
-              </span>
-            </p>
-          </div>
-
-          <aside
-            aria-label="Practice Repair actions"
-            className="recall-practice-repair-workspace__sidebar"
+      <div className="recall-practice-repair-workspace__layout">
+        <div className="recall-practice-repair-workspace__main">
+          <section
+            aria-label="Practice Repair evidence"
+            className="recall-panel recall-practice-repair-workspace__evidence recall-practice-repair-workspace__evidence--compact"
           >
-            <section className="recall-panel recall-practice-repair-workspace__panel">
-              <div className="recall-practice-repair-workspace__panel-copy">
-                <h2>Suggested repairs</h2>
-                <p>{practiceRepairDraft.summary}</p>
-              </div>
+            <header className="recall-practice-repair-workspace__card-header">
+              <span
+                aria-hidden="true"
+                className="recall-practice-repair-workspace__note-icon"
+              >
+                <StudyNoteDocumentIcon />
+              </span>
 
-              <div className="recall-practice-repair-workspace__repair-list">
-                {draftIntentCards.map((card) => (
-                  <PracticeRepairDraftActionButton
-                    card={card}
-                    isDisabled={pendingIntent !== null}
-                    key={card.intent}
-                    onSelect={(intent) => void startPracticeRepair(intent)}
-                  />
-                ))}
-              </div>
-
-              {errorMessage === null ? null : (
-                <p
-                  className="recall-practice-repair-workspace__error"
-                  role="alert"
-                >
-                  {errorMessage}
+              <div className="recall-practice-repair-workspace__card-copy">
+                <h2 className="recall-practice-repair-workspace__study-note-title">
+                  {referenceTitle}
+                </h2>
+                <p className="recall-practice-repair-workspace__study-note-meta">
+                  {getStudyNoteMeta(question)}
                 </p>
-              )}
+              </div>
 
-              <p className="recall-practice-repair-workspace__support">
-                Opening a repair starts it with that action and keeps this
-                evidence attached.
+              <ButtonLink
+                className="recall-practice-repair-workspace__view-note"
+                to="/study-notes"
+                variant="secondary"
+              >
+                <span>View note</span>
+                <ExternalLinkIcon />
+              </ButtonLink>
+            </header>
+
+            <section className="recall-practice-repair-workspace__detail">
+              <p className="recall-practice-repair-workspace__detail-label">
+                Prompt (what you were asked)
               </p>
+              <div className="recall-practice-repair-workspace__detail-copy">
+                {prompt}
+              </div>
             </section>
-          </aside>
+
+            <section className="recall-practice-repair-workspace__detail">
+              <div className="recall-practice-repair-workspace__detail-header">
+                <p className="recall-practice-repair-workspace__detail-label">
+                  Your answer
+                </p>
+                <span
+                  className="recall-selected-result__row-pill recall-practice-repair-workspace__rating"
+                  data-rating-tone={ratingTone}
+                >
+                  {ratingLabel}
+                </span>
+              </div>
+              <div
+                className="recall-practice-repair-workspace__detail-copy"
+                data-empty-answer={hasRecordedAnswer ? undefined : "true"}
+              >
+                {recordedAnswer}
+              </div>
+            </section>
+
+            <section className="recall-practice-repair-workspace__detail">
+              <p className="recall-practice-repair-workspace__detail-label">
+                Expected answer
+              </p>
+              <div className="recall-practice-repair-workspace__detail-copy">
+                {expectedAnswer}
+              </div>
+            </section>
+
+            <section className="recall-practice-repair-workspace__callout">
+              <WarningIcon className="recall-practice-repair-workspace__callout-icon" />
+              <div className="recall-practice-repair-workspace__callout-copy">
+                <strong>{`Your last score: ${ratingLabel}`}</strong>
+                <p>
+                  It's okay--weak recall is a signal to adjust and reinforce.
+                </p>
+              </div>
+            </section>
+
+            <div className="recall-practice-repair-workspace__actions recall-practice-repair-workspace__quick-actions">
+              <Button
+                className="recall-practice-repair-workspace__action-button"
+                disabled={pendingIntent !== null}
+                onClick={() =>
+                  void startPracticeRepair("tighten-expected-answer")
+                }
+                type="button"
+                variant="secondary"
+              >
+                <PencilIcon />
+                <span>Edit note</span>
+              </Button>
+              <Button
+                className="recall-practice-repair-workspace__action-button"
+                disabled={isRecallPending}
+                onClick={() => void handleStartRecallAgain()}
+                type="button"
+                variant="primary"
+              >
+                <RefreshIcon />
+                <span>Recall again</span>
+              </Button>
+            </div>
+          </section>
+
+          <p className="recall-practice-repair-workspace__footer-note">
+            <InfoIcon />
+            <span>
+              Metaphors and acronyms are optional support material, not
+              required.
+            </span>
+          </p>
         </div>
-      </article>
-    </section>
+
+        <aside
+          aria-label="Practice Repair actions"
+          className="recall-practice-repair-workspace__sidebar"
+        >
+          <section className="recall-panel recall-practice-repair-workspace__panel">
+            <div className="recall-practice-repair-workspace__panel-copy">
+              <h2>Suggested repairs</h2>
+              <p>{practiceRepairDraft.summary}</p>
+            </div>
+
+            <div className="recall-practice-repair-workspace__repair-list">
+              {draftIntentCards.map((card) => (
+                <PracticeRepairDraftActionButton
+                  card={card}
+                  isDisabled={pendingIntent !== null}
+                  key={card.intent}
+                  onSelect={(intent) => void startPracticeRepair(intent)}
+                />
+              ))}
+            </div>
+
+            {errorMessage === null ? null : (
+              <p
+                className="recall-practice-repair-workspace__error"
+                role="alert"
+              >
+                {errorMessage}
+              </p>
+            )}
+
+            <p className="recall-practice-repair-workspace__support">
+              Opening a repair starts it with that action and keeps this
+              evidence attached.
+            </p>
+          </section>
+        </aside>
+      </div>
+    </PageLayout>
   );
 }
 

@@ -6,7 +6,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { PageHeader } from "../../../design-system/page-header";
+import { PageLayout } from "../../../design-system/page-layout";
 import { type AppTranslationKey, useAppTranslation } from "../../language";
 import {
   defaultShowStudyNoteTemplatesPreference,
@@ -195,17 +195,17 @@ function SettingsPage() {
   }
 
   return (
-    <section className="settings-layout" aria-labelledby="settings-heading">
-      <PageHeader
-        className="settings-page-header recall-surface__header"
-        description={t("settings.subtitle")}
-        headingProps={{
-          "aria-label": t("settings.heading.aria"),
-          id: "settings-heading",
-        }}
-        title={t("settings.heading")}
-      />
-
+    <PageLayout
+      aria-labelledby="settings-heading"
+      className="settings-layout"
+      description={t("settings.subtitle")}
+      headerClassName="settings-page-header recall-surface__header"
+      headingProps={{
+        "aria-label": t("settings.heading.aria"),
+        id: "settings-heading",
+      }}
+      title={t("settings.heading")}
+    >
       <div className="settings-main-grid">
         <article className="settings-panel settings-panel--form">
           <div className="settings-panel__header">
@@ -415,6 +415,6 @@ function SettingsPage() {
           </dl>
         </article>
       </div>
-    </section>
+    </PageLayout>
   );
 }

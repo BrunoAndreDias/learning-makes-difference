@@ -1,0 +1,29 @@
+.page-layout {
+  display: grid;
+  align-content: start;
+  gap: var(--lmd-content-gap);
+  min-width: 0;
+  min-height: 100%;
+  width: 100%;
+  background: var(--color-shell-panel);
+  color: var(--color-content-default);
+  font-family: var(--font-body);
+}
+
+.page-layout__hero {
+  display: grid;
+  gap: var(--lmd-list-row-gap);
+  min-width: 0;
+}
+
+.page-layout__header {
+  align-items: flex-start;
+}
+
+.page-layout__body {
+  display: grid;
+  align-content: start;
+  gap: var(--lmd-content-gap);
+  min-width: 0;
+  min-height: 0;
+}

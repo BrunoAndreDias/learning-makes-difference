@@ -29,6 +29,13 @@ describe("Study Guidance styling", () => {
     const workspaceStyle = getCssRule(css, ".study-guidance-workspace");
     const planListStyle = getCssRule(css, ".study-guidance-plan__list");
     const rowStyle = getCssRule(css, ".study-guidance-row");
+    const rowTitleStyle = getCssRule(css, ".study-guidance-row__header h2");
+    const emptyTitleStyle =
+      Array.from(
+        css.matchAll(
+          /\.study-guidance-empty h2,\s*\.study-guidance-idle h2\s*\{([^}]*)\}/g,
+        ),
+      ).at(-1)?.[1] ?? "";
     const mobileSummaryListStyle = getMediaRule(
       css,
       "@media (max-width: 640px)",
@@ -43,8 +50,16 @@ describe("Study Guidance styling", () => {
     expect(planListStyle).toContain("display: grid;");
     expect(planListStyle).toContain("gap: var(--space-4);");
     expect(rowStyle).toContain("grid-template-columns: minmax(0, 1fr) auto;");
+    expect(rowTitleStyle).toContain("font-size: var(--lmd-card-title-size);");
+    expect(rowTitleStyle).toContain(
+      "line-height: var(--lmd-card-title-line-height);",
+    );
+    expect(emptyTitleStyle).toContain(
+      "font-size: var(--lmd-section-title-size);",
+    );
     expect(mobileSummaryListStyle).toContain(
       "grid-template-columns: minmax(0, 1fr);",
     );
+    expect(css).not.toContain("study-guidance-workspace__eyebrow");
   });
 });

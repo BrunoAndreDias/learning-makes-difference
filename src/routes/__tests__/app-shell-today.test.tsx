@@ -206,7 +206,10 @@ describe("authenticated Today workspace", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Today" }),
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Study Guidance",
+      }),
     ).toBeInTheDocument();
 
     const emptyState = screen.getByRole("status");
@@ -359,7 +362,7 @@ describe("authenticated Today workspace", () => {
 
     const pageHeading = await screen.findByRole("heading", {
       level: 1,
-      name: "Today",
+      name: "Study Guidance",
     });
     expect(pageHeading).toBeInTheDocument();
     const pageHeader = pageHeading.closest("header");
@@ -419,7 +422,7 @@ describe("authenticated Today workspace", () => {
     );
     expect(
       within(getTodayRow("Explain diffusion")).getByRole("link", {
-        name: "Open Recall Due today",
+        name: "Open Scheduled recall",
       }),
     ).toHaveAttribute("href", "/recall/due-today");
     expect(
@@ -478,7 +481,10 @@ describe("authenticated Today workspace", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Today" }),
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Study Guidance",
+      }),
     ).toBeInTheDocument();
     expect(
       within(getTodayRow("Photosynthesis inputs and output")).getByRole(

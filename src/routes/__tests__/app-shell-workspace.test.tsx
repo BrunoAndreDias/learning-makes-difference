@@ -295,6 +295,35 @@ describe("authenticated app shell", () => {
     );
   });
 
+  it("keeps desktop workspace headers on the shared dense shell height", () => {
+    const shellCss = readFileSync(
+      join(process.cwd(), "src/modules/workspace-shell/workspace-shell.css"),
+      {
+        encoding: "utf8",
+      },
+    );
+    const baseHeaderRule = shellCss.match(
+      /\.app-frame__workspace-header \{[^}]*\}/,
+    )?.[0];
+    const appFrameRule = Array.from(
+      shellCss.matchAll(/\.app-frame \{[^}]*\}/g),
+      (match) => match[0],
+    ).find((rule) => rule.includes("grid-template-rows"));
+
+    expect(appFrameRule).toBeDefined();
+    expect(appFrameRule).toContain(
+      "grid-template-rows: var(--lmd-header-height) minmax(0, 1fr);",
+    );
+    expect(appFrameRule).toContain("align-content: start;");
+    expect(baseHeaderRule).toContain("position: sticky;");
+    expect(baseHeaderRule).toMatch(
+      /(^|\n)\s*height: var\(--lmd-header-height\);/m,
+    );
+    expect(baseHeaderRule).toContain(
+      "padding: var(--lmd-list-row-padding-y) var(--lmd-page-padding-x);",
+    );
+  });
+
   it("removes expanded-sidebar Focus Dock styling while keeping header pill styles", () => {
     const shellCss = readFileSync(
       join(process.cwd(), "src/modules/workspace-shell/workspace-shell.css"),
@@ -320,6 +349,19 @@ describe("authenticated app shell", () => {
     );
     expect(shellCss).not.toMatch(
       /\.app-frame\[data-workspace="recall"\] \.app-frame__workspace-header,\n\.app-frame\[data-workspace="recall-results"\] \.app-frame__workspace-header,\n\.app-frame\[data-workspace="settings"\] \.app-frame__workspace-header \{[^}]*position: absolute;/s,
+    );
+  });
+
+  it("keeps the shared workspace header visible on desktop Recall surfaces", () => {
+    const shellCss = readFileSync(
+      join(process.cwd(), "src/modules/workspace-shell/workspace-shell.css"),
+      {
+        encoding: "utf8",
+      },
+    );
+
+    expect(shellCss).not.toMatch(
+      /\.authenticated-shell\[data-sidebar-state="expanded"\]\s+\.app-frame\[data-workspace="recall-results"\]\s+>\s+\.app-frame__workspace-header\s*\{[^}]*display:\s*none;/s,
     );
   });
 
@@ -694,14 +736,28 @@ describe("authenticated app shell", () => {
     expect(router.state.location.pathname).toBe("/recall");
     expect(recallLink).toHaveAttribute("aria-current", "page");
     expect(notesLink).not.toHaveAttribute("aria-current");
+    const recallItem = recallLink.closest("li");
+
+    expect(recallItem).toBeInstanceOf(HTMLLIElement);
     expect(
-      within(appSections).getByRole("link", { name: "Recall Today" }),
+      within(recallItem as HTMLLIElement).getByRole("link", {
+        name: "Recall Today",
+      }),
     ).toHaveAttribute("href", "/recall");
     expect(
-      within(appSections).getByRole("link", { name: "Due today" }),
+      within(recallItem as HTMLLIElement).getByRole("link", {
+        name: "Recall Today",
+      }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(
+      within(recallItem as HTMLLIElement).getByRole("link", {
+        name: "Scheduled",
+      }),
     ).toHaveAttribute("href", "/recall/due-today");
     expect(
-      within(appSections).getByRole("link", { name: "Results" }),
+      within(recallItem as HTMLLIElement).getByRole("link", {
+        name: "Results",
+      }),
     ).toHaveAttribute("href", "/recall/results");
     expect(
       within(appSections).queryByRole("link", { name: "Recall setup" }),
@@ -709,6 +765,38 @@ describe("authenticated app shell", () => {
     expect(
       within(appSections).queryByRole("link", { name: "Recall session" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps Recall subroutes nested under Recall and marks the active subsection", async () => {
+    renderRoute("/recall/results");
+
+    await screen.findByRole("complementary", {
+      name: "Study Notes workspace",
+    });
+
+    const appSections = getAppSections();
+    const recallLink = within(appSections).getByRole("link", {
+      name: "Recall",
+    });
+    const recallItem = recallLink.closest("li");
+
+    expect(recallItem).toBeInstanceOf(HTMLLIElement);
+    expect(recallLink).toHaveAttribute("aria-current", "page");
+    expect(
+      within(recallItem as HTMLLIElement).getByRole("link", {
+        name: "Recall Today",
+      }),
+    ).not.toHaveAttribute("aria-current");
+    expect(
+      within(recallItem as HTMLLIElement).getByRole("link", {
+        name: "Scheduled",
+      }),
+    ).not.toHaveAttribute("aria-current");
+    expect(
+      within(recallItem as HTMLLIElement).getByRole("link", {
+        name: "Results",
+      }),
+    ).toHaveAttribute("aria-current", "page");
   });
 
   it("adds Focus to primary navigation and opens the Focus section", async () => {

@@ -2,7 +2,7 @@ import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { type ReactNode, useSyncExternalStore } from "react";
 
 import { ButtonLink } from "../../design-system/button";
-import { PageHeader } from "../../design-system/page-header";
+import { PageLayout } from "../../design-system/page-layout";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { useAppTranslation } from "../language";
 import { getStudyNoteReadiness, listStudyNotesForUser } from "../study-notes";
@@ -229,124 +229,120 @@ function RecallPracticeRepairQueueRoute() {
   const nextCandidateEntry = candidateQueue[0];
 
   return (
-    <section aria-label="Practice Repair Queue" className="recall-workspace">
-      <article className="recall-surface">
-        <PageHeader
-          actions={
-            <PracticeRepairQueueHeaderAction
-              emptyStateAction={emptyStateAction}
-              nextActiveEntry={nextActiveEntry}
-              nextCandidateEntry={nextCandidateEntry}
-            />
-          }
-          className="recall-surface__header"
-          description="Resume active Practice Repair work first, then open the newest repair candidates from weak Results evidence."
-          headingLevel={1}
-          title="Practice Repair Queue"
+    <PageLayout
+      actions={
+        <PracticeRepairQueueHeaderAction
+          emptyStateAction={emptyStateAction}
+          nextActiveEntry={nextActiveEntry}
+          nextCandidateEntry={nextCandidateEntry}
         />
+      }
+      aria-label="Practice Repair Queue"
+      as="section"
+      className="recall-workspace recall-surface"
+      description="Resume active Practice Repair work first, then open the newest repair candidates from weak Results evidence."
+      headerClassName="recall-surface__header"
+      headingLevel={1}
+      title="Practice Repair Queue"
+    >
+      {queueItems.length === 0 ? (
+        <PracticeRepairQueueEmptyState action={emptyStateAction} />
+      ) : (
+        <section className="recall-practice-repair-queue">
+          {activeQueue.length === 0 ? null : (
+            <section className="recall-practice-repair-queue__section">
+              <div className="recall-practice-repair-queue__header">
+                <h4>Active Practice Repair</h4>
+                <p className="muted">
+                  Resume confirmed repairs before starting new repair work.
+                </p>
+              </div>
 
-        {queueItems.length === 0 ? (
-          <PracticeRepairQueueEmptyState action={emptyStateAction} />
-        ) : (
-          <section className="recall-practice-repair-queue">
-            {activeQueue.length === 0 ? null : (
-              <section className="recall-practice-repair-queue__section">
-                <div className="recall-practice-repair-queue__header">
-                  <h4>Active Practice Repair</h4>
-                  <p className="muted">
-                    Resume confirmed repairs before starting new repair work.
-                  </p>
-                </div>
+              <ol
+                aria-label="Active Practice Repair entries"
+                className="recall-practice-repair-queue__list"
+              >
+                {activeQueue.map(({ entry, question }) => {
+                  const rating = getPracticeRepairQueueRating(question, t);
+                  const practiceRepairEntryId = getPracticeRepairEntryId(entry);
 
-                <ol
-                  aria-label="Active Practice Repair entries"
-                  className="recall-practice-repair-queue__list"
-                >
-                  {activeQueue.map(({ entry, question }) => {
-                    const rating = getPracticeRepairQueueRating(question, t);
-                    const practiceRepairEntryId =
-                      getPracticeRepairEntryId(entry);
+                  return (
+                    <li key={practiceRepairEntryId}>
+                      <PracticeRepairQueueCard
+                        action={
+                          <ButtonLink
+                            size="compact"
+                            params={{
+                              practiceRepairEntryId,
+                            }}
+                            to="/practice-repair/$practiceRepairEntryId"
+                            variant="secondary"
+                          >
+                            Resume Practice Repair
+                          </ButtonLink>
+                        }
+                        body={entry.correction}
+                        eyebrow={formatPracticeRepairIntentLabel(entry.intent)}
+                        question={question}
+                        rating={rating}
+                      />
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+          )}
 
-                    return (
-                      <li key={practiceRepairEntryId}>
-                        <PracticeRepairQueueCard
-                          action={
-                            <ButtonLink
-                              size="compact"
-                              params={{
-                                practiceRepairEntryId,
-                              }}
-                              to="/practice-repair/$practiceRepairEntryId"
-                              variant="secondary"
-                            >
-                              Resume Practice Repair
-                            </ButtonLink>
-                          }
-                          body={entry.correction}
-                          eyebrow={formatPracticeRepairIntentLabel(
-                            entry.intent,
-                          )}
-                          question={question}
-                          rating={rating}
-                        />
-                      </li>
-                    );
-                  })}
-                </ol>
-              </section>
-            )}
+          {candidateQueue.length === 0 ? null : (
+            <section className="recall-practice-repair-queue__section">
+              <div className="recall-practice-repair-queue__header">
+                <h4>Repair candidates</h4>
+                <p className="muted">
+                  Open one candidate when Recall shows new needs-practice
+                  evidence.
+                </p>
+              </div>
 
-            {candidateQueue.length === 0 ? null : (
-              <section className="recall-practice-repair-queue__section">
-                <div className="recall-practice-repair-queue__header">
-                  <h4>Repair candidates</h4>
-                  <p className="muted">
-                    Open one candidate when Recall shows new needs-practice
-                    evidence.
-                  </p>
-                </div>
+              <ol
+                aria-label="Practice Repair candidates"
+                className="recall-practice-repair-queue__list"
+              >
+                {candidateQueue.map((item) => {
+                  const { draft, question, result } = item;
+                  const rating = getPracticeRepairQueueRating(question, t);
 
-                <ol
-                  aria-label="Practice Repair candidates"
-                  className="recall-practice-repair-queue__list"
-                >
-                  {candidateQueue.map((item) => {
-                    const { draft, question, result } = item;
-                    const rating = getPracticeRepairQueueRating(question, t);
-
-                    return (
-                      <li key={question.questionResultId}>
-                        <PracticeRepairQueueCard
-                          action={
-                            <ButtonLink
-                              size="compact"
-                              to="/practice-repair/results/$sessionResultId/questions/$questionResultId"
-                              params={{
-                                questionResultId: question.questionResultId,
-                                sessionResultId: result.id,
-                              }}
-                              variant="secondary"
-                            >
-                              Open Practice Repair
-                            </ButtonLink>
-                          }
-                          body={draft.summary}
-                          eyebrow="Needs practice candidate"
-                          question={question}
-                          rating={rating}
-                          supportingSummary={
-                            item.recentWeakAttemptsSummary ?? undefined
-                          }
-                        />
-                      </li>
-                    );
-                  })}
-                </ol>
-              </section>
-            )}
-          </section>
-        )}
-      </article>
-    </section>
+                  return (
+                    <li key={question.questionResultId}>
+                      <PracticeRepairQueueCard
+                        action={
+                          <ButtonLink
+                            size="compact"
+                            to="/practice-repair/results/$sessionResultId/questions/$questionResultId"
+                            params={{
+                              questionResultId: question.questionResultId,
+                              sessionResultId: result.id,
+                            }}
+                            variant="secondary"
+                          >
+                            Open Practice Repair
+                          </ButtonLink>
+                        }
+                        body={draft.summary}
+                        eyebrow="Needs practice candidate"
+                        question={question}
+                        rating={rating}
+                        supportingSummary={
+                          item.recentWeakAttemptsSummary ?? undefined
+                        }
+                      />
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+          )}
+        </section>
+      )}
+    </PageLayout>
   );
 }

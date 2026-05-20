@@ -72,10 +72,6 @@ describe("page style normalization", () => {
       new URL("../modules/access/access.css", import.meta.url),
       "utf8",
     );
-    const focusCss = readFileSync(
-      new URL("../modules/focus/focus-route.css", import.meta.url),
-      "utf8",
-    );
     const notesToolbarCss = readFileSync(
       new URL(
         "../modules/notes/notes-workspace/notes-toolbar.css",
@@ -83,12 +79,12 @@ describe("page style normalization", () => {
       ),
       "utf8",
     );
-    const recallSessionCss = readFileSync(
-      new URL("../modules/recall/recall-session-route.css", import.meta.url),
+    const pageLayoutCss = readFileSync(
+      new URL("./page-layout/page-layout.css", import.meta.url),
       "utf8",
     );
-    const recallWorkspacesCss = readFileSync(
-      new URL("../modules/recall/recall-workspaces.css", import.meta.url),
+    const recallSessionCss = readFileSync(
+      new URL("../modules/recall/recall-session-route.css", import.meta.url),
       "utf8",
     );
     const workspaceShellCss = readFileSync(
@@ -100,22 +96,16 @@ describe("page style normalization", () => {
     );
 
     expectSelectorToUsePageTypeAndColor(accessCss, ".auth-shell");
-    expectSelectorToUsePageTypeAndColor(accessCss, ".settings-layout");
-    expectSelectorToUsePageTypeAndColor(focusCss, ".focus-workspace");
     expectSelectorToUsePageTypeAndColor(notesToolbarCss, ".notes-workspace");
+    expectSelectorToUsePageTypeAndColor(pageLayoutCss, ".page-layout");
     expectSelectorToUsePageTypeAndColor(recallSessionCss, ".recall-shell");
-    expectSelectorToUsePageTypeAndColor(recallWorkspacesCss, ".recall-surface");
-    expectSelectorToUsePageTypeAndColor(
-      recallWorkspacesCss,
-      ".recall-workspace",
-    );
     expectSelectorToUsePageTypeAndColor(
       workspaceShellCss,
       ".authenticated-shell",
     );
   });
 
-  it("keeps Focus route on the LMD green study palette without changing its shell density", () => {
+  it("keeps the app shell and Focus route on the LMD green study palette without changing shell density", () => {
     const globalCss = readFileSync(
       new URL("./global.css", import.meta.url),
       "utf8",
@@ -133,10 +123,6 @@ describe("page style normalization", () => {
     );
 
     const focusRootStyle = getCssRules(focusCss, ".focus-workspace").join("\n");
-    const focusShellThemeStyle = getCssRules(
-      workspaceShellCss,
-      '.authenticated-shell:has(.app-frame[data-workspace="focus"])',
-    ).join("\n");
     const focusShellWorkspaceHeaderStyle = getCssRules(
       workspaceShellCss,
       '.app-frame[data-workspace="focus"] .app-frame__workspace-header',
@@ -172,14 +158,11 @@ describe("page style normalization", () => {
     expect(globalCss).toContain("--color-learning-factual-teal: #287c73;");
     expect(globalCss).toContain("--color-learning-honey-amber: #d99126;");
     expect(globalCss).toContain("--color-learning-terracotta: #c95646;");
-    expect(focusShellThemeStyle).toContain(
-      "--color-primary: var(--color-learning-pine);",
-    );
-    expect(focusShellThemeStyle).toContain(
-      "--color-primary-soft: var(--color-learning-pine-mist);",
-    );
-    expect(focusShellThemeStyle).toContain(
-      "--color-content-strong: var(--color-learning-ink);",
+    expect(globalCss).toContain("--color-primary: #1f6b45;");
+    expect(globalCss).toContain("--color-primary-soft: #e9f2ec;");
+    expect(globalCss).toContain("--color-neutral-ink: #17231e;");
+    expect(workspaceShellCss).not.toContain(
+      '.authenticated-shell:has(.app-frame[data-workspace="focus"])',
     );
     expect(focusRootStyle).toContain(
       "--focus-accent: var(--color-learning-pine);",
@@ -202,7 +185,6 @@ describe("page style normalization", () => {
     expect(focusRootStyle).toContain(
       "--focus-warm-accent: var(--color-learning-honey-amber);",
     );
-    expect(focusRootStyle).toContain("background: var(--color-shell-panel);");
     expect(focusShellWorkspaceHeaderStyle).toContain(
       "height: var(--lmd-header-height);",
     );
@@ -391,6 +373,30 @@ describe("page style normalization", () => {
     expect(easyRatingStyle).toContain("background: var(--color-success-soft);");
   });
 
+  it("keeps Recall page headers on the shared compact PageHeader layout", () => {
+    const recallWorkspacesCss = readFileSync(
+      new URL("../modules/recall/recall-workspaces.css", import.meta.url),
+      "utf8",
+    );
+    const recallSurfaceHeaderStyle = getCssRules(
+      recallWorkspacesCss,
+      ".recall-surface__header",
+    ).join("\n");
+    const recallSurfaceHeaderCopyStyle = getCssRules(
+      recallWorkspacesCss,
+      ".recall-surface__header .page-header__copy",
+    ).join("\n");
+    const recallSelectHeaderCopyStyle = getCssRules(
+      recallWorkspacesCss,
+      ".recall-select__header .page-header__copy",
+    ).join("\n");
+
+    expect(recallSurfaceHeaderStyle).toContain("align-items: flex-start;");
+    expect(recallSurfaceHeaderStyle).not.toContain("display: grid;");
+    expect(recallSurfaceHeaderCopyStyle).toContain("gap: 0.35rem;");
+    expect(recallSelectHeaderCopyStyle).toContain("gap: 0.45rem;");
+  });
+
   it("keeps workspace header actions on the shared button contract", () => {
     const sharedActionsCss = readFileSync(
       new URL("../design-system/shared-actions.css", import.meta.url),
@@ -456,5 +462,65 @@ describe("page style normalization", () => {
     expect(mobileSidebarToggleStyle).toContain(
       "border-radius: var(--action-control-radius);",
     );
+  });
+
+  it("keeps authenticated workspace page insets on the shared page layout shell", () => {
+    const appCss = readFileSync(new URL("../styles/app.css", import.meta.url), {
+      encoding: "utf8",
+    });
+    const focusCss = readFileSync(
+      new URL("../modules/focus/focus-route.css", import.meta.url),
+      "utf8",
+    );
+    const studyNotesCss = readFileSync(
+      new URL("../modules/study-notes/study-notes.css", import.meta.url),
+      "utf8",
+    );
+    const studyGuidanceCss = readFileSync(
+      new URL("../modules/study-guidance/study-guidance.css", import.meta.url),
+      "utf8",
+    );
+    const recallWorkspacesCss = readFileSync(
+      new URL("../modules/recall/recall-workspaces.css", import.meta.url),
+      "utf8",
+    );
+    const sharedPageInsetStyle = getCssRules(
+      appCss,
+      ".app-shell:has(.authenticated-shell) .app-frame__content > .page-layout",
+    ).join("\n");
+    const collapsedPageInsetStyle = getCssRules(
+      appCss,
+      '.authenticated-shell[data-sidebar-state="collapsed"] .app-frame__content > .page-layout',
+    ).join("\n");
+    const focusRootStyle = getCssRules(focusCss, ".focus-workspace").join("\n");
+    const studyNotesRootStyle = getCssRules(
+      studyNotesCss,
+      ".study-notes-workspace",
+    ).join("\n");
+    const studyGuidanceRootStyle = getCssRules(
+      studyGuidanceCss,
+      ".study-guidance-workspace",
+    ).join("\n");
+    const recallSurfaceStyle = getCssRules(
+      recallWorkspacesCss,
+      ".recall-surface",
+    ).join("\n");
+
+    expect(sharedPageInsetStyle).toContain(
+      "padding: var(--workspace-page-block-start) var(--workspace-page-inline)",
+    );
+    expect(sharedPageInsetStyle).toContain("var(--workspace-page-block-end);");
+    expect(collapsedPageInsetStyle).toContain(
+      "padding-inline-start: var(--workspace-collapsed-header-offset);",
+    );
+
+    for (const routeRootStyle of [
+      focusRootStyle,
+      studyNotesRootStyle,
+      studyGuidanceRootStyle,
+      recallSurfaceStyle,
+    ]) {
+      expect(routeRootStyle).not.toContain("padding: var(--lmd-page-padding");
+    }
   });
 });

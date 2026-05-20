@@ -870,7 +870,7 @@ describe("authenticated recall workspace", () => {
     expect(queue).toHaveTextContent("Practice Follow-up");
     expect(queue).toHaveTextContent("Needs practice");
     expect(queue).toHaveTextContent("Not recalled yet");
-    expect(queue).toHaveTextContent("Due for recall");
+    expect(queue).toHaveTextContent("Scheduled");
     expect(queue).not.toHaveTextContent("Incomplete prompt");
 
     expect(
@@ -2691,7 +2691,7 @@ describe("authenticated recall workspace", () => {
       "/recall/select",
     );
     expect(
-      screen.queryByRole("button", { name: "Start due recall" }),
+      screen.queryByRole("button", { name: "Start scheduled recall" }),
     ).toBeNull();
 
     fireEvent.click(screen.getByRole("link", { name: "Custom recall" }));
@@ -2716,11 +2716,11 @@ describe("authenticated recall workspace", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Due today" }),
+      await screen.findByRole("heading", { level: 1, name: "Scheduled" }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Nothing is schedule-due right now. Start a custom recall session or return to Today for broader priorities.",
+        "Nothing is scheduled for recall right now. Start a custom recall session or return to Recall Today for broader priorities.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Custom recall" })).toHaveAttribute(
@@ -2728,11 +2728,11 @@ describe("authenticated recall workspace", () => {
       "/recall/select",
     );
     expect(
-      screen.queryByRole("button", { name: "Start due recall" }),
+      screen.queryByRole("button", { name: "Start scheduled recall" }),
     ).toBeNull();
   });
 
-  it("keeps /recall on the Recall Today shell and exposes Recall Today, Due today, and Results tabs", async () => {
+  it("keeps /recall on the Recall Today shell without in-page Recall navigation", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const dueToday = createStudyNoteSnapshot(contexts, {
       expectedAnswer: "Due today answer.",
@@ -2773,17 +2773,9 @@ describe("authenticated recall workspace", () => {
       screen.getByRole("link", { name: "Manual selection" }),
     ).toHaveAttribute("href", "/recall/select");
 
-    const tabs = screen.getByRole("navigation", { name: "Recall pages" });
     expect(
-      within(tabs).getByRole("link", { name: "Recall Today" }),
-    ).toHaveAttribute("href", "/recall");
-    expect(
-      within(tabs).getByRole("link", { name: "Due today" }),
-    ).toHaveAttribute("href", "/recall/due-today");
-    expect(within(tabs).getByRole("link", { name: "Results" })).toHaveAttribute(
-      "href",
-      "/recall/results",
-    );
+      screen.queryByRole("navigation", { name: "Recall pages" }),
+    ).not.toBeInTheDocument();
   });
 
   it("opens Due today directly and starts a FlashCard session from its queue", async () => {
@@ -2842,23 +2834,20 @@ describe("authenticated recall workspace", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Due today" }),
+      await screen.findByRole("heading", { level: 1, name: "Scheduled" }),
     ).toBeInTheDocument();
-    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
-    expect(
-      within(breadcrumb).getByRole("link", { name: "Recall" }),
-    ).toHaveAttribute("href", "/recall");
-    expect(within(breadcrumb).getByText("Due today")).toBeInTheDocument();
     expect(screen.getAllByText("May 15, 2026").length).toBeGreaterThan(0);
     expect(screen.queryByRole("link", { name: "Custom recall" })).toBeNull();
 
-    const summary = screen.getByRole("list", { name: "Due today summary" });
-    expect(within(summary).getByText("Due now")).toBeInTheDocument();
+    const summary = screen.getByRole("list", {
+      name: "Scheduled recall summary",
+    });
+    expect(within(summary).getByText("Scheduled now")).toBeInTheDocument();
     expect(within(summary).getByText("2")).toBeInTheDocument();
-    expect(within(summary).getByText("Due today")).toBeInTheDocument();
+    expect(within(summary).getByText("Scheduled today")).toBeInTheDocument();
 
     const dueTodayQueue = screen.getByRole("region", {
-      name: "Due today queue",
+      name: "Scheduled recall queue",
     });
     expect(dueTodayQueue).toHaveTextContent("Needs practice prompt");
     expect(dueTodayQueue).toHaveTextContent("Due prompt");
@@ -2868,13 +2857,15 @@ describe("authenticated recall workspace", () => {
     expect(dueTodayQueue).not.toHaveTextContent("Incomplete prompt");
 
     const helpPanel = screen.getByRole("complementary", {
-      name: "How Due Today Works",
+      name: "How Scheduled Recall Works",
     });
     expect(helpPanel).toHaveTextContent("Answer is hidden");
     expect(helpPanel).toHaveTextContent("Self-rate your recall");
-    expect(helpPanel).toHaveTextContent("Recall by schedule");
+    expect(helpPanel).toHaveTextContent("Scheduled by recall");
 
-    fireEvent.click(screen.getByRole("button", { name: "Start due recall" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Start scheduled recall" }),
+    );
 
     await screen.findByRole("heading", { level: 3, name: "Recall session" });
     expect(router.state.location.pathname).toBe("/recall/session");
@@ -2915,10 +2906,10 @@ describe("authenticated recall workspace", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Due today" }),
+      await screen.findByRole("heading", { level: 1, name: "Scheduled" }),
     ).toBeInTheDocument();
     expect(screen.queryByText("Needs practice prompt")).toBeNull();
-    expect(screen.getByText("No Due today work")).toBeInTheDocument();
+    expect(screen.getByText("Nothing scheduled today")).toBeInTheDocument();
   });
 
   it("shows schedule-due Practice Follow-ups in Due today without Practice Follow-up labels", async () => {
@@ -2980,7 +2971,7 @@ describe("authenticated recall workspace", () => {
     });
 
     const dueTodayQueue = await screen.findByRole("region", {
-      name: "Due today queue",
+      name: "Scheduled recall queue",
     });
     expect(dueTodayQueue).toHaveTextContent("What stores transferable energy?");
     expect(dueTodayQueue).toHaveTextContent("What organelle generates ATP?");
@@ -3030,7 +3021,9 @@ describe("authenticated recall workspace", () => {
       },
     });
 
-    expect(await screen.findByText("No Due today work")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Nothing scheduled today"),
+    ).toBeInTheDocument();
     expect(screen.queryByText("What stores transferable energy?")).toBeNull();
   });
 

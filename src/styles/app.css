@@ -1,6 +1,7 @@
 @import "../design-system/global.css";
 @import "../design-system/floating-textarea/floating-textarea.css";
 @import "../design-system/list-card/list-card.css";
+@import "../design-system/page-layout/page-layout.css";
 @import "../design-system/page-header/page-header.css";
 @import "../design-system/shared-actions.css";
 @import "../modules/workspace-shell/workspace-shell.css";
@@ -37,17 +38,16 @@
   padding-block-start: var(--workspace-page-block-start);
 }
 
-.app-shell:has(.authenticated-shell) .recall-surface,
-.app-shell:has(.authenticated-shell) .focus-workspace,
-.app-shell:has(.authenticated-shell) .settings-layout {
-  padding-inline: var(--workspace-page-inline);
-  padding-block-start: var(--workspace-page-block-start);
+.app-shell:has(.authenticated-shell) .app-frame__content > .page-layout {
+  padding: var(--workspace-page-block-start) var(--workspace-page-inline)
+    var(--workspace-page-block-end);
 }
 
-.app-shell:has(.authenticated-shell) .recall-surface,
-.app-shell:has(.authenticated-shell) .focus-workspace,
-.app-shell:has(.authenticated-shell) .settings-layout {
-  padding-block-end: var(--workspace-page-block-end);
+.app-shell:has(.authenticated-shell)
+  .app-frame__content
+  > .recall-workspace:not(.page-layout) {
+  padding: var(--workspace-page-block-start) var(--workspace-page-inline)
+    var(--workspace-page-block-end);
 }
 
 .authenticated-shell[data-sidebar-state="collapsed"]
@@ -64,6 +64,8 @@
 .authenticated-shell[data-sidebar-state="collapsed"]
   .app-frame[data-workspace="recall-results"],
 .authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="today"],
+.authenticated-shell[data-sidebar-state="collapsed"]
   .app-frame[data-workspace="focus"],
 .authenticated-shell[data-sidebar-state="collapsed"]
   .app-frame[data-workspace="settings"] {
@@ -78,9 +80,9 @@
   align-items: flex-start;
   justify-content: flex-start;
   width: var(--workspace-collapsed-header-offset);
-  height: 4.5625rem;
+  height: var(--lmd-header-height);
   min-height: 0;
-  padding: 0.875rem 1rem;
+  padding: var(--lmd-list-row-padding-y) 1rem;
   border-bottom: 0;
   background: transparent;
   pointer-events: none;
@@ -107,17 +109,14 @@
 }
 
 .authenticated-shell[data-sidebar-state="collapsed"]
-  .app-frame[data-workspace="recall"]
-  .recall-surface,
+  .app-frame__content
+  > .page-layout {
+  padding-inline-start: var(--workspace-collapsed-header-offset);
+}
+
 .authenticated-shell[data-sidebar-state="collapsed"]
-  .app-frame[data-workspace="recall-results"]
-  .recall-surface,
-.authenticated-shell[data-sidebar-state="collapsed"]
-  .app-frame[data-workspace="focus"]
-  .focus-workspace,
-.authenticated-shell[data-sidebar-state="collapsed"]
-  .app-frame[data-workspace="settings"]
-  .settings-layout {
+  .app-frame__content
+  > .recall-workspace:not(.page-layout) {
   padding-inline-start: var(--workspace-collapsed-header-offset);
 }
 
@@ -136,6 +135,18 @@
     border-bottom: 1px solid var(--color-content-border-soft);
     background: var(--color-shell-panel);
     pointer-events: auto;
+  }
+
+  .authenticated-shell[data-sidebar-state="collapsed"]
+    .app-frame__content
+    > .page-layout {
+    padding-inline-start: var(--workspace-page-inline);
+  }
+
+  .authenticated-shell[data-sidebar-state="collapsed"]
+    .app-frame__content
+    > .recall-workspace:not(.page-layout) {
+    padding-inline-start: var(--workspace-page-inline);
   }
 
   .authenticated-shell[data-sidebar-state="collapsed"]
@@ -168,17 +179,14 @@
   }
 
   .authenticated-shell[data-sidebar-state="collapsed"]
-    .app-frame[data-workspace="recall"]
-    .recall-surface,
-  .authenticated-shell[data-sidebar-state="collapsed"]
-    .app-frame[data-workspace="recall-results"]
-    .recall-surface,
+    .app-frame[data-workspace="today"]
+    .app-frame__content:has(> .study-guidance-workspace),
   .authenticated-shell[data-sidebar-state="collapsed"]
     .app-frame[data-workspace="focus"]
-    .focus-workspace,
+    .app-frame__content:has(> .focus-workspace),
   .authenticated-shell[data-sidebar-state="collapsed"]
     .app-frame[data-workspace="settings"]
-    .settings-layout {
+    .app-frame__content:has(> .settings-layout) {
     padding-inline-start: var(--workspace-page-inline);
   }
 }

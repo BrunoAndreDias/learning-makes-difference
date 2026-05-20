@@ -1,9 +1,10 @@
-import { Link, useNavigate, useRouteContext } from "@tanstack/react-router";
+import { useNavigate, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { Button, ButtonLink } from "../../design-system/button";
 import { ListCard } from "../../design-system/list-card";
 import { PageHeader } from "../../design-system/page-header";
+import { PageLayout } from "../../design-system/page-layout";
 import { formatCount } from "../../lib/format-count";
 import { defaultUserTimeZone } from "../access/session/session-contract";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
@@ -26,7 +27,6 @@ import type {
   RecallSelfRating,
 } from "./recall";
 import { buildDueTodayQueue, type DueTodayQueueItem } from "./recall-due-today";
-import { RecallPageTabs } from "./recall-page-tabs";
 import {
   formatPracticeRepairIntentLabel,
   getPracticeRepairEntryId,
@@ -437,7 +437,6 @@ export function RecallTodayWorkspacePage() {
   return (
     <RecallTodayPage
       labelsById={currentLabelsById}
-      now={now}
       onStartRecallToday={startRecallToday}
       queue={recallTodayQueue}
     />
@@ -575,64 +574,59 @@ export function RecallResultsWorkspacePage() {
     filteredResults.find((result) => result.id === selectedResultId) ?? null;
 
   return (
-    <section
+    <PageLayout
+      actions={<RecallSelectionPrimaryAction />}
+      afterHeader={
+        savedMessage !== null ? (
+          <p className="recall-feedback" role="status">
+            {savedMessage === "Recall session saved to results"
+              ? t("recall.result.saved")
+              : savedMessage}
+            <button
+              aria-label={t("recall.result.saved.dismiss")}
+              className="recall-feedback__dismiss"
+              onClick={() => setSavedMessage(null)}
+              type="button"
+            >
+              {t("recall.action.dismiss")}
+            </button>
+          </p>
+        ) : null
+      }
       aria-label={t("shell.workspace.recall")}
-      className="recall-workspace"
+      as="section"
+      className="recall-workspace recall-surface recall-results-surface"
+      description={t("recall.results.description")}
+      headerClassName="recall-surface__header"
+      headingLevel={1}
+      heroClassName="recall-results-top"
+      title={t("recall.tabs.results")}
     >
-      <article className="recall-surface recall-results-surface">
-        <div className="recall-results-top">
-          <RecallPageTabs />
-          <PageHeader
-            actions={<RecallSelectionPrimaryAction />}
-            className="recall-surface__header"
-            description={t("recall.results.description")}
-            headingLevel={1}
-            title={t("recall.tabs.results")}
-          />
-
-          {savedMessage !== null ? (
-            <p className="recall-feedback" role="status">
-              {savedMessage === "Recall session saved to results"
-                ? t("recall.result.saved")
-                : savedMessage}
-              <button
-                aria-label={t("recall.result.saved.dismiss")}
-                className="recall-feedback__dismiss"
-                onClick={() => setSavedMessage(null)}
-                type="button"
-              >
-                {t("recall.action.dismiss")}
-              </button>
-            </p>
-          ) : null}
-        </div>
-
-        <div className="recall-results-workspace">
-          <ResultsMasterPanel
-            labels={availableLabels}
-            onLabelChange={setSelectedLabelId}
-            onQueryChange={setQuery}
-            onRecallTypeChange={setSelectedRecallType}
-            onSelectResult={(resultId) => {
-              setExpandedQuestionKey(null);
-              setSelectedResultId(resultId);
-            }}
-            query={query}
-            results={filteredResults}
-            selectedLabelId={selectedLabelId}
-            selectedRecallType={selectedRecallType}
-            selectedResultId={selectedResultId}
-            totalResults={sessionResults.length}
-          />
-          <ResultsDetailPanel
-            expandedQuestionKey={expandedQuestionKey}
-            hasAnyResults={sessionResults.length > 0}
-            onExpandedQuestionKeyChange={setExpandedQuestionKey}
-            result={selectedResult}
-          />
-        </div>
-      </article>
-    </section>
+      <div className="recall-results-workspace">
+        <ResultsMasterPanel
+          labels={availableLabels}
+          onLabelChange={setSelectedLabelId}
+          onQueryChange={setQuery}
+          onRecallTypeChange={setSelectedRecallType}
+          onSelectResult={(resultId) => {
+            setExpandedQuestionKey(null);
+            setSelectedResultId(resultId);
+          }}
+          query={query}
+          results={filteredResults}
+          selectedLabelId={selectedLabelId}
+          selectedRecallType={selectedRecallType}
+          selectedResultId={selectedResultId}
+          totalResults={sessionResults.length}
+        />
+        <ResultsDetailPanel
+          expandedQuestionKey={expandedQuestionKey}
+          hasAnyResults={sessionResults.length > 0}
+          onExpandedQuestionKeyChange={setExpandedQuestionKey}
+          result={selectedResult}
+        />
+      </div>
+    </PageLayout>
   );
 }
 
@@ -647,7 +641,6 @@ const recallTodaySectionTones: readonly QueueTone[] = [
 
 type RecallTodayPageProps = {
   labelsById: ReadonlyMap<string, AppLabel>;
-  now: string;
   onStartRecallToday: () => void;
   queue: readonly RecallTodayQueueItem[];
 };
@@ -803,15 +796,11 @@ function getRecallTodayMetaLine(input: {
 
 function RecallTodayPage({
   labelsById,
-  now,
   onStartRecallToday,
   queue,
 }: RecallTodayPageProps) {
   const { t } = useAppTranslation();
   const queueSections = buildRecallTodayQueueSections(queue);
-  const workspaceDate = new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-  }).format(new Date(now));
 
   return (
     <section
@@ -819,25 +808,7 @@ function RecallTodayPage({
       className="recall-workspace"
     >
       <article className="recall-surface recall-today-surface">
-        <div className="recall-today-chrome">
-          <div className="recall-today-chrome__meta">
-            <span className="recall-today-chrome__date">
-              <CalendarHeaderIcon />
-              <span>{workspaceDate}</span>
-            </span>
-          </div>
-          <Button
-            aria-label="Help"
-            className="recall-today-chrome__help"
-            iconOnly
-            type="button"
-          >
-            <HelpCircleIcon />
-          </Button>
-        </div>
-
         <div className="recall-today-top">
-          <RecallPageTabs />
           <PageHeader
             actions={
               <fieldset className="recall-today-actions">
@@ -1172,9 +1143,6 @@ function RecallDueTodayPage({
   userTimeZone,
 }: DueTodayPageProps) {
   const { t } = useAppTranslation();
-  const workspaceDate = new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-  }).format(new Date(now));
 
   return (
     <section
@@ -1182,33 +1150,7 @@ function RecallDueTodayPage({
       className="recall-workspace"
     >
       <article className="recall-surface recall-today-surface">
-        <div className="recall-today-chrome">
-          <nav
-            aria-label={t("recall.breadcrumb")}
-            className="recall-breadcrumb"
-          >
-            <Link to={appRoutePaths.recall}>{t("shell.workspace.recall")}</Link>
-            <span aria-hidden="true">/</span>
-            <span>{t("recall.dueToday.title")}</span>
-          </nav>
-          <div className="recall-today-chrome__meta">
-            <span className="recall-today-chrome__date">
-              <CalendarHeaderIcon />
-              <span>{workspaceDate}</span>
-            </span>
-            <Button
-              aria-label="Help"
-              className="recall-today-chrome__help"
-              iconOnly
-              type="button"
-            >
-              <HelpCircleIcon />
-            </Button>
-          </div>
-        </div>
-
         <div className="recall-today-top">
-          <RecallPageTabs />
           <PageHeader
             actions={
               <RecallDueTodayPrimaryAction
@@ -1830,48 +1772,6 @@ function CalendarQueueIcon() {
         strokeLinejoin="round"
         strokeWidth="1.8"
       />
-    </svg>
-  );
-}
-
-function CalendarHeaderIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="18"
-      viewBox="0 0 24 24"
-      width="18"
-    >
-      <path
-        d="M7 3v4M17 3v4M4 8h16M5 5h14v15H5V5Z"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-      />
-    </svg>
-  );
-}
-
-function HelpCircleIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="20"
-      viewBox="0 0 24 24"
-      width="20"
-    >
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
-      <path
-        d="M9.8 9a2.3 2.3 0 1 1 3.6 1.9c-.9.6-1.4 1.1-1.4 2.1"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-      />
-      <circle cx="12" cy="16.6" fill="currentColor" r="1" />
     </svg>
   );
 }

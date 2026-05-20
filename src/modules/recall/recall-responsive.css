@@ -26,21 +26,6 @@
 }
 
 @media (max-width: 720px) {
-  .recall-today-chrome {
-    align-items: flex-start;
-    flex-direction: column;
-    padding-left: 4.25rem;
-  }
-
-  .recall-today-chrome .recall-breadcrumb {
-    gap: 0.6rem;
-    font-size: 0.85rem;
-  }
-
-  .recall-today-chrome__date span {
-    display: none;
-  }
-
   .recall-today-hero {
     align-items: stretch;
     flex-direction: column;

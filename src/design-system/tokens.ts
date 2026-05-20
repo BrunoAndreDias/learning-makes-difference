@@ -19,17 +19,17 @@ const brandTokens = {
   logoSource: "docs/layout/logo.svg",
   layoutReferences: layoutReferencePaths,
   shellTone:
-    "Slate White canvas with blue navigation, teal progress, amber memory, and violet creative accents.",
+    "Warm ivory canvas with pine navigation, teal progress, amber memory, and moss creative accents.",
 } as const;
 
 const neutralColorTokens = {
-  canvas: "#f8fafc",
+  canvas: "#FAF8F3",
   surface: "#ffffff",
-  panel: "#f1f5f9",
-  border: "#cbd5e1",
-  borderSoft: "#e2e8f0",
-  ink: "#0f172a",
-  muted: "#475569",
+  panel: "#E9F2EC",
+  border: "#D8D1C6",
+  borderSoft: "#E6E1D8",
+  ink: "#17231E",
+  muted: "#62706A",
 } as const;
 
 const learningColorTokens = {
@@ -56,44 +56,44 @@ const colorTokens = {
   neutral: neutralColorTokens,
   learning: learningColorTokens,
   primary: {
-    value: "#2563eb",
-    hover: "#1d4ed8",
+    value: learningColorTokens.deepPine,
+    hover: learningColorTokens.deepPineHover,
     foreground: "#ffffff",
-    soft: "#dbeafe",
-    softBorder: "#93c5fd",
+    soft: learningColorTokens.pineMist,
+    softBorder: "#B8CCBE",
     softForeground: neutralColorTokens.ink,
   },
   secondary: {
-    value: "#0f766e",
-    hover: "#115e59",
+    value: learningColorTokens.factualTeal,
+    hover: "#21695F",
     foreground: "#ffffff",
-    soft: "#ccfbf1",
-    softBorder: "#5eead4",
+    soft: learningColorTokens.tealMist,
+    softBorder: "#A7D7D0",
     softForeground: neutralColorTokens.ink,
   },
   accent: {
-    value: "#f59e0b",
-    strong: "#b45309",
+    value: learningColorTokens.honeyAmber,
+    strong: "#9B5F08",
     foreground: neutralColorTokens.ink,
-    soft: "#fef3c7",
-    softBorder: "#fcd34d",
+    soft: learningColorTokens.amberMist,
+    softBorder: "#E7BE70",
     softForeground: neutralColorTokens.ink,
   },
   creative: {
-    value: "#7c3aed",
-    hover: "#6d28d9",
+    value: learningColorTokens.moss,
+    hover: "#5B673B",
     foreground: "#ffffff",
-    soft: "#ede9fe",
-    softBorder: "#c4b5fd",
+    soft: "#EEF2E3",
+    softBorder: "#C7D1A7",
     softForeground: neutralColorTokens.ink,
   },
   semantic: {
     success: {
-      value: "#15803d",
-      hover: "#166534",
+      value: learningColorTokens.deepPine,
+      hover: learningColorTokens.deepPineHover,
       foreground: "#ffffff",
-      soft: "#dcfce7",
-      softBorder: "#86efac",
+      soft: learningColorTokens.pineMist,
+      softBorder: "#B8CCBE",
       softForeground: neutralColorTokens.ink,
     },
     warning: {
@@ -105,18 +105,18 @@ const colorTokens = {
       softForeground: neutralColorTokens.ink,
     },
     danger: {
-      value: "#dc2626",
-      hover: "#b91c1c",
+      value: "#B42318",
+      hover: "#931B12",
       foreground: "#ffffff",
-      soft: "#fee2e2",
-      softBorder: "#fecaca",
-      softForeground: "#991b1b",
+      soft: learningColorTokens.terracottaMist,
+      softBorder: "#E5A69F",
+      softForeground: "#8B1E17",
     },
   },
   brand: {
-    primary: "#2563eb",
-    primaryHover: "#1d4ed8",
-    primarySoft: "#dbeafe",
+    primary: learningColorTokens.deepPine,
+    primaryHover: learningColorTokens.deepPineHover,
+    primarySoft: learningColorTokens.pineMist,
   },
   shell: {
     canvas: neutralColorTokens.canvas,
@@ -170,14 +170,14 @@ const breakpointTokens = {
 const focusTokens = {
   outlineWidthPx: 2,
   outlineOffsetPx: 2,
-  outlineColor: "#0369a1",
-  ringColor: "#38bdf8",
+  outlineColor: learningColorTokens.deepPine,
+  ringColor: learningColorTokens.sageFocus,
   ringWidthPx: 3,
 } as const;
 
 const shadowTokens = {
-  card: "0 18px 40px rgba(15, 23, 42, 0.08)",
-  chrome: "0 8px 30px rgba(15, 23, 42, 0.06)",
+  card: "0 18px 40px rgba(23, 35, 30, 0.08)",
+  chrome: "0 8px 30px rgba(23, 35, 30, 0.06)",
 } as const;
 
 const layoutTokens = {

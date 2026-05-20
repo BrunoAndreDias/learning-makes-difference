@@ -103,21 +103,21 @@ function expectContrastAtLeast(
 }
 
 describe("foundationTokens", () => {
-  it("captures the Calm Codex light design-system contract", () => {
+  it("captures the LMD green light design-system contract", () => {
     expect(foundationTokens.brand.logoSource).toBe("docs/layout/logo.svg");
     expect(foundationTokens.brand.layoutReferences).toEqual([
       "docs/layout/no_collapse.png",
       "docs/layout/collapsed_menu_withou_focus_mode.png",
     ]);
-    expect(foundationTokens.color.shell.canvas).toBe("#f8fafc");
+    expect(foundationTokens.color.shell.canvas).toBe("#FAF8F3");
     expect(foundationTokens.color.shell.panel).toBe("#ffffff");
-    expect(foundationTokens.color.shell.inset).toBe("#f1f5f9");
-    expect(foundationTokens.color.content.strong).toBe("#0f172a");
-    expect(foundationTokens.color.content.muted).toBe("#475569");
-    expect(foundationTokens.color.content.border).toBe("#cbd5e1");
-    expect(foundationTokens.color.content.borderSoft).toBe("#e2e8f0");
-    expect(foundationTokens.color.brand.primary).toBe("#2563eb");
-    expect(foundationTokens.color.primary.value).toBe("#2563eb");
+    expect(foundationTokens.color.shell.inset).toBe("#E9F2EC");
+    expect(foundationTokens.color.content.strong).toBe("#17231E");
+    expect(foundationTokens.color.content.muted).toBe("#62706A");
+    expect(foundationTokens.color.content.border).toBe("#D8D1C6");
+    expect(foundationTokens.color.content.borderSoft).toBe("#E6E1D8");
+    expect(foundationTokens.color.brand.primary).toBe("#1F6B45");
+    expect(foundationTokens.color.primary.value).toBe("#1F6B45");
     expect(foundationTokens.color.learning.ink).toBe("#17231E");
     expect(foundationTokens.color.learning.muted).toBe("#62706A");
     expect(foundationTokens.color.learning.warmIvory).toBe("#FAF8F3");
@@ -126,17 +126,17 @@ describe("foundationTokens", () => {
     expect(foundationTokens.color.learning.factualTeal).toBe("#287C73");
     expect(foundationTokens.color.learning.honeyAmber).toBe("#D99126");
     expect(foundationTokens.color.learning.terracotta).toBe("#C95646");
-    expect(foundationTokens.color.secondary.value).toBe("#0f766e");
-    expect(foundationTokens.color.accent.value).toBe("#f59e0b");
-    expect(foundationTokens.color.accent.strong).toBe("#b45309");
-    expect(foundationTokens.color.creative.value).toBe("#7c3aed");
-    expect(foundationTokens.color.semantic.danger.value).toBe("#dc2626");
+    expect(foundationTokens.color.secondary.value).toBe("#287C73");
+    expect(foundationTokens.color.accent.value).toBe("#D99126");
+    expect(foundationTokens.color.accent.strong).toBe("#9B5F08");
+    expect(foundationTokens.color.creative.value).toBe("#6F7B4B");
+    expect(foundationTokens.color.semantic.danger.value).toBe("#B42318");
     expect(foundationTokens.typography.body.sizeRem).toBe(1);
     expect(foundationTokens.typography.body.lineHeight).toBe(1.5);
     expect(foundationTokens.focus.outlineWidthPx).toBe(2);
     expect(foundationTokens.focus.outlineOffsetPx).toBe(2);
-    expect(foundationTokens.focus.outlineColor).toBe("#0369a1");
-    expect(foundationTokens.focus.ringColor).toBe("#38bdf8");
+    expect(foundationTokens.focus.outlineColor).toBe("#1F6B45");
+    expect(foundationTokens.focus.ringColor).toBe("#6E9279");
     expect(foundationTokens.spacing[4]).toBe("1rem");
     expect(foundationTokens.radius.lg).toBe("1rem");
     expect(foundationTokens.breakpoints.lg).toBe("72rem");
@@ -145,25 +145,25 @@ describe("foundationTokens", () => {
   it("publishes CSS variables and accessible defaults for the app shell", () => {
     const css = readFileSync(new URL("./global.css", import.meta.url), "utf8");
 
-    expect(css).toContain("--color-neutral-canvas: #f8fafc;");
+    expect(css).toContain("--color-neutral-canvas: #faf8f3;");
     expect(css).toContain("--color-neutral-surface: #ffffff;");
-    expect(css).toContain("--color-neutral-panel: #f1f5f9;");
-    expect(css).toContain("--color-neutral-border: #cbd5e1;");
-    expect(css).toContain("--color-neutral-border-soft: #e2e8f0;");
-    expect(css).toContain("--color-neutral-ink: #0f172a;");
-    expect(css).toContain("--color-neutral-muted: #475569;");
-    expect(css).toContain("--color-primary: #2563eb;");
+    expect(css).toContain("--color-neutral-panel: #e9f2ec;");
+    expect(css).toContain("--color-neutral-border: #d8d1c6;");
+    expect(css).toContain("--color-neutral-border-soft: #e6e1d8;");
+    expect(css).toContain("--color-neutral-ink: #17231e;");
+    expect(css).toContain("--color-neutral-muted: #62706a;");
+    expect(css).toContain("--color-primary: #1f6b45;");
     expect(css).toContain("--color-learning-pine: #1f6b45;");
     expect(css).toContain("--color-learning-pine-mist: #e9f2ec;");
     expect(css).toContain("--color-learning-factual-teal: #287c73;");
     expect(css).toContain("--color-learning-honey-amber: #d99126;");
     expect(css).toContain("--color-learning-terracotta: #c95646;");
-    expect(css).toContain("--color-secondary: #0f766e;");
-    expect(css).toContain("--color-accent: #f59e0b;");
-    expect(css).toContain("--color-creative: #7c3aed;");
-    expect(css).toContain("--color-danger: #dc2626;");
-    expect(css).toContain("--color-focus-outline: #0369a1;");
-    expect(css).toContain("--color-focus-glow: #38bdf8;");
+    expect(css).toContain("--color-secondary: #287c73;");
+    expect(css).toContain("--color-accent: #d99126;");
+    expect(css).toContain("--color-creative: #6f7b4b;");
+    expect(css).toContain("--color-danger: #b42318;");
+    expect(css).toContain("--color-focus-outline: #1f6b45;");
+    expect(css).toContain("--color-focus-glow: #6e9279;");
     expect(css).toContain("--focus-ring: 0 0 0 3px");
     expect(css).toContain("var(--color-focus-glow)");
     expect(css).toContain("font-size: 16px;");
@@ -174,7 +174,7 @@ describe("foundationTokens", () => {
     expect(css).toContain(".surface-card");
   });
 
-  it("keeps compatibility color variables aliased to the Calm Codex palette", () => {
+  it("keeps compatibility color variables aliased to the LMD green palette", () => {
     const css = readFileSync(new URL("./global.css", import.meta.url), "utf8");
     const variables = getRootVariables(css);
 
@@ -217,7 +217,7 @@ describe("foundationTokens", () => {
     );
   });
 
-  it("keeps Calm Codex foreground and soft category pairs at WCAG AA contrast", () => {
+  it("keeps LMD green foreground and soft category pairs at WCAG AA contrast", () => {
     const css = readFileSync(new URL("./global.css", import.meta.url), "utf8");
     const variables = getRootVariables(css);
 

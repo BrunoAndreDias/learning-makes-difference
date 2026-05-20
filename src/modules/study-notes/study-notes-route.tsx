@@ -19,7 +19,7 @@ import { z } from "zod";
 
 import { resizeTextareaToFitContent } from "../../design-system/auto-sizing-textarea";
 import { Button, ButtonLink } from "../../design-system/button";
-import { PageHeader } from "../../design-system/page-header";
+import { PageLayout } from "../../design-system/page-layout";
 import {
   defaultShowStudyNoteTemplatesPreference,
   defaultUserTimeZone,
@@ -2572,38 +2572,38 @@ function StudyNotesWorkspace() {
   const shouldShowEditorPracticeRepairSections = linkedPracticeRepair === null;
 
   return (
-    <section className="notes-workspace study-notes-workspace">
-      <PageHeader
-        actions={
-          <>
-            <Button
-              aria-label="New Study Note"
-              className="study-notes-new-note"
-              onClick={handleNewStudyNote}
-              type="button"
-              variant="secondary"
-            >
-              <PlusIcon />
-              <span>New note</span>
-            </Button>
-            <Button
-              className="study-notes-start-recall"
-              onClick={() => void handleStartRecallSession()}
-              type="button"
-              variant="secondary"
-            >
-              <PlayIcon />
-              <span>Start Recall Session</span>
-            </Button>
-          </>
-        }
-        actionsClassName="study-notes-hero__actions"
-        className="study-notes-hero"
-        description="Write stronger recall prompts with guidance and templates-no extra required fields."
-        headingLevel={1}
-        title="Study Notes"
-      />
-
+    <PageLayout
+      actions={
+        <>
+          <Button
+            aria-label="New Study Note"
+            className="study-notes-new-note"
+            onClick={handleNewStudyNote}
+            type="button"
+            variant="secondary"
+          >
+            <PlusIcon />
+            <span>New note</span>
+          </Button>
+          <Button
+            className="study-notes-start-recall"
+            onClick={() => void handleStartRecallSession()}
+            type="button"
+            variant="secondary"
+          >
+            <PlayIcon />
+            <span>Start Recall Session</span>
+          </Button>
+        </>
+      }
+      actionsClassName="study-notes-hero__actions"
+      bodyClassName="study-notes-workspace__body"
+      className="notes-workspace study-notes-workspace"
+      description="Write stronger recall prompts with guidance and templates-no extra required fields."
+      headerClassName="study-notes-hero"
+      headingLevel={1}
+      title="Study Notes"
+    >
       <div
         className="notes-layout study-notes-layout"
         data-save-bar-visible={isSaveBarVisible ? "true" : "false"}
@@ -3594,6 +3594,6 @@ function StudyNotesWorkspace() {
           </div>
         ) : null}
       </div>
-    </section>
+    </PageLayout>
   );
 }

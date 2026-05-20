@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { type FormEvent, useId, useState, useSyncExternalStore } from "react";
 
 import { Button, ButtonLink } from "../../design-system/button";
-import { PageHeader } from "../../design-system/page-header";
+import { PageLayout } from "../../design-system/page-layout";
 import { defaultUserTimeZone } from "../access/session/session-contract";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { type AppTranslationKey, useAppTranslation } from "../language";
@@ -220,28 +220,25 @@ function FocusPage() {
   );
 
   return (
-    <section
+    <PageLayout
+      actions={
+        <FocusSessionStartControl
+          activeFocusSession={activeSession}
+          focus={focus}
+          persistentFocus={persistentFocus}
+          userId={userId}
+        />
+      }
       className={
         hasLearningLoopSupport
           ? "focus-workspace focus-workspace--has-support"
           : "focus-workspace"
       }
+      description={t("focus.description")}
+      headerClassName="focus-page-header"
+      headingLevel={1}
+      title={t("focus.heading")}
     >
-      <PageHeader
-        actions={
-          <FocusSessionStartControl
-            activeFocusSession={activeSession}
-            focus={focus}
-            persistentFocus={persistentFocus}
-            userId={userId}
-          />
-        }
-        className="focus-page-header"
-        description={t("focus.description")}
-        headingLevel={1}
-        title={t("focus.heading")}
-      />
-
       <section className="focus-session-workspace">
         <ActiveFocusSessionPanel
           activeSession={activeSession}
@@ -281,7 +278,7 @@ function FocusPage() {
           ))}
         </dl>
       </section>
-    </section>
+    </PageLayout>
   );
 }
 

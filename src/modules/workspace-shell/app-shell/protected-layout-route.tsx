@@ -513,6 +513,20 @@ function WorkspaceHeader({
       <h2 className="app-frame__workspace-title sr-only">{workspaceTitle}</h2>
     );
     workspaceActions = <WorkspaceDate workspaceDate={workspaceDate} />;
+  } else if (isRecallWorkspaceRoute || isPracticeRepairWorkspaceRoute) {
+    titlebarContent = (
+      <h2 className="app-frame__workspace-title sr-only">
+        {isRecallWorkspaceRoute
+          ? (recallWorkspaceTitle ?? workspaceTitle)
+          : workspaceTitle}
+      </h2>
+    );
+    workspaceActions = (
+      <WorkspaceMetaActions
+        focusDock={headerFocusDock}
+        workspaceDate={workspaceDate}
+      />
+    );
   } else {
     titlebarContent = (
       <h2
@@ -620,8 +634,18 @@ function GlobalNavigation({
     >
       <ul className="app-sidebar__list">
         {globalNavigationItems.map((navigationItem) => {
+          const hasActiveSubNavigation =
+            navigationItem.to === appRoutePaths.recall && isRecallRouteActive;
+
           return (
-            <li key={navigationItem.to}>
+            <li
+              className={
+                hasActiveSubNavigation
+                  ? "app-sidebar__item app-sidebar__item--expanded"
+                  : "app-sidebar__item"
+              }
+              key={navigationItem.to}
+            >
               <Link
                 activeProps={{
                   className: "app-sidebar__link app-sidebar__link-active",
@@ -637,11 +661,13 @@ function GlobalNavigation({
                   {t(navigationItem.labelKey)}
                 </span>
               </Link>
-              {navigationItem.to === appRoutePaths.recall &&
-              isRecallRouteActive ? (
+              {hasActiveSubNavigation ? (
                 <ul className="app-sidebar__sublist">
                   {recallSubNavigationItems.map((subNavigationItem) => (
-                    <li key={subNavigationItem.to}>
+                    <li
+                      className="app-sidebar__subitem"
+                      key={subNavigationItem.to}
+                    >
                       <Link
                         activeOptions={{ exact: true }}
                         activeProps={{
@@ -652,7 +678,13 @@ function GlobalNavigation({
                         onClick={onNavigate}
                         to={subNavigationItem.to}
                       >
-                        {t(subNavigationItem.labelKey)}
+                        <span
+                          aria-hidden="true"
+                          className="app-sidebar__sublink-marker"
+                        />
+                        <span className="app-sidebar__sublink-label">
+                          {t(subNavigationItem.labelKey)}
+                        </span>
                       </Link>
                     </li>
                   ))}

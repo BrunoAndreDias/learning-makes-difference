@@ -35,15 +35,6 @@
     var(--focus-line) 56%,
     var(--color-learning-surface)
   );
-  display: grid;
-  align-content: start;
-  gap: var(--space-4);
-  min-height: 100%;
-  width: 100%;
-  padding: var(--lmd-page-padding-y) var(--lmd-page-padding-x);
-  background: var(--color-shell-panel);
-  color: var(--color-content-default);
-  font-family: var(--font-body);
 }
 
 .focus-session-workspace {
@@ -789,10 +780,6 @@
 }
 
 @media (max-width: 62rem) {
-  .focus-workspace {
-    padding: var(--space-4);
-  }
-
   .focus-session-sidebar,
   .focus-config-form__fields,
   .focus-activity-summary,

@@ -1,23 +1,10 @@
 .study-guidance-workspace {
-  display: grid;
-  width: 100%;
-  max-width: none;
   margin: 0;
-  gap: var(--space-5);
-  padding: var(--lmd-page-padding-y) var(--lmd-page-padding-x);
+  max-width: none;
 }
 
 .study-guidance-workspace__page-header {
   align-items: start;
-}
-
-.study-guidance-workspace__eyebrow {
-  margin: 0;
-  color: var(--color-learning-pine);
-  font-size: var(--lmd-meta-size);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .study-guidance-summary__list,
@@ -74,7 +61,6 @@
 
 .study-guidance-card__metric strong {
   color: var(--color-content-strong);
-  font-family: var(--font-heading);
   font-size: 1.85rem;
   line-height: 1;
 }
@@ -117,8 +103,20 @@
 .study-guidance-idle h2 {
   margin: 0;
   color: var(--color-content-strong);
-  font-family: var(--font-heading);
-  line-height: 1.2;
+  font-family: var(--font-body);
+}
+
+.study-guidance-row__header h2 {
+  font-size: var(--lmd-card-title-size);
+  font-weight: 700;
+  line-height: var(--lmd-card-title-line-height);
+}
+
+.study-guidance-empty h2,
+.study-guidance-idle h2 {
+  font-size: var(--lmd-section-title-size);
+  font-weight: 700;
+  line-height: var(--lmd-section-title-line-height);
 }
 
 .study-guidance-row__bucket {
@@ -232,10 +230,6 @@
 }
 
 @media (max-width: 640px) {
-  .study-guidance-workspace {
-    gap: var(--space-4);
-  }
-
   .study-guidance-summary__list {
     grid-template-columns: minmax(0, 1fr);
   }

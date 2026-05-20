@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { ButtonLink, type ButtonVariant } from "../../design-system/button";
-import { PageHeader } from "../../design-system/page-header";
+import { PageLayout } from "../../design-system/page-layout";
 import { defaultUserTimeZone } from "../access/session/session-contract";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import type { AppLabel } from "../labels/label-management/labels";
@@ -105,23 +105,19 @@ function StudyGuidanceWorkspace() {
   );
 
   return (
-    <section className="study-guidance-workspace">
-      <PageHeader
-        actions={
-          <StudyGuidanceHeaderAction
-            emptyState={guidance.emptyState}
-            nextAction={guidance.rows[0]?.action ?? null}
-          />
-        }
-        beforeTitle={
-          <p className="study-guidance-workspace__eyebrow">Study Guidance</p>
-        }
-        className="study-guidance-workspace__page-header"
-        description="One prioritized next-action plan across Practice Repair, recall schedules, and Study Notes."
-        headingLevel={1}
-        title="Today"
-      />
-
+    <PageLayout
+      actions={
+        <StudyGuidanceHeaderAction
+          emptyState={guidance.emptyState}
+          nextAction={guidance.rows[0]?.action ?? null}
+        />
+      }
+      className="study-guidance-workspace"
+      description="One prioritized next-action plan across Practice Repair, recall schedules, and Study Notes."
+      headerClassName="study-guidance-workspace__page-header"
+      headingLevel={1}
+      title="Study Guidance"
+    >
       {guidance.emptyState !== null ? (
         <StudyGuidanceEmptyStatePanel emptyState={guidance.emptyState} />
       ) : (
@@ -150,7 +146,7 @@ function StudyGuidanceWorkspace() {
           )}
         </>
       )}
-    </section>
+    </PageLayout>
   );
 }
 

@@ -88,7 +88,10 @@ describe("authenticated app shell", () => {
     const { router } = renderRoute("/");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Today" }),
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Study Guidance",
+      }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/today");
   });
@@ -107,7 +110,10 @@ describe("authenticated app shell", () => {
     const { router } = renderRoute("/qweqwe");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Today" }),
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Study Guidance",
+      }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/today");
   });

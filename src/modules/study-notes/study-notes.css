@@ -13,12 +13,12 @@
 }
 
 .study-notes-workspace {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
   gap: var(--lmd-content-gap);
-  min-height: 100%;
-  padding: var(--lmd-page-padding-y) var(--lmd-page-padding-x);
-  background: var(--color-shell-panel);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.study-notes-workspace__body {
+  min-height: 0;
 }
 
 .study-notes-hero .page-header__description {
@@ -1357,10 +1357,6 @@
     overflow: visible;
   }
 
-  .study-notes-workspace {
-    padding-inline: 1rem;
-  }
-
   .study-notes-layout {
     grid-template-columns: minmax(0, 1fr);
     height: auto;
@@ -1398,10 +1394,6 @@
 }
 
 @media (max-width: 34rem) {
-  .study-notes-workspace {
-    gap: 1.35rem;
-  }
-
   .study-notes-hero__actions,
   .study-notes-start-recall,
   .study-notes-new-note {
