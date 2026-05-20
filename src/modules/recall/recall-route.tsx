@@ -121,6 +121,28 @@ const recallQuestionStylePlaceholderFields = [
   },
 ] as const satisfies readonly { id: string; key: AppTranslationKey }[];
 
+type AppTranslate = ReturnType<typeof useAppTranslation>["t"];
+type LabelAddResult = ReturnType<typeof addRecallableStudyNotesFromLabels>;
+type CountTranslationKeys = Readonly<{
+  plural: AppTranslationKey;
+  singular: AppTranslationKey;
+}>;
+
+const labelAddFeedbackTranslationKeys = {
+  added: {
+    plural: "recall.selection.addFromLabels.feedback.added_plural",
+    singular: "recall.selection.addFromLabels.feedback.added",
+  },
+  alreadySelected: {
+    plural: "recall.selection.addFromLabels.feedback.alreadySelected_plural",
+    singular: "recall.selection.addFromLabels.feedback.alreadySelected",
+  },
+  skippedIncomplete: {
+    plural: "recall.selection.addFromLabels.feedback.skippedIncomplete_plural",
+    singular: "recall.selection.addFromLabels.feedback.skippedIncomplete",
+  },
+} as const satisfies Record<string, CountTranslationKeys>;
+
 function getStudyNotePreview(
   studyNote: AppStudyNote,
   emptyExpectedAnswerLabel: string,
@@ -221,7 +243,7 @@ function areStringArraysEqual(
 function getDisabledStartReason(input: {
   selectedCount: number;
   selectedRecallType: RecallMode;
-  t: ReturnType<typeof useAppTranslation>["t"];
+  t: AppTranslate;
 }) {
   if (input.selectedCount === 0) {
     return input.t("recall.selection.disabled.noNotes");
@@ -236,39 +258,40 @@ function getDisabledStartReason(input: {
 
 function getPluralizedTranslation(input: {
   count: number;
-  pluralKey: AppTranslationKey;
-  singularKey: AppTranslationKey;
-  t: ReturnType<typeof useAppTranslation>["t"];
+  keys: CountTranslationKeys;
+  t: AppTranslate;
 }) {
-  return input.t(input.count === 1 ? input.singularKey : input.pluralKey, {
+  return input.t(input.count === 1 ? input.keys.singular : input.keys.plural, {
     count: input.count,
   });
 }
 
 function getLabelAddFeedbackMessage(input: {
-  result: ReturnType<typeof addRecallableStudyNotesFromLabels>;
-  t: ReturnType<typeof useAppTranslation>["t"];
+  result: LabelAddResult;
+  t: AppTranslate;
 }) {
   const { result, t } = input;
+  const addedCount = result.addedStudyNoteIds.length;
+  const alreadySelectedCount = result.alreadySelectedStudyNoteIds.length;
+  const skippedIncompleteCount = result.skippedIncompleteStudyNoteIds.length;
   const messages: string[] = [];
 
-  if (result.addedStudyNoteIds.length === 0) {
+  if (addedCount === 0) {
     messages.push(t("recall.selection.addFromLabels.feedback.noneAdded"));
   } else {
     messages.push(
       getPluralizedTranslation({
-        count: result.addedStudyNoteIds.length,
-        pluralKey: "recall.selection.addFromLabels.feedback.added_plural",
-        singularKey: "recall.selection.addFromLabels.feedback.added",
+        count: addedCount,
+        keys: labelAddFeedbackTranslationKeys.added,
         t,
       }),
     );
   }
 
   if (
-    result.addedStudyNoteIds.length === 0 &&
-    result.alreadySelectedStudyNoteIds.length === 0 &&
-    result.skippedIncompleteStudyNoteIds.length === 0
+    addedCount === 0 &&
+    alreadySelectedCount === 0 &&
+    skippedIncompleteCount === 0
   ) {
     messages.push(
       t("recall.selection.addFromLabels.feedback.noRecallableMatches"),
@@ -276,32 +299,43 @@ function getLabelAddFeedbackMessage(input: {
     return messages.join(" ");
   }
 
-  if (result.alreadySelectedStudyNoteIds.length > 0) {
+  if (alreadySelectedCount > 0) {
     messages.push(
       getPluralizedTranslation({
-        count: result.alreadySelectedStudyNoteIds.length,
-        pluralKey:
-          "recall.selection.addFromLabels.feedback.alreadySelected_plural",
-        singularKey: "recall.selection.addFromLabels.feedback.alreadySelected",
+        count: alreadySelectedCount,
+        keys: labelAddFeedbackTranslationKeys.alreadySelected,
         t,
       }),
     );
   }
 
-  if (result.skippedIncompleteStudyNoteIds.length > 0) {
+  if (skippedIncompleteCount > 0) {
     messages.push(
       getPluralizedTranslation({
-        count: result.skippedIncompleteStudyNoteIds.length,
-        pluralKey:
-          "recall.selection.addFromLabels.feedback.skippedIncomplete_plural",
-        singularKey:
-          "recall.selection.addFromLabels.feedback.skippedIncomplete",
+        count: skippedIncompleteCount,
+        keys: labelAddFeedbackTranslationKeys.skippedIncomplete,
         t,
       }),
     );
   }
 
   return messages.join(" ");
+}
+
+function getAddFromLabelsDisabledReason(input: {
+  hasAvailableLabels: boolean;
+  selectedLabelCount: number;
+  t: AppTranslate;
+}) {
+  if (!input.hasAvailableLabels) {
+    return input.t("recall.selection.addFromLabels.feedback.noLabels");
+  }
+
+  if (input.selectedLabelCount === 0) {
+    return input.t("recall.selection.addFromLabels.feedback.selectOne");
+  }
+
+  return null;
 }
 
 export function RecallSelectionPage({
@@ -676,11 +710,11 @@ function SessionSetupPanel({
     selectedRecallOption?.disabled === true
       ? `Connect API key to start ${formatRecallModeLabel(selectedRecallType)}.`
       : null;
-  const addFromLabelsDisabledReason = !hasAvailableLabels
-    ? t("recall.selection.addFromLabels.feedback.noLabels")
-    : selectedLabelIds.length === 0
-      ? t("recall.selection.addFromLabels.feedback.selectOne")
-      : null;
+  const addFromLabelsDisabledReason = getAddFromLabelsDisabledReason({
+    hasAvailableLabels,
+    selectedLabelCount: selectedLabelIds.length,
+    t,
+  });
 
   return (
     <aside

@@ -3595,7 +3595,7 @@ describe("authenticated recall workspace", () => {
 
   it("keeps the temporary selection unchanged and reports when no recallable Study Notes match selected Labels", async () => {
     const contexts = createDeterministicRecallTestContexts();
-    const historyLabel = contexts.labelsContext.createLabel({
+    contexts.labelsContext.createLabel({
       name: "History",
       userId: testUser.id,
     });
@@ -3603,14 +3603,11 @@ describe("authenticated recall workspace", () => {
       name: "Biology",
       userId: testUser.id,
     });
-    const manualStudyNote = contexts.studyNotesContext.createStudyNote(
-      testUser.id,
-      {
-        prompt: "Manual unlabeled Study Note",
-        sourceBody: "Manual unlabeled answer.",
-        sourceTitle: "Manual unlabeled source",
-      },
-    );
+    contexts.studyNotesContext.createStudyNote(testUser.id, {
+      prompt: "Manual unlabeled Study Note",
+      sourceBody: "Manual unlabeled answer.",
+      sourceTitle: "Manual unlabeled source",
+    });
     contexts.studyNotesContext.createStudyNote(testUser.id, {
       labelIds: [biologyLabel.id],
       prompt: "Biology Study Note",
