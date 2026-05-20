@@ -3510,36 +3510,31 @@ describe("authenticated recall workspace", () => {
     const selectedStudyNotesList = within(sessionSetup).getByRole("list", {
       name: "Selected Study Notes",
     });
-    const manualSelectedRow = within(selectedStudyNotesList)
-      .getByText(manualStudyNote.prompt)
-      .closest("li");
-    const addedFromLabelsRow = within(selectedStudyNotesList)
-      .getByText("Added biology exam Study Note")
-      .closest("li");
+    const getSelectedStudyNoteRow = (prompt: string) => {
+      const row = within(selectedStudyNotesList)
+        .getByText(prompt)
+        .closest("li");
 
-    expect(manualSelectedRow).not.toBeNull();
-    expect(addedFromLabelsRow).not.toBeNull();
+      if (row === null) {
+        throw new Error(`Missing selected Study Note row for "${prompt}".`);
+      }
+
+      return row;
+    };
+    const manualSelectedRow = getSelectedStudyNoteRow(manualStudyNote.prompt);
+    const addedFromLabelsRow = getSelectedStudyNoteRow(
+      "Added biology exam Study Note",
+    );
+
     expect(
-      within(manualSelectedRow as HTMLElement).getByText("Chemistry"),
+      within(manualSelectedRow).getByText("Chemistry"),
     ).toBeInTheDocument();
-    expect(
-      within(addedFromLabelsRow as HTMLElement).getByText("Biology"),
-    ).toBeInTheDocument();
-    expect(
-      within(addedFromLabelsRow as HTMLElement).getByText("Exam 1"),
-    ).toBeInTheDocument();
-    expect(
-      within(manualSelectedRow as HTMLElement).queryByRole("button"),
-    ).toBeNull();
-    expect(
-      within(manualSelectedRow as HTMLElement).queryByRole("checkbox"),
-    ).toBeNull();
-    expect(
-      within(addedFromLabelsRow as HTMLElement).queryByRole("button"),
-    ).toBeNull();
-    expect(
-      within(addedFromLabelsRow as HTMLElement).queryByRole("checkbox"),
-    ).toBeNull();
+    expect(within(addedFromLabelsRow).getByText("Biology")).toBeInTheDocument();
+    expect(within(addedFromLabelsRow).getByText("Exam 1")).toBeInTheDocument();
+    expect(within(manualSelectedRow).queryByRole("button")).toBeNull();
+    expect(within(manualSelectedRow).queryByRole("checkbox")).toBeNull();
+    expect(within(addedFromLabelsRow).queryByRole("button")).toBeNull();
+    expect(within(addedFromLabelsRow).queryByRole("checkbox")).toBeNull();
   });
 
   it("shows Add Study Notes from Labels as unavailable when the User has no Labels", async () => {
