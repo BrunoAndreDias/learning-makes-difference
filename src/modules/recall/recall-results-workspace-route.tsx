@@ -312,6 +312,13 @@ type StartWorkspaceDueTodayRecallInput = {
   userId: RecallWorkspaceState["userId"];
 };
 
+type StartWorkspaceRecallTodayRecallInput = {
+  persistentRecallContext: RecallWorkspaceState["persistentRecallContext"];
+  queue: readonly RecallTodayQueueItem[];
+  recallContext: RecallWorkspaceState["recallContext"];
+  userId: RecallWorkspaceState["userId"];
+};
+
 function buildWorkspaceDueTodayQueue({
   now,
   recallContext,
@@ -390,9 +397,39 @@ async function startWorkspaceDueTodayRecall({
   return true;
 }
 
+async function startWorkspaceRecallTodayRecall({
+  persistentRecallContext,
+  queue,
+  recallContext,
+  userId,
+}: StartWorkspaceRecallTodayRecallInput): Promise<boolean> {
+  if (userId === null || queue.length === 0) {
+    return false;
+  }
+
+  const studyNoteIds = queue.map((item) => item.studyNote.id);
+
+  if (persistentRecallContext === undefined) {
+    recallContext.startFlashCardSession({
+      mode: "FlashCard",
+      studyNoteIds,
+      userId,
+    });
+  } else {
+    await persistentRecallContext.startFlashCardSession(userId, {
+      mode: "FlashCard",
+      studyNoteIds,
+    });
+  }
+
+  return true;
+}
+
 export function RecallTodayWorkspacePage() {
+  const navigate = useNavigate();
   const {
     currentLabelsById,
+    persistentRecallContext,
     recallContext,
     recallSchedules,
     sessionResults,
@@ -411,10 +448,26 @@ export function RecallTodayWorkspacePage() {
     userTimeZone,
   });
 
+  async function startRecallToday() {
+    const startedRecall = await startWorkspaceRecallTodayRecall({
+      persistentRecallContext,
+      queue: recallTodayQueue,
+      recallContext,
+      userId,
+    });
+
+    if (!startedRecall) {
+      return;
+    }
+
+    await navigate({ to: appRoutePaths.recallSession });
+  }
+
   return (
     <RecallTodayPage
       labelsById={currentLabelsById}
       now={now}
+      onStartRecallToday={startRecallToday}
       queue={recallTodayQueue}
     />
   );
@@ -657,6 +710,7 @@ const recallTodaySectionTones: readonly QueueTone[] = [
 type RecallTodayPageProps = {
   labelsById: ReadonlyMap<string, AppLabel>;
   now: string;
+  onStartRecallToday: () => void;
   queue: readonly RecallTodayQueueItem[];
 };
 
@@ -809,7 +863,12 @@ function getRecallTodayMetaLine(input: {
   return supportingReason ?? metaLine;
 }
 
-function RecallTodayPage({ labelsById, now, queue }: RecallTodayPageProps) {
+function RecallTodayPage({
+  labelsById,
+  now,
+  onStartRecallToday,
+  queue,
+}: RecallTodayPageProps) {
   const { t } = useAppTranslation();
   const queueSections = buildRecallTodayQueueSections(queue);
   const workspaceDate = new Intl.DateTimeFormat("en", {
@@ -845,6 +904,10 @@ function RecallTodayPage({ labelsById, now, queue }: RecallTodayPageProps) {
             actions={
               <fieldset className="recall-today-actions">
                 <legend className="sr-only">{t("recall.today.actions")}</legend>
+                <RecallTodayPrimaryAction
+                  onStartRecallToday={onStartRecallToday}
+                  queue={queue}
+                />
                 <ButtonLink to={appRoutePaths.recallSelect} variant="secondary">
                   <ListIcon />
                   {t("recall.today.manualSelection")}
@@ -1285,6 +1348,32 @@ function RecallDueTodayPrimaryAction({
       <ListIcon />
       {t("recall.dueToday.manualSelection")}
     </ButtonLink>
+  );
+}
+
+function RecallTodayPrimaryAction({
+  onStartRecallToday,
+  queue,
+}: Readonly<{
+  onStartRecallToday: () => void;
+  queue: readonly RecallTodayQueueItem[];
+}>) {
+  const { t } = useAppTranslation();
+
+  if (queue.length === 0) {
+    return null;
+  }
+
+  return (
+    <Button
+      className="recall-page-primary-action"
+      onClick={onStartRecallToday}
+      type="button"
+      variant="primary"
+    >
+      <PlayIcon />
+      {t("recall.today.start")}
+    </Button>
   );
 }
 

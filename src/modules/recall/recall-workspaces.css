@@ -251,6 +251,11 @@
 }
 
 .recall-today-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-3);
   margin: 0;
   padding: 0;
   border: 0;

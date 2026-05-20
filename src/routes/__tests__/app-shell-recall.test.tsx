@@ -22,6 +22,7 @@ import {
 import { createAppStudyNotesContext } from "../../modules/study-notes";
 import {
   createDeterministicRecallTestContexts,
+  createLearningLoopTestContexts,
   createRecallNote,
   createRouteHydratedSessionContext,
   renderRoute,
@@ -861,6 +862,140 @@ describe("authenticated recall workspace", () => {
       "Not recalled prompt",
       "Due prompt",
     ]);
+  });
+
+  it("starts one FlashCard RecallSession from all current Recall Today Study Notes and uses session shuffling", async () => {
+    const contexts = createLearningLoopTestContexts({
+      shuffleNotes: (sessionNotes) => [...sessionNotes].reverse(),
+    });
+    const practiceFollowUp = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "ATP stores transferable energy for cells.",
+      labelIds: [],
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+    });
+    const needsPractice = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Mitochondria generate ATP.",
+      labelIds: [],
+      prompt: "What organelle generates ATP?",
+      sourceBody: "Cell organelles source context.",
+      sourceTitle: "Cell organelles source",
+    });
+    const notRecalledYet = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Fresh recall answer.",
+      labelIds: [],
+      prompt: "Not recalled prompt",
+      sourceBody: "Fresh recall source.",
+      sourceTitle: "Fresh recall source",
+    });
+    const dueForRecall = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Due answer.",
+      labelIds: [],
+      prompt: "Due prompt",
+      sourceBody: "Due source.",
+      sourceTitle: "Due source",
+    });
+    createStudyNoteSnapshot(contexts, {
+      expectedAnswer: " ",
+      labelIds: [],
+      prompt: "Incomplete prompt",
+      sourceBody: "Incomplete source.",
+      sourceTitle: "Incomplete source",
+    });
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: practiceFollowUp.id,
+      timestamp: "2026-05-14T09:00:00.000Z",
+    });
+    const confirmedRepair = confirmStudyNotePracticeRepair({
+      contexts,
+      correction: "State ATP and explain that it stores transferable energy.",
+      intent: "tighten-expected-answer",
+      studyNoteId: practiceFollowUp.id,
+    });
+    contexts.recallContext.completePracticeRepairEntry({
+      reference: getConfirmedPracticeRepairReference(confirmedRepair),
+      userId: testUser.id,
+    });
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: needsPractice.id,
+      timestamp: "2026-05-14T10:00:00.000Z",
+    });
+    completeStudyNoteRecallAt({
+      rating: "good",
+      recallContext: contexts.recallContext,
+      studyNoteId: dueForRecall.id,
+      timestamp: "2026-05-11T11:00:00.000Z",
+    });
+    vi.setSystemTime(new Date("2026-05-15T10:00:00.000Z"));
+
+    const sessionResultsBefore = contexts.recallContext
+      .listSessionResults({
+        userId: testUser.id,
+      })
+      .map((result) => result.id);
+    const recallSchedulesBefore =
+      contexts.recallContext.getRecallSchedulesSnapshot();
+    const expectedQueueStudyNoteIds = [
+      practiceFollowUp.id,
+      needsPractice.id,
+      notRecalledYet.id,
+      dueForRecall.id,
+    ];
+
+    const { router } = renderRoute("/recall", {
+      ...contexts,
+      session: {
+        user: {
+          ...testUser,
+          userTimeZone: "America/New_York",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Recall Today" }),
+    ).toBeInTheDocument();
+
+    const queue = screen.getByRole("region", {
+      name: "Recall Today queue",
+    });
+    expect(
+      within(queue)
+        .getAllByRole("heading", { level: 3 })
+        .map((heading) => heading.textContent),
+    ).toEqual([
+      "What stores transferable energy?",
+      "What organelle generates ATP?",
+      "Not recalled prompt",
+      "Due prompt",
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Start Recall Today" }));
+
+    expect(
+      await screen.findByRole("heading", { level: 3, name: "Recall session" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall/session");
+    expect(
+      contexts.recallContext.getSnapshot()?.notes.map((note) => note.id),
+    ).toEqual([...expectedQueueStudyNoteIds].reverse());
+    expect(
+      contexts.recallContext
+        .listSessionResults({
+          userId: testUser.id,
+        })
+        .map((result) => result.id),
+    ).toEqual(sessionResultsBefore);
+    expect(contexts.recallContext.getRecallSchedulesSnapshot()).toEqual(
+      recallSchedulesBefore,
+    );
   });
 
   it("uses the route-hydrated session to show Recall results immediately", async () => {
