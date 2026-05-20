@@ -3460,6 +3460,88 @@ describe("authenticated recall workspace", () => {
     expect(router.state.location.pathname).toBe("/recall/session");
   });
 
+  it("shows informational Label context for manually selected Study Notes and Study Notes added from Labels", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const biologyLabel = contexts.labelsContext.createLabel({
+      name: "Biology",
+      userId: testUser.id,
+    });
+    const examOneLabel = contexts.labelsContext.createLabel({
+      name: "Exam 1",
+      userId: testUser.id,
+    });
+    const chemistryLabel = contexts.labelsContext.createLabel({
+      name: "Chemistry",
+      userId: testUser.id,
+    });
+    const manualStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        labelIds: [chemistryLabel.id],
+        sourceBody: "Manual chemistry answer.",
+        sourceTitle: "Manual chemistry Study Note",
+      },
+    );
+    contexts.studyNotesContext.createStudyNote(testUser.id, {
+      labelIds: [biologyLabel.id, examOneLabel.id],
+      sourceBody: "Added biology exam answer.",
+      sourceTitle: "Added biology exam Study Note",
+    });
+
+    renderRoute("/recall/select", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    const sessionSetup = await screen.findByRole("complementary", {
+      name: "Session setup",
+    });
+
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /Manual chemistry Study Note/ }),
+    );
+    fireEvent.click(
+      within(sessionSetup).getByRole("checkbox", { name: "Exam 1" }),
+    );
+    fireEvent.click(
+      within(sessionSetup).getByRole("button", { name: "Add Study Notes" }),
+    );
+
+    const selectedStudyNotesList = within(sessionSetup).getByRole("list", {
+      name: "Selected Study Notes",
+    });
+    const manualSelectedRow = within(selectedStudyNotesList)
+      .getByText(manualStudyNote.prompt)
+      .closest("li");
+    const addedFromLabelsRow = within(selectedStudyNotesList)
+      .getByText("Added biology exam Study Note")
+      .closest("li");
+
+    expect(manualSelectedRow).not.toBeNull();
+    expect(addedFromLabelsRow).not.toBeNull();
+    expect(
+      within(manualSelectedRow as HTMLElement).getByText("Chemistry"),
+    ).toBeInTheDocument();
+    expect(
+      within(addedFromLabelsRow as HTMLElement).getByText("Biology"),
+    ).toBeInTheDocument();
+    expect(
+      within(addedFromLabelsRow as HTMLElement).getByText("Exam 1"),
+    ).toBeInTheDocument();
+    expect(
+      within(manualSelectedRow as HTMLElement).queryByRole("button"),
+    ).toBeNull();
+    expect(
+      within(manualSelectedRow as HTMLElement).queryByRole("checkbox"),
+    ).toBeNull();
+    expect(
+      within(addedFromLabelsRow as HTMLElement).queryByRole("button"),
+    ).toBeNull();
+    expect(
+      within(addedFromLabelsRow as HTMLElement).queryByRole("checkbox"),
+    ).toBeNull();
+  });
+
   it("shows Add Study Notes from Labels as unavailable when the User has no Labels", async () => {
     const contexts = createDeterministicRecallTestContexts();
     contexts.studyNotesContext.createStudyNote(testUser.id, {

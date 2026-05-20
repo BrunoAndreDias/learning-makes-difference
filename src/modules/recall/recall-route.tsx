@@ -702,6 +702,9 @@ function SessionSetupPanel({
 }: SessionSetupPanelProps) {
   const { t } = useAppTranslation();
   const hasAvailableLabels = availableLabels.length > 0;
+  const availableLabelsById = new Map(
+    availableLabels.map((label) => [label.id, label] as const),
+  );
   const selectedLabelIdSet = new Set(selectedLabelIds);
   const selectedRecallOption = recallTypeOptions.find(
     (option) => option.mode === selectedRecallType,
@@ -731,6 +734,45 @@ function SessionSetupPanel({
         <p className="recall-select-session-setup__selected-count">
           {selectedStudyNotes.length}
         </p>
+        {selectedStudyNotes.length > 0 ? (
+          <ol
+            aria-label={t("recall.selection.selectedNotes")}
+            className="recall-select-session-setup__selected-list"
+          >
+            {selectedStudyNotes.map((studyNote) => {
+              const attachedLabels = studyNote.labelIds
+                .map((labelId) => availableLabelsById.get(labelId))
+                .filter((label): label is AppLabel => label !== undefined);
+
+              return (
+                <li key={studyNote.id}>
+                  <div className="recall-select-session-setup__selected-row">
+                    <strong>{studyNote.prompt}</strong>
+                    <span className="recall-select-session-setup__selected-labels">
+                      {attachedLabels.length > 0 ? (
+                        attachedLabels.map((label) => (
+                          <span
+                            className="recall-select-session-setup__selected-label"
+                            key={label.id}
+                          >
+                            {label.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span
+                          className="recall-select-session-setup__selected-label"
+                          data-tone="muted"
+                        >
+                          {t("recall.selection.noLabel")}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        ) : null}
       </div>
 
       <div className="recall-select-session-setup__divider" />
