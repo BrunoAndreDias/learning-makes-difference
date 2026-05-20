@@ -614,6 +614,16 @@ function formatAffectedStudyNotesCount(count: number) {
   return `${count} active Study Note${count === 1 ? "" : "s"}`;
 }
 
+function removeLabelFromDraft(
+  draft: UpdateStudyNoteInput,
+  labelId: string,
+): UpdateStudyNoteInput {
+  return {
+    ...draft,
+    labelIds: setLabelIdSelection(draft.labelIds, labelId, false),
+  };
+}
+
 function createSingleSupportDescriptionDraft(description: string) {
   if (description.trim().length === 0) {
     return [];
@@ -1358,7 +1368,7 @@ function StudyNotesWorkspace() {
   const metaphorInputRef = useRef<HTMLTextAreaElement>(null);
   const acronymInputRef = useRef<HTMLInputElement>(null);
   const labelManagerRef = useRef<HTMLDivElement>(null);
-  const pendingDeletedLabelDraftRef = useRef<{
+  const pendingDraftLabelRemovalRef = useRef<{
     labelId: string;
     studyNoteId: string;
   } | null>(null);
@@ -1558,21 +1568,16 @@ function StudyNotesWorkspace() {
   }, [appliedLinkedPracticeRepairKey, linkedPracticeRepair]);
 
   useEffect(() => {
-    const pendingDeletedLabelDraft = pendingDeletedLabelDraftRef.current;
+    const pendingDraftLabelRemoval = pendingDraftLabelRemovalRef.current;
 
     if (
-      pendingDeletedLabelDraft !== null &&
-      selectedStudyNote?.id === pendingDeletedLabelDraft.studyNoteId
+      pendingDraftLabelRemoval !== null &&
+      selectedStudyNote?.id === pendingDraftLabelRemoval.studyNoteId
     ) {
-      pendingDeletedLabelDraftRef.current = null;
-      setDraft((current) => ({
-        ...current,
-        labelIds: setLabelIdSelection(
-          current.labelIds,
-          pendingDeletedLabelDraft.labelId,
-          false,
-        ),
-      }));
+      pendingDraftLabelRemovalRef.current = null;
+      setDraft((current) =>
+        removeLabelFromDraft(current, pendingDraftLabelRemoval.labelId),
+      );
       setPendingEditorTarget(null);
       setPendingPracticeRepairMemoryAidAction(null);
       return;
@@ -1775,7 +1780,7 @@ function StudyNotesWorkspace() {
     setSaveStatus(null);
 
     if (selectedStudyNote !== null && draft.labelIds.includes(label.id)) {
-      pendingDeletedLabelDraftRef.current = {
+      pendingDraftLabelRemovalRef.current = {
         labelId: label.id,
         studyNoteId: selectedStudyNote.id,
       };
@@ -1792,10 +1797,7 @@ function StudyNotesWorkspace() {
       }
 
       storeMutation.removeLabelAssignments(userId, label.id);
-      setDraft((current) => ({
-        ...current,
-        labelIds: setLabelIdSelection(current.labelIds, label.id, false),
-      }));
+      setDraft((current) => removeLabelFromDraft(current, label.id));
       setSaveStatus(`Deleted ${label.name} label`);
     } catch (error) {
       if (

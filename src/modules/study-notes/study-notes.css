@@ -635,10 +635,12 @@
   cursor: pointer;
 }
 
-.study-notes-label__delete:hover,
+.study-notes-label__delete:hover {
+  color: var(--color-danger-hover);
+}
+
 .study-notes-label__delete:focus-visible {
-  color: color-mix(in srgb, var(--color-danger) 78%, black);
-  outline: none;
+  color: var(--color-danger-hover);
 }
 
 .study-notes-editor__fields {

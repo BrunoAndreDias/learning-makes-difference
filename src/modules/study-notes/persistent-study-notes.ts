@@ -6,6 +6,7 @@ import {
   type CreateStudyNoteFromSourceInput,
   type CreateStudyNoteInput,
   type DeleteStudyNoteInput,
+  removeLabelAssignmentsFromStoredStudyNotes,
   type UpdateStudyNoteInput,
 } from "./study-notes";
 
@@ -75,38 +76,6 @@ function sortStoredStudyNotes(studyNotes: readonly AppStoredStudyNote[]) {
   return [...studyNotes].sort((left, right) =>
     right.updatedAt.localeCompare(left.updatedAt),
   );
-}
-
-function removeLabelAssignmentsFromSnapshot(
-  snapshot: readonly AppStoredStudyNote[],
-  input: {
-    labelId: string;
-    userId: string;
-  },
-) {
-  let didChange = false;
-  const nextSnapshot = snapshot.map((studyNote) => {
-    if (
-      studyNote.userId !== input.userId ||
-      !studyNote.labelIds.includes(input.labelId)
-    ) {
-      return studyNote;
-    }
-
-    didChange = true;
-
-    return {
-      ...studyNote,
-      labelIds: studyNote.labelIds.filter(
-        (labelId) => labelId !== input.labelId,
-      ),
-    };
-  });
-
-  return {
-    didChange,
-    snapshot: nextSnapshot,
-  };
 }
 
 function createMissingServiceError(): Error {
@@ -216,10 +185,13 @@ export function createPersistentStudyNotesContext(
         throw createNotAuthenticatedError();
       }
 
-      const nextSnapshot = removeLabelAssignmentsFromSnapshot(snapshot, {
-        labelId,
-        userId,
-      });
+      const nextSnapshot = removeLabelAssignmentsFromStoredStudyNotes(
+        snapshot,
+        {
+          labelId,
+          userId,
+        },
+      );
 
       if (!nextSnapshot.didChange) {
         return;

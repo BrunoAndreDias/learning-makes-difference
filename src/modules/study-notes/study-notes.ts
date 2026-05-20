@@ -345,7 +345,7 @@ function sortStoredStudyNotes(
   );
 }
 
-function removeLabelAssignmentsFromSnapshot(
+export function removeLabelAssignmentsFromStoredStudyNotes(
   snapshot: readonly AppStoredStudyNote[],
   input: {
     labelId: string;
@@ -629,10 +629,13 @@ export function createAppStudyNotesContext(
     },
     removeLabelAssignments(userId, labelId) {
       const validatedUserId = validateUserId(userId);
-      const nextSnapshot = removeLabelAssignmentsFromSnapshot(snapshot, {
-        labelId,
-        userId: validatedUserId,
-      });
+      const nextSnapshot = removeLabelAssignmentsFromStoredStudyNotes(
+        snapshot,
+        {
+          labelId,
+          userId: validatedUserId,
+        },
+      );
 
       if (!nextSnapshot.didChange) {
         return;
