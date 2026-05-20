@@ -3297,6 +3297,128 @@ describe("authenticated recall workspace", () => {
     expect(router.state.location.pathname).toBe("/recall/session");
   });
 
+  it("adds recallable Study Notes from one Label without changing RecallSession targets away from selected Study Notes", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const biologyLabel = contexts.labelsContext.createLabel({
+      name: "Biology",
+      userId: testUser.id,
+    });
+    const historyLabel = contexts.labelsContext.createLabel({
+      name: "History",
+      userId: testUser.id,
+    });
+    const selectedBiologyStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        labelIds: [biologyLabel.id],
+        sourceBody: "Selected biology answer.",
+        sourceTitle: "Selected biology Study Note",
+      },
+    );
+    const addedBiologyStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        labelIds: [biologyLabel.id],
+        sourceBody: "Added biology answer.",
+        sourceTitle: "Added biology Study Note",
+      },
+    );
+    const incompleteBiologyStudyNote =
+      contexts.studyNotesContext.createStudyNote(testUser.id, {
+        expectedAnswer: "",
+        labelIds: [biologyLabel.id],
+        prompt: "Incomplete biology Study Note",
+        sourceBody: "Incomplete source context.",
+        sourceTitle: "Incomplete biology source",
+      });
+    const manualStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        sourceBody: "Manual answer.",
+        sourceTitle: "Manual Study Note",
+      },
+    );
+    contexts.studyNotesContext.createStudyNote(testUser.id, {
+      labelIds: [historyLabel.id],
+      sourceBody: "History answer.",
+      sourceTitle: "History Study Note",
+    });
+
+    const { router } = renderRoute(
+      `/recall/select?studyNoteIds=${selectedBiologyStudyNote.id}`,
+      {
+        ...contexts,
+        session: createSession(),
+      },
+    );
+
+    const sessionSetup = await screen.findByRole("complementary", {
+      name: "Session setup",
+    });
+    expect(
+      within(sessionSetup).getByText("Add Study Notes from Labels"),
+    ).toBeInTheDocument();
+    expect(
+      within(sessionSetup).getByText("1", {
+        selector: ".recall-select-session-setup__selected-count",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(
+      within(sessionSetup).getByRole("combobox", { name: "Select Label" }),
+      {
+        target: { value: biologyLabel.id },
+      },
+    );
+    fireEvent.click(
+      within(sessionSetup).getByRole("button", { name: "Add Study Notes" }),
+    );
+
+    expect(
+      within(sessionSetup).getByText("2", {
+        selector: ".recall-select-session-setup__selected-count",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: /Selected biology Study Note/ }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: /Added biology Study Note/ }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: /Incomplete biology Study Note/ }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("checkbox", { name: /Incomplete biology Study Note/ }),
+    ).not.toBeChecked();
+
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /Manual Study Note/ }),
+    );
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /Selected biology Study Note/ }),
+    );
+    expect(
+      within(sessionSetup).getByText("2", {
+        selector: ".recall-select-session-setup__selected-count",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
+
+    await screen.findByRole("heading", { level: 3, name: "Recall session" });
+    const startedStudyNoteIds =
+      contexts.recallContext.getSnapshot()?.notes.map((note) => note.id) ?? [];
+
+    expect(startedStudyNoteIds).toEqual(
+      expect.arrayContaining([manualStudyNote.id, addedBiologyStudyNote.id]),
+    );
+    expect(contexts.recallContext.getSnapshot()?.notes).toHaveLength(2);
+    expect(startedStudyNoteIds).not.toContain(selectedBiologyStudyNote.id);
+    expect(startedStudyNoteIds).not.toContain(incompleteBiologyStudyNote.id);
+    expect(router.state.location.pathname).toBe("/recall/session");
+  });
+
   it("starts selected Study Note recall through the persistent recall service", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const studyNote = contexts.studyNotesContext.createStudyNote(testUser.id, {
