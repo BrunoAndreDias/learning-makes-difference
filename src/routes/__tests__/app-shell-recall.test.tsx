@@ -3593,6 +3593,145 @@ describe("authenticated recall workspace", () => {
     ).toBeChecked();
   });
 
+  it("keeps one-Label label-add recall Study Note-targeted, preserves result label snapshots, and ignores those snapshots in later setup", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const biologyLabel = contexts.labelsContext.createLabel({
+      name: "Biology",
+      userId: testUser.id,
+    });
+    const selectedBiologyStudyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Selected biology answer.",
+      labelIds: [biologyLabel.id],
+      prompt: "Selected biology Study Note",
+      sourceBody: "Selected biology source.",
+      sourceTitle: "Selected biology source",
+    });
+    const addedBiologyStudyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Added biology answer.",
+      labelIds: [biologyLabel.id],
+      prompt: "Added biology Study Note",
+      sourceBody: "Added biology source.",
+      sourceTitle: "Added biology source",
+    });
+
+    const firstView = renderRoute(
+      `/recall/select?studyNoteIds=${selectedBiologyStudyNote.id}`,
+      {
+        ...contexts,
+        session: createSession(),
+      },
+    );
+
+    const sessionSetup = await screen.findByRole("complementary", {
+      name: "Session setup",
+    });
+    fireEvent.click(
+      within(sessionSetup).getByRole("button", { name: "Add Study Notes" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
+
+    await screen.findByRole("heading", { level: 3, name: "Recall session" });
+    const activeSession = contexts.recallContext.getSnapshot();
+
+    if (activeSession === null) {
+      throw new Error("Expected an active RecallSession.");
+    }
+
+    expect(activeSession.notes).toMatchObject([
+      {
+        id: selectedBiologyStudyNote.id,
+        labelIds: [biologyLabel.id],
+        labels: [{ id: biologyLabel.id, name: "Biology" }],
+      },
+      {
+        id: addedBiologyStudyNote.id,
+        labelIds: [biologyLabel.id],
+        labels: [{ id: biologyLabel.id, name: "Biology" }],
+      },
+    ]);
+    expect("labelId" in activeSession).toBe(false);
+    expect("labelName" in activeSession).toBe(false);
+
+    contexts.recallContext.revealFlashCardAnswer({
+      sessionId: activeSession.id,
+      userId: testUser.id,
+    });
+    contexts.recallContext.rateFlashCardAnswer({
+      rating: "good",
+      sessionId: activeSession.id,
+      userId: testUser.id,
+    });
+    contexts.recallContext.endFlashCardSession({
+      sessionId: activeSession.id,
+      userId: testUser.id,
+    });
+
+    const storedResultBeforeDelete = contexts.recallContext.listSessionResults({
+      userId: testUser.id,
+    })[0];
+
+    if (storedResultBeforeDelete === undefined) {
+      throw new Error("Expected a stored SessionResult.");
+    }
+
+    expect(storedResultBeforeDelete.notes).toMatchObject([
+      {
+        id: selectedBiologyStudyNote.id,
+        labelIds: [biologyLabel.id],
+        labels: [{ id: biologyLabel.id, name: "Biology" }],
+      },
+      {
+        id: addedBiologyStudyNote.id,
+        labelIds: [biologyLabel.id],
+        labels: [{ id: biologyLabel.id, name: "Biology" }],
+      },
+    ]);
+    expect("labelId" in storedResultBeforeDelete).toBe(false);
+    expect("labelName" in storedResultBeforeDelete).toBe(false);
+
+    contexts.labelsContext.deleteLabel({
+      labelId: biologyLabel.id,
+      userId: testUser.id,
+    });
+
+    expect(
+      contexts.recallContext.listSessionResults({ userId: testUser.id })[0],
+    ).toMatchObject({
+      notes: [
+        {
+          id: selectedBiologyStudyNote.id,
+          labels: [{ id: biologyLabel.id, name: "Biology" }],
+        },
+        {
+          id: addedBiologyStudyNote.id,
+          labels: [{ id: biologyLabel.id, name: "Biology" }],
+        },
+      ],
+    });
+
+    firstView.unmount();
+
+    const nextView = renderRoute("/recall/select", {
+      ...contexts,
+      session: createSession(),
+    });
+    const nextSessionSetup = await within(nextView.container).findByRole(
+      "complementary",
+      {
+        name: "Session setup",
+      },
+    );
+
+    expect(
+      within(nextSessionSetup).getByText(
+        "No Labels yet. Create Labels in Study Notes to use this action.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(nextSessionSetup).queryByRole("checkbox", { name: "Biology" }),
+    ).toBeNull();
+  });
+
   it("keeps the temporary selection unchanged and reports when no recallable Study Notes match selected Labels", async () => {
     const contexts = createDeterministicRecallTestContexts();
     contexts.labelsContext.createLabel({
@@ -3648,6 +3787,116 @@ describe("authenticated recall workspace", () => {
     expect(
       screen.getByRole("checkbox", { name: /Manual unlabeled Study Note/ }),
     ).toBeChecked();
+  });
+
+  it("starts persistent label-add recall with only final Study Note ids and no Label provenance", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const biologyLabel = contexts.labelsContext.createLabel({
+      name: "Biology",
+      userId: testUser.id,
+    });
+    const selectedBiologyStudyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Selected biology answer.",
+      labelIds: [biologyLabel.id],
+      prompt: "Selected biology Study Note",
+      sourceBody: "Selected biology source.",
+      sourceTitle: "Selected biology source",
+    });
+    const addedBiologyStudyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Added biology answer.",
+      labelIds: [biologyLabel.id],
+      prompt: "Added biology Study Note",
+      sourceBody: "Added biology source.",
+      sourceTitle: "Added biology source",
+    });
+    const startedSession = {
+      attempts: [],
+      createdAt: "2026-05-15T12:00:00.000Z",
+      currentIndex: 0,
+      currentQuestionIndex: 0,
+      draftAnswer: "",
+      id: "persistent-label-add-session",
+      isAnswerRevealed: false,
+      mode: "FlashCard" as const,
+      notes: [
+        {
+          acronyms: [],
+          body: addedBiologyStudyNote.expectedAnswer,
+          createdAt: addedBiologyStudyNote.createdAt,
+          id: addedBiologyStudyNote.id,
+          labelIds: [biologyLabel.id],
+          labels: [{ id: biologyLabel.id, name: "Biology" }],
+          metaphors: [],
+          title: addedBiologyStudyNote.prompt,
+          updatedAt: addedBiologyStudyNote.updatedAt,
+        },
+      ],
+      questions: [
+        {
+          isAnswerRevealed: false,
+          noteId: addedBiologyStudyNote.id,
+          noteSnapshot: {
+            acronyms: [],
+            body: addedBiologyStudyNote.expectedAnswer,
+            createdAt: addedBiologyStudyNote.createdAt,
+            id: addedBiologyStudyNote.id,
+            labelIds: [biologyLabel.id],
+            labels: [{ id: biologyLabel.id, name: "Biology" }],
+            metaphors: [],
+            title: addedBiologyStudyNote.prompt,
+            updatedAt: addedBiologyStudyNote.updatedAt,
+          },
+          score: null,
+          selfRating: null,
+          typedAnswer: "",
+        },
+      ],
+    };
+    const startFlashCardSession = vi.fn<
+      AppPersistentRecallService["startFlashCardSession"]
+    >(async () => startedSession);
+    const persistentRecallContext = createPersistentRecallContext({
+      service: createPersistentRecallService({
+        startFlashCardSession,
+      }),
+    });
+
+    const { router } = renderRoute(
+      `/recall/select?studyNoteIds=${selectedBiologyStudyNote.id}`,
+      {
+        ...contexts,
+        persistentRecallContext,
+        recallContext: persistentRecallContext.readonlyContext,
+        session: createSession(),
+      },
+    );
+
+    const sessionSetup = await screen.findByRole("complementary", {
+      name: "Session setup",
+    });
+    fireEvent.click(
+      within(sessionSetup).getByRole("button", { name: "Add Study Notes" }),
+    );
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: /Selected biology Study Note/,
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
+
+    await screen.findByRole("heading", { level: 3, name: "Recall session" });
+
+    const startInput = startFlashCardSession.mock.calls[0]?.[0];
+
+    expect(startFlashCardSession).toHaveBeenCalledTimes(1);
+    expect(startInput).toEqual({
+      mode: "FlashCard",
+      studyNoteIds: [addedBiologyStudyNote.id],
+    });
+    expect(startInput).not.toHaveProperty("noteIds");
+    expect(startInput).not.toHaveProperty("selectedLabelIds");
+    expect(startInput).not.toHaveProperty("labelId");
+    expect(router.state.location.pathname).toBe("/recall/session");
   });
 
   it("starts selected Study Note recall through the persistent recall service", async () => {
