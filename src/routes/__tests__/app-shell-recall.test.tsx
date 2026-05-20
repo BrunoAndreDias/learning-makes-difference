@@ -3297,40 +3297,50 @@ describe("authenticated recall workspace", () => {
     expect(router.state.location.pathname).toBe("/recall/session");
   });
 
-  it("adds recallable Study Notes from one Label without changing RecallSession targets away from selected Study Notes", async () => {
+  it("adds recallable Study Notes from multiple Labels by intersection without changing RecallSession targets away from selected Study Notes", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const biologyLabel = contexts.labelsContext.createLabel({
       name: "Biology",
+      userId: testUser.id,
+    });
+    const examOneLabel = contexts.labelsContext.createLabel({
+      name: "Exam 1",
       userId: testUser.id,
     });
     const historyLabel = contexts.labelsContext.createLabel({
       name: "History",
       userId: testUser.id,
     });
-    const selectedBiologyStudyNote = contexts.studyNotesContext.createStudyNote(
-      testUser.id,
-      {
-        labelIds: [biologyLabel.id],
-        sourceBody: "Selected biology answer.",
-        sourceTitle: "Selected biology Study Note",
-      },
-    );
-    const addedBiologyStudyNote = contexts.studyNotesContext.createStudyNote(
-      testUser.id,
-      {
-        labelIds: [biologyLabel.id],
-        sourceBody: "Added biology answer.",
-        sourceTitle: "Added biology Study Note",
-      },
-    );
-    const incompleteBiologyStudyNote =
+    const selectedBiologyExamStudyNote =
+      contexts.studyNotesContext.createStudyNote(testUser.id, {
+        labelIds: [biologyLabel.id, examOneLabel.id],
+        sourceBody: "Selected biology exam answer.",
+        sourceTitle: "Selected biology exam Study Note",
+      });
+    const addedBiologyExamStudyNote =
+      contexts.studyNotesContext.createStudyNote(testUser.id, {
+        labelIds: [biologyLabel.id, examOneLabel.id],
+        sourceBody: "Added biology exam answer.",
+        sourceTitle: "Added biology exam Study Note",
+      });
+    const incompleteBiologyExamStudyNote =
       contexts.studyNotesContext.createStudyNote(testUser.id, {
         expectedAnswer: "",
-        labelIds: [biologyLabel.id],
-        prompt: "Incomplete biology Study Note",
+        labelIds: [biologyLabel.id, examOneLabel.id],
+        prompt: "Incomplete biology exam Study Note",
         sourceBody: "Incomplete source context.",
-        sourceTitle: "Incomplete biology source",
+        sourceTitle: "Incomplete biology exam source",
       });
+    contexts.studyNotesContext.createStudyNote(testUser.id, {
+      labelIds: [biologyLabel.id],
+      sourceBody: "Biology only answer.",
+      sourceTitle: "Biology only Study Note",
+    });
+    contexts.studyNotesContext.createStudyNote(testUser.id, {
+      labelIds: [examOneLabel.id],
+      sourceBody: "Exam only answer.",
+      sourceTitle: "Exam only Study Note",
+    });
     const manualStudyNote = contexts.studyNotesContext.createStudyNote(
       testUser.id,
       {
@@ -3339,13 +3349,13 @@ describe("authenticated recall workspace", () => {
       },
     );
     contexts.studyNotesContext.createStudyNote(testUser.id, {
-      labelIds: [historyLabel.id],
-      sourceBody: "History answer.",
-      sourceTitle: "History Study Note",
+      labelIds: [biologyLabel.id, historyLabel.id],
+      sourceBody: "Biology history answer.",
+      sourceTitle: "Biology history Study Note",
     });
 
     const { router } = renderRoute(
-      `/recall/select?studyNoteIds=${selectedBiologyStudyNote.id}`,
+      `/recall/select?studyNoteIds=${selectedBiologyExamStudyNote.id}`,
       {
         ...contexts,
         session: createSession(),
@@ -3359,16 +3369,19 @@ describe("authenticated recall workspace", () => {
       within(sessionSetup).getByText("Add Study Notes from Labels"),
     ).toBeInTheDocument();
     expect(
+      within(sessionSetup).getByText("Study Notes with all selected Labels"),
+    ).toBeInTheDocument();
+    expect(
       within(sessionSetup).getByText("1", {
         selector: ".recall-select-session-setup__selected-count",
       }),
     ).toBeInTheDocument();
 
-    fireEvent.change(
-      within(sessionSetup).getByRole("combobox", { name: "Select Label" }),
-      {
-        target: { value: biologyLabel.id },
-      },
+    expect(
+      within(sessionSetup).getByRole("checkbox", { name: "Biology" }),
+    ).toBeChecked();
+    fireEvent.click(
+      within(sessionSetup).getByRole("checkbox", { name: "Exam 1" }),
     );
     fireEvent.click(
       within(sessionSetup).getByRole("button", { name: "Add Study Notes" }),
@@ -3380,23 +3393,46 @@ describe("authenticated recall workspace", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("checkbox", { name: /Selected biology Study Note/ }),
+      screen.getByRole("checkbox", {
+        name: /Selected biology exam Study Note/,
+      }),
     ).toBeChecked();
     expect(
-      screen.getByRole("checkbox", { name: /Added biology Study Note/ }),
+      screen.getByRole("checkbox", { name: /Added biology exam Study Note/ }),
     ).toBeChecked();
     expect(
-      screen.getByRole("checkbox", { name: /Incomplete biology Study Note/ }),
+      screen.getByRole("checkbox", {
+        name: /Incomplete biology exam Study Note/,
+      }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("checkbox", { name: /Incomplete biology Study Note/ }),
+      screen.getByRole("checkbox", {
+        name: /Incomplete biology exam Study Note/,
+      }),
     ).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: /Biology only Study Note/ }),
+    ).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: /Exam only Study Note/ }),
+    ).not.toBeChecked();
+
+    fireEvent.click(
+      within(sessionSetup).getByRole("button", { name: "Add Study Notes" }),
+    );
+    expect(
+      within(sessionSetup).getByText("2", {
+        selector: ".recall-select-session-setup__selected-count",
+      }),
+    ).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("checkbox", { name: /Manual Study Note/ }),
     );
     fireEvent.click(
-      screen.getByRole("checkbox", { name: /Selected biology Study Note/ }),
+      screen.getByRole("checkbox", {
+        name: /Selected biology exam Study Note/,
+      }),
     );
     expect(
       within(sessionSetup).getByText("2", {
@@ -3411,11 +3447,16 @@ describe("authenticated recall workspace", () => {
       contexts.recallContext.getSnapshot()?.notes.map((note) => note.id) ?? [];
 
     expect(startedStudyNoteIds).toEqual(
-      expect.arrayContaining([manualStudyNote.id, addedBiologyStudyNote.id]),
+      expect.arrayContaining([
+        manualStudyNote.id,
+        addedBiologyExamStudyNote.id,
+      ]),
     );
     expect(contexts.recallContext.getSnapshot()?.notes).toHaveLength(2);
-    expect(startedStudyNoteIds).not.toContain(selectedBiologyStudyNote.id);
-    expect(startedStudyNoteIds).not.toContain(incompleteBiologyStudyNote.id);
+    expect(startedStudyNoteIds).not.toContain(selectedBiologyExamStudyNote.id);
+    expect(startedStudyNoteIds).not.toContain(
+      incompleteBiologyExamStudyNote.id,
+    );
     expect(router.state.location.pathname).toBe("/recall/session");
   });
 

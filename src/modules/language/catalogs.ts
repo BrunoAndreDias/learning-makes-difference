@@ -430,7 +430,9 @@ const englishTranslations = {
     "Reveal each Study Note and rate your recall.",
   "recall.selection.addFromLabels": "Add Study Notes from Labels",
   "recall.selection.addFromLabels.action": "Add Study Notes",
-  "recall.selection.addFromLabels.selectLabel": "Select Label",
+  "recall.selection.addFromLabels.matchRule":
+    "Study Notes with all selected Labels",
+  "recall.selection.addFromLabels.selectLabel": "Select Labels",
   "recall.selection.noLabel": "No label",
   "recall.selection.noSearchMatches": "No Study Notes match this search.",
   "recall.selection.questionStyle": "Question style",
@@ -957,7 +959,9 @@ const portugueseTranslations = {
     "Revele cada nota de estudo e avalie a sua recordacao.",
   "recall.selection.addFromLabels": "Adicionar notas de estudo de etiquetas",
   "recall.selection.addFromLabels.action": "Adicionar notas de estudo",
-  "recall.selection.addFromLabels.selectLabel": "Selecionar etiqueta",
+  "recall.selection.addFromLabels.matchRule":
+    "Notas de estudo com todas as etiquetas selecionadas",
+  "recall.selection.addFromLabels.selectLabel": "Selecionar etiquetas",
   "recall.selection.noLabel": "Sem etiqueta",
   "recall.selection.noSearchMatches":
     "Nenhuma nota de estudo corresponde a esta pesquisa.",
@@ -1487,7 +1491,9 @@ const spanishTranslations = {
     "Revela cada nota de estudio y evalua tu recuerdo.",
   "recall.selection.addFromLabels": "Agregar notas de estudio desde etiquetas",
   "recall.selection.addFromLabels.action": "Agregar notas de estudio",
-  "recall.selection.addFromLabels.selectLabel": "Seleccionar etiqueta",
+  "recall.selection.addFromLabels.matchRule":
+    "Notas de estudio con todas las etiquetas seleccionadas",
+  "recall.selection.addFromLabels.selectLabel": "Seleccionar etiquetas",
   "recall.selection.noLabel": "Sin etiqueta",
   "recall.selection.noSearchMatches":
     "Ninguna nota de estudio coincide con esta busqueda.",

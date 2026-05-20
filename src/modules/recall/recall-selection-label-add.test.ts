@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AppStudyNote } from "../study-notes";
-import { addRecallableStudyNotesFromLabel } from "./recall-selection-label-add";
+import { addRecallableStudyNotesFromLabels } from "./recall-selection-label-add";
 
 const timestamp = "2026-05-20T10:00:00.000Z";
 
@@ -50,8 +50,8 @@ describe("recall selection label add", () => {
       labelIds: ["label-history"],
     });
 
-    const result = addRecallableStudyNotesFromLabel({
-      selectedLabelId: "label-biology",
+    const result = addRecallableStudyNotesFromLabels({
+      selectedLabelIds: ["label-biology"],
       selectedStudyNoteIds: ["study-note-manual", selectedBiologyStudyNote.id],
       studyNotes: [
         selectedBiologyStudyNote,
@@ -67,6 +67,54 @@ describe("recall selection label add", () => {
         "study-note-manual",
         selectedBiologyStudyNote.id,
         addedBiologyStudyNote.id,
+      ],
+    });
+  });
+
+  it("adds only recallable Study Notes that match all selected Labels", () => {
+    const selectedBiologyExamStudyNote = buildStudyNote({
+      id: "study-note-biology-exam-selected",
+      labelIds: ["label-biology", "label-exam-1"],
+    });
+    const addedBiologyExamStudyNote = buildStudyNote({
+      id: "study-note-biology-exam-added",
+      labelIds: ["label-biology", "label-exam-1"],
+    });
+    const incompleteBiologyExamStudyNote = buildStudyNote({
+      expectedAnswer: "",
+      id: "study-note-biology-exam-incomplete",
+      labelIds: ["label-biology", "label-exam-1"],
+    });
+    const biologyOnlyStudyNote = buildStudyNote({
+      id: "study-note-biology-only",
+      labelIds: ["label-biology"],
+    });
+    const examOnlyStudyNote = buildStudyNote({
+      id: "study-note-exam-only",
+      labelIds: ["label-exam-1"],
+    });
+
+    const result = addRecallableStudyNotesFromLabels({
+      selectedLabelIds: ["label-biology", "label-exam-1"],
+      selectedStudyNoteIds: [
+        "study-note-manual",
+        selectedBiologyExamStudyNote.id,
+      ],
+      studyNotes: [
+        selectedBiologyExamStudyNote,
+        addedBiologyExamStudyNote,
+        incompleteBiologyExamStudyNote,
+        biologyOnlyStudyNote,
+        examOnlyStudyNote,
+      ],
+    });
+
+    expect(result).toEqual({
+      addedStudyNoteIds: [addedBiologyExamStudyNote.id],
+      selectedStudyNoteIds: [
+        "study-note-manual",
+        selectedBiologyExamStudyNote.id,
+        addedBiologyExamStudyNote.id,
       ],
     });
   });

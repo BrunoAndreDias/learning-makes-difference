@@ -1,27 +1,44 @@
 import { type AppStudyNote, getStudyNoteReadiness } from "../study-notes";
 
-type AddRecallableStudyNotesFromLabelInput = {
-  selectedLabelId: string;
+type AddRecallableStudyNotesFromLabelsInput = {
+  selectedLabelIds: readonly string[];
   selectedStudyNoteIds: readonly string[];
   studyNotes: readonly AppStudyNote[];
 };
 
-type AddRecallableStudyNotesFromLabelResult = {
+type AddRecallableStudyNotesFromLabelsResult = {
   addedStudyNoteIds: string[];
   selectedStudyNoteIds: string[];
 };
 
-export function addRecallableStudyNotesFromLabel({
-  selectedLabelId,
+export function addRecallableStudyNotesFromLabels({
+  selectedLabelIds,
   selectedStudyNoteIds,
   studyNotes,
-}: AddRecallableStudyNotesFromLabelInput): AddRecallableStudyNotesFromLabelResult {
+}: AddRecallableStudyNotesFromLabelsInput): AddRecallableStudyNotesFromLabelsResult {
+  const requiredLabelIds = [
+    ...new Set(
+      selectedLabelIds.filter((selectedLabelId) => selectedLabelId.length > 0),
+    ),
+  ];
+
+  if (requiredLabelIds.length === 0) {
+    return {
+      addedStudyNoteIds: [],
+      selectedStudyNoteIds: [...selectedStudyNoteIds],
+    };
+  }
+
   const nextSelectedStudyNoteIds = [...selectedStudyNoteIds];
   const selectedStudyNoteIdSet = new Set(nextSelectedStudyNoteIds);
   const addedStudyNoteIds: string[] = [];
 
   for (const studyNote of studyNotes) {
-    if (!studyNote.labelIds.includes(selectedLabelId)) {
+    if (
+      !requiredLabelIds.every((selectedLabelId) =>
+        studyNote.labelIds.includes(selectedLabelId),
+      )
+    ) {
       continue;
     }
 

@@ -1321,11 +1321,49 @@
   gap: 0.45rem;
 }
 
+.recall-select-session-setup__label-add-rule {
+  margin: 0;
+  color: var(--color-content-muted);
+  font-size: 0.82rem;
+}
+
 .recall-select-session-setup__label-add-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.45rem;
+}
+
+.recall-select-session-setup__label-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.45rem;
+  background: var(--color-shell-inset);
+}
+
+.recall-select-session-setup__label-option {
+  display: flex;
   align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 0.2rem 0.25rem;
+  border-radius: 0.35rem;
+  color: var(--color-content-strong);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.recall-select-session-setup__label-option input {
+  margin: 0;
+}
+
+.recall-select-session-setup__label-option span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .recall-select-session-setup__label-add .recall-field,
@@ -1333,7 +1371,6 @@
   gap: 0;
 }
 
-.recall-select-session-setup__label-add .recall-field select,
 .recall-select-session-setup__question-style .recall-field select {
   min-height: 2.2rem;
   border-color: var(--color-content-border-soft);
