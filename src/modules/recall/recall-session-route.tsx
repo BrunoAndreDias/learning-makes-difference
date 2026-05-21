@@ -4,7 +4,6 @@ import {
   useRouteContext,
 } from "@tanstack/react-router";
 import {
-  type ReactNode,
   useEffect,
   useMemo,
   useRef,
@@ -56,27 +55,6 @@ function setRecallSavedMessage() {
   }
 
   window.sessionStorage.setItem(recallSessionSavedMessageKey, "true");
-}
-
-function formatElapsedTime(startedAt: string, now: number) {
-  const elapsedSeconds = Math.max(
-    0,
-    Math.floor((now - new Date(startedAt).getTime()) / 1000),
-  );
-  const totalMinutes = Math.floor(elapsedSeconds / 60);
-
-  if (totalMinutes < 60) {
-    return `${totalMinutes} min`;
-  }
-
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  if (minutes === 0) {
-    return `${hours} hr`;
-  }
-
-  return `${hours} hr ${minutes} min`;
 }
 
 function getRecallSessionExitTarget(
@@ -141,6 +119,11 @@ function RecallSessionPage() {
   const activeFocusSession =
     userId === null ? null : focusContext.getActiveSession({ userId });
   const isBreakActive = isBreakIntervalActive(activeFocusSession);
+  const activeQuestionKey =
+    activeSession === null
+      ? null
+      : `${activeSession.id}:${activeSession.currentQuestionIndex}`;
+  const storedDraftAnswer = activeSession?.draftAnswer ?? "";
   const currentNote =
     activeSession === null
       ? null
@@ -148,8 +131,9 @@ function RecallSessionPage() {
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [pendingRating, setPendingRating] =
     useState<FlashCardRecallRating | null>(null);
+  const [isAnswerInputVisible, setAnswerInputVisible] = useState(false);
+  const [draftAnswer, setDraftAnswer] = useState("");
   const [isEndDialogOpen, setEndDialogOpen] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
   const sessionExitTargetRef = useRef<RecallSessionExitTarget | null>(null);
 
   useEffect(() => {
@@ -172,10 +156,13 @@ function RecallSessionPage() {
   }, [activeSession]);
 
   useEffect(() => {
-    const timerId = window.setInterval(() => setNow(Date.now()), 1000);
+    if (activeQuestionKey === null) {
+      return;
+    }
 
-    return () => window.clearInterval(timerId);
-  }, []);
+    setAnswerInputVisible(false);
+    setDraftAnswer(storedDraftAnswer);
+  }, [activeQuestionKey, storedDraftAnswer]);
 
   async function skipBreakInterval() {
     if (userId === null) {
@@ -199,12 +186,44 @@ function RecallSessionPage() {
     throw error;
   }
 
+  function saveDraftAnswer() {
+    if (userId === null || activeSession === null) {
+      return;
+    }
+
+    const currentDraftAnswer = activeSession.draftAnswer ?? "";
+
+    if (currentDraftAnswer === draftAnswer) {
+      return;
+    }
+
+    if (persistentRecallContext === undefined) {
+      recallContext.updateFlashCardAttemptText({
+        sessionId: activeSession.id,
+        text: draftAnswer,
+        userId,
+      });
+      return;
+    }
+
+    return persistentRecallContext.updateFlashCardAttemptText(userId, {
+      sessionId: activeSession.id,
+      text: draftAnswer,
+    });
+  }
+
   async function revealNote() {
     if (userId === null || activeSession === null || isBreakActive) {
       return;
     }
 
     try {
+      const draftSave = saveDraftAnswer();
+
+      if (draftSave !== undefined) {
+        await draftSave;
+      }
+
       if (persistentRecallContext === undefined) {
         recallContext.revealFlashCardAnswer({
           sessionId: activeSession.id,
@@ -343,27 +362,22 @@ function RecallSessionPage() {
   const progress = useMemo(() => {
     if (activeSession === null) {
       return {
-        answeredCount: 0,
         currentPosition: 0,
         progressPercent: 0,
-        remainingCount: 0,
         totalCount: 0,
       };
     }
 
     const totalCount = activeSession.notes.length;
-    const answeredCount = activeSession.attempts.length;
     const currentPosition = Math.min(
       activeSession.currentQuestionIndex + 1,
       totalCount,
     );
 
     return {
-      answeredCount,
       currentPosition,
       progressPercent:
         totalCount === 0 ? 0 : Math.round((currentPosition / totalCount) * 100),
-      remainingCount: Math.max(totalCount - answeredCount, 0),
       totalCount,
     };
   }, [activeSession]);
@@ -376,33 +390,34 @@ function RecallSessionPage() {
     <section className="recall-shell" aria-label={t("recall.session.title")}>
       <PageHeader
         actions={
-          <div className="recall-progress-card">
-            <div className="recall-progress-card__count">
-              <strong>{`${progress.currentPosition} of ${progress.totalCount}`}</strong>
-              <span>{t("recall.session.notes")}</span>
-            </div>
-            <div
-              aria-label={t("recall.session.progress")}
-              aria-valuemax={progress.totalCount}
-              aria-valuemin={0}
-              aria-valuenow={progress.currentPosition}
-              className="recall-progress-card__track"
-              role="progressbar"
-            >
+          <div className="recall-session-status">
+            <div className="recall-progress-card">
+              <div className="recall-progress-card__count">
+                <strong>{`${progress.currentPosition} of ${progress.totalCount}`}</strong>
+                <span>{t("recall.session.notes")}</span>
+              </div>
               <div
-                className="recall-progress-card__fill"
-                style={{ width: `${progress.progressPercent}%` }}
-              />
+                aria-label={t("recall.session.progress")}
+                aria-valuemax={progress.totalCount}
+                aria-valuemin={0}
+                aria-valuenow={progress.currentPosition}
+                className="recall-progress-card__track"
+                role="progressbar"
+              >
+                <div
+                  className="recall-progress-card__fill"
+                  style={{ width: `${progress.progressPercent}%` }}
+                />
+              </div>
+              <p className="recall-progress-card__mode">
+                <FlashCardModeIcon />
+                <span>{formatRecallModeLabel(activeSession.mode)}</span>
+              </p>
+              <p className="recall-progress-card__randomized">
+                <InfoIcon />
+                <span>{t("recall.session.overview.randomized")}</span>
+              </p>
             </div>
-            <p className="recall-progress-card__mode">
-              <FlashCardModeIcon />
-              <span>{formatRecallModeLabel(activeSession.mode)}</span>
-            </p>
-            <p className="recall-progress-card__time">
-              <ClockLineIcon />
-              <span>{formatElapsedTime(activeSession.createdAt, now)}</span>
-              <small>{t("recall.session.elapsed")}</small>
-            </p>
           </div>
         }
         actionsClassName="recall-shell__progress"
@@ -447,6 +462,34 @@ function RecallSessionPage() {
                     <SparkIcon />
                     <span>{t("recall.session.hint")}</span>
                   </p>
+                  <Button
+                    aria-expanded={isAnswerInputVisible}
+                    className="recall-card__answer-toggle"
+                    onClick={() =>
+                      setAnswerInputVisible((isVisible) => !isVisible)
+                    }
+                    type="button"
+                  >
+                    <WriteAnswerIcon />
+                    <span>
+                      {isAnswerInputVisible
+                        ? t("recall.session.answer.hideInput")
+                        : t("recall.session.answer.writeInput")}
+                    </span>
+                  </Button>
+                  {isAnswerInputVisible ? (
+                    <label className="recall-card__answer-field">
+                      <span>{t("recall.session.answer.yourAnswer")}</span>
+                      <textarea
+                        onChange={(event) => setDraftAnswer(event.target.value)}
+                        placeholder={t(
+                          "recall.session.answer.inputPlaceholder",
+                        )}
+                        rows={4}
+                        value={draftAnswer}
+                      />
+                    </label>
+                  ) : null}
                   <Button
                     className="recall-card__reveal"
                     onClick={revealNote}
@@ -523,12 +566,6 @@ function RecallSessionPage() {
             </Button>
           </div>
         </div>
-
-        <SessionOverviewPanel
-          answeredCount={progress.answeredCount}
-          remainingCount={progress.remainingCount}
-          selectedCount={progress.totalCount}
-        />
       </div>
 
       {isEndDialogOpen ? (
@@ -584,81 +621,6 @@ function RecallNoteDetails({ note }: { note: FlashCardRecallNote }) {
           ) : null}
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function SessionOverviewPanel({
-  answeredCount,
-  remainingCount,
-  selectedCount,
-}: {
-  answeredCount: number;
-  remainingCount: number;
-  selectedCount: number;
-}) {
-  const { t } = useAppTranslation();
-
-  return (
-    <aside
-      aria-label={t("recall.session.overview")}
-      className="recall-session-overview"
-    >
-      <h4>{t("recall.session.overview")}</h4>
-      <div className="recall-session-overview__metrics">
-        <SessionOverviewMetric
-          icon={<SelectedNotesIcon />}
-          label={t("recall.session.overview.selected")}
-          tone="selected"
-          value={selectedCount}
-        />
-        <SessionOverviewMetric
-          icon={<AnsweredIcon />}
-          label={t("recall.session.overview.answered")}
-          tone="answered"
-          value={answeredCount}
-        />
-        <SessionOverviewMetric
-          icon={<RemainingIcon />}
-          label={t("recall.session.overview.remaining")}
-          tone="remaining"
-          value={remainingCount}
-        />
-      </div>
-      <p className="recall-session-overview__hint">
-        <InfoIcon />
-        <span>{t("recall.session.overview.randomized")}</span>
-      </p>
-    </aside>
-  );
-}
-
-type SessionOverviewMetricTone = "answered" | "remaining" | "selected";
-
-function SessionOverviewMetric({
-  icon,
-  label,
-  tone,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  tone: SessionOverviewMetricTone;
-  value: number;
-}) {
-  return (
-    <div className="recall-overview-metric">
-      <span
-        aria-hidden="true"
-        className="recall-overview-metric__icon"
-        data-tone={tone}
-      >
-        {icon}
-      </span>
-      <div className="recall-overview-metric__content">
-        <span>{label}</span>
-        <strong>{value}</strong>
-      </div>
     </div>
   );
 }
@@ -739,27 +701,6 @@ function FlashCardModeIcon() {
   );
 }
 
-function ClockLineIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="15"
-      viewBox="0 0 24 24"
-      width="15"
-    >
-      <circle cx="12" cy="12" r="8.6" stroke="currentColor" strokeWidth="1.8" />
-      <path
-        d="M12 7.8v4.7l2.9 2.1"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-      />
-    </svg>
-  );
-}
-
 function QuestionPromptIcon() {
   return (
     <svg
@@ -827,6 +768,26 @@ function RevealIcon() {
   );
 }
 
+function WriteAnswerIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="15"
+      viewBox="0 0 24 24"
+      width="15"
+    >
+      <path
+        d="M4.5 18.7h15M6.2 15.8l.7-3.3 7.7-7.7a2 2 0 0 1 2.8 0l1.8 1.8a2 2 0 0 1 0 2.8l-7.7 7.7-3.3.7a1.7 1.7 0 0 1-2-2Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
 function SkipIcon() {
   return (
     <svg
@@ -864,77 +825,6 @@ function EndSessionIcon() {
         width="10.5"
         x="6.75"
         y="6.75"
-      />
-    </svg>
-  );
-}
-
-function SelectedNotesIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="18"
-      viewBox="0 0 24 24"
-      width="18"
-    >
-      <rect
-        height="15"
-        rx="2.2"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        width="13"
-        x="6.5"
-        y="4.5"
-      />
-      <path
-        d="M9.3 9.2h6M9.3 12h6M9.3 14.8h4.2M8.5 7.3H6.2a1.7 1.7 0 0 0-1.7 1.7v8.8a1.7 1.7 0 0 0 1.7 1.7h8.8a1.7 1.7 0 0 0 1.7-1.7v-2.3"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-      />
-    </svg>
-  );
-}
-
-function AnsweredIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="18"
-      viewBox="0 0 24 24"
-      width="18"
-    >
-      <circle cx="12" cy="12" r="8.6" stroke="currentColor" strokeWidth="1.8" />
-      <path
-        d="m8.3 12.2 2.4 2.5 5-5.1"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-      />
-    </svg>
-  );
-}
-
-function RemainingIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="18"
-      viewBox="0 0 24 24"
-      width="18"
-    >
-      <circle cx="12" cy="12" r="8.6" stroke="currentColor" strokeWidth="1.8" />
-      <path
-        d="M12 8.2v4.3l2.7 1.9"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
       />
     </svg>
   );

@@ -3443,6 +3443,38 @@ describe("authenticated recall workspace", () => {
     ).not.toBeChecked();
 
     fireEvent.click(
+      screen.getByRole("button", { name: "Reset all from Biology" }),
+    );
+    expect(
+      within(sessionSetup).getByText("0", {
+        selector: ".recall-select-session-setup__selected-count",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: /Selected biology Study Note/ }),
+    ).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: /Added biology Study Note/ }),
+    ).not.toBeChecked();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Select all from Biology" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Reset all selected Study Notes",
+      }),
+    );
+    expect(
+      within(sessionSetup).getByText("0", {
+        selector: ".recall-select-session-setup__selected-count",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Select all from Biology" }),
+    );
+    fireEvent.click(
       within(sessionSetup).getByRole("button", {
         name: "Remove Selected biology Study Note",
       }),

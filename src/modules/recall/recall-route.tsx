@@ -313,6 +313,12 @@ export function RecallSelectionPage({
   const recallableSelectedStudyNoteIdSet = new Set(
     recallableSelectedStudyNoteIds,
   );
+  const visibleStudyNoteIds = visibleStudyNotes.map(
+    (studyNote) => studyNote.id,
+  );
+  const hasSelectedVisibleStudyNotes = visibleStudyNoteIds.some((studyNoteId) =>
+    recallableSelectedStudyNoteIdSet.has(studyNoteId),
+  );
   const disabledStartReason = getDisabledStartReason({
     selectedCount: recallableSelectedStudyNotes.length,
     selectedRecallType,
@@ -358,6 +364,22 @@ export function RecallSelectionPage({
     setSelectedStudyNoteIds((currentStudyNoteIds) => [
       ...new Set([...currentStudyNoteIds, ...visibleRecallableStudyNoteIds]),
     ]);
+    setErrorMessage(null);
+  }
+
+  function resetVisibleStudyNotesSelection() {
+    const visibleStudyNoteIdSet = new Set(visibleStudyNoteIds);
+
+    setSelectedStudyNoteIds((currentStudyNoteIds) =>
+      currentStudyNoteIds.filter(
+        (studyNoteId) => !visibleStudyNoteIdSet.has(studyNoteId),
+      ),
+    );
+    setErrorMessage(null);
+  }
+
+  function resetAllSelectedStudyNotes() {
+    setSelectedStudyNoteIds([]);
     setErrorMessage(null);
   }
 
@@ -498,6 +520,20 @@ export function RecallSelectionPage({
                       t("recall.selection.currentView"),
                   })}
                 </Button>
+                <Button
+                  disabled={!hasSelectedVisibleStudyNotes}
+                  onClick={resetVisibleStudyNotesSelection}
+                  size="compact"
+                  type="button"
+                  variant="secondary"
+                >
+                  <CloseIcon />
+                  {t("recall.selection.resetAllFrom", {
+                    label:
+                      selectedFilterLabel?.name ??
+                      t("recall.selection.currentView"),
+                  })}
+                </Button>
                 {selectedLabelId.length > 0 ? (
                   <Button
                     onClick={() => setSelectedLabelId("")}
@@ -614,6 +650,7 @@ export function RecallSelectionPage({
             onCancel={cancelSelection}
             onRecallTypeChange={setSelectedRecallType}
             onRemoveStudyNote={removeSelectedStudyNote}
+            onResetSelectedStudyNotes={resetAllSelectedStudyNotes}
             onStartRecall={startRecall}
             selectedRecallType={selectedRecallType}
             selectedStudyNotes={recallableSelectedStudyNotes}
@@ -636,6 +673,7 @@ type SessionSetupPanelProps = {
   onCancel: () => void;
   onRecallTypeChange: (mode: RecallMode) => void;
   onRemoveStudyNote: (studyNoteId: string) => void;
+  onResetSelectedStudyNotes: () => void;
   onStartRecall: () => void;
   selectedRecallType: RecallMode;
   selectedStudyNotes: readonly AppStudyNote[];
@@ -647,6 +685,7 @@ function SessionSetupPanel({
   onCancel,
   onRecallTypeChange,
   onRemoveStudyNote,
+  onResetSelectedStudyNotes,
   onStartRecall,
   selectedStudyNotes,
   selectedRecallType,
@@ -670,14 +709,54 @@ function SessionSetupPanel({
     >
       <header className="recall-select-session-setup__header">
         <p className="section-label">{t("recall.selection.sessionSetup")}</p>
-        <PinIcon />
       </header>
 
       <div className="recall-select-session-setup__selected-notes">
-        <p className="muted">{t("recall.selection.selectedNotes")}</p>
-        <p className="recall-select-session-setup__selected-count">
-          {selectedStudyNotes.length}
-        </p>
+        <div className="recall-select-session-setup__selected-summary">
+          <div>
+            <p className="muted">{t("recall.selection.selectedNotes")}</p>
+            <p className="recall-select-session-setup__selected-count">
+              {selectedStudyNotes.length}
+            </p>
+          </div>
+          <div className="recall-select-session-setup__top-actions">
+            <Button
+              disabled={selectedStudyNotes.length === 0}
+              onClick={onResetSelectedStudyNotes}
+              size="compact"
+              type="button"
+              variant="secondary"
+            >
+              <FilterOffIcon />
+              {t("recall.selection.resetSelected")}
+            </Button>
+            <Button
+              className="recall-select-session-setup__cancel"
+              onClick={onCancel}
+              size="compact"
+              type="button"
+            >
+              {t("recall.selection.cancel")}
+            </Button>
+            <Button
+              aria-describedby={
+                recallTypeWarning === null ? undefined : "recall-start-reason"
+              }
+              className="recall-select-session-setup__start"
+              disabled={disabledStartReason !== null}
+              onClick={onStartRecall}
+              size="compact"
+              type="button"
+              variant="primary"
+              aria-label={t("recall.selection.start")}
+            >
+              {t("recall.selection.startWithCount", {
+                count: selectedStudyNotes.length,
+              })}
+              <ChevronRightIcon />
+            </Button>
+          </div>
+        </div>
         {selectedStudyNotes.length > 0 ? (
           <ol
             aria-label={t("recall.selection.selectedNotes")}
@@ -772,32 +851,6 @@ function SessionSetupPanel({
         <InfoIcon />
         <span>{t("recall.selection.temporary")}</span>
       </p>
-
-      <div className="recall-session-setup__actions">
-        <Button
-          className="recall-select-session-setup__cancel"
-          onClick={onCancel}
-          type="button"
-        >
-          {t("recall.selection.cancel")}
-        </Button>
-        <Button
-          aria-describedby={
-            recallTypeWarning === null ? undefined : "recall-start-reason"
-          }
-          className="recall-select-session-setup__start"
-          disabled={disabledStartReason !== null}
-          onClick={onStartRecall}
-          type="button"
-          variant="primary"
-          aria-label={t("recall.selection.start")}
-        >
-          {t("recall.selection.startWithCount", {
-            count: selectedStudyNotes.length,
-          })}
-          <ChevronRightIcon />
-        </Button>
-      </div>
 
       {recallTypeWarning !== null ? (
         <p className="muted" id="recall-start-reason">
@@ -967,26 +1020,6 @@ function InfoIcon() {
         strokeWidth="1.8"
       />
       <circle cx="12" cy="7.5" fill="currentColor" r="1.1" />
-    </svg>
-  );
-}
-
-function PinIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="18"
-      viewBox="0 0 24 24"
-      width="18"
-    >
-      <path
-        d="M8 4h8m-1 0v5l3 3H6l3-3V4m3 8v8"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.7"
-      />
     </svg>
   );
 }

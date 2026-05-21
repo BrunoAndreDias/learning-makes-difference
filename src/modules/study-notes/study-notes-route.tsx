@@ -85,9 +85,11 @@ import {
 } from "./study-note-recall-insight";
 
 const studyNotesSearchSchema = z.object({
+  focus: z.enum(["expected-answer"]).optional(),
   labelId: z.string().optional(),
   practiceRepairAction: z.enum(practiceRepairIntents).optional(),
   practiceRepairEntryId: z.string().optional(),
+  studyNoteId: z.string().optional(),
 });
 
 const DEFAULT_COLLAPSED_STUDY_NOTES_COUNT = 8;
@@ -1629,6 +1631,39 @@ function StudyNotesWorkspace() {
       expectedAnswerInputRef.current?.focus();
     }
   }, [linkedPracticeRepair, selectedStudyNote?.id]);
+
+  useEffect(() => {
+    const targetStudyNoteId = search.studyNoteId;
+
+    if (targetStudyNoteId === undefined) {
+      return;
+    }
+
+    if (
+      !allStudyNotes.some((studyNote) => studyNote.id === targetStudyNoteId)
+    ) {
+      return;
+    }
+
+    if (isCreatingStudyNote) {
+      setCreatingStudyNote(false);
+    }
+
+    if (selectedStudyNote?.id !== targetStudyNoteId) {
+      setSelectedStudyNoteId(targetStudyNoteId);
+      return;
+    }
+
+    if (search.focus === "expected-answer") {
+      expectedAnswerInputRef.current?.focus();
+    }
+  }, [
+    allStudyNotes,
+    isCreatingStudyNote,
+    search.focus,
+    search.studyNoteId,
+    selectedStudyNote?.id,
+  ]);
 
   useEffect(() => {
     if (

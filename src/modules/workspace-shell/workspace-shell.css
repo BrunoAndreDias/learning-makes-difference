@@ -717,7 +717,24 @@
   overflow: hidden;
 }
 
+.app-frame[data-workspace="recall"]:has(.recall-selection-layout--picker) {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: calc(100dvh - 2rem);
+  min-height: 0;
+  overflow: hidden;
+}
+
 .app-frame[data-workspace="recall-results"] .app-frame__content {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-frame[data-workspace="recall"]:has(.recall-selection-layout--picker)
+  .app-frame__content {
   display: grid;
   grid-template-rows: minmax(0, 1fr);
   height: 100%;

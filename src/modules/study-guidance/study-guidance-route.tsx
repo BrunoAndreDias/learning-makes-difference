@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { ButtonLink, type ButtonVariant } from "../../design-system/button";
@@ -128,7 +128,17 @@ function StudyGuidanceWorkspace() {
           >
             <ul className="study-guidance-summary__list">
               {guidance.summaryCards.map((card) => (
-                <StudyGuidanceSummaryCardView card={card} key={card.id} />
+                <StudyGuidanceSummaryCardView
+                  action={
+                    card.id === "completion-blocker"
+                      ? (guidance.rows.find(
+                          (row) => row.bucketId === "completion-blocker",
+                        )?.action ?? null)
+                      : null
+                  }
+                  card={card}
+                  key={card.id}
+                />
               ))}
             </ul>
           </section>
@@ -224,18 +234,41 @@ function StudyGuidanceHeaderAction({
 }
 
 function StudyGuidanceSummaryCardView({
+  action,
   card,
 }: Readonly<{
+  action: StudyGuidanceRowAction | null;
   card: StudyGuidanceSummaryCard;
 }>) {
-  return (
-    <li className="study-guidance-card" data-bucket-id={card.id}>
+  const content = (
+    <>
       <p className="study-guidance-card__label">{card.label}</p>
       <p className="study-guidance-card__metric">
         <strong>{card.count}</strong>
         <span>{formatItemCountLabel(card.count)}</span>
       </p>
       <p className="study-guidance-card__detail">{card.detail}</p>
+    </>
+  );
+
+  if (action?.kind === "study-note-completion" && card.count > 0) {
+    return (
+      <li data-bucket-id={card.id}>
+        <Link
+          aria-label={`${action.label}: ${card.detail}`}
+          className="study-guidance-card study-guidance-card--link"
+          search={{ focus: action.focus, studyNoteId: action.studyNoteId }}
+          to={appRoutePaths.studyNotes}
+        >
+          {content}
+        </Link>
+      </li>
+    );
+  }
+
+  return (
+    <li className="study-guidance-card" data-bucket-id={card.id}>
+      {content}
     </li>
   );
 }
@@ -300,6 +333,16 @@ function StudyGuidanceActionLink({
         <ButtonLink
           search={{ studyNoteIds: action.studyNoteIds.join(",") }}
           to={appRoutePaths.recallSelect}
+          variant={variant}
+        >
+          {action.label}
+        </ButtonLink>
+      );
+    case "study-note-completion":
+      return (
+        <ButtonLink
+          search={{ focus: action.focus, studyNoteId: action.studyNoteId }}
+          to={appRoutePaths.studyNotes}
           variant={variant}
         >
           {action.label}

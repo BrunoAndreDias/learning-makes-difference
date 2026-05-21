@@ -401,7 +401,18 @@ describe("authenticated recall workspace", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText("Saved result body.")).toBeNull();
+    expect(screen.queryByText("elapsed")).toBeNull();
+    expect(
+      screen.queryByRole("complementary", { name: "Session overview" }),
+    ).toBeNull();
+    expect(
+      screen.getByText("Study Notes are shown in a randomized order."),
+    ).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: "Write answer" }));
+    fireEvent.change(screen.getByLabelText("Your answer"), {
+      target: { value: "Typed learner recall." },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Reveal Study Note" }));
     expect(screen.getByText("Saved result body.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
@@ -410,6 +421,20 @@ describe("authenticated recall workspace", () => {
     expect(router.state.location.pathname).toBe("/recall/results");
     expect(
       await screen.findByText("Recall session saved to results"),
+    ).toBeInTheDocument();
+    const selectedResult = await screen.findByRole("region", {
+      name: "Selected result",
+    });
+    const savedQuestion = within(selectedResult).getByRole("button", {
+      name: /Saved result note/i,
+    });
+
+    fireEvent.click(savedQuestion);
+
+    expect(
+      within(getControlledPanel(savedQuestion)).getByText(
+        "Typed learner recall.",
+      ),
     ).toBeInTheDocument();
     expect(screen.getAllByText("75%").length).toBeGreaterThan(0);
   });

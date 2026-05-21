@@ -266,7 +266,7 @@ describe("authenticated Today workspace", () => {
       sourceTitle: "Cell membranes",
       userId,
     });
-    createStudyNote(contexts, {
+    const completionBlocker = createStudyNote(contexts, {
       expectedAnswer: " ",
       labelIds: [biology.id],
       prompt: "Define mitochondria",
@@ -387,6 +387,14 @@ describe("authenticated Today workspace", () => {
 
     const summary = screen.getByRole("region", { name: "Today summary" });
     expect(within(summary).getAllByRole("listitem")).toHaveLength(6);
+    expect(
+      within(summary).getByRole("link", {
+        name: /Add expected answer/,
+      }),
+    ).toHaveAttribute(
+      "href",
+      `/study-notes?focus=expected-answer&studyNoteId=${completionBlocker.id}`,
+    );
 
     const nextActions = screen.getByRole("region", {
       name: "Today next actions",
@@ -427,9 +435,12 @@ describe("authenticated Today workspace", () => {
     ).toHaveAttribute("href", "/recall/due-today");
     expect(
       within(getTodayRow("Define mitochondria")).getByRole("link", {
-        name: "Open Study Notes",
+        name: "Add expected answer",
       }),
-    ).toHaveAttribute("href", "/study-notes");
+    ).toHaveAttribute(
+      "href",
+      `/study-notes?focus=expected-answer&studyNoteId=${completionBlocker.id}`,
+    );
     expect(
       within(getTodayRow("Describe ATP")).getByRole("link", {
         name: "Open Recall Selection",

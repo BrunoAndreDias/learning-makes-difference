@@ -379,6 +379,17 @@ function renderStudyNotesRouteForUser(
   });
 }
 
+function renderStudyNotesRoutePathForUser(
+  path: string,
+  contexts: DeterministicRecallTestContexts,
+  user: NonNullable<AppSessionSnapshot["user"]>,
+) {
+  renderRoute(path, {
+    ...contexts,
+    session: { user },
+  });
+}
+
 function createRecallTodayStudyNotesScenario(
   contexts: DeterministicRecallTestContexts,
   userId: string,
@@ -487,6 +498,46 @@ afterEach(() => {
 });
 
 describe("authenticated Study Notes workspace", () => {
+  it("selects a Study Note from URL search and focuses the expected answer field", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const user = {
+      displayName: "Study Notes User",
+      email: "study-notes@example.com",
+      id: "study-notes-url-focus-user",
+      userLanguage: "en",
+      userTimeZone: "UTC",
+    } as const;
+    createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Already complete.",
+      prompt: "Complete Study Note",
+      sourceBody: "Complete source.",
+      sourceTitle: "Complete source",
+      userId: user.id,
+    });
+    const incompleteStudyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "",
+      prompt: "Incomplete Study Note",
+      sourceBody: "Incomplete source.",
+      sourceTitle: "Incomplete source",
+      userId: user.id,
+    });
+
+    renderStudyNotesRoutePathForUser(
+      `/study-notes?focus=expected-answer&studyNoteId=${incompleteStudyNote.id}`,
+      contexts,
+      user,
+    );
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Incomplete Study Note",
+      }),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByLabelText("Expected answer")).toHaveFocus(),
+    );
+  });
+
   it("renders Study Notes as the primary workspace with source context below the Study Note fields", async () => {
     const studyNotesContext = createAppStudyNotesContext({
       keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,

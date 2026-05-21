@@ -47,6 +47,20 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .recall-workspace.recall-surface,
+  .recall-workspace > .page-layout__body,
+  .recall-selection-layout--picker {
+    height: auto;
+    overflow: visible;
+  }
+
+  .app-frame[data-workspace="recall"]:has(.recall-selection-layout--picker),
+  .app-frame[data-workspace="recall"]:has(.recall-selection-layout--picker)
+    .app-frame__content {
+    height: auto;
+    overflow: visible;
+  }
+
   .recall-practice-repair-queue__item {
     grid-template-columns: minmax(0, 1fr);
     align-items: start;

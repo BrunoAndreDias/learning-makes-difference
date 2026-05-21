@@ -60,6 +60,12 @@ export type StudyGuidanceRowAction =
       studyNoteIds: readonly string[];
     }
   | {
+      focus: "expected-answer";
+      kind: "study-note-completion";
+      label: "Add expected answer";
+      studyNoteId: string;
+    }
+  | {
       kind: "study-notes";
       label: "Open Study Notes";
     };
@@ -298,10 +304,15 @@ function compareDueSchedules(input: {
   );
 }
 
-function createSummaryCards(rows: readonly StudyGuidanceRow[]) {
+function createSummaryCards(
+  rows: readonly StudyGuidanceRow[],
+  countOverrides: Partial<Record<StudyGuidanceBucketId, number>> = {},
+) {
   return bucketDefinitions.map((bucket) => ({
     ...bucket,
-    count: rows.filter((row) => row.bucketId === bucket.id).length,
+    count:
+      countOverrides[bucket.id] ??
+      rows.filter((row) => row.bucketId === bucket.id).length,
   }));
 }
 
@@ -479,8 +490,10 @@ function createCompletionBlockerRows(input: {
     .map((studyNote) =>
       createStudyNoteRowDraft({
         action: {
-          kind: "study-notes",
-          label: "Open Study Notes",
+          focus: "expected-answer",
+          kind: "study-note-completion",
+          label: "Add expected answer",
+          studyNoteId: studyNote.id,
         },
         bucketId: "completion-blocker",
         evidence:
@@ -735,6 +748,15 @@ export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
   });
   addStudyNoteIdsToBlockedSet(blockedStudyNoteIds, practiceFollowUpRows);
 
+  const scheduledStudyNoteCount = buildDueTodayQueue({
+    histories,
+    now: input.now,
+    recallSchedules: input.recallSchedules,
+    sessionResults: input.sessionResults,
+    studyNotes: input.studyNotes,
+    userTimeZone: input.userTimeZone,
+  }).length;
+
   const dueTodayRows = createDueTodayRows({
     blockedStudyNoteIds,
     histories,
@@ -781,6 +803,8 @@ export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
   return {
     emptyState: null,
     rows,
-    summaryCards: createSummaryCards(rows),
+    summaryCards: createSummaryCards(rows, {
+      "due-today": scheduledStudyNoteCount,
+    }),
   };
 }

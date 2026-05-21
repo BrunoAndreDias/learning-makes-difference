@@ -333,7 +333,7 @@ describe("Study Guidance", () => {
     expect(guidance.summaryCards).toEqual([
       expect.objectContaining({ count: 1, id: "practice-repair" }),
       expect.objectContaining({ count: 1, id: "practice-follow-up" }),
-      expect.objectContaining({ count: 1, id: "due-today" }),
+      expect.objectContaining({ count: 2, id: "due-today" }),
       expect.objectContaining({ count: 1, id: "completion-blocker" }),
       expect.objectContaining({ count: 1, id: "first-recall" }),
       expect.objectContaining({ count: 1, id: "interleaving-ready" }),
@@ -362,7 +362,7 @@ describe("Study Guidance", () => {
       },
       {
         bucketId: "completion-blocker",
-        kind: "study-notes",
+        kind: "study-note-completion",
         title: "Define mitochondria",
       },
       {
@@ -381,6 +381,12 @@ describe("Study Guidance", () => {
         metadata: ["Label: Biology", "Source: Cell membranes"],
       }),
     );
+    expect(guidance.rows[3]?.action).toEqual({
+      focus: "expected-answer",
+      kind: "study-note-completion",
+      label: "Add expected answer",
+      studyNoteId: completionBlocker.id,
+    });
     expect(guidance.rows[4]?.action).toEqual({
       kind: "recall-selection",
       label: "Open Recall Selection",
@@ -530,6 +536,66 @@ describe("Study Guidance", () => {
         title: "Explain facilitated diffusion",
       },
     ]);
+  });
+
+  it("counts scheduled completed Practice Follow-ups in the Today summary", () => {
+    const biology: AppLabel = {
+      id: "label-biology",
+      name: "Biology",
+    };
+    const scheduledFollowUps = Array.from({ length: 3 }, (_, index) =>
+      buildStudyNote({
+        id: `study-note-scheduled-follow-up-${index + 1}`,
+        labelIds: [biology.id],
+        prompt: `Scheduled follow-up ${index + 1}`,
+      }),
+    );
+
+    const guidance = deriveStudyGuidance({
+      attemptsByNote: scheduledFollowUps.map((studyNote, index) =>
+        buildAttempts(studyNote.id, [
+          {
+            bodySnapshot: `Scheduled follow-up answer ${index + 1}`,
+            completedAt: "2026-05-14T09:00:00.000Z",
+            rating: "hard",
+            sessionId: `session-scheduled-follow-up-${index + 1}`,
+            snapshotTitle: studyNote.prompt,
+          },
+        ]),
+      ),
+      labels: [biology],
+      now: "2026-05-15T12:00:00.000Z",
+      recallSchedules: scheduledFollowUps.map((studyNote) =>
+        buildSchedule(studyNote.id, {
+          nextRecallAt: "2026-05-15T09:00:00.000Z",
+        }),
+      ),
+      sessionResults: scheduledFollowUps.map((studyNote, index) =>
+        buildSessionResult({
+          completedAt: "2026-05-14T09:00:00.000Z",
+          id: `result-scheduled-follow-up-${index + 1}`,
+          practiceRepairCorrection: "Tighten the expected answer.",
+          practiceRepairLifecycle: {
+            completedAt: "2026-05-14T10:00:00.000Z",
+          },
+          questionResultId: `result-scheduled-follow-up-question-${index + 1}`,
+          selfRating: "hard",
+          studyNote,
+        }),
+      ),
+      studyNotes: scheduledFollowUps,
+      userTimeZone: "America/New_York",
+    });
+
+    expect(guidance.rows).toHaveLength(3);
+    expect(
+      guidance.rows.every((row) => row.bucketId === "practice-follow-up"),
+    ).toBe(true);
+    expect(guidance.summaryCards).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ count: 3, id: "due-today" }),
+      ]),
+    );
   });
 
   it("keeps interleaving-ready groups last and orders those topic rows alphabetically", () => {
