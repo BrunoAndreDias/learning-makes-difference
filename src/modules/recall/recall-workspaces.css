@@ -72,6 +72,11 @@
   min-height: 0;
 }
 
+.recall-workspace > .page-layout__body {
+  align-content: stretch;
+  height: 100%;
+}
+
 .recall-results-top {
   display: grid;
   gap: 0.75rem;
@@ -1078,8 +1083,10 @@
 
 .recall-selection-layout--picker {
   grid-template-columns: minmax(0, 1.4fr) minmax(20rem, 0.8fr);
-  align-items: start;
+  align-items: stretch;
   gap: 1rem;
+  min-height: 0;
+  height: 100%;
 }
 
 .recall-note-picker {
@@ -1087,12 +1094,27 @@
 }
 
 .recall-select-note-picker {
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  align-content: stretch;
   gap: 0.75rem;
-  padding: 0.8rem;
-  border-color: var(--color-content-border-soft);
-  border-radius: 0.65rem;
-  background: var(--color-shell-panel);
-  box-shadow: var(--shadow-chrome);
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.recall-select-note-picker__toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(11rem, 15rem);
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.recall-label-filter {
+  gap: 0;
 }
 
 .recall-note-row {
@@ -1210,8 +1232,88 @@
   color: var(--color-content-muted);
 }
 
+.recall-select-note-picker .recall-label-filter select {
+  min-height: 2.2rem;
+  border-color: var(--color-content-border-soft);
+  border-radius: 0.45rem;
+  background: var(--color-shell-panel);
+  color: var(--color-content-strong);
+  font-size: 0.88rem;
+}
+
+.recall-select-filter-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.5rem;
+  background: var(--color-shell-inset);
+}
+
+.recall-select-filter-summary__copy,
+.recall-select-filter-summary__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.recall-select-filter-summary__copy {
+  color: var(--color-content-muted);
+  font-size: 0.86rem;
+}
+
+.recall-select-filter-summary__copy strong {
+  color: var(--color-content-strong);
+}
+
+.recall-select-filter-summary__actions {
+  justify-content: flex-end;
+}
+
+.recall-select-filter-summary__actions .notes-action {
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.recall-select-note-picker__section-heading {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.recall-select-note-picker__section-heading h4 {
+  margin: 0;
+  color: var(--color-content-strong);
+  font-size: 1rem;
+}
+
+.recall-select-note-picker__section-heading p {
+  margin: 0;
+}
+
 .recall-select-note-picker .recall-note-picker__list {
   gap: 0.5rem;
+  min-height: 0;
+  height: 100%;
+  padding-right: 0.35rem;
+  overflow-y: auto;
+  scrollbar-color: var(--color-content-border) transparent;
+  scrollbar-width: thin;
+}
+
+.recall-select-note-picker .recall-note-picker__list::-webkit-scrollbar {
+  width: 0.55rem;
+}
+
+.recall-select-note-picker .recall-note-picker__list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.recall-select-note-picker .recall-note-picker__list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--color-content-border);
 }
 
 .recall-select-note-picker .recall-note-picker__footer {
@@ -1323,23 +1425,54 @@
 
 .recall-select-session-setup__selected-row {
   display: grid;
-  gap: 0.45rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "grip title remove"
+    "grip labels remove";
+  column-gap: 0.65rem;
+  row-gap: 0.35rem;
+  align-items: center;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-content-border-soft);
   border-radius: 0.55rem;
   background: var(--color-shell-inset);
 }
 
+.recall-select-session-setup__selected-row > svg {
+  grid-area: grip;
+  color: var(--color-content-muted);
+}
+
 .recall-select-session-setup__selected-row strong {
+  grid-area: title;
   color: var(--color-content-strong);
   font-size: 0.9rem;
   line-height: 1.35;
 }
 
 .recall-select-session-setup__selected-labels {
+  grid-area: labels;
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+}
+
+.recall-select-session-setup__remove-note {
+  display: inline-grid;
+  grid-area: remove;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-content-muted);
+  cursor: pointer;
+}
+
+.recall-select-session-setup__remove-note:hover {
+  background: var(--color-shell-panel);
+  color: var(--color-content-strong);
 }
 
 .recall-select-session-setup__divider {

@@ -116,6 +116,20 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .recall-select-note-picker__toolbar,
+  .recall-select-filter-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .recall-select-filter-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .recall-select-filter-summary__actions {
+    justify-content: flex-start;
+  }
+
   .recall-select-note-row__main {
     grid-template-columns: minmax(0, 1fr);
   }

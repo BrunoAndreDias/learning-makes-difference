@@ -25,7 +25,6 @@ import {
 } from "./learner-copy";
 import { AppRecallError, type RecallMode } from "./recall";
 import { RecallBreadcrumb } from "./recall-breadcrumb";
-import { addRecallableStudyNotesFromLabels } from "./recall-selection-label-add";
 
 export const Route = createFileRoute("/_protected/recall")({
   component: RecallRouteShell,
@@ -122,26 +121,6 @@ const recallQuestionStylePlaceholderFields = [
 ] as const satisfies readonly { id: string; key: AppTranslationKey }[];
 
 type AppTranslate = ReturnType<typeof useAppTranslation>["t"];
-type LabelAddResult = ReturnType<typeof addRecallableStudyNotesFromLabels>;
-type CountTranslationKeys = Readonly<{
-  plural: AppTranslationKey;
-  singular: AppTranslationKey;
-}>;
-
-const labelAddFeedbackTranslationKeys = {
-  added: {
-    plural: "recall.selection.addFromLabels.feedback.added_plural",
-    singular: "recall.selection.addFromLabels.feedback.added",
-  },
-  alreadySelected: {
-    plural: "recall.selection.addFromLabels.feedback.alreadySelected_plural",
-    singular: "recall.selection.addFromLabels.feedback.alreadySelected",
-  },
-  skippedIncomplete: {
-    plural: "recall.selection.addFromLabels.feedback.skippedIncomplete_plural",
-    singular: "recall.selection.addFromLabels.feedback.skippedIncomplete",
-  },
-} as const satisfies Record<string, CountTranslationKeys>;
 
 function getStudyNotePreview(
   studyNote: AppStudyNote,
@@ -203,6 +182,19 @@ function filterStudyNotes(studyNotes: readonly AppStudyNote[], query: string) {
   );
 }
 
+function filterStudyNotesByLabel(input: {
+  labelId: string;
+  studyNotes: readonly AppStudyNote[];
+}) {
+  if (input.labelId.length === 0) {
+    return [...input.studyNotes];
+  }
+
+  return input.studyNotes.filter((studyNote) =>
+    studyNote.labelIds.includes(input.labelId),
+  );
+}
+
 function isStudyNoteRecallable(
   studyNote: Pick<AppStudyNote, "expectedAnswer" | "prompt">,
 ) {
@@ -223,28 +215,15 @@ function getRecallableSelectedStudyNotes(input: {
 
 function resolveSelectedLabelIds(
   labels: readonly AppLabel[],
-  selectedLabelIds: readonly string[],
+  selectedLabelId: string,
 ) {
   const availableLabelIds = new Set(labels.map((label) => label.id));
-  const nextSelectedLabelIds = selectedLabelIds.filter((selectedLabelId) =>
-    availableLabelIds.has(selectedLabelId),
-  );
 
-  if (nextSelectedLabelIds.length > 0 || selectedLabelIds.length === 0) {
-    return nextSelectedLabelIds;
+  if (selectedLabelId.length === 0 || availableLabelIds.has(selectedLabelId)) {
+    return selectedLabelId;
   }
 
-  return labels[0] === undefined ? [] : [labels[0].id];
-}
-
-function areStringArraysEqual(
-  leftValues: readonly string[],
-  rightValues: readonly string[],
-) {
-  return (
-    leftValues.length === rightValues.length &&
-    leftValues.every((leftValue, index) => leftValue === rightValues[index])
-  );
+  return "";
 }
 
 function getDisabledStartReason(input: {
@@ -258,88 +237,6 @@ function getDisabledStartReason(input: {
 
   if (input.selectedRecallType !== "FlashCard") {
     return input.t("recall.selection.disabled.ai");
-  }
-
-  return null;
-}
-
-function getPluralizedTranslation(input: {
-  count: number;
-  keys: CountTranslationKeys;
-  t: AppTranslate;
-}) {
-  return input.t(input.count === 1 ? input.keys.singular : input.keys.plural, {
-    count: input.count,
-  });
-}
-
-function getLabelAddFeedbackMessage(input: {
-  result: LabelAddResult;
-  t: AppTranslate;
-}) {
-  const { result, t } = input;
-  const addedCount = result.addedStudyNoteIds.length;
-  const alreadySelectedCount = result.alreadySelectedStudyNoteIds.length;
-  const skippedIncompleteCount = result.skippedIncompleteStudyNoteIds.length;
-  const messages: string[] = [];
-
-  if (addedCount === 0) {
-    messages.push(t("recall.selection.addFromLabels.feedback.noneAdded"));
-  } else {
-    messages.push(
-      getPluralizedTranslation({
-        count: addedCount,
-        keys: labelAddFeedbackTranslationKeys.added,
-        t,
-      }),
-    );
-  }
-
-  if (
-    addedCount === 0 &&
-    alreadySelectedCount === 0 &&
-    skippedIncompleteCount === 0
-  ) {
-    messages.push(
-      t("recall.selection.addFromLabels.feedback.noRecallableMatches"),
-    );
-    return messages.join(" ");
-  }
-
-  if (alreadySelectedCount > 0) {
-    messages.push(
-      getPluralizedTranslation({
-        count: alreadySelectedCount,
-        keys: labelAddFeedbackTranslationKeys.alreadySelected,
-        t,
-      }),
-    );
-  }
-
-  if (skippedIncompleteCount > 0) {
-    messages.push(
-      getPluralizedTranslation({
-        count: skippedIncompleteCount,
-        keys: labelAddFeedbackTranslationKeys.skippedIncomplete,
-        t,
-      }),
-    );
-  }
-
-  return messages.join(" ");
-}
-
-function getAddFromLabelsDisabledReason(input: {
-  hasAvailableLabels: boolean;
-  selectedLabelCount: number;
-  t: AppTranslate;
-}) {
-  if (!input.hasAvailableLabels) {
-    return input.t("recall.selection.addFromLabels.feedback.noLabels");
-  }
-
-  if (input.selectedLabelCount === 0) {
-    return input.t("recall.selection.addFromLabels.feedback.selectOne");
   }
 
   return null;
@@ -392,15 +289,20 @@ export function RecallSelectionPage({
   );
   const [selectedRecallType, setSelectedRecallType] =
     useState<RecallMode>("FlashCard");
-  const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>(() =>
-    labels[0] === undefined ? [] : [labels[0].id],
-  );
-  const [labelAddFeedback, setLabelAddFeedback] = useState<string | null>(null);
+  const [selectedLabelId, setSelectedLabelId] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const visibleStudyNotes = useMemo(
-    () => filterStudyNotes(studyNotes, searchQuery),
-    [studyNotes, searchQuery],
+  const labelFilteredStudyNotes = useMemo(
+    () => filterStudyNotesByLabel({ labelId: selectedLabelId, studyNotes }),
+    [selectedLabelId, studyNotes],
   );
+  const visibleStudyNotes = useMemo(
+    () => filterStudyNotes(labelFilteredStudyNotes, searchQuery),
+    [labelFilteredStudyNotes, searchQuery],
+  );
+  const selectedFilterLabel =
+    selectedLabelId.length === 0
+      ? null
+      : (labelsById.get(selectedLabelId) ?? null);
   const recallableSelectedStudyNotes = getRecallableSelectedStudyNotes({
     selectedStudyNoteIds,
     studyNotesById,
@@ -419,17 +321,17 @@ export function RecallSelectionPage({
   const canStart = disabledStartReason === null;
 
   useEffect(() => {
-    const nextSelectedLabelIds = resolveSelectedLabelIds(
+    const nextSelectedLabelId = resolveSelectedLabelIds(
       labels,
-      selectedLabelIds,
+      selectedLabelId,
     );
 
-    if (areStringArraysEqual(nextSelectedLabelIds, selectedLabelIds)) {
+    if (nextSelectedLabelId === selectedLabelId) {
       return;
     }
 
-    setSelectedLabelIds(nextSelectedLabelIds);
-  }, [labels, selectedLabelIds]);
+    setSelectedLabelId(nextSelectedLabelId);
+  }, [labels, selectedLabelId]);
 
   function toggleStudyNote(studyNoteId: string) {
     const studyNote = studyNotesById.get(studyNoteId);
@@ -445,47 +347,25 @@ export function RecallSelectionPage({
           )
         : [...currentStudyNoteIds, studyNoteId],
     );
-    setLabelAddFeedback(null);
     setErrorMessage(null);
   }
 
-  function toggleSelectedLabel(labelId: string, isSelected: boolean) {
-    setSelectedLabelIds((currentSelectedLabelIds) => {
-      if (isSelected) {
-        return currentSelectedLabelIds.includes(labelId)
-          ? currentSelectedLabelIds
-          : [...currentSelectedLabelIds, labelId];
-      }
+  function selectAllVisibleStudyNotes() {
+    const visibleRecallableStudyNoteIds = visibleStudyNotes
+      .filter(isStudyNoteRecallable)
+      .map((studyNote) => studyNote.id);
 
-      if (!currentSelectedLabelIds.includes(labelId)) {
-        return currentSelectedLabelIds;
-      }
-
-      return currentSelectedLabelIds.filter(
-        (currentSelectedLabelId) => currentSelectedLabelId !== labelId,
-      );
-    });
-    setLabelAddFeedback(null);
+    setSelectedStudyNoteIds((currentStudyNoteIds) => [
+      ...new Set([...currentStudyNoteIds, ...visibleRecallableStudyNoteIds]),
+    ]);
+    setErrorMessage(null);
   }
 
-  function addStudyNotesFromLabels() {
-    if (selectedLabelIds.length === 0) {
-      setLabelAddFeedback(null);
-      return;
-    }
-
-    const result = addRecallableStudyNotesFromLabels({
-      selectedLabelIds,
-      selectedStudyNoteIds,
-      studyNotes,
-    });
-
-    setSelectedStudyNoteIds(result.selectedStudyNoteIds);
-    setLabelAddFeedback(
-      getLabelAddFeedbackMessage({
-        result,
-        t,
-      }),
+  function removeSelectedStudyNote(studyNoteId: string) {
+    setSelectedStudyNoteIds((currentStudyNoteIds) =>
+      currentStudyNoteIds.filter(
+        (currentStudyNoteId) => currentStudyNoteId !== studyNoteId,
+      ),
     );
     setErrorMessage(null);
   }
@@ -508,7 +388,6 @@ export function RecallSelectionPage({
           studyNoteIds: recallableSelectedStudyNoteIds,
         });
       }
-      setLabelAddFeedback(null);
       setErrorMessage(null);
       await navigate({ to: appRoutePaths.recallSession });
     } catch (error) {
@@ -523,7 +402,6 @@ export function RecallSelectionPage({
 
   async function cancelSelection() {
     setSelectedStudyNoteIds([]);
-    setLabelAddFeedback(null);
     setErrorMessage(null);
     await navigate({ to: appRoutePaths.recall });
   }
@@ -554,20 +432,102 @@ export function RecallSelectionPage({
             aria-label={t("recall.selection.availableNotes")}
             className="recall-panel recall-note-picker recall-select-note-picker"
           >
-            <label
-              className="recall-field recall-search-field"
-              htmlFor="recall-note-search"
-            >
-              <span className="sr-only">{t("recall.selection.search")}</span>
-              <SearchIcon />
-              <input
-                id="recall-note-search"
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder={t("recall.selection.searchPlaceholder")}
-                type="search"
-                value={searchQuery}
-              />
-            </label>
+            <div className="recall-select-note-picker__toolbar">
+              <label
+                className="recall-field recall-search-field"
+                htmlFor="recall-note-search"
+              >
+                <span className="sr-only">{t("recall.selection.search")}</span>
+                <SearchIcon />
+                <input
+                  id="recall-note-search"
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder={t("recall.selection.searchPlaceholder")}
+                  type="search"
+                  value={searchQuery}
+                />
+              </label>
+
+              <label
+                className="recall-field recall-label-filter"
+                htmlFor="recall-label-filter"
+              >
+                <span className="sr-only">
+                  {t("recall.selection.filterByLabel")}
+                </span>
+                <select
+                  id="recall-label-filter"
+                  onChange={(event) => setSelectedLabelId(event.target.value)}
+                  value={selectedLabelId}
+                >
+                  <option value="">{t("recall.selection.allLabels")}</option>
+                  {labels.map((label) => (
+                    <option key={label.id} value={label.id}>
+                      {label.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="recall-select-filter-summary">
+              <div className="recall-select-filter-summary__copy">
+                <span>{t("recall.selection.currentlyViewing")}</span>
+                <span className="recall-select-note-row__label">
+                  {selectedFilterLabel?.name ?? t("recall.selection.allLabels")}
+                </span>
+                <span aria-hidden="true">|</span>
+                <strong>
+                  {t("recall.selection.showingFilteredNotes", {
+                    count: visibleStudyNotes.length,
+                  })}
+                </strong>
+              </div>
+              <div className="recall-select-filter-summary__actions">
+                <Button
+                  disabled={!visibleStudyNotes.some(isStudyNoteRecallable)}
+                  onClick={selectAllVisibleStudyNotes}
+                  size="compact"
+                  type="button"
+                  variant="secondary"
+                >
+                  <CheckCircleIcon />
+                  {t("recall.selection.selectAllFrom", {
+                    label:
+                      selectedFilterLabel?.name ??
+                      t("recall.selection.currentView"),
+                  })}
+                </Button>
+                {selectedLabelId.length > 0 ? (
+                  <Button
+                    onClick={() => setSelectedLabelId("")}
+                    size="compact"
+                    type="button"
+                    variant="secondary"
+                  >
+                    <FilterOffIcon />
+                    {t("recall.selection.clearFilter")}
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="recall-select-note-picker__section-heading">
+              <h4>
+                {selectedFilterLabel === null
+                  ? t("recall.selection.notesInAllLabels")
+                  : t("recall.selection.notesInLabel", {
+                      label: selectedFilterLabel.name,
+                    })}
+              </h4>
+              <p className="muted">
+                {selectedFilterLabel === null
+                  ? t("recall.selection.notesInAllLabelsDescription")
+                  : t("recall.selection.notesInLabelDescription", {
+                      label: selectedFilterLabel.name,
+                    })}
+              </p>
+            </div>
 
             <ol className="recall-note-picker__list">
               {visibleStudyNotes.map((studyNote) => {
@@ -646,25 +606,15 @@ export function RecallSelectionPage({
                 {t("recall.selection.noSearchMatches")}
               </p>
             ) : null}
-
-            <footer className="recall-note-picker__footer">
-              {t("recall.selection.showingNotes", {
-                totalCount: studyNotes.length,
-                visibleCount: visibleStudyNotes.length,
-              })}
-            </footer>
           </section>
 
           <SessionSetupPanel
             availableLabels={labels}
             disabledStartReason={disabledStartReason}
-            onAddStudyNotesFromLabels={addStudyNotesFromLabels}
             onCancel={cancelSelection}
-            labelAddFeedback={labelAddFeedback}
-            onLabelSelectionChange={toggleSelectedLabel}
             onRecallTypeChange={setSelectedRecallType}
+            onRemoveStudyNote={removeSelectedStudyNote}
             onStartRecall={startRecall}
-            selectedLabelIds={selectedLabelIds}
             selectedRecallType={selectedRecallType}
             selectedStudyNotes={recallableSelectedStudyNotes}
           />
@@ -683,36 +633,28 @@ export function RecallSelectionPage({
 type SessionSetupPanelProps = {
   availableLabels: readonly AppLabel[];
   disabledStartReason: string | null;
-  labelAddFeedback: string | null;
-  onAddStudyNotesFromLabels: () => void;
   onCancel: () => void;
-  onLabelSelectionChange: (labelId: string, isSelected: boolean) => void;
   onRecallTypeChange: (mode: RecallMode) => void;
+  onRemoveStudyNote: (studyNoteId: string) => void;
   onStartRecall: () => void;
-  selectedLabelIds: readonly string[];
   selectedRecallType: RecallMode;
   selectedStudyNotes: readonly AppStudyNote[];
 };
 
 function SessionSetupPanel({
   availableLabels,
-  onAddStudyNotesFromLabels,
   disabledStartReason,
-  labelAddFeedback,
   onCancel,
-  onLabelSelectionChange,
   onRecallTypeChange,
+  onRemoveStudyNote,
   onStartRecall,
-  selectedLabelIds,
   selectedStudyNotes,
   selectedRecallType,
 }: SessionSetupPanelProps) {
   const { t } = useAppTranslation();
-  const hasAvailableLabels = availableLabels.length > 0;
   const labelsById = new Map(
     availableLabels.map((label) => [label.id, label] as const),
   );
-  const selectedLabelIdSet = new Set(selectedLabelIds);
   const selectedRecallOption = recallTypeOptions.find(
     (option) => option.mode === selectedRecallType,
   );
@@ -720,11 +662,6 @@ function SessionSetupPanel({
     selectedRecallOption?.disabled === true
       ? `Connect API key to start ${formatRecallModeLabel(selectedRecallType)}.`
       : null;
-  const addFromLabelsDisabledReason = getAddFromLabelsDisabledReason({
-    hasAvailableLabels,
-    selectedLabelCount: selectedLabelIds.length,
-    t,
-  });
 
   return (
     <aside
@@ -752,10 +689,21 @@ function SessionSetupPanel({
               return (
                 <li key={studyNote.id}>
                   <div className="recall-select-session-setup__selected-row">
+                    <GripIcon />
                     <strong>{studyNote.prompt}</strong>
                     <span className="recall-select-session-setup__selected-labels">
                       <SelectedStudyNoteLabels labels={attachedLabels} />
                     </span>
+                    <button
+                      aria-label={t("recall.selection.removeSelectedNote", {
+                        prompt: studyNote.prompt,
+                      })}
+                      className="recall-select-session-setup__remove-note"
+                      onClick={() => onRemoveStudyNote(studyNote.id)}
+                      type="button"
+                    >
+                      <CloseIcon />
+                    </button>
                   </div>
                 </li>
               );
@@ -765,62 +713,6 @@ function SessionSetupPanel({
       </div>
 
       <div className="recall-select-session-setup__divider" />
-
-      <section className="recall-select-session-setup__label-add">
-        <h5 className="recall-select-session-setup__section-title">
-          {t("recall.selection.addFromLabels")}
-        </h5>
-        <p className="muted recall-select-session-setup__label-add-rule">
-          {hasAvailableLabels
-            ? t("recall.selection.addFromLabels.matchRule")
-            : t("recall.selection.addFromLabels.feedback.noLabels")}
-        </p>
-        <div className="recall-select-session-setup__label-add-controls">
-          {hasAvailableLabels ? (
-            <fieldset className="recall-select-session-setup__label-options">
-              <legend className="sr-only">
-                {t("recall.selection.addFromLabels.selectLabel")}
-              </legend>
-              {availableLabels.map((label) => (
-                <label
-                  className="recall-select-session-setup__label-option"
-                  key={label.id}
-                >
-                  <input
-                    checked={selectedLabelIdSet.has(label.id)}
-                    onChange={(event) =>
-                      onLabelSelectionChange(label.id, event.target.checked)
-                    }
-                    type="checkbox"
-                  />
-                  <span>{label.name}</span>
-                </label>
-              ))}
-            </fieldset>
-          ) : null}
-          <Button
-            disabled={addFromLabelsDisabledReason !== null}
-            onClick={onAddStudyNotesFromLabels}
-            size="compact"
-            type="button"
-          >
-            {t("recall.selection.addFromLabels.action")}
-          </Button>
-        </div>
-        {hasAvailableLabels && addFromLabelsDisabledReason !== null ? (
-          <p className="muted recall-select-session-setup__label-add-rule">
-            {addFromLabelsDisabledReason}
-          </p>
-        ) : null}
-        {labelAddFeedback !== null ? (
-          <p
-            className="recall-feedback recall-select-session-setup__label-add-feedback"
-            role="status"
-          >
-            {labelAddFeedback}
-          </p>
-        ) : null}
-      </section>
 
       <fieldset className="recall-type-selector recall-select-type-selector">
         <legend>Recall type</legend>
@@ -898,8 +790,12 @@ function SessionSetupPanel({
           onClick={onStartRecall}
           type="button"
           variant="primary"
+          aria-label={t("recall.selection.start")}
         >
-          {t("recall.selection.start")}
+          {t("recall.selection.startWithCount", {
+            count: selectedStudyNotes.length,
+          })}
+          <ChevronRightIcon />
         </Button>
       </div>
 
@@ -934,6 +830,104 @@ function SelectedStudyNoteLabels({ labels }: { labels: readonly AppLabel[] }) {
       {label.name}
     </span>
   ));
+}
+
+function CheckCircleIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="16"
+      viewBox="0 0 24 24"
+      width="16"
+    >
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="m8.5 12.2 2.2 2.2 4.8-5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function FilterOffIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="16"
+      viewBox="0 0 24 24"
+      width="16"
+    >
+      <path
+        d="M5 6h14m-3 6H8m2 6h4M4 4l16 16"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function GripIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="currentColor"
+      height="18"
+      viewBox="0 0 24 24"
+      width="18"
+    >
+      <circle cx="9" cy="7" r="1.2" />
+      <circle cx="15" cy="7" r="1.2" />
+      <circle cx="9" cy="12" r="1.2" />
+      <circle cx="15" cy="12" r="1.2" />
+      <circle cx="9" cy="17" r="1.2" />
+      <circle cx="15" cy="17" r="1.2" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="16"
+      viewBox="0 0 24 24"
+      width="16"
+    >
+      <path
+        d="m7 7 10 10M17 7 7 17"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="18"
+      viewBox="0 0 24 24"
+      width="18"
+    >
+      <path
+        d="m10 7 5 5-5 5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
 }
 
 function SearchIcon() {
