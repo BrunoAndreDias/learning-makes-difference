@@ -2,9 +2,9 @@
 
 ## Agent skills
 
-### Backlog
+### Issue tracker
 
-Backlog lives in GitHub Issues for `BrunoAndreDias/learning-makes-difference`. See `docs/agents/backlog.md`.
+Issues live in GitHub Issues for `BrunoAndreDias/learning-makes-difference`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
