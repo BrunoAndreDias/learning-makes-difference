@@ -12,7 +12,6 @@ type SharedPageHeaderProps = Pick<
   ComponentPropsWithoutRef<typeof PageHeader>,
   | "actions"
   | "actionsClassName"
-  | "beforeTitle"
   | "copyClassName"
   | "description"
   | "headingLevel"
@@ -37,7 +36,6 @@ export function PageLayout({
   afterHeader,
   as = "section",
   beforeHeader,
-  beforeTitle,
   bodyClassName,
   children,
   className,
@@ -71,7 +69,6 @@ export function PageLayout({
         <PageHeader
           actions={actions}
           actionsClassName={actionsClassName}
-          beforeTitle={beforeTitle}
           className={composedHeaderClassName}
           copyClassName={copyClassName}
           description={description}

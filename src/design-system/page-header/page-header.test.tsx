@@ -8,11 +8,10 @@ import { describe, expect, it } from "vitest";
 import { PageHeader } from "./page-header";
 
 describe("PageHeader", () => {
-  it("renders shared page title, description, pretitle content, and actions", () => {
+  it("renders shared page title, description, and actions", () => {
     render(
       <PageHeader
         actions={<button type="button">New Study Note</button>}
-        beforeTitle={<nav aria-label="Breadcrumb">Recall / Select</nav>}
         description="Practice targets with reference explanations underneath."
         headingLevel={1}
         title="Study Notes"
@@ -33,9 +32,6 @@ describe("PageHeader", () => {
         .getByText("Practice targets with reference explanations underneath.")
         .classList.contains("page-header__description"),
     ).toBe(true);
-    expect(
-      within(header).getByRole("navigation", { name: "Breadcrumb" }),
-    ).toBeInstanceOf(HTMLElement);
     expect(
       within(header).getByRole("button", { name: "New Study Note" }),
     ).toBeInstanceOf(HTMLButtonElement);

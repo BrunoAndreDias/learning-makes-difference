@@ -680,9 +680,6 @@ describe("authenticated recall workspace", () => {
         name: "Recall session",
       }),
     ).toHaveClass("page-header__title");
-    expect(
-      screen.getByRole("navigation", { name: "Breadcrumb" }),
-    ).toHaveTextContent(/Recall\s*\/\s*Session/);
     fireEvent.click(screen.getAllByRole("button", { name: "End session" })[0]);
     expect(
       screen.getByRole("dialog", { name: "Discard recall session?" }),

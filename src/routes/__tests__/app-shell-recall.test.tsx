@@ -764,13 +764,10 @@ describe("authenticated recall workspace", () => {
       session: createSession(),
     });
 
-    const breadcrumb = await screen.findByRole("navigation", {
-      name: "Breadcrumb",
+    await screen.findByRole("heading", {
+      level: 3,
+      name: "Recall session",
     });
-    expect(
-      within(breadcrumb).getByRole("link", { name: "Recall" }),
-    ).toHaveAttribute("href", "/recall");
-    expect(breadcrumb).toHaveTextContent(/Recall\s*\/\s*Session/);
     expect(screen.getAllByText("Stored prompt title").length).toBeGreaterThan(
       0,
     );
@@ -890,9 +887,6 @@ describe("authenticated recall workspace", () => {
         name: "Recall Today",
       }),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("navigation", { name: "Breadcrumb" }),
-    ).not.toBeInTheDocument();
     expect(screen.getByText("No Recall Today work")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Manual selection" }),
@@ -1026,9 +1020,6 @@ describe("authenticated recall workspace", () => {
     expect(
       within(selectedResult).getAllByText("Stored prompt title").length,
     ).toBeGreaterThan(0);
-    expect(
-      screen.queryByRole("navigation", { name: "Breadcrumb" }),
-    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "Recall starts with Study Notes" }),
     ).not.toBeInTheDocument();
@@ -2539,47 +2530,6 @@ describe("authenticated recall workspace", () => {
     expect(router.state.location.pathname).toBe("/practice-repair");
   });
 
-  it("links child Recall breadcrumbs back to the default Recall page", async () => {
-    const contexts = createDeterministicRecallTestContexts();
-    contexts.studyNotesContext.createStudyNote(testUser.id, {
-      sourceBody: "Recall body",
-      sourceTitle: "Recall Study Note",
-    });
-
-    const { router } = renderRoute("/recall/select", {
-      ...contexts,
-      session: createSession(),
-    });
-
-    expect(
-      await screen.findByRole("heading", {
-        level: 3,
-        name: "Select Study Notes",
-      }),
-    ).toBeInTheDocument();
-
-    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
-    const recallLink = within(breadcrumb).getByRole("link", {
-      name: "Recall",
-    });
-
-    expect(breadcrumb).toHaveTextContent(/Recall\s*\/\s*Select Study Notes/);
-    expect(recallLink).toHaveAttribute("href", "/recall");
-
-    fireEvent.click(recallLink);
-
-    expect(
-      await screen.findByRole("heading", {
-        level: 1,
-        name: "Recall Today",
-      }),
-    ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/recall");
-    expect(
-      screen.queryByRole("navigation", { name: "Breadcrumb" }),
-    ).not.toBeInTheDocument();
-  });
-
   it("uses the route-hydrated session to load Recall setup notes immediately", async () => {
     const contexts = createDeterministicRecallTestContexts();
     contexts.studyNotesContext.createStudyNote(testUser.id, {
@@ -3348,9 +3298,6 @@ describe("authenticated recall workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
 
     await screen.findByRole("heading", { level: 3, name: "Recall session" });
-    expect(
-      screen.getByRole("navigation", { name: "Breadcrumb" }),
-    ).toHaveTextContent(/Recall\s*\/\s*Session/);
     expect(router.state.location.pathname).toBe("/recall/session");
   });
 

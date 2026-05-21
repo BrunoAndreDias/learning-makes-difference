@@ -17,10 +17,7 @@ export {
   endActiveFocusSession,
   startDefaultFocusSession,
 } from "./focus-session-actions";
-export {
-  FocusSessionStartControl,
-  useFocusTimerTick,
-} from "./focus-session-start-control";
+export { useFocusTimerTick } from "./focus-session-start-control";
 export type {
   AppPersistentFocusContext,
   AppPersistentFocusService,

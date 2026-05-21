@@ -23,7 +23,7 @@ const DEFAULT_FOCUS_SESSION_START_VALUES: FocusSessionStartValues = {
   plannedFocusIntervals: EMPTY_PLANNED_FOCUS_INTERVALS,
 };
 
-export function FocusSessionStartControl({
+function FocusSessionStartControl({
   activeFocusSession,
   actionButtonClassName,
   actionButtonVariant = "primary",

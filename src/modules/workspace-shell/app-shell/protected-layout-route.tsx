@@ -491,17 +491,14 @@ function WorkspaceHeader({
       userId={userId}
     />
   ) : null;
-  let titlebarContent: ReactNode;
+  let titlebarContent: ReactNode | null;
   let workspaceActions: ReactNode | null;
 
-  if (isStudyNotesWorkspaceRoute) {
-    titlebarContent = (
-      <nav aria-label="Breadcrumb" className="app-frame__breadcrumb">
-        <Link to={appRoutePaths.studyNotes}>Study Notes</Link>
-        <span aria-hidden="true">/</span>
-        <span>Edit Note</span>
-      </nav>
-    );
+  if (isStudyNotesWorkspaceRoute && isSidebarCollapsed) {
+    titlebarContent = null;
+    workspaceActions = null;
+  } else if (isStudyNotesWorkspaceRoute) {
+    titlebarContent = null;
     workspaceActions = (
       <WorkspaceMetaActions
         focusDock={headerFocusDock}

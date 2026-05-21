@@ -193,7 +193,7 @@
   }
 
   .recall-selected-result__stat {
-    padding: 0.4rem 0.6rem;
+    padding: 0;
   }
 
   .recall-selected-result__stat:nth-child(2n) {
@@ -201,7 +201,7 @@
   }
 
   .recall-selected-result__stat:nth-child(-n + 2) {
-    border-bottom: 1px solid var(--color-content-border-soft);
+    border-bottom: 0;
   }
 
   .recall-selected-result__summary {
@@ -240,7 +240,8 @@
   }
 
   .recall-selected-result__question-detail {
-    padding-left: 0.85rem;
+    margin-left: 0;
+    padding: var(--space-4);
   }
 
   .recall-practice-repair-workspace__layout {

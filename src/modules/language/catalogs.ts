@@ -101,7 +101,6 @@ const englishTranslations = {
   "focus.analytics.recallAnswered": "Recall answered",
   "focus.analytics.sectionLabel": "Weekly analytics",
   "focus.analytics.vsLastWeek": "{{value}} vs last week",
-  "focus.breadcrumb.session": "Session",
   "focus.description":
     "Focus time supports your attention and recovery so you can study well. It does not count as recall evidence.",
   "focus.dock.heading": "Focus now",
@@ -286,7 +285,6 @@ const englishTranslations = {
   "recall.action.dismiss": "Dismiss",
   "recall.action.openNotes": "Open Study Notes",
   "recall.action.start": "Start Recall",
-  "recall.breadcrumb": "Breadcrumb",
   "recall.empty.body":
     "Create Study Notes first, then use Metaphors and Acronyms to make each concept easier to recall.",
   "recall.empty.selectionBody":
@@ -493,7 +491,6 @@ const englishTranslations = {
   "recall.session.answer.sourceContext": "Source context",
   "recall.session.answer.writeInput": "Write answer",
   "recall.session.answer.yourAnswer": "Your answer",
-  "recall.session.breadcrumbLabel": "Session",
   "recall.session.dialog.cancel": "Cancel",
   "recall.session.dialog.discard": "Discard session",
   "recall.session.dialog.discardBody": "No attempted Questions will be saved.",
@@ -663,7 +660,6 @@ const portugueseTranslations = {
   "focus.analytics.recallAnswered": "Respostas de recordacao",
   "focus.analytics.sectionLabel": "Analise semanal",
   "focus.analytics.vsLastWeek": "{{value}} face a semana passada",
-  "focus.breadcrumb.session": "Sessao",
   "focus.description":
     "O tempo de foco apoia a sua atencao e recuperacao para estudar bem. Nao conta como evidencia de recordacao.",
   "focus.dock.heading": "Foco agora",
@@ -852,7 +848,6 @@ const portugueseTranslations = {
   "recall.action.dismiss": "Dispensar",
   "recall.action.openNotes": "Abrir notas de estudo",
   "recall.action.start": "Iniciar recordacao",
-  "recall.breadcrumb": "Percurso",
   "recall.empty.body":
     "Crie notas de estudo primeiro, depois use Metaphors e Acronyms para tornar cada conceito mais facil de recordar.",
   "recall.empty.selectionBody":
@@ -1065,7 +1060,6 @@ const portugueseTranslations = {
   "recall.session.answer.sourceContext": "Contexto de origem",
   "recall.session.answer.writeInput": "Escrever resposta",
   "recall.session.answer.yourAnswer": "A tua resposta",
-  "recall.session.breadcrumbLabel": "Sessao",
   "recall.session.dialog.cancel": "Cancelar",
   "recall.session.dialog.discard": "Descartar sessao",
   "recall.session.dialog.discardBody":
@@ -1236,7 +1230,6 @@ const spanishTranslations = {
   "focus.analytics.recallAnswered": "Respuestas de repaso",
   "focus.analytics.sectionLabel": "Analitica semanal",
   "focus.analytics.vsLastWeek": "{{value}} frente a la semana pasada",
-  "focus.breadcrumb.session": "Sesion",
   "focus.description":
     "El tiempo de concentracion apoya tu atencion y recuperacion para estudiar bien. No cuenta como evidencia de repaso.",
   "focus.dock.heading": "Concentracion ahora",
@@ -1427,7 +1420,6 @@ const spanishTranslations = {
   "recall.action.dismiss": "Descartar",
   "recall.action.openNotes": "Abrir notas de estudio",
   "recall.action.start": "Iniciar repaso",
-  "recall.breadcrumb": "Ruta",
   "recall.empty.body":
     "Crea notas de estudio primero, luego usa Metaphors y Acronyms para que cada concepto sea mas facil de repasar.",
   "recall.empty.selectionBody":
@@ -1639,7 +1631,6 @@ const spanishTranslations = {
   "recall.session.answer.sourceContext": "Contexto fuente",
   "recall.session.answer.writeInput": "Escribir respuesta",
   "recall.session.answer.yourAnswer": "Tu respuesta",
-  "recall.session.breadcrumbLabel": "Sesion",
   "recall.session.dialog.cancel": "Cancelar",
   "recall.session.dialog.discard": "Descartar sesion",
   "recall.session.dialog.discardBody":

@@ -30,7 +30,6 @@ import {
   getRecallRatingTranslationKey,
 } from "./learner-copy";
 import type { AppPersistentRecallContext } from "./persistent-recall";
-import { PracticeRepairBreadcrumb } from "./practice-repair-breadcrumb";
 import {
   type AppRecallContext,
   AppRecallError,
@@ -784,7 +783,6 @@ export function RecallPracticeRepairWorkspacePage({
       }
       aria-label="Practice Repair workspace"
       as="section"
-      beforeTitle={<PracticeRepairBreadcrumb currentLabel="Practice Repair" />}
       className="recall-workspace recall-surface recall-practice-repair-workspace"
       description="Keep the original Needs practice evidence visible while you finish one concrete repair from Recall."
       headerClassName="recall-surface__header"

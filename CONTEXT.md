@@ -489,10 +489,6 @@ _Avoid_: Repair entry, active repair workspace, inline results toggle
 The focused current-session route shown after a RecallSession starts, such as `/recall/session`.
 _Avoid_: Quiz page
 
-**Workspace Breadcrumb**:
-A small navigational trail that shows where the User is inside a workspace section.
-_Avoid_: Product menu, sidebar navigation
-
 ## Relationships
 
 - **Labels** are flat concept groups, not a hierarchy or graph.
@@ -761,9 +757,6 @@ _Avoid_: Product menu, sidebar navigation
 - A completed **RecallSession** creates a **SessionResult** and takes the User to the **Results Workspace**.
 - A **RecallSession** ended early after at least one attempted Question creates a **SessionResult** and takes the User to the **Results Workspace** like any completed session.
 - The **Recall Session View** is only valid while there is an active **RecallSession**; without one, the User returns to the **Recall Section**.
-- The **Workspace Breadcrumb** shows the User whether they are in the **Study Notes Workspace**, the base **Recall Section**, or an active **Recall Session View**.
-- The **Workspace Breadcrumb** is structural, such as Recall / Session; RecallSession progress belongs inside the **Recall Session View**, not in the breadcrumb.
-
 ## Example dialogue
 
 > **Dev:** "When a **User** starts a **RecallSession**, do they have to choose a **Label** first?"
@@ -925,9 +918,6 @@ _Avoid_: Product menu, sidebar navigation
 > **Dev:** "Should an active **RecallSession** use a route like `/recall/sessions/:sessionId`?"
 > **Domain expert:** "No — in v1 the active session uses a current-session route such as `/recall/session`; per-session routes are deferred until sessions are resumable or otherwise addressable."
 
-> **Dev:** "Should the **Workspace Breadcrumb** show RecallSession progress like '3 of 10'?"
-> **Domain expert:** "No — the breadcrumb stays structural, such as Recall / Session, while progress belongs in the **Recall Session View**."
-
 > **Dev:** "Where does broader **SessionResult** history live in v1 navigation?"
 > **Domain expert:** "It belongs in the **Results Workspace** inside the **Recall Section** because reviewing completed recall work is part of the core recall workflow."
 
@@ -1053,7 +1043,6 @@ _Avoid_: Product menu, sidebar navigation
 - "Recall Dashboard" or "Recall Home" could have named the default `/recall` screen — resolved: use **Recall Section** only; the base route is **Recall Today**, while completed recall work belongs to the **Results Workspace**.
 - "Exam notes" could have meant the app is already the primary source of truth for exam material — resolved: for the exam-support pilot, the app is a **Study Layer** over material that remains available elsewhere, while the long-term direction is to become the **User**'s primary study workspace.
 - "notes from other platforms" could have meant external pages become recall targets — resolved: future **Source Import** may bring external material into the **Study Layer**, but **Study Notes** remain the practiced memory unit.
-- "Breadcrumb" could have acted like primary navigation — resolved: the **Workspace Breadcrumb** indicates position inside the current workspace section, not product sections.
 - "History" could have stayed a separate product destination, compatibility route, or UI label — resolved for v1: remove `/history`; completed recall work is reviewed as **SessionResults** inside the **Recall Section**, with UI copy using "Results".
 - "Result details" could have treated stored source **Notes** and stored **Questions** as equal primary review objects — resolved for v1: **Questions** are primary in SessionResult review; Study Notes and source Notes are supporting context.
 - "Start Recall" could have appeared both in the Results master panel and again inside selected-result detail actions — resolved for v1: new recall starts from the master-panel action only; selected-result detail stays read-only.

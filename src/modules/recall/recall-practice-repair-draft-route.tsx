@@ -15,7 +15,6 @@ import {
   getRecallRatingTone,
   getRecallRatingTranslationKey,
 } from "./learner-copy";
-import { PracticeRepairBreadcrumb } from "./practice-repair-breadcrumb";
 import {
   AppRecallError,
   type FlashCardSessionResult,
@@ -423,7 +422,6 @@ function RecallPracticeRepairDraftPage({
       }
       aria-label="Practice Repair workspace"
       as="section"
-      beforeTitle={<PracticeRepairBreadcrumb currentLabel="Draft" />}
       className="recall-workspace recall-surface recall-practice-repair-workspace"
       description="Keep the original Needs practice evidence visible while you choose the smallest repair."
       headerClassName="recall-surface__header"

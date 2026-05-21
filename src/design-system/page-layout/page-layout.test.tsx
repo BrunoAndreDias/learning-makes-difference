@@ -15,7 +15,6 @@ describe("PageLayout", () => {
         afterHeader={<p role="status">Saved</p>}
         aria-label="Practice Repair Queue"
         beforeHeader={<nav aria-label="Page tabs">Tabs</nav>}
-        beforeTitle={<p>Recall</p>}
         description="Resume the newest repair work."
         headingLevel={1}
         title="Practice Repair Queue"

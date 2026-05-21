@@ -14,7 +14,6 @@ type PageHeaderProps = Omit<
   as?: PageHeaderContainerTag;
   actions?: ReactNode;
   actionsClassName?: string;
-  beforeTitle?: ReactNode;
   children?: ReactNode;
   copyClassName?: string;
   description?: ReactNode;
@@ -27,7 +26,6 @@ export function PageHeader({
   as = "header",
   actions,
   actionsClassName,
-  beforeTitle,
   children,
   className,
   copyClassName,
@@ -57,9 +55,6 @@ export function PageHeader({
   return (
     <ContainerTag className={composedClassName} {...props}>
       <div className={composedCopyClassName}>
-        {beforeTitle === undefined || beforeTitle === null ? null : (
-          <div className="page-header__before-title">{beforeTitle}</div>
-        )}
         <HeadingTag
           className={composedHeadingClassName}
           {...resolvedHeadingProps}

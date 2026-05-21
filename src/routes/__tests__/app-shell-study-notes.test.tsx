@@ -580,9 +580,6 @@ describe("authenticated Study Notes workspace", () => {
         "Write stronger recall prompts with guidance and templates-no extra required fields.",
       ),
     ).toHaveClass("page-header__description");
-    expect(
-      screen.getByRole("navigation", { name: "Breadcrumb" }),
-    ).toHaveTextContent("Study Notes/Edit Note");
     const newStudyNoteButton = screen.getByRole("button", {
       name: "New Study Note",
     });

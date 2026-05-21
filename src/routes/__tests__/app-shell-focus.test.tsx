@@ -163,7 +163,6 @@ describe("authenticated app shell", () => {
       ),
     ).toHaveClass("page-header__description");
     expect(screen.getByText("May 15, 2026")).toBeInTheDocument();
-    expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Help" })).toBeNull();
     expect(
       screen.queryByText("Focus time supports attention and recovery."),

@@ -239,6 +239,7 @@ function RecallPracticeRepairQueueRoute() {
       }
       aria-label="Practice Repair Queue"
       as="section"
+      bodyClassName="recall-practice-repair-queue__body"
       className="recall-workspace recall-surface"
       description="Resume active Practice Repair work first, then open the newest repair candidates from weak Results evidence."
       headerClassName="recall-surface__header"

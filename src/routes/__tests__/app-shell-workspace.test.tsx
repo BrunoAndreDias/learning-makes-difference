@@ -279,6 +279,12 @@ describe("authenticated app shell", () => {
     const appCss = readFileSync(join(process.cwd(), "src/styles/app.css"), {
       encoding: "utf8",
     });
+    const shellCss = readFileSync(
+      join(process.cwd(), "src/modules/workspace-shell/workspace-shell.css"),
+      {
+        encoding: "utf8",
+      },
+    );
 
     expect(appCss).toContain("--workspace-collapsed-header-offset");
     expect(appCss).toContain(
@@ -292,6 +298,9 @@ describe("authenticated app shell", () => {
     );
     expect(appCss).not.toContain(
       '.authenticated-shell[data-sidebar-state="collapsed"]\n  .app-frame[data-workspace="notes"]\n  .app-frame__workspace-header {\n  position: sticky',
+    );
+    expect(shellCss).not.toMatch(
+      /\.authenticated-shell\[data-sidebar-state="collapsed"\]\s+\.app-frame\[data-workspace="notes"\]\s+\.app-frame__workspace-header\s*\{[^}]*position:\s*sticky;/s,
     );
   });
 
@@ -462,6 +471,31 @@ describe("authenticated app shell", () => {
     expect(
       screen.getByRole("button", { name: "Open navigation menu" }),
     ).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("removes Study Notes header chrome when the sidebar is collapsed", async () => {
+    renderRoute("/study-notes");
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Study Notes" }),
+    ).toBeInTheDocument();
+
+    const sidebar = getStudyNotesWorkspaceSidebar();
+
+    fireEvent.click(
+      within(sidebar).getByRole("button", { name: "Collapse sidebar" }),
+    );
+
+    const workspaceHeader = getWorkspaceHeader();
+
+    expect(sidebar).toHaveAttribute("data-sidebar-state", "collapsed");
+    expect(
+      within(workspaceHeader).getByRole("button", { name: "Expand sidebar" }),
+    ).toBeInTheDocument();
+    expect(
+      within(workspaceHeader).queryByRole("button", { name: "Start focus" }),
+    ).not.toBeInTheDocument();
+    expect(within(workspaceHeader).queryByText("Edit Note")).toBeNull();
   });
 
   it("uses the header Focus Dock to start a default FocusSession without navigating away", async () => {

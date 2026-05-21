@@ -14,10 +14,7 @@ import {
   type FocusRecord,
   type FocusSession,
 } from "./focus";
-import {
-  FocusSessionStartControl,
-  useFocusTimerTick,
-} from "./focus-session-start-control";
+import { useFocusTimerTick } from "./focus-session-start-control";
 import {
   deriveFocusWeeklyAnalytics,
   type FocusWeeklyAnalytics,
@@ -221,14 +218,6 @@ function FocusPage() {
 
   return (
     <PageLayout
-      actions={
-        <FocusSessionStartControl
-          activeFocusSession={activeSession}
-          focus={focus}
-          persistentFocus={persistentFocus}
-          userId={userId}
-        />
-      }
       className={
         hasLearningLoopSupport
           ? "focus-workspace focus-workspace--has-support"

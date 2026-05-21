@@ -24,7 +24,6 @@ import {
   getRecallSelectionHelperTranslationKey,
 } from "./learner-copy";
 import { AppRecallError, type RecallMode } from "./recall";
-import { RecallBreadcrumb } from "./recall-breadcrumb";
 
 export const Route = createFileRoute("/_protected/recall")({
   component: RecallRouteShell,
@@ -432,9 +431,6 @@ export function RecallSelectionPage({
     <PageLayout
       aria-label={t("shell.workspace.recallSetup")}
       as="section"
-      beforeTitle={
-        <RecallBreadcrumb currentLabel={t("recall.selection.title")} />
-      }
       className="recall-workspace recall-surface"
       description={t("recall.selection.description")}
       headerClassName="recall-surface__header recall-select__header"

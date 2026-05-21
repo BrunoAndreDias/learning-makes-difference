@@ -32,7 +32,6 @@ import {
   type FlashCardRecallRating,
   type RecallSession,
 } from "./recall";
-import { RecallBreadcrumb } from "./recall-breadcrumb";
 
 const recallSessionSavedMessageKey = "learning-makes-difference:recall-saved";
 const recallRatingOptions = [
@@ -421,11 +420,6 @@ function RecallSessionPage() {
           </div>
         }
         actionsClassName="recall-shell__progress"
-        beforeTitle={
-          <RecallBreadcrumb
-            currentLabel={t("recall.session.breadcrumbLabel")}
-          />
-        }
         className="recall-shell__header"
         copyClassName="recall-shell__context"
         headingLevel={3}

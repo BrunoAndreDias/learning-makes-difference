@@ -19,11 +19,35 @@
 }
 
 .app-shell:has(.authenticated-shell) .app-frame {
+  grid-template-rows: minmax(0, 1fr);
   gap: 0;
 }
 
 .app-shell:has(.authenticated-shell) .app-frame__workspace-header {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 22;
+  justify-content: flex-end;
+  align-items: flex-start;
+  height: auto;
+  min-height: 0;
+  padding-block: var(--lmd-list-row-padding-y);
   padding-inline: var(--workspace-page-inline);
+  border-bottom: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.app-shell:has(.authenticated-shell) .app-frame__titlebar,
+.app-shell:has(.authenticated-shell) .app-frame__actions {
+  pointer-events: auto;
+}
+
+.app-shell:has(.authenticated-shell)
+  .app-frame:has(.page-header__actions)
+  > .app-frame__workspace-header
+  .app-frame__actions {
+  display: none;
 }
 
 .app-shell:has(.authenticated-shell) .notes-workspace {
@@ -55,6 +79,15 @@
   .notes-workspace {
   --notes-workspace-inline-start: var(--workspace-collapsed-header-offset);
   --notes-workspace-inline-end: var(--workspace-page-inline);
+}
+
+.authenticated-shell[data-sidebar-state="collapsed"]
+  .app-frame[data-workspace="notes"]
+  .notes-workspace__page-header {
+  padding-block-start: calc(
+    var(--lmd-header-height) +
+    var(--workspace-page-block-start)
+  );
 }
 
 .authenticated-shell[data-sidebar-state="collapsed"]
@@ -179,6 +212,12 @@
   }
 
   .authenticated-shell[data-sidebar-state="collapsed"]
+    .app-frame[data-workspace="notes"]
+    .notes-workspace__page-header {
+    padding-block-start: var(--workspace-page-block-start);
+  }
+
+  .authenticated-shell[data-sidebar-state="collapsed"]
     .app-frame[data-workspace="today"]
     .app-frame__content:has(> .study-guidance-workspace),
   .authenticated-shell[data-sidebar-state="collapsed"]
@@ -277,43 +316,6 @@ h3 {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-content-muted);
-}
-
-.workspace-breadcrumb,
-.recall-breadcrumb {
-  margin: 0;
-  color: var(--color-content-muted);
-  font-family: var(--font-body);
-  font-size: 0.8rem;
-  font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.recall-breadcrumb span {
-  color: inherit;
-}
-
-.workspace-breadcrumb ol,
-.recall-breadcrumb ol {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin: 0 0 0.5rem;
-  padding: 0;
-  list-style: none;
-}
-
-.workspace-breadcrumb a,
-.recall-breadcrumb a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.workspace-breadcrumb a:hover,
-.recall-breadcrumb a:hover {
-  color: var(--color-content-strong);
 }
 
 .nav-list,

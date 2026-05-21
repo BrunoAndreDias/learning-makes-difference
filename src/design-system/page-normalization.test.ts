@@ -191,7 +191,9 @@ describe("page style normalization", () => {
     expect(focusShellWorkspaceHeaderStyle).toContain(
       "min-height: var(--lmd-header-height);",
     );
-    expect(focusShellWorkspaceHeaderStyle).toContain("border-bottom: 0;");
+    expect(focusShellWorkspaceHeaderStyle).toContain(
+      "border-bottom: 1px solid var(--color-content-border-soft);",
+    );
     expect(focusShellActionsStyle).toContain("pointer-events: auto;");
     expect(sharedShellActionsStyle).toContain("margin-left: auto;");
     expect(focusCardStyle).toContain("border: 1px solid var(--focus-line);");
@@ -224,17 +226,6 @@ describe("page style normalization", () => {
         encoding: "utf8",
       },
     );
-    const breadcrumbStyle = getCssRules(appCss, ".workspace-breadcrumb").join(
-      "\n",
-    );
-    const recallBreadcrumbStyle = getCssRules(
-      appCss,
-      ".recall-breadcrumb",
-    ).join("\n");
-    const recallBreadcrumbSpanStyle = getCssRules(
-      appCss,
-      ".recall-breadcrumb span",
-    ).join("\n");
     const pageHeaderTitleStyle = getCssRules(
       pageHeaderCss,
       ".page-header__title",
@@ -243,14 +234,6 @@ describe("page style normalization", () => {
       pageHeaderCss,
       ".page-header__description",
     ).join("\n");
-
-    for (const breadcrumbRule of [breadcrumbStyle, recallBreadcrumbStyle]) {
-      expect(breadcrumbRule).toContain("color: var(--color-content-muted);");
-      expect(breadcrumbRule).toContain("font-family: var(--font-body);");
-      expect(breadcrumbRule).toContain("letter-spacing: 0.08em;");
-      expect(breadcrumbRule).toContain("text-transform: uppercase;");
-    }
-    expect(recallBreadcrumbSpanStyle).toContain("color: inherit;");
 
     expect(pageHeaderTitleStyle).toContain(
       "color: var(--color-content-strong);",
