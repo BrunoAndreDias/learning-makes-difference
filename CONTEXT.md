@@ -30,6 +30,9 @@ The default Study Note for a Note preserves the simple path from saving a Note t
 The default Study Note may start with the source Note title as its prompt when a source Note title exists.
 A Study Note owns its own title or prompt, which may be more specific than the source Note title.
 A Study Note owns its own expected answer or reference focus so recall can target a precise answer inside broader source material.
+A Study Note may have optional Key Ideas that name the essential concepts the User expects to recall.
+A Study Note may have Accepted Variants that the User has explicitly confirmed as full-answer alternatives to the expected answer.
+A Study Note may have Prohibited Phrases that mark answer wording as wrong for the whole recall target.
 In v1, Study Notes are untyped; templates may help create prompts and expected answers later, but they do not define stored Study Note types.
 In v1, self-explanation should be encouraged through prompt guidance and templates, not required as a separate Study Note field.
 Worked examples may guide source Notes and Study Note templates, but they do not become a stored Study Note type in v1.
@@ -40,6 +43,26 @@ After a Study Note is created, later source Note edits do not automatically rewr
 Deleting a Study Note deletes only that Study Note; it does not automatically delete its source Note.
 Deleting the last Study Note for a source Note requires explicit confirmation to delete both the Study Note and source Note.
 _Avoid_: Card, flashcard, quiz item
+
+**Key Idea**:
+An optional user-authored concept that marks part of a Study Note's expected answer as important to recall.
+Key Ideas may be required or supporting: required Key Ideas must be covered for an answer to look correct, while supporting Key Ideas strengthen confidence without always blocking correctness when partly missed.
+Key Ideas may include accepted phrases and prohibited phrases that clarify what should count as covered or contradicted; the app may suggest these phrases, but the User must edit or save them explicitly.
+Key Ideas support explainable Answer Check coverage, but a Study Note without Key Ideas can still be recalled and checked with lower-confidence guidance.
+_Avoid_: Keyword, tag, criterion, rubric item
+
+**Prohibited Phrase**:
+A user-approved phrase that tells Answer Check a User answer has contradicted a Study Note or one of its Key Ideas.
+Prohibited Phrases block likely-correct guidance, but they do not belong to Accepted Variants.
+The app may suggest Prohibited Phrases from obvious contradictions, but they are not active until the User explicitly saves them.
+_Avoid_: Negative keyword, forbidden answer, blacklist
+
+**Accepted Variant**:
+A user-confirmed full-answer alternative for one Study Note.
+Accepted Variants may be created only when the User explicitly confirms that a typed recall answer should count as an accepted alternative; normal recall answers are not learned automatically.
+The User may also manually add, edit, or remove Accepted Variants while editing the Study Note.
+The app may suggest Accepted Variants from successful typed recall answers, but they are not active until the User explicitly saves them.
+_Avoid_: Synonym, keyword, learned answer, auto-approved answer
 
 **Metaphor**:
 One optional support description that maps a Study Note's recall target onto something familiar. A Study Note can have at most one Metaphor description in v1; a Metaphor cannot exist without its Study Note.
@@ -230,13 +253,33 @@ The style of a RecallSession. One of three values:
 - `FlashCard` — Study Note reference material is hidden; user toggles to reveal, then self-rates their recall. No AI. Free.
 - `AiAssisted` — AI generates a question for a Study Note; user answers; user self-assesses by toggling the source Note reference. Premium.
 - `AiGraded` — AI generates a question for a Study Note; user answers; AI grades the answer against the Study Note and source Note reference and suggests fixes. Premium.
+`FlashCard` may include an optional Answer Check, but the User self-rating remains the meaningful learner-facing judgment.
 If the AI provider fails for a Study Note during `AiAssisted` or `AiGraded`, that Study Note falls back to `FlashCard` behaviour for the current RecallSession and the session continues.
 _Avoid_: Mode, difficulty, tier
+
+**Answer Check**:
+An optional non-authoritative FlashCard aid that compares the User's typed answer with Study Note answer-check reference material and suggests whether the answer looks complete enough to self-rate.
+Answer Check may explain covered and missing concepts, but it does not grade the Question, set the Question score, update Learning State, update Recall Schedule, or create accepted answer variants by itself.
+Answer Check does not create Practice Repair candidates directly.
+During FlashCard recall, Answer Check runs automatically on answer reveal when the User has written a typed answer, but it does not block reveal if unavailable.
+Answer Check uses only the Study Note expected answer, Key Ideas, Accepted Variants, and Prohibited Phrases as reference material; the source Note remains supporting context, not scoring material.
+When a Study Note has no Key Ideas, Answer Check may still infer similarity from the expected answer, but its guidance is less certain and less concept-specific.
+When a User answer closely matches an Accepted Variant, Answer Check may treat it as strong evidence that the answer is likely correct.
+Accepted Variant matches are trusted User curation and may support likely-correct guidance even when heuristic Key Idea coverage cannot detect every required concept.
+After answer reveal, Answer Check guidance is shown alongside the Study Note expected answer so the User can compare both before self-rating.
+RecallSession does not edit Key Ideas, Accepted Variants, or Prohibited Phrases, except for offering eligible explicit confirmation that the current typed answer should become an Accepted Variant.
+Answer Check may suggest a self-rating of Forgot, Hard, or Good, but it does not suggest Easy because ease depends on the User's felt recall effort.
+Answer Check may use an internal confidence score, but user-facing copy should present coarse confidence language rather than grade-like percentages.
+Answer Check should not suggest that an answer is likely correct when any required Key Idea is missing.
+Answer Check should not suggest that an answer is likely correct when it detects an obvious contradiction with the expected answer, required Key Ideas, or Prohibited Phrases; uncertain contradiction cases should remain uncertain.
+In v1, Answer Check compares the Study Note's own reference text and User answer without translating between languages.
+_Avoid_: Auto-grading, free AI grading, system grade, answer validation
 
 **Question**:
 A prompt generated for a Study Note during a RecallSession. Can be open-ended or multiple choice. Stores the user's answer and a score. Belongs to exactly one RecallSession and one Study Note.
 Going forward, each stored Question in a SessionResult has a stable questionResultId for historical references such as Practice Repair Entries.
 In `FlashCard`, the meaningful learner-facing judgment is the user self-rating; any numeric score is only a derived internal projection of that self-rating, not a separate grade.
+If Answer Check guidance was shown for a Question, the stored Question preserves that guidance for historical review, separate from the User self-rating and score.
 In `AiGraded`, the score is the AI-generated system score for v1. User overrides are out of scope for now, but can be added later as a separate final score without changing the meaning of the Question itself.
 For multiple-choice Questions, distractors should be context-bound and plausible within the selected study area rather than arbitrary invented wrong answers.
 
@@ -247,6 +290,7 @@ Use "Results" for user-facing UI copy that refers to completed recall work.
 A selectable Results list item represents one SessionResult, not a Note, Label, or saved recall set.
 A RecallSession is considered completed and gets a SessionResult when the user has attempted at least one Question, even if they end the session early before covering every Study Note. A session with zero attempted Questions is discarded.
 Each stored Question in a SessionResult preserves the Study Note prompt, expected answer or reference focus, and source Note snapshot used at the time of the session, so later Note or Study Note edits do not change historical results.
+Each stored Question also preserves any Answer Check guidance shown at the time, so Results review reflects what the User saw during recall.
 In v1, Questions stored inside SessionResults are the recall evidence source; there is no separate recall-attempt domain object or table.
 In v1, SessionResult review is question-first: stored Questions are the primary review evidence, while targeted Study Notes and source Notes are supporting context about what was practiced.
 In v1, revealed or historical answer review shows the Study Note expected answer before the source Note.
@@ -384,6 +428,9 @@ The Study Notes Workspace has a Study Notes list, not a separate source Notes li
 New Study Note is the primary creation action; it creates a new supporting source Note by default.
 Add Study Note from this source is the explicit action for creating another Study Note tied to an existing source Note.
 The Study Note editor shows Study Note fields first and the source Note title/body below them, visible by default.
+The Study Note editor owns editing Key Ideas, Accepted Variants, and Prohibited Phrases.
+The Study Note editor may offer editable answer-check reference suggestions that the User chooses to infer, edit, and save.
+In v1, answer-check reference suggestions must work without AI.
 The Study Note editor may show compact recall insight copy that combines Learning State and Recall Schedule for the User while keeping those concepts separate in the domain model.
 The Study Notes Workspace protects unsaved Study Note edits before replacing the selected Study Note or abandoning a new Study Note draft.
 When a selected Study Note shares its source Note with other Study Notes, the editor should make that shared source context clear before the User edits it.
@@ -586,6 +633,9 @@ _Avoid_: Quiz page
 - A **RecallSession** targets one or more **Study Notes** selected by the **User**
 - The **Recall Section** opens on **Recall Today** by default.
 - **Study Notes** are the durable recall targets used by **RecallSessions**
+- **Key Ideas** belong to one **Study Note** and support explainable **Answer Check** coverage; required Key Ideas are essential while supporting Key Ideas are confidence support.
+- **Accepted Variants** belong to one **Study Note** and are created or changed only by explicit User action.
+- **Prohibited Phrases** belong to one **Study Note** or one **Key Idea**, and block likely-correct **Answer Check** guidance.
 - In **RecallSessions**, answer reveal shows the Study Note expected answer before the source **Note**
 - In v1, a **User** can have at most one active **RecallSession** at a time.
 - The selected Study Notes used to start a **RecallSession** are a temporary one-off selection, not a saved set, collection, deck, or Label.
@@ -601,6 +651,8 @@ _Avoid_: Quiz page
 - A **RecallSession** has a **SessionResult** — date, targeted Study Notes, and the full list of Questions with answers and scores
 - A **Question** belongs to exactly one **RecallSession** and one **Study Note**
 - A **Question** stores the user's answer and a score (self-rated or AI-graded depending on RecallMode)
+- A stored **Question** may preserve the **Answer Check** guidance shown during recall, but that guidance remains separate from recall evidence.
+- **Answer Check** may guide the User during `FlashCard` recall, but it does not create recall evidence or replace the User self-rating.
 - A **FocusSession** is separate from a **RecallSession** and may overlap with Note-taking, Note review, or a **RecallSession**
 - A **FocusSession** supports the **Learning Loop**, but Focus time is not learning evidence unless it includes recall or StudyActivity that produces or reinforces Study Notes.
 - A **FocusSession** is available across the authenticated workspace rather than belonging to a single workspace screen
@@ -843,6 +895,9 @@ _Avoid_: Quiz page
 > **Dev:** "What's the difference between **AiAssisted** and **AiGraded**?"
 > **Domain expert:** "In AiAssisted, the User decides if their answer was right by reading the source Note reference themselves. In AiGraded, the AI compares the answer against the Study Note and source Note reference."
 
+> **Dev:** "Is **Answer Check** a new **RecallMode** or a kind of free **AiGraded** recall?"
+> **Domain expert:** "No — it is optional guidance inside FlashCard recall. The User still self-rates, and that self-rating remains the recall evidence."
+
 > **Dev:** "Is a pomodoro just a timer inside a **RecallSession**?"
 > **Domain expert:** "No — that's a separate **FocusSession** that can happen during recall, note-taking, or other study work."
 
@@ -983,6 +1038,24 @@ _Avoid_: Quiz page
 - Mastery percentages could have represented learning progress — resolved for v1: avoid mastery percentages and use factual recall signals such as Not recalled yet, Recall Today, Needs practice, Last score, next recall date, and Interleaved Recall eligibility.
 - "AI" could have been required for Study Note generation or grading — resolved: the core **Learning Loop** works without AI.
 - AI could have been treated as a default encouraged study technique — resolved: AI is optional support for creating prompts, questions, grading, or Practice Repair, but the core **Learning Loop** remains manual and evidence-based.
+- "Answer validation" could have meant a new authoritative grading mode — resolved: use **Answer Check** for optional, non-authoritative FlashCard guidance while the User self-rating remains recall evidence.
+- **Key Ideas** could have been required for Answer Check — resolved: they are optional user-authored Study Note concepts; without them, Answer Check may infer from the expected answer with lower confidence.
+- All **Key Ideas** could have had equal importance — resolved: required Key Ideas must be covered for Answer Check to suggest likely correct, while supporting Key Ideas can be partly covered without automatically blocking likely correct.
+- **Key Ideas** could have been only positive concepts — resolved: they may include accepted phrases and prohibited phrases so the User can clarify what should count as covered or contradicted.
+- **Accepted Variants** could have required up-front authoring — resolved: they are optional full-answer alternatives created only after explicit User confirmation, usually from a successful self-rated recall answer.
+- **Accepted Variants** could have carried prohibited phrases — resolved: Accepted Variants stay trusted positive examples; **Prohibited Phrases** belong to the Study Note or relevant Key Idea.
+- **Accepted Variants** could have been checked only after Key Idea coverage — resolved: a close Accepted Variant match is trusted User curation and can support likely-correct guidance even when heuristic Key Idea matching misses concepts.
+- Accepted and prohibited answer-check reference material could have been learned automatically — resolved: the app may suggest it, but the User must choose to infer, edit, and save it explicitly before it becomes active.
+- Answer-check reference suggestions could have appeared inside RecallSession — resolved: the Study Notes Workspace owns full editable suggestions; RecallSession only offers eligible Accepted Variant confirmation for the current typed answer.
+- Answer-check reference suggestions could have depended on AI — resolved for v1: they must work without AI.
+- **Answer Check** guidance could have been recomputed only from current Study Note data — resolved: if shown during recall, stored Questions preserve the guidance the User saw for historical Results review.
+- **Answer Check** could have translated between languages — resolved for v1: it compares the Study Note's own reference text and User answer without translation; cross-language correct answers need explicit Accepted Variants.
+- **Answer Check** could have treated similarity as enough despite opposite meaning — resolved: obvious contradictions block likely-correct guidance, while uncertain contradiction cases stay uncertain.
+- **Answer Check** confidence could have been shown as a percentage — resolved: use internal confidence scores if useful, but show coarse confidence language to Users.
+- **Answer Check** could have created Practice Repair candidates directly — resolved: Practice Repair still comes from weak User self-rating evidence, not Answer Check guidance.
+- **Answer Check** could have required a separate User action — resolved: during FlashCard recall it runs automatically on answer reveal when a typed answer exists, and reveal still works if checking is unavailable.
+- Recall could have allowed editing Answer Check reference material mid-attempt — resolved: the Study Notes Workspace owns editing Key Ideas, Accepted Variants, and Prohibited Phrases; RecallSession only offers eligible Accepted Variant confirmation.
+- **Answer Check** could have used the broader source Note body as scoring material — resolved: it uses only Study Note answer-check reference material; the source Note remains supporting context.
 - "Review Today" was used for scheduled recall work — resolved: use **Due for Recall** as the scheduling state and **Recall Today** as the user-facing prioritized recall queue.
 - **Recall Today** could have been limited to only Study Notes that are **Due for Recall** — resolved: it may also include **Needs practice** Study Notes, with Needs practice first, while keeping the underlying signals separate.
 - **Due for Recall** could have been inferred only from latest recall evidence — resolved: in v1 it is assigned by a per-Study Note **Recall Schedule** updated from recall evidence.
