@@ -1,5 +1,10 @@
 import type { AppTranslationKey } from "../language";
 import type { RecallMode, RecallSelfRating } from "./recall";
+import type {
+  RecallAnswerCheckConfidence,
+  RecallAnswerCheckReason,
+  RecallAnswerCheckStatus,
+} from "./recall-answer-check";
 
 export type RecallRatingTone = RecallSelfRating | "unattempted";
 
@@ -84,5 +89,48 @@ export function getRecallRatingDescriptionTranslationKey(
       return "recall.session.rating.good.description";
     case "easy":
       return "recall.session.rating.easy.description";
+  }
+}
+
+export function getRecallAnswerCheckStatusTranslationKey(
+  status: RecallAnswerCheckStatus,
+): AppTranslationKey {
+  switch (status) {
+    case "likely_correct":
+      return "recall.answerCheck.status.likelyCorrect";
+    case "uncertain":
+      return "recall.answerCheck.status.uncertain";
+    case "likely_incomplete":
+      return "recall.answerCheck.status.likelyIncomplete";
+  }
+}
+
+export function getRecallAnswerCheckConfidenceTranslationKey(
+  confidence: RecallAnswerCheckConfidence,
+): AppTranslationKey {
+  switch (confidence) {
+    case "low":
+      return "recall.answerCheck.confidence.low";
+    case "medium":
+      return "recall.answerCheck.confidence.medium";
+    case "high":
+      return "recall.answerCheck.confidence.high";
+  }
+}
+
+export function getRecallAnswerCheckReasonTranslationKey(
+  reason: RecallAnswerCheckReason,
+): AppTranslationKey {
+  switch (reason) {
+    case "expected_answer_exact_match":
+      return "recall.answerCheck.reason.exactMatch";
+    case "expected_answer_close_match":
+      return "recall.answerCheck.reason.closeMatch";
+    case "expected_answer_partial_match":
+      return "recall.answerCheck.reason.partialMatch";
+    case "expected_answer_short_attempt":
+      return "recall.answerCheck.reason.shortAttempt";
+    case "expected_answer_low_coverage":
+      return "recall.answerCheck.reason.lowCoverage";
   }
 }

@@ -308,6 +308,142 @@
   gap: 0.95rem;
 }
 
+.recall-answer-check-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 0.95rem;
+}
+
+.recall-answer-check-grid section {
+  min-width: 0;
+}
+
+.recall-answer-check {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--recall-soft-border);
+  border-radius: 0.6rem;
+  background: var(--recall-soft-surface);
+}
+
+.recall-answer-check[data-status="likely_correct"] {
+  border-color: var(--color-secondary-soft-border);
+  background: color-mix(
+    in srgb,
+    var(--color-secondary-soft) 72%,
+    var(--recall-panel)
+  );
+}
+
+.recall-answer-check[data-status="uncertain"] {
+  border-color: var(--color-warning-soft-border);
+  background: color-mix(
+    in srgb,
+    var(--color-warning-soft) 76%,
+    var(--recall-panel)
+  );
+}
+
+.recall-answer-check[data-status="likely_incomplete"] {
+  border-color: var(--color-danger-soft-border);
+  background: color-mix(
+    in srgb,
+    var(--color-danger-soft) 78%,
+    var(--recall-panel)
+  );
+}
+
+.recall-answer-check__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.recall-answer-check__eyebrow,
+.recall-answer-check__caption,
+.recall-answer-check__suggested-rating,
+.recall-answer-check__terms ul,
+.recall-answer-check h5,
+.recall-answer-check h6 {
+  margin: 0;
+}
+
+.recall-answer-check__eyebrow,
+.recall-answer-check__terms h6 {
+  color: var(--recall-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.recall-answer-check h5 {
+  color: var(--recall-strong);
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.recall-answer-check__confidence {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.85rem;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  background: var(--recall-panel);
+  color: var(--recall-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.recall-answer-check__caption {
+  color: var(--recall-muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.recall-answer-check__summary {
+  font-size: 0.95rem;
+}
+
+.recall-answer-check__suggested-rating {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--recall-strong);
+  font-size: 0.86rem;
+}
+
+.recall-answer-check__terms {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.recall-answer-check__terms ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.42rem;
+  padding: 0;
+  list-style: none;
+}
+
+.recall-answer-check__terms li {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.8rem;
+  padding: 0 0.65rem;
+  border: 1px solid var(--recall-border);
+  border-radius: 999px;
+  background: var(--recall-panel);
+  color: var(--recall-default);
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
 .recall-card__body {
   margin: 0;
   color: var(--recall-default);
@@ -527,6 +663,10 @@
   }
 
   .recall-rating-row {
+    grid-template-columns: 1fr;
+  }
+
+  .recall-answer-check-grid {
     grid-template-columns: 1fr;
   }
 

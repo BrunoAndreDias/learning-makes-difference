@@ -474,6 +474,46 @@ describe("authenticated recall workspace", () => {
     expect(screen.getByText("Source context")).toBeInTheDocument();
   });
 
+  it("shows baseline Answer Check guidance alongside the expected answer on Study Note reveal", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const studyNote = createRecallableStudyNote(contexts, {
+      expectedAnswer: "Retrieval practice strengthens access to memory.",
+      prompt: "What does retrieval practice strengthen?",
+      sourceBody: "Broader retrieval practice source context.",
+      sourceTitle: "Retrieval practice source",
+    });
+    contexts.recallContext.startFlashCardSession({
+      studyNoteIds: [studyNote.id],
+      userId: testUser.id,
+    });
+
+    renderRoute("/recall/session", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Write answer" }),
+    );
+    fireEvent.change(screen.getByLabelText("Your answer"), {
+      target: {
+        value: "Retrieval practise strengthens access to memory.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Reveal Study Note" }));
+
+    expect(screen.getByText("Answer Check")).toBeInTheDocument();
+    expect(screen.getByText("Likely correct")).toBeInTheDocument();
+    expect(screen.getByText("High confidence")).toBeInTheDocument();
+    expect(
+      screen.getByText("Guidance only. Keep your own self-rating."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Suggested self-rating")).toBeInTheDocument();
+    expect(screen.getAllByText("Good").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Forgot" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hard" })).toBeInTheDocument();
+  });
+
   it("satisfies a completed Practice Follow-up only after the targeted recall attempt is rated", async () => {
     vi.useFakeTimers();
 

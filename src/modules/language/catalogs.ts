@@ -483,6 +483,27 @@ const englishTranslations = {
   "recall.selection.temporary":
     "Your selection is temporary and used only for this recall session.",
   "recall.selection.title": "Select Study Notes",
+  "recall.answerCheck.caption": "Guidance only. Keep your own self-rating.",
+  "recall.answerCheck.confidence.high": "High confidence",
+  "recall.answerCheck.confidence.low": "Low confidence",
+  "recall.answerCheck.confidence.medium": "Medium confidence",
+  "recall.answerCheck.matchedTerms": "Matched terms",
+  "recall.answerCheck.missingTerms": "Still missing",
+  "recall.answerCheck.reason.closeMatch":
+    "Your answer stays close to the expected answer and covers most distinctive terms.",
+  "recall.answerCheck.reason.exactMatch":
+    "Your wording matches the expected answer very closely.",
+  "recall.answerCheck.reason.lowCoverage":
+    "Your answer has very little overlap with the expected answer.",
+  "recall.answerCheck.reason.partialMatch":
+    "Your answer overlaps with the expected answer, but important details may still be missing.",
+  "recall.answerCheck.reason.shortAttempt":
+    "Your answer is short for this expected answer, so the guidance stays conservative.",
+  "recall.answerCheck.status.likelyCorrect": "Likely correct",
+  "recall.answerCheck.status.likelyIncomplete": "Likely incomplete",
+  "recall.answerCheck.status.uncertain": "Uncertain",
+  "recall.answerCheck.suggestedSelfRating": "Suggested self-rating",
+  "recall.answerCheck.title": "Answer Check",
   "recall.session.answer.expectedAnswer": "Expected answer",
   "recall.session.answer.acronyms": "Acronym support",
   "recall.session.answer.hideInput": "Hide answer",
@@ -1052,6 +1073,28 @@ const portugueseTranslations = {
   "recall.selection.temporary":
     "A sua selecao e temporaria e usada apenas nesta sessao de recordacao.",
   "recall.selection.title": "Selecionar notas de estudo",
+  "recall.answerCheck.caption":
+    "Orientacao apenas. Mantem a tua propria autoavaliacao.",
+  "recall.answerCheck.confidence.high": "Confianca alta",
+  "recall.answerCheck.confidence.low": "Confianca baixa",
+  "recall.answerCheck.confidence.medium": "Confianca media",
+  "recall.answerCheck.matchedTerms": "Termos correspondentes",
+  "recall.answerCheck.missingTerms": "Ainda em falta",
+  "recall.answerCheck.reason.closeMatch":
+    "A tua resposta fica perto da resposta esperada e cobre a maioria dos termos distintivos.",
+  "recall.answerCheck.reason.exactMatch":
+    "A tua formulacao coincide muito de perto com a resposta esperada.",
+  "recall.answerCheck.reason.lowCoverage":
+    "A tua resposta quase nao coincide com a resposta esperada.",
+  "recall.answerCheck.reason.partialMatch":
+    "A tua resposta sobrepoe-se a resposta esperada, mas podem faltar detalhes importantes.",
+  "recall.answerCheck.reason.shortAttempt":
+    "A tua resposta e curta para esta resposta esperada, por isso a orientacao fica conservadora.",
+  "recall.answerCheck.status.likelyCorrect": "Provavelmente correta",
+  "recall.answerCheck.status.likelyIncomplete": "Provavelmente incompleta",
+  "recall.answerCheck.status.uncertain": "Incerta",
+  "recall.answerCheck.suggestedSelfRating": "Autoavaliacao sugerida",
+  "recall.answerCheck.title": "Answer Check",
   "recall.session.answer.expectedAnswer": "Resposta esperada",
   "recall.session.answer.acronyms": "Apoio de acronimo",
   "recall.session.answer.hideInput": "Ocultar resposta",
@@ -1623,6 +1666,28 @@ const spanishTranslations = {
   "recall.selection.temporary":
     "Tu seleccion es temporal y solo se usa en esta sesion de repaso.",
   "recall.selection.title": "Seleccionar notas de estudio",
+  "recall.answerCheck.caption":
+    "Solo orientacion. Manten tu propia autoevaluacion.",
+  "recall.answerCheck.confidence.high": "Confianza alta",
+  "recall.answerCheck.confidence.low": "Confianza baja",
+  "recall.answerCheck.confidence.medium": "Confianza media",
+  "recall.answerCheck.matchedTerms": "Terminos coincidentes",
+  "recall.answerCheck.missingTerms": "Todavia falta",
+  "recall.answerCheck.reason.closeMatch":
+    "Tu respuesta se mantiene cerca de la respuesta esperada y cubre la mayoria de los terminos distintivos.",
+  "recall.answerCheck.reason.exactMatch":
+    "Tu redaccion coincide muy de cerca con la respuesta esperada.",
+  "recall.answerCheck.reason.lowCoverage":
+    "Tu respuesta tiene muy poca coincidencia con la respuesta esperada.",
+  "recall.answerCheck.reason.partialMatch":
+    "Tu respuesta se superpone con la respuesta esperada, pero aun pueden faltar detalles importantes.",
+  "recall.answerCheck.reason.shortAttempt":
+    "Tu respuesta es corta para esta respuesta esperada, asi que la orientacion se mantiene conservadora.",
+  "recall.answerCheck.status.likelyCorrect": "Probablemente correcta",
+  "recall.answerCheck.status.likelyIncomplete": "Probablemente incompleta",
+  "recall.answerCheck.status.uncertain": "Incierta",
+  "recall.answerCheck.suggestedSelfRating": "Autoevaluacion sugerida",
+  "recall.answerCheck.title": "Answer Check",
   "recall.session.answer.expectedAnswer": "Respuesta esperada",
   "recall.session.answer.acronyms": "Apoyo de acronimo",
   "recall.session.answer.hideInput": "Ocultar respuesta",

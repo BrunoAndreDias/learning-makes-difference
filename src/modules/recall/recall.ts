@@ -8,6 +8,10 @@ import {
   listStudyNotesForUser,
 } from "../study-notes";
 import {
+  type RecallAnswerCheckResult,
+  scoreRecallAnswerCheck,
+} from "./recall-answer-check";
+import {
   clonePracticeRepairEntry as clonePracticeRepairEntryValue,
   createPracticeRepairEntryId,
   createPracticeRepairIntentMetadata,
@@ -74,6 +78,7 @@ export type RecallAttemptSummary = {
 };
 
 export type RecallQuestion = {
+  answerCheck?: RecallAnswerCheckResult;
   isAnswerRevealed: boolean;
   noteId: string;
   noteSnapshot: RecallNoteSnapshot;
@@ -139,6 +144,8 @@ type RecallCrypto = Pick<Crypto, "randomUUID">;
 type ShuffleNotes = (
   notes: readonly RecallNoteSnapshot[],
 ) => RecallNoteSnapshot[];
+
+type ScoreRecallAnswerCheck = typeof scoreRecallAnswerCheck;
 
 type StartRecallSessionInput = {
   mode?: RecallMode;
@@ -228,6 +235,7 @@ type CreateAppRecallContextOptions = {
     recallSession: RecallStudyActivitySession;
     userId: string;
   }) => void;
+  scoreAnswerCheck?: ScoreRecallAnswerCheck;
   shuffleNotes?: ShuffleNotes;
   storage?: RecallStorageAdapter;
   studyNotes?: AppStudyNotesContext;
@@ -454,6 +462,68 @@ function isStoredRecallSelfRating(
   return isRecallSelfRating(value) || isLegacyRecallSelfRating(value);
 }
 
+function isRecallAnswerCheckStatus(
+  value: unknown,
+): value is RecallAnswerCheckResult["status"] {
+  return (
+    value === "likely_correct" ||
+    value === "uncertain" ||
+    value === "likely_incomplete"
+  );
+}
+
+function isRecallAnswerCheckConfidence(
+  value: unknown,
+): value is RecallAnswerCheckResult["confidence"] {
+  return value === "low" || value === "medium" || value === "high";
+}
+
+function isRecallAnswerCheckReason(
+  value: unknown,
+): value is RecallAnswerCheckResult["primaryReason"] {
+  return (
+    value === "expected_answer_exact_match" ||
+    value === "expected_answer_close_match" ||
+    value === "expected_answer_partial_match" ||
+    value === "expected_answer_short_attempt" ||
+    value === "expected_answer_low_coverage"
+  );
+}
+
+function isRecallAnswerCheckSuggestedSelfRating(
+  value: unknown,
+): value is RecallAnswerCheckResult["suggestedSelfRating"] {
+  return value === "forgot" || value === "hard" || value === "good";
+}
+
+function isRecallAnswerCheckResult(
+  value: unknown,
+): value is RecallAnswerCheckResult {
+  const candidate = asRecord(value);
+  const evidence = asRecord(candidate?.evidence);
+
+  return (
+    candidate !== null &&
+    candidate.algorithmVersion === "baseline_expected_answer_v1" &&
+    isRecallAnswerCheckConfidence(candidate.confidence) &&
+    isRecallAnswerCheckReason(candidate.primaryReason) &&
+    isRecallAnswerCheckStatus(candidate.status) &&
+    isRecallAnswerCheckSuggestedSelfRating(candidate.suggestedSelfRating) &&
+    evidence !== null &&
+    Array.isArray(evidence.matchedExpectedTerms) &&
+    evidence.matchedExpectedTerms.every(
+      (term: unknown) => typeof term === "string",
+    ) &&
+    Array.isArray(evidence.missingExpectedTerms) &&
+    evidence.missingExpectedTerms.every(
+      (term: unknown) => typeof term === "string",
+    ) &&
+    typeof evidence.phraseCoverage === "number" &&
+    typeof evidence.tfidfCosineSimilarity === "number" &&
+    typeof evidence.tokenCoverage === "number"
+  );
+}
+
 function isRecallQuestion(question: unknown): question is StoredRecallQuestion {
   const candidate = asRecord(question);
 
@@ -466,12 +536,32 @@ function isRecallQuestion(question: unknown): question is StoredRecallQuestion {
       typeof candidate.questionResultId === "string") &&
     (!("practiceRepairEntry" in candidate) ||
       isPracticeRepairEntry(candidate.practiceRepairEntry)) &&
+    (!("answerCheck" in candidate) ||
+      candidate.answerCheck === undefined ||
+      isRecallAnswerCheckResult(candidate.answerCheck)) &&
     (candidate.selfRating === null ||
       isStoredRecallSelfRating(candidate.selfRating)) &&
     (!("score" in candidate) ||
       candidate.score === null ||
       typeof candidate.score === "number")
   );
+}
+
+function cloneRecallAnswerCheckResult(
+  answerCheck: RecallAnswerCheckResult | undefined,
+): RecallAnswerCheckResult | undefined {
+  if (answerCheck === undefined) {
+    return undefined;
+  }
+
+  return {
+    ...answerCheck,
+    evidence: {
+      ...answerCheck.evidence,
+      matchedExpectedTerms: [...answerCheck.evidence.matchedExpectedTerms],
+      missingExpectedTerms: [...answerCheck.evidence.missingExpectedTerms],
+    },
+  };
 }
 
 function isStoredRecallSchedule(
@@ -528,6 +618,7 @@ function createQuestionsFromProgress(input: {
   isAnswerRevealed: boolean;
   notes: readonly RecallNoteSnapshot[];
   questionIndex: number;
+  scoreAnswerCheck: ScoreRecallAnswerCheck;
 }) {
   return createQuestionsFromSessionState({
     attempts: input.attempts,
@@ -535,6 +626,7 @@ function createQuestionsFromProgress(input: {
     draftAnswer: input.draftAnswer,
     isAnswerRevealed: input.isAnswerRevealed,
     notes: input.notes,
+    scoreAnswerCheck: input.scoreAnswerCheck,
   });
 }
 
@@ -561,6 +653,43 @@ function getRecallQuestionScore(attempt: RecallAttempt | undefined) {
     : getRecallSelfRatingScore(attempt.rating);
 }
 
+function shouldRunAnswerCheck(input: {
+  isAnswerRevealed: boolean;
+  note: RecallNoteSnapshot;
+  selfRating: RecallSelfRating | null;
+  typedAnswer: string;
+}) {
+  return (
+    (input.isAnswerRevealed || input.selfRating !== null) &&
+    input.note.sourceNoteId !== undefined &&
+    (input.note.expectedAnswer ?? "").trim().length > 0 &&
+    input.typedAnswer.trim().length > 0
+  );
+}
+
+function getRecallAnswerCheck(input: {
+  isAnswerRevealed: boolean;
+  note: RecallNoteSnapshot;
+  scoreAnswerCheck: ScoreRecallAnswerCheck;
+  selfRating: RecallSelfRating | null;
+  typedAnswer: string;
+}): RecallAnswerCheckResult | undefined {
+  if (!shouldRunAnswerCheck(input)) {
+    return undefined;
+  }
+
+  try {
+    return (
+      input.scoreAnswerCheck({
+        expectedAnswer: input.note.expectedAnswer ?? "",
+        typedAnswer: input.typedAnswer,
+      }) ?? undefined
+    );
+  } catch {
+    return undefined;
+  }
+}
+
 function getRecallQuestionState(
   input: {
     currentIndex: number;
@@ -568,26 +697,37 @@ function getRecallQuestionState(
     isAnswerRevealed: boolean;
     note: RecallNoteSnapshot;
     noteIndex: number;
+    scoreAnswerCheck: ScoreRecallAnswerCheck;
   },
   attemptsByNoteId: ReadonlyMap<string, RecallAttempt>,
 ): RecallQuestion {
   const attempt = attemptsByNoteId.get(input.note.id);
+  const selfRating = attempt?.rating ?? null;
+  const typedAnswer = getTypedAnswerForQuestion({
+    attempt,
+    currentIndex: input.currentIndex,
+    draftAnswer: input.draftAnswer,
+    noteIndex: input.noteIndex,
+  });
+  const isQuestionAnswerRevealed =
+    attempt === undefined &&
+    input.noteIndex === input.currentIndex &&
+    input.isAnswerRevealed;
 
   return {
-    isAnswerRevealed:
-      attempt === undefined &&
-      input.noteIndex === input.currentIndex &&
-      input.isAnswerRevealed,
+    answerCheck: getRecallAnswerCheck({
+      isAnswerRevealed: isQuestionAnswerRevealed,
+      note: input.note,
+      scoreAnswerCheck: input.scoreAnswerCheck,
+      selfRating,
+      typedAnswer,
+    }),
+    isAnswerRevealed: isQuestionAnswerRevealed,
     noteId: input.note.id,
     noteSnapshot: cloneRecallNoteSnapshot(input.note),
     score: getRecallQuestionScore(attempt),
-    selfRating: attempt?.rating ?? null,
-    typedAnswer: getTypedAnswerForQuestion({
-      attempt,
-      currentIndex: input.currentIndex,
-      draftAnswer: input.draftAnswer,
-      noteIndex: input.noteIndex,
-    }),
+    selfRating,
+    typedAnswer,
   };
 }
 
@@ -597,6 +737,7 @@ function createQuestionsFromSessionState(input: {
   draftAnswer: string;
   isAnswerRevealed: boolean;
   notes: readonly RecallNoteSnapshot[];
+  scoreAnswerCheck: ScoreRecallAnswerCheck;
 }): RecallQuestion[] {
   const attemptsByNoteId = getFirstAttemptByNoteId(input.attempts);
 
@@ -608,13 +749,17 @@ function createQuestionsFromSessionState(input: {
         isAnswerRevealed: input.isAnswerRevealed,
         note,
         noteIndex,
+        scoreAnswerCheck: input.scoreAnswerCheck,
       },
       attemptsByNoteId,
     ),
   );
 }
 
-function parseStoredRecallSession(value: string | null): AppRecallSnapshot {
+function parseStoredRecallSession(
+  value: string | null,
+  scoreAnswerCheck: ScoreRecallAnswerCheck,
+): AppRecallSnapshot {
   if (value === null) {
     return null;
   }
@@ -651,13 +796,20 @@ function parseStoredRecallSession(value: string | null): AppRecallSnapshot {
       typeof parsedValue.draftAnswer === "string"
         ? parsedValue.draftAnswer
         : "";
-    const questions = createQuestionsFromProgress({
-      attempts,
-      draftAnswer,
-      isAnswerRevealed: parsedValue.isAnswerRevealed,
-      notes,
-      questionIndex: parsedValue.currentIndex,
-    });
+    const questions =
+      Array.isArray(parsedValue.questions) &&
+      parsedValue.questions.every((question: unknown) =>
+        isRecallQuestion(question),
+      )
+        ? parsedValue.questions.map(normalizeStoredRecallQuestion)
+        : createQuestionsFromProgress({
+            attempts,
+            draftAnswer,
+            isAnswerRevealed: parsedValue.isAnswerRevealed,
+            notes,
+            questionIndex: parsedValue.currentIndex,
+            scoreAnswerCheck,
+          });
 
     return {
       ...parsedValue,
@@ -689,6 +841,7 @@ function restoreStoredSessionResultQuestions(
     isAnswerRevealed: false,
     notes,
     questionIndex: notes.length,
+    scoreAnswerCheck: scoreRecallAnswerCheck,
   }).filter((question) => question.selfRating !== null);
 }
 
@@ -826,6 +979,7 @@ function clonePracticeRepairEntry(
 function cloneRecallQuestion(question: RecallQuestion): RecallQuestion {
   return {
     ...question,
+    answerCheck: cloneRecallAnswerCheckResult(question.answerCheck),
     noteSnapshot: cloneRecallNoteSnapshot(question.noteSnapshot),
     practiceRepairEntry: clonePracticeRepairEntry(question.practiceRepairEntry),
   };
@@ -848,6 +1002,7 @@ function normalizeStoredRecallQuestion(
 
   return {
     ...question,
+    answerCheck: cloneRecallAnswerCheckResult(question.answerCheck),
     noteSnapshot: cloneRecallNoteSnapshot(question.noteSnapshot),
     practiceRepairEntry: clonePracticeRepairEntry(question.practiceRepairEntry),
     score:
@@ -1329,10 +1484,12 @@ export function createAppRecallContext(
   const storage = options.storage ?? getDefaultStorage();
   const cryptoProvider = options.crypto ?? getDefaultCrypto();
   const keyPrefix = options.keyPrefix ?? DEFAULT_STORAGE_KEY_PREFIX;
+  const answerCheckScorer = options.scoreAnswerCheck ?? scoreRecallAnswerCheck;
   const shuffleNotes = options.shuffleNotes ?? defaultShuffleNotes;
   const listeners = new Set<RecallListener>();
   let snapshot = parseStoredRecallSession(
     storage?.getItem(getRecallStorageKey(keyPrefix)) ?? null,
+    answerCheckScorer,
   );
   let sessionResults = parseStoredSessionResults(
     storage?.getItem(getSessionResultsStorageKey(keyPrefix)) ?? null,
@@ -1875,6 +2032,7 @@ export function createAppRecallContext(
         isAnswerRevealed: true,
         notes: activeSession.notes,
         questionIndex: activeSession.currentQuestionIndex,
+        scoreAnswerCheck: answerCheckScorer,
       }),
     };
 
@@ -1932,6 +2090,7 @@ export function createAppRecallContext(
         isAnswerRevealed: false,
         notes: activeSession.notes,
         questionIndex: currentQuestionIndex,
+        scoreAnswerCheck: answerCheckScorer,
       }),
     };
 
@@ -1971,6 +2130,7 @@ export function createAppRecallContext(
         isAnswerRevealed: false,
         notes: activeSession.notes,
         questionIndex: currentQuestionIndex,
+        scoreAnswerCheck: answerCheckScorer,
       }),
     };
 
@@ -2009,6 +2169,7 @@ export function createAppRecallContext(
         isAnswerRevealed: activeSession.isAnswerRevealed,
         notes: activeSession.notes,
         questionIndex: activeSession.currentQuestionIndex,
+        scoreAnswerCheck: answerCheckScorer,
       }),
     };
 
@@ -2059,6 +2220,7 @@ export function createAppRecallContext(
         isAnswerRevealed: false,
         notes: shuffledNotes,
         questionIndex: 0,
+        scoreAnswerCheck: answerCheckScorer,
       }),
       userId: input.userId,
     };

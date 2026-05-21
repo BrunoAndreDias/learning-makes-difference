@@ -22,6 +22,9 @@ import { useAppTranslation } from "../language";
 import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import {
   formatRecallModeLabel,
+  getRecallAnswerCheckConfidenceTranslationKey,
+  getRecallAnswerCheckReasonTranslationKey,
+  getRecallAnswerCheckStatusTranslationKey,
   getRecallRatingDescriptionTranslationKey,
   getRecallRatingTranslationKey,
 } from "./learner-copy";
@@ -30,6 +33,7 @@ import {
   type AppRecallSnapshot,
   type FlashCardRecallNote,
   type FlashCardRecallRating,
+  type RecallQuestion,
   type RecallSession,
 } from "./recall";
 
@@ -123,6 +127,10 @@ function RecallSessionPage() {
       ? null
       : `${activeSession.id}:${activeSession.currentQuestionIndex}`;
   const storedDraftAnswer = activeSession?.draftAnswer ?? "";
+  const currentQuestion =
+    activeSession === null
+      ? null
+      : (activeSession.questions[activeSession.currentQuestionIndex] ?? null);
   const currentNote =
     activeSession === null
       ? null
@@ -497,7 +505,10 @@ function RecallSessionPage() {
               ) : (
                 <div className="recall-card__revealed-state">
                   <h4 className="recall-card__question">{currentNote.title}</h4>
-                  <RecallNoteDetails note={currentNote} />
+                  <RecallNoteDetails
+                    note={currentNote}
+                    question={currentQuestion}
+                  />
                   <div className="recall-card__footer recall-card__footer--ratings">
                     <fieldset className="recall-rating-row">
                       <legend>{t("recall.session.selfRating")}</legend>
@@ -573,15 +584,98 @@ function RecallSessionPage() {
   );
 }
 
-function RecallNoteDetails({ note }: { note: FlashCardRecallNote }) {
+function RecallNoteDetails({
+  note,
+  question,
+}: {
+  note: FlashCardRecallNote;
+  question: RecallQuestion | null;
+}) {
   const { t } = useAppTranslation();
 
   return (
     <div className="recall-note-details">
-      <section aria-label={t("recall.session.answer.expectedAnswer")}>
-        <h5>{t("recall.session.answer.expectedAnswer")}</h5>
-        <p className="recall-card__body">{note.expectedAnswer ?? note.body}</p>
-      </section>
+      <div className="recall-answer-check-grid">
+        <section aria-label={t("recall.session.answer.expectedAnswer")}>
+          <h5>{t("recall.session.answer.expectedAnswer")}</h5>
+          <p className="recall-card__body">
+            {note.expectedAnswer ?? note.body}
+          </p>
+        </section>
+        {question?.answerCheck !== undefined ? (
+          <section
+            aria-label={t("recall.answerCheck.title")}
+            className="recall-answer-check"
+            data-status={question.answerCheck.status}
+          >
+            <div className="recall-answer-check__header">
+              <div>
+                <p className="recall-answer-check__eyebrow">
+                  {t("recall.answerCheck.title")}
+                </p>
+                <h5>
+                  {t(
+                    getRecallAnswerCheckStatusTranslationKey(
+                      question.answerCheck.status,
+                    ),
+                  )}
+                </h5>
+              </div>
+              <span className="recall-answer-check__confidence">
+                {t(
+                  getRecallAnswerCheckConfidenceTranslationKey(
+                    question.answerCheck.confidence,
+                  ),
+                )}
+              </span>
+            </div>
+            <p className="recall-answer-check__caption">
+              {t("recall.answerCheck.caption")}
+            </p>
+            <p className="recall-card__body recall-answer-check__summary">
+              {t(
+                getRecallAnswerCheckReasonTranslationKey(
+                  question.answerCheck.primaryReason,
+                ),
+              )}
+            </p>
+            <p className="recall-answer-check__suggested-rating">
+              <strong>{t("recall.answerCheck.suggestedSelfRating")}</strong>
+              <span>
+                {t(
+                  getRecallRatingTranslationKey(
+                    question.answerCheck.suggestedSelfRating,
+                  ),
+                )}
+              </span>
+            </p>
+            {question.answerCheck.evidence.matchedExpectedTerms.length > 0 ? (
+              <div className="recall-answer-check__terms">
+                <h6>{t("recall.answerCheck.matchedTerms")}</h6>
+                <ul>
+                  {question.answerCheck.evidence.matchedExpectedTerms
+                    .slice(0, 4)
+                    .map((term) => (
+                      <li key={`matched-${term}`}>{term}</li>
+                    ))}
+                </ul>
+              </div>
+            ) : null}
+            {question.answerCheck.evidence.missingExpectedTerms.length > 0 ? (
+              <div className="recall-answer-check__terms">
+                <h6>{t("recall.answerCheck.missingTerms")}</h6>
+                <ul>
+                  {question.answerCheck.evidence.missingExpectedTerms
+                    .slice(0, 4)
+                    .map((term) => (
+                      <li key={`missing-${term}`}>{term}</li>
+                    ))}
+                </ul>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+      </div>
       {note.source !== undefined ? (
         <section aria-label={t("recall.session.answer.sourceContext")}>
           <h5>{t("recall.session.answer.sourceContext")}</h5>

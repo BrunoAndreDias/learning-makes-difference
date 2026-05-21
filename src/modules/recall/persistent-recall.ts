@@ -15,6 +15,7 @@ import {
   type SessionResult,
   summarizeAttempts,
 } from "./recall";
+import type { RecallAnswerCheckResult } from "./recall-answer-check";
 import {
   clonePracticeRepairEntry as clonePracticeRepairEntryValue,
   listActivePracticeRepairEntriesForStudyNote as listActivePracticeRepairEntriesForStudyNoteValue,
@@ -207,9 +208,27 @@ function clonePracticeRepairEntry(
   return clonePracticeRepairEntryValue(entry);
 }
 
+function cloneAnswerCheck(
+  answerCheck: RecallAnswerCheckResult | undefined,
+): RecallAnswerCheckResult | undefined {
+  if (answerCheck === undefined) {
+    return undefined;
+  }
+
+  return {
+    ...answerCheck,
+    evidence: {
+      ...answerCheck.evidence,
+      matchedExpectedTerms: [...answerCheck.evidence.matchedExpectedTerms],
+      missingExpectedTerms: [...answerCheck.evidence.missingExpectedTerms],
+    },
+  };
+}
+
 function cloneQuestion(question: RecallQuestion): RecallQuestion {
   return {
     ...question,
+    answerCheck: cloneAnswerCheck(question.answerCheck),
     noteSnapshot: cloneNoteSnapshot(question.noteSnapshot),
     practiceRepairEntry: clonePracticeRepairEntry(question.practiceRepairEntry),
   };

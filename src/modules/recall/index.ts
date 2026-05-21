@@ -31,6 +31,15 @@ export {
   summarizeAttempts,
 } from "./recall";
 export type {
+  RecallAnswerCheckConfidence,
+  RecallAnswerCheckEvidence,
+  RecallAnswerCheckReason,
+  RecallAnswerCheckResult,
+  RecallAnswerCheckStatus,
+  RecallAnswerCheckSuggestedSelfRating,
+} from "./recall-answer-check";
+export { scoreRecallAnswerCheck } from "./recall-answer-check";
+export type {
   RecallGuidanceEntry,
   RecallGuidanceInput,
   RecallGuidanceRecommendation,
