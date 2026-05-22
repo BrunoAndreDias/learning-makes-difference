@@ -384,28 +384,33 @@ function createPracticeFollowUpRows(input: {
   plannedItems: readonly PlannedRecallWorkItem[];
 }): StudyGuidanceRowDraft[] {
   return input.plannedItems.flatMap((item) => {
+    if (item.primaryReason !== "practice-follow-up") {
+      return [];
+    }
+
+    const practiceFollowUpEntry = item.practiceFollowUpEntry;
+
     if (
-      item.primaryReason !== "practice-follow-up" ||
-      item.practiceFollowUpEntry === null ||
+      practiceFollowUpEntry === null ||
       input.blockedStudyNoteIds.has(item.studyNote.id)
     ) {
       return [];
     }
 
-    const practiceFollowUpEntry = item.practiceFollowUpEntry;
+    const practiceRepairEntryId = getPracticeRepairEntryId(
+      practiceFollowUpEntry,
+    );
 
     return [
       createStudyNoteRowDraft({
         action: {
           kind: "practice-repair-entry",
           label: "Open Practice Repair",
-          practiceRepairEntryId: getPracticeRepairEntryId(
-            practiceFollowUpEntry,
-          ),
+          practiceRepairEntryId,
         },
         bucketId: "practice-follow-up",
         evidence: createPracticeFollowUpEvidence(practiceFollowUpEntry),
-        id: `follow-up:${getPracticeRepairEntryId(practiceFollowUpEntry)}`,
+        id: `follow-up:${practiceRepairEntryId}`,
         labelsById: input.labelsById,
         studyNote: item.studyNote,
       }),
