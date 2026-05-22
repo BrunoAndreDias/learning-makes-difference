@@ -149,6 +149,22 @@ type ShuffleNotes = (
 
 type ScoreRecallAnswerCheck = typeof scoreRecallAnswerCheck;
 
+type RecallQuestionAnswerCheckStrategy =
+  | {
+      mode: "derive";
+      scoreAnswerCheck: ScoreRecallAnswerCheck;
+    }
+  | {
+      mode: "omit";
+    };
+
+type RecallQuestionAnswerCheckInput = RecallQuestionAnswerCheckStrategy & {
+  isAnswerRevealed: boolean;
+  note: RecallNoteSnapshot;
+  selfRating: RecallSelfRating | null;
+  typedAnswer: string;
+};
+
 type StartRecallSessionInput = {
   mode?: RecallMode;
   noteIds?: string[];
@@ -538,7 +554,6 @@ function getFirstAttemptByNoteId(attempts: readonly RecallAttempt[]) {
 function createQuestionsFromProgress(input: {
   attempts: readonly RecallAttempt[];
   draftAnswer: string;
-  includeAnswerCheck?: boolean;
   isAnswerRevealed: boolean;
   notes: readonly RecallNoteSnapshot[];
   questionIndex: number;
@@ -546,12 +561,14 @@ function createQuestionsFromProgress(input: {
 }) {
   return createQuestionsFromSessionState({
     attempts: input.attempts,
+    answerCheckStrategy: {
+      mode: "derive",
+      scoreAnswerCheck: input.scoreAnswerCheck,
+    },
     currentIndex: input.questionIndex,
     draftAnswer: input.draftAnswer,
-    includeAnswerCheck: input.includeAnswerCheck ?? true,
     isAnswerRevealed: input.isAnswerRevealed,
     notes: input.notes,
-    scoreAnswerCheck: input.scoreAnswerCheck,
   });
 }
 
@@ -615,15 +632,31 @@ function getRecallAnswerCheck(input: {
   }
 }
 
+function getRecallQuestionAnswerCheck(
+  input: RecallQuestionAnswerCheckInput,
+): RecallAnswerCheckResult | undefined {
+  switch (input.mode) {
+    case "derive":
+      return getRecallAnswerCheck({
+        isAnswerRevealed: input.isAnswerRevealed,
+        note: input.note,
+        scoreAnswerCheck: input.scoreAnswerCheck,
+        selfRating: input.selfRating,
+        typedAnswer: input.typedAnswer,
+      });
+    case "omit":
+      return undefined;
+  }
+}
+
 function getRecallQuestionState(
   input: {
+    answerCheckStrategy: RecallQuestionAnswerCheckStrategy;
     currentIndex: number;
     draftAnswer: string;
-    includeAnswerCheck: boolean;
     isAnswerRevealed: boolean;
     note: RecallNoteSnapshot;
     noteIndex: number;
-    scoreAnswerCheck: ScoreRecallAnswerCheck;
   },
   attemptsByNoteId: ReadonlyMap<string, RecallAttempt>,
 ): RecallQuestion {
@@ -641,15 +674,13 @@ function getRecallQuestionState(
     input.isAnswerRevealed;
 
   return {
-    answerCheck: input.includeAnswerCheck
-      ? getRecallAnswerCheck({
-          isAnswerRevealed: isQuestionAnswerRevealed,
-          note: input.note,
-          scoreAnswerCheck: input.scoreAnswerCheck,
-          selfRating,
-          typedAnswer,
-        })
-      : undefined,
+    answerCheck: getRecallQuestionAnswerCheck({
+      ...input.answerCheckStrategy,
+      isAnswerRevealed: isQuestionAnswerRevealed,
+      note: input.note,
+      selfRating,
+      typedAnswer,
+    }),
     isAnswerRevealed: isQuestionAnswerRevealed,
     noteId: input.note.id,
     noteSnapshot: cloneRecallNoteSnapshot(input.note),
@@ -661,25 +692,23 @@ function getRecallQuestionState(
 
 function createQuestionsFromSessionState(input: {
   attempts: readonly RecallAttempt[];
+  answerCheckStrategy: RecallQuestionAnswerCheckStrategy;
   currentIndex: number;
   draftAnswer: string;
-  includeAnswerCheck: boolean;
   isAnswerRevealed: boolean;
   notes: readonly RecallNoteSnapshot[];
-  scoreAnswerCheck: ScoreRecallAnswerCheck;
 }): RecallQuestion[] {
   const attemptsByNoteId = getFirstAttemptByNoteId(input.attempts);
 
   return input.notes.map((note, noteIndex) =>
     getRecallQuestionState(
       {
+        answerCheckStrategy: input.answerCheckStrategy,
         currentIndex: input.currentIndex,
         draftAnswer: input.draftAnswer,
-        includeAnswerCheck: input.includeAnswerCheck,
         isAnswerRevealed: input.isAnswerRevealed,
         note,
         noteIndex,
-        scoreAnswerCheck: input.scoreAnswerCheck,
       },
       attemptsByNoteId,
     ),
@@ -765,14 +794,13 @@ function restoreStoredSessionResultQuestions(
     return result.questions.map(normalizeStoredRecallQuestion);
   }
 
-  return createQuestionsFromProgress({
+  return createQuestionsFromSessionState({
     attempts: result.attempts,
+    answerCheckStrategy: { mode: "omit" },
+    currentIndex: notes.length,
     draftAnswer: "",
-    includeAnswerCheck: false,
     isAnswerRevealed: false,
     notes,
-    questionIndex: notes.length,
-    scoreAnswerCheck: scoreRecallAnswerCheck,
   }).filter((question) => question.selfRating !== null);
 }
 

@@ -1577,28 +1577,26 @@ describe("recall session setup", () => {
       storage,
     });
 
-    expect(recall.listSessionResults({ userId })).toMatchObject([
-      {
-        attempts: [
-          {
-            noteId: "study-note-1",
-            rating: "good",
-            text: "ATP stores transferable energy.",
-          },
-        ],
-        id: "legacy-answer-check-result",
-        questions: [
-          {
-            noteId: "study-note-1",
-            selfRating: "good",
-            typedAnswer: "ATP stores transferable energy.",
-          },
-        ],
-      },
-    ]);
-    expect(
-      recall.listSessionResults({ userId })[0]?.questions[0]?.answerCheck,
-    ).toBeUndefined();
+    const [result] = recall.listSessionResults({ userId });
+
+    expect(result).toMatchObject({
+      attempts: [
+        {
+          noteId: "study-note-1",
+          rating: "good",
+          text: "ATP stores transferable energy.",
+        },
+      ],
+      id: "legacy-answer-check-result",
+      questions: [
+        {
+          noteId: "study-note-1",
+          selfRating: "good",
+          typedAnswer: "ATP stores transferable energy.",
+        },
+      ],
+    });
+    expect(result?.questions[0]?.answerCheck).toBeUndefined();
   });
 
   it("stores Answer Check guidance on attempted SessionResult questions and keeps it historical", () => {
@@ -1654,8 +1652,8 @@ describe("recall session setup", () => {
       userId,
     });
 
-    const storedAnswerCheck = recall.listSessionResults({ userId })[0]
-      ?.questions[0]?.answerCheck;
+    const [storedResult] = recall.listSessionResults({ userId });
+    const storedAnswerCheck = storedResult?.questions[0]?.answerCheck;
 
     expect(storedAnswerCheck).toMatchObject({
       algorithmVersion: "baseline_expected_answer_v1",
@@ -1688,9 +1686,9 @@ describe("recall session setup", () => {
       }),
     });
 
-    expect(
-      reloadedRecall.listSessionResults({ userId })[0]?.questions[0],
-    ).toMatchObject({
+    const [reloadedResult] = reloadedRecall.listSessionResults({ userId });
+
+    expect(reloadedResult?.questions[0]).toMatchObject({
       answerCheck: storedAnswerCheck,
       noteSnapshot: {
         expectedAnswer:
