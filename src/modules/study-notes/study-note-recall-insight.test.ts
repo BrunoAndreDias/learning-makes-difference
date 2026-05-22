@@ -136,14 +136,14 @@ const recallInsightScenarios = [
       lastResult: "—",
       nextRecall: "Today",
       statusLabel: "New",
-      suggestedAction: "Review this note",
+      suggestedAction: "Recall today",
     },
     input: {
       draft: buildDraft(),
       nextRecall: "Today",
       recallGuidance: buildRecallGuidanceEntry(),
     },
-    name: "prompts due unrecalled Study Notes to review now",
+    name: "prompts due unrecalled Study Notes to recall today",
   },
   {
     expected: {
@@ -152,7 +152,7 @@ const recallInsightScenarios = [
       lastResult: "—",
       nextRecall: "May 19",
       statusLabel: "New",
-      suggestedAction: "Review when due",
+      suggestedAction: "Follow Recall Schedule",
     },
     input: {
       draft: buildDraft(),
@@ -179,7 +179,7 @@ const recallInsightScenarios = [
       lastResult: "Hard (2/5)",
       nextRecall: "Today",
       statusLabel: "Needs practice",
-      suggestedAction: "Review this note",
+      suggestedAction: "Practice Repair first",
     },
     input: {
       draft: buildDraft(),
@@ -206,7 +206,7 @@ const recallInsightScenarios = [
       lastResult: "Hard (2/5)",
       nextRecall: "Today",
       statusLabel: "Practice Follow-up",
-      suggestedAction: "Review this note",
+      suggestedAction: "Recall today",
     },
     input: {
       draft: buildDraft(),
@@ -240,7 +240,7 @@ const recallInsightScenarios = [
       lastResult: "Easy (5/5)",
       nextRecall: "May 19",
       statusLabel: "On track",
-      suggestedAction: "Keep it up",
+      suggestedAction: "Follow Recall Schedule",
     },
     input: {
       draft: buildDraft(),
@@ -270,7 +270,7 @@ const recallInsightScenarios = [
       lastResult: "Good (4/5)",
       nextRecall: "Today",
       statusLabel: "On track",
-      suggestedAction: "Review this note",
+      suggestedAction: "Recall today",
     },
     input: {
       draft: buildDraft(),
@@ -289,7 +289,7 @@ const recallInsightScenarios = [
         },
       }),
     },
-    name: "prompts successful due Study Notes to review now",
+    name: "prompts successful due Study Notes to recall today",
   },
 ] satisfies readonly RecallInsightScenario[];
 

@@ -769,7 +769,7 @@ describe("authenticated Study Notes workspace", () => {
       within(recallInsights).getByText("Suggested action"),
     ).toBeInTheDocument();
     expect(
-      within(recallInsights).getByText("Review this note"),
+      within(recallInsights).getByText("Recall today"),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "Recall schedule" }),
