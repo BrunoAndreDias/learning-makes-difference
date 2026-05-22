@@ -143,7 +143,7 @@ const recallInsightScenarios = [
       nextRecall: "Today",
       recallGuidance: buildRecallGuidanceEntry(),
     },
-    name: "prompts due unrecalled Study Notes to review now",
+    name: "prompts due unrecalled Study Notes to recall today",
   },
   {
     expected: {
@@ -289,7 +289,7 @@ const recallInsightScenarios = [
         },
       }),
     },
-    name: "prompts successful due Study Notes to review now",
+    name: "prompts successful due Study Notes to recall today",
   },
 ] satisfies readonly RecallInsightScenario[];
 

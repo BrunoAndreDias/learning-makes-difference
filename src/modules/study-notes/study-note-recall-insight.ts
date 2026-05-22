@@ -35,7 +35,7 @@ export function formatRecallSelfRatingResultLabel(
   }
 }
 
-function getScheduledRecallSuggestedAction(dueForRecall: boolean) {
+function getRecallScheduleSuggestedAction(dueForRecall: boolean) {
   return dueForRecall ? "Recall today" : "Follow Recall Schedule";
 }
 
@@ -91,7 +91,7 @@ export function deriveStudyNoteRecallInsight(input: {
       lastResult: "—",
       nextRecall,
       statusLabel: "New",
-      suggestedAction: getScheduledRecallSuggestedAction(
+      suggestedAction: getRecallScheduleSuggestedAction(
         recallGuidance.dueForRecall,
       ),
     };
@@ -114,7 +114,7 @@ export function deriveStudyNoteRecallInsight(input: {
     lastResult: formatRecallSelfRatingResultLabel(recallGuidance.lastScore),
     nextRecall,
     statusLabel: "On track",
-    suggestedAction: getScheduledRecallSuggestedAction(
+    suggestedAction: getRecallScheduleSuggestedAction(
       recallGuidance.dueForRecall,
     ),
   };
