@@ -483,6 +483,7 @@ const englishTranslations = {
   "recall.selection.temporary":
     "Your selection is temporary and used only for this recall session.",
   "recall.selection.title": "Select Study Notes",
+  "recall.answerCheck.algorithmVersion": "Algorithm version",
   "recall.answerCheck.caption": "Guidance only. Keep your own self-rating.",
   "recall.answerCheck.confidence.high": "High confidence",
   "recall.answerCheck.confidence.low": "Low confidence",
@@ -1102,6 +1103,7 @@ const portugueseTranslations = {
   "recall.selection.temporary":
     "A sua selecao e temporaria e usada apenas nesta sessao de recordacao.",
   "recall.selection.title": "Selecionar notas de estudo",
+  "recall.answerCheck.algorithmVersion": "Versao do algoritmo",
   "recall.answerCheck.caption":
     "Orientacao apenas. Mantem a tua propria autoavaliacao.",
   "recall.answerCheck.confidence.high": "Confianca alta",
@@ -1725,6 +1727,7 @@ const spanishTranslations = {
   "recall.selection.temporary":
     "Tu seleccion es temporal y solo se usa en esta sesion de repaso.",
   "recall.selection.title": "Seleccionar notas de estudio",
+  "recall.answerCheck.algorithmVersion": "Version del algoritmo",
   "recall.answerCheck.caption":
     "Solo orientacion. Manten tu propia autoevaluacion.",
   "recall.answerCheck.confidence.high": "Confianza alta",
