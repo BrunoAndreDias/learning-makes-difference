@@ -837,9 +837,15 @@ function RecallAnswerCheckPanel({
   answerCheck: NonNullable<RecallQuestion["answerCheck"]>;
 }) {
   const { t } = useAppTranslation();
+  const contradictedConcepts = (
+    answerCheck.evidence.contradictedConcepts ?? []
+  ).map((concept) => concept.text);
   const coveredConcepts = (answerCheck.evidence.coveredConcepts ?? []).map(
     (concept) => concept.text,
   );
+  const matchedProhibitedPhrases = (
+    answerCheck.evidence.matchedProhibitedPhrases ?? []
+  ).map((match) => match.text);
   const partialConcepts = (answerCheck.evidence.partialConcepts ?? []).map(
     (concept) => concept.text,
   );
@@ -865,6 +871,8 @@ function RecallAnswerCheckPanel({
           keyPrefix: "missing",
           terms: answerCheck.evidence.missingExpectedTerms,
         };
+  const hasContradictions =
+    contradictedConcepts.length > 0 || matchedProhibitedPhrases.length > 0;
 
   return (
     <section
@@ -895,6 +903,20 @@ function RecallAnswerCheckPanel({
       <p className="recall-card__body recall-answer-check__summary">
         {t(getRecallAnswerCheckReasonTranslationKey(answerCheck.primaryReason))}
       </p>
+      {hasContradictions ? (
+        <>
+          <RecallAnswerCheckTerms
+            heading={t("recall.answerCheck.contradictedConcepts")}
+            keyPrefix="contradicted-concept"
+            terms={contradictedConcepts}
+          />
+          <RecallAnswerCheckTerms
+            heading={t("recall.answerCheck.matchedProhibitedPhrases")}
+            keyPrefix="matched-prohibited"
+            terms={matchedProhibitedPhrases}
+          />
+        </>
+      ) : null}
       {answerCheck.matchedAcceptedVariant !== undefined ? (
         <div className="recall-answer-check__matched-variant">
           <h6>{t("recall.answerCheck.matchedAcceptedVariant")}</h6>

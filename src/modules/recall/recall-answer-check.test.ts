@@ -60,7 +60,7 @@ describe("scoreRecallAnswerCheck", () => {
           "Retrieval practice strengthens access to long-term memory.",
       }),
     ).toMatchObject({
-      algorithmVersion: "key_idea_and_accepted_variant_v3",
+      algorithmVersion: "key_idea_accepted_variant_and_prohibited_phrase_v4",
       confidence: "medium",
       primaryReason: "expected_answer_exact_match",
       status: "likely_correct",
@@ -224,6 +224,97 @@ describe("scoreRecallAnswerCheck", () => {
     });
   });
 
+  it("blocks likely_correct when a Study Note prohibited phrase matches the answer", () => {
+    expect(
+      scoreRecallAnswerCheck({
+        acceptedVariants: [],
+        expectedAnswer: "Retrieval practice strengthens access to memory.",
+        prohibitedPhrases: [
+          {
+            id: "prohibited-passive-review",
+            text: "retrieval practice is passive review",
+          },
+        ],
+        typedAnswer:
+          "Retrieval practice strengthens access to memory, but retrieval practice is passive review.",
+      }),
+    ).toMatchObject({
+      confidence: "low",
+      evidence: {
+        matchedProhibitedPhrases: [
+          {
+            scope: "study_note",
+            text: "retrieval practice is passive review",
+          },
+        ],
+      },
+      primaryReason: "study_note_prohibited_phrase_match",
+      status: "uncertain",
+      suggestedSelfRating: "hard",
+    });
+  });
+
+  it("marks the related concept as contradicted when a Key Idea prohibited phrase matches", () => {
+    expect(
+      scoreRecallAnswerCheck({
+        acceptedVariants: [],
+        expectedAnswer:
+          "Retrieval practice strengthens long-term memory through effortful recall.",
+        keyIdeas: [
+          {
+            acceptedPhrases: [],
+            id: "key-idea-memory",
+            importance: "required",
+            prohibitedPhrases: [],
+            text: "long-term memory",
+          },
+          {
+            acceptedPhrases: [],
+            id: "key-idea-effortful",
+            importance: "required",
+            prohibitedPhrases: ["passive review"],
+            text: "effortful recall",
+          },
+        ],
+        typedAnswer:
+          "Retrieval practice strengthens long-term memory through passive review.",
+      }),
+    ).toMatchObject({
+      confidence: "low",
+      evidence: {
+        contradictedConcepts: [
+          {
+            id: "key-idea-effortful",
+            importance: "required",
+            text: "effortful recall",
+          },
+        ],
+        coveredConcepts: [
+          {
+            id: "key-idea-memory",
+            importance: "required",
+            text: "long-term memory",
+          },
+        ],
+        matchedProhibitedPhrases: [
+          {
+            concept: {
+              id: "key-idea-effortful",
+              importance: "required",
+              text: "effortful recall",
+            },
+            scope: "key_idea",
+            text: "passive review",
+          },
+        ],
+        missingConcepts: [],
+      },
+      primaryReason: "key_idea_prohibited_phrase_match",
+      status: "uncertain",
+      suggestedSelfRating: "hard",
+    });
+  });
+
   it("treats short but meaningful attempts conservatively", () => {
     expect(
       scoreRecallAnswerCheck({
@@ -380,6 +471,42 @@ describe("scoreRecallAnswerCheck", () => {
     expect(result?.matchedAcceptedVariant).toBeUndefined();
   });
 
+  it("does not match prohibited phrases on conservative near misses", () => {
+    expect(
+      scoreRecallAnswerCheck({
+        acceptedVariants: [],
+        expectedAnswer: "Retrieval practice strengthens access to memory.",
+        prohibitedPhrases: [
+          {
+            id: "prohibited-passive-review",
+            text: "passive review",
+          },
+        ],
+        typedAnswer:
+          "Retrieval practice strengthens access to memory and is not passive or mere review.",
+      }),
+    ).toMatchObject({
+      confidence: "low",
+      primaryReason: "expected_answer_close_match",
+      status: "likely_correct",
+      suggestedSelfRating: "good",
+    });
+    expect(
+      scoreRecallAnswerCheck({
+        acceptedVariants: [],
+        expectedAnswer: "Retrieval practice strengthens access to memory.",
+        prohibitedPhrases: [
+          {
+            id: "prohibited-passive-review",
+            text: "passive review",
+          },
+        ],
+        typedAnswer:
+          "Retrieval practice strengthens access to memory and is not passive or mere review.",
+      })?.evidence.matchedProhibitedPhrases,
+    ).toEqual([]);
+  });
+
   it("keeps previously stored v1 Answer Check results readable", () => {
     expect(
       isRecallAnswerCheckResult({
@@ -393,6 +520,22 @@ describe("scoreRecallAnswerCheck", () => {
           tokenCoverage: 1,
         },
         primaryReason: "expected_answer_exact_match",
+        status: "likely_correct",
+        suggestedSelfRating: "good",
+      }),
+    ).toBe(true);
+    expect(
+      isRecallAnswerCheckResult({
+        algorithmVersion: "key_idea_and_accepted_variant_v3",
+        confidence: "high",
+        evidence: {
+          matchedExpectedTerms: ["Retrieval", "practice"],
+          missingExpectedTerms: [],
+          phraseCoverage: 1,
+          tfidfCosineSimilarity: 1,
+          tokenCoverage: 1,
+        },
+        primaryReason: "accepted_variant_close_match",
         status: "likely_correct",
         suggestedSelfRating: "good",
       }),

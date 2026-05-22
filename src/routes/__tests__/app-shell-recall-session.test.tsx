@@ -579,6 +579,59 @@ describe("authenticated recall workspace", () => {
     expect(screen.getByText("effortful recall")).toBeInTheDocument();
   });
 
+  it("shows prohibited phrase contradictions alongside the expected answer on Study Note reveal", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const studyNote = createRecallableStudyNote(contexts, {
+      expectedAnswer:
+        "Retrieval practice strengthens long-term memory through effortful recall.",
+      keyIdeas: [
+        {
+          acceptedPhrases: [],
+          id: "key-idea-memory",
+          importance: "required",
+          prohibitedPhrases: [],
+          text: "long-term memory",
+        },
+        {
+          acceptedPhrases: [],
+          id: "key-idea-effortful",
+          importance: "required",
+          prohibitedPhrases: ["passive review"],
+          text: "effortful recall",
+        },
+      ],
+      prompt: "What does retrieval practice strengthen?",
+      sourceBody: "Broader retrieval practice source context.",
+      sourceTitle: "Retrieval practice source",
+    });
+    contexts.recallContext.startFlashCardSession({
+      studyNoteIds: [studyNote.id],
+      userId: testUser.id,
+    });
+
+    renderRoute("/recall/session", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Write answer" }),
+    );
+    fireEvent.change(screen.getByLabelText("Your answer"), {
+      target: {
+        value:
+          "Retrieval practice strengthens long-term memory through passive review.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Reveal Study Note" }));
+
+    expect(screen.getByText("Uncertain")).toBeInTheDocument();
+    expect(screen.getByText("Contradicted concepts")).toBeInTheDocument();
+    expect(screen.getByText("effortful recall")).toBeInTheDocument();
+    expect(screen.getByText("Matched Prohibited Phrases")).toBeInTheDocument();
+    expect(screen.getByText("passive review")).toBeInTheDocument();
+  });
+
   it("shows the matched Accepted Variant and undetected expected terms when variant matching is used", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const studyNote = createRecallableStudyNote(contexts, {

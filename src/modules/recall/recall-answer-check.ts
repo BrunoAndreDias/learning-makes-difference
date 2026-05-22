@@ -1,6 +1,7 @@
 import type {
   AppStudyNoteAcceptedVariant,
   AppStudyNoteKeyIdea,
+  AppStudyNoteProhibitedPhrase,
   StudyNoteKeyIdeaImportance,
 } from "../study-notes";
 import type { RecallSelfRating } from "./recall";
@@ -56,13 +57,18 @@ const BASELINE_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
 const KEY_IDEA_RECALL_ANSWER_CHECK_ALGORITHM_VERSION = "key_idea_coverage_v1";
 const ACCEPTED_VARIANT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
   "expected_answer_and_accepted_variant_v2";
-const CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
+const KEY_IDEA_AND_ACCEPTED_VARIANT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
   "key_idea_and_accepted_variant_v3";
+const ACCEPTED_VARIANT_AND_PROHIBITED_PHRASE_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
+  "key_idea_accepted_variant_and_prohibited_phrase_v4";
+const CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
+  ACCEPTED_VARIANT_AND_PROHIBITED_PHRASE_RECALL_ANSWER_CHECK_ALGORITHM_VERSION;
 
 const RECALL_ANSWER_CHECK_ALGORITHM_VERSIONS = [
   BASELINE_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
   KEY_IDEA_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
   ACCEPTED_VARIANT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
+  KEY_IDEA_AND_ACCEPTED_VARIANT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
   CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
 ] as const;
 
@@ -89,8 +95,10 @@ export type RecallAnswerCheckReason =
   | "expected_answer_short_attempt"
   | "expected_answer_low_coverage"
   | "key_idea_concepts_covered"
+  | "key_idea_prohibited_phrase_match"
   | "key_idea_required_missing"
-  | "key_idea_supporting_partial";
+  | "key_idea_supporting_partial"
+  | "study_note_prohibited_phrase_match";
 
 export type RecallAnswerCheckConcept = {
   id: string;
@@ -98,9 +106,17 @@ export type RecallAnswerCheckConcept = {
   text: string;
 };
 
+export type RecallAnswerCheckMatchedProhibitedPhrase = {
+  concept?: RecallAnswerCheckConcept;
+  scope: "study_note" | "key_idea";
+  text: string;
+};
+
 export type RecallAnswerCheckEvidence = {
+  contradictedConcepts?: RecallAnswerCheckConcept[];
   coveredConcepts?: RecallAnswerCheckConcept[];
   matchedExpectedTerms: string[];
+  matchedProhibitedPhrases?: RecallAnswerCheckMatchedProhibitedPhrase[];
   missingConcepts?: RecallAnswerCheckConcept[];
   missingExpectedTerms: string[];
   notDetectedExpectedTerms?: string[];
@@ -129,6 +145,7 @@ type ScoreRecallAnswerCheckInput = {
   acceptedVariants?: readonly AppStudyNoteAcceptedVariant[];
   expectedAnswer: string;
   keyIdeas?: readonly AppStudyNoteKeyIdea[];
+  prohibitedPhrases?: readonly AppStudyNoteProhibitedPhrase[];
   typedAnswer: string;
 };
 
@@ -163,12 +180,20 @@ type AnswerCheckReferenceMatch = {
 };
 
 type RecallAnswerCheckConceptCoverage = {
+  contradictedConcepts: RecallAnswerCheckConcept[];
   coveredConcepts: RecallAnswerCheckConcept[];
   missingConcepts: RecallAnswerCheckConcept[];
   partialConcepts: RecallAnswerCheckConcept[];
   requiredMissingCount: number;
   requiredPartialCount: number;
   supportingMissingCount: number;
+};
+
+type RecallAnswerCheckProhibitedPhraseMatches = {
+  contradictedKeyIdeaIds: ReadonlySet<string>;
+  contradictedConcepts: RecallAnswerCheckConcept[];
+  hasStudyNoteMatch: boolean;
+  matchedProhibitedPhrases: RecallAnswerCheckMatchedProhibitedPhrase[];
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -222,8 +247,10 @@ function isRecallAnswerCheckReason(
     value === "expected_answer_short_attempt" ||
     value === "expected_answer_low_coverage" ||
     value === "key_idea_concepts_covered" ||
+    value === "key_idea_prohibited_phrase_match" ||
     value === "key_idea_required_missing" ||
-    value === "key_idea_supporting_partial"
+    value === "key_idea_supporting_partial" ||
+    value === "study_note_prohibited_phrase_match"
   );
 }
 
@@ -268,6 +295,32 @@ function isRecallAnswerCheckConceptArray(
   );
 }
 
+function isRecallAnswerCheckMatchedProhibitedPhrase(
+  value: unknown,
+): value is RecallAnswerCheckMatchedProhibitedPhrase {
+  const candidate = asRecord(value);
+
+  return (
+    candidate !== null &&
+    typeof candidate.text === "string" &&
+    (candidate.scope === "study_note" || candidate.scope === "key_idea") &&
+    (!("concept" in candidate) ||
+      candidate.concept === undefined ||
+      isRecallAnswerCheckConcept(candidate.concept))
+  );
+}
+
+function isRecallAnswerCheckMatchedProhibitedPhraseArray(
+  value: unknown,
+): value is RecallAnswerCheckMatchedProhibitedPhrase[] {
+  return (
+    Array.isArray(value) &&
+    value.every((item: unknown) =>
+      isRecallAnswerCheckMatchedProhibitedPhrase(item),
+    )
+  );
+}
+
 export function isRecallAnswerCheckResult(
   value: unknown,
 ): value is RecallAnswerCheckResult {
@@ -285,9 +338,15 @@ export function isRecallAnswerCheckResult(
       candidate.matchedAcceptedVariant === undefined ||
       isAcceptedVariantReference(candidate.matchedAcceptedVariant)) &&
     evidence !== null &&
+    (!("contradictedConcepts" in evidence) ||
+      isRecallAnswerCheckConceptArray(evidence.contradictedConcepts)) &&
     (!("coveredConcepts" in evidence) ||
       isRecallAnswerCheckConceptArray(evidence.coveredConcepts)) &&
     isStringArray(evidence.matchedExpectedTerms) &&
+    (!("matchedProhibitedPhrases" in evidence) ||
+      isRecallAnswerCheckMatchedProhibitedPhraseArray(
+        evidence.matchedProhibitedPhrases,
+      )) &&
     (!("missingConcepts" in evidence) ||
       isRecallAnswerCheckConceptArray(evidence.missingConcepts)) &&
     isStringArray(evidence.missingExpectedTerms) &&
@@ -314,10 +373,16 @@ export function cloneRecallAnswerCheckResult(
     ...answerCheckWithoutMatchedVariant,
     evidence: {
       ...answerCheck.evidence,
+      contradictedConcepts: cloneRecallAnswerCheckConcepts(
+        answerCheck.evidence.contradictedConcepts,
+      ),
       coveredConcepts: cloneRecallAnswerCheckConcepts(
         answerCheck.evidence.coveredConcepts,
       ),
       matchedExpectedTerms: [...answerCheck.evidence.matchedExpectedTerms],
+      matchedProhibitedPhrases: cloneRecallAnswerCheckMatchedProhibitedPhrases(
+        answerCheck.evidence.matchedProhibitedPhrases,
+      ),
       missingConcepts: cloneRecallAnswerCheckConcepts(
         answerCheck.evidence.missingConcepts,
       ),
@@ -342,6 +407,15 @@ function cloneRecallAnswerCheckConcepts(
   concepts: readonly RecallAnswerCheckConcept[] | undefined,
 ): RecallAnswerCheckConcept[] {
   return (concepts ?? []).map((concept) => ({ ...concept }));
+}
+
+function cloneRecallAnswerCheckMatchedProhibitedPhrases(
+  matches: readonly RecallAnswerCheckMatchedProhibitedPhrase[] | undefined,
+): RecallAnswerCheckMatchedProhibitedPhrase[] {
+  return (matches ?? []).map((match) => ({
+    ...match,
+    concept: match.concept === undefined ? undefined : { ...match.concept },
+  }));
 }
 
 function normalizeRecallAnswerCheckText(text: string): string {
@@ -741,6 +815,22 @@ function containsNormalizedPhrase(
   return ` ${haystackNormalized} `.includes(` ${needleNormalized} `);
 }
 
+function getMatchedProhibitedPhraseText(
+  answerNormalized: string,
+  prohibitedPhrase: string,
+) {
+  const phraseText = prohibitedPhrase.trim();
+  const normalizedPhrase = normalizeRecallAnswerCheckText(phraseText);
+
+  if (normalizedPhrase.length === 0) {
+    return undefined;
+  }
+
+  return containsNormalizedPhrase(answerNormalized, normalizedPhrase)
+    ? phraseText
+    : undefined;
+}
+
 function getReferenceMatch(input: {
   answer: AnswerCheckTextContext;
   reference: AnswerCheckTextContext;
@@ -871,6 +961,86 @@ function toRecallAnswerCheckConcept(
   };
 }
 
+function getProhibitedPhraseMatches(input: {
+  answer: AnswerCheckTextContext;
+  keyIdeas: readonly AppStudyNoteKeyIdea[];
+  prohibitedPhrases: readonly AppStudyNoteProhibitedPhrase[];
+}): RecallAnswerCheckProhibitedPhraseMatches {
+  const matchedProhibitedPhrases: RecallAnswerCheckMatchedProhibitedPhrase[] =
+    [];
+  const contradictedConcepts: RecallAnswerCheckConcept[] = [];
+  const contradictedKeyIdeaIds = new Set<string>();
+  const seenMatches = new Set<string>();
+  let hasStudyNoteMatch = false;
+
+  function addMatchedProhibitedPhrase(
+    match: RecallAnswerCheckMatchedProhibitedPhrase,
+  ) {
+    const matchKey = [
+      match.scope,
+      match.concept?.id ?? "",
+      normalizeRecallAnswerCheckText(match.text),
+    ].join(":");
+
+    if (seenMatches.has(matchKey)) {
+      return;
+    }
+
+    seenMatches.add(matchKey);
+    matchedProhibitedPhrases.push(match);
+  }
+
+  for (const prohibitedPhrase of input.prohibitedPhrases) {
+    const matchedText = getMatchedProhibitedPhraseText(
+      input.answer.normalized,
+      prohibitedPhrase.text,
+    );
+
+    if (matchedText === undefined) {
+      continue;
+    }
+
+    hasStudyNoteMatch = true;
+    addMatchedProhibitedPhrase({
+      scope: "study_note",
+      text: matchedText,
+    });
+  }
+
+  for (const keyIdea of input.keyIdeas) {
+    const concept = toRecallAnswerCheckConcept(keyIdea);
+
+    for (const prohibitedPhrase of keyIdea.prohibitedPhrases) {
+      const matchedText = getMatchedProhibitedPhraseText(
+        input.answer.normalized,
+        prohibitedPhrase,
+      );
+
+      if (matchedText === undefined) {
+        continue;
+      }
+
+      if (!contradictedKeyIdeaIds.has(keyIdea.id)) {
+        contradictedKeyIdeaIds.add(keyIdea.id);
+        contradictedConcepts.push(concept);
+      }
+
+      addMatchedProhibitedPhrase({
+        concept,
+        scope: "key_idea",
+        text: matchedText,
+      });
+    }
+  }
+
+  return {
+    contradictedKeyIdeaIds,
+    contradictedConcepts,
+    hasStudyNoteMatch,
+    matchedProhibitedPhrases,
+  };
+}
+
 function getKeyIdeaCoverageState(input: {
   answer: AnswerCheckTextContext;
   keyIdea: AppStudyNoteKeyIdea;
@@ -905,7 +1075,11 @@ function getKeyIdeaCoverageState(input: {
 function getKeyIdeaCoverage(input: {
   answer: AnswerCheckTextContext;
   keyIdeas: readonly AppStudyNoteKeyIdea[];
+  prohibitedPhraseMatches: RecallAnswerCheckProhibitedPhraseMatches;
 }): RecallAnswerCheckConceptCoverage {
+  const contradictedConcepts = cloneRecallAnswerCheckConcepts(
+    input.prohibitedPhraseMatches.contradictedConcepts,
+  );
   const coveredConcepts: RecallAnswerCheckConcept[] = [];
   const partialConcepts: RecallAnswerCheckConcept[] = [];
   const missingConcepts: RecallAnswerCheckConcept[] = [];
@@ -914,6 +1088,10 @@ function getKeyIdeaCoverage(input: {
   let supportingMissingCount = 0;
 
   for (const keyIdea of input.keyIdeas) {
+    if (input.prohibitedPhraseMatches.contradictedKeyIdeaIds.has(keyIdea.id)) {
+      continue;
+    }
+
     const concept = toRecallAnswerCheckConcept(keyIdea);
     const coverageState = getKeyIdeaCoverageState({
       answer: input.answer,
@@ -942,6 +1120,7 @@ function getKeyIdeaCoverage(input: {
   }
 
   return {
+    contradictedConcepts,
     coveredConcepts,
     missingConcepts,
     partialConcepts,
@@ -1177,6 +1356,29 @@ function getAssessmentForReferenceCoverage(input: {
   });
 }
 
+function getAssessmentForProhibitedPhraseMatches(input: {
+  assessment: RecallAnswerCheckAssessment;
+  keyIdeaCoverage: RecallAnswerCheckConceptCoverage;
+  prohibitedPhraseMatches: RecallAnswerCheckProhibitedPhraseMatches;
+}): RecallAnswerCheckAssessment {
+  const hasKeyIdeaMatch = input.keyIdeaCoverage.contradictedConcepts.length > 0;
+
+  if (!input.prohibitedPhraseMatches.hasStudyNoteMatch && !hasKeyIdeaMatch) {
+    return input.assessment;
+  }
+
+  return {
+    confidence: lowerConfidence(input.assessment.confidence),
+    primaryReason: input.prohibitedPhraseMatches.hasStudyNoteMatch
+      ? "study_note_prohibited_phrase_match"
+      : "key_idea_prohibited_phrase_match",
+    status:
+      input.assessment.status === "likely_incomplete"
+        ? "likely_incomplete"
+        : "uncertain",
+  };
+}
+
 function toDisplayedTerms(terms: readonly AnswerCheckToken[]): string[] {
   return terms.map((term) => term.display);
 }
@@ -1216,11 +1418,17 @@ export function scoreRecallAnswerCheck(
     isMeaningfulAttempt,
   });
   const keyIdeas = input.keyIdeas ?? [];
+  const prohibitedPhraseMatches = getProhibitedPhraseMatches({
+    answer,
+    keyIdeas,
+    prohibitedPhrases: input.prohibitedPhrases ?? [],
+  });
   const keyIdeaCoverage = getKeyIdeaCoverage({
     answer,
     keyIdeas,
+    prohibitedPhraseMatches,
   });
-  const assessment = getAssessmentForReferenceCoverage({
+  const referenceCoverageAssessment = getAssessmentForReferenceCoverage({
     baselineAssessment,
     keyIdeaCoverage,
     keyIdeas,
@@ -1231,16 +1439,31 @@ export function scoreRecallAnswerCheck(
         acceptedVariants: input.acceptedVariants ?? [],
         answer,
       });
+  const assessment = getAssessmentForProhibitedPhraseMatches({
+    assessment:
+      matchedAcceptedVariant === undefined
+        ? referenceCoverageAssessment
+        : {
+            confidence: "high",
+            primaryReason: "accepted_variant_close_match",
+            status: "likely_correct",
+          },
+    keyIdeaCoverage,
+    prohibitedPhraseMatches,
+  });
 
   if (matchedAcceptedVariant !== undefined) {
     return {
       algorithmVersion: CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
-      confidence: "high",
+      confidence: assessment.confidence,
       evidence: {
+        contradictedConcepts: keyIdeaCoverage.contradictedConcepts,
         coveredConcepts: [],
         matchedExpectedTerms: toDisplayedTerms(
           expectedAnswerMatch.matchedTerms,
         ),
+        matchedProhibitedPhrases:
+          prohibitedPhraseMatches.matchedProhibitedPhrases,
         missingConcepts: [],
         missingExpectedTerms: [],
         notDetectedExpectedTerms: toDisplayedTerms(missingExpectedTerms),
@@ -1251,9 +1474,12 @@ export function scoreRecallAnswerCheck(
         tokenCoverage: matchedAcceptedVariant.match.tokenCoverage,
       },
       matchedAcceptedVariant: { ...matchedAcceptedVariant.variant },
-      primaryReason: "accepted_variant_close_match",
-      status: "likely_correct",
-      suggestedSelfRating: "good",
+      primaryReason: assessment.primaryReason,
+      status: assessment.status,
+      suggestedSelfRating: getSuggestedSelfRating({
+        isMeaningfulAttempt,
+        status: assessment.status,
+      }),
     };
   }
 
@@ -1261,8 +1487,11 @@ export function scoreRecallAnswerCheck(
     algorithmVersion: CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
     confidence: assessment.confidence,
     evidence: {
+      contradictedConcepts: keyIdeaCoverage.contradictedConcepts,
       coveredConcepts: keyIdeaCoverage.coveredConcepts,
       matchedExpectedTerms: toDisplayedTerms(expectedAnswerMatch.matchedTerms),
+      matchedProhibitedPhrases:
+        prohibitedPhraseMatches.matchedProhibitedPhrases,
       missingConcepts: keyIdeaCoverage.missingConcepts,
       missingExpectedTerms: toDisplayedTerms(missingExpectedTerms),
       notDetectedExpectedTerms: [],

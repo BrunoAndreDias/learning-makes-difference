@@ -679,6 +679,7 @@ function getRecallAnswerCheck(input: {
         acceptedVariants: input.note.acceptedVariants ?? [],
         expectedAnswer: input.note.expectedAnswer ?? "",
         keyIdeas: input.note.keyIdeas ?? [],
+        prohibitedPhrases: input.note.prohibitedPhrases ?? [],
         typedAnswer: input.typedAnswer,
       }) ?? undefined
     );

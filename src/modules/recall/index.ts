@@ -33,6 +33,7 @@ export {
 export type {
   RecallAnswerCheckConfidence,
   RecallAnswerCheckEvidence,
+  RecallAnswerCheckMatchedProhibitedPhrase,
   RecallAnswerCheckReason,
   RecallAnswerCheckResult,
   RecallAnswerCheckStatus,
