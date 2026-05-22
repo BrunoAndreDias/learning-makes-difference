@@ -1311,62 +1311,54 @@ describe("authenticated recall workspace", () => {
       }),
     );
 
+    const selectedResultView = within(selectedResult);
+
+    expect(selectedResultView.getByText("Answer Check")).toBeInTheDocument();
     expect(
-      within(selectedResult).getByText("Answer Check"),
+      selectedResultView.getByText("Guidance only. Keep your own self-rating."),
+    ).toBeInTheDocument();
+    expect(selectedResultView.getByText("Uncertain")).toBeInTheDocument();
+    expect(
+      selectedResultView.getByText("Medium confidence"),
     ).toBeInTheDocument();
     expect(
-      within(selectedResult).getByText(
-        "Guidance only. Keep your own self-rating.",
-      ),
+      selectedResultView.getByText("Suggested self-rating"),
     ).toBeInTheDocument();
-    expect(within(selectedResult).getByText("Uncertain")).toBeInTheDocument();
+    expect(selectedResultView.getByText("Hard")).toBeInTheDocument();
     expect(
-      within(selectedResult).getByText("Medium confidence"),
+      selectedResultView.getByText("Algorithm version"),
     ).toBeInTheDocument();
     expect(
-      within(selectedResult).getByText("Suggested self-rating"),
-    ).toBeInTheDocument();
-    expect(within(selectedResult).getByText("Hard")).toBeInTheDocument();
-    expect(
-      within(selectedResult).getByText("Algorithm version"),
-    ).toBeInTheDocument();
-    expect(
-      within(selectedResult).getByText(
+      selectedResultView.getByText(
         "key_idea_accepted_variant_and_contradiction_guard_v5",
       ),
     ).toBeInTheDocument();
     expect(
-      within(selectedResult).getByText(
+      selectedResultView.getByText(
         "Retrieval practice strengthens long-term memory through effortful recall.",
       ),
     ).toBeInTheDocument();
     expect(
-      within(selectedResult).getByText("increase -> decrease"),
+      selectedResultView.getByText("increase -> decrease"),
     ).toBeInTheDocument();
     expect(
-      within(selectedResult).getByText("increase diffusion speed"),
+      selectedResultView.getByText("increase diffusion speed"),
     ).toBeInTheDocument();
     expect(
-      within(selectedResult).getByText("long-term memory"),
+      selectedResultView.getByText("long-term memory"),
     ).toBeInTheDocument();
     expect(
-      within(selectedResult).getByText("effortful recall"),
+      selectedResultView.getByText("effortful recall"),
     ).toBeInTheDocument();
+    expect(selectedResultView.getByText("passive review")).toBeInTheDocument();
     expect(
-      within(selectedResult).getByText("passive review"),
-    ).toBeInTheDocument();
-    expect(
-      within(selectedResult).getByText(
+      selectedResultView.getByText(
         "A built-in contradiction guard detected a direct negation or obvious opposing term, so likely-correct guidance is blocked.",
       ),
     ).toBeInTheDocument();
-    expect(
-      within(selectedResult).queryByText("Changed later prompt?"),
-    ).toBeNull();
-    expect(
-      within(selectedResult).queryByText("Changed later answer."),
-    ).toBeNull();
-    expect(within(selectedResult).queryByText("changed later idea")).toBeNull();
+    expect(selectedResultView.queryByText("Changed later prompt?")).toBeNull();
+    expect(selectedResultView.queryByText("Changed later answer.")).toBeNull();
+    expect(selectedResultView.queryByText("changed later idea")).toBeNull();
   });
 
   it("opens a question-scoped Practice Repair draft under the Repair route from weak Results evidence", async () => {

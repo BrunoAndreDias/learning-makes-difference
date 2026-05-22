@@ -7,33 +7,40 @@ import {
 } from "./learner-copy";
 import type { RecallAnswerCheckResult } from "./recall-answer-check";
 
+type RecallAnswerCheckPanelProps = {
+  answerCheck: RecallAnswerCheckResult;
+  showAlgorithmVersion: boolean;
+};
+
+type RecallAnswerCheckTermsProps = {
+  heading: string;
+  keyPrefix: string;
+  terms: readonly string[];
+};
+
 export function RecallAnswerCheckPanel({
   answerCheck,
-  showAlgorithmVersion = false,
-}: {
-  answerCheck: RecallAnswerCheckResult;
-  showAlgorithmVersion?: boolean;
-}) {
+  showAlgorithmVersion,
+}: RecallAnswerCheckPanelProps) {
   const { t } = useAppTranslation();
-  const detectedContradictions = (
-    answerCheck.evidence.detectedContradictions ?? []
-  ).map(
+  const { evidence } = answerCheck;
+  const detectedContradictions = (evidence.detectedContradictions ?? []).map(
     (contradiction) =>
       `${contradiction.referenceText} -> ${contradiction.answerText}`,
   );
-  const contradictedConcepts = (
-    answerCheck.evidence.contradictedConcepts ?? []
-  ).map((concept) => concept.text);
-  const coveredConcepts = (answerCheck.evidence.coveredConcepts ?? []).map(
+  const contradictedConcepts = (evidence.contradictedConcepts ?? []).map(
+    (concept) => concept.text,
+  );
+  const coveredConcepts = (evidence.coveredConcepts ?? []).map(
     (concept) => concept.text,
   );
   const matchedProhibitedPhrases = (
-    answerCheck.evidence.matchedProhibitedPhrases ?? []
+    evidence.matchedProhibitedPhrases ?? []
   ).map((match) => match.text);
-  const partialConcepts = (answerCheck.evidence.partialConcepts ?? []).map(
+  const partialConcepts = (evidence.partialConcepts ?? []).map(
     (concept) => concept.text,
   );
-  const missingConcepts = (answerCheck.evidence.missingConcepts ?? []).map(
+  const missingConcepts = (evidence.missingConcepts ?? []).map(
     (concept) => concept.text,
   );
   const hasConceptCoverage =
@@ -41,8 +48,7 @@ export function RecallAnswerCheckPanel({
     (coveredConcepts.length > 0 ||
       partialConcepts.length > 0 ||
       missingConcepts.length > 0);
-  const notDetectedExpectedTerms =
-    answerCheck.evidence.notDetectedExpectedTerms ?? [];
+  const notDetectedExpectedTerms = evidence.notDetectedExpectedTerms ?? [];
   const unmatchedExpectedTerms =
     notDetectedExpectedTerms.length > 0
       ? {
@@ -53,7 +59,7 @@ export function RecallAnswerCheckPanel({
       : {
           heading: t("recall.answerCheck.missingTerms"),
           keyPrefix: "missing",
-          terms: answerCheck.evidence.missingExpectedTerms,
+          terms: evidence.missingExpectedTerms,
         };
   const hasContradictions =
     detectedContradictions.length > 0 ||
@@ -151,7 +157,7 @@ export function RecallAnswerCheckPanel({
           <RecallAnswerCheckTerms
             heading={t("recall.answerCheck.matchedTerms")}
             keyPrefix="matched"
-            terms={answerCheck.evidence.matchedExpectedTerms}
+            terms={evidence.matchedExpectedTerms}
           />
           <RecallAnswerCheckTerms
             heading={unmatchedExpectedTerms.heading}
@@ -168,11 +174,7 @@ function RecallAnswerCheckTerms({
   heading,
   keyPrefix,
   terms,
-}: {
-  heading: string;
-  keyPrefix: string;
-  terms: readonly string[];
-}) {
+}: RecallAnswerCheckTermsProps) {
   if (terms.length === 0) {
     return null;
   }

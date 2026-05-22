@@ -789,7 +789,10 @@ function RecallNoteDetails({
           </p>
         </section>
         {answerCheck !== undefined ? (
-          <RecallAnswerCheckPanel answerCheck={answerCheck} />
+          <RecallAnswerCheckPanel
+            answerCheck={answerCheck}
+            showAlgorithmVersion={false}
+          />
         ) : null}
       </div>
       {note.source !== undefined ? (
