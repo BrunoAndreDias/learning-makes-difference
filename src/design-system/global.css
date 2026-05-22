@@ -81,6 +81,11 @@
   --color-content-border-soft: var(--color-neutral-border-soft);
   --color-accent-success: var(--color-success);
   --color-accent-warning: var(--color-warning);
+  --color-guidance-indigo: #444b8f;
+  --color-guidance-indigo-muted: #46518f;
+  --color-guidance-warning: #805326;
+  --color-guidance-danger: #88412f;
+  --shadow-surface-hairline: 0 1px 0 rgb(23 35 30 / 3%);
   --shadow-card:
     0 1px 0 rgb(23 35 30 / 4%), 0 12px 32px -16px rgb(23 35 30 / 18%);
   --shadow-chrome:

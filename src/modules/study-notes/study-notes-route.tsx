@@ -119,6 +119,20 @@ export type StudyNotesRouteMode =
       kind: "edit";
       studyNoteId: string;
     };
+type StudyNotesRouteKind = StudyNotesRouteMode["kind"];
+type StudyNotesRouteTarget =
+  | {
+      to: typeof appRoutePaths.studyNotes;
+    }
+  | {
+      to: typeof appRoutePaths.studyNotesNew;
+    }
+  | {
+      params: {
+        studyNoteId: string;
+      };
+      to: typeof appRoutePaths.studyNoteEditor;
+    };
 type LinkedPracticeRepairContext = {
   action: PracticeRepairIntent;
   entry: PracticeRepairEntry;
@@ -148,6 +162,116 @@ function StudyNotesWorkspaceRoute() {
   const search = Route.useSearch();
 
   return <StudyNotesPage routeMode={{ kind: "workspace" }} search={search} />;
+}
+
+function getRouteStudyNoteId(routeMode: StudyNotesRouteMode) {
+  switch (routeMode.kind) {
+    case "workspace":
+    case "create":
+      return null;
+    case "edit":
+      return routeMode.studyNoteId;
+  }
+}
+
+function getStudyNotesRouteTarget(input: {
+  routeKind: StudyNotesRouteKind;
+  routeStudyNoteId: string | null;
+}): StudyNotesRouteTarget {
+  switch (input.routeKind) {
+    case "workspace":
+      return {
+        to: appRoutePaths.studyNotes,
+      };
+    case "create":
+      return {
+        to: appRoutePaths.studyNotesNew,
+      };
+    case "edit": {
+      if (input.routeStudyNoteId === null) {
+        throw new Error("Expected an edit route to include a Study Note id.");
+      }
+
+      return {
+        params: {
+          studyNoteId: input.routeStudyNoteId,
+        },
+        to: appRoutePaths.studyNoteEditor,
+      };
+    }
+  }
+}
+
+function getInitialSelectedStudyNoteId(input: {
+  routeMode: StudyNotesRouteMode;
+  studyNotes: readonly AppStudyNote[];
+}) {
+  switch (input.routeMode.kind) {
+    case "workspace":
+      return input.studyNotes[0]?.id ?? null;
+    case "create":
+      return null;
+    case "edit":
+      return input.routeMode.studyNoteId;
+  }
+}
+
+function findStudyNoteById(
+  studyNotes: readonly AppStudyNote[],
+  studyNoteId: string | null,
+) {
+  if (studyNoteId === null) {
+    return null;
+  }
+
+  return studyNotes.find((studyNote) => studyNote.id === studyNoteId) ?? null;
+}
+
+function getSelectedStudyNote(input: {
+  isCreatingStudyNote: boolean;
+  matchedSelectedStudyNote: AppStudyNote | null;
+  routeKind: StudyNotesRouteKind;
+  studyNotes: readonly AppStudyNote[];
+}) {
+  if (input.isCreatingStudyNote) {
+    return null;
+  }
+
+  if (input.matchedSelectedStudyNote !== null) {
+    return input.matchedSelectedStudyNote;
+  }
+
+  if (input.routeKind !== "workspace") {
+    return null;
+  }
+
+  return input.studyNotes[0] ?? null;
+}
+
+function getTargetStudyNoteId(input: {
+  routeKind: StudyNotesRouteKind;
+  routeStudyNoteId: string | null;
+  searchStudyNoteId: string | undefined;
+}) {
+  if (input.routeKind === "edit") {
+    return input.routeStudyNoteId;
+  }
+
+  return input.searchStudyNoteId ?? null;
+}
+
+function getLinkedPracticeRepairNavigationSearch(input: {
+  linkedPracticeRepair: LinkedPracticeRepairContext | null;
+  search: StudyNotesSearch;
+}) {
+  if (input.linkedPracticeRepair === null) {
+    return undefined;
+  }
+
+  return {
+    practiceRepairAction: input.search.practiceRepairAction,
+    practiceRepairEntryId: input.search.practiceRepairEntryId,
+  };
 }
 
 function findLinkedPracticeRepairContext(input: {
@@ -862,6 +986,9 @@ type SaveBarInput = {
   pendingEditorTarget: StudyNoteEditorTarget | null;
   saveStatus: string | null;
 };
+type SaveDraftOptions = {
+  redirectAfterCreate: boolean;
+};
 
 const practiceRepairMutationActions = [
   "edit",
@@ -869,6 +996,24 @@ const practiceRepairMutationActions = [
   "complete",
   "dismiss",
 ] as const satisfies readonly PracticeRepairMutationAction[];
+
+function getEditorTargetRouteTarget(
+  target: StudyNoteEditorTarget,
+): StudyNotesRouteTarget {
+  switch (target.type) {
+    case "new":
+      return {
+        to: appRoutePaths.studyNotesNew,
+      };
+    case "study-note":
+      return {
+        params: {
+          studyNoteId: target.studyNoteId,
+        },
+        to: appRoutePaths.studyNoteEditor,
+      };
+  }
+}
 
 const selectedStudyNoteDateFormatter = new Intl.DateTimeFormat("en", {
   dateStyle: "medium",
@@ -924,6 +1069,29 @@ function getSaveBarDiscardAction(
     case "study-note":
       return "Discard and switch";
   }
+}
+
+function getUpdatedMemoryAidKind(input: {
+  previousAcronym: string;
+  previousMetaphor: string;
+  savedAcronym: string;
+  savedMetaphor: string;
+}): PracticeRepairMemoryAidKind | null {
+  if (
+    input.savedAcronym.length > 0 &&
+    input.savedAcronym !== input.previousAcronym
+  ) {
+    return "Acronym";
+  }
+
+  if (
+    input.savedMetaphor.length > 0 &&
+    input.savedMetaphor !== input.previousMetaphor
+  ) {
+    return "Metaphor";
+  }
+
+  return null;
 }
 
 function getStudyNoteStatusKind(
@@ -1662,9 +1830,8 @@ export function StudyNotesPage({
   search: StudyNotesSearch;
 }) {
   const navigate = useNavigate();
-  const routeVariant = routeMode.kind;
-  const routeStudyNoteId =
-    routeMode.kind === "edit" ? routeMode.studyNoteId : null;
+  const routeKind = routeMode.kind;
+  const routeStudyNoteId = getRouteStudyNoteId(routeMode);
   const studyNotesContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.studyNotes,
@@ -1889,31 +2056,31 @@ export function StudyNotesPage({
     [recallGuidanceEntries],
   );
   const [selectedStudyNoteId, setSelectedStudyNoteId] = useState<string | null>(
-    routeVariant === "edit"
-      ? routeStudyNoteId
-      : routeVariant === "workspace"
-        ? (studyNotes[0]?.id ?? null)
-        : null,
+    getInitialSelectedStudyNoteId({
+      routeMode,
+      studyNotes,
+    }),
   );
   const [appliedLinkedPracticeRepairKey, setAppliedLinkedPracticeRepairKey] =
     useState<string | null>(null);
   const [isCreatingStudyNote, setCreatingStudyNote] = useState(
-    () => routeVariant === "create",
+    () => routeKind === "create",
   );
-  const matchedSelectedStudyNote =
-    selectedStudyNoteId === null
-      ? null
-      : (studyNotes.find((studyNote) => studyNote.id === selectedStudyNoteId) ??
-        null);
+  const matchedSelectedStudyNote = findStudyNoteById(
+    studyNotes,
+    selectedStudyNoteId,
+  );
   const isMissingSelectedStudyNote =
-    routeVariant === "edit" &&
+    routeKind === "edit" &&
     !isCreatingStudyNote &&
     routeStudyNoteId !== null &&
     matchedSelectedStudyNote === null;
-  const selectedStudyNote = isCreatingStudyNote
-    ? null
-    : (matchedSelectedStudyNote ??
-      (routeVariant === "workspace" ? (studyNotes[0] ?? null) : null));
+  const selectedStudyNote = getSelectedStudyNote({
+    isCreatingStudyNote,
+    matchedSelectedStudyNote,
+    routeKind,
+    studyNotes,
+  });
   const selectedDisclosureKey =
     selectedStudyNote?.id ?? (isCreatingStudyNote ? "new" : "empty");
   const selectedSourceStudyNotes =
@@ -2027,21 +2194,11 @@ export function StudyNotesPage({
   const storeMutation = persistentStudyNotesContext ?? studyNotesContext;
   const currentStudyNotesRouteTarget = useMemo(
     () =>
-      routeVariant === "workspace"
-        ? {
-            to: appRoutePaths.studyNotes,
-          }
-        : routeVariant === "create"
-          ? {
-              to: appRoutePaths.studyNotesNew,
-            }
-          : {
-              params: {
-                studyNoteId: routeStudyNoteId,
-              },
-              to: appRoutePaths.studyNoteEditor,
-            },
-    [routeStudyNoteId, routeVariant],
+      getStudyNotesRouteTarget({
+        routeKind,
+        routeStudyNoteId,
+      }),
+    [routeKind, routeStudyNoteId],
   );
   const hasDraftChanges = !areStudyNoteDraftsEqual(
     draft,
@@ -2186,11 +2343,11 @@ export function StudyNotesPage({
   }, [studyNotes.length]);
 
   useEffect(() => {
-    if (routeVariant === "workspace") {
+    if (routeKind === "workspace") {
       return;
     }
 
-    if (routeVariant === "create") {
+    if (routeKind === "create") {
       setCreatingStudyNote(true);
       setSelectedStudyNoteId(null);
       return;
@@ -2198,14 +2355,14 @@ export function StudyNotesPage({
 
     setCreatingStudyNote(false);
     setSelectedStudyNoteId(routeStudyNoteId);
-  }, [routeStudyNoteId, routeVariant]);
+  }, [routeKind, routeStudyNoteId]);
 
   useEffect(() => {
     if (isCreatingStudyNote) {
       return;
     }
 
-    if (routeVariant !== "workspace") {
+    if (routeKind !== "workspace") {
       return;
     }
 
@@ -2217,10 +2374,10 @@ export function StudyNotesPage({
     }
 
     setSelectedStudyNoteId(studyNotes[0]?.id ?? null);
-  }, [isCreatingStudyNote, routeVariant, selectedStudyNoteId, studyNotes]);
+  }, [isCreatingStudyNote, routeKind, selectedStudyNoteId, studyNotes]);
 
   useEffect(() => {
-    if (routeVariant !== "workspace") {
+    if (routeKind !== "workspace") {
       return;
     }
 
@@ -2238,7 +2395,7 @@ export function StudyNotesPage({
     setCreatingStudyNote(false);
     setSelectedStudyNoteId(linkedPracticeRepair.entry.reference.studyNoteId);
     setAppliedLinkedPracticeRepairKey(nextLinkedPracticeRepairKey);
-  }, [appliedLinkedPracticeRepairKey, linkedPracticeRepair, routeVariant]);
+  }, [appliedLinkedPracticeRepairKey, linkedPracticeRepair, routeKind]);
 
   useEffect(() => {
     const pendingDraftLabelRemoval = pendingDraftLabelRemovalRef.current;
@@ -2306,10 +2463,13 @@ export function StudyNotesPage({
   }, [linkedPracticeRepair, selectedStudyNote?.id]);
 
   useEffect(() => {
-    const targetStudyNoteId =
-      routeVariant === "edit" ? routeStudyNoteId : search.studyNoteId;
+    const targetStudyNoteId = getTargetStudyNoteId({
+      routeKind,
+      routeStudyNoteId,
+      searchStudyNoteId: search.studyNoteId,
+    });
 
-    if (targetStudyNoteId === undefined || targetStudyNoteId === null) {
+    if (targetStudyNoteId === null) {
       return;
     }
 
@@ -2334,8 +2494,8 @@ export function StudyNotesPage({
   }, [
     allStudyNotes,
     isCreatingStudyNote,
+    routeKind,
     routeStudyNoteId,
-    routeVariant,
     search.focus,
     search.studyNoteId,
     selectedStudyNote?.id,
@@ -2524,19 +2684,7 @@ export function StudyNotesPage({
   }
 
   function navigateToEditorTarget(target: StudyNoteEditorTarget) {
-    if (target.type === "new") {
-      void navigate({
-        to: appRoutePaths.studyNotesNew,
-      });
-      return;
-    }
-
-    void navigate({
-      params: {
-        studyNoteId: target.studyNoteId,
-      },
-      to: appRoutePaths.studyNoteEditor,
-    });
+    void navigate(getEditorTargetRouteTarget(target));
   }
 
   function applyEditorTarget(target: StudyNoteEditorTarget) {
@@ -2546,7 +2694,7 @@ export function StudyNotesPage({
     setPendingEditorTarget(null);
     setNewDiscardDialogOpen(false);
 
-    if (routeVariant !== "workspace") {
+    if (routeKind !== "workspace") {
       navigateToEditorTarget(target);
       return;
     }
@@ -2660,7 +2808,7 @@ export function StudyNotesPage({
         deleteSource: !hasSiblingStudyNotes,
       });
 
-      if (routeVariant === "workspace") {
+      if (routeKind === "workspace") {
         setCreatingStudyNote(false);
         setSelectedStudyNoteId(
           studyNotes.find((studyNote) => studyNote.id !== selectedStudyNote.id)
@@ -2729,7 +2877,7 @@ export function StudyNotesPage({
         });
       }
 
-      if (routeVariant === "workspace") {
+      if (routeKind === "workspace") {
         setCreatingStudyNote(false);
         setSelectedStudyNoteId(createdStudyNote.id);
       } else {
@@ -2737,13 +2885,10 @@ export function StudyNotesPage({
           params: {
             studyNoteId: createdStudyNote.id,
           },
-          search:
-            linkedPracticeRepair === null
-              ? undefined
-              : {
-                  practiceRepairAction: search.practiceRepairAction,
-                  practiceRepairEntryId: search.practiceRepairEntryId,
-                },
+          search: getLinkedPracticeRepairNavigationSearch({
+            linkedPracticeRepair,
+            search,
+          }),
           to: appRoutePaths.studyNoteEditor,
         });
       }
@@ -3101,12 +3246,12 @@ export function StudyNotesPage({
     const savedMetaphor = getSupportDescriptionValue(
       input.savedStudyNote.metaphors,
     ).trim();
-    const memoryAidKind: PracticeRepairMemoryAidKind | null =
-      savedAcronym.length > 0 && savedAcronym !== previousAcronym
-        ? "Acronym"
-        : savedMetaphor.length > 0 && savedMetaphor !== previousMetaphor
-          ? "Metaphor"
-          : null;
+    const memoryAidKind = getUpdatedMemoryAidKind({
+      previousAcronym,
+      previousMetaphor,
+      savedAcronym,
+      savedMetaphor,
+    });
 
     if (memoryAidKind === null) {
       setSaveStatus(
@@ -3240,14 +3385,12 @@ export function StudyNotesPage({
     );
   }
 
-  async function saveDraft(options?: {
-    redirectAfterCreate?: boolean;
-  }): Promise<AppStudyNote | null> {
+  async function saveDraft({
+    redirectAfterCreate,
+  }: SaveDraftOptions): Promise<AppStudyNote | null> {
     if (!hasDraftChanges) {
       return selectedStudyNote;
     }
-
-    const redirectAfterCreate = options?.redirectAfterCreate ?? true;
 
     setErrorMessage(null);
     setSaveStatus(null);
@@ -3280,10 +3423,10 @@ export function StudyNotesPage({
           draft,
         );
 
-        if (routeVariant === "workspace") {
+        if (routeKind === "workspace") {
           setSelectedStudyNoteId(updatedStudyNote.id);
           setCreatingStudyNote(false);
-        } else if (routeVariant === "create" && redirectAfterCreate) {
+        } else if (routeKind === "create" && redirectAfterCreate) {
           await navigate({
             params: {
               studyNoteId: updatedStudyNote.id,
@@ -3328,12 +3471,16 @@ export function StudyNotesPage({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    await saveDraft();
+    await saveDraft({
+      redirectAfterCreate: true,
+    });
   }
 
   async function saveDraftAndApplyPendingTarget() {
     if (pendingEditorTarget === null) {
-      await saveDraft();
+      await saveDraft({
+        redirectAfterCreate: true,
+      });
       return;
     }
 

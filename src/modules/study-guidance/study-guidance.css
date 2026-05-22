@@ -56,7 +56,7 @@
   border: 1px solid var(--color-content-border-soft);
   border-radius: var(--radius-sm);
   background: var(--color-shell-panel);
-  box-shadow: 0 1px 0 rgb(23 35 30 / 3%);
+  box-shadow: var(--shadow-surface-hairline);
 }
 
 .study-guidance-card {
@@ -174,18 +174,18 @@
 .study-guidance-card[data-bucket-id="practice-follow-up"]
   .study-guidance-card__icon {
   background: color-mix(in srgb, var(--color-secondary-soft) 72%, white);
-  color: #46518f;
+  color: var(--color-guidance-indigo-muted);
 }
 
 .study-guidance-card[data-bucket-id="due-today"] .study-guidance-card__icon {
   background: color-mix(in srgb, var(--color-warning-soft) 62%, white);
-  color: #805326;
+  color: var(--color-guidance-warning);
 }
 
 .study-guidance-card[data-bucket-id="completion-blocker"]
   .study-guidance-card__icon {
   background: color-mix(in srgb, var(--color-danger-soft) 54%, white);
-  color: #88412f;
+  color: var(--color-guidance-danger);
 }
 
 .study-guidance-card[data-bucket-id="first-recall"] .study-guidance-card__icon {
@@ -196,7 +196,7 @@
 .study-guidance-card[data-bucket-id="interleaving-ready"]
   .study-guidance-card__icon {
   background: color-mix(in srgb, var(--color-secondary-soft) 50%, white);
-  color: #444b8f;
+  color: var(--color-guidance-indigo);
 }
 
 .study-guidance-plan {
@@ -356,7 +356,7 @@
 .study-guidance-row[data-bucket-id="practice-follow-up"]
   .study-guidance-row__bucket {
   background: color-mix(in srgb, var(--color-secondary-soft) 72%, white);
-  color: #46518f;
+  color: var(--color-guidance-indigo-muted);
 }
 
 .study-guidance-row[data-bucket-id="due-today"] {
@@ -380,7 +380,7 @@
 .study-guidance-row[data-bucket-id="completion-blocker"]
   .study-guidance-row__bucket {
   background: color-mix(in srgb, var(--color-secondary-soft) 54%, white);
-  color: #444b8f;
+  color: var(--color-guidance-indigo);
 }
 
 .study-guidance-row[data-bucket-id="first-recall"] .study-guidance-row__bucket {
@@ -395,7 +395,7 @@
 .study-guidance-row[data-bucket-id="interleaving-ready"]
   .study-guidance-row__bucket {
   background: color-mix(in srgb, var(--color-secondary-soft) 58%, white);
-  color: #444b8f;
+  color: var(--color-guidance-indigo);
 }
 
 .study-guidance-empty,
