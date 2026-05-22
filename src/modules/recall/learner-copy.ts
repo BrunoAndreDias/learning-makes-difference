@@ -122,6 +122,8 @@ export function getRecallAnswerCheckReasonTranslationKey(
   reason: RecallAnswerCheckReason,
 ): AppTranslationKey {
   switch (reason) {
+    case "accepted_variant_close_match":
+      return "recall.answerCheck.reason.acceptedVariantMatch";
     case "expected_answer_exact_match":
       return "recall.answerCheck.reason.exactMatch";
     case "expected_answer_close_match":

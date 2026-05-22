@@ -418,6 +418,16 @@
   font-size: 0.86rem;
 }
 
+.recall-answer-check__matched-variant {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.recall-answer-check__matched-variant h6,
+.recall-answer-check__matched-variant p {
+  margin: 0;
+}
+
 .recall-answer-check__terms {
   display: grid;
   gap: 0.35rem;
@@ -488,6 +498,59 @@
   display: grid;
   gap: 0.8rem;
   margin-top: auto;
+}
+
+.recall-card__accepted-variant-feedback {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--color-secondary-soft-border);
+  border-radius: 0.55rem;
+  background: var(--color-secondary-soft);
+  color: var(--recall-strong);
+  font-size: 0.9rem;
+}
+
+.recall-card__accepted-variant-confirmation {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--recall-soft-border);
+  border-radius: 0.6rem;
+  background: var(--recall-soft-surface);
+}
+
+.recall-card__accepted-variant-title,
+.recall-card__accepted-variant-body,
+.recall-card__accepted-variant-answer {
+  margin: 0;
+}
+
+.recall-card__accepted-variant-title {
+  color: var(--recall-strong);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.recall-card__accepted-variant-body {
+  color: var(--recall-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.recall-card__accepted-variant-answer {
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--recall-panel);
+  color: var(--recall-default);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.recall-card__accepted-variant-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
 }
 
 .recall-rating-row {

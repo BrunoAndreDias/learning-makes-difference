@@ -1,4 +1,5 @@
 import type {
+  AppStudyNoteAcceptedVariant,
   AppStudyNoteKeyIdea,
   StudyNoteKeyIdeaImportance,
 } from "../study-notes";
@@ -53,10 +54,20 @@ const STOP_WORDS = new Set([
 const BASELINE_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
   "baseline_expected_answer_v1";
 const KEY_IDEA_RECALL_ANSWER_CHECK_ALGORITHM_VERSION = "key_idea_coverage_v1";
+const ACCEPTED_VARIANT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
+  "expected_answer_and_accepted_variant_v2";
+const CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
+  "key_idea_and_accepted_variant_v3";
 
-type RecallAnswerCheckAlgorithmVersion =
-  | typeof BASELINE_RECALL_ANSWER_CHECK_ALGORITHM_VERSION
-  | typeof KEY_IDEA_RECALL_ANSWER_CHECK_ALGORITHM_VERSION;
+const RECALL_ANSWER_CHECK_ALGORITHM_VERSIONS = [
+  BASELINE_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
+  KEY_IDEA_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
+  ACCEPTED_VARIANT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
+  CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
+] as const;
+
+export type RecallAnswerCheckAlgorithmVersion =
+  (typeof RECALL_ANSWER_CHECK_ALGORITHM_VERSIONS)[number];
 
 export type RecallAnswerCheckStatus =
   | "likely_correct"
@@ -71,6 +82,7 @@ export type RecallAnswerCheckSuggestedSelfRating = Exclude<
 >;
 
 export type RecallAnswerCheckReason =
+  | "accepted_variant_close_match"
   | "expected_answer_exact_match"
   | "expected_answer_close_match"
   | "expected_answer_partial_match"
@@ -87,11 +99,12 @@ export type RecallAnswerCheckConcept = {
 };
 
 export type RecallAnswerCheckEvidence = {
-  coveredConcepts: RecallAnswerCheckConcept[];
+  coveredConcepts?: RecallAnswerCheckConcept[];
   matchedExpectedTerms: string[];
-  missingConcepts: RecallAnswerCheckConcept[];
+  missingConcepts?: RecallAnswerCheckConcept[];
   missingExpectedTerms: string[];
-  partialConcepts: RecallAnswerCheckConcept[];
+  notDetectedExpectedTerms?: string[];
+  partialConcepts?: RecallAnswerCheckConcept[];
   phraseCoverage: number;
   tfidfCosineSimilarity: number;
   tokenCoverage: number;
@@ -101,6 +114,7 @@ export type RecallAnswerCheckResult = {
   algorithmVersion: RecallAnswerCheckAlgorithmVersion;
   confidence: RecallAnswerCheckConfidence;
   evidence: RecallAnswerCheckEvidence;
+  matchedAcceptedVariant?: AppStudyNoteAcceptedVariant;
   primaryReason: RecallAnswerCheckReason;
   status: RecallAnswerCheckStatus;
   suggestedSelfRating: RecallAnswerCheckSuggestedSelfRating;
@@ -112,8 +126,14 @@ type AnswerCheckToken = {
 };
 
 type ScoreRecallAnswerCheckInput = {
+  acceptedVariants?: readonly AppStudyNoteAcceptedVariant[];
   expectedAnswer: string;
   keyIdeas?: readonly AppStudyNoteKeyIdea[];
+  typedAnswer: string;
+};
+
+type AcceptedVariantMatchInput = {
+  acceptedVariants: readonly AppStudyNoteAcceptedVariant[];
   typedAnswer: string;
 };
 
@@ -184,8 +204,10 @@ function isRecallAnswerCheckAlgorithmVersion(
   value: unknown,
 ): value is RecallAnswerCheckAlgorithmVersion {
   return (
-    value === BASELINE_RECALL_ANSWER_CHECK_ALGORITHM_VERSION ||
-    value === KEY_IDEA_RECALL_ANSWER_CHECK_ALGORITHM_VERSION
+    typeof value === "string" &&
+    RECALL_ANSWER_CHECK_ALGORITHM_VERSIONS.includes(
+      value as RecallAnswerCheckAlgorithmVersion,
+    )
   );
 }
 
@@ -193,6 +215,7 @@ function isRecallAnswerCheckReason(
   value: unknown,
 ): value is RecallAnswerCheckReason {
   return (
+    value === "accepted_variant_close_match" ||
     value === "expected_answer_exact_match" ||
     value === "expected_answer_close_match" ||
     value === "expected_answer_partial_match" ||
@@ -208,6 +231,18 @@ function isRecallAnswerCheckSuggestedSelfRating(
   value: unknown,
 ): value is RecallAnswerCheckSuggestedSelfRating {
   return value === "forgot" || value === "hard" || value === "good";
+}
+
+function isAcceptedVariantReference(
+  value: unknown,
+): value is AppStudyNoteAcceptedVariant {
+  const candidate = asRecord(value);
+
+  return (
+    candidate !== null &&
+    typeof candidate.id === "string" &&
+    typeof candidate.text === "string"
+  );
 }
 
 function isRecallAnswerCheckConcept(
@@ -246,6 +281,9 @@ export function isRecallAnswerCheckResult(
     isRecallAnswerCheckReason(candidate.primaryReason) &&
     isRecallAnswerCheckStatus(candidate.status) &&
     isRecallAnswerCheckSuggestedSelfRating(candidate.suggestedSelfRating) &&
+    (!("matchedAcceptedVariant" in candidate) ||
+      candidate.matchedAcceptedVariant === undefined ||
+      isAcceptedVariantReference(candidate.matchedAcceptedVariant)) &&
     evidence !== null &&
     (!("coveredConcepts" in evidence) ||
       isRecallAnswerCheckConceptArray(evidence.coveredConcepts)) &&
@@ -253,6 +291,8 @@ export function isRecallAnswerCheckResult(
     (!("missingConcepts" in evidence) ||
       isRecallAnswerCheckConceptArray(evidence.missingConcepts)) &&
     isStringArray(evidence.missingExpectedTerms) &&
+    (!("notDetectedExpectedTerms" in evidence) ||
+      isStringArray(evidence.notDetectedExpectedTerms)) &&
     (!("partialConcepts" in evidence) ||
       isRecallAnswerCheckConceptArray(evidence.partialConcepts)) &&
     typeof evidence.phraseCoverage === "number" &&
@@ -268,8 +308,10 @@ export function cloneRecallAnswerCheckResult(
     return undefined;
   }
 
-  return {
-    ...answerCheck,
+  const { matchedAcceptedVariant, ...answerCheckWithoutMatchedVariant } =
+    answerCheck;
+  const clonedAnswerCheck: RecallAnswerCheckResult = {
+    ...answerCheckWithoutMatchedVariant,
     evidence: {
       ...answerCheck.evidence,
       coveredConcepts: cloneRecallAnswerCheckConcepts(
@@ -280,11 +322,20 @@ export function cloneRecallAnswerCheckResult(
         answerCheck.evidence.missingConcepts,
       ),
       missingExpectedTerms: [...answerCheck.evidence.missingExpectedTerms],
+      notDetectedExpectedTerms: [
+        ...(answerCheck.evidence.notDetectedExpectedTerms ?? []),
+      ],
       partialConcepts: cloneRecallAnswerCheckConcepts(
         answerCheck.evidence.partialConcepts,
       ),
     },
   };
+
+  if (matchedAcceptedVariant !== undefined) {
+    clonedAnswerCheck.matchedAcceptedVariant = { ...matchedAcceptedVariant };
+  }
+
+  return clonedAnswerCheck;
 }
 
 function cloneRecallAnswerCheckConcepts(
@@ -746,6 +797,41 @@ function isPartialReferenceMatch(match: AnswerCheckReferenceMatch) {
   );
 }
 
+function isAcceptedVariantCloseMatch(match: AnswerCheckReferenceMatch) {
+  if (match.exactMatch || match.containsExactPhrase) {
+    return true;
+  }
+
+  if (match.tokenCoverage < 0.75) {
+    return false;
+  }
+
+  return (
+    match.phraseCoverage >= 0.45 ||
+    match.tfidfCosineSimilarity >= 0.5 ||
+    match.similarity >= 0.72
+  );
+}
+
+function isBetterAcceptedVariantMatch(
+  candidate: AnswerCheckReferenceMatch,
+  currentBest: AnswerCheckReferenceMatch,
+): boolean {
+  if (candidate.exactMatch !== currentBest.exactMatch) {
+    return candidate.exactMatch;
+  }
+
+  if (candidate.tokenCoverage !== currentBest.tokenCoverage) {
+    return candidate.tokenCoverage > currentBest.tokenCoverage;
+  }
+
+  if (candidate.phraseCoverage !== currentBest.phraseCoverage) {
+    return candidate.phraseCoverage > currentBest.phraseCoverage;
+  }
+
+  return candidate.similarity > currentBest.similarity;
+}
+
 function isFullTermKeyIdeaMatch(match: AnswerCheckReferenceMatch) {
   return (
     match.tokenCoverage >= 1 &&
@@ -863,6 +949,81 @@ function getKeyIdeaCoverage(input: {
     requiredPartialCount,
     supportingMissingCount,
   };
+}
+
+function getMatchedAcceptedVariant(input: {
+  acceptedVariants: readonly AppStudyNoteAcceptedVariant[];
+  answer: AnswerCheckTextContext;
+}):
+  | {
+      match: AnswerCheckReferenceMatch;
+      variant: AppStudyNoteAcceptedVariant;
+    }
+  | undefined {
+  let bestMatch:
+    | {
+        match: AnswerCheckReferenceMatch;
+        variant: AppStudyNoteAcceptedVariant;
+      }
+    | undefined;
+
+  for (const variant of input.acceptedVariants) {
+    const reference = createAnswerCheckTextContext(variant.text);
+
+    if (reference.normalized.length === 0) {
+      continue;
+    }
+
+    const match = getReferenceMatch({
+      answer: input.answer,
+      reference,
+    });
+
+    if (!isAcceptedVariantCloseMatch(match)) {
+      continue;
+    }
+
+    if (
+      bestMatch === undefined ||
+      isBetterAcceptedVariantMatch(match, bestMatch.match)
+    ) {
+      bestMatch = {
+        match,
+        variant,
+      };
+    }
+  }
+
+  return bestMatch;
+}
+
+export function findAcceptedVariantMatch(
+  input: AcceptedVariantMatchInput,
+): AppStudyNoteAcceptedVariant | undefined {
+  const answer = createAnswerCheckTextContext(input.typedAnswer);
+
+  if (answer.normalized.length === 0) {
+    return undefined;
+  }
+
+  return getMatchedAcceptedVariant({
+    acceptedVariants: input.acceptedVariants,
+    answer,
+  })?.variant;
+}
+
+export function isMeaningfulAcceptedVariantCandidateText(
+  text: string,
+): boolean {
+  const normalized = normalizeRecallAnswerCheckText(text);
+
+  if (normalized.length === 0) {
+    return false;
+  }
+
+  const terms = getDistinctiveTerms(tokenizeAnswerCheckText(text));
+
+  return terms.length >= 2 || normalized.length >= 18;
 }
 
 function lowerConfidence(
@@ -1016,6 +1177,10 @@ function getAssessmentForReferenceCoverage(input: {
   });
 }
 
+function toDisplayedTerms(terms: readonly AnswerCheckToken[]): string[] {
+  return terms.map((term) => term.display);
+}
+
 export function scoreRecallAnswerCheck(
   input: ScoreRecallAnswerCheckInput,
 ): RecallAnswerCheckResult | null {
@@ -1060,17 +1225,47 @@ export function scoreRecallAnswerCheck(
     keyIdeaCoverage,
     keyIdeas,
   });
+  const matchedAcceptedVariant = expectedAnswerMatch.exactMatch
+    ? undefined
+    : getMatchedAcceptedVariant({
+        acceptedVariants: input.acceptedVariants ?? [],
+        answer,
+      });
+
+  if (matchedAcceptedVariant !== undefined) {
+    return {
+      algorithmVersion: CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
+      confidence: "high",
+      evidence: {
+        coveredConcepts: [],
+        matchedExpectedTerms: toDisplayedTerms(
+          expectedAnswerMatch.matchedTerms,
+        ),
+        missingConcepts: [],
+        missingExpectedTerms: [],
+        notDetectedExpectedTerms: toDisplayedTerms(missingExpectedTerms),
+        partialConcepts: [],
+        phraseCoverage: matchedAcceptedVariant.match.phraseCoverage,
+        tfidfCosineSimilarity:
+          matchedAcceptedVariant.match.tfidfCosineSimilarity,
+        tokenCoverage: matchedAcceptedVariant.match.tokenCoverage,
+      },
+      matchedAcceptedVariant: { ...matchedAcceptedVariant.variant },
+      primaryReason: "accepted_variant_close_match",
+      status: "likely_correct",
+      suggestedSelfRating: "good",
+    };
+  }
 
   return {
-    algorithmVersion: KEY_IDEA_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
+    algorithmVersion: CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
     confidence: assessment.confidence,
     evidence: {
       coveredConcepts: keyIdeaCoverage.coveredConcepts,
-      matchedExpectedTerms: expectedAnswerMatch.matchedTerms.map(
-        (term) => term.display,
-      ),
+      matchedExpectedTerms: toDisplayedTerms(expectedAnswerMatch.matchedTerms),
       missingConcepts: keyIdeaCoverage.missingConcepts,
-      missingExpectedTerms: missingExpectedTerms.map((term) => term.display),
+      missingExpectedTerms: toDisplayedTerms(missingExpectedTerms),
+      notDetectedExpectedTerms: [],
       partialConcepts: keyIdeaCoverage.partialConcepts,
       phraseCoverage: expectedAnswerMatch.phraseCoverage,
       tfidfCosineSimilarity: expectedAnswerMatch.tfidfCosineSimilarity,

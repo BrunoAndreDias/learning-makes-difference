@@ -27,6 +27,7 @@ type DeterministicRecallTestContexts = ReturnType<
   typeof createDeterministicRecallTestContexts
 >;
 type RecallableStudyNoteInput = {
+  acceptedVariants?: AppStudyNote["acceptedVariants"];
   expectedAnswer: string;
   keyIdeas?: AppStudyNote["keyIdeas"];
   prompt: string;
@@ -52,7 +53,7 @@ function createRecallableStudyNote(
   );
 
   return contexts.studyNotesContext.updateStudyNote(testUser.id, studyNote.id, {
-    acceptedVariants: [],
+    acceptedVariants: input.acceptedVariants ?? [],
     acronyms: [],
     expectedAnswer: input.expectedAnswer,
     keyIdeas: input.keyIdeas ?? [],
@@ -576,6 +577,197 @@ describe("authenticated recall workspace", () => {
     expect(screen.getByText("long-term memory")).toBeInTheDocument();
     expect(screen.getByText("Still missing")).toBeInTheDocument();
     expect(screen.getByText("effortful recall")).toBeInTheDocument();
+  });
+
+  it("shows the matched Accepted Variant and undetected expected terms when variant matching is used", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const studyNote = createRecallableStudyNote(contexts, {
+      acceptedVariants: [
+        {
+          id: "variant-retrieval",
+          text: "Repeated retrieval makes long-term memory easier to access.",
+        },
+      ],
+      expectedAnswer:
+        "Retrieval practice strengthens access to long-term memory.",
+      prompt: "What does retrieval practice strengthen?",
+      sourceBody: "Broader retrieval practice source context.",
+      sourceTitle: "Retrieval practice source",
+    });
+    contexts.recallContext.startFlashCardSession({
+      studyNoteIds: [studyNote.id],
+      userId: testUser.id,
+    });
+
+    renderRoute("/recall/session", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Write answer" }),
+    );
+    fireEvent.change(screen.getByLabelText("Your answer"), {
+      target: {
+        value: "Repeated retrieval makes long term memory easier to access.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Reveal Study Note" }));
+
+    expect(screen.getByText("Matched Accepted Variant")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Repeated retrieval makes long-term memory easier to access.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Not detected by heuristics")).toBeInTheDocument();
+    expect(screen.getByText("practice")).toBeInTheDocument();
+    expect(screen.getByText("strengthens")).toBeInTheDocument();
+  });
+  it("saves an eligible typed answer as an Accepted Variant only after explicit confirmation", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const studyNote = createRecallableStudyNote(contexts, {
+      expectedAnswer:
+        "Retrieval practice strengthens access to long-term memory.",
+      prompt: "What does retrieval practice strengthen?",
+      sourceBody: "Broader retrieval practice source context.",
+      sourceTitle: "Retrieval practice source",
+    });
+    contexts.recallContext.startFlashCardSession({
+      studyNoteIds: [studyNote.id],
+      userId: testUser.id,
+    });
+
+    renderRoute("/recall/session", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Write answer" }),
+    );
+    fireEvent.change(screen.getByLabelText("Your answer"), {
+      target: {
+        value: "Repeated retrieval makes long-term memory easier to access.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Reveal Study Note" }));
+
+    expect(
+      screen.queryByText("Save this answer as an Accepted Variant?"),
+    ).toBeNull();
+    expect(
+      contexts.studyNotesContext.getSnapshot()[0]?.acceptedVariants,
+    ).toEqual([]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+
+    expect(
+      await screen.findByText("Save this answer as an Accepted Variant?"),
+    ).toBeInTheDocument();
+    expect(
+      contexts.studyNotesContext.getSnapshot()[0]?.acceptedVariants,
+    ).toEqual([]);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save Accepted Variant" }),
+    );
+
+    expect(
+      contexts.studyNotesContext.getSnapshot()[0]?.acceptedVariants,
+    ).toEqual([
+      expect.objectContaining({
+        text: "Repeated retrieval makes long-term memory easier to access.",
+      }),
+    ]);
+  });
+
+  it("does not auto-save an eligible answer when the user continues without confirming", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const studyNote = createRecallableStudyNote(contexts, {
+      expectedAnswer:
+        "Retrieval practice strengthens access to long-term memory.",
+      prompt: "What does retrieval practice strengthen?",
+      sourceBody: "Broader retrieval practice source context.",
+      sourceTitle: "Retrieval practice source",
+    });
+    contexts.recallContext.startFlashCardSession({
+      studyNoteIds: [studyNote.id],
+      userId: testUser.id,
+    });
+
+    const { router } = renderRoute("/recall/session", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Write answer" }),
+    );
+    fireEvent.change(screen.getByLabelText("Your answer"), {
+      target: {
+        value: "Repeated retrieval makes long-term memory easier to access.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Reveal Study Note" }));
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+
+    expect(
+      await screen.findByText("Save this answer as an Accepted Variant?"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next Study Note" }));
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/recall/results");
+    });
+    expect(
+      contexts.studyNotesContext.getSnapshot()[0]?.acceptedVariants,
+    ).toEqual([]);
+  });
+
+  it("does not offer Accepted Variant saving when a too-similar variant already exists", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const studyNote = createRecallableStudyNote(contexts, {
+      acceptedVariants: [
+        {
+          id: "variant-retrieval",
+          text: "Repeated retrieval makes long-term memory easier to access.",
+        },
+      ],
+      expectedAnswer:
+        "Retrieval practice strengthens access to long-term memory.",
+      prompt: "What does retrieval practice strengthen?",
+      sourceBody: "Broader retrieval practice source context.",
+      sourceTitle: "Retrieval practice source",
+    });
+    contexts.recallContext.startFlashCardSession({
+      studyNoteIds: [studyNote.id],
+      userId: testUser.id,
+    });
+
+    renderRoute("/recall/session", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Write answer" }),
+    );
+    fireEvent.change(screen.getByLabelText("Your answer"), {
+      target: {
+        value: "Repeated retrieval makes long term memory easier to access.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Reveal Study Note" }));
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+
+    expect(
+      screen.queryByText("Save this answer as an Accepted Variant?"),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Save Accepted Variant" }),
+    ).toBeNull();
   });
 
   it("satisfies a completed Practice Follow-up only after the targeted recall attempt is rated", async () => {

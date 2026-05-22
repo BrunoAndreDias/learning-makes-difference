@@ -676,6 +676,7 @@ function getRecallAnswerCheck(input: {
   try {
     return (
       input.scoreAnswerCheck({
+        acceptedVariants: input.note.acceptedVariants ?? [],
         expectedAnswer: input.note.expectedAnswer ?? "",
         keyIdeas: input.note.keyIdeas ?? [],
         typedAnswer: input.typedAnswer,

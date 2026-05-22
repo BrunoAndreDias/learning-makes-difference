@@ -90,7 +90,7 @@ describe("FlashCard Answer Check on reveal", () => {
     });
 
     expect(revealedSession.questions[0]?.answerCheck).toMatchObject({
-      algorithmVersion: "key_idea_coverage_v1",
+      algorithmVersion: "key_idea_and_accepted_variant_v3",
       confidence: "medium",
       status: "likely_correct",
       suggestedSelfRating: "good",
