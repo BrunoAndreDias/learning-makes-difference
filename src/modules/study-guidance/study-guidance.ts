@@ -7,15 +7,18 @@ import type {
 } from "../recall";
 import { getInterleavedRecallRecommendation } from "../recall/interleaved-recall";
 import { getLocalDateKey } from "../recall/local-date";
-import { buildDueTodayQueue } from "../recall/recall-due-today";
 import {
   formatPracticeRepairIntentLabel,
   getPracticeRepairEntryId,
-  listActionablePracticeFollowUps,
   listPracticeRepairQueueItems,
   type PracticeRepairEntry,
   type PracticeRepairQueueListItem,
 } from "../recall/recall-practice-repair";
+import {
+  type DueForRecallQueueItem,
+  type PlannedRecallWorkItem,
+  planRecallWork,
+} from "../recall/recall-work-planning";
 import {
   type AppStudyNote,
   getStudyNoteReadiness,
@@ -242,12 +245,6 @@ function createStudyNoteRowDraft(input: {
   };
 }
 
-function getLatestHistoryAttempt(
-  history: StudyNoteRecallHistory | null,
-): StudyNoteRecallHistory["attempts"][number] | null {
-  return history?.attempts.at(-1) ?? null;
-}
-
 function getDueState(input: {
   now: string;
   schedule: RecallSchedule;
@@ -384,36 +381,33 @@ function createPracticeFollowUpEvidence(
 function createPracticeFollowUpRows(input: {
   blockedStudyNoteIds: ReadonlySet<string>;
   labelsById: ReadonlyMap<string, AppLabel>;
-  sessionResults: readonly SessionResult[];
-  studyNotesById: ReadonlyMap<string, AppStudyNote>;
+  plannedItems: readonly PlannedRecallWorkItem[];
 }): StudyGuidanceRowDraft[] {
-  return listActionablePracticeFollowUps({
-    results: input.sessionResults,
-  }).flatMap((entry) => {
-    const studyNoteId = entry.reference.studyNoteId;
-
-    if (input.blockedStudyNoteIds.has(studyNoteId)) {
+  return input.plannedItems.flatMap((item) => {
+    if (
+      item.primaryReason !== "practice-follow-up" ||
+      item.practiceFollowUpEntry === null ||
+      input.blockedStudyNoteIds.has(item.studyNote.id)
+    ) {
       return [];
     }
 
-    const studyNote = input.studyNotesById.get(studyNoteId);
-
-    if (studyNote === undefined) {
-      return [];
-    }
+    const practiceFollowUpEntry = item.practiceFollowUpEntry;
 
     return [
       createStudyNoteRowDraft({
         action: {
           kind: "practice-repair-entry",
           label: "Open Practice Repair",
-          practiceRepairEntryId: getPracticeRepairEntryId(entry),
+          practiceRepairEntryId: getPracticeRepairEntryId(
+            practiceFollowUpEntry,
+          ),
         },
         bucketId: "practice-follow-up",
-        evidence: createPracticeFollowUpEvidence(entry),
-        id: `follow-up:${getPracticeRepairEntryId(entry)}`,
+        evidence: createPracticeFollowUpEvidence(practiceFollowUpEntry),
+        id: `follow-up:${getPracticeRepairEntryId(practiceFollowUpEntry)}`,
         labelsById: input.labelsById,
-        studyNote,
+        studyNote: item.studyNote,
       }),
     ];
   });
@@ -435,22 +429,12 @@ function createDueTodayEvidence(input: {
 
 function createDueTodayRows(input: {
   blockedStudyNoteIds: ReadonlySet<string>;
-  histories: readonly StudyNoteRecallHistory[];
+  dueForRecallQueue: readonly DueForRecallQueueItem[];
   labelsById: ReadonlyMap<string, AppLabel>;
   now: string;
-  recallSchedules: readonly RecallSchedule[];
-  sessionResults: readonly SessionResult[];
-  studyNotes: readonly AppStudyNote[];
   userTimeZone: UserTimeZonePreference;
 }): StudyGuidanceRowDraft[] {
-  return buildDueTodayQueue({
-    histories: input.histories,
-    now: input.now,
-    recallSchedules: input.recallSchedules,
-    sessionResults: input.sessionResults,
-    studyNotes: input.studyNotes,
-    userTimeZone: input.userTimeZone,
-  })
+  return input.dueForRecallQueue
     .filter((item) => !input.blockedStudyNoteIds.has(item.studyNote.id))
     .sort((left, right) =>
       compareDueSchedules({
@@ -507,30 +491,24 @@ function createCompletionBlockerRows(input: {
 
 function createFirstRecallRows(input: {
   blockedStudyNoteIds: ReadonlySet<string>;
-  historiesByStudyNoteId: ReadonlyMap<string, StudyNoteRecallHistory>;
   labelsById: ReadonlyMap<string, AppLabel>;
-  studyNotes: readonly AppStudyNote[];
+  plannedItems: readonly PlannedRecallWorkItem[];
 }): StudyGuidanceRowDraft[] {
-  return input.studyNotes
-    .filter((studyNote) => !input.blockedStudyNoteIds.has(studyNote.id))
-    .filter((studyNote) => getStudyNoteReadiness(studyNote).recallable)
-    .filter((studyNote) => {
-      const history = input.historiesByStudyNoteId.get(studyNote.id) ?? null;
-
-      return getLatestHistoryAttempt(history) === null;
-    })
-    .map((studyNote) =>
+  return input.plannedItems
+    .filter((item) => item.primaryReason === "not-recalled")
+    .filter((item) => !input.blockedStudyNoteIds.has(item.studyNote.id))
+    .map((item) =>
       createStudyNoteRowDraft({
         action: {
           kind: "recall-selection",
           label: "Open Recall Selection",
-          studyNoteIds: [studyNote.id],
+          studyNoteIds: [item.studyNote.id],
         },
         bucketId: "first-recall",
         evidence: "No recall attempts yet.",
-        id: `first-recall:${studyNote.id}`,
+        id: `first-recall:${item.studyNote.id}`,
         labelsById: input.labelsById,
-        studyNote,
+        studyNote: item.studyNote,
       }),
     );
 }
@@ -720,9 +698,14 @@ export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
   }
 
   const histories = toStudyNoteRecallHistories(input.attemptsByNote);
-  const historiesByStudyNoteId = new Map(
-    histories.map((history) => [history.studyNoteId, history] as const),
-  );
+  const recallWorkPlan = planRecallWork({
+    histories,
+    now: input.now,
+    recallSchedules: input.recallSchedules,
+    sessionResults: input.sessionResults,
+    studyNotes: input.studyNotes,
+    userTimeZone: input.userTimeZone,
+  });
   const labelsById = new Map(
     input.labels.map((label) => [label.id, label] as const),
   );
@@ -743,28 +726,17 @@ export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
   const practiceFollowUpRows = createPracticeFollowUpRows({
     blockedStudyNoteIds,
     labelsById,
-    sessionResults: input.sessionResults,
-    studyNotesById,
+    plannedItems: recallWorkPlan.plannedItems,
   });
   addStudyNoteIdsToBlockedSet(blockedStudyNoteIds, practiceFollowUpRows);
 
-  const scheduledStudyNoteCount = buildDueTodayQueue({
-    histories,
-    now: input.now,
-    recallSchedules: input.recallSchedules,
-    sessionResults: input.sessionResults,
-    studyNotes: input.studyNotes,
-    userTimeZone: input.userTimeZone,
-  }).length;
+  const scheduledStudyNoteCount = recallWorkPlan.dueForRecallQueue.length;
 
   const dueTodayRows = createDueTodayRows({
     blockedStudyNoteIds,
-    histories,
+    dueForRecallQueue: recallWorkPlan.dueForRecallQueue,
     labelsById,
     now: input.now,
-    recallSchedules: input.recallSchedules,
-    sessionResults: input.sessionResults,
-    studyNotes: input.studyNotes,
     userTimeZone: input.userTimeZone,
   });
   addStudyNoteIdsToBlockedSet(blockedStudyNoteIds, dueTodayRows);
@@ -778,9 +750,8 @@ export function deriveStudyGuidance(input: StudyGuidanceInput): StudyGuidance {
 
   const firstRecallRows = createFirstRecallRows({
     blockedStudyNoteIds,
-    historiesByStudyNoteId,
     labelsById,
-    studyNotes: input.studyNotes,
+    plannedItems: recallWorkPlan.plannedItems,
   });
   addStudyNoteIdsToBlockedSet(blockedStudyNoteIds, firstRecallRows);
 

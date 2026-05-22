@@ -76,6 +76,7 @@ function buildRecallGuidanceEntry(
     nextRecall: "Recall today",
     notRecalledYet: true,
     recallToday: true,
+    recallTodayPrimaryReason: "not-recalled",
     recallTodayReasons: [],
     recommendation: {
       kind: "recall-today",
@@ -196,6 +197,41 @@ const recallInsightScenarios = [
       }),
     },
     name: "surfaces Needs practice for hard recall evidence",
+  },
+  {
+    expected: {
+      description:
+        "Repair is complete. Another recall attempt is still pending.",
+      kind: "practice",
+      lastResult: "Hard (2/5)",
+      nextRecall: "Today",
+      statusLabel: "Practice Follow-up",
+      suggestedAction: "Review this note",
+    },
+    input: {
+      draft: buildDraft(),
+      nextRecall: "Today",
+      recallGuidance: buildRecallGuidanceEntry({
+        dueForRecall: true,
+        lastScore: "hard",
+        needsPractice: true,
+        notRecalledYet: false,
+        recallToday: true,
+        recallTodayPrimaryReason: "practice-follow-up",
+        recallTodayReasons: [
+          "practice-follow-up",
+          "needs-practice",
+          "due-for-recall",
+        ],
+        recommendation: {
+          kind: "recall-today",
+          nextRecall: "Recall today",
+          summary:
+            "Prompt is ready for Recall Today. Last score: Hard. Next recall: Recall today.",
+        },
+      }),
+    },
+    name: "prioritizes Practice Follow-up when Recall Today carries mixed signals",
   },
   {
     expected: {

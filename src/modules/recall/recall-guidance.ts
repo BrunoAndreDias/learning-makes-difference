@@ -39,6 +39,7 @@ export type RecallGuidanceEntry = {
   nextRecall: string;
   notRecalledYet: boolean;
   recallToday: boolean;
+  recallTodayPrimaryReason: RecallWorkReason | null;
   recallTodayReasons: readonly RecallWorkReason[];
   recommendation: RecallGuidanceRecommendation;
   studyNote: AppStudyNote;
@@ -227,6 +228,7 @@ export function deriveRecallGuidance(
       nextRecall,
       notRecalledYet,
       recallToday,
+      recallTodayPrimaryReason: recallTodayQueueItem?.primaryReason ?? null,
       recallTodayReasons: recallTodayQueueItem?.reasons ?? [],
       recommendation: createRecallGuidanceRecommendation({
         interleavingReady,

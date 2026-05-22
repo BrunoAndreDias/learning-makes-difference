@@ -68,6 +68,18 @@ export function deriveStudyNoteRecallInsight(input: {
     };
   }
 
+  if (recallGuidance.recallTodayPrimaryReason === "practice-follow-up") {
+    return {
+      description:
+        "Repair is complete. Another recall attempt is still pending.",
+      kind: "practice",
+      lastResult: formatRecallSelfRatingResultLabel(recallGuidance.lastScore),
+      nextRecall,
+      statusLabel: "Practice Follow-up",
+      suggestedAction: "Review this note",
+    };
+  }
+
   if (recallGuidance.notRecalledYet) {
     return {
       description: "Not enough recall data yet.",

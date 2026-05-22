@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AppStudyNote } from "../study-notes";
-import type { FlashCardRecallAttemptsByNote } from "./recall";
+import type { FlashCardRecallAttemptsByNote, SessionResult } from "./recall";
 import {
   deriveRecallGuidance,
   getRecallGuidanceRecommendation,
@@ -80,6 +80,91 @@ function buildSchedule(
     repetitionCount: 1,
     studyNoteId,
     ...overrides,
+  };
+}
+
+type PracticeRepairEntry = NonNullable<
+  SessionResult["questions"][number]["practiceRepairEntry"]
+>;
+
+function buildRecallQuestionSnapshot(studyNote: AppStudyNote) {
+  return {
+    acronyms: [],
+    body: studyNote.source.body,
+    createdAt: studyNote.createdAt,
+    expectedAnswer: studyNote.expectedAnswer,
+    id: studyNote.id,
+    labelIds: studyNote.labelIds,
+    metaphors: [],
+    prompt: studyNote.prompt,
+    source: {
+      body: studyNote.source.body,
+      id: studyNote.source.id,
+      title: studyNote.source.title,
+      updatedAt: studyNote.source.updatedAt,
+    },
+    sourceNoteId: studyNote.sourceNoteId,
+    title: studyNote.prompt,
+    updatedAt: studyNote.updatedAt,
+  };
+}
+
+function buildPracticeRepairEntry(input: {
+  completedAt?: string;
+  confirmedAt: string;
+  questionResultId: string;
+  resultId: string;
+  studyNoteId: string;
+}): PracticeRepairEntry {
+  return {
+    confirmedAt: input.confirmedAt,
+    correction: "Tighten the expected answer.",
+    intent: "tighten-expected-answer",
+    intentMetadata: {
+      updatedExpectedAnswer: null,
+    },
+    lifecycle:
+      input.completedAt === undefined
+        ? undefined
+        : {
+            completedAt: input.completedAt,
+          },
+    reference: {
+      questionIndex: 0,
+      questionResultId: input.questionResultId,
+      sessionResultId: input.resultId,
+      studyNoteId: input.studyNoteId,
+    },
+  };
+}
+
+function buildSessionResult(input: {
+  completedAt: string;
+  id: string;
+  practiceRepairEntry?: PracticeRepairEntry;
+  questionResultId: string;
+  selfRating: "easy" | "forgot" | "good" | "hard";
+  studyNote: AppStudyNote;
+}): SessionResult {
+  const noteSnapshot = buildRecallQuestionSnapshot(input.studyNote);
+
+  return {
+    attempts: [],
+    completedAt: input.completedAt,
+    createdAt: input.completedAt,
+    id: input.id,
+    mode: "FlashCard",
+    notes: [noteSnapshot],
+    questions: [
+      {
+        isAnswerRevealed: true,
+        noteId: input.studyNote.id,
+        noteSnapshot,
+        practiceRepairEntry: input.practiceRepairEntry,
+        questionResultId: input.questionResultId,
+        selfRating: input.selfRating,
+      },
+    ],
   };
 }
 
@@ -222,6 +307,67 @@ describe("recall guidance", () => {
       nextRecall: "Next recall May 19",
       summary:
         "Chemistry prompt 1 is ready for Interleaved Recall after repeated Good or Easy recalls. Next recall: Next recall May 19.",
+    });
+  });
+
+  it("exposes planner primary reason for mixed-signal Practice Follow-ups", () => {
+    const studyNote = buildStudyNote({
+      id: "study-note-follow-up",
+      labelIds: [],
+      prompt: "Explain osmosis",
+    });
+    const completedAt = "2026-05-14T09:00:00.000Z";
+    const questionResultId = "result-follow-up-question-0";
+    const resultId = "result-follow-up";
+
+    const guidance = deriveRecallGuidance({
+      attemptsByNote: [
+        buildAttempts(studyNote.id, [
+          {
+            bodySnapshot: "Follow-up answer",
+            completedAt,
+            rating: "hard",
+            sessionId: "session-follow-up",
+            snapshotTitle: studyNote.prompt,
+          },
+        ]),
+      ],
+      now: "2026-05-15T12:00:00.000Z",
+      recallSchedules: [
+        buildSchedule(studyNote.id, {
+          nextRecallAt: "2026-05-15T09:00:00.000Z",
+        }),
+      ],
+      sessionResults: [
+        buildSessionResult({
+          completedAt,
+          id: resultId,
+          practiceRepairEntry: buildPracticeRepairEntry({
+            completedAt: "2026-05-14T10:00:00.000Z",
+            confirmedAt: completedAt,
+            questionResultId,
+            resultId,
+            studyNoteId: studyNote.id,
+          }),
+          questionResultId,
+          selfRating: "hard",
+          studyNote,
+        }),
+      ],
+      studyNotes: [studyNote],
+      userTimeZone: "America/New_York",
+    });
+
+    expect(guidance[0]).toMatchObject({
+      dueForRecall: true,
+      needsPractice: true,
+      recallToday: true,
+      recallTodayPrimaryReason: "practice-follow-up",
+      recallTodayReasons: [
+        "practice-follow-up",
+        "needs-practice",
+        "due-for-recall",
+      ],
     });
   });
 });
