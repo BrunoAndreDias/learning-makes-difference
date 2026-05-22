@@ -136,9 +136,13 @@ export function getRecallAnswerCheckReasonTranslationKey(
       return "recall.answerCheck.reason.lowCoverage";
     case "key_idea_concepts_covered":
       return "recall.answerCheck.reason.keyIdeasCovered";
+    case "key_idea_prohibited_phrase_match":
+      return "recall.answerCheck.reason.keyIdeaProhibitedPhraseMatch";
     case "key_idea_required_missing":
       return "recall.answerCheck.reason.requiredKeyIdeaMissing";
     case "key_idea_supporting_partial":
       return "recall.answerCheck.reason.supportingKeyIdeaPartial";
+    case "study_note_prohibited_phrase_match":
+      return "recall.answerCheck.reason.studyNoteProhibitedPhraseMatch";
   }
 }

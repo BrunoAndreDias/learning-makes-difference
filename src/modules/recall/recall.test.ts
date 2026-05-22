@@ -1689,7 +1689,7 @@ describe("recall session setup", () => {
     const storedAnswerCheck = storedResult?.questions[0]?.answerCheck;
 
     expect(storedAnswerCheck).toMatchObject({
-      algorithmVersion: "key_idea_and_accepted_variant_v3",
+      algorithmVersion: "key_idea_accepted_variant_and_prohibited_phrase_v4",
       confidence: "medium",
       primaryReason: "key_idea_required_missing",
       status: "likely_incomplete",

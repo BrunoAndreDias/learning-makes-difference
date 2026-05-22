@@ -25,6 +25,9 @@ function createRecallableStudyNote(input?: {
   keyIdeas?: Parameters<
     ReturnType<typeof createAppStudyNotesContext>["updateStudyNote"]
   >[2]["keyIdeas"];
+  prohibitedPhrases?: Parameters<
+    ReturnType<typeof createAppStudyNotesContext>["updateStudyNote"]
+  >[2]["prohibitedPhrases"];
 }) {
   const storage = createMemoryStorage();
   const notes = createAppNotesContext({
@@ -57,7 +60,7 @@ function createRecallableStudyNote(input?: {
     labelIds: [],
     metaphors: [],
     prompt: "What does retrieval practice strengthen?",
-    prohibitedPhrases: [],
+    prohibitedPhrases: input?.prohibitedPhrases ?? [],
     sourceBody: "Retrieval practice source context.",
     sourceTitle: "Retrieval practice",
   });
@@ -90,7 +93,7 @@ describe("FlashCard Answer Check on reveal", () => {
     });
 
     expect(revealedSession.questions[0]?.answerCheck).toMatchObject({
-      algorithmVersion: "key_idea_and_accepted_variant_v3",
+      algorithmVersion: "key_idea_accepted_variant_and_prohibited_phrase_v4",
       confidence: "medium",
       status: "likely_correct",
       suggestedSelfRating: "good",
@@ -151,6 +154,47 @@ describe("FlashCard Answer Check on reveal", () => {
             id: "key-idea-effortful",
             importance: "required",
             text: "effortful recall",
+          },
+        ],
+      },
+    });
+  });
+
+  it("blocks likely_correct guidance when a Study Note prohibited phrase matches on reveal", () => {
+    const { recall, studyNote, userId } = createRecallableStudyNote({
+      prohibitedPhrases: [
+        {
+          id: "prohibited-passive-review",
+          text: "retrieval practice is passive review",
+        },
+      ],
+    });
+    const session = recall.startFlashCardSession({
+      studyNoteIds: [studyNote.id],
+      userId,
+    });
+
+    recall.updateFlashCardAttemptText({
+      sessionId: session.id,
+      text: "Retrieval practice strengthens access to long-term memory, but retrieval practice is passive review.",
+      userId,
+    });
+
+    const revealedSession = recall.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId,
+    });
+
+    expect(revealedSession.questions[0]?.answerCheck).toMatchObject({
+      confidence: "low",
+      primaryReason: "study_note_prohibited_phrase_match",
+      status: "uncertain",
+      suggestedSelfRating: "hard",
+      evidence: {
+        matchedProhibitedPhrases: [
+          {
+            scope: "study_note",
+            text: "retrieval practice is passive review",
           },
         ],
       },
