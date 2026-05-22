@@ -182,26 +182,21 @@ export function deriveRecallGuidance(
       learningState,
     ]),
   );
-  const recallWorkPlan = planRecallWork({
+  const recallTodayQueue = planRecallWork({
     histories,
     now: input.now,
     recallSchedules: input.recallSchedules,
     sessionResults: input.sessionResults,
     studyNotes: recallableStudyNotes,
     userTimeZone: input.userTimeZone,
-  });
+  }).recallTodayQueue;
   const recallScheduleByStudyNoteId = new Map(
     input.recallSchedules.map((schedule) => [schedule.studyNoteId, schedule]),
   );
   const recallTodayQueueItemByStudyNoteId = new Map<
     string,
     PlannedRecallWorkItem
-  >(
-    recallWorkPlan.recallTodayQueue.map((queueItem) => [
-      queueItem.studyNote.id,
-      queueItem,
-    ]),
-  );
+  >(recallTodayQueue.map((queueItem) => [queueItem.studyNote.id, queueItem]));
   const interleavingReadyStudyNoteIds = getInterleavingReadyStudyNoteIds({
     histories,
     studyNotes: recallableStudyNotes,

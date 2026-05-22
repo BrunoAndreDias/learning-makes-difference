@@ -28,6 +28,15 @@ export type RecallWorkPlan = {
   recallTodayQueue: readonly PlannedRecallWorkItem[];
 };
 
+export type RecallWorkPlanningInput = {
+  histories: readonly StudyNoteRecallHistory[];
+  now: string;
+  recallSchedules: readonly RecallSchedule[];
+  sessionResults: readonly SessionResult[];
+  studyNotes: readonly AppStudyNote[];
+  userTimeZone: UserTimeZonePreference;
+};
+
 type RankedPlannedRecallWorkItem = PlannedRecallWorkItem & {
   originalIndex: number;
   priority: number;
@@ -44,7 +53,7 @@ function getRecallWorkReasonPriority(reason: RecallWorkReason) {
   return recallWorkReasonPriority[reason];
 }
 
-function getPrimaryRecallWorkReason(
+export function getPrimaryRecallWorkReason(
   reasons: readonly RecallWorkReason[],
 ): RecallWorkReason {
   let primaryReason: RecallWorkReason | null = null;
@@ -62,7 +71,7 @@ function getPrimaryRecallWorkReason(
   return primaryReason ?? "due-for-recall";
 }
 
-function isScheduleDueToday(input: {
+function isScheduleDueOnOrBeforeToday(input: {
   now: string;
   schedule: RecallSchedule | null;
   userTimeZone: UserTimeZonePreference;
@@ -85,6 +94,24 @@ function isScheduleDueToday(input: {
   }
 
   return nextRecallDateKey <= todayDateKey;
+}
+
+function getActionablePracticeFollowUpByStudyNoteId(
+  sessionResults: readonly SessionResult[],
+) {
+  const practiceFollowUpByStudyNoteId = new Map<string, PracticeRepairEntry>();
+
+  for (const practiceFollowUpEntry of listActionablePracticeFollowUps({
+    results: sessionResults,
+  })) {
+    const studyNoteId = practiceFollowUpEntry.reference.studyNoteId;
+
+    if (!practiceFollowUpByStudyNoteId.has(studyNoteId)) {
+      practiceFollowUpByStudyNoteId.set(studyNoteId, practiceFollowUpEntry);
+    }
+  }
+
+  return practiceFollowUpByStudyNoteId;
 }
 
 function getLatestRating(
@@ -120,7 +147,7 @@ function getRecallWorkReasons(input: {
   }
 
   if (
-    isScheduleDueToday({
+    isScheduleDueOnOrBeforeToday({
       now: input.now,
       schedule: input.schedule,
       userTimeZone: input.userTimeZone,
@@ -132,40 +159,20 @@ function getRecallWorkReasons(input: {
   return reasons;
 }
 
-function getQueuePriority(reasons: readonly RecallWorkReason[]) {
-  return getRecallWorkReasonPriority(getPrimaryRecallWorkReason(reasons));
-}
-
-export function planRecallWork(input: {
-  histories: readonly StudyNoteRecallHistory[];
-  now: string;
-  recallSchedules: readonly RecallSchedule[];
-  sessionResults: readonly SessionResult[];
-  studyNotes: readonly AppStudyNote[];
-  userTimeZone: UserTimeZonePreference;
-}): RecallWorkPlan {
+export function planRecallWork(input: RecallWorkPlanningInput): RecallWorkPlan {
   const historyByStudyNoteId = new Map(
     input.histories.map((history) => [history.studyNoteId, history]),
   );
-  const practiceFollowUpByStudyNoteId = new Map<string, PracticeRepairEntry>();
+  const practiceFollowUpByStudyNoteId =
+    getActionablePracticeFollowUpByStudyNoteId(input.sessionResults);
   const scheduleByStudyNoteId = new Map(
     input.recallSchedules.map((schedule) => [schedule.studyNoteId, schedule]),
   );
   const rankedItems: RankedPlannedRecallWorkItem[] = [];
 
-  for (const practiceFollowUpEntry of listActionablePracticeFollowUps({
-    results: input.sessionResults,
-  })) {
-    const studyNoteId = practiceFollowUpEntry.reference.studyNoteId;
-
-    if (!practiceFollowUpByStudyNoteId.has(studyNoteId)) {
-      practiceFollowUpByStudyNoteId.set(studyNoteId, practiceFollowUpEntry);
-    }
-  }
-
-  input.studyNotes.forEach((studyNote, originalIndex) => {
+  for (const [originalIndex, studyNote] of input.studyNotes.entries()) {
     if (!getStudyNoteReadiness(studyNote).recallable) {
-      return;
+      continue;
     }
 
     const history = historyByStudyNoteId.get(studyNote.id) ?? null;
@@ -181,19 +188,21 @@ export function planRecallWork(input: {
     });
 
     if (reasons.length === 0) {
-      return;
+      continue;
     }
+
+    const primaryReason = getPrimaryRecallWorkReason(reasons);
 
     rankedItems.push({
       lastRating,
       originalIndex,
       practiceFollowUpEntry,
-      primaryReason: getPrimaryRecallWorkReason(reasons),
-      priority: getQueuePriority(reasons),
+      primaryReason,
+      priority: getRecallWorkReasonPriority(primaryReason),
       reasons,
       studyNote,
     });
-  });
+  }
 
   const plannedItems = rankedItems
     .sort(

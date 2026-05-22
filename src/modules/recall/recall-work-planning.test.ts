@@ -241,7 +241,7 @@ function getConfirmedPracticeRepairReference(result: SessionResult) {
   return reference;
 }
 
-function buildRecallTodayQueueFromRecallContext(input: {
+function buildRecallWorkPlanFromRecallContext(input: {
   now: string;
   recall: AppRecallContext;
   studyNotes: ReturnType<typeof createAppStudyNotesContext>;
@@ -262,7 +262,7 @@ function buildRecallTodayQueueFromRecallContext(input: {
       .getSnapshot()
       .filter((studyNote) => studyNote.userId === input.userId),
     userTimeZone: "America/New_York",
-  }).recallTodayQueue;
+  });
 }
 
 afterEach(() => {
@@ -316,14 +316,14 @@ describe("recall work planning", () => {
       studyNoteIds: [studyNote.id],
       userId,
     });
-    const queueBeforeAttempt = buildRecallTodayQueueFromRecallContext({
+    const planBeforeAttempt = buildRecallWorkPlanFromRecallContext({
       now: "2026-05-16T16:10:00.000Z",
       recall,
       studyNotes,
       userId,
     });
 
-    expect(queueBeforeAttempt).toMatchObject([
+    expect(planBeforeAttempt.recallTodayQueue).toMatchObject([
       {
         primaryReason: "practice-follow-up",
         reasons: ["practice-follow-up", "needs-practice"],
@@ -343,14 +343,14 @@ describe("recall work planning", () => {
       userId,
     });
 
-    const queueAfterAttempt = buildRecallTodayQueueFromRecallContext({
+    const planAfterAttempt = buildRecallWorkPlanFromRecallContext({
       now: "2026-05-16T16:10:00.000Z",
       recall,
       studyNotes,
       userId,
     });
 
-    expect(queueAfterAttempt).toMatchObject([
+    expect(planAfterAttempt.recallTodayQueue).toMatchObject([
       {
         primaryReason: "needs-practice",
         reasons: ["needs-practice"],
