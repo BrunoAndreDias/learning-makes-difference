@@ -8,6 +8,8 @@ import {
   listStudyNotesForUser,
 } from "../study-notes";
 import {
+  cloneRecallAnswerCheckResult,
+  isRecallAnswerCheckResult,
   type RecallAnswerCheckResult,
   scoreRecallAnswerCheck,
 } from "./recall-answer-check";
@@ -462,68 +464,6 @@ function isStoredRecallSelfRating(
   return isRecallSelfRating(value) || isLegacyRecallSelfRating(value);
 }
 
-function isRecallAnswerCheckStatus(
-  value: unknown,
-): value is RecallAnswerCheckResult["status"] {
-  return (
-    value === "likely_correct" ||
-    value === "uncertain" ||
-    value === "likely_incomplete"
-  );
-}
-
-function isRecallAnswerCheckConfidence(
-  value: unknown,
-): value is RecallAnswerCheckResult["confidence"] {
-  return value === "low" || value === "medium" || value === "high";
-}
-
-function isRecallAnswerCheckReason(
-  value: unknown,
-): value is RecallAnswerCheckResult["primaryReason"] {
-  return (
-    value === "expected_answer_exact_match" ||
-    value === "expected_answer_close_match" ||
-    value === "expected_answer_partial_match" ||
-    value === "expected_answer_short_attempt" ||
-    value === "expected_answer_low_coverage"
-  );
-}
-
-function isRecallAnswerCheckSuggestedSelfRating(
-  value: unknown,
-): value is RecallAnswerCheckResult["suggestedSelfRating"] {
-  return value === "forgot" || value === "hard" || value === "good";
-}
-
-function isRecallAnswerCheckResult(
-  value: unknown,
-): value is RecallAnswerCheckResult {
-  const candidate = asRecord(value);
-  const evidence = asRecord(candidate?.evidence);
-
-  return (
-    candidate !== null &&
-    candidate.algorithmVersion === "baseline_expected_answer_v1" &&
-    isRecallAnswerCheckConfidence(candidate.confidence) &&
-    isRecallAnswerCheckReason(candidate.primaryReason) &&
-    isRecallAnswerCheckStatus(candidate.status) &&
-    isRecallAnswerCheckSuggestedSelfRating(candidate.suggestedSelfRating) &&
-    evidence !== null &&
-    Array.isArray(evidence.matchedExpectedTerms) &&
-    evidence.matchedExpectedTerms.every(
-      (term: unknown) => typeof term === "string",
-    ) &&
-    Array.isArray(evidence.missingExpectedTerms) &&
-    evidence.missingExpectedTerms.every(
-      (term: unknown) => typeof term === "string",
-    ) &&
-    typeof evidence.phraseCoverage === "number" &&
-    typeof evidence.tfidfCosineSimilarity === "number" &&
-    typeof evidence.tokenCoverage === "number"
-  );
-}
-
 function isRecallQuestion(question: unknown): question is StoredRecallQuestion {
   const candidate = asRecord(question);
 
@@ -545,23 +485,6 @@ function isRecallQuestion(question: unknown): question is StoredRecallQuestion {
       candidate.score === null ||
       typeof candidate.score === "number")
   );
-}
-
-function cloneRecallAnswerCheckResult(
-  answerCheck: RecallAnswerCheckResult | undefined,
-): RecallAnswerCheckResult | undefined {
-  if (answerCheck === undefined) {
-    return undefined;
-  }
-
-  return {
-    ...answerCheck,
-    evidence: {
-      ...answerCheck.evidence,
-      matchedExpectedTerms: [...answerCheck.evidence.matchedExpectedTerms],
-      missingExpectedTerms: [...answerCheck.evidence.missingExpectedTerms],
-    },
-  };
 }
 
 function isStoredRecallSchedule(

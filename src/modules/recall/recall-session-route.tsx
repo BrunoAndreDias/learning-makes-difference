@@ -592,6 +592,7 @@ function RecallNoteDetails({
   question: RecallQuestion | null;
 }) {
   const { t } = useAppTranslation();
+  const answerCheck = question?.answerCheck;
 
   return (
     <div className="recall-note-details">
@@ -602,78 +603,8 @@ function RecallNoteDetails({
             {note.expectedAnswer ?? note.body}
           </p>
         </section>
-        {question?.answerCheck !== undefined ? (
-          <section
-            aria-label={t("recall.answerCheck.title")}
-            className="recall-answer-check"
-            data-status={question.answerCheck.status}
-          >
-            <div className="recall-answer-check__header">
-              <div>
-                <p className="recall-answer-check__eyebrow">
-                  {t("recall.answerCheck.title")}
-                </p>
-                <h5>
-                  {t(
-                    getRecallAnswerCheckStatusTranslationKey(
-                      question.answerCheck.status,
-                    ),
-                  )}
-                </h5>
-              </div>
-              <span className="recall-answer-check__confidence">
-                {t(
-                  getRecallAnswerCheckConfidenceTranslationKey(
-                    question.answerCheck.confidence,
-                  ),
-                )}
-              </span>
-            </div>
-            <p className="recall-answer-check__caption">
-              {t("recall.answerCheck.caption")}
-            </p>
-            <p className="recall-card__body recall-answer-check__summary">
-              {t(
-                getRecallAnswerCheckReasonTranslationKey(
-                  question.answerCheck.primaryReason,
-                ),
-              )}
-            </p>
-            <p className="recall-answer-check__suggested-rating">
-              <strong>{t("recall.answerCheck.suggestedSelfRating")}</strong>
-              <span>
-                {t(
-                  getRecallRatingTranslationKey(
-                    question.answerCheck.suggestedSelfRating,
-                  ),
-                )}
-              </span>
-            </p>
-            {question.answerCheck.evidence.matchedExpectedTerms.length > 0 ? (
-              <div className="recall-answer-check__terms">
-                <h6>{t("recall.answerCheck.matchedTerms")}</h6>
-                <ul>
-                  {question.answerCheck.evidence.matchedExpectedTerms
-                    .slice(0, 4)
-                    .map((term) => (
-                      <li key={`matched-${term}`}>{term}</li>
-                    ))}
-                </ul>
-              </div>
-            ) : null}
-            {question.answerCheck.evidence.missingExpectedTerms.length > 0 ? (
-              <div className="recall-answer-check__terms">
-                <h6>{t("recall.answerCheck.missingTerms")}</h6>
-                <ul>
-                  {question.answerCheck.evidence.missingExpectedTerms
-                    .slice(0, 4)
-                    .map((term) => (
-                      <li key={`missing-${term}`}>{term}</li>
-                    ))}
-                </ul>
-              </div>
-            ) : null}
-          </section>
+        {answerCheck !== undefined ? (
+          <RecallAnswerCheckPanel answerCheck={answerCheck} />
         ) : null}
       </div>
       {note.source !== undefined ? (
@@ -709,6 +640,87 @@ function RecallNoteDetails({
           ) : null}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function RecallAnswerCheckPanel({
+  answerCheck,
+}: {
+  answerCheck: NonNullable<RecallQuestion["answerCheck"]>;
+}) {
+  const { t } = useAppTranslation();
+
+  return (
+    <section
+      aria-label={t("recall.answerCheck.title")}
+      className="recall-answer-check"
+      data-status={answerCheck.status}
+    >
+      <div className="recall-answer-check__header">
+        <div>
+          <p className="recall-answer-check__eyebrow">
+            {t("recall.answerCheck.title")}
+          </p>
+          <h5>
+            {t(getRecallAnswerCheckStatusTranslationKey(answerCheck.status))}
+          </h5>
+        </div>
+        <span className="recall-answer-check__confidence">
+          {t(
+            getRecallAnswerCheckConfidenceTranslationKey(
+              answerCheck.confidence,
+            ),
+          )}
+        </span>
+      </div>
+      <p className="recall-answer-check__caption">
+        {t("recall.answerCheck.caption")}
+      </p>
+      <p className="recall-card__body recall-answer-check__summary">
+        {t(getRecallAnswerCheckReasonTranslationKey(answerCheck.primaryReason))}
+      </p>
+      <p className="recall-answer-check__suggested-rating">
+        <strong>{t("recall.answerCheck.suggestedSelfRating")}</strong>
+        <span>
+          {t(getRecallRatingTranslationKey(answerCheck.suggestedSelfRating))}
+        </span>
+      </p>
+      <RecallAnswerCheckTerms
+        heading={t("recall.answerCheck.matchedTerms")}
+        keyPrefix="matched"
+        terms={answerCheck.evidence.matchedExpectedTerms}
+      />
+      <RecallAnswerCheckTerms
+        heading={t("recall.answerCheck.missingTerms")}
+        keyPrefix="missing"
+        terms={answerCheck.evidence.missingExpectedTerms}
+      />
+    </section>
+  );
+}
+
+function RecallAnswerCheckTerms({
+  heading,
+  keyPrefix,
+  terms,
+}: {
+  heading: string;
+  keyPrefix: string;
+  terms: readonly string[];
+}) {
+  if (terms.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="recall-answer-check__terms">
+      <h6>{heading}</h6>
+      <ul>
+        {terms.slice(0, 4).map((term) => (
+          <li key={`${keyPrefix}-${term}`}>{term}</li>
+        ))}
+      </ul>
     </div>
   );
 }
