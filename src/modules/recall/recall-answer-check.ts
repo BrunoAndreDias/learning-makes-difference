@@ -99,6 +99,8 @@ const OPPOSING_TERM_GROUPS = [
   [["required", "mandatory"], ["optional"]],
 ] as const;
 
+const MAX_NEGATION_TOKEN_DISTANCE = 3;
+
 const OPPOSING_TERM_MAP = createOpposingTermMap();
 
 const BASELINE_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
@@ -239,6 +241,15 @@ type AnswerCheckReferenceMatch = {
   similarity: number;
   tfidfCosineSimilarity: number;
   tokenCoverage: number;
+};
+
+type AnswerCheckIndexedTokenMatch = {
+  index: number;
+  token: AnswerCheckToken;
+};
+
+type AnswerCheckTokenSimilarityMatch = AnswerCheckIndexedTokenMatch & {
+  similarity: number;
 };
 
 type RecallAnswerCheckConceptCoverage = {
@@ -535,6 +546,18 @@ function cloneRecallAnswerCheckDetectedContradictions(
   }));
 }
 
+function getDetectedContradictionKey(
+  contradiction: RecallAnswerCheckDetectedContradiction,
+) {
+  return [
+    contradiction.scope,
+    contradiction.concept?.id ?? "",
+    contradiction.type,
+    normalizeRecallAnswerCheckText(contradiction.referenceText),
+    normalizeRecallAnswerCheckText(contradiction.answerText),
+  ].join(":");
+}
+
 function normalizeRecallAnswerCheckText(text: string): string {
   return text
     .toLocaleLowerCase()
@@ -568,7 +591,7 @@ function createAnswerCheckTextContext(text: string): AnswerCheckTextContext {
   };
 }
 
-function createOpposingTermMap() {
+function createOpposingTermMap(): ReadonlyMap<string, ReadonlySet<string>> {
   const map = new Map<string, ReadonlySet<string>>();
 
   for (const [leftTerms, rightTerms] of OPPOSING_TERM_GROUPS) {
@@ -943,20 +966,9 @@ function getTokenCoverage(input: {
 function getBestAnswerTokenMatch(
   expectedToken: AnswerCheckToken,
   answerTokens: readonly AnswerCheckToken[],
-):
-  | {
-      index: number;
-      token: AnswerCheckToken;
-    }
-  | undefined {
+): AnswerCheckIndexedTokenMatch | undefined {
   const threshold = getTokenSimilarityThreshold(expectedToken.normalized);
-  let bestMatch:
-    | {
-        index: number;
-        similarity: number;
-        token: AnswerCheckToken;
-      }
-    | undefined;
+  let bestMatch: AnswerCheckTokenSimilarityMatch | undefined;
 
   for (const [index, answerToken] of answerTokens.entries()) {
     const similarity =
@@ -991,12 +1003,7 @@ function getBestAnswerTokenMatch(
 function getOpposingAnswerTokenMatch(
   opposingTerms: ReadonlySet<string>,
   answerTokens: readonly AnswerCheckToken[],
-):
-  | {
-      index: number;
-      token: AnswerCheckToken;
-    }
-  | undefined {
+): AnswerCheckIndexedTokenMatch | undefined {
   for (const [index, answerToken] of answerTokens.entries()) {
     if (!opposingTerms.has(answerToken.normalized)) {
       continue;
@@ -1024,11 +1031,11 @@ function getReferenceTokenIndex(
   );
 }
 
-function isTokenNegated(
+function getNegatingToken(
   tokens: readonly AnswerCheckToken[],
   index: number,
-): boolean {
-  for (let offset = 1; offset <= 3; offset += 1) {
+): AnswerCheckToken | undefined {
+  for (let offset = 1; offset <= MAX_NEGATION_TOKEN_DISTANCE; offset += 1) {
     const negationIndex = index - offset;
 
     if (negationIndex < 0) {
@@ -1060,10 +1067,17 @@ function isTokenNegated(
       continue;
     }
 
-    return true;
+    return token;
   }
 
-  return false;
+  return undefined;
+}
+
+function isTokenNegated(
+  tokens: readonly AnswerCheckToken[],
+  index: number,
+): boolean {
+  return getNegatingToken(tokens, index) !== undefined;
 }
 
 function getTokenWithNegationDisplay(
@@ -1076,44 +1090,11 @@ function getTokenWithNegationDisplay(
     return "";
   }
 
-  for (let offset = 1; offset <= 3; offset += 1) {
-    const negationIndex = index - offset;
+  const negatingToken = getNegatingToken(tokens, index);
 
-    if (negationIndex < 0) {
-      break;
-    }
-
-    const negationToken = tokens[negationIndex];
-
-    if (negationToken === undefined) {
-      continue;
-    }
-
-    const interveningTokens = tokens.slice(negationIndex + 1, index);
-
-    if (
-      interveningTokens.some(
-        (interveningToken) =>
-          !STOP_WORDS.has(interveningToken.normalized) &&
-          !NEGATION_BRIDGE_TOKENS.has(interveningToken.normalized),
-      )
-    ) {
-      continue;
-    }
-
-    if (
-      negationToken.normalized === "not" &&
-      tokens[negationIndex + 1]?.normalized === "only"
-    ) {
-      continue;
-    }
-
-    if (NEGATION_TOKENS.has(negationToken.normalized)) {
-      return `${negationToken.display} ${token.display}`;
-    }
-  }
-
-  return token.display;
+  return negatingToken === undefined
+    ? token.display
+    : `${negatingToken.display} ${token.display}`;
 }
 
 function getContradictionAnchorCoverage(input: {
@@ -1429,13 +1410,7 @@ function getBuiltInReferenceContradictions(input: {
   function addContradiction(
     contradiction: RecallAnswerCheckDetectedContradiction,
   ) {
-    const key = [
-      contradiction.scope,
-      contradiction.concept?.id ?? "",
-      contradiction.type,
-      normalizeRecallAnswerCheckText(contradiction.referenceText),
-      normalizeRecallAnswerCheckText(contradiction.answerText),
-    ].join(":");
+    const key = getDetectedContradictionKey(contradiction);
 
     if (seenContradictions.has(key)) {
       return;
@@ -1443,6 +1418,19 @@ function getBuiltInReferenceContradictions(input: {
 
     seenContradictions.add(key);
     contradictions.push(contradiction);
+  }
+
+  function hasContradictionContextForTerm(referenceTerm: AnswerCheckToken) {
+    const anchorCoverage = getContradictionAnchorCoverage({
+      answerTerms: input.answer.terms,
+      excludedTerms: new Set([referenceTerm.normalized]),
+      referenceTerms: input.reference.terms,
+    });
+
+    return hasConservativeContradictionContext({
+      anchorCoverage,
+      referenceMatch,
+    });
   }
 
   for (const referenceTerm of input.reference.terms) {
@@ -1455,48 +1443,38 @@ function getBuiltInReferenceContradictions(input: {
       continue;
     }
 
-    const answerTokenMatch = getBestAnswerTokenMatch(
+    const sameTermAnswerMatch = getBestAnswerTokenMatch(
       referenceTerm,
       input.answer.tokens,
     );
 
-    if (answerTokenMatch !== undefined) {
+    if (sameTermAnswerMatch !== undefined) {
       const referenceNegated = isTokenNegated(
         input.reference.tokens,
         referenceTokenIndex,
       );
       const answerNegated = isTokenNegated(
         input.answer.tokens,
-        answerTokenMatch.index,
+        sameTermAnswerMatch.index,
       );
 
-      if (referenceNegated !== answerNegated) {
-        const anchorCoverage = getContradictionAnchorCoverage({
-          answerTerms: input.answer.terms,
-          excludedTerms: new Set([referenceTerm.normalized]),
-          referenceTerms: input.reference.terms,
+      if (
+        referenceNegated !== answerNegated &&
+        hasContradictionContextForTerm(referenceTerm)
+      ) {
+        addContradiction({
+          answerText: getTokenWithNegationDisplay(
+            input.answer.tokens,
+            sameTermAnswerMatch.index,
+          ),
+          concept: input.concept,
+          referenceText: getTokenWithNegationDisplay(
+            input.reference.tokens,
+            referenceTokenIndex,
+          ),
+          scope: input.scope,
+          type: "negation",
         });
-
-        if (
-          hasConservativeContradictionContext({
-            anchorCoverage,
-            referenceMatch,
-          })
-        ) {
-          addContradiction({
-            answerText: getTokenWithNegationDisplay(
-              input.answer.tokens,
-              answerTokenMatch.index,
-            ),
-            concept: input.concept,
-            referenceText: getTokenWithNegationDisplay(
-              input.reference.tokens,
-              referenceTokenIndex,
-            ),
-            scope: input.scope,
-            type: "negation",
-          });
-        }
       }
     }
 
@@ -1506,14 +1484,9 @@ function getBuiltInReferenceContradictions(input: {
       continue;
     }
 
-    const alignedAnswerTokenMatch = getBestAnswerTokenMatch(
-      referenceTerm,
-      input.answer.tokens,
-    );
-
     if (
-      alignedAnswerTokenMatch !== undefined &&
-      !isTokenNegated(input.answer.tokens, alignedAnswerTokenMatch.index)
+      sameTermAnswerMatch !== undefined &&
+      !isTokenNegated(input.answer.tokens, sameTermAnswerMatch.index)
     ) {
       continue;
     }
@@ -1531,18 +1504,7 @@ function getBuiltInReferenceContradictions(input: {
       continue;
     }
 
-    const anchorCoverage = getContradictionAnchorCoverage({
-      answerTerms: input.answer.terms,
-      excludedTerms: new Set([referenceTerm.normalized]),
-      referenceTerms: input.reference.terms,
-    });
-
-    if (
-      !hasConservativeContradictionContext({
-        anchorCoverage,
-        referenceMatch,
-      })
-    ) {
+    if (!hasContradictionContextForTerm(referenceTerm)) {
       continue;
     }
 
@@ -1961,32 +1923,48 @@ function getAssessmentForReferenceCoverage(input: {
   });
 }
 
-function getAssessmentForContradictions(input: {
-  assessment: RecallAnswerCheckAssessment;
+function getContradictionPrimaryReason(input: {
   builtInContradictionMatches: RecallAnswerCheckBuiltInContradictionMatches;
   prohibitedPhraseMatches: RecallAnswerCheckProhibitedPhraseMatches;
-}): RecallAnswerCheckAssessment {
-  const hasKeyIdeaMatch =
+}): RecallAnswerCheckReason | undefined {
+  const hasKeyIdeaProhibitedPhraseMatch =
     input.prohibitedPhraseMatches.contradictedConcepts.length > 0;
   const hasBuiltInContradiction =
     input.builtInContradictionMatches.hasExpectedAnswerMatch ||
     input.builtInContradictionMatches.contradictedConcepts.length > 0;
 
-  if (
-    !input.prohibitedPhraseMatches.hasStudyNoteMatch &&
-    !hasKeyIdeaMatch &&
-    !hasBuiltInContradiction
-  ) {
+  if (input.prohibitedPhraseMatches.hasStudyNoteMatch) {
+    return "study_note_prohibited_phrase_match";
+  }
+
+  if (hasKeyIdeaProhibitedPhraseMatch) {
+    return "key_idea_prohibited_phrase_match";
+  }
+
+  if (hasBuiltInContradiction) {
+    return "built_in_contradiction_guard";
+  }
+
+  return undefined;
+}
+
+function getAssessmentForContradictions(input: {
+  assessment: RecallAnswerCheckAssessment;
+  builtInContradictionMatches: RecallAnswerCheckBuiltInContradictionMatches;
+  prohibitedPhraseMatches: RecallAnswerCheckProhibitedPhraseMatches;
+}): RecallAnswerCheckAssessment {
+  const primaryReason = getContradictionPrimaryReason({
+    builtInContradictionMatches: input.builtInContradictionMatches,
+    prohibitedPhraseMatches: input.prohibitedPhraseMatches,
+  });
+
+  if (primaryReason === undefined) {
     return input.assessment;
   }
 
   return {
     confidence: lowerConfidence(input.assessment.confidence),
-    primaryReason: input.prohibitedPhraseMatches.hasStudyNoteMatch
-      ? "study_note_prohibited_phrase_match"
-      : hasKeyIdeaMatch
-        ? "key_idea_prohibited_phrase_match"
-        : "built_in_contradiction_guard",
+    primaryReason,
     status:
       input.assessment.status === "likely_incomplete"
         ? "likely_incomplete"
