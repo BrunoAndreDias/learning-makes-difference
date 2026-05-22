@@ -237,8 +237,10 @@ export function cloneRecallAnswerCheckResult(
     return undefined;
   }
 
-  return {
-    ...answerCheck,
+  const { matchedAcceptedVariant, ...answerCheckWithoutMatchedVariant } =
+    answerCheck;
+  const clonedAnswerCheck: RecallAnswerCheckResult = {
+    ...answerCheckWithoutMatchedVariant,
     evidence: {
       ...answerCheck.evidence,
       matchedExpectedTerms: [...answerCheck.evidence.matchedExpectedTerms],
@@ -247,11 +249,13 @@ export function cloneRecallAnswerCheckResult(
         ...(answerCheck.evidence.notDetectedExpectedTerms ?? []),
       ],
     },
-    matchedAcceptedVariant:
-      answerCheck.matchedAcceptedVariant === undefined
-        ? undefined
-        : { ...answerCheck.matchedAcceptedVariant },
   };
+
+  if (matchedAcceptedVariant !== undefined) {
+    clonedAnswerCheck.matchedAcceptedVariant = { ...matchedAcceptedVariant };
+  }
+
+  return clonedAnswerCheck;
 }
 
 function normalizeRecallAnswerCheckText(text: string): string {
@@ -622,12 +626,16 @@ function getMissingExpectedTerms(input: {
 function getTokenCoverage(input: {
   expectedTermCount: number;
   matchedExpectedTermCount: number;
-}) {
+}): number {
   if (input.expectedTermCount === 0) {
     return 0;
   }
 
   return input.matchedExpectedTermCount / input.expectedTermCount;
+}
+
+function toDisplayedTerms(terms: readonly AnswerCheckToken[]): string[] {
+  return terms.map((term) => term.display);
 }
 
 function getReferenceCoverage(input: {
@@ -685,15 +693,37 @@ function getReferenceCoverage(input: {
   };
 }
 
-function isAcceptedVariantCloseMatch(
+function isCloseReferenceMatch(
   coverage: RecallAnswerCheckReferenceCoverage,
 ): boolean {
-  return coverage.exactMatch || coverage.tokenCoverage >= 0.75
-    ? coverage.exactMatch ||
-        coverage.phraseCoverage >= 0.45 ||
-        coverage.tfidfCosineSimilarity >= 0.5 ||
-        coverage.textSimilarity >= 0.72
-    : false;
+  if (coverage.exactMatch) {
+    return true;
+  }
+
+  if (coverage.tokenCoverage < 0.75) {
+    return false;
+  }
+
+  return (
+    coverage.phraseCoverage >= 0.45 ||
+    coverage.tfidfCosineSimilarity >= 0.5 ||
+    coverage.textSimilarity >= 0.72
+  );
+}
+
+function isBetterAcceptedVariantMatch(
+  candidate: RecallAnswerCheckReferenceCoverage,
+  currentBest: RecallAnswerCheckReferenceCoverage,
+): boolean {
+  if (candidate.exactMatch !== currentBest.exactMatch) {
+    return candidate.exactMatch;
+  }
+
+  if (candidate.tokenCoverage !== currentBest.tokenCoverage) {
+    return candidate.tokenCoverage > currentBest.tokenCoverage;
+  }
+
+  return candidate.textSimilarity > currentBest.textSimilarity;
 }
 
 function getMatchedAcceptedVariant(input: {
@@ -726,17 +756,13 @@ function getMatchedAcceptedVariant(input: {
       referenceText: variant.text,
     });
 
-    if (!isAcceptedVariantCloseMatch(coverage)) {
+    if (!isCloseReferenceMatch(coverage)) {
       continue;
     }
 
     const isBetterMatch =
       bestMatch === undefined ||
-      Number(coverage.exactMatch) > Number(bestMatch.coverage.exactMatch) ||
-      (coverage.exactMatch === bestMatch.coverage.exactMatch &&
-        (coverage.tokenCoverage > bestMatch.coverage.tokenCoverage ||
-          (coverage.tokenCoverage === bestMatch.coverage.tokenCoverage &&
-            coverage.textSimilarity > bestMatch.coverage.textSimilarity)));
+      isBetterAcceptedVariantMatch(coverage, bestMatch.coverage);
 
     if (isBetterMatch) {
       bestMatch = {
@@ -867,7 +893,7 @@ export function scoreRecallAnswerCheck(
     referenceText: input.expectedAnswer,
   });
   const matchedAcceptedVariant = getMatchedAcceptedVariant({
-    acceptedVariants: [...(input.acceptedVariants ?? [])],
+    acceptedVariants: input.acceptedVariants ?? [],
     answerNormalized,
     answerTerms,
     answerTokens,
@@ -888,9 +914,7 @@ export function scoreRecallAnswerCheck(
       algorithmVersion: CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
       confidence: "high",
       evidence: {
-        matchedExpectedTerms: expectedCoverage.matchedTerms.map(
-          (term) => term.display,
-        ),
+        matchedExpectedTerms: toDisplayedTerms(expectedCoverage.matchedTerms),
         missingExpectedTerms: [],
         notDetectedExpectedTerms: [],
         phraseCoverage: expectedCoverage.phraseCoverage,
@@ -908,12 +932,10 @@ export function scoreRecallAnswerCheck(
       algorithmVersion: CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
       confidence: "high",
       evidence: {
-        matchedExpectedTerms: expectedCoverage.matchedTerms.map(
-          (term) => term.display,
-        ),
+        matchedExpectedTerms: toDisplayedTerms(expectedCoverage.matchedTerms),
         missingExpectedTerms: [],
-        notDetectedExpectedTerms: expectedCoverage.missingTerms.map(
-          (term) => term.display,
+        notDetectedExpectedTerms: toDisplayedTerms(
+          expectedCoverage.missingTerms,
         ),
         phraseCoverage: matchedAcceptedVariant.coverage.phraseCoverage,
         tfidfCosineSimilarity:
@@ -935,7 +957,7 @@ export function scoreRecallAnswerCheck(
     isMeaningfulAttempt,
     matchedExpectedTermCount: expectedCoverage.matchedTerms.length,
     partialMatch: expectedCoverage.partialMatch,
-    strongMatch: isAcceptedVariantCloseMatch(expectedCoverage),
+    strongMatch: isCloseReferenceMatch(expectedCoverage),
     tfidfCosineSimilarity: expectedCoverage.tfidfCosineSimilarity,
     tokenCoverage: expectedCoverage.tokenCoverage,
   });
@@ -944,12 +966,8 @@ export function scoreRecallAnswerCheck(
     algorithmVersion: CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
     confidence,
     evidence: {
-      matchedExpectedTerms: expectedCoverage.matchedTerms.map(
-        (term) => term.display,
-      ),
-      missingExpectedTerms: expectedCoverage.missingTerms.map(
-        (term) => term.display,
-      ),
+      matchedExpectedTerms: toDisplayedTerms(expectedCoverage.matchedTerms),
+      missingExpectedTerms: toDisplayedTerms(expectedCoverage.missingTerms),
       notDetectedExpectedTerms: [],
       phraseCoverage: expectedCoverage.phraseCoverage,
       tfidfCosineSimilarity: expectedCoverage.tfidfCosineSimilarity,

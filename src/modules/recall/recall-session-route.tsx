@@ -23,6 +23,7 @@ import {
   type AppStudyNote,
   AppStudyNotesError,
   listStudyNotesForUser,
+  type UpdateStudyNoteInput,
 } from "../study-notes";
 import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import {
@@ -79,23 +80,19 @@ function getRecallSessionExitTarget(
 
 function isSuccessfulAcceptedVariantRating(
   rating: FlashCardRecallRating | null,
-) {
+): boolean {
   return rating === "good" || rating === "easy";
-}
-
-function createAcceptedVariantId() {
-  return globalThis.crypto.randomUUID();
 }
 
 function createAcceptedVariantSaveInput(
   studyNote: AppStudyNote,
   typedAnswer: string,
-) {
+): UpdateStudyNoteInput {
   return {
     acceptedVariants: [
       ...studyNote.acceptedVariants.map((variant) => ({ ...variant })),
       {
-        id: createAcceptedVariantId(),
+        id: globalThis.crypto.randomUUID(),
         text: typedAnswer.trim(),
       },
     ],
@@ -526,8 +523,7 @@ function RecallSessionPage() {
           typedAnswer: typedAnswerForAcceptedVariant,
         });
   const canOfferAcceptedVariantSave =
-    activeSession !== null &&
-    activeSession.isAnswerRevealed &&
+    activeSession?.isAnswerRevealed === true &&
     currentStudyNote !== null &&
     isSuccessfulAcceptedVariantRating(pendingRating) &&
     !isAcceptedVariantPromptDismissed &&
@@ -841,6 +837,20 @@ function RecallAnswerCheckPanel({
   answerCheck: NonNullable<RecallQuestion["answerCheck"]>;
 }) {
   const { t } = useAppTranslation();
+  const notDetectedExpectedTerms =
+    answerCheck.evidence.notDetectedExpectedTerms ?? [];
+  const unmatchedExpectedTerms =
+    notDetectedExpectedTerms.length > 0
+      ? {
+          heading: t("recall.answerCheck.notDetectedTerms"),
+          keyPrefix: "not-detected",
+          terms: notDetectedExpectedTerms,
+        }
+      : {
+          heading: t("recall.answerCheck.missingTerms"),
+          keyPrefix: "missing",
+          terms: answerCheck.evidence.missingExpectedTerms,
+        };
 
   return (
     <section
@@ -891,21 +901,9 @@ function RecallAnswerCheckPanel({
         terms={answerCheck.evidence.matchedExpectedTerms}
       />
       <RecallAnswerCheckTerms
-        heading={t(
-          answerCheck.evidence.notDetectedExpectedTerms.length > 0
-            ? "recall.answerCheck.notDetectedTerms"
-            : "recall.answerCheck.missingTerms",
-        )}
-        keyPrefix={
-          answerCheck.evidence.notDetectedExpectedTerms.length > 0
-            ? "not-detected"
-            : "missing"
-        }
-        terms={
-          answerCheck.evidence.notDetectedExpectedTerms.length > 0
-            ? answerCheck.evidence.notDetectedExpectedTerms
-            : answerCheck.evidence.missingExpectedTerms
-        }
+        heading={unmatchedExpectedTerms.heading}
+        keyPrefix={unmatchedExpectedTerms.keyPrefix}
+        terms={unmatchedExpectedTerms.terms}
       />
     </section>
   );
