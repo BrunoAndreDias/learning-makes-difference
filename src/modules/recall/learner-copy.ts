@@ -124,6 +124,8 @@ export function getRecallAnswerCheckReasonTranslationKey(
   switch (reason) {
     case "accepted_variant_close_match":
       return "recall.answerCheck.reason.acceptedVariantMatch";
+    case "built_in_contradiction_guard":
+      return "recall.answerCheck.reason.builtInContradictionGuard";
     case "expected_answer_exact_match":
       return "recall.answerCheck.reason.exactMatch";
     case "expected_answer_close_match":

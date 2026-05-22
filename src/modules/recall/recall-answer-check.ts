@@ -52,6 +52,57 @@ const STOP_WORDS = new Set([
   "y",
 ]);
 
+const NEGATION_TOKENS = new Set([
+  "arent",
+  "cant",
+  "cannot",
+  "couldnt",
+  "didnt",
+  "doesnt",
+  "dont",
+  "isnt",
+  "never",
+  "no",
+  "not",
+  "wasnt",
+  "without",
+  "wont",
+  "wouldnt",
+]);
+
+const NEGATION_BRIDGE_TOKENS = new Set([
+  "always",
+  "ever",
+  "just",
+  "necessarily",
+  "quite",
+  "really",
+  "simply",
+  "very",
+]);
+
+const OPPOSING_TERM_GROUPS = [
+  [
+    ["increase", "increases", "increased", "increasing"],
+    ["decrease", "decreases", "decreased", "decreasing"],
+  ],
+  [
+    ["higher", "high"],
+    ["lower", "low"],
+  ],
+  [["more"], ["less", "fewer"]],
+  [["always"], ["never"]],
+  [["present"], ["absent"]],
+  [["positive"], ["negative"]],
+  [["true"], ["false"]],
+  [["active"], ["passive"]],
+  [["required", "mandatory"], ["optional"]],
+] as const;
+
+const MAX_NEGATION_TOKEN_DISTANCE = 3;
+
+const OPPOSING_TERM_MAP = createOpposingTermMap();
+
 const BASELINE_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
   "baseline_expected_answer_v1";
 const KEY_IDEA_RECALL_ANSWER_CHECK_ALGORITHM_VERSION = "key_idea_coverage_v1";
@@ -61,14 +112,17 @@ const KEY_IDEA_AND_ACCEPTED_VARIANT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
   "key_idea_and_accepted_variant_v3";
 const KEY_IDEA_ACCEPTED_VARIANT_AND_PROHIBITED_PHRASE_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
   "key_idea_accepted_variant_and_prohibited_phrase_v4";
+const KEY_IDEA_ACCEPTED_VARIANT_AND_CONTRADICTION_GUARD_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
+  "key_idea_accepted_variant_and_contradiction_guard_v5";
 const CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
-  KEY_IDEA_ACCEPTED_VARIANT_AND_PROHIBITED_PHRASE_RECALL_ANSWER_CHECK_ALGORITHM_VERSION;
+  KEY_IDEA_ACCEPTED_VARIANT_AND_CONTRADICTION_GUARD_RECALL_ANSWER_CHECK_ALGORITHM_VERSION;
 
 const RECALL_ANSWER_CHECK_ALGORITHM_VERSIONS = [
   BASELINE_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
   KEY_IDEA_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
   ACCEPTED_VARIANT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
   KEY_IDEA_AND_ACCEPTED_VARIANT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
+  KEY_IDEA_ACCEPTED_VARIANT_AND_PROHIBITED_PHRASE_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
   CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
 ] as const;
 
@@ -89,6 +143,7 @@ export type RecallAnswerCheckSuggestedSelfRating = Exclude<
 
 export type RecallAnswerCheckReason =
   | "accepted_variant_close_match"
+  | "built_in_contradiction_guard"
   | "expected_answer_exact_match"
   | "expected_answer_close_match"
   | "expected_answer_partial_match"
@@ -112,7 +167,16 @@ export type RecallAnswerCheckMatchedProhibitedPhrase = {
   text: string;
 };
 
+export type RecallAnswerCheckDetectedContradiction = {
+  answerText: string;
+  concept?: RecallAnswerCheckConcept;
+  referenceText: string;
+  scope: "expected_answer" | "key_idea";
+  type: "negation" | "opposition";
+};
+
 export type RecallAnswerCheckEvidence = {
+  detectedContradictions?: RecallAnswerCheckDetectedContradiction[];
   contradictedConcepts?: RecallAnswerCheckConcept[];
   coveredConcepts?: RecallAnswerCheckConcept[];
   matchedExpectedTerms: string[];
@@ -179,6 +243,15 @@ type AnswerCheckReferenceMatch = {
   tokenCoverage: number;
 };
 
+type AnswerCheckIndexedTokenMatch = {
+  index: number;
+  token: AnswerCheckToken;
+};
+
+type AnswerCheckTokenSimilarityMatch = AnswerCheckIndexedTokenMatch & {
+  similarity: number;
+};
+
 type RecallAnswerCheckConceptCoverage = {
   contradictedConcepts: RecallAnswerCheckConcept[];
   coveredConcepts: RecallAnswerCheckConcept[];
@@ -194,6 +267,13 @@ type RecallAnswerCheckProhibitedPhraseMatches = {
   contradictedConcepts: RecallAnswerCheckConcept[];
   hasStudyNoteMatch: boolean;
   matchedProhibitedPhrases: RecallAnswerCheckMatchedProhibitedPhrase[];
+};
+
+type RecallAnswerCheckBuiltInContradictionMatches = {
+  contradictedKeyIdeaIds: ReadonlySet<string>;
+  contradictedConcepts: RecallAnswerCheckConcept[];
+  detectedContradictions: RecallAnswerCheckDetectedContradiction[];
+  hasExpectedAnswerMatch: boolean;
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -241,6 +321,7 @@ function isRecallAnswerCheckReason(
 ): value is RecallAnswerCheckReason {
   return (
     value === "accepted_variant_close_match" ||
+    value === "built_in_contradiction_guard" ||
     value === "expected_answer_exact_match" ||
     value === "expected_answer_close_match" ||
     value === "expected_answer_partial_match" ||
@@ -321,6 +402,34 @@ function isRecallAnswerCheckMatchedProhibitedPhraseArray(
   );
 }
 
+function isRecallAnswerCheckDetectedContradiction(
+  value: unknown,
+): value is RecallAnswerCheckDetectedContradiction {
+  const candidate = asRecord(value);
+
+  return (
+    candidate !== null &&
+    typeof candidate.answerText === "string" &&
+    typeof candidate.referenceText === "string" &&
+    (candidate.scope === "expected_answer" || candidate.scope === "key_idea") &&
+    (candidate.type === "negation" || candidate.type === "opposition") &&
+    (!("concept" in candidate) ||
+      candidate.concept === undefined ||
+      isRecallAnswerCheckConcept(candidate.concept))
+  );
+}
+
+function isRecallAnswerCheckDetectedContradictionArray(
+  value: unknown,
+): value is RecallAnswerCheckDetectedContradiction[] {
+  return (
+    Array.isArray(value) &&
+    value.every((item: unknown) =>
+      isRecallAnswerCheckDetectedContradiction(item),
+    )
+  );
+}
+
 export function isRecallAnswerCheckResult(
   value: unknown,
 ): value is RecallAnswerCheckResult {
@@ -338,6 +447,10 @@ export function isRecallAnswerCheckResult(
       candidate.matchedAcceptedVariant === undefined ||
       isAcceptedVariantReference(candidate.matchedAcceptedVariant)) &&
     evidence !== null &&
+    (!("detectedContradictions" in evidence) ||
+      isRecallAnswerCheckDetectedContradictionArray(
+        evidence.detectedContradictions,
+      )) &&
     (!("contradictedConcepts" in evidence) ||
       isRecallAnswerCheckConceptArray(evidence.contradictedConcepts)) &&
     (!("coveredConcepts" in evidence) ||
@@ -373,6 +486,9 @@ export function cloneRecallAnswerCheckResult(
     ...answerCheckWithoutMatchedVariant,
     evidence: {
       ...answerCheck.evidence,
+      detectedContradictions: cloneRecallAnswerCheckDetectedContradictions(
+        answerCheck.evidence.detectedContradictions,
+      ),
       contradictedConcepts: cloneRecallAnswerCheckConcepts(
         answerCheck.evidence.contradictedConcepts,
       ),
@@ -418,6 +534,30 @@ function cloneRecallAnswerCheckMatchedProhibitedPhrases(
   }));
 }
 
+function cloneRecallAnswerCheckDetectedContradictions(
+  contradictions: readonly RecallAnswerCheckDetectedContradiction[] | undefined,
+): RecallAnswerCheckDetectedContradiction[] {
+  return (contradictions ?? []).map((contradiction) => ({
+    ...contradiction,
+    concept:
+      contradiction.concept === undefined
+        ? undefined
+        : { ...contradiction.concept },
+  }));
+}
+
+function getDetectedContradictionKey(
+  contradiction: RecallAnswerCheckDetectedContradiction,
+) {
+  return [
+    contradiction.scope,
+    contradiction.concept?.id ?? "",
+    contradiction.type,
+    normalizeRecallAnswerCheckText(contradiction.referenceText),
+    normalizeRecallAnswerCheckText(contradiction.answerText),
+  ].join(":");
+}
+
 function normalizeRecallAnswerCheckText(text: string): string {
   return text
     .toLocaleLowerCase()
@@ -449,6 +589,25 @@ function createAnswerCheckTextContext(text: string): AnswerCheckTextContext {
     terms: getDistinctiveTerms(tokens),
     tokens,
   };
+}
+
+function createOpposingTermMap(): ReadonlyMap<string, ReadonlySet<string>> {
+  const map = new Map<string, ReadonlySet<string>>();
+
+  for (const [leftTerms, rightTerms] of OPPOSING_TERM_GROUPS) {
+    const leftSet = new Set(leftTerms);
+    const rightSet = new Set(rightTerms);
+
+    for (const term of leftTerms) {
+      map.set(term, rightSet);
+    }
+
+    for (const term of rightTerms) {
+      map.set(term, leftSet);
+    }
+  }
+
+  return map;
 }
 
 function getUniqueTerms(
@@ -804,6 +963,188 @@ function getTokenCoverage(input: {
   return input.matchedExpectedTermCount / input.expectedTermCount;
 }
 
+function getBestAnswerTokenMatch(
+  expectedToken: AnswerCheckToken,
+  answerTokens: readonly AnswerCheckToken[],
+): AnswerCheckIndexedTokenMatch | undefined {
+  const threshold = getTokenSimilarityThreshold(expectedToken.normalized);
+  let bestMatch: AnswerCheckTokenSimilarityMatch | undefined;
+
+  for (const [index, answerToken] of answerTokens.entries()) {
+    const similarity =
+      answerToken.normalized === expectedToken.normalized
+        ? 1
+        : getLevenshteinSimilarity(
+            expectedToken.normalized,
+            answerToken.normalized,
+          );
+
+    if (similarity < threshold) {
+      continue;
+    }
+
+    if (
+      bestMatch === undefined ||
+      similarity > bestMatch.similarity ||
+      (similarity === bestMatch.similarity &&
+        answerToken.normalized === expectedToken.normalized)
+    ) {
+      bestMatch = {
+        index,
+        similarity,
+        token: answerToken,
+      };
+    }
+  }
+
+  return bestMatch;
+}
+
+function getOpposingAnswerTokenMatch(
+  opposingTerms: ReadonlySet<string>,
+  answerTokens: readonly AnswerCheckToken[],
+): AnswerCheckIndexedTokenMatch | undefined {
+  for (const [index, answerToken] of answerTokens.entries()) {
+    if (!opposingTerms.has(answerToken.normalized)) {
+      continue;
+    }
+
+    if (isTokenNegated(answerTokens, index)) {
+      continue;
+    }
+
+    return {
+      index,
+      token: answerToken,
+    };
+  }
+
+  return undefined;
+}
+
+function getReferenceTokenIndex(
+  referenceTokens: readonly AnswerCheckToken[],
+  normalizedToken: string,
+): number {
+  return referenceTokens.findIndex(
+    (token) => token.normalized === normalizedToken,
+  );
+}
+
+function getNegatingToken(
+  tokens: readonly AnswerCheckToken[],
+  index: number,
+): AnswerCheckToken | undefined {
+  for (let offset = 1; offset <= MAX_NEGATION_TOKEN_DISTANCE; offset += 1) {
+    const negationIndex = index - offset;
+
+    if (negationIndex < 0) {
+      break;
+    }
+
+    const token = tokens[negationIndex];
+
+    if (token === undefined || !NEGATION_TOKENS.has(token.normalized)) {
+      continue;
+    }
+
+    const interveningTokens = tokens.slice(negationIndex + 1, index);
+
+    if (
+      interveningTokens.some(
+        (interveningToken) =>
+          !STOP_WORDS.has(interveningToken.normalized) &&
+          !NEGATION_BRIDGE_TOKENS.has(interveningToken.normalized),
+      )
+    ) {
+      continue;
+    }
+
+    if (
+      token.normalized === "not" &&
+      tokens[negationIndex + 1]?.normalized === "only"
+    ) {
+      continue;
+    }
+
+    return token;
+  }
+
+  return undefined;
+}
+
+function isTokenNegated(
+  tokens: readonly AnswerCheckToken[],
+  index: number,
+): boolean {
+  return getNegatingToken(tokens, index) !== undefined;
+}
+
+function getTokenWithNegationDisplay(
+  tokens: readonly AnswerCheckToken[],
+  index: number,
+): string {
+  const token = tokens[index];
+
+  if (token === undefined) {
+    return "";
+  }
+
+  const negatingToken = getNegatingToken(tokens, index);
+
+  return negatingToken === undefined
+    ? token.display
+    : `${negatingToken.display} ${token.display}`;
+}
+
+function getContradictionAnchorCoverage(input: {
+  answerTerms: readonly AnswerCheckToken[];
+  excludedTerms: ReadonlySet<string>;
+  referenceTerms: readonly AnswerCheckToken[];
+}) {
+  const anchorTerms = input.referenceTerms.filter(
+    (referenceTerm) => !input.excludedTerms.has(referenceTerm.normalized),
+  );
+
+  if (anchorTerms.length === 0) {
+    return {
+      coverage: 0,
+      matchedCount: 0,
+      totalCount: 0,
+    };
+  }
+
+  const matchedCount = anchorTerms.filter((referenceTerm) =>
+    isMatchedExpectedTerm(referenceTerm, input.answerTerms),
+  ).length;
+
+  return {
+    coverage: matchedCount / anchorTerms.length,
+    matchedCount,
+    totalCount: anchorTerms.length,
+  };
+}
+
+function hasConservativeContradictionContext(input: {
+  anchorCoverage: ReturnType<typeof getContradictionAnchorCoverage>;
+  referenceMatch: AnswerCheckReferenceMatch;
+}) {
+  if (input.anchorCoverage.totalCount === 0) {
+    return false;
+  }
+
+  if (input.anchorCoverage.coverage >= 0.75) {
+    return true;
+  }
+
+  return (
+    input.anchorCoverage.coverage >= 0.5 &&
+    (input.referenceMatch.tokenCoverage >= 0.75 ||
+      input.referenceMatch.tfidfCosineSimilarity >= 0.55 ||
+      input.referenceMatch.similarity >= 0.72)
+  );
+}
+
 function containsNormalizedPhrase(
   haystackNormalized: string,
   needleNormalized: string,
@@ -1041,6 +1382,231 @@ function getProhibitedPhraseMatches(input: {
   };
 }
 
+function getBuiltInReferenceContradictions(input: {
+  answer: AnswerCheckTextContext;
+  concept?: RecallAnswerCheckConcept;
+  reference: AnswerCheckTextContext;
+  scope: "expected_answer" | "key_idea";
+}): RecallAnswerCheckDetectedContradiction[] {
+  if (input.reference.normalized.length === 0) {
+    return [];
+  }
+
+  const referenceMatch = getReferenceMatch({
+    answer: input.answer,
+    reference: input.reference,
+  });
+
+  if (
+    !isPartialReferenceMatch(referenceMatch) &&
+    !isStrongReferenceMatch(referenceMatch)
+  ) {
+    return [];
+  }
+
+  const contradictions: RecallAnswerCheckDetectedContradiction[] = [];
+  const seenContradictions = new Set<string>();
+
+  function addContradiction(
+    contradiction: RecallAnswerCheckDetectedContradiction,
+  ) {
+    const key = getDetectedContradictionKey(contradiction);
+
+    if (seenContradictions.has(key)) {
+      return;
+    }
+
+    seenContradictions.add(key);
+    contradictions.push(contradiction);
+  }
+
+  function hasContradictionContextForTerm(referenceTerm: AnswerCheckToken) {
+    const anchorCoverage = getContradictionAnchorCoverage({
+      answerTerms: input.answer.terms,
+      excludedTerms: new Set([referenceTerm.normalized]),
+      referenceTerms: input.reference.terms,
+    });
+
+    return hasConservativeContradictionContext({
+      anchorCoverage,
+      referenceMatch,
+    });
+  }
+
+  for (const referenceTerm of input.reference.terms) {
+    const referenceTokenIndex = getReferenceTokenIndex(
+      input.reference.tokens,
+      referenceTerm.normalized,
+    );
+
+    if (referenceTokenIndex < 0) {
+      continue;
+    }
+
+    const sameTermAnswerMatch = getBestAnswerTokenMatch(
+      referenceTerm,
+      input.answer.tokens,
+    );
+
+    if (sameTermAnswerMatch !== undefined) {
+      const referenceNegated = isTokenNegated(
+        input.reference.tokens,
+        referenceTokenIndex,
+      );
+      const answerNegated = isTokenNegated(
+        input.answer.tokens,
+        sameTermAnswerMatch.index,
+      );
+
+      if (
+        referenceNegated !== answerNegated &&
+        hasContradictionContextForTerm(referenceTerm)
+      ) {
+        addContradiction({
+          answerText: getTokenWithNegationDisplay(
+            input.answer.tokens,
+            sameTermAnswerMatch.index,
+          ),
+          concept: input.concept,
+          referenceText: getTokenWithNegationDisplay(
+            input.reference.tokens,
+            referenceTokenIndex,
+          ),
+          scope: input.scope,
+          type: "negation",
+        });
+      }
+    }
+
+    const opposingTerms = OPPOSING_TERM_MAP.get(referenceTerm.normalized);
+
+    if (opposingTerms === undefined) {
+      continue;
+    }
+
+    if (
+      sameTermAnswerMatch !== undefined &&
+      !isTokenNegated(input.answer.tokens, sameTermAnswerMatch.index)
+    ) {
+      continue;
+    }
+
+    const opposingMatch = getOpposingAnswerTokenMatch(
+      opposingTerms,
+      input.answer.tokens,
+    );
+
+    if (opposingMatch === undefined) {
+      continue;
+    }
+
+    if (isTokenNegated(input.reference.tokens, referenceTokenIndex)) {
+      continue;
+    }
+
+    if (!hasContradictionContextForTerm(referenceTerm)) {
+      continue;
+    }
+
+    addContradiction({
+      answerText: opposingMatch.token.display,
+      concept: input.concept,
+      referenceText: referenceTerm.display,
+      scope: input.scope,
+      type: "opposition",
+    });
+  }
+
+  return contradictions;
+}
+
+function getBuiltInContradictionMatches(input: {
+  answer: AnswerCheckTextContext;
+  expectedAnswer: AnswerCheckTextContext;
+  keyIdeas: readonly AppStudyNoteKeyIdea[];
+}): RecallAnswerCheckBuiltInContradictionMatches {
+  const contradictedConcepts: RecallAnswerCheckConcept[] = [];
+  const contradictedKeyIdeaIds = new Set<string>();
+  const detectedContradictions: RecallAnswerCheckDetectedContradiction[] = [];
+  let hasExpectedAnswerMatch = false;
+
+  const expectedAnswerContradictions = getBuiltInReferenceContradictions({
+    answer: input.answer,
+    reference: input.expectedAnswer,
+    scope: "expected_answer",
+  });
+
+  if (expectedAnswerContradictions.length > 0) {
+    hasExpectedAnswerMatch = true;
+    detectedContradictions.push(...expectedAnswerContradictions);
+  }
+
+  for (const keyIdea of input.keyIdeas) {
+    if (keyIdea.importance !== "required") {
+      continue;
+    }
+
+    const concept = toRecallAnswerCheckConcept(keyIdea);
+
+    for (const candidateText of [keyIdea.text, ...keyIdea.acceptedPhrases]) {
+      const candidateReference = createAnswerCheckTextContext(candidateText);
+      const contradictions = getBuiltInReferenceContradictions({
+        answer: input.answer,
+        concept,
+        reference: candidateReference,
+        scope: "key_idea",
+      });
+
+      if (contradictions.length === 0) {
+        continue;
+      }
+
+      if (!contradictedKeyIdeaIds.has(keyIdea.id)) {
+        contradictedKeyIdeaIds.add(keyIdea.id);
+        contradictedConcepts.push(concept);
+      }
+
+      detectedContradictions.push(...contradictions);
+      break;
+    }
+  }
+
+  return {
+    contradictedConcepts,
+    contradictedKeyIdeaIds,
+    detectedContradictions,
+    hasExpectedAnswerMatch,
+  };
+}
+
+function getCombinedContradictedConcepts(input: {
+  builtInContradictionMatches: RecallAnswerCheckBuiltInContradictionMatches;
+  prohibitedPhraseMatches: RecallAnswerCheckProhibitedPhraseMatches;
+}) {
+  const conceptsById = new Map<string, RecallAnswerCheckConcept>();
+
+  for (const concept of input.prohibitedPhraseMatches.contradictedConcepts) {
+    conceptsById.set(concept.id, concept);
+  }
+
+  for (const concept of input.builtInContradictionMatches
+    .contradictedConcepts) {
+    conceptsById.set(concept.id, concept);
+  }
+
+  return [...conceptsById.values()];
+}
+
+function getCombinedContradictedKeyIdeaIds(input: {
+  builtInContradictionMatches: RecallAnswerCheckBuiltInContradictionMatches;
+  prohibitedPhraseMatches: RecallAnswerCheckProhibitedPhraseMatches;
+}): ReadonlySet<string> {
+  return new Set([
+    ...input.prohibitedPhraseMatches.contradictedKeyIdeaIds,
+    ...input.builtInContradictionMatches.contradictedKeyIdeaIds,
+  ]);
+}
+
 function getKeyIdeaCoverageState(input: {
   answer: AnswerCheckTextContext;
   keyIdea: AppStudyNoteKeyIdea;
@@ -1074,11 +1640,12 @@ function getKeyIdeaCoverageState(input: {
 
 function getKeyIdeaCoverage(input: {
   answer: AnswerCheckTextContext;
+  contradictedConcepts: readonly RecallAnswerCheckConcept[];
+  contradictedKeyIdeaIds: ReadonlySet<string>;
   keyIdeas: readonly AppStudyNoteKeyIdea[];
-  prohibitedPhraseMatches: RecallAnswerCheckProhibitedPhraseMatches;
 }): RecallAnswerCheckConceptCoverage {
   const contradictedConcepts = cloneRecallAnswerCheckConcepts(
-    input.prohibitedPhraseMatches.contradictedConcepts,
+    input.contradictedConcepts,
   );
   const coveredConcepts: RecallAnswerCheckConcept[] = [];
   const partialConcepts: RecallAnswerCheckConcept[] = [];
@@ -1088,7 +1655,7 @@ function getKeyIdeaCoverage(input: {
   let supportingMissingCount = 0;
 
   for (const keyIdea of input.keyIdeas) {
-    if (input.prohibitedPhraseMatches.contradictedKeyIdeaIds.has(keyIdea.id)) {
+    if (input.contradictedKeyIdeaIds.has(keyIdea.id)) {
       continue;
     }
 
@@ -1356,22 +1923,48 @@ function getAssessmentForReferenceCoverage(input: {
   });
 }
 
-function getAssessmentForProhibitedPhraseMatches(input: {
+function getContradictionPrimaryReason(input: {
+  builtInContradictionMatches: RecallAnswerCheckBuiltInContradictionMatches;
+  prohibitedPhraseMatches: RecallAnswerCheckProhibitedPhraseMatches;
+}): RecallAnswerCheckReason | undefined {
+  const hasKeyIdeaProhibitedPhraseMatch =
+    input.prohibitedPhraseMatches.contradictedConcepts.length > 0;
+  const hasBuiltInContradiction =
+    input.builtInContradictionMatches.hasExpectedAnswerMatch ||
+    input.builtInContradictionMatches.contradictedConcepts.length > 0;
+
+  if (input.prohibitedPhraseMatches.hasStudyNoteMatch) {
+    return "study_note_prohibited_phrase_match";
+  }
+
+  if (hasKeyIdeaProhibitedPhraseMatch) {
+    return "key_idea_prohibited_phrase_match";
+  }
+
+  if (hasBuiltInContradiction) {
+    return "built_in_contradiction_guard";
+  }
+
+  return undefined;
+}
+
+function getAssessmentForContradictions(input: {
   assessment: RecallAnswerCheckAssessment;
+  builtInContradictionMatches: RecallAnswerCheckBuiltInContradictionMatches;
   prohibitedPhraseMatches: RecallAnswerCheckProhibitedPhraseMatches;
 }): RecallAnswerCheckAssessment {
-  const hasKeyIdeaMatch =
-    input.prohibitedPhraseMatches.contradictedConcepts.length > 0;
+  const primaryReason = getContradictionPrimaryReason({
+    builtInContradictionMatches: input.builtInContradictionMatches,
+    prohibitedPhraseMatches: input.prohibitedPhraseMatches,
+  });
 
-  if (!input.prohibitedPhraseMatches.hasStudyNoteMatch && !hasKeyIdeaMatch) {
+  if (primaryReason === undefined) {
     return input.assessment;
   }
 
   return {
     confidence: lowerConfidence(input.assessment.confidence),
-    primaryReason: input.prohibitedPhraseMatches.hasStudyNoteMatch
-      ? "study_note_prohibited_phrase_match"
-      : "key_idea_prohibited_phrase_match",
+    primaryReason,
     status:
       input.assessment.status === "likely_incomplete"
         ? "likely_incomplete"
@@ -1431,10 +2024,22 @@ export function scoreRecallAnswerCheck(
     keyIdeas,
     prohibitedPhrases: input.prohibitedPhrases ?? [],
   });
+  const builtInContradictionMatches = getBuiltInContradictionMatches({
+    answer,
+    expectedAnswer: expected,
+    keyIdeas,
+  });
   const keyIdeaCoverage = getKeyIdeaCoverage({
     answer,
+    contradictedConcepts: getCombinedContradictedConcepts({
+      builtInContradictionMatches,
+      prohibitedPhraseMatches,
+    }),
+    contradictedKeyIdeaIds: getCombinedContradictedKeyIdeaIds({
+      builtInContradictionMatches,
+      prohibitedPhraseMatches,
+    }),
     keyIdeas,
-    prohibitedPhraseMatches,
   });
   const referenceCoverageAssessment = getAssessmentForReferenceCoverage({
     baselineAssessment,
@@ -1447,11 +2052,12 @@ export function scoreRecallAnswerCheck(
         acceptedVariants: input.acceptedVariants ?? [],
         answer,
       });
-  const assessment = getAssessmentForProhibitedPhraseMatches({
+  const assessment = getAssessmentForContradictions({
     assessment:
       matchedAcceptedVariant === undefined
         ? referenceCoverageAssessment
         : getAcceptedVariantAssessment(),
+    builtInContradictionMatches,
     prohibitedPhraseMatches,
   });
   const suggestedSelfRating = getSuggestedSelfRating({
@@ -1464,6 +2070,8 @@ export function scoreRecallAnswerCheck(
       algorithmVersion: CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
       confidence: assessment.confidence,
       evidence: {
+        detectedContradictions:
+          builtInContradictionMatches.detectedContradictions,
         contradictedConcepts: keyIdeaCoverage.contradictedConcepts,
         coveredConcepts: [],
         matchedExpectedTerms: toDisplayedTerms(
@@ -1491,6 +2099,8 @@ export function scoreRecallAnswerCheck(
     algorithmVersion: CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
     confidence: assessment.confidence,
     evidence: {
+      detectedContradictions:
+        builtInContradictionMatches.detectedContradictions,
       contradictedConcepts: keyIdeaCoverage.contradictedConcepts,
       coveredConcepts: keyIdeaCoverage.coveredConcepts,
       matchedExpectedTerms: toDisplayedTerms(expectedAnswerMatch.matchedTerms),

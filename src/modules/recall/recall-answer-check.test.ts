@@ -60,7 +60,7 @@ describe("scoreRecallAnswerCheck", () => {
           "Retrieval practice strengthens access to long-term memory.",
       }),
     ).toMatchObject({
-      algorithmVersion: "key_idea_accepted_variant_and_prohibited_phrase_v4",
+      algorithmVersion: "key_idea_accepted_variant_and_contradiction_guard_v5",
       confidence: "medium",
       primaryReason: "expected_answer_exact_match",
       status: "likely_correct",
@@ -80,6 +80,124 @@ describe("scoreRecallAnswerCheck", () => {
       primaryReason: "expected_answer_close_match",
       status: "likely_correct",
       suggestedSelfRating: "good",
+    });
+  });
+
+  it("blocks likely_correct on obvious negation reversals with high similarity", () => {
+    const result = scoreRecallAnswerCheck({
+      acceptedVariants: [],
+      expectedAnswer:
+        "Retrieval practice strengthens access to long-term memory.",
+      typedAnswer:
+        "Retrieval practice does not strengthen access to long-term memory.",
+    });
+
+    expect(result).toMatchObject({
+      confidence: "low",
+      primaryReason: "built_in_contradiction_guard",
+      status: "uncertain",
+      suggestedSelfRating: "hard",
+    });
+    expect(result?.evidence.detectedContradictions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          answerText: "not strengthen",
+          referenceText: "strengthens",
+          scope: "expected_answer",
+          type: "negation",
+        }),
+      ]),
+    );
+  });
+
+  it("blocks likely_correct when an obvious opposing term contradicts a required Key Idea", () => {
+    const result = scoreRecallAnswerCheck({
+      acceptedVariants: [],
+      expectedAnswer:
+        "Higher temperatures increase diffusion speed across the membrane.",
+      keyIdeas: [
+        {
+          acceptedPhrases: [],
+          id: "key-idea-diffusion-direction",
+          importance: "required",
+          prohibitedPhrases: [],
+          text: "increase diffusion speed",
+        },
+      ],
+      typedAnswer:
+        "Higher temperatures decrease diffusion speed across the membrane.",
+    });
+
+    expect(result).toMatchObject({
+      confidence: "low",
+      primaryReason: "built_in_contradiction_guard",
+      status: "uncertain",
+      suggestedSelfRating: "hard",
+      evidence: {
+        contradictedConcepts: [
+          {
+            id: "key-idea-diffusion-direction",
+            importance: "required",
+            text: "increase diffusion speed",
+          },
+        ],
+      },
+    });
+    expect(result?.evidence.detectedContradictions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          answerText: "decrease",
+          concept: {
+            id: "key-idea-diffusion-direction",
+            importance: "required",
+            text: "increase diffusion speed",
+          },
+          referenceText: "increase",
+          scope: "key_idea",
+          type: "opposition",
+        }),
+      ]),
+    );
+  });
+
+  it("keeps contradictory Accepted Variant near-matches from becoming likely_correct", () => {
+    expect(
+      scoreRecallAnswerCheck({
+        acceptedVariants: [
+          {
+            id: "variant-retrieval",
+            text: "Retrieval practice strengthens access to long-term memory.",
+          },
+        ],
+        expectedAnswer:
+          "Retrieval practice strengthens access to long-term memory.",
+        typedAnswer:
+          "Retrieval practice does not strengthen access to long-term memory.",
+      }),
+    ).toMatchObject({
+      confidence: "medium",
+      matchedAcceptedVariant: {
+        id: "variant-retrieval",
+      },
+      primaryReason: "built_in_contradiction_guard",
+      status: "uncertain",
+      suggestedSelfRating: "hard",
+    });
+  });
+
+  it("returns uncertain instead of likely_correct for hedged contradiction cases", () => {
+    expect(
+      scoreRecallAnswerCheck({
+        acceptedVariants: [],
+        expectedAnswer:
+          "Retrieval practice strengthens access to long-term memory.",
+        typedAnswer:
+          "Retrieval practice may not always strengthen access to long-term memory.",
+      }),
+    ).toMatchObject({
+      primaryReason: "built_in_contradiction_guard",
+      status: "uncertain",
+      suggestedSelfRating: "hard",
     });
   });
 
@@ -492,6 +610,24 @@ describe("scoreRecallAnswerCheck", () => {
       suggestedSelfRating: "good",
     });
     expect(result?.evidence.matchedProhibitedPhrases).toEqual([]);
+  });
+
+  it("does not trigger a built-in contradiction on explicit non-contradictory contrast", () => {
+    const result = scoreRecallAnswerCheck({
+      acceptedVariants: [],
+      expectedAnswer:
+        "Higher temperatures increase diffusion speed across the membrane.",
+      typedAnswer:
+        "Higher temperatures increase diffusion speed across the membrane, not decrease it.",
+    });
+
+    expect(result).toMatchObject({
+      confidence: "medium",
+      primaryReason: "expected_answer_close_match",
+      status: "likely_correct",
+      suggestedSelfRating: "good",
+    });
+    expect(result?.evidence.detectedContradictions).toEqual([]);
   });
 
   it("keeps previously stored Answer Check results readable", () => {

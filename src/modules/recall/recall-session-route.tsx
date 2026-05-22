@@ -837,6 +837,12 @@ function RecallAnswerCheckPanel({
   answerCheck: NonNullable<RecallQuestion["answerCheck"]>;
 }) {
   const { t } = useAppTranslation();
+  const detectedContradictions = (
+    answerCheck.evidence.detectedContradictions ?? []
+  ).map(
+    (contradiction) =>
+      `${contradiction.referenceText} -> ${contradiction.answerText}`,
+  );
   const contradictedConcepts = (
     answerCheck.evidence.contradictedConcepts ?? []
   ).map((concept) => concept.text);
@@ -872,7 +878,9 @@ function RecallAnswerCheckPanel({
           terms: answerCheck.evidence.missingExpectedTerms,
         };
   const hasContradictions =
-    contradictedConcepts.length > 0 || matchedProhibitedPhrases.length > 0;
+    detectedContradictions.length > 0 ||
+    contradictedConcepts.length > 0 ||
+    matchedProhibitedPhrases.length > 0;
 
   return (
     <section
@@ -905,6 +913,11 @@ function RecallAnswerCheckPanel({
       </p>
       {hasContradictions ? (
         <>
+          <RecallAnswerCheckTerms
+            heading={t("recall.answerCheck.detectedContradictions")}
+            keyPrefix="detected-contradiction"
+            terms={detectedContradictions}
+          />
           <RecallAnswerCheckTerms
             heading={t("recall.answerCheck.contradictedConcepts")}
             keyPrefix="contradicted-concept"

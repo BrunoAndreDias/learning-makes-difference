@@ -93,7 +93,7 @@ describe("FlashCard Answer Check on reveal", () => {
     });
 
     expect(revealedSession.questions[0]?.answerCheck).toMatchObject({
-      algorithmVersion: "key_idea_accepted_variant_and_prohibited_phrase_v4",
+      algorithmVersion: "key_idea_accepted_variant_and_contradiction_guard_v5",
       confidence: "medium",
       status: "likely_correct",
       suggestedSelfRating: "good",
@@ -199,6 +199,45 @@ describe("FlashCard Answer Check on reveal", () => {
         ],
       },
     });
+  });
+
+  it("blocks likely_correct guidance when the built-in contradiction guard detects a negation reversal on reveal", () => {
+    const { recall, studyNote, userId } = createRecallableStudyNote();
+    const session = recall.startFlashCardSession({
+      studyNoteIds: [studyNote.id],
+      userId,
+    });
+
+    recall.updateFlashCardAttemptText({
+      sessionId: session.id,
+      text: "Retrieval practice does not strengthen access to long-term memory.",
+      userId,
+    });
+
+    const revealedSession = recall.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId,
+    });
+
+    expect(revealedSession.questions[0]?.answerCheck).toMatchObject({
+      confidence: "low",
+      primaryReason: "built_in_contradiction_guard",
+      status: "uncertain",
+      suggestedSelfRating: "hard",
+    });
+    expect(
+      revealedSession.questions[0]?.answerCheck?.evidence
+        .detectedContradictions,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          answerText: "not strengthen",
+          referenceText: "strengthens",
+          scope: "expected_answer",
+          type: "negation",
+        }),
+      ]),
+    );
   });
 
   it("skips Answer Check for empty or whitespace-only typed answers", () => {

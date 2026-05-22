@@ -632,6 +632,43 @@ describe("authenticated recall workspace", () => {
     expect(screen.getByText("passive review")).toBeInTheDocument();
   });
 
+  it("shows built-in contradiction evidence alongside the expected answer on Study Note reveal", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const studyNote = createRecallableStudyNote(contexts, {
+      expectedAnswer:
+        "Retrieval practice strengthens long-term memory through effortful recall.",
+      prompt: "What does retrieval practice strengthen?",
+      sourceBody: "Broader retrieval practice source context.",
+      sourceTitle: "Retrieval practice source",
+    });
+    contexts.recallContext.startFlashCardSession({
+      studyNoteIds: [studyNote.id],
+      userId: testUser.id,
+    });
+
+    renderRoute("/recall/session", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Write answer" }),
+    );
+    fireEvent.change(screen.getByLabelText("Your answer"), {
+      target: {
+        value:
+          "Retrieval practice does not strengthen long-term memory through effortful recall.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Reveal Study Note" }));
+
+    expect(screen.getByText("Uncertain")).toBeInTheDocument();
+    expect(screen.getByText("Detected contradictions")).toBeInTheDocument();
+    expect(
+      screen.getByText("strengthens -> not strengthen"),
+    ).toBeInTheDocument();
+  });
+
   it("shows the matched Accepted Variant and undetected expected terms when variant matching is used", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const studyNote = createRecallableStudyNote(contexts, {
