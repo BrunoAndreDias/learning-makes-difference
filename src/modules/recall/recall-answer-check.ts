@@ -1,3 +1,4 @@
+import type { AppStudyNoteAcceptedVariant } from "../study-notes";
 import type { RecallSelfRating } from "./recall";
 
 const STOP_WORDS = new Set([
@@ -46,7 +47,16 @@ const STOP_WORDS = new Set([
   "y",
 ]);
 
-const RECALL_ANSWER_CHECK_ALGORITHM_VERSION = "baseline_expected_answer_v1";
+const RECALL_ANSWER_CHECK_ALGORITHM_VERSIONS = [
+  "baseline_expected_answer_v1",
+  "expected_answer_and_accepted_variant_v2",
+] as const;
+
+const CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
+  "expected_answer_and_accepted_variant_v2";
+
+export type RecallAnswerCheckAlgorithmVersion =
+  (typeof RECALL_ANSWER_CHECK_ALGORITHM_VERSIONS)[number];
 
 export type RecallAnswerCheckStatus =
   | "likely_correct"
@@ -61,6 +71,7 @@ export type RecallAnswerCheckSuggestedSelfRating = Exclude<
 >;
 
 export type RecallAnswerCheckReason =
+  | "accepted_variant_close_match"
   | "expected_answer_exact_match"
   | "expected_answer_close_match"
   | "expected_answer_partial_match"
@@ -70,15 +81,17 @@ export type RecallAnswerCheckReason =
 export type RecallAnswerCheckEvidence = {
   matchedExpectedTerms: string[];
   missingExpectedTerms: string[];
+  notDetectedExpectedTerms: string[];
   phraseCoverage: number;
   tfidfCosineSimilarity: number;
   tokenCoverage: number;
 };
 
 export type RecallAnswerCheckResult = {
-  algorithmVersion: typeof RECALL_ANSWER_CHECK_ALGORITHM_VERSION;
+  algorithmVersion: RecallAnswerCheckAlgorithmVersion;
   confidence: RecallAnswerCheckConfidence;
   evidence: RecallAnswerCheckEvidence;
+  matchedAcceptedVariant?: AppStudyNoteAcceptedVariant;
   primaryReason: RecallAnswerCheckReason;
   status: RecallAnswerCheckStatus;
   suggestedSelfRating: RecallAnswerCheckSuggestedSelfRating;
@@ -90,7 +103,13 @@ type AnswerCheckToken = {
 };
 
 type ScoreRecallAnswerCheckInput = {
+  acceptedVariants?: readonly AppStudyNoteAcceptedVariant[];
   expectedAnswer: string;
+  typedAnswer: string;
+};
+
+type AcceptedVariantMatchInput = {
+  acceptedVariants: readonly AppStudyNoteAcceptedVariant[];
   typedAnswer: string;
 };
 
@@ -98,6 +117,19 @@ type RecallAnswerCheckAssessment = {
   confidence: RecallAnswerCheckConfidence;
   primaryReason: RecallAnswerCheckReason;
   status: RecallAnswerCheckStatus;
+};
+
+type RecallAnswerCheckReferenceCoverage = {
+  exactMatch: boolean;
+  isShort: boolean;
+  matchedTerms: AnswerCheckToken[];
+  missingTerms: AnswerCheckToken[];
+  partialMatch: boolean;
+  phraseCoverage: number;
+  terms: AnswerCheckToken[];
+  textSimilarity: number;
+  tfidfCosineSimilarity: number;
+  tokenCoverage: number;
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -133,6 +165,7 @@ function isRecallAnswerCheckReason(
   value: unknown,
 ): value is RecallAnswerCheckReason {
   return (
+    value === "accepted_variant_close_match" ||
     value === "expected_answer_exact_match" ||
     value === "expected_answer_close_match" ||
     value === "expected_answer_partial_match" ||
@@ -147,6 +180,29 @@ function isRecallAnswerCheckSuggestedSelfRating(
   return value === "forgot" || value === "hard" || value === "good";
 }
 
+function isRecallAnswerCheckAlgorithmVersion(
+  value: unknown,
+): value is RecallAnswerCheckAlgorithmVersion {
+  return (
+    typeof value === "string" &&
+    RECALL_ANSWER_CHECK_ALGORITHM_VERSIONS.includes(
+      value as RecallAnswerCheckAlgorithmVersion,
+    )
+  );
+}
+
+function isAcceptedVariantReference(
+  value: unknown,
+): value is AppStudyNoteAcceptedVariant {
+  const candidate = asRecord(value);
+
+  return (
+    candidate !== null &&
+    typeof candidate.id === "string" &&
+    typeof candidate.text === "string"
+  );
+}
+
 export function isRecallAnswerCheckResult(
   value: unknown,
 ): value is RecallAnswerCheckResult {
@@ -155,14 +211,19 @@ export function isRecallAnswerCheckResult(
 
   return (
     candidate !== null &&
-    candidate.algorithmVersion === RECALL_ANSWER_CHECK_ALGORITHM_VERSION &&
+    isRecallAnswerCheckAlgorithmVersion(candidate.algorithmVersion) &&
     isRecallAnswerCheckConfidence(candidate.confidence) &&
     isRecallAnswerCheckReason(candidate.primaryReason) &&
     isRecallAnswerCheckStatus(candidate.status) &&
     isRecallAnswerCheckSuggestedSelfRating(candidate.suggestedSelfRating) &&
+    (!("matchedAcceptedVariant" in candidate) ||
+      candidate.matchedAcceptedVariant === undefined ||
+      isAcceptedVariantReference(candidate.matchedAcceptedVariant)) &&
     evidence !== null &&
     isStringArray(evidence.matchedExpectedTerms) &&
     isStringArray(evidence.missingExpectedTerms) &&
+    (!("notDetectedExpectedTerms" in evidence) ||
+      isStringArray(evidence.notDetectedExpectedTerms)) &&
     typeof evidence.phraseCoverage === "number" &&
     typeof evidence.tfidfCosineSimilarity === "number" &&
     typeof evidence.tokenCoverage === "number"
@@ -182,7 +243,14 @@ export function cloneRecallAnswerCheckResult(
       ...answerCheck.evidence,
       matchedExpectedTerms: [...answerCheck.evidence.matchedExpectedTerms],
       missingExpectedTerms: [...answerCheck.evidence.missingExpectedTerms],
+      notDetectedExpectedTerms: [
+        ...(answerCheck.evidence.notDetectedExpectedTerms ?? []),
+      ],
     },
+    matchedAcceptedVariant:
+      answerCheck.matchedAcceptedVariant === undefined
+        ? undefined
+        : { ...answerCheck.matchedAcceptedVariant },
   };
 }
 
@@ -562,6 +630,159 @@ function getTokenCoverage(input: {
   return input.matchedExpectedTermCount / input.expectedTermCount;
 }
 
+function getReferenceCoverage(input: {
+  answerNormalized: string;
+  answerTerms: readonly AnswerCheckToken[];
+  answerTokens: readonly AnswerCheckToken[];
+  referenceText: string;
+}): RecallAnswerCheckReferenceCoverage {
+  const referenceNormalized = normalizeRecallAnswerCheckText(
+    input.referenceText,
+  );
+  const referenceTokens = tokenizeAnswerCheckText(input.referenceText);
+  const referenceTerms = getDistinctiveTerms(referenceTokens);
+  const matchedTerms = referenceTerms.filter((referenceTerm) =>
+    isMatchedExpectedTerm(referenceTerm, input.answerTerms),
+  );
+  const missingTerms = getMissingExpectedTerms({
+    expectedTerms: referenceTerms,
+    matchedExpectedTerms: matchedTerms,
+  });
+  const tokenCoverage = getTokenCoverage({
+    expectedTermCount: referenceTerms.length,
+    matchedExpectedTermCount: matchedTerms.length,
+  });
+  const phraseCoverage = getPhraseCoverage({
+    answerNormalized: input.answerNormalized,
+    answerTokens: input.answerTokens,
+    expectedTokens: referenceTokens,
+  });
+  const tfidfCosineSimilarity = getTfIdfCosineSimilarity(
+    referenceTerms,
+    input.answerTerms,
+  );
+  const textSimilarity = getDiceSimilarity(
+    referenceNormalized,
+    input.answerNormalized,
+  );
+  const partialMatch =
+    tokenCoverage >= 0.5 &&
+    (phraseCoverage >= 0.25 ||
+      tfidfCosineSimilarity >= 0.3 ||
+      textSimilarity >= 0.5);
+
+  return {
+    exactMatch: referenceNormalized === input.answerNormalized,
+    isShort: referenceTerms.length <= 2 || referenceNormalized.length <= 24,
+    matchedTerms,
+    missingTerms,
+    partialMatch,
+    phraseCoverage,
+    terms: referenceTerms,
+    textSimilarity,
+    tfidfCosineSimilarity,
+    tokenCoverage,
+  };
+}
+
+function isAcceptedVariantCloseMatch(
+  coverage: RecallAnswerCheckReferenceCoverage,
+): boolean {
+  return coverage.exactMatch || coverage.tokenCoverage >= 0.75
+    ? coverage.exactMatch ||
+        coverage.phraseCoverage >= 0.45 ||
+        coverage.tfidfCosineSimilarity >= 0.5 ||
+        coverage.textSimilarity >= 0.72
+    : false;
+}
+
+function getMatchedAcceptedVariant(input: {
+  acceptedVariants: readonly AppStudyNoteAcceptedVariant[];
+  answerNormalized: string;
+  answerTerms: readonly AnswerCheckToken[];
+  answerTokens: readonly AnswerCheckToken[];
+}):
+  | {
+      coverage: RecallAnswerCheckReferenceCoverage;
+      variant: AppStudyNoteAcceptedVariant;
+    }
+  | undefined {
+  let bestMatch:
+    | {
+        coverage: RecallAnswerCheckReferenceCoverage;
+        variant: AppStudyNoteAcceptedVariant;
+      }
+    | undefined;
+
+  for (const variant of input.acceptedVariants) {
+    if (variant.text.trim().length === 0) {
+      continue;
+    }
+
+    const coverage = getReferenceCoverage({
+      answerNormalized: input.answerNormalized,
+      answerTerms: input.answerTerms,
+      answerTokens: input.answerTokens,
+      referenceText: variant.text,
+    });
+
+    if (!isAcceptedVariantCloseMatch(coverage)) {
+      continue;
+    }
+
+    const isBetterMatch =
+      bestMatch === undefined ||
+      Number(coverage.exactMatch) > Number(bestMatch.coverage.exactMatch) ||
+      (coverage.exactMatch === bestMatch.coverage.exactMatch &&
+        (coverage.tokenCoverage > bestMatch.coverage.tokenCoverage ||
+          (coverage.tokenCoverage === bestMatch.coverage.tokenCoverage &&
+            coverage.textSimilarity > bestMatch.coverage.textSimilarity)));
+
+    if (isBetterMatch) {
+      bestMatch = {
+        coverage,
+        variant,
+      };
+    }
+  }
+
+  return bestMatch;
+}
+
+export function findAcceptedVariantMatch(
+  input: AcceptedVariantMatchInput,
+): AppStudyNoteAcceptedVariant | undefined {
+  const answerNormalized = normalizeRecallAnswerCheckText(input.typedAnswer);
+
+  if (answerNormalized.length === 0) {
+    return undefined;
+  }
+
+  const answerTokens = tokenizeAnswerCheckText(input.typedAnswer);
+  const answerTerms = getDistinctiveTerms(answerTokens);
+
+  return getMatchedAcceptedVariant({
+    acceptedVariants: input.acceptedVariants,
+    answerNormalized,
+    answerTerms,
+    answerTokens,
+  })?.variant;
+}
+
+export function isMeaningfulAcceptedVariantCandidateText(
+  text: string,
+): boolean {
+  const normalized = normalizeRecallAnswerCheckText(text);
+
+  if (normalized.length === 0) {
+    return false;
+  }
+
+  const terms = getDistinctiveTerms(tokenizeAnswerCheckText(text));
+
+  return terms.length >= 2 || normalized.length >= 18;
+}
+
 function getRecallAnswerCheckAssessment(input: {
   answerIsShort: boolean;
   expectedAnswerSimilarity: number;
@@ -637,79 +858,102 @@ export function scoreRecallAnswerCheck(
     return null;
   }
 
-  const expectedTokens = tokenizeAnswerCheckText(input.expectedAnswer);
   const answerTokens = tokenizeAnswerCheckText(input.typedAnswer);
-  const expectedTerms = getDistinctiveTerms(expectedTokens);
   const answerTerms = getDistinctiveTerms(answerTokens);
-  const matchedExpectedTerms = expectedTerms.filter((expectedTerm) =>
-    isMatchedExpectedTerm(expectedTerm, answerTerms),
-  );
-  const missingExpectedTerms = getMissingExpectedTerms({
-    expectedTerms,
-    matchedExpectedTerms,
-  });
-  const tokenCoverage = getTokenCoverage({
-    expectedTermCount: expectedTerms.length,
-    matchedExpectedTermCount: matchedExpectedTerms.length,
-  });
-  const phraseCoverage = getPhraseCoverage({
+  const expectedCoverage = getReferenceCoverage({
     answerNormalized,
     answerTokens,
-    expectedTokens,
-  });
-  const tfidfCosineSimilarity = getTfIdfCosineSimilarity(
-    expectedTerms,
     answerTerms,
-  );
-  const expectedAnswerSimilarity = getDiceSimilarity(
-    expectedNormalized,
+    referenceText: input.expectedAnswer,
+  });
+  const matchedAcceptedVariant = getMatchedAcceptedVariant({
+    acceptedVariants: [...(input.acceptedVariants ?? [])],
     answerNormalized,
-  );
-  const expectedIsShort =
-    expectedTerms.length <= 2 || expectedNormalized.length <= 24;
+    answerTerms,
+    answerTokens,
+  });
   const answerIsShort =
     answerTerms.length <=
-      Math.max(2, Math.floor(expectedTerms.length * 0.45)) ||
+      Math.max(2, Math.floor(expectedCoverage.terms.length * 0.45)) ||
     answerNormalized.length <=
       Math.max(18, Math.floor(expectedNormalized.length * 0.45));
-  const exactMatch = expectedNormalized === answerNormalized;
-  const strongMatch =
-    tokenCoverage >= 0.82 &&
-    (phraseCoverage >= 0.5 ||
-      tfidfCosineSimilarity >= 0.55 ||
-      expectedAnswerSimilarity >= 0.75);
-  const partialMatch =
-    tokenCoverage >= 0.5 &&
-    (phraseCoverage >= 0.25 ||
-      tfidfCosineSimilarity >= 0.3 ||
-      expectedAnswerSimilarity >= 0.5);
   const isMeaningfulAttempt =
-    matchedExpectedTerms.length >= 1 ||
+    expectedCoverage.matchedTerms.length >= 1 ||
     ((answerTerms.length >= 2 || answerNormalized.length >= 18) &&
-      (tfidfCosineSimilarity >= 0.18 || expectedAnswerSimilarity >= 0.3));
+      (expectedCoverage.tfidfCosineSimilarity >= 0.18 ||
+        expectedCoverage.textSimilarity >= 0.3));
+
+  if (expectedCoverage.exactMatch) {
+    return {
+      algorithmVersion: CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
+      confidence: "high",
+      evidence: {
+        matchedExpectedTerms: expectedCoverage.matchedTerms.map(
+          (term) => term.display,
+        ),
+        missingExpectedTerms: [],
+        notDetectedExpectedTerms: [],
+        phraseCoverage: expectedCoverage.phraseCoverage,
+        tfidfCosineSimilarity: expectedCoverage.tfidfCosineSimilarity,
+        tokenCoverage: expectedCoverage.tokenCoverage,
+      },
+      primaryReason: "expected_answer_exact_match",
+      status: "likely_correct",
+      suggestedSelfRating: "good",
+    };
+  }
+
+  if (matchedAcceptedVariant !== undefined) {
+    return {
+      algorithmVersion: CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
+      confidence: "high",
+      evidence: {
+        matchedExpectedTerms: expectedCoverage.matchedTerms.map(
+          (term) => term.display,
+        ),
+        missingExpectedTerms: [],
+        notDetectedExpectedTerms: expectedCoverage.missingTerms.map(
+          (term) => term.display,
+        ),
+        phraseCoverage: matchedAcceptedVariant.coverage.phraseCoverage,
+        tfidfCosineSimilarity:
+          matchedAcceptedVariant.coverage.tfidfCosineSimilarity,
+        tokenCoverage: matchedAcceptedVariant.coverage.tokenCoverage,
+      },
+      matchedAcceptedVariant: { ...matchedAcceptedVariant.variant },
+      primaryReason: "accepted_variant_close_match",
+      status: "likely_correct",
+      suggestedSelfRating: "good",
+    };
+  }
 
   const { confidence, primaryReason, status } = getRecallAnswerCheckAssessment({
     answerIsShort,
-    expectedAnswerSimilarity,
-    expectedIsShort,
-    exactMatch,
+    expectedAnswerSimilarity: expectedCoverage.textSimilarity,
+    expectedIsShort: expectedCoverage.isShort,
+    exactMatch: expectedCoverage.exactMatch,
     isMeaningfulAttempt,
-    matchedExpectedTermCount: matchedExpectedTerms.length,
-    partialMatch,
-    strongMatch,
-    tfidfCosineSimilarity,
-    tokenCoverage,
+    matchedExpectedTermCount: expectedCoverage.matchedTerms.length,
+    partialMatch: expectedCoverage.partialMatch,
+    strongMatch: isAcceptedVariantCloseMatch(expectedCoverage),
+    tfidfCosineSimilarity: expectedCoverage.tfidfCosineSimilarity,
+    tokenCoverage: expectedCoverage.tokenCoverage,
   });
 
   return {
-    algorithmVersion: RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
+    algorithmVersion: CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
     confidence,
     evidence: {
-      matchedExpectedTerms: matchedExpectedTerms.map((term) => term.display),
-      missingExpectedTerms: missingExpectedTerms.map((term) => term.display),
-      phraseCoverage,
-      tfidfCosineSimilarity,
-      tokenCoverage,
+      matchedExpectedTerms: expectedCoverage.matchedTerms.map(
+        (term) => term.display,
+      ),
+      missingExpectedTerms: expectedCoverage.missingTerms.map(
+        (term) => term.display,
+      ),
+      notDetectedExpectedTerms: [],
+      phraseCoverage: expectedCoverage.phraseCoverage,
+      tfidfCosineSimilarity: expectedCoverage.tfidfCosineSimilarity,
+      tokenCoverage: expectedCoverage.tokenCoverage,
     },
     primaryReason,
     status,

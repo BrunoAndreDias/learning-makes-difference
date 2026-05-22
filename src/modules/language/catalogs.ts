@@ -487,8 +487,12 @@ const englishTranslations = {
   "recall.answerCheck.confidence.high": "High confidence",
   "recall.answerCheck.confidence.low": "Low confidence",
   "recall.answerCheck.confidence.medium": "Medium confidence",
+  "recall.answerCheck.matchedAcceptedVariant": "Matched Accepted Variant",
   "recall.answerCheck.matchedTerms": "Matched terms",
   "recall.answerCheck.missingTerms": "Still missing",
+  "recall.answerCheck.notDetectedTerms": "Not detected by heuristics",
+  "recall.answerCheck.reason.acceptedVariantMatch":
+    "Your answer stays close to a saved Accepted Variant, so unmatched expected-answer terms are treated conservatively.",
   "recall.answerCheck.reason.closeMatch":
     "Your answer stays close to the expected answer and covers most distinctive terms.",
   "recall.answerCheck.reason.exactMatch":
@@ -512,6 +516,13 @@ const englishTranslations = {
   "recall.session.answer.sourceContext": "Source context",
   "recall.session.answer.writeInput": "Write answer",
   "recall.session.answer.yourAnswer": "Your answer",
+  "recall.session.acceptedVariant.confirmBody":
+    "Save this wording as a trusted full-answer alternative for future recall.",
+  "recall.session.acceptedVariant.confirmTitle":
+    "Save this answer as an Accepted Variant?",
+  "recall.session.acceptedVariant.dismiss": "Not now",
+  "recall.session.acceptedVariant.save": "Save Accepted Variant",
+  "recall.session.acceptedVariant.saved": "Accepted Variant saved.",
   "recall.session.dialog.cancel": "Cancel",
   "recall.session.dialog.discard": "Discard session",
   "recall.session.dialog.discardBody": "No attempted Questions will be saved.",
@@ -1078,8 +1089,12 @@ const portugueseTranslations = {
   "recall.answerCheck.confidence.high": "Confianca alta",
   "recall.answerCheck.confidence.low": "Confianca baixa",
   "recall.answerCheck.confidence.medium": "Confianca media",
+  "recall.answerCheck.matchedAcceptedVariant": "Variante aceite correspondente",
   "recall.answerCheck.matchedTerms": "Termos correspondentes",
   "recall.answerCheck.missingTerms": "Ainda em falta",
+  "recall.answerCheck.notDetectedTerms": "Nao detetado pela heuristica",
+  "recall.answerCheck.reason.acceptedVariantMatch":
+    "A tua resposta fica perto de uma Variante aceite guardada, por isso os termos da resposta esperada que nao coincidem sao tratados com cautela.",
   "recall.answerCheck.reason.closeMatch":
     "A tua resposta fica perto da resposta esperada e cobre a maioria dos termos distintivos.",
   "recall.answerCheck.reason.exactMatch":
@@ -1103,6 +1118,13 @@ const portugueseTranslations = {
   "recall.session.answer.sourceContext": "Contexto de origem",
   "recall.session.answer.writeInput": "Escrever resposta",
   "recall.session.answer.yourAnswer": "A tua resposta",
+  "recall.session.acceptedVariant.confirmBody":
+    "Guarda esta formulacao como uma alternativa de resposta completa e fiavel para futuras recordacoes.",
+  "recall.session.acceptedVariant.confirmTitle":
+    "Guardar esta resposta como Variante aceite?",
+  "recall.session.acceptedVariant.dismiss": "Agora nao",
+  "recall.session.acceptedVariant.save": "Guardar Variante aceite",
+  "recall.session.acceptedVariant.saved": "Variante aceite guardada.",
   "recall.session.dialog.cancel": "Cancelar",
   "recall.session.dialog.discard": "Descartar sessao",
   "recall.session.dialog.discardBody":
@@ -1671,8 +1693,12 @@ const spanishTranslations = {
   "recall.answerCheck.confidence.high": "Confianza alta",
   "recall.answerCheck.confidence.low": "Confianza baja",
   "recall.answerCheck.confidence.medium": "Confianza media",
+  "recall.answerCheck.matchedAcceptedVariant": "Variante aceptada coincidente",
   "recall.answerCheck.matchedTerms": "Terminos coincidentes",
   "recall.answerCheck.missingTerms": "Todavia falta",
+  "recall.answerCheck.notDetectedTerms": "No detectado por la heuristica",
+  "recall.answerCheck.reason.acceptedVariantMatch":
+    "Tu respuesta se mantiene cerca de una Variante aceptada guardada, asi que los terminos de la respuesta esperada que no coinciden se tratan con cautela.",
   "recall.answerCheck.reason.closeMatch":
     "Tu respuesta se mantiene cerca de la respuesta esperada y cubre la mayoria de los terminos distintivos.",
   "recall.answerCheck.reason.exactMatch":
@@ -1696,6 +1722,13 @@ const spanishTranslations = {
   "recall.session.answer.sourceContext": "Contexto fuente",
   "recall.session.answer.writeInput": "Escribir respuesta",
   "recall.session.answer.yourAnswer": "Tu respuesta",
+  "recall.session.acceptedVariant.confirmBody":
+    "Guarda esta redaccion como una alternativa fiable de respuesta completa para futuros repasos.",
+  "recall.session.acceptedVariant.confirmTitle":
+    "Guardar esta respuesta como Variante aceptada?",
+  "recall.session.acceptedVariant.dismiss": "Ahora no",
+  "recall.session.acceptedVariant.save": "Guardar Variante aceptada",
+  "recall.session.acceptedVariant.saved": "Variante aceptada guardada.",
   "recall.session.dialog.cancel": "Cancelar",
   "recall.session.dialog.discard": "Descartar sesion",
   "recall.session.dialog.discardBody":

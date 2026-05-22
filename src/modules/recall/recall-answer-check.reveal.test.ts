@@ -84,7 +84,7 @@ describe("FlashCard Answer Check on reveal", () => {
     });
 
     expect(revealedSession.questions[0]?.answerCheck).toMatchObject({
-      algorithmVersion: "baseline_expected_answer_v1",
+      algorithmVersion: "expected_answer_and_accepted_variant_v2",
       confidence: "high",
       status: "likely_correct",
       suggestedSelfRating: "good",

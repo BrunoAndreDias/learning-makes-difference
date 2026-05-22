@@ -19,6 +19,11 @@ import {
 } from "../access/session/session";
 import { BreakIntervalOverlay, isBreakIntervalActive } from "../focus";
 import { useAppTranslation } from "../language";
+import {
+  type AppStudyNote,
+  AppStudyNotesError,
+  listStudyNotesForUser,
+} from "../study-notes";
 import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import {
   formatRecallModeLabel,
@@ -36,6 +41,10 @@ import {
   type RecallQuestion,
   type RecallSession,
 } from "./recall";
+import {
+  findAcceptedVariantMatch,
+  isMeaningfulAcceptedVariantCandidateText,
+} from "./recall-answer-check";
 
 const recallSessionSavedMessageKey = "learning-makes-difference:recall-saved";
 const recallRatingOptions = [
@@ -68,6 +77,46 @@ function getRecallSessionExitTarget(
     : appRoutePaths.recall;
 }
 
+function isSuccessfulAcceptedVariantRating(
+  rating: FlashCardRecallRating | null,
+) {
+  return rating === "good" || rating === "easy";
+}
+
+function createAcceptedVariantId() {
+  return globalThis.crypto.randomUUID();
+}
+
+function createAcceptedVariantSaveInput(
+  studyNote: AppStudyNote,
+  typedAnswer: string,
+) {
+  return {
+    acceptedVariants: [
+      ...studyNote.acceptedVariants.map((variant) => ({ ...variant })),
+      {
+        id: createAcceptedVariantId(),
+        text: typedAnswer.trim(),
+      },
+    ],
+    acronyms: studyNote.acronyms.map((acronym) => ({ ...acronym })),
+    expectedAnswer: studyNote.expectedAnswer,
+    keyIdeas: studyNote.keyIdeas.map((keyIdea) => ({
+      ...keyIdea,
+      acceptedPhrases: [...keyIdea.acceptedPhrases],
+      prohibitedPhrases: [...keyIdea.prohibitedPhrases],
+    })),
+    labelIds: [...studyNote.labelIds],
+    metaphors: studyNote.metaphors.map((metaphor) => ({ ...metaphor })),
+    prompt: studyNote.prompt,
+    prohibitedPhrases: studyNote.prohibitedPhrases.map((phrase) => ({
+      ...phrase,
+    })),
+    sourceBody: studyNote.source.body,
+    sourceTitle: studyNote.source.title,
+  };
+}
+
 function RecallSessionPage() {
   const { t } = useAppTranslation();
   const navigate = useNavigate();
@@ -82,6 +131,14 @@ function RecallSessionPage() {
   const recallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.recall,
+  });
+  const studyNotesContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.studyNotes,
+  });
+  const persistentStudyNotesContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.persistentStudyNotes,
   });
   const persistentRecallContext = useRouteContext({
     from: "/_protected",
@@ -108,6 +165,12 @@ function RecallSessionPage() {
     recallContext.subscribe,
     recallContext.getSnapshot,
     recallContext.getSnapshot,
+  );
+  const studyNotesStore = persistentStudyNotesContext ?? studyNotesContext;
+  const studyNotesSnapshot = useSyncExternalStore(
+    studyNotesStore.subscribe,
+    studyNotesStore.getSnapshot,
+    studyNotesStore.getSnapshot,
   );
   useSyncExternalStore(
     focusContext.subscribe,
@@ -141,6 +204,11 @@ function RecallSessionPage() {
   const [isAnswerInputVisible, setAnswerInputVisible] = useState(false);
   const [draftAnswer, setDraftAnswer] = useState("");
   const [isEndDialogOpen, setEndDialogOpen] = useState(false);
+  const [acceptedVariantFeedbackMessage, setAcceptedVariantFeedbackMessage] =
+    useState<string | null>(null);
+  const [isAcceptedVariantPromptDismissed, setAcceptedVariantPromptDismissed] =
+    useState(false);
+  const [isSavingAcceptedVariant, setSavingAcceptedVariant] = useState(false);
   const sessionExitTargetRef = useRef<RecallSessionExitTarget | null>(null);
 
   useEffect(() => {
@@ -168,7 +236,10 @@ function RecallSessionPage() {
     }
 
     setAnswerInputVisible(false);
+    setAcceptedVariantFeedbackMessage(null);
+    setAcceptedVariantPromptDismissed(false);
     setDraftAnswer(storedDraftAnswer);
+    setSavingAcceptedVariant(false);
   }, [activeQuestionKey, storedDraftAnswer]);
 
   async function skipBreakInterval() {
@@ -186,6 +257,15 @@ function RecallSessionPage() {
 
   function handleRecallError(error: unknown) {
     if (error instanceof AppRecallError) {
+      setFeedbackMessage(error.message);
+      return;
+    }
+
+    throw error;
+  }
+
+  function handleStudyNoteError(error: unknown) {
+    if (error instanceof AppStudyNotesError) {
       setFeedbackMessage(error.message);
       return;
     }
@@ -366,6 +446,48 @@ function RecallSessionPage() {
     }
   }
 
+  async function saveAcceptedVariant() {
+    if (userId === null || currentStudyNote === null) {
+      return;
+    }
+
+    if (!canOfferAcceptedVariantSave) {
+      return;
+    }
+
+    try {
+      setSavingAcceptedVariant(true);
+      const updateInput = createAcceptedVariantSaveInput(
+        currentStudyNote,
+        typedAnswerForAcceptedVariant,
+      );
+
+      if (persistentStudyNotesContext === undefined) {
+        studyNotesContext.updateStudyNote(
+          userId,
+          currentStudyNote.id,
+          updateInput,
+        );
+      } else {
+        await persistentStudyNotesContext.updateStudyNote(
+          userId,
+          currentStudyNote.id,
+          updateInput,
+        );
+      }
+
+      setAcceptedVariantFeedbackMessage(
+        t("recall.session.acceptedVariant.saved"),
+      );
+      setAcceptedVariantPromptDismissed(true);
+      setFeedbackMessage(null);
+    } catch (error) {
+      handleStudyNoteError(error);
+    } finally {
+      setSavingAcceptedVariant(false);
+    }
+  }
+
   const progress = useMemo(() => {
     if (activeSession === null) {
       return {
@@ -388,6 +510,30 @@ function RecallSessionPage() {
       totalCount,
     };
   }, [activeSession]);
+
+  const studyNotes = listStudyNotesForUser(studyNotesSnapshot, userId);
+  const currentStudyNote =
+    currentNote === null
+      ? null
+      : (studyNotes.find((studyNote) => studyNote.id === currentNote.id) ??
+        null);
+  const typedAnswerForAcceptedVariant = currentQuestion?.typedAnswer ?? "";
+  const matchingAcceptedVariant =
+    currentStudyNote === null
+      ? undefined
+      : findAcceptedVariantMatch({
+          acceptedVariants: currentStudyNote.acceptedVariants,
+          typedAnswer: typedAnswerForAcceptedVariant,
+        });
+  const canOfferAcceptedVariantSave =
+    activeSession !== null &&
+    activeSession.isAnswerRevealed &&
+    currentStudyNote !== null &&
+    isSuccessfulAcceptedVariantRating(pendingRating) &&
+    !isAcceptedVariantPromptDismissed &&
+    !isSavingAcceptedVariant &&
+    isMeaningfulAcceptedVariantCandidateText(typedAnswerForAcceptedVariant) &&
+    matchingAcceptedVariant === undefined;
 
   if (activeSession === null || currentNote === null) {
     return null;
@@ -509,6 +655,51 @@ function RecallSessionPage() {
                     note={currentNote}
                     question={currentQuestion}
                   />
+                  {acceptedVariantFeedbackMessage !== null ? (
+                    <p
+                      className="recall-card__accepted-variant-feedback"
+                      role="status"
+                    >
+                      {acceptedVariantFeedbackMessage}
+                    </p>
+                  ) : null}
+                  {canOfferAcceptedVariantSave ? (
+                    <section
+                      aria-label={t(
+                        "recall.session.acceptedVariant.confirmTitle",
+                      )}
+                      className="recall-card__accepted-variant-confirmation"
+                    >
+                      <p className="recall-card__accepted-variant-title">
+                        {t("recall.session.acceptedVariant.confirmTitle")}
+                      </p>
+                      <p className="recall-card__accepted-variant-body">
+                        {t("recall.session.acceptedVariant.confirmBody")}
+                      </p>
+                      <p className="recall-card__accepted-variant-answer">
+                        {typedAnswerForAcceptedVariant.trim()}
+                      </p>
+                      <div className="recall-card__accepted-variant-actions">
+                        <Button
+                          disabled={isSavingAcceptedVariant}
+                          onClick={saveAcceptedVariant}
+                          type="button"
+                          variant="primary"
+                        >
+                          {t("recall.session.acceptedVariant.save")}
+                        </Button>
+                        <Button
+                          disabled={isSavingAcceptedVariant}
+                          onClick={() =>
+                            setAcceptedVariantPromptDismissed(true)
+                          }
+                          type="button"
+                        >
+                          {t("recall.session.acceptedVariant.dismiss")}
+                        </Button>
+                      </div>
+                    </section>
+                  ) : null}
                   <div className="recall-card__footer recall-card__footer--ratings">
                     <fieldset className="recall-rating-row">
                       <legend>{t("recall.session.selfRating")}</legend>
@@ -680,6 +871,14 @@ function RecallAnswerCheckPanel({
       <p className="recall-card__body recall-answer-check__summary">
         {t(getRecallAnswerCheckReasonTranslationKey(answerCheck.primaryReason))}
       </p>
+      {answerCheck.matchedAcceptedVariant !== undefined ? (
+        <div className="recall-answer-check__matched-variant">
+          <h6>{t("recall.answerCheck.matchedAcceptedVariant")}</h6>
+          <p className="recall-card__body">
+            {answerCheck.matchedAcceptedVariant.text}
+          </p>
+        </div>
+      ) : null}
       <p className="recall-answer-check__suggested-rating">
         <strong>{t("recall.answerCheck.suggestedSelfRating")}</strong>
         <span>
@@ -692,9 +891,21 @@ function RecallAnswerCheckPanel({
         terms={answerCheck.evidence.matchedExpectedTerms}
       />
       <RecallAnswerCheckTerms
-        heading={t("recall.answerCheck.missingTerms")}
-        keyPrefix="missing"
-        terms={answerCheck.evidence.missingExpectedTerms}
+        heading={t(
+          answerCheck.evidence.notDetectedExpectedTerms.length > 0
+            ? "recall.answerCheck.notDetectedTerms"
+            : "recall.answerCheck.missingTerms",
+        )}
+        keyPrefix={
+          answerCheck.evidence.notDetectedExpectedTerms.length > 0
+            ? "not-detected"
+            : "missing"
+        }
+        terms={
+          answerCheck.evidence.notDetectedExpectedTerms.length > 0
+            ? answerCheck.evidence.notDetectedExpectedTerms
+            : answerCheck.evidence.missingExpectedTerms
+        }
       />
     </section>
   );
