@@ -2852,9 +2852,15 @@ describe("authenticated recall workspace", () => {
     const summary = screen.getByRole("list", {
       name: "Scheduled recall summary",
     });
-    expect(within(summary).getByText("Scheduled now")).toBeInTheDocument();
-    expect(within(summary).getAllByText("1").length).toBeGreaterThan(0);
-    expect(within(summary).getByText("Scheduled today")).toBeInTheDocument();
+    expect(
+      within(summary).getByText("Scheduled now").closest("li"),
+    ).toHaveTextContent("1");
+    expect(
+      within(summary).getByText("Scheduled today").closest("li"),
+    ).toHaveTextContent("0");
+    expect(
+      within(summary).getByText("Overdue").closest("li"),
+    ).toHaveTextContent("1");
 
     const dueTodayQueue = screen.getByRole("region", {
       name: "Scheduled recall queue",

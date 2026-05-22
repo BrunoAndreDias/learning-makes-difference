@@ -122,7 +122,7 @@ function getActionablePracticeFollowUpByStudyNoteId(
   return practiceFollowUpByStudyNoteId;
 }
 
-function getActivePracticeRepairStudyNoteIds(
+function getStudyNoteIdsWithActivePracticeRepair(
   sessionResults: readonly SessionResult[],
 ) {
   return new Set(
@@ -143,47 +143,51 @@ function isNeedsPractice(rating: RecallSelfRating | null) {
 }
 
 function getRecallWorkReasons(input: {
-  history: StudyNoteRecallHistory | null;
-  now: string;
+  lastRating: RecallSelfRating | null;
   practiceFollowUpEntry: PracticeRepairEntry | null;
-  schedule: RecallSchedule | null;
-  userTimeZone: UserTimeZonePreference;
+  scheduleDue: boolean;
 }): RecallWorkReason[] {
-  const latestRating = getLatestRating(input.history);
   const reasons: RecallWorkReason[] = [];
 
   if (input.practiceFollowUpEntry !== null) {
     reasons.push("practice-follow-up");
   }
 
-  if (isNeedsPractice(latestRating)) {
+  if (isNeedsPractice(input.lastRating)) {
     reasons.push("needs-practice");
   }
 
-  if (latestRating === null) {
+  if (input.lastRating === null) {
     reasons.push("not-recalled");
   }
 
-  if (
-    isScheduleDueOnOrBeforeToday({
-      now: input.now,
-      schedule: input.schedule,
-      userTimeZone: input.userTimeZone,
-    })
-  ) {
+  if (input.scheduleDue) {
     reasons.push("due-for-recall");
   }
 
   return reasons;
 }
 
+function shouldIncludeDueForRecallQueue(input: {
+  hasActivePracticeRepair: boolean;
+  lastRating: RecallSelfRating | null;
+  practiceFollowUpEntry: PracticeRepairEntry | null;
+  scheduleDue: boolean;
+}) {
+  return (
+    input.scheduleDue &&
+    !isNeedsPractice(input.lastRating) &&
+    input.practiceFollowUpEntry === null &&
+    !input.hasActivePracticeRepair
+  );
+}
+
 export function planRecallWork(input: RecallWorkPlanningInput): RecallWorkPlan {
   const historyByStudyNoteId = new Map(
     input.histories.map((history) => [history.studyNoteId, history]),
   );
-  const activePracticeRepairStudyNoteIds = getActivePracticeRepairStudyNoteIds(
-    input.sessionResults,
-  );
+  const studyNoteIdsWithActivePracticeRepair =
+    getStudyNoteIdsWithActivePracticeRepair(input.sessionResults);
   const practiceFollowUpByStudyNoteId =
     getActionablePracticeFollowUpByStudyNoteId(input.sessionResults);
   const scheduleByStudyNoteId = new Map(
@@ -202,30 +206,28 @@ export function planRecallWork(input: RecallWorkPlanningInput): RecallWorkPlan {
     const practiceFollowUpEntry =
       practiceFollowUpByStudyNoteId.get(studyNote.id) ?? null;
     const schedule = scheduleByStudyNoteId.get(studyNote.id) ?? null;
-    const scheduleDue =
-      schedule !== null &&
-      isScheduleDueOnOrBeforeToday({
-        now: input.now,
-        schedule,
-        userTimeZone: input.userTimeZone,
-      });
-    const unresolvedPracticeRepair = activePracticeRepairStudyNoteIds.has(
+    const scheduleDue = isScheduleDueOnOrBeforeToday({
+      now: input.now,
+      schedule,
+      userTimeZone: input.userTimeZone,
+    });
+    const hasActivePracticeRepair = studyNoteIdsWithActivePracticeRepair.has(
       studyNote.id,
     );
     const reasons = getRecallWorkReasons({
-      history,
-      now: input.now,
+      lastRating,
       practiceFollowUpEntry,
-      schedule,
-      userTimeZone: input.userTimeZone,
+      scheduleDue,
     });
 
     if (
       schedule !== null &&
-      scheduleDue &&
-      !isNeedsPractice(lastRating) &&
-      practiceFollowUpEntry === null &&
-      !unresolvedPracticeRepair
+      shouldIncludeDueForRecallQueue({
+        hasActivePracticeRepair,
+        lastRating,
+        practiceFollowUpEntry,
+        scheduleDue,
+      })
     ) {
       dueForRecallQueue.push({
         lastRating,
