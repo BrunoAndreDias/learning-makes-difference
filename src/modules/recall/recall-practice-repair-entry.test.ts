@@ -16,7 +16,7 @@ import {
   type PracticeRepairIntent,
   type PracticeRepairQuestionReference,
 } from "./recall-practice-repair";
-import { buildRecallTodayQueue } from "./recall-today";
+import { planRecallWork } from "./recall-work-planning";
 
 function createMemoryStorage() {
   const values = new Map<string, string>();
@@ -214,7 +214,7 @@ function buildRecallTodayQueueFromRecallContext(input: {
   studyNotes: ReturnType<typeof createAppStudyNotesContext>;
   userId: string;
 }) {
-  return buildRecallTodayQueue({
+  return planRecallWork({
     histories: toStudyNoteRecallHistories(
       input.recall.listAttemptsByNote({
         userId: input.userId,
@@ -229,7 +229,7 @@ function buildRecallTodayQueueFromRecallContext(input: {
       .getSnapshot()
       .filter((studyNote) => studyNote.userId === input.userId),
     userTimeZone: "America/New_York",
-  });
+  }).recallTodayQueue;
 }
 
 afterEach(() => {

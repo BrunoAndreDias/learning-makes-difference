@@ -9,7 +9,10 @@ import {
 import type { RecallSelfRating, SessionResult } from "./recall";
 import { type AppRecallContext, createAppRecallContext } from "./recall";
 import type { RecallSchedule } from "./recall-schedule";
-import { planRecallWork } from "./recall-work-planning";
+import {
+  getPrimaryRecallWorkReason,
+  planRecallWork,
+} from "./recall-work-planning";
 
 const timestamp = "2026-05-01T09:00:00.000Z";
 
@@ -285,6 +288,12 @@ afterEach(() => {
 });
 
 describe("recall work planning", () => {
+  it("selects the highest-priority primary reason from mixed recall work reasons", () => {
+    expect(
+      getPrimaryRecallWorkReason(["due-for-recall", "needs-practice"]),
+    ).toBe("needs-practice");
+  });
+
   it("keeps a completed Practice Follow-up in Recall Today until the targeted question is attempted", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-16T16:00:00.000Z"));

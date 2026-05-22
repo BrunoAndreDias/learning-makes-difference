@@ -27,7 +27,6 @@ import type {
   RecallSelfRating,
 } from "./recall";
 import { RecallAnswerCheckPanel } from "./recall-answer-check-panel";
-import { buildDueTodayQueue, type DueTodayQueueItem } from "./recall-due-today";
 import {
   formatPracticeRepairIntentLabel,
   getPracticeRepairEntryId,
@@ -47,6 +46,7 @@ import { listRecallResultLabels } from "./recall-result-labels";
 import { projectSessionReview } from "./recall-session-review";
 import { searchRecallSessionResults } from "./recall-session-search";
 import {
+  type DueForRecallQueueItem as DueTodayQueueItem,
   planRecallWork,
   type PlannedRecallWorkItem as RecallTodayQueueItem,
   type RecallWorkReason as RecallTodayReason,
@@ -331,7 +331,7 @@ function buildWorkspaceDueTodayQueue({
     return [];
   }
 
-  return buildDueTodayQueue({
+  return planRecallWork({
     histories: toStudyNoteRecallHistories(
       recallContext.listAttemptsByNote({ userId }),
     ),
@@ -340,7 +340,7 @@ function buildWorkspaceDueTodayQueue({
     sessionResults,
     studyNotes,
     userTimeZone,
-  });
+  }).dueForRecallQueue;
 }
 
 function buildWorkspaceRecallTodayQueue({
