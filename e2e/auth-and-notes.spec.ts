@@ -47,13 +47,7 @@ async function createStudyNote(page: Page, input: {
 }) {
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("textbox", { name: "Prompt" })).toBeVisible();
-  await page.getByLabel("Note title").fill(input.prompt);
-  await page
-    .getByRole("textbox", { name: "Explanation" })
-    .fill(input.expectedAnswer);
   const promptField = page.getByRole("textbox", { name: "Prompt" });
-  await promptField.click();
-  await promptField.press("ControlOrMeta+A");
   await promptField.fill(input.prompt);
   await page
     .getByRole("textbox", { exact: true, name: "Expected answer" })
@@ -138,7 +132,7 @@ test("starts persisted recall sessions from Study Notes", async ({ page }) => {
   await appSections.getByRole("link", { name: "Recall" }).click();
   await expect(page).toHaveURL(/\/recall$/);
 
-  await page.getByRole("link", { name: "Manual Recall Selection" }).click();
+  await page.getByRole("link", { name: "Manual selection" }).click();
   await expect(page).toHaveURL(/\/recall\/select$/);
 
   await page

@@ -1021,7 +1021,6 @@ function RecallTodayQueueRow({
         <span>{t("recall.today.nextRecall")}</span>
         <strong>{t("recall.today.nextRecall.today")}</strong>
       </div>
-      <ChevronRightIcon />
     </li>
   );
 }
@@ -1402,7 +1401,6 @@ function RecallDueTodayQueueRow({
         <span>{t("recall.dueToday.scheduled")}</span>
         <strong>{scheduledDateText}</strong>
       </div>
-      <ChevronRightIcon />
     </li>
   );
 }
@@ -1835,26 +1833,6 @@ function NoteIcon() {
         stroke="currentColor"
         strokeLinecap="round"
         strokeWidth="1.7"
-      />
-    </svg>
-  );
-}
-
-function ChevronRightIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="18"
-      viewBox="0 0 24 24"
-      width="18"
-    >
-      <path
-        d="m9 6 6 6-6 6"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.9"
       />
     </svg>
   );

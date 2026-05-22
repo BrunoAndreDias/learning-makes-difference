@@ -373,7 +373,7 @@
   display: grid;
   grid-template-columns:
     2.6rem minmax(12rem, 1fr) minmax(6.25rem, 0.52fr)
-    minmax(6.25rem, 0.48fr) minmax(6.25rem, 0.48fr) 1.5rem;
+    minmax(6.25rem, 0.48fr) minmax(6.25rem, 0.48fr);
   align-items: center;
   gap: var(--lmd-list-row-gap);
   min-width: 0;
@@ -488,11 +488,6 @@
 
 .recall-today-row[data-tone="new"] .recall-today-row__next strong {
   color: var(--recall-today-new-emphasis);
-}
-
-.recall-today-row > svg {
-  justify-self: end;
-  color: var(--color-content-muted);
 }
 
 .recall-today-rating-dots {

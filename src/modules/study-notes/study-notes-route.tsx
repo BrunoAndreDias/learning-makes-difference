@@ -355,23 +355,25 @@ function StudyNotesTextField({
 }>) {
   return (
     <label
-      className="study-notes-field"
+      className="study-notes-field study-notes-field--single-line"
       data-practice-repair-focus={isPracticeRepairFocus ? "true" : undefined}
     >
       <span className="study-notes-field__label">
         {label}
         {optional ? <span aria-hidden="true"> (optional)</span> : null}
       </span>
-      <input
-        aria-label={label}
-        ref={inputRef}
-        maxLength={maxLength}
-        onChange={onChange}
-        placeholder={placeholder ?? label}
-        value={value}
-      />
-      <span className="study-notes-field__count">
-        {value.length}/{maxLength}
+      <span className="study-notes-field__control">
+        <input
+          aria-label={label}
+          ref={inputRef}
+          maxLength={maxLength}
+          onChange={onChange}
+          placeholder={placeholder ?? label}
+          value={value}
+        />
+        <span className="study-notes-field__count">
+          {value.length}/{maxLength}
+        </span>
       </span>
     </label>
   );
@@ -422,28 +424,30 @@ function StudyNotesTextarea({
 
   return (
     <label
-      className="study-notes-field"
+      className="study-notes-field study-notes-field--multiline"
       data-practice-repair-focus={isPracticeRepairFocus ? "true" : undefined}
     >
       <span className="study-notes-field__label">
         {label}
         {optional ? <span aria-hidden="true"> (optional)</span> : null}
       </span>
-      <textarea
-        aria-label={label}
-        data-auto-size="true"
-        ref={setTextareaRef}
-        maxLength={maxLength}
-        onChange={(event) => {
-          resizeTextareaToFitContent(event.currentTarget);
-          onChange(event);
-        }}
-        placeholder={placeholder ?? label}
-        rows={rows}
-        value={value}
-      />
-      <span className="study-notes-field__count">
-        {value.length}/{maxLength}
+      <span className="study-notes-field__control">
+        <textarea
+          aria-label={label}
+          data-auto-size="true"
+          ref={setTextareaRef}
+          maxLength={maxLength}
+          onChange={(event) => {
+            resizeTextareaToFitContent(event.currentTarget);
+            onChange(event);
+          }}
+          placeholder={placeholder ?? label}
+          rows={rows}
+          value={value}
+        />
+        <span className="study-notes-field__count">
+          {value.length}/{maxLength}
+        </span>
       </span>
     </label>
   );
@@ -3363,6 +3367,8 @@ function StudyNotesWorkspace() {
     pendingEditorTarget,
     saveStatus,
   });
+  const shouldShowStudyNoteTemplates =
+    showStudyNoteTemplates && draft.prompt.trim().length === 0;
   const saveBarPrimaryAction = getSaveBarPrimaryAction(pendingEditorTarget);
   const saveBarDiscardAction = getSaveBarDiscardAction(pendingEditorTarget);
   const visibleSelectedLabels =
@@ -3411,7 +3417,7 @@ function StudyNotesWorkspace() {
       actionsClassName="study-notes-hero__actions"
       bodyClassName="study-notes-workspace__body"
       className="notes-workspace study-notes-workspace"
-      description="Write stronger recall prompts with guidance and templates-no extra required fields."
+      description="Write stronger recall prompts with guidance and templates—no extra required fields."
       headerClassName="study-notes-hero"
       headingLevel={1}
       title="Study Notes"
@@ -3594,7 +3600,7 @@ function StudyNotesWorkspace() {
             <div className="study-notes-editor__masthead">
               <div className="study-notes-editor__title">
                 <h2>{draft.prompt.trim() || "New Study Note"}</h2>
-                <p>
+                <p className="study-notes-editor__title-meta">
                   {visibleSelectedLabels.map((label) => label.name).join(" · ")}
                   {visibleSelectedLabels.length === 0 ? null : " · "}
                   {selectedStudyNote === null
@@ -3722,7 +3728,7 @@ function StudyNotesWorkspace() {
                 placeholder={STUDY_NOTE_GUIDANCE_COPY.promptPlaceholder}
                 value={draft.prompt}
               />
-              {showStudyNoteTemplates ? (
+              {shouldShowStudyNoteTemplates ? (
                 <div className="study-notes-template-row">
                   <span>Quick start with a template (optional)</span>
                   <div className="study-notes-template-row__actions">
@@ -4236,39 +4242,6 @@ function StudyNotesWorkspace() {
               )}
 
               <section
-                aria-label="Recall insights"
-                className="study-notes-summary-card study-notes-recall-insights"
-                data-insight-kind={selectedRecallInsight.kind}
-              >
-                <div className="study-notes-summary-card__header">
-                  <span className="study-notes-summary-card__icon">
-                    <TrendIcon />
-                  </span>
-                  <div>
-                    <h3>{selectedRecallInsight.statusLabel}</h3>
-                    <p>{selectedRecallInsight.description}</p>
-                  </div>
-                </div>
-                <dl className="study-notes-summary-card__facts">
-                  <StudyNoteFact
-                    icon={<ClockIcon />}
-                    label="Next recall"
-                    value={selectedRecallInsight.nextRecall}
-                  />
-                  <StudyNoteFact
-                    icon={<CalendarCheckIcon />}
-                    label="Last result"
-                    value={selectedRecallInsight.lastResult}
-                  />
-                  <StudyNoteFact
-                    icon={<StudyNoteDocumentIcon />}
-                    label="Suggested action"
-                    value={selectedRecallInsight.suggestedAction}
-                  />
-                </dl>
-              </section>
-
-              <section
                 aria-label="Reference explanation"
                 className="study-notes-editor__source study-notes-editor__info-section"
               >
@@ -4320,6 +4293,39 @@ function StudyNotesWorkspace() {
                     />
                   </div>
                 </details>
+              </section>
+
+              <section
+                aria-label="Recall insights"
+                className="study-notes-summary-card study-notes-recall-insights"
+                data-insight-kind={selectedRecallInsight.kind}
+              >
+                <div className="study-notes-summary-card__header">
+                  <span className="study-notes-summary-card__icon">
+                    <TrendIcon />
+                  </span>
+                  <div>
+                    <h3>{selectedRecallInsight.statusLabel}</h3>
+                    <p>{selectedRecallInsight.description}</p>
+                  </div>
+                </div>
+                <dl className="study-notes-summary-card__facts">
+                  <StudyNoteFact
+                    icon={<ClockIcon />}
+                    label="Next recall"
+                    value={selectedRecallInsight.nextRecall}
+                  />
+                  <StudyNoteFact
+                    icon={<CalendarCheckIcon />}
+                    label="Last result"
+                    value={selectedRecallInsight.lastResult}
+                  />
+                  <StudyNoteFact
+                    icon={<StudyNoteDocumentIcon />}
+                    label="Suggested action"
+                    value={selectedRecallInsight.suggestedAction}
+                  />
+                </dl>
               </section>
             </div>
           </fieldset>

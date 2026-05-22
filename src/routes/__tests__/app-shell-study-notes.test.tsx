@@ -615,7 +615,7 @@ describe("authenticated Study Notes workspace", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getByText(
-        "Write stronger recall prompts with guidance and templates-no extra required fields.",
+        "Write stronger recall prompts with guidance and templates—no extra required fields.",
       ),
     ).toHaveClass("page-header__description");
     const newStudyNoteButton = screen.getByRole("button", {
@@ -685,11 +685,14 @@ describe("authenticated Study Notes workspace", () => {
       }),
     ).not.toBeInTheDocument();
     expect(
-      within(editor).getByRole("button", { name: "Why" }),
-    ).toBeInTheDocument();
+      within(editor).queryByText("Quick start with a template (optional)"),
+    ).not.toBeInTheDocument();
     expect(
-      within(editor).getByRole("button", { name: "Cause & effect" }),
-    ).toBeInTheDocument();
+      within(editor).queryByRole("button", { name: "Why" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(editor).queryByRole("button", { name: "Cause & effect" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("complementary", { name: "Study Note guidance" }),
     ).not.toBeInTheDocument();
@@ -817,6 +820,32 @@ describe("authenticated Study Notes workspace", () => {
     expect(
       within(editor).queryByRole("button", { name: "Why" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows Study Note prompt templates only for an empty prompt draft", async () => {
+    renderRoute("/study-notes", {
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan@example.com",
+          id: "user-empty-template-draft",
+          showStudyNoteTemplates: true,
+          userLanguage: "en",
+        },
+      },
+    });
+
+    const editor = await screen.findByRole("form", {
+      name: "Study Note editor surface",
+    });
+
+    expect(
+      within(editor).getByText("Quick start with a template (optional)"),
+    ).toBeInTheDocument();
+    expect(within(editor).getByRole("button", { name: "Why" })).toBeVisible();
+    expect(
+      within(editor).getByRole("button", { name: "Cause & effect" }),
+    ).toBeVisible();
   });
 
   it("loads persistent Labels on first direct Study Notes entry", async () => {

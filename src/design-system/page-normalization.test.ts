@@ -475,6 +475,18 @@ describe("page style normalization", () => {
       appCss,
       '.authenticated-shell[data-sidebar-state="collapsed"] .app-frame__content > .page-layout',
     ).join("\n");
+    const sharedPageHeroInsetStyle = getCssRules(
+      appCss,
+      ".app-shell:has(.authenticated-shell) .app-frame__content > .page-layout > .page-layout__hero",
+    ).join("\n");
+    const sharedPageBodyInsetStyle = getCssRules(
+      appCss,
+      ".app-shell:has(.authenticated-shell) .app-frame__content > .page-layout > .page-layout__body",
+    ).join("\n");
+    const sharedNonPageLayoutRecallInsetStyle = getCssRules(
+      appCss,
+      ".app-shell:has(.authenticated-shell) .app-frame__content > .recall-workspace:not(.page-layout)",
+    ).join("\n");
     const focusRootStyle = getCssRules(focusCss, ".focus-workspace").join("\n");
     const studyNotesRootStyle = getCssRules(
       studyNotesCss,
@@ -495,6 +507,22 @@ describe("page style normalization", () => {
     expect(sharedPageInsetStyle).toContain("var(--workspace-page-block-end);");
     expect(collapsedPageInsetStyle).toContain(
       "padding-inline-start: var(--workspace-collapsed-header-offset);",
+    );
+    expect(sharedPageHeroInsetStyle).toContain("width: min(100%, 92rem);");
+    expect(sharedPageHeroInsetStyle).toContain("justify-self: center;");
+    expect(sharedPageBodyInsetStyle).toContain("width: min(100%, 92rem);");
+    expect(sharedPageBodyInsetStyle).toContain("justify-self: center;");
+    expect(sharedNonPageLayoutRecallInsetStyle).toContain(
+      "width: min(100%, 92rem);",
+    );
+    expect(sharedNonPageLayoutRecallInsetStyle).toContain(
+      "justify-self: center;",
+    );
+    expect(appCss).toMatch(
+      /@media \(min-width: 106rem\)\s*\{[\s\S]*?\.app-shell:has\(\.authenticated-shell\)\s+\.app-frame__content\s+>\s+\.page-layout\s+>\s+\.page-layout__hero,[\s\S]*?width: min\(100%, 100rem\);/m,
+    );
+    expect(appCss).toMatch(
+      /@media \(max-width: 78rem\)\s*\{[\s\S]*?\.app-shell:has\(\.authenticated-shell\)\s+\.app-frame__content\s+>\s+\.page-layout\s+>\s+\.page-layout__hero,[\s\S]*?width: 100%;/m,
     );
 
     for (const routeRootStyle of [

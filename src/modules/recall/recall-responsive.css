@@ -87,12 +87,12 @@
   }
 
   .recall-today-row {
-    grid-template-columns: 2.6rem minmax(0, 1fr) 1.5rem;
+    grid-template-columns: 2.6rem minmax(0, 1fr);
     grid-template-areas:
-      "icon main chevron"
-      ". score chevron"
-      ". reason chevron"
-      ". next chevron";
+      "icon main"
+      ". score"
+      ". reason"
+      ". next";
     align-items: start;
   }
 
@@ -114,11 +114,6 @@
 
   .recall-today-row__next {
     grid-area: next;
-  }
-
-  .recall-today-row > svg {
-    grid-area: chevron;
-    align-self: center;
   }
 
   .recall-results-workspace,

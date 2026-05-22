@@ -13,8 +13,8 @@ One Note may support several Study Notes when the source explanation is cohesive
 Every saved Note has at least one Study Note so the Note can enter recall without extra setup.
 Users do not create source-only Notes directly; creating a Study Note creates or uses the source Note behind it.
 New Study Note creates a new source Note by default, but the User may explicitly create another Study Note from an existing source Note.
-When a Note has multiple Study Notes, editing the source Note from any linked Study Note updates the shared source Note for all linked Study Notes.
-When a source Note is shared by multiple Study Notes, the UI makes that shared-source context clear before source Note edits, but it does not block normal editing.
+When a Note has multiple Study Notes, editing the Reference explanation from one linked Study Note creates an independent source Note for that Study Note and leaves sibling Study Notes linked to the original source Note.
+When a source Note is shared by multiple Study Notes, the UI makes that shared-source context clear before Reference explanation edits, but it does not block normal editing.
 In v1, a source Note title is optional; the required Study Note prompt is the recall-facing label.
 When an untitled source Note needs a display name, the UI derives it live from the oldest created linked Study Note prompt; the empty source title field itself uses neutral copy such as "Untitled source".
 Users do not directly delete source Notes; source Note deletion only happens through confirmed deletion of the last linked Study Note.
