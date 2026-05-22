@@ -63,11 +63,10 @@ import "./study-notes.css";
 import {
   type AppPersistentStudyNotesContext,
   type AppStudyNote,
-  type AppStudyNoteAcceptedVariant,
   type AppStudyNoteKeyIdea,
-  type AppStudyNoteProhibitedPhrase,
   type AppStudyNotesContext,
   AppStudyNotesError,
+  type AppStudyNoteTextReference,
   deriveStudyNoteLearningStates,
   filterStudyNotesBySelectedLabel,
   formatStudyNoteDueLabel,
@@ -224,12 +223,8 @@ function haveSameStringSequence(
 }
 
 function haveSameAnswerCheckTextReferences(
-  left:
-    | readonly AppStudyNoteAcceptedVariant[]
-    | readonly AppStudyNoteProhibitedPhrase[],
-  right:
-    | readonly AppStudyNoteAcceptedVariant[]
-    | readonly AppStudyNoteProhibitedPhrase[],
+  left: readonly AppStudyNoteTextReference[],
+  right: readonly AppStudyNoteTextReference[],
 ) {
   if (left.length !== right.length) {
     return false;
@@ -722,9 +717,7 @@ function createEmptyKeyIdeaDraft(): AppStudyNoteKeyIdea {
   };
 }
 
-function createEmptyAnswerCheckTextReferenceDraft():
-  | AppStudyNoteAcceptedVariant
-  | AppStudyNoteProhibitedPhrase {
+function createEmptyAnswerCheckTextReferenceDraft(): AppStudyNoteTextReference {
   return {
     id: createDraftReferenceId(),
     text: "",
@@ -741,6 +734,18 @@ function parsePhraseListDraft(value: string) {
 function formatPhraseListDraft(phrases: readonly string[]) {
   return phrases.join("\n");
 }
+
+function readKeyIdeaImportance(value: string): StudyNoteKeyIdeaImportance {
+  switch (value) {
+    case "required":
+      return "required";
+    case "supporting":
+      return "supporting";
+    default:
+      return "required";
+  }
+}
+
 const STUDY_NOTE_EDITOR_FORM_ID = "study-note-editor-form";
 const STUDY_NOTE_GUIDANCE_COPY = {
   acronymPlaceholder: "Initials that cue the answer.",
@@ -768,6 +773,7 @@ type StudyNoteEditorTarget =
   | {
       type: "new";
     };
+type AnswerCheckTextReferenceField = "acceptedVariants" | "prohibitedPhrases";
 
 type PracticeRepairMutationAction =
   | "complete"
@@ -804,6 +810,12 @@ type ActivePracticeRepairEntryViewInput = PracticeRepairEntryViewInput & {
   userId: string | null;
 };
 
+type SaveBarInput = {
+  isSaving: boolean;
+  pendingEditorTarget: StudyNoteEditorTarget | null;
+  saveStatus: string | null;
+};
+
 const practiceRepairMutationActions = [
   "edit",
   "linked-action",
@@ -815,6 +827,57 @@ const selectedStudyNoteDateFormatter = new Intl.DateTimeFormat("en", {
   dateStyle: "medium",
   timeZone: "UTC",
 });
+
+function getSaveBarStatusText({
+  isSaving,
+  pendingEditorTarget,
+  saveStatus,
+}: SaveBarInput) {
+  if (isSaving) {
+    return "Saving changes...";
+  }
+
+  if (pendingEditorTarget === null) {
+    return saveStatus ?? "You have unsaved changes.";
+  }
+
+  switch (pendingEditorTarget.type) {
+    case "new":
+      return "Save or discard changes before starting a new Study Note";
+    case "study-note":
+      return "Save or discard changes before switching Study Notes";
+  }
+}
+
+function getSaveBarPrimaryAction(
+  pendingEditorTarget: StudyNoteEditorTarget | null,
+) {
+  if (pendingEditorTarget === null) {
+    return "Save changes";
+  }
+
+  switch (pendingEditorTarget.type) {
+    case "new":
+      return "Save and start new";
+    case "study-note":
+      return "Save and switch";
+  }
+}
+
+function getSaveBarDiscardAction(
+  pendingEditorTarget: StudyNoteEditorTarget | null,
+) {
+  if (pendingEditorTarget === null) {
+    return "Discard changes";
+  }
+
+  switch (pendingEditorTarget.type) {
+    case "new":
+      return "Discard and start new";
+    case "study-note":
+      return "Discard and switch";
+  }
+}
 
 function getStudyNoteStatusKind(
   learningState: StudyNoteLearningState | null,
@@ -1179,6 +1242,329 @@ function PracticeRepairOriginDetails({
         </dl>
       )}
     </div>
+  );
+}
+
+const ANSWER_CHECK_TEXT_REFERENCE_COPY = {
+  acceptedVariants: {
+    addLabel: "Add Accepted Variant",
+    emptyLabel: "No Accepted Variants yet.",
+    itemLabel: "Accepted Variant",
+    placeholder: "A full alternative answer.",
+    summary: "Save full-answer alternatives the User has explicitly approved.",
+    title: "Accepted Variants",
+  },
+  prohibitedPhrases: {
+    addLabel: "Add Prohibited Phrase",
+    emptyLabel: "No Prohibited Phrases yet.",
+    itemLabel: "Prohibited Phrase",
+    placeholder: "Wrong wording that should not pass.",
+    summary:
+      "Add wording that should block likely-correct guidance for the whole Study Note.",
+    title: "Prohibited Phrases",
+  },
+} as const satisfies Record<
+  AnswerCheckTextReferenceField,
+  {
+    addLabel: string;
+    emptyLabel: string;
+    itemLabel: string;
+    placeholder: string;
+    summary: string;
+    title: string;
+  }
+>;
+
+function StudyNotesKeyIdeasEditor({
+  keyIdeas,
+  onAdd,
+  onRemove,
+  onUpdate,
+}: Readonly<{
+  keyIdeas: readonly AppStudyNoteKeyIdea[];
+  onAdd: () => void;
+  onRemove: (keyIdeaId: string) => void;
+  onUpdate: (
+    keyIdeaId: string,
+    updater: (keyIdea: AppStudyNoteKeyIdea) => AppStudyNoteKeyIdea,
+  ) => void;
+}>) {
+  return (
+    <div className="study-notes-answer-check__section">
+      <div className="study-notes-answer-check__section-header">
+        <div>
+          <span className="study-notes-editor__group-label">Key Ideas</span>
+          <p className="study-notes-editor__summary-copy">
+            Add the concepts the User expects to recall. The normal flow needs
+            only the idea and whether it is required or supporting.
+          </p>
+        </div>
+        <Button
+          onClick={onAdd}
+          size="compact"
+          type="button"
+          variant="secondary"
+        >
+          <PlusIcon />
+          <span>Add Key Idea</span>
+        </Button>
+      </div>
+      {keyIdeas.length === 0 ? (
+        <p className="muted study-notes-answer-check__empty">
+          No Key Ideas yet.
+        </p>
+      ) : (
+        <div className="study-notes-answer-check__items">
+          {keyIdeas.map((keyIdea) => (
+            <article
+              className="study-notes-answer-check__item"
+              key={keyIdea.id}
+            >
+              <div className="study-notes-answer-check__item-toolbar">
+                <label className="study-notes-answer-check__importance">
+                  <span className="study-notes-field__label">Importance</span>
+                  <select
+                    aria-label="Importance"
+                    onChange={(event) =>
+                      onUpdate(keyIdea.id, (current) => ({
+                        ...current,
+                        importance: readKeyIdeaImportance(event.target.value),
+                      }))
+                    }
+                    value={keyIdea.importance}
+                  >
+                    <option value="required">Required</option>
+                    <option value="supporting">Supporting</option>
+                  </select>
+                </label>
+                <Button
+                  onClick={() => onRemove(keyIdea.id)}
+                  size="compact"
+                  type="button"
+                  variant="danger"
+                >
+                  <span>Remove Key Idea</span>
+                </Button>
+              </div>
+              <StudyNotesTextarea
+                label="Key Idea"
+                maxLength={400}
+                onChange={(event) =>
+                  onUpdate(keyIdea.id, (current) => ({
+                    ...current,
+                    text: event.target.value,
+                  }))
+                }
+                placeholder="What must the answer clearly cover?"
+                rows={2}
+                value={keyIdea.text}
+              />
+              <details className="study-notes-answer-check__advanced">
+                <summary>Advanced phrase rules</summary>
+                <div className="study-notes-answer-check__advanced-fields">
+                  <StudyNotesTextarea
+                    label="Accepted phrases"
+                    maxLength={500}
+                    onChange={(event) =>
+                      onUpdate(keyIdea.id, (current) => ({
+                        ...current,
+                        acceptedPhrases: parsePhraseListDraft(
+                          event.target.value,
+                        ),
+                      }))
+                    }
+                    optional
+                    placeholder="One phrase per line."
+                    rows={2}
+                    value={formatPhraseListDraft(keyIdea.acceptedPhrases)}
+                  />
+                  <StudyNotesTextarea
+                    label="Prohibited phrases"
+                    maxLength={500}
+                    onChange={(event) =>
+                      onUpdate(keyIdea.id, (current) => ({
+                        ...current,
+                        prohibitedPhrases: parsePhraseListDraft(
+                          event.target.value,
+                        ),
+                      }))
+                    }
+                    optional
+                    placeholder="One phrase per line."
+                    rows={2}
+                    value={formatPhraseListDraft(keyIdea.prohibitedPhrases)}
+                  />
+                </div>
+              </details>
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StudyNotesAnswerCheckTextReferenceEditor({
+  field,
+  onAdd,
+  onRemove,
+  onUpdate,
+  references,
+}: Readonly<{
+  field: AnswerCheckTextReferenceField;
+  onAdd: (field: AnswerCheckTextReferenceField) => void;
+  onRemove: (field: AnswerCheckTextReferenceField, referenceId: string) => void;
+  onUpdate: (
+    field: AnswerCheckTextReferenceField,
+    referenceId: string,
+    text: string,
+  ) => void;
+  references: readonly AppStudyNoteTextReference[];
+}>) {
+  const copy = ANSWER_CHECK_TEXT_REFERENCE_COPY[field];
+
+  return (
+    <div className="study-notes-answer-check__section">
+      <div className="study-notes-answer-check__section-header">
+        <div>
+          <span className="study-notes-editor__group-label">{copy.title}</span>
+          <p className="study-notes-editor__summary-copy">{copy.summary}</p>
+        </div>
+        <Button
+          onClick={() => onAdd(field)}
+          size="compact"
+          type="button"
+          variant="secondary"
+        >
+          <PlusIcon />
+          <span>{copy.addLabel}</span>
+        </Button>
+      </div>
+      {references.length === 0 ? (
+        <p className="muted study-notes-answer-check__empty">
+          {copy.emptyLabel}
+        </p>
+      ) : (
+        <div className="study-notes-answer-check__items">
+          {references.map((reference) => (
+            <article
+              className="study-notes-answer-check__item"
+              key={reference.id}
+            >
+              <div className="study-notes-answer-check__item-toolbar">
+                <span className="study-notes-editor__group-label">
+                  {copy.itemLabel}
+                </span>
+                <Button
+                  onClick={() => onRemove(field, reference.id)}
+                  size="compact"
+                  type="button"
+                  variant="danger"
+                >
+                  <span>Remove {copy.itemLabel}</span>
+                </Button>
+              </div>
+              <StudyNotesTextarea
+                label={copy.itemLabel}
+                maxLength={500}
+                onChange={(event) =>
+                  onUpdate(field, reference.id, event.target.value)
+                }
+                placeholder={copy.placeholder}
+                rows={2}
+                value={reference.text}
+              />
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StudyNotesAnswerCheckEditor({
+  draft,
+  hasContent,
+  isOpen,
+  onAddKeyIdea,
+  onAddTextReference,
+  onRemoveKeyIdea,
+  onRemoveTextReference,
+  onToggle,
+  onUpdateKeyIdea,
+  onUpdateTextReference,
+  selectedDisclosureKey,
+}: Readonly<{
+  draft: UpdateStudyNoteInput;
+  hasContent: boolean;
+  isOpen: boolean;
+  onAddKeyIdea: () => void;
+  onAddTextReference: (field: AnswerCheckTextReferenceField) => void;
+  onRemoveKeyIdea: (keyIdeaId: string) => void;
+  onRemoveTextReference: (
+    field: AnswerCheckTextReferenceField,
+    referenceId: string,
+  ) => void;
+  onToggle: (isOpen: boolean) => void;
+  onUpdateKeyIdea: (
+    keyIdeaId: string,
+    updater: (keyIdea: AppStudyNoteKeyIdea) => AppStudyNoteKeyIdea,
+  ) => void;
+  onUpdateTextReference: (
+    field: AnswerCheckTextReferenceField,
+    referenceId: string,
+    text: string,
+  ) => void;
+  selectedDisclosureKey: string;
+}>) {
+  return (
+    <section
+      aria-label="Answer-check reference material"
+      className="study-notes-editor__answer-check study-notes-editor__info-section"
+    >
+      <details
+        className="study-notes-editor__disclosure"
+        key={`answer-check-${selectedDisclosureKey}`}
+        onToggle={(event) => onToggle(event.currentTarget.open)}
+        open={isOpen}
+      >
+        <summary className="study-notes-editor__disclosure-summary">
+          <span>
+            <span className="study-notes-editor__group-label">
+              Answer-check reference material
+            </span>
+            <span className="study-notes-editor__summary-copy">
+              {hasContent
+                ? "Reference material ready"
+                : "Optional guidance for Answer Check"}
+            </span>
+          </span>
+          <ChevronDownIcon />
+        </summary>
+        <div className="study-notes-editor__disclosure-body">
+          <StudyNotesKeyIdeasEditor
+            keyIdeas={draft.keyIdeas}
+            onAdd={onAddKeyIdea}
+            onRemove={onRemoveKeyIdea}
+            onUpdate={onUpdateKeyIdea}
+          />
+          <StudyNotesAnswerCheckTextReferenceEditor
+            field="acceptedVariants"
+            onAdd={onAddTextReference}
+            onRemove={onRemoveTextReference}
+            onUpdate={onUpdateTextReference}
+            references={draft.acceptedVariants}
+          />
+          <StudyNotesAnswerCheckTextReferenceEditor
+            field="prohibitedPhrases"
+            onAdd={onAddTextReference}
+            onRemove={onRemoveTextReference}
+            onUpdate={onUpdateTextReference}
+            references={draft.prohibitedPhrases}
+          />
+        </div>
+      </details>
+    </section>
   );
 }
 
@@ -2799,23 +3185,16 @@ function StudyNotesWorkspace() {
     }));
   }
 
-  function addDraftTextReference(
-    field: "acceptedVariants" | "prohibitedPhrases",
-  ) {
+  function addDraftTextReference(field: AnswerCheckTextReferenceField) {
     setAnswerCheckOpenOverride(true);
     updateDraft((current) => ({
       ...current,
-      [field]: [
-        ...current[field],
-        createEmptyAnswerCheckTextReferenceDraft() as
-          | AppStudyNoteAcceptedVariant
-          | AppStudyNoteProhibitedPhrase,
-      ],
+      [field]: [...current[field], createEmptyAnswerCheckTextReferenceDraft()],
     }));
   }
 
   function updateDraftTextReference(
-    field: "acceptedVariants" | "prohibitedPhrases",
+    field: AnswerCheckTextReferenceField,
     referenceId: string,
     text: string,
   ) {
@@ -2828,7 +3207,7 @@ function StudyNotesWorkspace() {
   }
 
   function removeDraftTextReference(
-    field: "acceptedVariants" | "prohibitedPhrases",
+    field: AnswerCheckTextReferenceField,
     referenceId: string,
   ) {
     updateDraft((current) => ({
@@ -2857,25 +3236,13 @@ function StudyNotesWorkspace() {
     isReferenceOpenOverride ?? referenceDisclosureDefaultOpen;
   const memoryAidsHasContent = hasDraftMemoryAidContent(draft);
   const isMemoryAidsOpen = isMemoryAidsOpenOverride ?? memoryAidsHasContent;
-  const saveBarStatusText = isSaving
-    ? "Saving changes..."
-    : pendingEditorTarget === null
-      ? (saveStatus ?? "You have unsaved changes.")
-      : pendingEditorTarget.type === "new"
-        ? "Save or discard changes before starting a new Study Note"
-        : "Save or discard changes before switching Study Notes";
-  const saveBarPrimaryAction =
-    pendingEditorTarget === null
-      ? "Save changes"
-      : pendingEditorTarget.type === "new"
-        ? "Save and start new"
-        : "Save and switch";
-  const saveBarDiscardAction =
-    pendingEditorTarget === null
-      ? "Discard changes"
-      : pendingEditorTarget.type === "new"
-        ? "Discard and start new"
-        : "Discard and switch";
+  const saveBarStatusText = getSaveBarStatusText({
+    isSaving,
+    pendingEditorTarget,
+    saveStatus,
+  });
+  const saveBarPrimaryAction = getSaveBarPrimaryAction(pendingEditorTarget);
+  const saveBarDiscardAction = getSaveBarDiscardAction(pendingEditorTarget);
   const visibleSelectedLabels =
     selectedLabels.length === 0
       ? [{ id: "general", name: "General" }]
@@ -3396,312 +3763,19 @@ function StudyNotesWorkspace() {
                 </div>
               </div>
 
-              <section
-                aria-label="Answer-check reference material"
-                className="study-notes-editor__answer-check study-notes-editor__info-section"
-              >
-                <details
-                  className="study-notes-editor__disclosure"
-                  key={`answer-check-${selectedDisclosureKey}`}
-                  onToggle={(event) =>
-                    setAnswerCheckOpenOverride(event.currentTarget.open)
-                  }
-                  open={isAnswerCheckOpen}
-                >
-                  <summary className="study-notes-editor__disclosure-summary">
-                    <span>
-                      <span className="study-notes-editor__group-label">
-                        Answer-check reference material
-                      </span>
-                      <span className="study-notes-editor__summary-copy">
-                        {answerCheckHasContent
-                          ? "Reference material ready"
-                          : "Optional guidance for Answer Check"}
-                      </span>
-                    </span>
-                    <ChevronDownIcon />
-                  </summary>
-                  <div className="study-notes-editor__disclosure-body">
-                    <div className="study-notes-answer-check__section">
-                      <div className="study-notes-answer-check__section-header">
-                        <div>
-                          <span className="study-notes-editor__group-label">
-                            Key Ideas
-                          </span>
-                          <p className="study-notes-editor__summary-copy">
-                            Add the concepts the User expects to recall. The
-                            normal flow needs only the idea and whether it is
-                            required or supporting.
-                          </p>
-                        </div>
-                        <Button
-                          onClick={addDraftKeyIdea}
-                          size="compact"
-                          type="button"
-                          variant="secondary"
-                        >
-                          <PlusIcon />
-                          <span>Add Key Idea</span>
-                        </Button>
-                      </div>
-                      {draft.keyIdeas.length === 0 ? (
-                        <p className="muted study-notes-answer-check__empty">
-                          No Key Ideas yet.
-                        </p>
-                      ) : (
-                        <div className="study-notes-answer-check__items">
-                          {draft.keyIdeas.map((keyIdea) => (
-                            <article
-                              className="study-notes-answer-check__item"
-                              key={keyIdea.id}
-                            >
-                              <div className="study-notes-answer-check__item-toolbar">
-                                <label className="study-notes-answer-check__importance">
-                                  <span className="study-notes-field__label">
-                                    Importance
-                                  </span>
-                                  <select
-                                    aria-label="Importance"
-                                    onChange={(event) =>
-                                      updateDraftKeyIdea(
-                                        keyIdea.id,
-                                        (current) => ({
-                                          ...current,
-                                          importance: event.target
-                                            .value as StudyNoteKeyIdeaImportance,
-                                        }),
-                                      )
-                                    }
-                                    value={keyIdea.importance}
-                                  >
-                                    <option value="required">Required</option>
-                                    <option value="supporting">
-                                      Supporting
-                                    </option>
-                                  </select>
-                                </label>
-                                <Button
-                                  onClick={() => removeDraftKeyIdea(keyIdea.id)}
-                                  size="compact"
-                                  type="button"
-                                  variant="danger"
-                                >
-                                  <span>Remove Key Idea</span>
-                                </Button>
-                              </div>
-                              <StudyNotesTextarea
-                                label="Key Idea"
-                                maxLength={400}
-                                onChange={(event) =>
-                                  updateDraftKeyIdea(keyIdea.id, (current) => ({
-                                    ...current,
-                                    text: event.target.value,
-                                  }))
-                                }
-                                placeholder="What must the answer clearly cover?"
-                                rows={2}
-                                value={keyIdea.text}
-                              />
-                              <details className="study-notes-answer-check__advanced">
-                                <summary>Advanced phrase rules</summary>
-                                <div className="study-notes-answer-check__advanced-fields">
-                                  <StudyNotesTextarea
-                                    label="Accepted phrases"
-                                    maxLength={500}
-                                    onChange={(event) =>
-                                      updateDraftKeyIdea(
-                                        keyIdea.id,
-                                        (current) => ({
-                                          ...current,
-                                          acceptedPhrases: parsePhraseListDraft(
-                                            event.target.value,
-                                          ),
-                                        }),
-                                      )
-                                    }
-                                    optional
-                                    placeholder="One phrase per line."
-                                    rows={2}
-                                    value={formatPhraseListDraft(
-                                      keyIdea.acceptedPhrases,
-                                    )}
-                                  />
-                                  <StudyNotesTextarea
-                                    label="Prohibited phrases"
-                                    maxLength={500}
-                                    onChange={(event) =>
-                                      updateDraftKeyIdea(
-                                        keyIdea.id,
-                                        (current) => ({
-                                          ...current,
-                                          prohibitedPhrases:
-                                            parsePhraseListDraft(
-                                              event.target.value,
-                                            ),
-                                        }),
-                                      )
-                                    }
-                                    optional
-                                    placeholder="One phrase per line."
-                                    rows={2}
-                                    value={formatPhraseListDraft(
-                                      keyIdea.prohibitedPhrases,
-                                    )}
-                                  />
-                                </div>
-                              </details>
-                            </article>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="study-notes-answer-check__section">
-                      <div className="study-notes-answer-check__section-header">
-                        <div>
-                          <span className="study-notes-editor__group-label">
-                            Accepted Variants
-                          </span>
-                          <p className="study-notes-editor__summary-copy">
-                            Save full-answer alternatives the User has
-                            explicitly approved.
-                          </p>
-                        </div>
-                        <Button
-                          onClick={() =>
-                            addDraftTextReference("acceptedVariants")
-                          }
-                          size="compact"
-                          type="button"
-                          variant="secondary"
-                        >
-                          <PlusIcon />
-                          <span>Add Accepted Variant</span>
-                        </Button>
-                      </div>
-                      {draft.acceptedVariants.length === 0 ? (
-                        <p className="muted study-notes-answer-check__empty">
-                          No Accepted Variants yet.
-                        </p>
-                      ) : (
-                        <div className="study-notes-answer-check__items">
-                          {draft.acceptedVariants.map((variant) => (
-                            <article
-                              className="study-notes-answer-check__item"
-                              key={variant.id}
-                            >
-                              <div className="study-notes-answer-check__item-toolbar">
-                                <span className="study-notes-editor__group-label">
-                                  Accepted Variant
-                                </span>
-                                <Button
-                                  onClick={() =>
-                                    removeDraftTextReference(
-                                      "acceptedVariants",
-                                      variant.id,
-                                    )
-                                  }
-                                  size="compact"
-                                  type="button"
-                                  variant="danger"
-                                >
-                                  <span>Remove Accepted Variant</span>
-                                </Button>
-                              </div>
-                              <StudyNotesTextarea
-                                label="Accepted Variant"
-                                maxLength={500}
-                                onChange={(event) =>
-                                  updateDraftTextReference(
-                                    "acceptedVariants",
-                                    variant.id,
-                                    event.target.value,
-                                  )
-                                }
-                                placeholder="A full alternative answer."
-                                rows={2}
-                                value={variant.text}
-                              />
-                            </article>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="study-notes-answer-check__section">
-                      <div className="study-notes-answer-check__section-header">
-                        <div>
-                          <span className="study-notes-editor__group-label">
-                            Prohibited Phrases
-                          </span>
-                          <p className="study-notes-editor__summary-copy">
-                            Add wording that should block likely-correct
-                            guidance for the whole Study Note.
-                          </p>
-                        </div>
-                        <Button
-                          onClick={() =>
-                            addDraftTextReference("prohibitedPhrases")
-                          }
-                          size="compact"
-                          type="button"
-                          variant="secondary"
-                        >
-                          <PlusIcon />
-                          <span>Add Prohibited Phrase</span>
-                        </Button>
-                      </div>
-                      {draft.prohibitedPhrases.length === 0 ? (
-                        <p className="muted study-notes-answer-check__empty">
-                          No Prohibited Phrases yet.
-                        </p>
-                      ) : (
-                        <div className="study-notes-answer-check__items">
-                          {draft.prohibitedPhrases.map((phrase) => (
-                            <article
-                              className="study-notes-answer-check__item"
-                              key={phrase.id}
-                            >
-                              <div className="study-notes-answer-check__item-toolbar">
-                                <span className="study-notes-editor__group-label">
-                                  Prohibited Phrase
-                                </span>
-                                <Button
-                                  onClick={() =>
-                                    removeDraftTextReference(
-                                      "prohibitedPhrases",
-                                      phrase.id,
-                                    )
-                                  }
-                                  size="compact"
-                                  type="button"
-                                  variant="danger"
-                                >
-                                  <span>Remove Prohibited Phrase</span>
-                                </Button>
-                              </div>
-                              <StudyNotesTextarea
-                                label="Prohibited Phrase"
-                                maxLength={500}
-                                onChange={(event) =>
-                                  updateDraftTextReference(
-                                    "prohibitedPhrases",
-                                    phrase.id,
-                                    event.target.value,
-                                  )
-                                }
-                                placeholder="Wrong wording that should not pass."
-                                rows={2}
-                                value={phrase.text}
-                              />
-                            </article>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </details>
-              </section>
+              <StudyNotesAnswerCheckEditor
+                draft={draft}
+                hasContent={answerCheckHasContent}
+                isOpen={isAnswerCheckOpen}
+                onAddKeyIdea={addDraftKeyIdea}
+                onAddTextReference={addDraftTextReference}
+                onRemoveKeyIdea={removeDraftKeyIdea}
+                onRemoveTextReference={removeDraftTextReference}
+                onToggle={setAnswerCheckOpenOverride}
+                onUpdateKeyIdea={updateDraftKeyIdea}
+                onUpdateTextReference={updateDraftTextReference}
+                selectedDisclosureKey={selectedDisclosureKey}
+              />
 
               <section
                 aria-label="Memory aids"

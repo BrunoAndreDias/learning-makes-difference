@@ -59,7 +59,9 @@ export const studyNoteKeyIdeasTable = pgTable(
       }),
     position: integer("position").notNull(),
     text: text("text").notNull(),
-    importance: text("importance").notNull(),
+    importance: text("importance", {
+      enum: ["required", "supporting"],
+    }).notNull(),
     acceptedPhrases: text("accepted_phrases").array().notNull(),
     prohibitedPhrases: text("prohibited_phrases").array().notNull(),
   },

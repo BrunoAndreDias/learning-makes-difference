@@ -27,15 +27,14 @@ export type AppStudyNoteKeyIdea = {
   text: string;
 };
 
-export type AppStudyNoteAcceptedVariant = {
+export type AppStudyNoteTextReference = {
   id: string;
   text: string;
 };
 
-export type AppStudyNoteProhibitedPhrase = {
-  id: string;
-  text: string;
-};
+export type AppStudyNoteAcceptedVariant = AppStudyNoteTextReference;
+
+export type AppStudyNoteProhibitedPhrase = AppStudyNoteTextReference;
 
 export type AppStudyNote = {
   acceptedVariants: AppStudyNoteAcceptedVariant[];
@@ -340,7 +339,7 @@ export function validateStudyNoteKeyIdeas(
 }
 
 function validateStudyNoteTextReferences<
-  TReference extends { id: string; text: string },
+  TReference extends AppStudyNoteTextReference,
 >(references: readonly TReference[] | undefined, label: string): TReference[] {
   const safeReferences = (references ?? []).map((reference) => ({
     ...reference,
@@ -571,7 +570,7 @@ function hasOptionalStoredKeyIdeas(value: unknown) {
 
 function isStoredTextReference(
   value: unknown,
-): value is AppStudyNoteAcceptedVariant | AppStudyNoteProhibitedPhrase {
+): value is AppStudyNoteTextReference {
   return (
     isObjectRecord(value) &&
     typeof value.id === "string" &&
@@ -581,7 +580,7 @@ function isStoredTextReference(
 
 function isStoredTextReferences(
   value: unknown,
-): value is AppStudyNoteAcceptedVariant[] | AppStudyNoteProhibitedPhrase[] {
+): value is AppStudyNoteTextReference[] {
   return Array.isArray(value) && value.every(isStoredTextReference);
 }
 

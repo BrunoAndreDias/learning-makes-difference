@@ -11,11 +11,13 @@ import {
   type AppStudyNoteMetaphor,
   type AppStudyNoteProhibitedPhrase,
   AppStudyNotesError,
+  type AppStudyNoteTextReference,
   type CreateStudyNoteFromSourceInput,
   type CreateStudyNoteInput,
   type DeleteStudyNoteInput,
   getStudyNoteSourceDisplayName,
   resolveCreateStudyNoteFields,
+  type StudyNoteKeyIdeaImportance,
   type UpdateStudyNoteInput,
   validateAcceptedVariants,
   validateProhibitedPhrases,
@@ -89,18 +91,16 @@ type StudyNoteSupportDescriptionRow = {
 type StudyNoteKeyIdeaRow = {
   acceptedPhrases: string[];
   id: string;
-  importance: string;
+  importance: StudyNoteKeyIdeaImportance;
   position: number;
   prohibitedPhrases: string[];
   studyNoteId: string;
   text: string;
 };
 
-type StudyNoteTextReferenceRow = {
-  id: string;
+type StudyNoteTextReferenceRow = AppStudyNoteTextReference & {
   position: number;
   studyNoteId: string;
-  text: string;
 };
 
 type StudyNoteRowWithDetails = StudyNoteRow & {
@@ -235,9 +235,7 @@ function createStudyNoteKeyIdeaRows(
 
 function createStudyNoteTextReferenceRows(
   studyNoteId: string,
-  references:
-    | readonly AppStudyNoteAcceptedVariant[]
-    | readonly AppStudyNoteProhibitedPhrase[],
+  references: readonly AppStudyNoteTextReference[],
 ) {
   return references.map((reference, position) => ({
     id: reference.id,
@@ -273,7 +271,7 @@ function groupKeyIdeasByStudyNoteId(rows: readonly StudyNoteKeyIdeaRow[]) {
     keyIdeas.push({
       acceptedPhrases: [...row.acceptedPhrases],
       id: row.id,
-      importance: row.importance as AppStudyNoteKeyIdea["importance"],
+      importance: row.importance,
       prohibitedPhrases: [...row.prohibitedPhrases],
       text: row.text,
     });
@@ -283,17 +281,20 @@ function groupKeyIdeasByStudyNoteId(rows: readonly StudyNoteKeyIdeaRow[]) {
   return keyIdeasByStudyNoteId;
 }
 
-function groupTextReferencesByStudyNoteId<
-  TReference extends { id: string; text: string },
->(rows: readonly StudyNoteTextReferenceRow[]): Map<string, TReference[]> {
-  const referencesByStudyNoteId = new Map<string, TReference[]>();
+function groupTextReferencesByStudyNoteId(
+  rows: readonly StudyNoteTextReferenceRow[],
+) {
+  const referencesByStudyNoteId = new Map<
+    string,
+    AppStudyNoteTextReference[]
+  >();
 
   for (const row of rows) {
     const references = referencesByStudyNoteId.get(row.studyNoteId) ?? [];
     references.push({
       id: row.id,
       text: row.text,
-    } as TReference);
+    });
     referencesByStudyNoteId.set(row.studyNoteId, references);
   }
 
@@ -414,14 +415,12 @@ async function addDetailsToStudyNoteRows(
   const acronymsByStudyNoteId =
     groupSupportDescriptionsByStudyNoteId(storedAcronyms);
   const keyIdeasByStudyNoteId = groupKeyIdeasByStudyNoteId(storedKeyIdeas);
-  const acceptedVariantsByStudyNoteId =
-    groupTextReferencesByStudyNoteId<AppStudyNoteAcceptedVariant>(
-      storedAcceptedVariants,
-    );
-  const prohibitedPhrasesByStudyNoteId =
-    groupTextReferencesByStudyNoteId<AppStudyNoteProhibitedPhrase>(
-      storedProhibitedPhrases,
-    );
+  const acceptedVariantsByStudyNoteId = groupTextReferencesByStudyNoteId(
+    storedAcceptedVariants,
+  );
+  const prohibitedPhrasesByStudyNoteId = groupTextReferencesByStudyNoteId(
+    storedProhibitedPhrases,
+  );
   const linkedStudyNotesBySourceNoteId =
     groupStudyNotesBySourceNoteId(linkedStudyNoteRows);
 

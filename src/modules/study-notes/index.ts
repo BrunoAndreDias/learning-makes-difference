@@ -35,6 +35,7 @@ export type {
   AppStudyNoteProhibitedPhrase,
   AppStudyNoteSource,
   AppStudyNotesContext,
+  AppStudyNoteTextReference,
   CreateStudyNoteFromSourceInput,
   CreateStudyNoteInput,
   DeleteStudyNoteInput,
