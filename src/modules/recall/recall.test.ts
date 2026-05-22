@@ -1527,6 +1527,179 @@ describe("recall session setup", () => {
     ]);
   });
 
+  it("keeps legacy SessionResults readable without synthesizing Answer Check guidance", () => {
+    const storage = createMemoryStorage();
+    const keyPrefix = "recall-test-legacy-result-answer-check-session";
+    const notes = createAppNotesContext({
+      keyPrefix: "recall-test-legacy-result-answer-check-notes",
+      storage,
+    });
+    const userId = "owner";
+
+    storage.setItem(
+      `${keyPrefix}:session-results`,
+      JSON.stringify([
+        {
+          attempts: [
+            {
+              noteId: "study-note-1",
+              rating: "good",
+              text: "ATP stores transferable energy.",
+            },
+          ],
+          completedAt: "2026-05-20T12:05:00.000Z",
+          createdAt: "2026-05-20T12:00:00.000Z",
+          id: "legacy-answer-check-result",
+          mode: "FlashCard",
+          notes: [
+            {
+              acronyms: [],
+              body: "ATP stores transferable energy for cells.",
+              createdAt: "2026-05-20T11:00:00.000Z",
+              expectedAnswer: "ATP stores transferable energy for cells.",
+              id: "study-note-1",
+              labelIds: [],
+              metaphors: [],
+              prompt: "What stores transferable energy for cells?",
+              sourceNoteId: "source-note-1",
+              title: "What stores transferable energy for cells?",
+              updatedAt: "2026-05-20T11:00:00.000Z",
+            },
+          ],
+          userId,
+        },
+      ]),
+    );
+
+    const recall = createAppRecallContext({
+      keyPrefix,
+      notes,
+      storage,
+    });
+
+    expect(recall.listSessionResults({ userId })).toMatchObject([
+      {
+        attempts: [
+          {
+            noteId: "study-note-1",
+            rating: "good",
+            text: "ATP stores transferable energy.",
+          },
+        ],
+        id: "legacy-answer-check-result",
+        questions: [
+          {
+            noteId: "study-note-1",
+            selfRating: "good",
+            typedAnswer: "ATP stores transferable energy.",
+          },
+        ],
+      },
+    ]);
+    expect(
+      recall.listSessionResults({ userId })[0]?.questions[0]?.answerCheck,
+    ).toBeUndefined();
+  });
+
+  it("stores Answer Check guidance on attempted SessionResult questions and keeps it historical", () => {
+    const storage = createMemoryStorage();
+    const notes = createAppNotesContext({
+      keyPrefix: "recall-test-result-answer-check-notes",
+      storage,
+    });
+    const studyNotes = createAppStudyNotesContext({
+      keyPrefix: "recall-test-result-answer-check-study-notes",
+      storage,
+    });
+    const recall = createAppRecallContext({
+      keyPrefix: "recall-test-result-answer-check-session",
+      notes,
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes,
+    });
+    const userId = "owner";
+    const createdStudyNote = studyNotes.createStudyNote(userId, {
+      sourceBody: "Retrieval practice source context.",
+      sourceTitle: "Retrieval practice",
+    });
+    const studyNote = studyNotes.updateStudyNote(userId, createdStudyNote.id, {
+      acronyms: [],
+      expectedAnswer:
+        "Retrieval practice strengthens access to long-term memory.",
+      labelIds: [],
+      metaphors: [],
+      prompt: "What does retrieval practice strengthen?",
+      sourceBody: "Retrieval practice source context.",
+      sourceTitle: "Retrieval practice",
+    });
+
+    const session = recall.startFlashCardSession({
+      studyNoteIds: [studyNote.id],
+      userId,
+    });
+
+    recall.updateFlashCardAttemptText({
+      sessionId: session.id,
+      text: "Retrieval practice strengthens access to long term memory.",
+      userId,
+    });
+    recall.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId,
+    });
+    recall.rateFlashCardAnswer({
+      rating: "good",
+      sessionId: session.id,
+      userId,
+    });
+
+    const storedAnswerCheck = recall.listSessionResults({ userId })[0]
+      ?.questions[0]?.answerCheck;
+
+    expect(storedAnswerCheck).toMatchObject({
+      algorithmVersion: "baseline_expected_answer_v1",
+      confidence: "high",
+      status: "likely_correct",
+      suggestedSelfRating: "good",
+    });
+
+    studyNotes.updateStudyNote(userId, studyNote.id, {
+      acronyms: [],
+      expectedAnswer: "Changed later answer.",
+      labelIds: [],
+      metaphors: [],
+      prompt: "Changed later prompt?",
+      sourceBody: "Changed later source context.",
+      sourceTitle: "Changed later source",
+    });
+
+    const reloadedRecall = createAppRecallContext({
+      keyPrefix: "recall-test-result-answer-check-session",
+      notes: createAppNotesContext({
+        keyPrefix: "recall-test-result-answer-check-notes",
+        storage,
+      }),
+      shuffleNotes: (sessionNotes) => [...sessionNotes],
+      storage,
+      studyNotes: createAppStudyNotesContext({
+        keyPrefix: "recall-test-result-answer-check-study-notes",
+        storage,
+      }),
+    });
+
+    expect(
+      reloadedRecall.listSessionResults({ userId })[0]?.questions[0],
+    ).toMatchObject({
+      answerCheck: storedAnswerCheck,
+      noteSnapshot: {
+        expectedAnswer:
+          "Retrieval practice strengthens access to long-term memory.",
+        prompt: "What does retrieval practice strengthen?",
+      },
+    });
+  });
+
   it("stores stable questionResultId values on attempted SessionResult questions", () => {
     const storage = createMemoryStorage();
     const notes = createAppNotesContext({

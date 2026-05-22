@@ -538,6 +538,7 @@ function getFirstAttemptByNoteId(attempts: readonly RecallAttempt[]) {
 function createQuestionsFromProgress(input: {
   attempts: readonly RecallAttempt[];
   draftAnswer: string;
+  includeAnswerCheck?: boolean;
   isAnswerRevealed: boolean;
   notes: readonly RecallNoteSnapshot[];
   questionIndex: number;
@@ -547,6 +548,7 @@ function createQuestionsFromProgress(input: {
     attempts: input.attempts,
     currentIndex: input.questionIndex,
     draftAnswer: input.draftAnswer,
+    includeAnswerCheck: input.includeAnswerCheck ?? true,
     isAnswerRevealed: input.isAnswerRevealed,
     notes: input.notes,
     scoreAnswerCheck: input.scoreAnswerCheck,
@@ -617,6 +619,7 @@ function getRecallQuestionState(
   input: {
     currentIndex: number;
     draftAnswer: string;
+    includeAnswerCheck: boolean;
     isAnswerRevealed: boolean;
     note: RecallNoteSnapshot;
     noteIndex: number;
@@ -638,13 +641,15 @@ function getRecallQuestionState(
     input.isAnswerRevealed;
 
   return {
-    answerCheck: getRecallAnswerCheck({
-      isAnswerRevealed: isQuestionAnswerRevealed,
-      note: input.note,
-      scoreAnswerCheck: input.scoreAnswerCheck,
-      selfRating,
-      typedAnswer,
-    }),
+    answerCheck: input.includeAnswerCheck
+      ? getRecallAnswerCheck({
+          isAnswerRevealed: isQuestionAnswerRevealed,
+          note: input.note,
+          scoreAnswerCheck: input.scoreAnswerCheck,
+          selfRating,
+          typedAnswer,
+        })
+      : undefined,
     isAnswerRevealed: isQuestionAnswerRevealed,
     noteId: input.note.id,
     noteSnapshot: cloneRecallNoteSnapshot(input.note),
@@ -658,6 +663,7 @@ function createQuestionsFromSessionState(input: {
   attempts: readonly RecallAttempt[];
   currentIndex: number;
   draftAnswer: string;
+  includeAnswerCheck: boolean;
   isAnswerRevealed: boolean;
   notes: readonly RecallNoteSnapshot[];
   scoreAnswerCheck: ScoreRecallAnswerCheck;
@@ -669,6 +675,7 @@ function createQuestionsFromSessionState(input: {
       {
         currentIndex: input.currentIndex,
         draftAnswer: input.draftAnswer,
+        includeAnswerCheck: input.includeAnswerCheck,
         isAnswerRevealed: input.isAnswerRevealed,
         note,
         noteIndex,
@@ -761,6 +768,7 @@ function restoreStoredSessionResultQuestions(
   return createQuestionsFromProgress({
     attempts: result.attempts,
     draftAnswer: "",
+    includeAnswerCheck: false,
     isAnswerRevealed: false,
     notes,
     questionIndex: notes.length,
