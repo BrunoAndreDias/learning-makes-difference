@@ -32,6 +32,16 @@ type RecallQuestionSuggestionCandidate = {
   typedAnswer: string;
 };
 
+type RepeatedWeakAnswer = {
+  count: number;
+  latestCompletedAt: string;
+  text: string;
+};
+
+const MAX_SUGGESTIONS = 3;
+const MIN_KEY_IDEA_TEXT_LENGTH = 12;
+const MAX_NORMALIZED_PROHIBITED_PHRASE_LENGTH = 120;
+
 function normalizeSuggestionText(value: string) {
   return value
     .normalize("NFD")
@@ -47,6 +57,30 @@ function hasSavedKeyIdeas(
   return keyIdeas.some((keyIdea) => keyIdea.text.trim().length > 0);
 }
 
+function listExpectedAnswerSuggestionCandidates(
+  cleanedExpectedAnswer: string,
+): string[] {
+  const sentenceCandidates = cleanedExpectedAnswer
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length > 0);
+
+  if (sentenceCandidates.length > 1) {
+    return sentenceCandidates;
+  }
+
+  const clauseCandidates = cleanedExpectedAnswer
+    .split(/[;\n]+/)
+    .map((clause) => clause.trim())
+    .filter((clause) => clause.length > 0);
+
+  if (clauseCandidates.length > 0) {
+    return clauseCandidates;
+  }
+
+  return [cleanedExpectedAnswer];
+}
+
 function splitExpectedAnswerIntoKeyIdeaTexts(expectedAnswer: string): string[] {
   const cleanedExpectedAnswer = expectedAnswer.trim();
 
@@ -54,25 +88,13 @@ function splitExpectedAnswerIntoKeyIdeaTexts(expectedAnswer: string): string[] {
     return [];
   }
 
-  const sentenceCandidates = cleanedExpectedAnswer
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
-    .filter((sentence) => sentence.length > 0);
-
-  const clauseCandidates =
-    sentenceCandidates.length > 1
-      ? sentenceCandidates
-      : cleanedExpectedAnswer
-          .split(/[;\n]+/)
-          .map((clause) => clause.trim())
-          .filter((clause) => clause.length > 0);
-
-  const candidates =
-    clauseCandidates.length > 0 ? clauseCandidates : [cleanedExpectedAnswer];
+  const candidates = listExpectedAnswerSuggestionCandidates(
+    cleanedExpectedAnswer,
+  );
   const seenTexts = new Set<string>();
 
   return candidates
-    .filter((candidate) => candidate.length >= 12)
+    .filter((candidate) => candidate.length >= MIN_KEY_IDEA_TEXT_LENGTH)
     .filter((candidate) => {
       const normalizedCandidate = normalizeSuggestionText(candidate);
 
@@ -86,46 +108,72 @@ function splitExpectedAnswerIntoKeyIdeaTexts(expectedAnswer: string): string[] {
       seenTexts.add(normalizedCandidate);
       return true;
     })
-    .slice(0, 3);
+    .slice(0, MAX_SUGGESTIONS);
 }
 
 function listStudyNoteRecallQuestionCandidates(input: {
   sessionResults: readonly SessionResult[];
   studyNoteId: string;
 }): RecallQuestionSuggestionCandidate[] {
-  return input.sessionResults
-    .slice()
-    .sort((left, right) => {
-      return (
-        right.completedAt.localeCompare(left.completedAt) ||
-        right.id.localeCompare(left.id)
-      );
-    })
-    .flatMap((result) =>
-      result.questions.flatMap((question) => {
-        const typedAnswer = question.typedAnswer?.trim() ?? "";
-        const rating = question.selfRating;
-
-        if (
-          question.noteId !== input.studyNoteId ||
-          rating === null ||
-          typedAnswer.length === 0
-        ) {
-          return [];
-        }
-
-        return [
-          {
-            completedAt: result.completedAt,
-            rating,
-            typedAnswer,
-          },
-        ];
-      }),
+  const sortedResults = input.sessionResults.slice().sort((left, right) => {
+    return (
+      right.completedAt.localeCompare(left.completedAt) ||
+      right.id.localeCompare(left.id)
     );
+  });
+  const candidates: RecallQuestionSuggestionCandidate[] = [];
+
+  for (const result of sortedResults) {
+    for (const question of result.questions) {
+      const typedAnswer = question.typedAnswer?.trim() ?? "";
+      const rating = question.selfRating;
+
+      if (
+        question.noteId !== input.studyNoteId ||
+        rating === null ||
+        typedAnswer.length === 0
+      ) {
+        continue;
+      }
+
+      candidates.push({
+        completedAt: result.completedAt,
+        rating,
+        typedAnswer,
+      });
+    }
+  }
+
+  return candidates;
 }
 
-function inferKeyIdeaSuggestions(input: StudyNoteAnswerCheckSuggestionInput) {
+function isAcceptedVariantRecallCandidate(
+  candidate: RecallQuestionSuggestionCandidate,
+) {
+  return candidate.rating === "good" || candidate.rating === "easy";
+}
+
+function isWeakRecallCandidate(candidate: RecallQuestionSuggestionCandidate) {
+  return candidate.rating === "forgot" || candidate.rating === "hard";
+}
+
+function cloneAnswerCheckTextReference<
+  TReference extends AppStudyNoteAcceptedVariant | AppStudyNoteProhibitedPhrase,
+>(reference: TReference): TReference {
+  return { ...reference };
+}
+
+function cloneKeyIdea(keyIdea: AppStudyNoteKeyIdea): AppStudyNoteKeyIdea {
+  return {
+    ...keyIdea,
+    acceptedPhrases: [...keyIdea.acceptedPhrases],
+    prohibitedPhrases: [...keyIdea.prohibitedPhrases],
+  };
+}
+
+function inferKeyIdeaSuggestions(
+  input: StudyNoteAnswerCheckSuggestionInput,
+): AppStudyNoteKeyIdea[] {
   if (hasSavedKeyIdeas(input.draft.keyIdeas)) {
     return [];
   }
@@ -157,7 +205,7 @@ function inferAcceptedVariantSuggestions(
     sessionResults: input.sessionResults,
     studyNoteId: input.studyNoteId,
   })) {
-    if (candidate.rating !== "good" && candidate.rating !== "easy") {
+    if (!isAcceptedVariantRecallCandidate(candidate)) {
       continue;
     }
 
@@ -190,7 +238,7 @@ function inferAcceptedVariantSuggestions(
     });
     seenVariantTexts.add(normalizedCandidate);
 
-    if (suggestedVariants.length >= 3) {
+    if (suggestedVariants.length >= MAX_SUGGESTIONS) {
       break;
     }
   }
@@ -213,16 +261,13 @@ function inferProhibitedPhraseSuggestions(
       normalizeSuggestionText(phrase.text),
     ),
   );
-  const repeatedWeakAnswers = new Map<
-    string,
-    { count: number; latestCompletedAt: string; text: string }
-  >();
+  const repeatedWeakAnswers = new Map<string, RepeatedWeakAnswer>();
 
   for (const candidate of listStudyNoteRecallQuestionCandidates({
     sessionResults: input.sessionResults,
     studyNoteId: input.studyNoteId,
   })) {
-    if (candidate.rating !== "forgot" && candidate.rating !== "hard") {
+    if (!isWeakRecallCandidate(candidate)) {
       continue;
     }
 
@@ -231,7 +276,7 @@ function inferProhibitedPhraseSuggestions(
     if (
       normalizedCandidate.length === 0 ||
       normalizedCandidate === normalizedExpectedAnswer ||
-      normalizedCandidate.length > 120 ||
+      normalizedCandidate.length > MAX_NORMALIZED_PROHIBITED_PHRASE_LENGTH ||
       savedProhibitedTexts.has(normalizedCandidate)
     ) {
       continue;
@@ -248,12 +293,15 @@ function inferProhibitedPhraseSuggestions(
       continue;
     }
 
+    let latestCompletedAt = current.latestCompletedAt;
+
+    if (candidate.completedAt > latestCompletedAt) {
+      latestCompletedAt = candidate.completedAt;
+    }
+
     repeatedWeakAnswers.set(normalizedCandidate, {
       count: current.count + 1,
-      latestCompletedAt:
-        candidate.completedAt > current.latestCompletedAt
-          ? candidate.completedAt
-          : current.latestCompletedAt,
+      latestCompletedAt,
       text: current.text,
     });
   }
@@ -267,7 +315,7 @@ function inferProhibitedPhraseSuggestions(
         left.text.localeCompare(right.text)
       );
     })
-    .slice(0, 3)
+    .slice(0, MAX_SUGGESTIONS)
     .map((candidate) => ({
       id: input.createId(),
       text: candidate.text,
@@ -301,24 +349,16 @@ export function applyStudyNoteAnswerCheckReferenceSuggestions(input: {
   return {
     ...input.draft,
     acceptedVariants: [
-      ...input.draft.acceptedVariants.map((variant) => ({ ...variant })),
-      ...input.suggestions.acceptedVariants.map((variant) => ({ ...variant })),
+      ...input.draft.acceptedVariants.map(cloneAnswerCheckTextReference),
+      ...input.suggestions.acceptedVariants.map(cloneAnswerCheckTextReference),
     ],
     keyIdeas: [
-      ...input.draft.keyIdeas.map((keyIdea) => ({
-        ...keyIdea,
-        acceptedPhrases: [...keyIdea.acceptedPhrases],
-        prohibitedPhrases: [...keyIdea.prohibitedPhrases],
-      })),
-      ...input.suggestions.keyIdeas.map((keyIdea) => ({
-        ...keyIdea,
-        acceptedPhrases: [...keyIdea.acceptedPhrases],
-        prohibitedPhrases: [...keyIdea.prohibitedPhrases],
-      })),
+      ...input.draft.keyIdeas.map(cloneKeyIdea),
+      ...input.suggestions.keyIdeas.map(cloneKeyIdea),
     ],
     prohibitedPhrases: [
-      ...input.draft.prohibitedPhrases.map((phrase) => ({ ...phrase })),
-      ...input.suggestions.prohibitedPhrases.map((phrase) => ({ ...phrase })),
+      ...input.draft.prohibitedPhrases.map(cloneAnswerCheckTextReference),
+      ...input.suggestions.prohibitedPhrases.map(cloneAnswerCheckTextReference),
     ],
   };
 }

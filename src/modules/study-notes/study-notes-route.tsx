@@ -1978,6 +1978,10 @@ function StudyNotesWorkspace() {
     useState<string | null>(null);
   const [answerCheckSuggestionSession, setAnswerCheckSuggestionSession] =
     useState<AnswerCheckSuggestionSession | null>(null);
+  const clearAnswerCheckSuggestionState = useCallback(() => {
+    setAnswerCheckSuggestionFeedback(null);
+    setAnswerCheckSuggestionSession(null);
+  }, []);
   const storeMutation = persistentStudyNotesContext ?? studyNotesContext;
   const hasDraftChanges = !areStudyNoteDraftsEqual(
     draft,
@@ -2176,14 +2180,13 @@ function StudyNotesWorkspace() {
       return;
     }
 
-    setAnswerCheckSuggestionFeedback(null);
-    setAnswerCheckSuggestionSession(null);
+    clearAnswerCheckSuggestionState();
     setAnswerCheckOpenOverride(null);
     setReferenceOpenOverride(null);
     setMemoryAidsOpenOverride(null);
     setLabelManagerOpen(false);
     setNewLabelName("");
-  }, [selectedDisclosureKey]);
+  }, [clearAnswerCheckSuggestionState, selectedDisclosureKey]);
 
   useEffect(() => {
     if (
@@ -2430,8 +2433,7 @@ function StudyNotesWorkspace() {
   }
 
   function applyEditorTarget(target: StudyNoteEditorTarget) {
-    setAnswerCheckSuggestionFeedback(null);
-    setAnswerCheckSuggestionSession(null);
+    clearAnswerCheckSuggestionState();
     setErrorMessage(null);
     setSaveStatus(null);
     setPendingEditorTarget(null);
@@ -2472,8 +2474,7 @@ function StudyNotesWorkspace() {
   }
 
   function discardDraft() {
-    setAnswerCheckSuggestionFeedback(null);
-    setAnswerCheckSuggestionSession(null);
+    clearAnswerCheckSuggestionState();
     setErrorMessage(null);
     setSaveStatus(null);
 
@@ -2500,8 +2501,7 @@ function StudyNotesWorkspace() {
   }
 
   function abandonNewDraft() {
-    setAnswerCheckSuggestionFeedback(null);
-    setAnswerCheckSuggestionSession(null);
+    clearAnswerCheckSuggestionState();
     setErrorMessage(null);
     setSaveStatus(null);
     setPendingEditorTarget(null);
@@ -3161,8 +3161,7 @@ function StudyNotesWorkspace() {
         setSaveStatus("Saved just now");
       }
 
-      setAnswerCheckSuggestionFeedback(null);
-      setAnswerCheckSuggestionSession(null);
+      clearAnswerCheckSuggestionState();
       return savedStudyNote;
     } catch (error) {
       handleError(error);

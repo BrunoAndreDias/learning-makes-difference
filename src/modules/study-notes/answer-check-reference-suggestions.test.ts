@@ -2,12 +2,51 @@ import { describe, expect, it } from "vitest";
 import type { SessionResult } from "../recall";
 import { inferStudyNoteAnswerCheckReferenceSuggestions } from "./answer-check-reference-suggestions";
 
+const retrievalPracticeExpectedAnswer =
+  "Retrieval practice strengthens memory access. It exposes gaps before review.";
+
+function createReferenceIdGenerator() {
+  let counter = 0;
+
+  return () => `draft-reference-${++counter}`;
+}
+
+function createSessionResultNote(input: {
+  completedAt: string;
+  noteId: string;
+}): SessionResult["notes"][number] {
+  return {
+    acronyms: [],
+    acceptedVariants: [],
+    body: "Study Note source context.",
+    createdAt: input.completedAt,
+    expectedAnswer: retrievalPracticeExpectedAnswer,
+    id: input.noteId,
+    keyIdeas: [],
+    labelIds: [],
+    metaphors: [],
+    prompt: "Why does retrieval practice help learning?",
+    prohibitedPhrases: [],
+    source: {
+      body: "Study Note source context.",
+      id: "source-1",
+      title: "Retrieval practice source",
+      updatedAt: input.completedAt,
+    },
+    sourceNoteId: "source-1",
+    title: "Why does retrieval practice help learning?",
+    updatedAt: input.completedAt,
+  };
+}
+
 function createSessionResult(input: {
   completedAt: string;
   noteId: string;
   rating: "forgot" | "hard" | "good" | "easy";
   typedAnswer: string;
 }): SessionResult {
+  const noteSnapshot = createSessionResultNote(input);
+
   return {
     attempts: [
       {
@@ -20,58 +59,12 @@ function createSessionResult(input: {
     createdAt: input.completedAt,
     id: `${input.noteId}-${input.completedAt}`,
     mode: "FlashCard",
-    notes: [
-      {
-        acronyms: [],
-        acceptedVariants: [],
-        body: "Study Note source context.",
-        createdAt: input.completedAt,
-        expectedAnswer:
-          "Retrieval practice strengthens memory access. It exposes gaps before review.",
-        id: input.noteId,
-        keyIdeas: [],
-        labelIds: [],
-        metaphors: [],
-        prompt: "Why does retrieval practice help learning?",
-        prohibitedPhrases: [],
-        source: {
-          body: "Study Note source context.",
-          id: "source-1",
-          title: "Retrieval practice source",
-          updatedAt: input.completedAt,
-        },
-        sourceNoteId: "source-1",
-        title: "Why does retrieval practice help learning?",
-        updatedAt: input.completedAt,
-      },
-    ],
+    notes: [noteSnapshot],
     questions: [
       {
         isAnswerRevealed: true,
         noteId: input.noteId,
-        noteSnapshot: {
-          acronyms: [],
-          acceptedVariants: [],
-          body: "Study Note source context.",
-          createdAt: input.completedAt,
-          expectedAnswer:
-            "Retrieval practice strengthens memory access. It exposes gaps before review.",
-          id: input.noteId,
-          keyIdeas: [],
-          labelIds: [],
-          metaphors: [],
-          prompt: "Why does retrieval practice help learning?",
-          prohibitedPhrases: [],
-          source: {
-            body: "Study Note source context.",
-            id: "source-1",
-            title: "Retrieval practice source",
-            updatedAt: input.completedAt,
-          },
-          sourceNoteId: "source-1",
-          title: "Why does retrieval practice help learning?",
-          updatedAt: input.completedAt,
-        },
+        noteSnapshot,
         selfRating: input.rating,
         typedAnswer: input.typedAnswer,
       },
@@ -82,15 +75,10 @@ function createSessionResult(input: {
 describe("answer-check reference suggestions", () => {
   it("infers draft key ideas, Accepted Variants, and repeated weak-answer Prohibited Phrases without AI", () => {
     const suggestions = inferStudyNoteAnswerCheckReferenceSuggestions({
-      createId: (() => {
-        let counter = 0;
-
-        return () => `draft-reference-${++counter}`;
-      })(),
+      createId: createReferenceIdGenerator(),
       draft: {
         acceptedVariants: [],
-        expectedAnswer:
-          "Retrieval practice strengthens memory access. It exposes gaps before review.",
+        expectedAnswer: retrievalPracticeExpectedAnswer,
         keyIdeas: [],
         prohibitedPhrases: [],
       },
