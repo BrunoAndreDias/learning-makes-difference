@@ -487,6 +487,7 @@ const englishTranslations = {
   "recall.answerCheck.confidence.high": "High confidence",
   "recall.answerCheck.confidence.low": "Low confidence",
   "recall.answerCheck.confidence.medium": "Medium confidence",
+  "recall.answerCheck.detectedContradictions": "Detected contradictions",
   "recall.answerCheck.contradictedConcepts": "Contradicted concepts",
   "recall.answerCheck.coveredConcepts": "Covered concepts",
   "recall.answerCheck.matchedAcceptedVariant": "Matched Accepted Variant",
@@ -498,6 +499,8 @@ const englishTranslations = {
   "recall.answerCheck.notDetectedTerms": "Not detected by heuristics",
   "recall.answerCheck.reason.acceptedVariantMatch":
     "Your answer stays close to a saved Accepted Variant, so unmatched expected-answer terms are treated conservatively.",
+  "recall.answerCheck.reason.builtInContradictionGuard":
+    "A built-in contradiction guard detected a direct negation or obvious opposing term, so likely-correct guidance is blocked.",
   "recall.answerCheck.reason.closeMatch":
     "Your answer stays close to the expected answer and covers most distinctive terms.",
   "recall.answerCheck.reason.exactMatch":
@@ -1104,6 +1107,7 @@ const portugueseTranslations = {
   "recall.answerCheck.confidence.high": "Confianca alta",
   "recall.answerCheck.confidence.low": "Confianca baixa",
   "recall.answerCheck.confidence.medium": "Confianca media",
+  "recall.answerCheck.detectedContradictions": "Contradicoes detetadas",
   "recall.answerCheck.contradictedConcepts": "Conceitos contraditos",
   "recall.answerCheck.coveredConcepts": "Conceitos cobertos",
   "recall.answerCheck.matchedAcceptedVariant": "Variante aceite correspondente",
@@ -1116,6 +1120,8 @@ const portugueseTranslations = {
   "recall.answerCheck.notDetectedTerms": "Nao detetado pela heuristica",
   "recall.answerCheck.reason.acceptedVariantMatch":
     "A tua resposta fica perto de uma Variante aceite guardada, por isso os termos da resposta esperada que nao coincidem sao tratados com cautela.",
+  "recall.answerCheck.reason.builtInContradictionGuard":
+    "Uma guarda de contradicao incorporada detetou uma negacao direta ou um termo oposto obvio, por isso a orientacao provavelmente correta fica bloqueada.",
   "recall.answerCheck.reason.closeMatch":
     "A tua resposta fica perto da resposta esperada e cobre a maioria dos termos distintivos.",
   "recall.answerCheck.reason.exactMatch":
@@ -1724,6 +1730,7 @@ const spanishTranslations = {
   "recall.answerCheck.confidence.high": "Confianza alta",
   "recall.answerCheck.confidence.low": "Confianza baja",
   "recall.answerCheck.confidence.medium": "Confianza media",
+  "recall.answerCheck.detectedContradictions": "Contradicciones detectadas",
   "recall.answerCheck.contradictedConcepts": "Conceptos contradichos",
   "recall.answerCheck.coveredConcepts": "Conceptos cubiertos",
   "recall.answerCheck.matchedAcceptedVariant": "Variante aceptada coincidente",
@@ -1736,6 +1743,8 @@ const spanishTranslations = {
   "recall.answerCheck.notDetectedTerms": "No detectado por la heuristica",
   "recall.answerCheck.reason.acceptedVariantMatch":
     "Tu respuesta se mantiene cerca de una Variante aceptada guardada, asi que los terminos de la respuesta esperada que no coinciden se tratan con cautela.",
+  "recall.answerCheck.reason.builtInContradictionGuard":
+    "Una guarda de contradiccion integrada detecto una negacion directa o un termino opuesto obvio, asi que la orientacion de probablemente correcta queda bloqueada.",
   "recall.answerCheck.reason.closeMatch":
     "Tu respuesta se mantiene cerca de la respuesta esperada y cubre la mayoria de los terminos distintivos.",
   "recall.answerCheck.reason.exactMatch":
