@@ -35,6 +35,10 @@ export function formatRecallSelfRatingResultLabel(
   }
 }
 
+function getScheduledRecallSuggestedAction(dueForRecall: boolean) {
+  return dueForRecall ? "Recall today" : "Follow Recall Schedule";
+}
+
 export function deriveStudyNoteRecallInsight(input: {
   draft: UpdateStudyNoteInput;
   nextRecall: string;
@@ -76,7 +80,7 @@ export function deriveStudyNoteRecallInsight(input: {
       lastResult: formatRecallSelfRatingResultLabel(recallGuidance.lastScore),
       nextRecall,
       statusLabel: "Practice Follow-up",
-      suggestedAction: "Review this note",
+      suggestedAction: "Recall today",
     };
   }
 
@@ -87,9 +91,9 @@ export function deriveStudyNoteRecallInsight(input: {
       lastResult: "—",
       nextRecall,
       statusLabel: "New",
-      suggestedAction: recallGuidance.dueForRecall
-        ? "Review this note"
-        : "Review when due",
+      suggestedAction: getScheduledRecallSuggestedAction(
+        recallGuidance.dueForRecall,
+      ),
     };
   }
 
@@ -100,7 +104,7 @@ export function deriveStudyNoteRecallInsight(input: {
       lastResult: formatRecallSelfRatingResultLabel(recallGuidance.lastScore),
       nextRecall,
       statusLabel: "Needs practice",
-      suggestedAction: "Review this note",
+      suggestedAction: "Practice Repair first",
     };
   }
 
@@ -110,8 +114,8 @@ export function deriveStudyNoteRecallInsight(input: {
     lastResult: formatRecallSelfRatingResultLabel(recallGuidance.lastScore),
     nextRecall,
     statusLabel: "On track",
-    suggestedAction: recallGuidance.dueForRecall
-      ? "Review this note"
-      : "Keep it up",
+    suggestedAction: getScheduledRecallSuggestedAction(
+      recallGuidance.dueForRecall,
+    ),
   };
 }
