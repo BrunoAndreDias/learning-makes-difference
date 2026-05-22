@@ -50,6 +50,7 @@ import {
   planRecallWork,
   type PlannedRecallWorkItem as RecallTodayQueueItem,
   type RecallWorkReason as RecallTodayReason,
+  type RecallWorkPlan,
 } from "./recall-work-planning";
 
 const recallSessionSavedMessageKey = "learning-makes-difference:recall-saved";
@@ -318,7 +319,7 @@ type StartWorkspaceFlashCardRecallInput = {
   userId: RecallWorkspaceState["userId"];
 };
 
-function buildWorkspaceDueTodayQueue({
+function buildWorkspaceRecallWorkPlan({
   now,
   recallContext,
   recallSchedules,
@@ -326,9 +327,13 @@ function buildWorkspaceDueTodayQueue({
   studyNotes,
   userId,
   userTimeZone,
-}: WorkspaceRecallQueueInput): readonly DueTodayQueueItem[] {
+}: WorkspaceRecallQueueInput): RecallWorkPlan {
   if (userId === null) {
-    return [];
+    return {
+      dueForRecallQueue: [],
+      plannedItems: [],
+      recallTodayQueue: [],
+    };
   }
 
   return planRecallWork({
@@ -340,32 +345,7 @@ function buildWorkspaceDueTodayQueue({
     sessionResults,
     studyNotes,
     userTimeZone,
-  }).dueForRecallQueue;
-}
-
-function buildWorkspaceRecallTodayQueue({
-  now,
-  recallContext,
-  recallSchedules,
-  sessionResults,
-  studyNotes,
-  userId,
-  userTimeZone,
-}: WorkspaceRecallQueueInput): readonly RecallTodayQueueItem[] {
-  if (userId === null) {
-    return [];
-  }
-
-  return planRecallWork({
-    histories: toStudyNoteRecallHistories(
-      recallContext.listAttemptsByNote({ userId }),
-    ),
-    now,
-    recallSchedules,
-    sessionResults,
-    studyNotes,
-    userTimeZone,
-  }).recallTodayQueue;
+  });
 }
 
 async function startWorkspaceFlashCardRecall({
@@ -409,7 +389,7 @@ export function RecallTodayWorkspacePage() {
     userTimeZone,
   } = useRecallWorkspaceState();
   const now = new Date().toISOString();
-  const recallTodayQueue = buildWorkspaceRecallTodayQueue({
+  const recallTodayQueue = buildWorkspaceRecallWorkPlan({
     now,
     recallContext,
     recallSchedules,
@@ -417,7 +397,7 @@ export function RecallTodayWorkspacePage() {
     studyNotes,
     userId,
     userTimeZone,
-  });
+  }).recallTodayQueue;
 
   async function startRecallToday() {
     const startedRecall = await startWorkspaceFlashCardRecall({
@@ -457,7 +437,7 @@ export function RecallDueTodayWorkspacePage() {
     userTimeZone,
   } = useRecallWorkspaceState();
   const now = new Date().toISOString();
-  const dueTodayQueue = buildWorkspaceDueTodayQueue({
+  const dueTodayQueue = buildWorkspaceRecallWorkPlan({
     now,
     recallContext,
     recallSchedules,
@@ -465,7 +445,7 @@ export function RecallDueTodayWorkspacePage() {
     studyNotes,
     userId,
     userTimeZone,
-  });
+  }).dueForRecallQueue;
   const hasNoRecallContent =
     notes.length === 0 &&
     studyNotes.length === 0 &&
