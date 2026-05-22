@@ -59,10 +59,10 @@ const ACCEPTED_VARIANT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
   "expected_answer_and_accepted_variant_v2";
 const KEY_IDEA_AND_ACCEPTED_VARIANT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
   "key_idea_and_accepted_variant_v3";
-const ACCEPTED_VARIANT_AND_PROHIBITED_PHRASE_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
+const KEY_IDEA_ACCEPTED_VARIANT_AND_PROHIBITED_PHRASE_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
   "key_idea_accepted_variant_and_prohibited_phrase_v4";
 const CURRENT_RECALL_ANSWER_CHECK_ALGORITHM_VERSION =
-  ACCEPTED_VARIANT_AND_PROHIBITED_PHRASE_RECALL_ANSWER_CHECK_ALGORITHM_VERSION;
+  KEY_IDEA_ACCEPTED_VARIANT_AND_PROHIBITED_PHRASE_RECALL_ANSWER_CHECK_ALGORITHM_VERSION;
 
 const RECALL_ANSWER_CHECK_ALGORITHM_VERSIONS = [
   BASELINE_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
@@ -1358,10 +1358,10 @@ function getAssessmentForReferenceCoverage(input: {
 
 function getAssessmentForProhibitedPhraseMatches(input: {
   assessment: RecallAnswerCheckAssessment;
-  keyIdeaCoverage: RecallAnswerCheckConceptCoverage;
   prohibitedPhraseMatches: RecallAnswerCheckProhibitedPhraseMatches;
 }): RecallAnswerCheckAssessment {
-  const hasKeyIdeaMatch = input.keyIdeaCoverage.contradictedConcepts.length > 0;
+  const hasKeyIdeaMatch =
+    input.prohibitedPhraseMatches.contradictedConcepts.length > 0;
 
   if (!input.prohibitedPhraseMatches.hasStudyNoteMatch && !hasKeyIdeaMatch) {
     return input.assessment;
@@ -1376,6 +1376,14 @@ function getAssessmentForProhibitedPhraseMatches(input: {
       input.assessment.status === "likely_incomplete"
         ? "likely_incomplete"
         : "uncertain",
+  };
+}
+
+function getAcceptedVariantAssessment(): RecallAnswerCheckAssessment {
+  return {
+    confidence: "high",
+    primaryReason: "accepted_variant_close_match",
+    status: "likely_correct",
   };
 }
 
@@ -1443,13 +1451,12 @@ export function scoreRecallAnswerCheck(
     assessment:
       matchedAcceptedVariant === undefined
         ? referenceCoverageAssessment
-        : {
-            confidence: "high",
-            primaryReason: "accepted_variant_close_match",
-            status: "likely_correct",
-          },
-    keyIdeaCoverage,
+        : getAcceptedVariantAssessment(),
     prohibitedPhraseMatches,
+  });
+  const suggestedSelfRating = getSuggestedSelfRating({
+    isMeaningfulAttempt,
+    status: assessment.status,
   });
 
   if (matchedAcceptedVariant !== undefined) {
@@ -1476,10 +1483,7 @@ export function scoreRecallAnswerCheck(
       matchedAcceptedVariant: { ...matchedAcceptedVariant.variant },
       primaryReason: assessment.primaryReason,
       status: assessment.status,
-      suggestedSelfRating: getSuggestedSelfRating({
-        isMeaningfulAttempt,
-        status: assessment.status,
-      }),
+      suggestedSelfRating,
     };
   }
 
@@ -1502,9 +1506,6 @@ export function scoreRecallAnswerCheck(
     },
     primaryReason: assessment.primaryReason,
     status: assessment.status,
-    suggestedSelfRating: getSuggestedSelfRating({
-      isMeaningfulAttempt,
-      status: assessment.status,
-    }),
+    suggestedSelfRating,
   };
 }

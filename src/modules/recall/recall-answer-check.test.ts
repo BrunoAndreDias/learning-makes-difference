@@ -472,42 +472,29 @@ describe("scoreRecallAnswerCheck", () => {
   });
 
   it("does not match prohibited phrases on conservative near misses", () => {
-    expect(
-      scoreRecallAnswerCheck({
-        acceptedVariants: [],
-        expectedAnswer: "Retrieval practice strengthens access to memory.",
-        prohibitedPhrases: [
-          {
-            id: "prohibited-passive-review",
-            text: "passive review",
-          },
-        ],
-        typedAnswer:
-          "Retrieval practice strengthens access to memory and is not passive or mere review.",
-      }),
-    ).toMatchObject({
+    const result = scoreRecallAnswerCheck({
+      acceptedVariants: [],
+      expectedAnswer: "Retrieval practice strengthens access to memory.",
+      prohibitedPhrases: [
+        {
+          id: "prohibited-passive-review",
+          text: "passive review",
+        },
+      ],
+      typedAnswer:
+        "Retrieval practice strengthens access to memory and is not passive or mere review.",
+    });
+
+    expect(result).toMatchObject({
       confidence: "low",
       primaryReason: "expected_answer_close_match",
       status: "likely_correct",
       suggestedSelfRating: "good",
     });
-    expect(
-      scoreRecallAnswerCheck({
-        acceptedVariants: [],
-        expectedAnswer: "Retrieval practice strengthens access to memory.",
-        prohibitedPhrases: [
-          {
-            id: "prohibited-passive-review",
-            text: "passive review",
-          },
-        ],
-        typedAnswer:
-          "Retrieval practice strengthens access to memory and is not passive or mere review.",
-      })?.evidence.matchedProhibitedPhrases,
-    ).toEqual([]);
+    expect(result?.evidence.matchedProhibitedPhrases).toEqual([]);
   });
 
-  it("keeps previously stored v1 Answer Check results readable", () => {
+  it("keeps previously stored Answer Check results readable", () => {
     expect(
       isRecallAnswerCheckResult({
         algorithmVersion: "baseline_expected_answer_v1",
