@@ -10,8 +10,11 @@ import {
 } from "../labels/labels-schema";
 import { notesSchema, notesTable } from "../notes/notes-schema";
 import {
+  studyNoteAcceptedVariantsTable,
   studyNoteAcronymsTable,
+  studyNoteKeyIdeasTable,
   studyNoteMetaphorsTable,
+  studyNoteProhibitedPhrasesTable,
   studyNotesSchema,
   studyNotesTable,
 } from "./study-notes-schema";
@@ -125,11 +128,14 @@ describe("createStudyNotesService", () => {
 
     const updatedStudyNote = await studyNotes.updateStudyNote({
       input: {
+        acceptedVariants: [],
         acronyms: [],
         expectedAnswer: "Recall first, then review.",
+        keyIdeas: [],
         labelIds: [],
         metaphors: [],
         prompt: "How should active recall feel?",
+        prohibitedPhrases: [],
         sourceBody: "Practice recall before reviewing the answer. Add context.",
         sourceTitle: "Active recall source",
         studyNoteId: createdStudyNote.id,
@@ -199,6 +205,177 @@ describe("createStudyNotesService", () => {
       code: "invalid_input",
       message: "Prompt is required.",
     });
+  });
+
+  it("defaults answer-check reference material to empty arrays and persists saved reference material", async () => {
+    const { db, studyNotes } = await createStudyNotesHarness();
+
+    const createdStudyNote = await studyNotes.createStudyNote({
+      input: {
+        expectedAnswer: "Retrieval practice strengthens access to memory.",
+        prompt: "Why does retrieval practice help learning?",
+        sourceBody: "Practice recalling before review.",
+        sourceTitle: "Retrieval practice",
+      },
+      userId: "user-casey",
+    });
+
+    expect(createdStudyNote).toMatchObject({
+      acceptedVariants: [],
+      keyIdeas: [],
+      prohibitedPhrases: [],
+    });
+
+    const updatedStudyNote = await studyNotes.updateStudyNote({
+      input: {
+        acceptedVariants: [
+          {
+            id: "variant-1",
+            text: "It strengthens retrieval routes before review.",
+          },
+        ],
+        acronyms: [],
+        expectedAnswer: "Retrieval practice strengthens access to memory.",
+        keyIdeas: [
+          {
+            acceptedPhrases: ["strengthens retrieval routes"],
+            id: "key-1",
+            importance: "required",
+            prohibitedPhrases: ["just rereading"],
+            text: "Practice recalling before review.",
+          },
+          {
+            acceptedPhrases: [],
+            id: "key-2",
+            importance: "supporting",
+            prohibitedPhrases: [],
+            text: "The retrieval path gets stronger with effort.",
+          },
+        ],
+        labelIds: [],
+        metaphors: [],
+        prompt: "Why does retrieval practice help learning?",
+        prohibitedPhrases: [
+          {
+            id: "prohibited-1",
+            text: "Recognition is enough.",
+          },
+        ],
+        sourceBody: "Practice recalling before review.",
+        sourceTitle: "Retrieval practice",
+        studyNoteId: createdStudyNote.id,
+      },
+      userId: "user-casey",
+    });
+
+    expect(updatedStudyNote).toMatchObject({
+      acceptedVariants: [
+        {
+          id: "variant-1",
+          text: "It strengthens retrieval routes before review.",
+        },
+      ],
+      keyIdeas: [
+        {
+          acceptedPhrases: ["strengthens retrieval routes"],
+          id: "key-1",
+          importance: "required",
+          prohibitedPhrases: ["just rereading"],
+          text: "Practice recalling before review.",
+        },
+        {
+          acceptedPhrases: [],
+          id: "key-2",
+          importance: "supporting",
+          prohibitedPhrases: [],
+          text: "The retrieval path gets stronger with effort.",
+        },
+      ],
+      prohibitedPhrases: [
+        {
+          id: "prohibited-1",
+          text: "Recognition is enough.",
+        },
+      ],
+    });
+
+    await expect(
+      Promise.all([
+        studyNotes.listStudyNotes({ userId: "user-casey" }),
+        db.select().from(studyNoteKeyIdeasTable),
+        db.select().from(studyNoteAcceptedVariantsTable),
+        db.select().from(studyNoteProhibitedPhrasesTable),
+      ]),
+    ).resolves.toMatchObject([
+      [
+        {
+          acceptedVariants: [
+            {
+              id: "variant-1",
+              text: "It strengthens retrieval routes before review.",
+            },
+          ],
+          keyIdeas: [
+            {
+              acceptedPhrases: ["strengthens retrieval routes"],
+              id: "key-1",
+              importance: "required",
+              prohibitedPhrases: ["just rereading"],
+              text: "Practice recalling before review.",
+            },
+            {
+              acceptedPhrases: [],
+              id: "key-2",
+              importance: "supporting",
+              prohibitedPhrases: [],
+              text: "The retrieval path gets stronger with effort.",
+            },
+          ],
+          prohibitedPhrases: [
+            {
+              id: "prohibited-1",
+              text: "Recognition is enough.",
+            },
+          ],
+        },
+      ],
+      [
+        {
+          acceptedPhrases: ["strengthens retrieval routes"],
+          id: "key-1",
+          importance: "required",
+          position: 0,
+          prohibitedPhrases: ["just rereading"],
+          studyNoteId: createdStudyNote.id,
+          text: "Practice recalling before review.",
+        },
+        {
+          acceptedPhrases: [],
+          id: "key-2",
+          importance: "supporting",
+          position: 1,
+          prohibitedPhrases: [],
+          studyNoteId: createdStudyNote.id,
+          text: "The retrieval path gets stronger with effort.",
+        },
+      ],
+      [
+        {
+          id: "variant-1",
+          position: 0,
+          studyNoteId: createdStudyNote.id,
+          text: "It strengthens retrieval routes before review.",
+        },
+      ],
+      [
+        {
+          id: "prohibited-1",
+          position: 0,
+          studyNoteId: createdStudyNote.id,
+          text: "Recognition is enough.",
+        },
+      ],
+    ]);
   });
 
   it("persists recallable Study Notes with a blank source body", async () => {
@@ -322,11 +499,14 @@ describe("createStudyNotesService", () => {
 
     await studyNotes.updateStudyNote({
       input: {
+        acceptedVariants: [],
         acronyms: [],
         expectedAnswer: "Second answer.",
+        keyIdeas: [],
         labelIds: [],
         metaphors: [],
         prompt: "Newer prompt",
+        prohibitedPhrases: [],
         sourceBody: "Shared source body.",
         sourceTitle: "",
         studyNoteId: secondStudyNote.id,
@@ -335,11 +515,14 @@ describe("createStudyNotesService", () => {
     });
     await studyNotes.updateStudyNote({
       input: {
+        acceptedVariants: [],
         acronyms: [],
         expectedAnswer: "First answer.",
+        keyIdeas: [],
         labelIds: [],
         metaphors: [],
         prompt: "Renamed oldest prompt",
+        prohibitedPhrases: [],
         sourceBody: "Shared source body.",
         sourceTitle: "",
         studyNoteId: firstStudyNote.id,
@@ -495,11 +678,14 @@ describe("createStudyNotesService", () => {
 
     await studyNotes.updateStudyNote({
       input: {
+        acceptedVariants: [],
         acronyms: [],
         expectedAnswer: second.expectedAnswer,
+        keyIdeas: [],
         labelIds: [],
         metaphors: [],
         prompt: second.prompt,
+        prohibitedPhrases: [],
         sourceBody: second.source.body,
         sourceTitle: second.source.title,
         studyNoteId: second.id,
@@ -558,11 +744,14 @@ describe("createStudyNotesService", () => {
     await expect(
       studyNotes.updateStudyNote({
         input: {
+          acceptedVariants: [],
           acronyms: [],
           expectedAnswer: first.expectedAnswer,
+          keyIdeas: [],
           labelIds: ["label-other"],
           metaphors: [],
           prompt: first.prompt,
+          prohibitedPhrases: [],
           sourceBody: first.source.body,
           sourceTitle: first.source.title,
           studyNoteId: first.id,
@@ -675,13 +864,16 @@ describe("createStudyNotesService", () => {
 
     await studyNotes.updateStudyNote({
       input: {
+        acceptedVariants: [],
         acronyms: [{ description: "ONE keeps the first target distinct." }],
         expectedAnswer: "Answer one",
+        keyIdeas: [],
         labelIds: [],
         metaphors: [
           { description: "First support description belongs to study one." },
         ],
         prompt: "Prompt one",
+        prohibitedPhrases: [],
         sourceBody: "One source can support several precise recall targets.",
         sourceTitle: "Shared source",
         studyNoteId: "study-one",
@@ -690,13 +882,16 @@ describe("createStudyNotesService", () => {
     });
     await studyNotes.updateStudyNote({
       input: {
+        acceptedVariants: [],
         acronyms: [{ description: "TWO keeps the second target distinct." }],
         expectedAnswer: "Answer two",
+        keyIdeas: [],
         labelIds: [],
         metaphors: [
           { description: "Second support description belongs to study two." },
         ],
         prompt: "Prompt two",
+        prohibitedPhrases: [],
         sourceBody: "One source can support several precise recall targets.",
         sourceTitle: "Shared source",
         studyNoteId: "study-two",
@@ -729,11 +924,14 @@ describe("createStudyNotesService", () => {
 
     await studyNotes.updateStudyNote({
       input: {
+        acceptedVariants: [],
         acronyms: [],
         expectedAnswer: "Answer one",
+        keyIdeas: [],
         labelIds: [],
         metaphors: [],
         prompt: "Prompt one",
+        prohibitedPhrases: [],
         sourceBody: "One source can support several precise recall targets.",
         sourceTitle: "Shared source",
         studyNoteId: "study-one",
@@ -743,11 +941,14 @@ describe("createStudyNotesService", () => {
     await expect(
       studyNotes.updateStudyNote({
         input: {
+          acceptedVariants: [],
           acronyms: [],
           expectedAnswer: "Cross-account answer",
+          keyIdeas: [],
           labelIds: [],
           metaphors: [],
           prompt: "Cross-account prompt",
+          prohibitedPhrases: [],
           sourceBody: "Cross-account source",
           sourceTitle: "Cross-account source",
           studyNoteId: "study-two",
@@ -813,16 +1014,19 @@ describe("createStudyNotesService", () => {
     await expect(
       studyNotes.updateStudyNote({
         input: {
+          acceptedVariants: [],
           acronyms: [
             { description: "HIP keeps the structure memorable." },
             { description: "IDX means index." },
           ],
           expectedAnswer: "It binds context for recall.",
+          keyIdeas: [],
           labelIds: [],
           metaphors: [
             { description: "The hippocampus is a library index for memory." },
           ],
           prompt: "What does the hippocampus support?",
+          prohibitedPhrases: [],
           sourceBody: "The hippocampus helps bind memory context.",
           sourceTitle: "Hippocampus",
           studyNoteId: createdStudyNote.id,

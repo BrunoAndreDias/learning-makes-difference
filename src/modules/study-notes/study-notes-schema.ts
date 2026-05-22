@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { notesTable } from "../notes/notes-schema";
 
@@ -48,8 +48,76 @@ export const studyNoteAcronymsTable = pgTable("study_note_acronyms", {
   description: text("description").notNull(),
 });
 
+export const studyNoteKeyIdeasTable = pgTable(
+  "study_note_key_ideas",
+  {
+    id: text("id").primaryKey(),
+    studyNoteId: text("study_note_id")
+      .notNull()
+      .references(() => studyNotesTable.id, {
+        onDelete: "cascade",
+      }),
+    position: integer("position").notNull(),
+    text: text("text").notNull(),
+    importance: text("importance", {
+      enum: ["required", "supporting"],
+    }).notNull(),
+    acceptedPhrases: text("accepted_phrases").array().notNull(),
+    prohibitedPhrases: text("prohibited_phrases").array().notNull(),
+  },
+  (table) => [
+    index("study_note_key_ideas_study_note_id_position_idx").on(
+      table.studyNoteId,
+      table.position,
+    ),
+  ],
+);
+
+export const studyNoteAcceptedVariantsTable = pgTable(
+  "study_note_accepted_variants",
+  {
+    id: text("id").primaryKey(),
+    studyNoteId: text("study_note_id")
+      .notNull()
+      .references(() => studyNotesTable.id, {
+        onDelete: "cascade",
+      }),
+    position: integer("position").notNull(),
+    text: text("text").notNull(),
+  },
+  (table) => [
+    index("study_note_accepted_variants_study_note_id_position_idx").on(
+      table.studyNoteId,
+      table.position,
+    ),
+  ],
+);
+
+export const studyNoteProhibitedPhrasesTable = pgTable(
+  "study_note_prohibited_phrases",
+  {
+    id: text("id").primaryKey(),
+    studyNoteId: text("study_note_id")
+      .notNull()
+      .references(() => studyNotesTable.id, {
+        onDelete: "cascade",
+      }),
+    position: integer("position").notNull(),
+    text: text("text").notNull(),
+  },
+  (table) => [
+    index("study_note_prohibited_phrases_study_note_id_position_idx").on(
+      table.studyNoteId,
+      table.position,
+    ),
+  ],
+);
+
 export const studyNotesSchema = {
+  studyNoteAcceptedVariantsTable,
   studyNoteAcronymsTable,
+  studyNoteKeyIdeasTable,
   studyNoteMetaphorsTable,
+  studyNoteProhibitedPhrasesTable,
   studyNotesTable,
 };

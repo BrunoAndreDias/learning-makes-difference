@@ -43,12 +43,15 @@ function createRecallableStudyNote() {
     sourceTitle: "Retrieval practice",
   });
   const studyNote = studyNotes.updateStudyNote(userId, created.id, {
+    acceptedVariants: [],
     acronyms: [],
     expectedAnswer:
       "Retrieval practice strengthens access to long-term memory.",
+    keyIdeas: [],
     labelIds: [],
     metaphors: [],
     prompt: "What does retrieval practice strengthen?",
+    prohibitedPhrases: [],
     sourceBody: "Retrieval practice source context.",
     sourceTitle: "Retrieval practice",
   });
@@ -135,11 +138,14 @@ describe("FlashCard Answer Check on reveal", () => {
       sourceTitle: "Active recall",
     });
     const studyNote = studyNotes.updateStudyNote(userId, created.id, {
+      acceptedVariants: [],
       acronyms: [],
       expectedAnswer: "Active recall strengthens durable memory access.",
+      keyIdeas: [],
       labelIds: [],
       metaphors: [],
       prompt: "What does active recall strengthen?",
+      prohibitedPhrases: [],
       sourceBody: "Active recall source context.",
       sourceTitle: "Active recall",
     });

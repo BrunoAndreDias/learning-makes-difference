@@ -30,11 +30,16 @@ export { getStudyNoteReadiness } from "./study-note-readiness";
 export type {
   AppStoredStudyNote,
   AppStudyNote,
+  AppStudyNoteAcceptedVariant,
+  AppStudyNoteKeyIdea,
+  AppStudyNoteProhibitedPhrase,
   AppStudyNoteSource,
   AppStudyNotesContext,
+  AppStudyNoteTextReference,
   CreateStudyNoteFromSourceInput,
   CreateStudyNoteInput,
   DeleteStudyNoteInput,
+  StudyNoteKeyIdeaImportance,
   UpdateStudyNoteInput,
 } from "./study-notes";
 export {

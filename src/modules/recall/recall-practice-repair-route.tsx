@@ -179,11 +179,22 @@ function createQuickRepairStudyNoteUpdate(input: {
   studyNote: AppStudyNote;
 }): UpdateStudyNoteInput {
   return {
+    acceptedVariants: input.studyNote.acceptedVariants.map((variant) => ({
+      ...variant,
+    })),
     acronyms: input.studyNote.acronyms.map((acronym) => ({ ...acronym })),
     expectedAnswer: input.draft.expectedAnswer,
+    keyIdeas: input.studyNote.keyIdeas.map((keyIdea) => ({
+      ...keyIdea,
+      acceptedPhrases: [...keyIdea.acceptedPhrases],
+      prohibitedPhrases: [...keyIdea.prohibitedPhrases],
+    })),
     labelIds: [...input.studyNote.labelIds],
     metaphors: input.studyNote.metaphors.map((metaphor) => ({ ...metaphor })),
     prompt: input.draft.prompt,
+    prohibitedPhrases: input.studyNote.prohibitedPhrases.map((phrase) => ({
+      ...phrase,
+    })),
     sourceBody: input.studyNote.source.body,
     sourceTitle: input.studyNote.source.title,
   };

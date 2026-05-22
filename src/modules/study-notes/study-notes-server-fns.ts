@@ -17,18 +17,34 @@ const supportDescriptionSchema = z.object({
   description: z.string(),
 });
 
+const answerCheckTextReferenceSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+});
+
+const keyIdeaSchema = z.object({
+  acceptedPhrases: z.array(z.string()),
+  id: z.string(),
+  importance: z.enum(["required", "supporting"]),
+  prohibitedPhrases: z.array(z.string()),
+  text: z.string(),
+});
+
 const createStudyNoteInputSchema = z.object({
+  acceptedVariants: z.array(answerCheckTextReferenceSchema).optional(),
   acronyms: z
     .array(supportDescriptionSchema)
     .max(MAX_STUDY_NOTE_SUPPORT_DESCRIPTIONS_PER_KIND)
     .optional(),
   expectedAnswer: z.string().optional(),
+  keyIdeas: z.array(keyIdeaSchema).optional(),
   labelIds: z.array(z.string()).optional(),
   metaphors: z
     .array(supportDescriptionSchema)
     .max(MAX_STUDY_NOTE_SUPPORT_DESCRIPTIONS_PER_KIND)
     .optional(),
   prompt: z.string().optional(),
+  prohibitedPhrases: z.array(answerCheckTextReferenceSchema).optional(),
   sourceBody: z.string(),
   sourceTitle: z.string(),
 });
@@ -43,15 +59,18 @@ const deleteStudyNoteInputSchema = z.object({
 });
 
 const updateStudyNoteInputSchema = z.object({
+  acceptedVariants: z.array(answerCheckTextReferenceSchema),
   acronyms: z
     .array(supportDescriptionSchema)
     .max(MAX_STUDY_NOTE_SUPPORT_DESCRIPTIONS_PER_KIND),
   expectedAnswer: z.string(),
+  keyIdeas: z.array(keyIdeaSchema),
   labelIds: z.array(z.string()),
   metaphors: z
     .array(supportDescriptionSchema)
     .max(MAX_STUDY_NOTE_SUPPORT_DESCRIPTIONS_PER_KIND),
   prompt: z.string(),
+  prohibitedPhrases: z.array(answerCheckTextReferenceSchema),
   sourceBody: z.string(),
   sourceTitle: z.string(),
   studyNoteId: z.string(),

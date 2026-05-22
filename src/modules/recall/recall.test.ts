@@ -216,20 +216,26 @@ describe("recall attempts by note", () => {
       sourceNoteId: first.sourceNoteId,
     });
     const updatedFirst = studyNotes.updateStudyNote(userId, first.id, {
+      acceptedVariants: [],
       acronyms: [],
       expectedAnswer: "First expected answer.",
+      keyIdeas: [],
       labelIds: [],
       metaphors: [],
       prompt: "First target",
+      prohibitedPhrases: [],
       sourceBody: "One broad source body.",
       sourceTitle: "Shared source",
     });
     const updatedSecond = studyNotes.updateStudyNote(userId, second.id, {
+      acceptedVariants: [],
       acronyms: [],
       expectedAnswer: "Second expected answer.",
+      keyIdeas: [],
       labelIds: [],
       metaphors: [],
       prompt: "Second target",
+      prohibitedPhrases: [],
       sourceBody: "One broad source body.",
       sourceTitle: "Shared source",
     });
@@ -581,11 +587,14 @@ describe("recall focus target capture", () => {
         userId,
         studyNote.id,
         {
+          acceptedVariants: [],
           acronyms: [],
           expectedAnswer: "ATP stores transferable energy.",
+          keyIdeas: [],
           labelIds: [biology.id],
           metaphors: [],
           prompt: "What molecule stores transferable energy?",
+          prohibitedPhrases: [],
           sourceBody: "Cell respiration source context.",
           sourceTitle: "Cell respiration",
         },
@@ -755,11 +764,14 @@ describe("recall session setup", () => {
       sourceTitle: "Cell respiration source",
     });
     const updatedStudyNote = studyNotes.updateStudyNote(userId, studyNote.id, {
+      acceptedVariants: [],
       acronyms: [{ description: "ATP: Adenosine triphosphate" }],
       expectedAnswer: "ATP is the expected answer.",
+      keyIdeas: [],
       labelIds: [biology.id],
       metaphors: [{ description: "ATP acts like a rechargeable battery." }],
       prompt: "What molecule stores transferable energy?",
+      prohibitedPhrases: [],
       sourceBody: "Cell respiration is the source context.",
       sourceTitle: "Cell respiration source",
     });
@@ -777,11 +789,14 @@ describe("recall session setup", () => {
     });
 
     studyNotes.updateStudyNote(userId, updatedStudyNote.id, {
+      acceptedVariants: [],
       acronyms: [],
       expectedAnswer: "Changed answer",
+      keyIdeas: [],
       labelIds: [],
       metaphors: [],
       prompt: "Changed prompt",
+      prohibitedPhrases: [],
       sourceBody: "Changed source body",
       sourceTitle: "Changed source title",
     });

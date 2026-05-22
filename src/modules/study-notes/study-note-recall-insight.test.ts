@@ -16,13 +16,16 @@ function buildStudyNote(
   const { id, labelIds, prompt, ...rest } = overrides;
 
   return {
+    acceptedVariants: [],
     acronyms: [],
     createdAt: timestamp,
     expectedAnswer: "Expected answer",
     id,
+    keyIdeas: [],
     labelIds,
     metaphors: [],
     prompt,
+    prohibitedPhrases: [],
     source: {
       body: "Source body",
       id: `source-${id}`,
@@ -39,11 +42,14 @@ function buildDraft(
   overrides: Partial<UpdateStudyNoteInput> = {},
 ): UpdateStudyNoteInput {
   return {
+    acceptedVariants: [],
     acronyms: [],
     expectedAnswer: "Expected answer",
+    keyIdeas: [],
     labelIds: [],
     metaphors: [],
     prompt: "Prompt",
+    prohibitedPhrases: [],
     sourceBody: "Source body",
     sourceTitle: "Source title",
     ...overrides,

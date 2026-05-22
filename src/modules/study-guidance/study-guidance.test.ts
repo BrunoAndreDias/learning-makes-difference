@@ -25,13 +25,16 @@ type BuildStudyNoteInput = Pick<AppStudyNote, "id" | "labelIds" | "prompt"> & {
 
 function buildStudyNote(input: BuildStudyNoteInput): AppStudyNote {
   return {
+    acceptedVariants: [],
     acronyms: [],
     createdAt: timestamp,
     expectedAnswer: input.expectedAnswer ?? "Expected answer",
     id: input.id,
+    keyIdeas: [],
     labelIds: input.labelIds,
     metaphors: [],
     prompt: input.prompt,
+    prohibitedPhrases: [],
     source: {
       body: input.sourceBody ?? "Source body",
       id: `source-${input.id}`,

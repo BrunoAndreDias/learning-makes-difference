@@ -237,13 +237,16 @@ describe("deriveFocusWeeklyAnalytics", () => {
                 updatedAt: sourceNote.updatedAt,
               },
               studyNote: {
+                acceptedVariants: [],
                 acronyms: [],
                 createdAt: "2026-05-05T09:00:00.000Z",
                 expectedAnswer: "Expected answer",
                 id: "study-note-edited",
+                keyIdeas: [],
                 labelIds: [],
                 metaphors: [],
                 prompt: "Edited prompt",
+                prohibitedPhrases: [],
                 source: {
                   body: sourceNote.body,
                   id: sourceNote.id,

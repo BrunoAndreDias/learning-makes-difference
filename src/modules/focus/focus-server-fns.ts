@@ -42,7 +42,26 @@ const sourceNoteSchema = z.object({
 });
 
 const studyActivityNoteSchema = noteSchema.extend({
+  acceptedVariants: z
+    .array(
+      z.object({
+        id: z.string(),
+        text: z.string(),
+      }),
+    )
+    .optional(),
   expectedAnswer: z.string().optional(),
+  keyIdeas: z
+    .array(
+      z.object({
+        acceptedPhrases: z.array(z.string()),
+        id: z.string(),
+        importance: z.enum(["required", "supporting"]),
+        prohibitedPhrases: z.array(z.string()),
+        text: z.string(),
+      }),
+    )
+    .optional(),
   labels: z
     .array(
       z.object({
@@ -52,11 +71,25 @@ const studyActivityNoteSchema = noteSchema.extend({
     )
     .optional(),
   prompt: z.string().optional(),
+  prohibitedPhrases: z
+    .array(
+      z.object({
+        id: z.string(),
+        text: z.string(),
+      }),
+    )
+    .optional(),
   source: sourceNoteSchema.optional(),
   sourceNoteId: z.string().optional(),
 });
 
 const studyNoteSchema = z.object({
+  acceptedVariants: z.array(
+    z.object({
+      id: z.string(),
+      text: z.string(),
+    }),
+  ),
   acronyms: z.array(
     z.object({
       description: z.string(),
@@ -65,6 +98,15 @@ const studyNoteSchema = z.object({
   createdAt: z.string(),
   expectedAnswer: z.string(),
   id: z.string(),
+  keyIdeas: z.array(
+    z.object({
+      acceptedPhrases: z.array(z.string()),
+      id: z.string(),
+      importance: z.enum(["required", "supporting"]),
+      prohibitedPhrases: z.array(z.string()),
+      text: z.string(),
+    }),
+  ),
   labelIds: z.array(z.string()),
   metaphors: z.array(
     z.object({
@@ -72,6 +114,12 @@ const studyNoteSchema = z.object({
     }),
   ),
   prompt: z.string(),
+  prohibitedPhrases: z.array(
+    z.object({
+      id: z.string(),
+      text: z.string(),
+    }),
+  ),
   source: sourceNoteSchema,
   sourceNoteId: z.string(),
   updatedAt: z.string(),
@@ -323,13 +371,24 @@ export function createServerFocusService(): AppPersistentFocusService {
           labels: input.labels.map((label) => ({ ...label })),
           studyNote: {
             ...input.studyNote,
+            acceptedVariants: input.studyNote.acceptedVariants.map(
+              (variant) => ({ ...variant }),
+            ),
             acronyms: input.studyNote.acronyms.map((acronym) => ({
               ...acronym,
+            })),
+            keyIdeas: input.studyNote.keyIdeas.map((keyIdea) => ({
+              ...keyIdea,
+              acceptedPhrases: [...keyIdea.acceptedPhrases],
+              prohibitedPhrases: [...keyIdea.prohibitedPhrases],
             })),
             labelIds: [...input.studyNote.labelIds],
             metaphors: input.studyNote.metaphors.map((metaphor) => ({
               ...metaphor,
             })),
+            prohibitedPhrases: input.studyNote.prohibitedPhrases.map(
+              (phrase) => ({ ...phrase }),
+            ),
             source: { ...input.studyNote.source },
           },
         },

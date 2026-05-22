@@ -471,11 +471,14 @@ function updateStudyNoteSnapshot(
   input: StudyNoteSnapshotInput,
 ) {
   return contexts.studyNotesContext.updateStudyNote(testUser.id, studyNoteId, {
+    acceptedVariants: [],
     acronyms: [],
     expectedAnswer: input.expectedAnswer,
+    keyIdeas: [],
     labelIds: input.labelIds,
     metaphors: [],
     prompt: input.prompt,
+    prohibitedPhrases: [],
     sourceBody: input.sourceBody,
     sourceTitle: input.sourceTitle,
   });
@@ -3247,11 +3250,14 @@ describe("authenticated recall workspace", () => {
       metaphors: [{ description: "A lighthouse for recall." }],
     });
     contexts.studyNotesContext.updateStudyNote(testUser.id, studyNote.id, {
+      acceptedVariants: [],
       acronyms: [{ description: "ABC remembers retrieval steps." }],
       expectedAnswer: "Searchable expected answer.",
+      keyIdeas: [],
       labelIds: [],
       metaphors: [{ description: "A lighthouse for recall." }],
       prompt: "Searchable Study Note",
+      prohibitedPhrases: [],
       sourceBody: "Searchable source context.",
       sourceTitle: "Searchable source",
     });

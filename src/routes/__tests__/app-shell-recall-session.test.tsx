@@ -51,11 +51,14 @@ function createRecallableStudyNote(
   );
 
   return contexts.studyNotesContext.updateStudyNote(testUser.id, studyNote.id, {
+    acceptedVariants: [],
     acronyms: [],
     expectedAnswer: input.expectedAnswer,
+    keyIdeas: [],
     labelIds: [],
     metaphors: [],
     prompt: input.prompt,
+    prohibitedPhrases: [],
     ...source,
   });
 }

@@ -3,6 +3,9 @@ import type { AppLabel } from "../labels/label-management/labels";
 import { type AppNote, type AppNotesContext, listNotesForUser } from "../notes";
 import {
   type AppStudyNote,
+  type AppStudyNoteAcceptedVariant,
+  type AppStudyNoteKeyIdea,
+  type AppStudyNoteProhibitedPhrase,
   type AppStudyNotesContext,
   getStudyNoteReadiness,
   listStudyNotesForUser,
@@ -49,9 +52,12 @@ export type RecallLabelSnapshot = {
 };
 
 export type RecallNoteSnapshot = AppNote & {
+  acceptedVariants?: AppStudyNoteAcceptedVariant[];
   expectedAnswer?: string;
+  keyIdeas?: AppStudyNoteKeyIdea[];
   labels?: RecallLabelSnapshot[];
   prompt?: string;
+  prohibitedPhrases?: AppStudyNoteProhibitedPhrase[];
   source?: {
     body: string;
     displayName?: string;
@@ -402,6 +408,38 @@ function isRecallLabelSnapshot(label: unknown): label is RecallLabelSnapshot {
   );
 }
 
+function isRecallAnswerCheckTextReference(
+  value: unknown,
+): value is AppStudyNoteAcceptedVariant | AppStudyNoteProhibitedPhrase {
+  const candidate = asRecord(value);
+
+  return (
+    candidate !== null &&
+    typeof candidate.id === "string" &&
+    typeof candidate.text === "string"
+  );
+}
+
+function isRecallKeyIdea(value: unknown): value is AppStudyNoteKeyIdea {
+  const candidate = asRecord(value);
+
+  return (
+    candidate !== null &&
+    Array.isArray(candidate.acceptedPhrases) &&
+    candidate.acceptedPhrases.every(
+      (phrase: unknown) => typeof phrase === "string",
+    ) &&
+    typeof candidate.id === "string" &&
+    (candidate.importance === "required" ||
+      candidate.importance === "supporting") &&
+    Array.isArray(candidate.prohibitedPhrases) &&
+    candidate.prohibitedPhrases.every(
+      (phrase: unknown) => typeof phrase === "string",
+    ) &&
+    typeof candidate.text === "string"
+  );
+}
+
 function isRecallNoteSnapshot(note: unknown): note is RecallNoteSnapshot {
   const candidate = asRecord(note);
   const labels = candidate?.labels;
@@ -419,9 +457,24 @@ function isRecallNoteSnapshot(note: unknown): note is RecallNoteSnapshot {
     (labels === undefined ||
       (Array.isArray(labels) &&
         labels.every((label: unknown) => isRecallLabelSnapshot(label)))) &&
+    (!("acceptedVariants" in candidate) ||
+      (Array.isArray(candidate.acceptedVariants) &&
+        candidate.acceptedVariants.every((reference: unknown) =>
+          isRecallAnswerCheckTextReference(reference),
+        ))) &&
     (!("expectedAnswer" in candidate) ||
       typeof candidate.expectedAnswer === "string") &&
+    (!("keyIdeas" in candidate) ||
+      (Array.isArray(candidate.keyIdeas) &&
+        candidate.keyIdeas.every((keyIdea: unknown) =>
+          isRecallKeyIdea(keyIdea),
+        ))) &&
     (!("prompt" in candidate) || typeof candidate.prompt === "string") &&
+    (!("prohibitedPhrases" in candidate) ||
+      (Array.isArray(candidate.prohibitedPhrases) &&
+        candidate.prohibitedPhrases.every((reference: unknown) =>
+          isRecallAnswerCheckTextReference(reference),
+        ))) &&
     (!("sourceNoteId" in candidate) ||
       typeof candidate.sourceNoteId === "string") &&
     (!("source" in candidate) ||
@@ -909,12 +962,25 @@ function defaultShuffleNotes(
 function cloneRecallNoteSnapshot(note: RecallNoteSnapshot): RecallNoteSnapshot {
   return {
     ...note,
+    acceptedVariants: Array.isArray(note.acceptedVariants)
+      ? note.acceptedVariants.map((variant) => ({ ...variant }))
+      : [],
     acronyms: note.acronyms.map((acronym) => ({ ...acronym })),
+    keyIdeas: Array.isArray(note.keyIdeas)
+      ? note.keyIdeas.map((keyIdea) => ({
+          ...keyIdea,
+          acceptedPhrases: [...keyIdea.acceptedPhrases],
+          prohibitedPhrases: [...keyIdea.prohibitedPhrases],
+        }))
+      : [],
     labelIds: [...note.labelIds],
     labels: Array.isArray(note.labels)
       ? note.labels.map((label) => ({ ...label }))
       : [],
     metaphors: note.metaphors.map((metaphor) => ({ ...metaphor })),
+    prohibitedPhrases: Array.isArray(note.prohibitedPhrases)
+      ? note.prohibitedPhrases.map((phrase) => ({ ...phrase }))
+      : [],
     source: note.source === undefined ? undefined : { ...note.source },
   };
 }
@@ -1272,11 +1338,19 @@ function toRecallStudyNoteSnapshot(input: {
   studyNote: AppStudyNote;
 }): RecallNoteSnapshot {
   return {
+    acceptedVariants: input.studyNote.acceptedVariants.map((variant) => ({
+      ...variant,
+    })),
     acronyms: input.studyNote.acronyms.map((acronym) => ({ ...acronym })),
     body: input.studyNote.expectedAnswer,
     createdAt: input.studyNote.createdAt,
     expectedAnswer: input.studyNote.expectedAnswer,
     id: input.studyNote.id,
+    keyIdeas: input.studyNote.keyIdeas.map((keyIdea) => ({
+      ...keyIdea,
+      acceptedPhrases: [...keyIdea.acceptedPhrases],
+      prohibitedPhrases: [...keyIdea.prohibitedPhrases],
+    })),
     labelIds: [...input.studyNote.labelIds],
     labels: getRecallLabelSnapshots({
       labelIds: input.studyNote.labelIds,
@@ -1284,6 +1358,9 @@ function toRecallStudyNoteSnapshot(input: {
     }),
     metaphors: input.studyNote.metaphors.map((metaphor) => ({ ...metaphor })),
     prompt: input.studyNote.prompt,
+    prohibitedPhrases: input.studyNote.prohibitedPhrases.map((phrase) => ({
+      ...phrase,
+    })),
     source: { ...input.studyNote.source },
     sourceNoteId: input.studyNote.sourceNoteId,
     title: input.studyNote.prompt,
