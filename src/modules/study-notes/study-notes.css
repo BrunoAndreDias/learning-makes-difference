@@ -736,6 +736,29 @@
   gap: 0.85rem;
 }
 
+.study-notes-answer-check__suggestion-toolbar {
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--color-primary-soft) 42%, white);
+}
+
+.study-notes-answer-check__suggestion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.study-notes-answer-check__suggestion-feedback {
+  margin: 0;
+  color: var(--color-content-strong);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
 .study-notes-answer-check__section + .study-notes-answer-check__section {
   margin-top: 1rem;
 }

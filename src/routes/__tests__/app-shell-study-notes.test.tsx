@@ -178,6 +178,41 @@ function completeStudyNoteRecallAt(
   completeStudyNoteRecall(contexts, recallInput);
 }
 
+function completeTypedStudyNoteRecallAt(
+  contexts: DeterministicRecallTestContexts,
+  input: {
+    rating: RecallSelfRating;
+    studyNoteId: string;
+    timestamp: string;
+    typedAnswer: string;
+    userId: string;
+  },
+) {
+  vi.setSystemTime(new Date(input.timestamp));
+
+  act(() => {
+    const session = contexts.recallContext.startFlashCardSession({
+      studyNoteIds: [input.studyNoteId],
+      userId: input.userId,
+    });
+
+    contexts.recallContext.updateFlashCardAttemptText({
+      sessionId: session.id,
+      text: input.typedAnswer,
+      userId: input.userId,
+    });
+    contexts.recallContext.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId: input.userId,
+    });
+    contexts.recallContext.rateFlashCardAnswer({
+      rating: input.rating,
+      sessionId: session.id,
+      userId: input.userId,
+    });
+  });
+}
+
 function confirmStudyNotePracticeRepair(
   contexts: DeterministicRecallTestContexts,
   input: {
@@ -1400,6 +1435,186 @@ describe("authenticated Study Notes workspace", () => {
         {
           id: prohibitedPhraseId,
           text: "Recognition alone is enough.",
+        },
+      ],
+    });
+  });
+
+  it("infers editable answer-check suggestions in Study Notes without auto-activating them before save", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-study-note-answer-check-suggestions";
+    const studyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer:
+        "Retrieval practice strengthens memory access. It exposes gaps before review.",
+      prompt: "Why does retrieval practice help learning?",
+      sourceBody: "Broader retrieval practice source context.",
+      sourceTitle: "Retrieval practice source",
+      userId,
+    });
+
+    completeTypedStudyNoteRecallAt(contexts, {
+      rating: "good",
+      studyNoteId: studyNote.id,
+      timestamp: "2026-05-20T09:00:00.000Z",
+      typedAnswer:
+        "Testing yourself strengthens access to memory before review.",
+      userId,
+    });
+    completeTypedStudyNoteRecallAt(contexts, {
+      rating: "hard",
+      studyNoteId: studyNote.id,
+      timestamp: "2026-05-19T09:00:00.000Z",
+      typedAnswer: "Passive review is enough.",
+      userId,
+    });
+    completeTypedStudyNoteRecallAt(contexts, {
+      rating: "forgot",
+      studyNoteId: studyNote.id,
+      timestamp: "2026-05-18T09:00:00.000Z",
+      typedAnswer: "Passive review is enough.",
+      userId,
+    });
+
+    renderRoute("/study-notes", {
+      ...contexts,
+      session: {
+        user: {
+          displayName: "Jordan Suggestions",
+          email: "jordan.suggestions@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Why does retrieval practice help learning?",
+      }),
+    );
+
+    const answerCheck = screen.getByRole("region", {
+      name: "Answer-check reference material",
+    });
+    fireEvent.click(
+      within(answerCheck).getByText("Answer-check reference material"),
+    );
+
+    expect(
+      contexts.studyNotesContext
+        .getSnapshot()
+        .find((note) => note.id === studyNote.id),
+    ).toMatchObject({
+      acceptedVariants: [],
+      keyIdeas: [],
+      prohibitedPhrases: [],
+    });
+
+    fireEvent.click(
+      within(answerCheck).getByRole("button", { name: "Infer suggestions" }),
+    );
+
+    expect(
+      within(answerCheck)
+        .getAllByLabelText("Key Idea")
+        .map((input) => (input as HTMLTextAreaElement).value),
+    ).toEqual([
+      "Retrieval practice strengthens memory access.",
+      "It exposes gaps before review.",
+    ]);
+    expect(within(answerCheck).getByLabelText("Accepted Variant")).toHaveValue(
+      "Testing yourself strengthens access to memory before review.",
+    );
+    expect(within(answerCheck).getByLabelText("Prohibited Phrase")).toHaveValue(
+      "Passive review is enough.",
+    );
+    expect(
+      screen.getByRole("region", { name: "Unsaved Study Note changes" }),
+    ).toBeInTheDocument();
+    expect(
+      contexts.studyNotesContext
+        .getSnapshot()
+        .find((note) => note.id === studyNote.id),
+    ).toMatchObject({
+      acceptedVariants: [],
+      keyIdeas: [],
+      prohibitedPhrases: [],
+    });
+
+    fireEvent.change(within(answerCheck).getByLabelText("Accepted Variant"), {
+      target: {
+        value: "Testing yourself strengthens long-term memory before review.",
+      },
+    });
+    fireEvent.click(
+      within(answerCheck).getByRole("button", { name: "Discard suggestions" }),
+    );
+
+    expect(
+      within(answerCheck).queryByLabelText("Accepted Variant"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(answerCheck).queryByLabelText("Prohibited Phrase"),
+    ).not.toBeInTheDocument();
+    expect(within(answerCheck).queryByLabelText("Key Idea")).toBeNull();
+    expect(
+      screen.queryByRole("region", { name: "Unsaved Study Note changes" }),
+    ).toBeNull();
+    expect(
+      contexts.studyNotesContext
+        .getSnapshot()
+        .find((note) => note.id === studyNote.id),
+    ).toMatchObject({
+      acceptedVariants: [],
+      keyIdeas: [],
+      prohibitedPhrases: [],
+    });
+
+    fireEvent.click(
+      within(answerCheck).getByRole("button", { name: "Infer suggestions" }),
+    );
+    fireEvent.change(within(answerCheck).getByLabelText("Accepted Variant"), {
+      target: {
+        value: "Testing yourself strengthens long-term memory before review.",
+      },
+    });
+
+    expect(
+      contexts.studyNotesContext
+        .getSnapshot()
+        .find((note) => note.id === studyNote.id),
+    ).toMatchObject({
+      acceptedVariants: [],
+      keyIdeas: [],
+      prohibitedPhrases: [],
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("Saved just now"),
+    );
+    expect(
+      contexts.studyNotesContext
+        .getSnapshot()
+        .find((note) => note.id === studyNote.id),
+    ).toMatchObject({
+      acceptedVariants: [
+        {
+          text: "Testing yourself strengthens long-term memory before review.",
+        },
+      ],
+      keyIdeas: [
+        {
+          text: "Retrieval practice strengthens memory access.",
+        },
+        {
+          text: "It exposes gaps before review.",
+        },
+      ],
+      prohibitedPhrases: [
+        {
+          text: "Passive review is enough.",
         },
       ],
     });

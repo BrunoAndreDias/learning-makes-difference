@@ -81,6 +81,11 @@ import {
   unlabeledStudyNotesFilterLabel,
   unlabeledStudyNotesFilterValue,
 } from ".";
+import {
+  applyStudyNoteAnswerCheckReferenceSuggestions,
+  hasStudyNoteAnswerCheckReferenceSuggestions,
+  inferStudyNoteAnswerCheckReferenceSuggestions,
+} from "./answer-check-reference-suggestions";
 import { getStudyNotePracticeRepair } from "./practice-repair";
 import {
   deriveStudyNoteRecallInsight,
@@ -107,6 +112,10 @@ type LinkedPracticeRepairContext = {
   action: PracticeRepairIntent;
   entry: PracticeRepairEntry;
   practiceRepairEntryId: string;
+};
+
+type AnswerCheckSuggestionSession = {
+  baselineDraft: UpdateStudyNoteInput;
 };
 
 function createBlankDraft(): UpdateStudyNoteInput {
@@ -171,25 +180,42 @@ function createDraftFromStudyNote(
     return createBlankDraft();
   }
 
+  return cloneStudyNoteDraft({
+    acceptedVariants: studyNote.acceptedVariants,
+    acronyms: studyNote.acronyms,
+    expectedAnswer: studyNote.expectedAnswer,
+    keyIdeas: studyNote.keyIdeas,
+    labelIds: studyNote.labelIds,
+    metaphors: studyNote.metaphors,
+    prompt: studyNote.prompt,
+    prohibitedPhrases: studyNote.prohibitedPhrases,
+    sourceBody: studyNote.source.body,
+    sourceTitle: studyNote.source.title,
+  });
+}
+
+function cloneStudyNoteDraft(
+  draft: UpdateStudyNoteInput,
+): UpdateStudyNoteInput {
   return {
-    acceptedVariants: studyNote.acceptedVariants.map((variant) => ({
+    acceptedVariants: draft.acceptedVariants.map((variant) => ({
       ...variant,
     })),
-    acronyms: studyNote.acronyms.map((acronym) => ({ ...acronym })),
-    expectedAnswer: studyNote.expectedAnswer,
-    keyIdeas: studyNote.keyIdeas.map((keyIdea) => ({
+    acronyms: draft.acronyms.map((acronym) => ({ ...acronym })),
+    expectedAnswer: draft.expectedAnswer,
+    keyIdeas: draft.keyIdeas.map((keyIdea) => ({
       ...keyIdea,
       acceptedPhrases: [...keyIdea.acceptedPhrases],
       prohibitedPhrases: [...keyIdea.prohibitedPhrases],
     })),
-    labelIds: [...studyNote.labelIds],
-    metaphors: studyNote.metaphors.map((metaphor) => ({ ...metaphor })),
-    prompt: studyNote.prompt,
-    prohibitedPhrases: studyNote.prohibitedPhrases.map((phrase) => ({
+    labelIds: [...draft.labelIds],
+    metaphors: draft.metaphors.map((metaphor) => ({ ...metaphor })),
+    prompt: draft.prompt,
+    prohibitedPhrases: draft.prohibitedPhrases.map((phrase) => ({
       ...phrase,
     })),
-    sourceBody: studyNote.source.body,
-    sourceTitle: studyNote.source.title,
+    sourceBody: draft.sourceBody,
+    sourceTitle: draft.sourceTitle,
   };
 }
 
@@ -1483,9 +1509,13 @@ function StudyNotesAnswerCheckTextReferenceEditor({
 }
 
 function StudyNotesAnswerCheckEditor({
+  feedbackMessage,
   draft,
   hasContent,
+  hasPendingSuggestions,
   isOpen,
+  onDiscardSuggestions,
+  onInferSuggestions,
   onAddKeyIdea,
   onAddTextReference,
   onRemoveKeyIdea,
@@ -1495,9 +1525,13 @@ function StudyNotesAnswerCheckEditor({
   onUpdateTextReference,
   selectedDisclosureKey,
 }: Readonly<{
+  feedbackMessage: string | null;
   draft: UpdateStudyNoteInput;
   hasContent: boolean;
+  hasPendingSuggestions: boolean;
   isOpen: boolean;
+  onDiscardSuggestions: () => void;
+  onInferSuggestions: () => void;
   onAddKeyIdea: () => void;
   onAddTextReference: (field: AnswerCheckTextReferenceField) => void;
   onRemoveKeyIdea: (keyIdeaId: string) => void;
@@ -1542,6 +1576,37 @@ function StudyNotesAnswerCheckEditor({
           <ChevronDownIcon />
         </summary>
         <div className="study-notes-editor__disclosure-body">
+          <div className="study-notes-answer-check__suggestion-toolbar">
+            <div className="study-notes-answer-check__suggestion-actions">
+              <Button
+                onClick={onInferSuggestions}
+                size="compact"
+                type="button"
+                variant="secondary"
+              >
+                <SparklesIcon />
+                <span>Infer suggestions</span>
+              </Button>
+              {!hasPendingSuggestions ? null : (
+                <Button
+                  onClick={onDiscardSuggestions}
+                  size="compact"
+                  type="button"
+                  variant="secondary"
+                >
+                  <span>Discard suggestions</span>
+                </Button>
+              )}
+            </div>
+            {feedbackMessage === null ? null : (
+              <p
+                className="study-notes-answer-check__suggestion-feedback"
+                role="status"
+              >
+                {feedbackMessage}
+              </p>
+            )}
+          </div>
           <StudyNotesKeyIdeasEditor
             keyIdeas={draft.keyIdeas}
             onAdd={onAddKeyIdea}
@@ -1909,6 +1974,14 @@ function StudyNotesWorkspace() {
   const [isLabelManagerOpen, setLabelManagerOpen] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
   const [isCreatingLabel, setCreatingLabel] = useState(false);
+  const [answerCheckSuggestionFeedback, setAnswerCheckSuggestionFeedback] =
+    useState<string | null>(null);
+  const [answerCheckSuggestionSession, setAnswerCheckSuggestionSession] =
+    useState<AnswerCheckSuggestionSession | null>(null);
+  const clearAnswerCheckSuggestionState = useCallback(() => {
+    setAnswerCheckSuggestionFeedback(null);
+    setAnswerCheckSuggestionSession(null);
+  }, []);
   const storeMutation = persistentStudyNotesContext ?? studyNotesContext;
   const hasDraftChanges = !areStudyNoteDraftsEqual(
     draft,
@@ -2107,12 +2180,13 @@ function StudyNotesWorkspace() {
       return;
     }
 
+    clearAnswerCheckSuggestionState();
     setAnswerCheckOpenOverride(null);
     setReferenceOpenOverride(null);
     setMemoryAidsOpenOverride(null);
     setLabelManagerOpen(false);
     setNewLabelName("");
-  }, [selectedDisclosureKey]);
+  }, [clearAnswerCheckSuggestionState, selectedDisclosureKey]);
 
   useEffect(() => {
     if (
@@ -2359,6 +2433,7 @@ function StudyNotesWorkspace() {
   }
 
   function applyEditorTarget(target: StudyNoteEditorTarget) {
+    clearAnswerCheckSuggestionState();
     setErrorMessage(null);
     setSaveStatus(null);
     setPendingEditorTarget(null);
@@ -2399,6 +2474,7 @@ function StudyNotesWorkspace() {
   }
 
   function discardDraft() {
+    clearAnswerCheckSuggestionState();
     setErrorMessage(null);
     setSaveStatus(null);
 
@@ -2425,6 +2501,7 @@ function StudyNotesWorkspace() {
   }
 
   function abandonNewDraft() {
+    clearAnswerCheckSuggestionState();
     setErrorMessage(null);
     setSaveStatus(null);
     setPendingEditorTarget(null);
@@ -3084,6 +3161,7 @@ function StudyNotesWorkspace() {
         setSaveStatus("Saved just now");
       }
 
+      clearAnswerCheckSuggestionState();
       return savedStudyNote;
     } catch (error) {
       handleError(error);
@@ -3218,6 +3296,48 @@ function StudyNotesWorkspace() {
     }));
   }
 
+  function inferAnswerCheckSuggestions() {
+    const suggestions = inferStudyNoteAnswerCheckReferenceSuggestions({
+      createId: createDraftReferenceId,
+      draft,
+      sessionResults: recallResultsSnapshot,
+      studyNoteId: selectedStudyNote?.id ?? null,
+    });
+
+    if (!hasStudyNoteAnswerCheckReferenceSuggestions(suggestions)) {
+      setAnswerCheckSuggestionFeedback(
+        "No draft suggestions found from the expected answer or recall history yet.",
+      );
+      return;
+    }
+
+    setAnswerCheckOpenOverride(true);
+    setAnswerCheckSuggestionSession((current) => ({
+      baselineDraft: current?.baselineDraft ?? cloneStudyNoteDraft(draft),
+    }));
+    setAnswerCheckSuggestionFeedback(
+      "Draft suggestions added. Review, edit, save, or discard them. They stay inactive until you save.",
+    );
+    updateDraft((current) =>
+      applyStudyNoteAnswerCheckReferenceSuggestions({
+        draft: current,
+        suggestions,
+      }),
+    );
+  }
+
+  function discardAnswerCheckSuggestions() {
+    if (answerCheckSuggestionSession === null) {
+      return;
+    }
+
+    setDraft(cloneStudyNoteDraft(answerCheckSuggestionSession.baselineDraft));
+    setAnswerCheckSuggestionSession(null);
+    setAnswerCheckSuggestionFeedback("Draft suggestions discarded.");
+    setErrorMessage(null);
+    setSaveStatus(null);
+  }
+
   const selectedNextRecall = formatSelectedNextRecall({
     now,
     schedule: selectedRecallSchedule,
@@ -3230,6 +3350,8 @@ function StudyNotesWorkspace() {
   });
   const answerCheckHasContent = hasDraftAnswerCheckContent(draft);
   const isAnswerCheckOpen = isAnswerCheckOpenOverride ?? answerCheckHasContent;
+  const hasPendingAnswerCheckSuggestions =
+    answerCheckSuggestionSession !== null;
   const referenceHasContent = hasDraftReferenceContent(draft);
   const referenceDisclosureDefaultOpen = referenceHasContent;
   const isReferenceOpen =
@@ -3764,9 +3886,13 @@ function StudyNotesWorkspace() {
               </div>
 
               <StudyNotesAnswerCheckEditor
+                feedbackMessage={answerCheckSuggestionFeedback}
                 draft={draft}
                 hasContent={answerCheckHasContent}
+                hasPendingSuggestions={hasPendingAnswerCheckSuggestions}
                 isOpen={isAnswerCheckOpen}
+                onDiscardSuggestions={discardAnswerCheckSuggestions}
+                onInferSuggestions={inferAnswerCheckSuggestions}
                 onAddKeyIdea={addDraftKeyIdea}
                 onAddTextReference={addDraftTextReference}
                 onRemoveKeyIdea={removeDraftKeyIdea}
