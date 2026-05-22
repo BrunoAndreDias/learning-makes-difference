@@ -1640,8 +1640,23 @@ describe("recall session setup", () => {
       acceptedVariants: [],
       acronyms: [],
       expectedAnswer:
-        "Retrieval practice strengthens access to long-term memory.",
-      keyIdeas: [],
+        "Retrieval practice strengthens long-term memory through effortful recall.",
+      keyIdeas: [
+        {
+          acceptedPhrases: [],
+          id: "key-idea-memory",
+          importance: "required",
+          prohibitedPhrases: [],
+          text: "long-term memory",
+        },
+        {
+          acceptedPhrases: [],
+          id: "key-idea-effortful",
+          importance: "required",
+          prohibitedPhrases: [],
+          text: "effortful recall",
+        },
+      ],
       labelIds: [],
       metaphors: [],
       prompt: "What does retrieval practice strengthen?",
@@ -1657,7 +1672,7 @@ describe("recall session setup", () => {
 
     recall.updateFlashCardAttemptText({
       sessionId: session.id,
-      text: "Retrieval practice strengthens access to long term memory.",
+      text: "Retrieval practice strengthens long-term memory.",
       userId,
     });
     recall.revealFlashCardAnswer({
@@ -1674,17 +1689,42 @@ describe("recall session setup", () => {
     const storedAnswerCheck = storedResult?.questions[0]?.answerCheck;
 
     expect(storedAnswerCheck).toMatchObject({
-      algorithmVersion: "baseline_expected_answer_v1",
-      confidence: "high",
-      status: "likely_correct",
-      suggestedSelfRating: "good",
+      algorithmVersion: "key_idea_coverage_v1",
+      confidence: "medium",
+      primaryReason: "key_idea_required_missing",
+      status: "likely_incomplete",
+      suggestedSelfRating: "hard",
+      evidence: {
+        coveredConcepts: [
+          {
+            id: "key-idea-memory",
+            importance: "required",
+            text: "long-term memory",
+          },
+        ],
+        missingConcepts: [
+          {
+            id: "key-idea-effortful",
+            importance: "required",
+            text: "effortful recall",
+          },
+        ],
+      },
     });
 
     studyNotes.updateStudyNote(userId, studyNote.id, {
       acceptedVariants: [],
       acronyms: [],
       expectedAnswer: "Changed later answer.",
-      keyIdeas: [],
+      keyIdeas: [
+        {
+          acceptedPhrases: [],
+          id: "key-idea-changed",
+          importance: "required",
+          prohibitedPhrases: [],
+          text: "changed later idea",
+        },
+      ],
       labelIds: [],
       metaphors: [],
       prompt: "Changed later prompt?",
@@ -1713,7 +1753,7 @@ describe("recall session setup", () => {
       answerCheck: storedAnswerCheck,
       noteSnapshot: {
         expectedAnswer:
-          "Retrieval practice strengthens access to long-term memory.",
+          "Retrieval practice strengthens long-term memory through effortful recall.",
         prompt: "What does retrieval practice strengthen?",
       },
     });

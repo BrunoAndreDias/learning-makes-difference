@@ -650,6 +650,19 @@ function RecallAnswerCheckPanel({
   answerCheck: NonNullable<RecallQuestion["answerCheck"]>;
 }) {
   const { t } = useAppTranslation();
+  const coveredConcepts = answerCheck.evidence.coveredConcepts.map(
+    (concept) => concept.text,
+  );
+  const partialConcepts = answerCheck.evidence.partialConcepts.map(
+    (concept) => concept.text,
+  );
+  const missingConcepts = answerCheck.evidence.missingConcepts.map(
+    (concept) => concept.text,
+  );
+  const hasConceptCoverage =
+    coveredConcepts.length > 0 ||
+    partialConcepts.length > 0 ||
+    missingConcepts.length > 0;
 
   return (
     <section
@@ -686,16 +699,38 @@ function RecallAnswerCheckPanel({
           {t(getRecallRatingTranslationKey(answerCheck.suggestedSelfRating))}
         </span>
       </p>
-      <RecallAnswerCheckTerms
-        heading={t("recall.answerCheck.matchedTerms")}
-        keyPrefix="matched"
-        terms={answerCheck.evidence.matchedExpectedTerms}
-      />
-      <RecallAnswerCheckTerms
-        heading={t("recall.answerCheck.missingTerms")}
-        keyPrefix="missing"
-        terms={answerCheck.evidence.missingExpectedTerms}
-      />
+      {hasConceptCoverage ? (
+        <>
+          <RecallAnswerCheckTerms
+            heading={t("recall.answerCheck.coveredConcepts")}
+            keyPrefix="covered-concept"
+            terms={coveredConcepts}
+          />
+          <RecallAnswerCheckTerms
+            heading={t("recall.answerCheck.partialConcepts")}
+            keyPrefix="partial-concept"
+            terms={partialConcepts}
+          />
+          <RecallAnswerCheckTerms
+            heading={t("recall.answerCheck.missingConcepts")}
+            keyPrefix="missing-concept"
+            terms={missingConcepts}
+          />
+        </>
+      ) : (
+        <>
+          <RecallAnswerCheckTerms
+            heading={t("recall.answerCheck.matchedTerms")}
+            keyPrefix="matched"
+            terms={answerCheck.evidence.matchedExpectedTerms}
+          />
+          <RecallAnswerCheckTerms
+            heading={t("recall.answerCheck.missingTerms")}
+            keyPrefix="missing"
+            terms={answerCheck.evidence.missingExpectedTerms}
+          />
+        </>
+      )}
     </section>
   );
 }

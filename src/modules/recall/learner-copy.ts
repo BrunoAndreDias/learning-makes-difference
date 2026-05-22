@@ -132,5 +132,11 @@ export function getRecallAnswerCheckReasonTranslationKey(
       return "recall.answerCheck.reason.shortAttempt";
     case "expected_answer_low_coverage":
       return "recall.answerCheck.reason.lowCoverage";
+    case "key_idea_concepts_covered":
+      return "recall.answerCheck.reason.keyIdeasCovered";
+    case "key_idea_required_missing":
+      return "recall.answerCheck.reason.requiredKeyIdeaMissing";
+    case "key_idea_supporting_partial":
+      return "recall.answerCheck.reason.supportingKeyIdeaPartial";
   }
 }

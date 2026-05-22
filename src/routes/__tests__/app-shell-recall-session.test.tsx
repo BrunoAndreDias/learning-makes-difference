@@ -28,6 +28,7 @@ type DeterministicRecallTestContexts = ReturnType<
 >;
 type RecallableStudyNoteInput = {
   expectedAnswer: string;
+  keyIdeas?: AppStudyNote["keyIdeas"];
   prompt: string;
   sourceBody: string;
   sourceTitle: string;
@@ -54,7 +55,7 @@ function createRecallableStudyNote(
     acceptedVariants: [],
     acronyms: [],
     expectedAnswer: input.expectedAnswer,
-    keyIdeas: [],
+    keyIdeas: input.keyIdeas ?? [],
     labelIds: [],
     metaphors: [],
     prompt: input.prompt,
@@ -507,7 +508,7 @@ describe("authenticated recall workspace", () => {
 
     expect(screen.getByText("Answer Check")).toBeInTheDocument();
     expect(screen.getByText("Likely correct")).toBeInTheDocument();
-    expect(screen.getByText("High confidence")).toBeInTheDocument();
+    expect(screen.getByText("Medium confidence")).toBeInTheDocument();
     expect(
       screen.getByText("Guidance only. Keep your own self-rating."),
     ).toBeInTheDocument();
@@ -515,6 +516,66 @@ describe("authenticated recall workspace", () => {
     expect(screen.getAllByText("Good").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Forgot" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Hard" })).toBeInTheDocument();
+  });
+
+  it("shows Key Idea concept coverage alongside the expected answer on Study Note reveal", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const studyNote = createRecallableStudyNote(contexts, {
+      expectedAnswer:
+        "Retrieval practice strengthens long-term memory through effortful recall and transfer.",
+      keyIdeas: [
+        {
+          acceptedPhrases: [],
+          id: "key-idea-memory",
+          importance: "required",
+          prohibitedPhrases: [],
+          text: "long-term memory",
+        },
+        {
+          acceptedPhrases: [],
+          id: "key-idea-effortful",
+          importance: "required",
+          prohibitedPhrases: [],
+          text: "effortful recall",
+        },
+        {
+          acceptedPhrases: [],
+          id: "key-idea-transfer",
+          importance: "supporting",
+          prohibitedPhrases: [],
+          text: "transfer to problems",
+        },
+      ],
+      prompt: "What does retrieval practice strengthen?",
+      sourceBody: "Broader retrieval practice source context.",
+      sourceTitle: "Retrieval practice source",
+    });
+    contexts.recallContext.startFlashCardSession({
+      studyNoteIds: [studyNote.id],
+      userId: testUser.id,
+    });
+
+    renderRoute("/recall/session", {
+      ...contexts,
+      session: createSession(),
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Write answer" }),
+    );
+    fireEvent.change(screen.getByLabelText("Your answer"), {
+      target: {
+        value:
+          "Retrieval practice strengthens long-term memory and helps transfer to problems.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Reveal Study Note" }));
+
+    expect(screen.getByText("Likely incomplete")).toBeInTheDocument();
+    expect(screen.getByText("Covered concepts")).toBeInTheDocument();
+    expect(screen.getByText("long-term memory")).toBeInTheDocument();
+    expect(screen.getByText("Still missing")).toBeInTheDocument();
+    expect(screen.getByText("effortful recall")).toBeInTheDocument();
   });
 
   it("satisfies a completed Practice Follow-up only after the targeted recall attempt is rated", async () => {

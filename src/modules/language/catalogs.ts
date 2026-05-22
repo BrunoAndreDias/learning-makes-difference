@@ -487,18 +487,27 @@ const englishTranslations = {
   "recall.answerCheck.confidence.high": "High confidence",
   "recall.answerCheck.confidence.low": "Low confidence",
   "recall.answerCheck.confidence.medium": "Medium confidence",
+  "recall.answerCheck.coveredConcepts": "Covered concepts",
   "recall.answerCheck.matchedTerms": "Matched terms",
+  "recall.answerCheck.missingConcepts": "Still missing",
   "recall.answerCheck.missingTerms": "Still missing",
+  "recall.answerCheck.partialConcepts": "Partly covered",
   "recall.answerCheck.reason.closeMatch":
     "Your answer stays close to the expected answer and covers most distinctive terms.",
   "recall.answerCheck.reason.exactMatch":
     "Your wording matches the expected answer very closely.",
+  "recall.answerCheck.reason.keyIdeasCovered":
+    "Your answer covers the saved Key Ideas for this Study Note.",
   "recall.answerCheck.reason.lowCoverage":
     "Your answer has very little overlap with the expected answer.",
   "recall.answerCheck.reason.partialMatch":
     "Your answer overlaps with the expected answer, but important details may still be missing.",
+  "recall.answerCheck.reason.requiredKeyIdeaMissing":
+    "A required Key Idea is still missing from your answer.",
   "recall.answerCheck.reason.shortAttempt":
     "Your answer is short for this expected answer, so the guidance stays conservative.",
+  "recall.answerCheck.reason.supportingKeyIdeaPartial":
+    "Required Key Ideas are covered, but some supporting ideas are only partly covered or still missing.",
   "recall.answerCheck.status.likelyCorrect": "Likely correct",
   "recall.answerCheck.status.likelyIncomplete": "Likely incomplete",
   "recall.answerCheck.status.uncertain": "Uncertain",
@@ -1078,18 +1087,27 @@ const portugueseTranslations = {
   "recall.answerCheck.confidence.high": "Confianca alta",
   "recall.answerCheck.confidence.low": "Confianca baixa",
   "recall.answerCheck.confidence.medium": "Confianca media",
+  "recall.answerCheck.coveredConcepts": "Conceitos cobertos",
   "recall.answerCheck.matchedTerms": "Termos correspondentes",
+  "recall.answerCheck.missingConcepts": "Ainda em falta",
   "recall.answerCheck.missingTerms": "Ainda em falta",
+  "recall.answerCheck.partialConcepts": "Parcialmente cobertos",
   "recall.answerCheck.reason.closeMatch":
     "A tua resposta fica perto da resposta esperada e cobre a maioria dos termos distintivos.",
   "recall.answerCheck.reason.exactMatch":
     "A tua formulacao coincide muito de perto com a resposta esperada.",
+  "recall.answerCheck.reason.keyIdeasCovered":
+    "A tua resposta cobre as Key Ideas guardadas para esta nota de estudo.",
   "recall.answerCheck.reason.lowCoverage":
     "A tua resposta quase nao coincide com a resposta esperada.",
   "recall.answerCheck.reason.partialMatch":
     "A tua resposta sobrepoe-se a resposta esperada, mas podem faltar detalhes importantes.",
+  "recall.answerCheck.reason.requiredKeyIdeaMissing":
+    "Ainda falta uma Key Idea obrigatoria na tua resposta.",
   "recall.answerCheck.reason.shortAttempt":
     "A tua resposta e curta para esta resposta esperada, por isso a orientacao fica conservadora.",
+  "recall.answerCheck.reason.supportingKeyIdeaPartial":
+    "As Key Ideas obrigatorias estao cobertas, mas algumas ideias de apoio estao apenas parcialmente cobertas ou ainda em falta.",
   "recall.answerCheck.status.likelyCorrect": "Provavelmente correta",
   "recall.answerCheck.status.likelyIncomplete": "Provavelmente incompleta",
   "recall.answerCheck.status.uncertain": "Incerta",
@@ -1671,18 +1689,27 @@ const spanishTranslations = {
   "recall.answerCheck.confidence.high": "Confianza alta",
   "recall.answerCheck.confidence.low": "Confianza baja",
   "recall.answerCheck.confidence.medium": "Confianza media",
+  "recall.answerCheck.coveredConcepts": "Conceptos cubiertos",
   "recall.answerCheck.matchedTerms": "Terminos coincidentes",
+  "recall.answerCheck.missingConcepts": "Todavia falta",
   "recall.answerCheck.missingTerms": "Todavia falta",
+  "recall.answerCheck.partialConcepts": "Parcialmente cubiertos",
   "recall.answerCheck.reason.closeMatch":
     "Tu respuesta se mantiene cerca de la respuesta esperada y cubre la mayoria de los terminos distintivos.",
   "recall.answerCheck.reason.exactMatch":
     "Tu redaccion coincide muy de cerca con la respuesta esperada.",
+  "recall.answerCheck.reason.keyIdeasCovered":
+    "Tu respuesta cubre las Key Ideas guardadas para esta nota de estudio.",
   "recall.answerCheck.reason.lowCoverage":
     "Tu respuesta tiene muy poca coincidencia con la respuesta esperada.",
   "recall.answerCheck.reason.partialMatch":
     "Tu respuesta se superpone con la respuesta esperada, pero aun pueden faltar detalles importantes.",
+  "recall.answerCheck.reason.requiredKeyIdeaMissing":
+    "Todavia falta una Key Idea obligatoria en tu respuesta.",
   "recall.answerCheck.reason.shortAttempt":
     "Tu respuesta es corta para esta respuesta esperada, asi que la orientacion se mantiene conservadora.",
+  "recall.answerCheck.reason.supportingKeyIdeaPartial":
+    "Las Key Ideas obligatorias estan cubiertas, pero algunas ideas de apoyo solo estan parcialmente cubiertas o todavia faltan.",
   "recall.answerCheck.status.likelyCorrect": "Probablemente correcta",
   "recall.answerCheck.status.likelyIncomplete": "Probablemente incompleta",
   "recall.answerCheck.status.uncertain": "Incierta",

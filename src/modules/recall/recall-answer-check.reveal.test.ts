@@ -20,7 +20,12 @@ function createMemoryStorage() {
   };
 }
 
-function createRecallableStudyNote() {
+function createRecallableStudyNote(input?: {
+  expectedAnswer?: string;
+  keyIdeas?: Parameters<
+    ReturnType<typeof createAppStudyNotesContext>["updateStudyNote"]
+  >[2]["keyIdeas"];
+}) {
   const storage = createMemoryStorage();
   const notes = createAppNotesContext({
     keyPrefix: "recall-answer-check-source-notes",
@@ -46,8 +51,9 @@ function createRecallableStudyNote() {
     acceptedVariants: [],
     acronyms: [],
     expectedAnswer:
+      input?.expectedAnswer ??
       "Retrieval practice strengthens access to long-term memory.",
-    keyIdeas: [],
+    keyIdeas: input?.keyIdeas ?? [],
     labelIds: [],
     metaphors: [],
     prompt: "What does retrieval practice strengthen?",
@@ -84,10 +90,70 @@ describe("FlashCard Answer Check on reveal", () => {
     });
 
     expect(revealedSession.questions[0]?.answerCheck).toMatchObject({
-      algorithmVersion: "baseline_expected_answer_v1",
-      confidence: "high",
+      algorithmVersion: "key_idea_coverage_v1",
+      confidence: "medium",
       status: "likely_correct",
       suggestedSelfRating: "good",
+    });
+  });
+
+  it("returns Key Idea concept coverage on reveal when the Study Note defines it", () => {
+    const { recall, studyNote, userId } = createRecallableStudyNote({
+      expectedAnswer:
+        "Retrieval practice strengthens long-term memory through effortful recall.",
+      keyIdeas: [
+        {
+          acceptedPhrases: [],
+          id: "key-idea-memory",
+          importance: "required",
+          prohibitedPhrases: [],
+          text: "long-term memory",
+        },
+        {
+          acceptedPhrases: [],
+          id: "key-idea-effortful",
+          importance: "required",
+          prohibitedPhrases: [],
+          text: "effortful recall",
+        },
+      ],
+    });
+    const session = recall.startFlashCardSession({
+      studyNoteIds: [studyNote.id],
+      userId,
+    });
+
+    recall.updateFlashCardAttemptText({
+      sessionId: session.id,
+      text: "Retrieval practice strengthens long-term memory.",
+      userId,
+    });
+
+    const revealedSession = recall.revealFlashCardAnswer({
+      sessionId: session.id,
+      userId,
+    });
+
+    expect(revealedSession.questions[0]?.answerCheck).toMatchObject({
+      confidence: "medium",
+      primaryReason: "key_idea_required_missing",
+      status: "likely_incomplete",
+      evidence: {
+        coveredConcepts: [
+          {
+            id: "key-idea-memory",
+            importance: "required",
+            text: "long-term memory",
+          },
+        ],
+        missingConcepts: [
+          {
+            id: "key-idea-effortful",
+            importance: "required",
+            text: "effortful recall",
+          },
+        ],
+      },
     });
   });
 
