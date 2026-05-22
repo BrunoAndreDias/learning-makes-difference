@@ -25,6 +25,7 @@ import {
   listStudyNotesForUser,
   type UpdateStudyNoteInput,
 } from "../study-notes";
+import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import {
   getRecallRatingTone,
   getRecallRatingTranslationKey,
@@ -777,11 +778,14 @@ export function RecallPracticeRepairWorkspacePage({
     practiceRepairAction?: PracticeRepairIntent,
   ) {
     void navigate({
+      params: {
+        studyNoteId: entry.reference.studyNoteId,
+      },
       search: createStudyNotesPracticeRepairSearch({
         practiceRepairAction,
         practiceRepairEntryId,
       }),
-      to: "/study-notes",
+      to: appRoutePaths.studyNoteEditor,
     });
   }
 
@@ -841,10 +845,13 @@ export function RecallPracticeRepairWorkspacePage({
                       ? "recall-practice-repair-workspace__view-note"
                       : undefined
                   }
+                  params={{
+                    studyNoteId: entry.reference.studyNoteId,
+                  }}
                   search={createStudyNotesPracticeRepairSearch({
                     practiceRepairEntryId,
                   })}
-                  to="/study-notes"
+                  to={appRoutePaths.studyNoteEditor}
                   variant="secondary"
                 >
                   {lifecycleKind === "active" ? (

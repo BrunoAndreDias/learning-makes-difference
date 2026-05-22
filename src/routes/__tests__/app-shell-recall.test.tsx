@@ -452,6 +452,10 @@ function getPracticeRepairEntryPath(
   return `/practice-repair/${createPracticeRepairEntryId(reference)}`;
 }
 
+function getStudyNoteEditorPath(studyNoteId: string) {
+  return `/study-notes/${studyNoteId}`;
+}
+
 function getConfirmedPracticeRepairPath(result: SessionResult) {
   return getPracticeRepairEntryPath(
     getConfirmedPracticeRepairReference(result),
@@ -1427,7 +1431,7 @@ describe("authenticated recall workspace", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View note" })).toHaveAttribute(
       "href",
-      "/study-notes",
+      getStudyNoteEditorPath(weakStudyNote.id),
     );
     expect(
       screen.getByRole("heading", {
@@ -1539,7 +1543,9 @@ describe("authenticated recall workspace", () => {
     fireEvent.keyDown(editExpectedAnswerButton, { key: "Enter" });
 
     await waitFor(() => {
-      expect(routeRender.router.state.location.pathname).toBe("/study-notes");
+      expect(routeRender.router.state.location.pathname).toBe(
+        getStudyNoteEditorPath(weakStudyNote.id),
+      );
     });
     expect(
       contexts.recallContext.listActivePracticeRepairEntriesForStudyNote({
@@ -2034,7 +2040,9 @@ describe("authenticated recall workspace", () => {
     );
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/study-notes");
+      expect(router.state.location.pathname).toBe(
+        getStudyNoteEditorPath(candidateStudyNote.id),
+      );
     });
     expect(
       contexts.recallContext.listActivePracticeRepairEntriesForStudyNote({

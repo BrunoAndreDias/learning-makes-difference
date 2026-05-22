@@ -285,6 +285,10 @@ function getPracticeRepairEntryPath(
   return `/practice-repair/${createPracticeRepairEntryId(reference)}`;
 }
 
+function getStudyNoteEditorPath(studyNoteId: string) {
+  return `/study-notes/${studyNoteId}`;
+}
+
 function expectPracticeRepairReturnLink(
   reference: NonNullable<
     SessionResult["questions"][number]["practiceRepairEntry"]
@@ -363,7 +367,7 @@ function renderLinkedPracticeRepairRoute(input: {
   const practiceRepairEntryId =
     getConfirmedPracticeRepairEntryId(confirmedResult);
   const { router } = renderRoute(
-    `/study-notes?practiceRepairEntryId=${practiceRepairEntryId}&practiceRepairAction=${input.intent}`,
+    `${getStudyNoteEditorPath(studyNote.id)}?practiceRepairEntryId=${practiceRepairEntryId}&practiceRepairAction=${input.intent}`,
     {
       ...input.contexts,
       session: {
@@ -536,7 +540,7 @@ afterEach(() => {
 });
 
 describe("authenticated Study Notes workspace", () => {
-  it("selects a Study Note from URL search and focuses the expected answer field", async () => {
+  it("loads a Study Note from the dedicated editor URL and focuses the expected answer field", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const user = {
       displayName: "Study Notes User",
@@ -561,7 +565,7 @@ describe("authenticated Study Notes workspace", () => {
     });
 
     renderStudyNotesRoutePathForUser(
-      `/study-notes?focus=expected-answer&studyNoteId=${incompleteStudyNote.id}`,
+      `${getStudyNoteEditorPath(incompleteStudyNote.id)}?focus=expected-answer`,
       contexts,
       user,
     );
@@ -1110,14 +1114,13 @@ describe("authenticated Study Notes workspace", () => {
     confirmSpy.mockRestore();
   });
 
-  it("creates, edits, and saves a Study Note without rewriting source fields into Study Note fields", async () => {
+  it("creates from the dedicated create route and preserves Study Note and source fields after redirecting to the dedicated editor route", async () => {
     const studyNotesContext = createAppStudyNotesContext({
       keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
     });
     const userId = "user-jordan";
-
-    renderRoute("/study-notes", {
+    const { router } = renderRoute("/study-notes/new", {
       session: {
         user: {
           displayName: "Jordan Review",
@@ -1129,9 +1132,6 @@ describe("authenticated Study Notes workspace", () => {
       studyNotesContext,
     });
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "New Study Note" }),
-    );
     await waitFor(() =>
       expect(screen.getByLabelText("Prompt")).toHaveValue(""),
     );
@@ -1163,8 +1163,16 @@ describe("authenticated Study Notes workspace", () => {
     });
     fireEvent.click(saveButton);
 
+    const savedStudyNote = studyNotesContext.getSnapshot()[0];
+
+    if (savedStudyNote === undefined) {
+      throw new Error("Expected a saved Study Note.");
+    }
+
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("Saved just now"),
+      expect(router.state.location.pathname).toBe(
+        getStudyNoteEditorPath(savedStudyNote.id),
+      ),
     );
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull(),
@@ -1785,6 +1793,132 @@ describe("authenticated Study Notes workspace", () => {
     expect(
       screen.queryByRole("button", { name: "Save changes" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("creates a Study Note from /study-notes/new and redirects to its dedicated editor route", async () => {
+    const studyNotesContext = createAppStudyNotesContext({
+      keyPrefix: `test-study-notes-new-route-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-study-note-new-route";
+    const { router } = renderRoute("/study-notes/new", {
+      session: {
+        user: {
+          displayName: "Jordan New Route",
+          email: "jordan.new.route@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+      studyNotesContext,
+    });
+
+    expect(await screen.findByLabelText("Prompt")).toHaveValue("");
+    expect(screen.getByLabelText("Expected answer")).toHaveValue("");
+
+    fireEvent.change(screen.getByLabelText("Prompt"), {
+      target: { value: "What stores transferable energy for cell work?" },
+    });
+    fireEvent.change(screen.getByLabelText("Expected answer"), {
+      target: { value: "ATP stores transferable energy for cell work." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(studyNotesContext.getSnapshot()).toHaveLength(1),
+    );
+
+    const createdStudyNote = studyNotesContext.getSnapshot()[0];
+
+    if (createdStudyNote === undefined) {
+      throw new Error("Expected a created Study Note.");
+    }
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        getStudyNoteEditorPath(createdStudyNote.id),
+      ),
+    );
+    expect(screen.getByLabelText("Prompt")).toHaveValue(
+      "What stores transferable energy for cell work?",
+    );
+    expect(screen.getByLabelText("Expected answer")).toHaveValue(
+      "ATP stores transferable energy for cell work.",
+    );
+  });
+
+  it("edits an existing Study Note from /study-notes/$studyNoteId and saves the updated fields", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const user = {
+      displayName: "Jordan Direct Edit",
+      email: "jordan.direct.edit@example.com",
+      id: "user-study-note-direct-edit",
+      userLanguage: "en",
+    } as const;
+    const studyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Original expected answer.",
+      prompt: "Original prompt",
+      sourceBody: "Original source body.",
+      sourceTitle: "Original source title",
+      userId: user.id,
+    });
+    const { router } = renderRoute(getStudyNoteEditorPath(studyNote.id), {
+      ...contexts,
+      session: { user },
+    });
+
+    expect(await screen.findByLabelText("Prompt")).toHaveValue(
+      "Original prompt",
+    );
+    expect(screen.getByLabelText("Expected answer")).toHaveValue(
+      "Original expected answer.",
+    );
+
+    fireEvent.change(screen.getByLabelText("Prompt"), {
+      target: { value: "Updated prompt" },
+    });
+    fireEvent.change(screen.getByLabelText("Expected answer"), {
+      target: { value: "Updated expected answer." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("Saved just now"),
+    );
+    expect(router.state.location.pathname).toBe(
+      getStudyNoteEditorPath(studyNote.id),
+    );
+    expect(contexts.studyNotesContext.getSnapshot()).toContainEqual(
+      expect.objectContaining({
+        expectedAnswer: "Updated expected answer.",
+        id: studyNote.id,
+        prompt: "Updated prompt",
+      }),
+    );
+  });
+
+  it("shows a clear missing state for an unknown dedicated Study Note editor URL", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const user = {
+      displayName: "Jordan Missing Note",
+      email: "jordan.missing.note@example.com",
+      id: "user-study-note-missing",
+      userLanguage: "en",
+    } as const;
+
+    renderStudyNotesRoutePathForUser(
+      getStudyNoteEditorPath("missing-study-note"),
+      contexts,
+      user,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Study Note not found" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Prompt")).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Back to Study Notes" }),
+    ).toHaveAttribute("href", "/study-notes");
   });
 
   it("keeps optional support sections quiet until the user edits their fields", async () => {
@@ -3365,7 +3499,10 @@ describe("authenticated Study Notes workspace", () => {
         "Practice Repair completed",
       ),
     );
-    expect(router.state.location.pathname).toBe("/study-notes");
+    const createdSibling = getCreatedSiblingStudyNote(contexts, studyNote);
+    expect(router.state.location.pathname).toBe(
+      getStudyNoteEditorPath(createdSibling.id),
+    );
     expect(await screen.findByLabelText("Prompt")).toHaveValue(
       "Linked sibling source",
     );
@@ -3373,7 +3510,6 @@ describe("authenticated Study Notes workspace", () => {
 
     const allStudyNotes = contexts.studyNotesContext.getSnapshot();
     expect(allStudyNotes).toHaveLength(3);
-    const createdSibling = getCreatedSiblingStudyNote(contexts, studyNote);
     expect(createdSibling.sourceNoteId).toBe(studyNote.sourceNoteId);
     expect(
       contexts.recallContext.listPracticeRepairEntriesForQuestion({
@@ -3460,7 +3596,9 @@ describe("authenticated Study Notes workspace", () => {
         "Practice Repair completed",
       ),
     );
-    expect(router.state.location.pathname).toBe("/study-notes");
+    expect(router.state.location.pathname).toBe(
+      getStudyNoteEditorPath(studyNote.id),
+    );
     expectPracticeRepairReturnLink(confirmedReference);
     expect(
       contexts.recallContext.listPracticeRepairEntriesForQuestion({
@@ -3518,7 +3656,9 @@ describe("authenticated Study Notes workspace", () => {
         "Practice Repair completed",
       ),
     );
-    expect(router.state.location.pathname).toBe("/study-notes");
+    expect(router.state.location.pathname).toBe(
+      getStudyNoteEditorPath(confirmedReference.studyNoteId),
+    );
     expectPracticeRepairReturnLink(confirmedReference);
     expect(
       contexts.recallContext.listPracticeRepairEntriesForQuestion({
@@ -3576,7 +3716,9 @@ describe("authenticated Study Notes workspace", () => {
         "Practice Repair completed",
       ),
     );
-    expect(router.state.location.pathname).toBe("/study-notes");
+    expect(router.state.location.pathname).toBe(
+      getStudyNoteEditorPath(confirmedReference.studyNoteId),
+    );
     expectPracticeRepairReturnLink(confirmedReference);
     expect(
       contexts.recallContext.listPracticeRepairEntriesForQuestion({

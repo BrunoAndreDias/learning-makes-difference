@@ -10,6 +10,8 @@ export const appRoutePaths = {
   recallSession: "/recall/session",
   register: "/register",
   settings: "/settings",
+  studyNoteEditor: "/study-notes/$studyNoteId",
+  studyNotesNew: "/study-notes/new",
   studyNotes: "/study-notes",
   today: "/today",
 } as const;

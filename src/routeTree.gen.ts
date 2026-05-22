@@ -22,6 +22,8 @@ import { Route as modulesAccessSessionRegisterRouteRouteImport } from './modules
 import { Route as modulesAccessSessionLoginRouteRouteImport } from './modules/access/session/login-route'
 import { Route as modulesAccessSessionForgotPasswordRouteRouteImport } from './modules/access/session/forgot-password-route'
 import { Route as modulesAccessPublicEntryPublicIndexRouteRouteImport } from './modules/access/public-entry/public-index-route'
+import { Route as modulesStudyNotesStudyNoteCreateRouteRouteImport } from './modules/study-notes/study-note-create-route'
+import { Route as modulesStudyNotesStudyNoteEditRouteRouteImport } from './modules/study-notes/study-note-edit-route'
 import { Route as modulesRecallRecallSessionRouteRouteImport } from './modules/recall/recall-session-route'
 import { Route as modulesRecallRecallSelectionRouteRouteImport } from './modules/recall/recall-selection-route'
 import { Route as modulesRecallRecallResultsRouteRouteImport } from './modules/recall/recall-results-route'
@@ -104,6 +106,18 @@ const modulesAccessPublicEntryPublicIndexRouteRoute =
     path: '/',
     getParentRoute: () => modulesAccessPublicEntryPublicLayoutRouteRoute,
   } as any)
+const modulesStudyNotesStudyNoteCreateRouteRoute =
+  modulesStudyNotesStudyNoteCreateRouteRouteImport.update({
+    id: '/study-notes/new',
+    path: '/study-notes/new',
+    getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
+  } as any)
+const modulesStudyNotesStudyNoteEditRouteRoute =
+  modulesStudyNotesStudyNoteEditRouteRouteImport.update({
+    id: '/study-notes/$studyNoteId',
+    path: '/study-notes/$studyNoteId',
+    getParentRoute: () => modulesWorkspaceShellAppShellProtectedRouteRoute,
+  } as any)
 const modulesRecallRecallSessionRouteRoute =
   modulesRecallRecallSessionRouteRouteImport.update({
     id: '/session',
@@ -164,6 +178,8 @@ export interface FileRoutesByFullPath {
   '/recall/results': typeof modulesRecallRecallResultsRouteRoute
   '/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/recall/session': typeof modulesRecallRecallSessionRouteRoute
+  '/study-notes/$studyNoteId': typeof modulesStudyNotesStudyNoteEditRouteRoute
+  '/study-notes/new': typeof modulesStudyNotesStudyNoteCreateRouteRoute
   '/practice-repair/results/$sessionResultId/questions/$questionResultId': typeof modulesRecallRecallPracticeRepairDraftRouteRoute
 }
 export interface FileRoutesByTo {
@@ -182,6 +198,8 @@ export interface FileRoutesByTo {
   '/recall/results': typeof modulesRecallRecallResultsRouteRoute
   '/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/recall/session': typeof modulesRecallRecallSessionRouteRoute
+  '/study-notes/$studyNoteId': typeof modulesStudyNotesStudyNoteEditRouteRoute
+  '/study-notes/new': typeof modulesStudyNotesStudyNoteCreateRouteRoute
   '/practice-repair/results/$sessionResultId/questions/$questionResultId': typeof modulesRecallRecallPracticeRepairDraftRouteRoute
 }
 export interface FileRoutesById {
@@ -205,6 +223,8 @@ export interface FileRoutesById {
   '/_protected/recall/results': typeof modulesRecallRecallResultsRouteRoute
   '/_protected/recall/select': typeof modulesRecallRecallSelectionRouteRoute
   '/_protected/recall/session': typeof modulesRecallRecallSessionRouteRoute
+  '/_protected/study-notes/$studyNoteId': typeof modulesStudyNotesStudyNoteEditRouteRoute
+  '/_protected/study-notes/new': typeof modulesStudyNotesStudyNoteCreateRouteRoute
   '/_protected/practice-repair/results/$sessionResultId/questions/$questionResultId': typeof modulesRecallRecallPracticeRepairDraftRouteRoute
 }
 export interface FileRouteTypes {
@@ -226,6 +246,8 @@ export interface FileRouteTypes {
     | '/recall/results'
     | '/recall/select'
     | '/recall/session'
+    | '/study-notes/$studyNoteId'
+    | '/study-notes/new'
     | '/practice-repair/results/$sessionResultId/questions/$questionResultId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -244,6 +266,8 @@ export interface FileRouteTypes {
     | '/recall/results'
     | '/recall/select'
     | '/recall/session'
+    | '/study-notes/$studyNoteId'
+    | '/study-notes/new'
     | '/practice-repair/results/$sessionResultId/questions/$questionResultId'
   id:
     | '__root__'
@@ -266,6 +290,8 @@ export interface FileRouteTypes {
     | '/_protected/recall/results'
     | '/_protected/recall/select'
     | '/_protected/recall/session'
+    | '/_protected/study-notes/$studyNoteId'
+    | '/_protected/study-notes/new'
     | '/_protected/practice-repair/results/$sessionResultId/questions/$questionResultId'
   fileRoutesById: FileRoutesById
 }
@@ -367,6 +393,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof modulesAccessPublicEntryPublicIndexRouteRouteImport
       parentRoute: typeof modulesAccessPublicEntryPublicLayoutRouteRoute
+    }
+    '/_protected/study-notes/new': {
+      id: '/_protected/study-notes/new'
+      path: '/study-notes/new'
+      fullPath: '/study-notes/new'
+      preLoaderRoute: typeof modulesStudyNotesStudyNoteCreateRouteRouteImport
+      parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
+    }
+    '/_protected/study-notes/$studyNoteId': {
+      id: '/_protected/study-notes/$studyNoteId'
+      path: '/study-notes/$studyNoteId'
+      fullPath: '/study-notes/$studyNoteId'
+      preLoaderRoute: typeof modulesStudyNotesStudyNoteEditRouteRouteImport
+      parentRoute: typeof modulesWorkspaceShellAppShellProtectedRouteRoute
     }
     '/_protected/recall/session': {
       id: '/_protected/recall/session'
@@ -472,6 +512,8 @@ interface modulesWorkspaceShellAppShellProtectedRouteRouteChildren {
   modulesStudyNotesStudyNotesRouteRoute: typeof modulesStudyNotesStudyNotesRouteRoute
   modulesStudyGuidanceStudyGuidanceRouteRoute: typeof modulesStudyGuidanceStudyGuidanceRouteRoute
   modulesRecallRecallPracticeRepairRouteRoute: typeof modulesRecallRecallPracticeRepairRouteRoute
+  modulesStudyNotesStudyNoteEditRouteRoute: typeof modulesStudyNotesStudyNoteEditRouteRoute
+  modulesStudyNotesStudyNoteCreateRouteRoute: typeof modulesStudyNotesStudyNoteCreateRouteRoute
   modulesRecallRecallPracticeRepairDraftRouteRoute: typeof modulesRecallRecallPracticeRepairDraftRouteRoute
 }
 
@@ -489,6 +531,10 @@ const modulesWorkspaceShellAppShellProtectedRouteRouteChildren: modulesWorkspace
       modulesStudyGuidanceStudyGuidanceRouteRoute,
     modulesRecallRecallPracticeRepairRouteRoute:
       modulesRecallRecallPracticeRepairRouteRoute,
+    modulesStudyNotesStudyNoteEditRouteRoute:
+      modulesStudyNotesStudyNoteEditRouteRoute,
+    modulesStudyNotesStudyNoteCreateRouteRoute:
+      modulesStudyNotesStudyNoteCreateRouteRoute,
     modulesRecallRecallPracticeRepairDraftRouteRoute:
       modulesRecallRecallPracticeRepairDraftRouteRoute,
   }

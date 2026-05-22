@@ -11,6 +11,7 @@ import { PageLayout } from "../../design-system/page-layout";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { useAppTranslation } from "../language";
 import { listStudyNotesForUser } from "../study-notes";
+import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import {
   getRecallRatingTone,
   getRecallRatingTranslationKey,
@@ -358,11 +359,14 @@ function RecallPracticeRepairDraftPage({
       }
 
       await navigate({
+        params: {
+          studyNoteId: question.noteId,
+        },
         search: createStudyNotesPracticeRepairSearch({
           practiceRepairAction: intent,
           practiceRepairEntryId: getDraftPracticeRepairEntryId(workspace),
         }),
-        to: "/study-notes",
+        to: appRoutePaths.studyNoteEditor,
       });
     } catch (error) {
       setErrorMessage(
@@ -453,7 +457,10 @@ function RecallPracticeRepairDraftPage({
 
               <ButtonLink
                 className="recall-practice-repair-workspace__view-note"
-                to="/study-notes"
+                params={{
+                  studyNoteId: question.noteId,
+                }}
+                to={appRoutePaths.studyNoteEditor}
                 variant="secondary"
               >
                 <span>View note</span>

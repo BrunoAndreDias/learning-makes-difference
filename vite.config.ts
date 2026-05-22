@@ -66,6 +66,16 @@ export default defineConfig({
                 },
                 {
                   type: "route",
+                  path: "/study-notes/new",
+                  file: "modules/study-notes/study-note-create-route.tsx",
+                },
+                {
+                  type: "route",
+                  path: "/study-notes/$studyNoteId",
+                  file: "modules/study-notes/study-note-edit-route.tsx",
+                },
+                {
+                  type: "route",
                   path: "/focus",
                   file: "modules/focus/focus-route.tsx",
                 },

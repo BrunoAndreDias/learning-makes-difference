@@ -15,6 +15,12 @@ describe("route tree", () => {
     expect(generatedRouteTree).toContain(
       "modules/study-notes/study-notes-route",
     );
+    expect(generatedRouteTree).toContain(
+      "modules/study-notes/study-note-create-route",
+    );
+    expect(generatedRouteTree).toContain(
+      "modules/study-notes/study-note-edit-route",
+    );
     expect(generatedRouteTree).not.toContain(
       "modules/notes/notes-workspace/notes-route",
     );
@@ -53,6 +59,12 @@ describe("route tree", () => {
     );
     expect(generatedRouteTree).toContain(
       "'/study-notes': typeof modulesStudyNotesStudyNotesRouteRoute",
+    );
+    expect(generatedRouteTree).toContain(
+      "'/study-notes/new': typeof modulesStudyNotesStudyNoteCreateRouteRoute",
+    );
+    expect(generatedRouteTree).toContain(
+      "'/study-notes/$studyNoteId': typeof modulesStudyNotesStudyNoteEditRouteRoute",
     );
     expect(generatedRouteTree).not.toContain(
       "'/notes': typeof modulesNotesNotesWorkspaceNotesRouteRoute",
