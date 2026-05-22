@@ -11,6 +11,7 @@ import {
   type AppPersistentRecallService,
   createAppRecallContext,
   createPersistentRecallContext,
+  type RecallAnswerCheckResult,
   type RecallNoteSnapshot,
   type RecallQuestion,
   type RecallSelfRating,
@@ -1138,6 +1139,226 @@ describe("authenticated recall workspace", () => {
     expect(screen.queryByText("Edited ATP prompt?")).toBeNull();
     expect(screen.queryByText("Edited ATP answer.")).toBeNull();
     expect(screen.queryByText("Edited ATP source context.")).toBeNull();
+  });
+
+  it("shows persisted Answer Check guidance in Results review without recomputing from later Study Note edits", async () => {
+    const storageKeyPrefix = `test-results-answer-check-${Math.random()
+      .toString(36)
+      .slice(2)}`;
+    const contexts =
+      createPersistentStudyNoteRecallTestContexts(storageKeyPrefix);
+    const createdStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        labelIds: [],
+        sourceBody: "Retrieval practice source context.",
+        sourceTitle: "Retrieval practice",
+      },
+    );
+    const studyNote = contexts.studyNotesContext.updateStudyNote(
+      testUser.id,
+      createdStudyNote.id,
+      {
+        acceptedVariants: [],
+        acronyms: [],
+        expectedAnswer:
+          "Retrieval practice strengthens long-term memory through effortful recall.",
+        keyIdeas: [],
+        labelIds: [],
+        metaphors: [],
+        prompt: "What does retrieval practice strengthen?",
+        prohibitedPhrases: [],
+        sourceBody: "Retrieval practice source context.",
+        sourceTitle: "Retrieval practice",
+      },
+    );
+    const historicalNote = createStoredRecallNote({
+      body: studyNote.expectedAnswer,
+      expectedAnswer: studyNote.expectedAnswer,
+      id: studyNote.id,
+      prompt: studyNote.prompt,
+      source: {
+        body: "Retrieval practice source context.",
+        id: studyNote.sourceNoteId,
+        title: "Retrieval practice",
+        updatedAt: studyNote.updatedAt,
+      },
+      sourceNoteId: studyNote.sourceNoteId,
+      title: studyNote.prompt,
+    });
+    const historicalAnswerCheck = {
+      algorithmVersion: "key_idea_accepted_variant_and_contradiction_guard_v5",
+      confidence: "medium",
+      evidence: {
+        coveredConcepts: [
+          {
+            id: "key-idea-memory",
+            importance: "required",
+            text: "long-term memory",
+          },
+        ],
+        contradictedConcepts: [
+          {
+            id: "key-idea-direction",
+            importance: "required",
+            text: "increase diffusion speed",
+          },
+        ],
+        detectedContradictions: [
+          {
+            answerText: "decrease",
+            concept: {
+              id: "key-idea-direction",
+              importance: "required",
+              text: "increase diffusion speed",
+            },
+            referenceText: "increase",
+            scope: "key_idea",
+            type: "opposition",
+          },
+        ],
+        matchedExpectedTerms: ["retrieval practice", "long-term memory"],
+        matchedProhibitedPhrases: [
+          {
+            scope: "study_note",
+            text: "passive review",
+          },
+        ],
+        missingConcepts: [
+          {
+            id: "key-idea-effortful",
+            importance: "required",
+            text: "effortful recall",
+          },
+        ],
+        missingExpectedTerms: ["effortful recall"],
+        phraseCoverage: 0.42,
+        tfidfCosineSimilarity: 0.38,
+        tokenCoverage: 0.52,
+      },
+      primaryReason: "built_in_contradiction_guard",
+      status: "uncertain",
+      suggestedSelfRating: "hard",
+    } satisfies RecallAnswerCheckResult;
+    const storedResult = createStoredSessionResult({
+      id: "stored-answer-check-result",
+      note: historicalNote,
+      notes: [historicalNote],
+      questions: [
+        {
+          ...createStoredRecallQuestion({
+            note: historicalNote,
+            score: 75,
+            selfRating: "good",
+          }),
+          answerCheck: historicalAnswerCheck,
+          noteId: historicalNote.id,
+          questionResultId: "stored-answer-check-result-question-0",
+          typedAnswer:
+            "Retrieval practice is passive review that decreases diffusion speed.",
+        },
+      ],
+      rating: "good",
+      score: 75,
+    });
+
+    contexts.studyNotesContext.updateStudyNote(testUser.id, studyNote.id, {
+      acceptedVariants: [],
+      acronyms: [],
+      expectedAnswer: "Changed later answer.",
+      keyIdeas: [
+        {
+          acceptedPhrases: [],
+          id: "key-idea-changed",
+          importance: "required",
+          prohibitedPhrases: [],
+          text: "changed later idea",
+        },
+      ],
+      labelIds: [],
+      metaphors: [],
+      prompt: "Changed later prompt?",
+      prohibitedPhrases: [
+        {
+          id: "study-note-prohibited-changed",
+          text: "changed later prohibited phrase",
+        },
+      ],
+      sourceBody: "Changed later source context.",
+      sourceTitle: "Changed later source",
+    });
+
+    window.localStorage.setItem(
+      `${storageKeyPrefix}-recall:session-results`,
+      JSON.stringify([{ ...storedResult, userId: testUser.id }]),
+    );
+
+    renderRoute("/recall/results", {
+      labelsContext: contexts.labelsContext,
+      notesContext: contexts.notesContext,
+      recallContext: contexts.createRecallContext(),
+      session: createSession(),
+      studyNotesContext: contexts.studyNotesContext,
+    });
+
+    const selectedResult = await screen.findByRole("region", {
+      name: "Selected result",
+    });
+
+    fireEvent.click(
+      within(selectedResult).getByRole("button", {
+        name: /What does retrieval practice strengthen\?/i,
+      }),
+    );
+
+    const selectedResultView = within(selectedResult);
+
+    expect(selectedResultView.getByText("Answer Check")).toBeInTheDocument();
+    expect(
+      selectedResultView.getByText("Guidance only. Keep your own self-rating."),
+    ).toBeInTheDocument();
+    expect(selectedResultView.getByText("Uncertain")).toBeInTheDocument();
+    expect(
+      selectedResultView.getByText("Medium confidence"),
+    ).toBeInTheDocument();
+    expect(
+      selectedResultView.getByText("Suggested self-rating"),
+    ).toBeInTheDocument();
+    expect(selectedResultView.getByText("Hard")).toBeInTheDocument();
+    expect(
+      selectedResultView.getByText("Algorithm version"),
+    ).toBeInTheDocument();
+    expect(
+      selectedResultView.getByText(
+        "key_idea_accepted_variant_and_contradiction_guard_v5",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      selectedResultView.getByText(
+        "Retrieval practice strengthens long-term memory through effortful recall.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      selectedResultView.getByText("increase -> decrease"),
+    ).toBeInTheDocument();
+    expect(
+      selectedResultView.getByText("increase diffusion speed"),
+    ).toBeInTheDocument();
+    expect(
+      selectedResultView.getByText("long-term memory"),
+    ).toBeInTheDocument();
+    expect(
+      selectedResultView.getByText("effortful recall"),
+    ).toBeInTheDocument();
+    expect(selectedResultView.getByText("passive review")).toBeInTheDocument();
+    expect(
+      selectedResultView.getByText(
+        "A built-in contradiction guard detected a direct negation or obvious opposing term, so likely-correct guidance is blocked.",
+      ),
+    ).toBeInTheDocument();
+    expect(selectedResultView.queryByText("Changed later prompt?")).toBeNull();
+    expect(selectedResultView.queryByText("Changed later answer.")).toBeNull();
+    expect(selectedResultView.queryByText("changed later idea")).toBeNull();
   });
 
   it("opens a question-scoped Practice Repair draft under the Repair route from weak Results evidence", async () => {

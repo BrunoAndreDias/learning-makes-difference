@@ -26,6 +26,7 @@ import type {
   RecallQuestion,
   RecallSelfRating,
 } from "./recall";
+import { RecallAnswerCheckPanel } from "./recall-answer-check-panel";
 import { buildDueTodayQueue, type DueTodayQueueItem } from "./recall-due-today";
 import {
   formatPracticeRepairIntentLabel,
@@ -2287,6 +2288,14 @@ function QuestionReviewDetail({
           {getQuestionExpectedAnswer(question)}
         </p>
       </div>
+      {question.answerCheck !== undefined ? (
+        <div className="recall-selected-result__question-detail-block">
+          <RecallAnswerCheckPanel
+            answerCheck={question.answerCheck}
+            showAlgorithmVersion
+          />
+        </div>
+      ) : null}
       <div className="recall-selected-result__question-detail-block">
         <p className="recall-selected-result__question-detail-label">
           {t("recall.result.referenceNote")}
