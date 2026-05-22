@@ -272,13 +272,25 @@ export function cloneRecallAnswerCheckResult(
     ...answerCheck,
     evidence: {
       ...answerCheck.evidence,
-      coveredConcepts: [...(answerCheck.evidence.coveredConcepts ?? [])],
+      coveredConcepts: cloneRecallAnswerCheckConcepts(
+        answerCheck.evidence.coveredConcepts,
+      ),
       matchedExpectedTerms: [...answerCheck.evidence.matchedExpectedTerms],
-      missingConcepts: [...(answerCheck.evidence.missingConcepts ?? [])],
+      missingConcepts: cloneRecallAnswerCheckConcepts(
+        answerCheck.evidence.missingConcepts,
+      ),
       missingExpectedTerms: [...answerCheck.evidence.missingExpectedTerms],
-      partialConcepts: [...(answerCheck.evidence.partialConcepts ?? [])],
+      partialConcepts: cloneRecallAnswerCheckConcepts(
+        answerCheck.evidence.partialConcepts,
+      ),
     },
   };
+}
+
+function cloneRecallAnswerCheckConcepts(
+  concepts: readonly RecallAnswerCheckConcept[] | undefined,
+): RecallAnswerCheckConcept[] {
+  return (concepts ?? []).map((concept) => ({ ...concept }));
 }
 
 function normalizeRecallAnswerCheckText(text: string): string {
@@ -734,6 +746,35 @@ function isPartialReferenceMatch(match: AnswerCheckReferenceMatch) {
   );
 }
 
+function isFullTermKeyIdeaMatch(match: AnswerCheckReferenceMatch) {
+  return (
+    match.tokenCoverage >= 1 &&
+    (match.referenceIsShort ||
+      match.phraseCoverage >= 0.25 ||
+      match.tfidfCosineSimilarity >= 0.2 ||
+      match.similarity >= 0.4)
+  );
+}
+
+function isStrongKeyIdeaMatch(match: AnswerCheckReferenceMatch) {
+  return (
+    isStrongReferenceMatch(match) ||
+    (match.tokenCoverage >= 0.82 &&
+      (match.phraseCoverage >= 0.2 ||
+        match.tfidfCosineSimilarity >= 0.2 ||
+        match.similarity >= 0.45))
+  );
+}
+
+function isPartialKeyIdeaMatch(match: AnswerCheckReferenceMatch) {
+  return (
+    match.matchedTerms.length > 0 &&
+    (isPartialReferenceMatch(match) ||
+      match.tfidfCosineSimilarity >= 0.18 ||
+      match.similarity >= 0.32)
+  );
+}
+
 function toRecallAnswerCheckConcept(
   keyIdea: AppStudyNoteKeyIdea,
 ): RecallAnswerCheckConcept {
@@ -758,37 +799,16 @@ function getKeyIdeaCoverageState(input: {
       reference: candidate,
     });
 
-    if (match.exactMatch || match.containsExactPhrase) {
-      return "covered";
-    }
-
     if (
-      match.tokenCoverage >= 1 &&
-      (match.referenceIsShort ||
-        match.phraseCoverage >= 0.25 ||
-        match.tfidfCosineSimilarity >= 0.2 ||
-        match.similarity >= 0.4)
+      match.exactMatch ||
+      match.containsExactPhrase ||
+      isFullTermKeyIdeaMatch(match) ||
+      isStrongKeyIdeaMatch(match)
     ) {
       return "covered";
     }
 
-    if (
-      isStrongReferenceMatch(match) ||
-      (match.tokenCoverage >= 0.82 &&
-        (match.phraseCoverage >= 0.2 ||
-          match.tfidfCosineSimilarity >= 0.2 ||
-          match.similarity >= 0.45))
-    ) {
-      return "covered";
-    }
-
-    if (
-      bestState !== "partial" &&
-      match.matchedTerms.length > 0 &&
-      (isPartialReferenceMatch(match) ||
-        match.tfidfCosineSimilarity >= 0.18 ||
-        match.similarity >= 0.32)
-    ) {
+    if (bestState !== "partial" && isPartialKeyIdeaMatch(match)) {
       bestState = "partial";
     }
   }
@@ -814,26 +834,25 @@ function getKeyIdeaCoverage(input: {
       keyIdea,
     });
 
-    if (coverageState === "covered") {
-      coveredConcepts.push(concept);
-      continue;
+    switch (coverageState) {
+      case "covered":
+        coveredConcepts.push(concept);
+        break;
+      case "partial":
+        partialConcepts.push(concept);
+        if (keyIdea.importance === "required") {
+          requiredPartialCount += 1;
+        }
+        break;
+      case "missing":
+        missingConcepts.push(concept);
+        if (keyIdea.importance === "required") {
+          requiredMissingCount += 1;
+        } else {
+          supportingMissingCount += 1;
+        }
+        break;
     }
-
-    if (coverageState === "partial") {
-      partialConcepts.push(concept);
-      if (keyIdea.importance === "required") {
-        requiredPartialCount += 1;
-      }
-      continue;
-    }
-
-    missingConcepts.push(concept);
-    if (keyIdea.importance === "required") {
-      requiredMissingCount += 1;
-      continue;
-    }
-
-    supportingMissingCount += 1;
   }
 
   return {
@@ -862,7 +881,6 @@ function lowerConfidence(
 function getRecallAnswerCheckAssessment(input: {
   answerIsShort: boolean;
   expectedAnswerMatch: AnswerCheckReferenceMatch;
-  expectedIsShort: boolean;
   isMeaningfulAttempt: boolean;
 }): RecallAnswerCheckAssessment {
   if (input.expectedAnswerMatch.exactMatch) {
@@ -875,7 +893,7 @@ function getRecallAnswerCheckAssessment(input: {
 
   if (
     input.answerIsShort &&
-    !input.expectedIsShort &&
+    !input.expectedAnswerMatch.referenceIsShort &&
     input.expectedAnswerMatch.tokenCoverage < 0.9
   ) {
     return {
@@ -918,45 +936,53 @@ function getRecallAnswerCheckAssessment(input: {
   };
 }
 
+function hasCoveredOrPartialConcepts(
+  coverage: RecallAnswerCheckConceptCoverage,
+) {
+  return (
+    coverage.coveredConcepts.length > 0 || coverage.partialConcepts.length > 0
+  );
+}
+
+function getRequiredKeyIdeaConfidence(
+  coverage: RecallAnswerCheckConceptCoverage,
+): RecallAnswerCheckConfidence {
+  return hasCoveredOrPartialConcepts(coverage) ? "medium" : "low";
+}
+
 function getKeyIdeaAssessment(input: {
   baselineAssessment: RecallAnswerCheckAssessment;
   keyIdeaCoverage: RecallAnswerCheckConceptCoverage;
 }): RecallAnswerCheckAssessment {
-  if (input.keyIdeaCoverage.requiredMissingCount > 0) {
+  const { baselineAssessment, keyIdeaCoverage } = input;
+
+  if (keyIdeaCoverage.requiredMissingCount > 0) {
     return {
-      confidence:
-        input.keyIdeaCoverage.coveredConcepts.length > 0 ||
-        input.keyIdeaCoverage.partialConcepts.length > 0
-          ? "medium"
-          : "low",
+      confidence: getRequiredKeyIdeaConfidence(keyIdeaCoverage),
       primaryReason: "key_idea_required_missing",
       status: "likely_incomplete",
     };
   }
 
-  if (input.keyIdeaCoverage.requiredPartialCount > 0) {
+  if (keyIdeaCoverage.requiredPartialCount > 0) {
     return {
-      confidence:
-        input.keyIdeaCoverage.coveredConcepts.length > 0 ||
-        input.keyIdeaCoverage.partialConcepts.length > 0
-          ? "medium"
-          : "low",
+      confidence: getRequiredKeyIdeaConfidence(keyIdeaCoverage),
       primaryReason: "key_idea_required_missing",
       status: "uncertain",
     };
   }
 
-  if (input.keyIdeaCoverage.coveredConcepts.length === 0) {
+  if (keyIdeaCoverage.coveredConcepts.length === 0) {
     return {
-      confidence: lowerConfidence(input.baselineAssessment.confidence),
-      primaryReason: input.baselineAssessment.primaryReason,
-      status: input.baselineAssessment.status,
+      confidence: lowerConfidence(baselineAssessment.confidence),
+      primaryReason: baselineAssessment.primaryReason,
+      status: baselineAssessment.status,
     };
   }
 
   if (
-    input.keyIdeaCoverage.partialConcepts.length > 0 ||
-    input.keyIdeaCoverage.supportingMissingCount > 0
+    keyIdeaCoverage.partialConcepts.length > 0 ||
+    keyIdeaCoverage.supportingMissingCount > 0
   ) {
     return {
       confidence: "medium",
@@ -966,11 +992,28 @@ function getKeyIdeaAssessment(input: {
   }
 
   return {
-    confidence:
-      input.baselineAssessment.confidence === "high" ? "high" : "medium",
+    confidence: baselineAssessment.confidence === "high" ? "high" : "medium",
     primaryReason: "key_idea_concepts_covered",
     status: "likely_correct",
   };
+}
+
+function getAssessmentForReferenceCoverage(input: {
+  baselineAssessment: RecallAnswerCheckAssessment;
+  keyIdeaCoverage: RecallAnswerCheckConceptCoverage;
+  keyIdeas: readonly AppStudyNoteKeyIdea[];
+}): RecallAnswerCheckAssessment {
+  if (input.keyIdeas.length === 0) {
+    return {
+      ...input.baselineAssessment,
+      confidence: lowerConfidence(input.baselineAssessment.confidence),
+    };
+  }
+
+  return getKeyIdeaAssessment({
+    baselineAssessment: input.baselineAssessment,
+    keyIdeaCoverage: input.keyIdeaCoverage,
+  });
 }
 
 export function scoreRecallAnswerCheck(
@@ -991,8 +1034,6 @@ export function scoreRecallAnswerCheck(
     expectedTerms: expected.terms,
     matchedExpectedTerms: expectedAnswerMatch.matchedTerms,
   });
-  const expectedIsShort =
-    expected.terms.length <= 2 || expected.normalized.length <= 24;
   const answerIsShort =
     answer.terms.length <=
       Math.max(2, Math.floor(expected.terms.length * 0.45)) ||
@@ -1007,7 +1048,6 @@ export function scoreRecallAnswerCheck(
   const baselineAssessment = getRecallAnswerCheckAssessment({
     answerIsShort,
     expectedAnswerMatch,
-    expectedIsShort,
     isMeaningfulAttempt,
   });
   const keyIdeas = input.keyIdeas ?? [];
@@ -1015,16 +1055,11 @@ export function scoreRecallAnswerCheck(
     answer,
     keyIdeas,
   });
-  const assessment =
-    keyIdeas.length === 0
-      ? {
-          ...baselineAssessment,
-          confidence: lowerConfidence(baselineAssessment.confidence),
-        }
-      : getKeyIdeaAssessment({
-          baselineAssessment,
-          keyIdeaCoverage,
-        });
+  const assessment = getAssessmentForReferenceCoverage({
+    baselineAssessment,
+    keyIdeaCoverage,
+    keyIdeas,
+  });
 
   return {
     algorithmVersion: KEY_IDEA_RECALL_ANSWER_CHECK_ALGORITHM_VERSION,
