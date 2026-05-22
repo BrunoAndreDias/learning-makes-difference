@@ -14,10 +14,10 @@ import { getInterleavedRecallRecommendation } from "./interleaved-recall";
 import type { FlashCardRecallAttemptsByNote, SessionResult } from "./recall";
 import { formatNextRecallTiming, type RecallSchedule } from "./recall-schedule";
 import {
-  buildRecallTodayQueue,
-  type RecallTodayQueueItem,
-  type RecallTodayReason,
-} from "./recall-today";
+  type PlannedRecallWorkItem,
+  planRecallWork,
+  type RecallWorkReason,
+} from "./recall-work-planning";
 
 export type RecallGuidanceRecommendationKind =
   | "interleaving-ready"
@@ -39,7 +39,7 @@ export type RecallGuidanceEntry = {
   nextRecall: string;
   notRecalledYet: boolean;
   recallToday: boolean;
-  recallTodayReasons: readonly RecallTodayReason[];
+  recallTodayReasons: readonly RecallWorkReason[];
   recommendation: RecallGuidanceRecommendation;
   studyNote: AppStudyNote;
 };
@@ -182,7 +182,7 @@ export function deriveRecallGuidance(
       learningState,
     ]),
   );
-  const recallTodayQueue = buildRecallTodayQueue({
+  const recallWorkPlan = planRecallWork({
     histories,
     now: input.now,
     recallSchedules: input.recallSchedules,
@@ -195,8 +195,13 @@ export function deriveRecallGuidance(
   );
   const recallTodayQueueItemByStudyNoteId = new Map<
     string,
-    RecallTodayQueueItem
-  >(recallTodayQueue.map((queueItem) => [queueItem.studyNote.id, queueItem]));
+    PlannedRecallWorkItem
+  >(
+    recallWorkPlan.recallTodayQueue.map((queueItem) => [
+      queueItem.studyNote.id,
+      queueItem,
+    ]),
+  );
   const interleavingReadyStudyNoteIds = getInterleavingReadyStudyNoteIds({
     histories,
     studyNotes: recallableStudyNotes,

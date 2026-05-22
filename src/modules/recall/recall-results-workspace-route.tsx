@@ -46,11 +46,10 @@ import { listRecallResultLabels } from "./recall-result-labels";
 import { projectSessionReview } from "./recall-session-review";
 import { searchRecallSessionResults } from "./recall-session-search";
 import {
-  buildRecallTodayQueue,
-  getPrimaryRecallTodayReason,
-  type RecallTodayQueueItem,
-  type RecallTodayReason,
-} from "./recall-today";
+  planRecallWork,
+  type PlannedRecallWorkItem as RecallTodayQueueItem,
+  type RecallWorkReason as RecallTodayReason,
+} from "./recall-work-planning";
 
 const recallSessionSavedMessageKey = "learning-makes-difference:recall-saved";
 const recallModes = ["FlashCard", "AiAssisted", "AiGraded"] as const;
@@ -356,7 +355,7 @@ function buildWorkspaceRecallTodayQueue({
     return [];
   }
 
-  return buildRecallTodayQueue({
+  return planRecallWork({
     histories: toStudyNoteRecallHistories(
       recallContext.listAttemptsByNote({ userId }),
     ),
@@ -365,7 +364,7 @@ function buildWorkspaceRecallTodayQueue({
     sessionResults,
     studyNotes,
     userTimeZone,
-  });
+  }).recallTodayQueue;
 }
 
 async function startWorkspaceFlashCardRecall({
@@ -718,9 +717,7 @@ function getRecallTodayReasonText(reason: RecallTodayReason, t: AppTranslate) {
 }
 
 function getRecallTodayQueueTone(item: RecallTodayQueueItem): QueueTone {
-  const primaryReason = getPrimaryRecallTodayReason(item);
-
-  switch (primaryReason) {
+  switch (item.primaryReason) {
     case "practice-follow-up":
     case "needs-practice":
       return "practice";
@@ -757,9 +754,8 @@ function getRecallTodaySupportingReasonText(
   item: RecallTodayQueueItem,
   t: AppTranslate,
 ) {
-  const primaryReason = getPrimaryRecallTodayReason(item);
   const supportingReason = item.reasons.find(
-    (reason) => reason !== primaryReason,
+    (reason) => reason !== item.primaryReason,
   );
 
   if (supportingReason === undefined) {
@@ -767,7 +763,7 @@ function getRecallTodaySupportingReasonText(
   }
 
   if (
-    primaryReason === "practice-follow-up" &&
+    item.primaryReason === "practice-follow-up" &&
     supportingReason === "needs-practice"
   ) {
     return t("recall.today.reason.supportingNeedsPractice");
@@ -1013,7 +1009,6 @@ function RecallTodayQueueRow({
 }>) {
   const { t } = useAppTranslation();
   const tone = getRecallTodayQueueTone(item);
-  const primaryReason = getPrimaryRecallTodayReason(item);
   const dotCount = getRecallRatingDotCount(item.lastRating);
   const metaLine = getRecallTodayMetaLine({
     item,
@@ -1021,7 +1016,7 @@ function RecallTodayQueueRow({
     t,
   });
   const lastScoreText = getLastScoreText(item.lastRating, t);
-  const reasonText = getRecallTodayReasonText(primaryReason, t);
+  const reasonText = getRecallTodayReasonText(item.primaryReason, t);
 
   return (
     <li className="recall-today-row" data-tone={tone}>

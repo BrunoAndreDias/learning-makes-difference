@@ -57,7 +57,7 @@ import {
   type PracticeRepairQuestionReference,
   practiceRepairIntents,
 } from "../recall/recall-practice-repair";
-import { buildRecallTodayQueue } from "../recall/recall-today";
+import { planRecallWork } from "../recall/recall-work-planning";
 import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import "./study-notes.css";
 import {
@@ -1748,14 +1748,14 @@ function StudyNotesWorkspace() {
       return [];
     }
 
-    return buildRecallTodayQueue({
+    return planRecallWork({
       histories: recallHistories,
       now,
       recallSchedules: recallSchedulesSnapshot,
       sessionResults: recallResultsSnapshot,
       studyNotes: allStudyNotes,
       userTimeZone,
-    });
+    }).recallTodayQueue;
   }, [
     allStudyNotes,
     now,
