@@ -13,19 +13,41 @@ export type AppStudyNoteSupportDescription = {
 export const MAX_STUDY_NOTE_SUPPORT_DESCRIPTIONS_PER_KIND = 1;
 
 export type StudyNoteSupportDescriptionKind = "Acronym" | "Metaphor";
+export type StudyNoteKeyIdeaImportance = "required" | "supporting";
 
 export type AppStudyNoteMetaphor = AppStudyNoteSupportDescription;
 
 export type AppStudyNoteAcronym = AppStudyNoteSupportDescription;
 
+export type AppStudyNoteKeyIdea = {
+  acceptedPhrases: string[];
+  id: string;
+  importance: StudyNoteKeyIdeaImportance;
+  prohibitedPhrases: string[];
+  text: string;
+};
+
+export type AppStudyNoteAcceptedVariant = {
+  id: string;
+  text: string;
+};
+
+export type AppStudyNoteProhibitedPhrase = {
+  id: string;
+  text: string;
+};
+
 export type AppStudyNote = {
+  acceptedVariants: AppStudyNoteAcceptedVariant[];
   acronyms: AppStudyNoteAcronym[];
   createdAt: string;
   expectedAnswer: string;
   id: string;
+  keyIdeas: AppStudyNoteKeyIdea[];
   labelIds: string[];
   metaphors: AppStudyNoteMetaphor[];
   prompt: string;
+  prohibitedPhrases: AppStudyNoteProhibitedPhrase[];
   source: AppStudyNoteSource;
   sourceNoteId: string;
   updatedAt: string;
@@ -37,11 +59,14 @@ export type AppStoredStudyNote = Omit<AppStudyNote, "source"> & {
 };
 
 export type CreateStudyNoteInput = {
+  acceptedVariants?: AppStudyNoteAcceptedVariant[];
   acronyms?: AppStudyNoteAcronym[];
   expectedAnswer?: string;
+  keyIdeas?: AppStudyNoteKeyIdea[];
   labelIds?: string[];
   metaphors?: AppStudyNoteMetaphor[];
   prompt?: string;
+  prohibitedPhrases?: AppStudyNoteProhibitedPhrase[];
   sourceBody: string;
   sourceTitle: string;
 };
@@ -55,11 +80,14 @@ export type DeleteStudyNoteInput = {
 };
 
 export type UpdateStudyNoteInput = {
+  acceptedVariants: AppStudyNoteAcceptedVariant[];
   acronyms: AppStudyNoteAcronym[];
   expectedAnswer: string;
+  keyIdeas: AppStudyNoteKeyIdea[];
   labelIds: string[];
   metaphors: AppStudyNoteMetaphor[];
   prompt: string;
+  prohibitedPhrases: AppStudyNoteProhibitedPhrase[];
   sourceBody: string;
   sourceTitle: string;
 };
@@ -161,6 +189,47 @@ function validateOptionalText(value: string): string {
   return value.trim();
 }
 
+function validateStableReferenceId(value: string, label: string): string {
+  const id = value.trim();
+
+  if (id.length === 0) {
+    throw new AppStudyNotesError("invalid_input", `${label} id is required.`);
+  }
+
+  return id;
+}
+
+function normalizePhraseList(phrases: readonly string[] | undefined): string[] {
+  return [...new Set((phrases ?? []).map((phrase) => phrase.trim()))].filter(
+    (phrase) => phrase.length > 0,
+  );
+}
+
+function isStudyNoteKeyIdeaImportance(
+  value: string,
+): value is StudyNoteKeyIdeaImportance {
+  return value === "required" || value === "supporting";
+}
+
+function validateUniqueReferenceIds<TReference extends { id: string }>(
+  references: readonly TReference[],
+  label: string,
+) {
+  const seenIds = new Set<string>();
+
+  for (const reference of references) {
+    if (!seenIds.has(reference.id)) {
+      seenIds.add(reference.id);
+      continue;
+    }
+
+    throw new AppStudyNotesError(
+      "invalid_input",
+      `${label} ids must be unique per Study Note.`,
+    );
+  }
+}
+
 function normalizeLabelIds(labelIds: readonly string[] | undefined): string[] {
   return [...new Set((labelIds ?? []).filter(Boolean))];
 }
@@ -243,12 +312,75 @@ function validateAcronyms(
   return validateStudyNoteSupportDescriptions(acronyms, "Acronym");
 }
 
+export function validateStudyNoteKeyIdeas(
+  keyIdeas: readonly AppStudyNoteKeyIdea[] | undefined,
+): AppStudyNoteKeyIdea[] {
+  const safeKeyIdeas = (keyIdeas ?? []).map((keyIdea) => {
+    const importance = keyIdea.importance.trim();
+
+    if (!isStudyNoteKeyIdeaImportance(importance)) {
+      throw new AppStudyNotesError(
+        "invalid_input",
+        "Key Idea importance must be required or supporting.",
+      );
+    }
+
+    return {
+      acceptedPhrases: normalizePhraseList(keyIdea.acceptedPhrases),
+      id: validateStableReferenceId(keyIdea.id, "Key Idea"),
+      importance,
+      prohibitedPhrases: normalizePhraseList(keyIdea.prohibitedPhrases),
+      text: validateRequiredText(keyIdea.text, "Key Idea"),
+    };
+  });
+
+  validateUniqueReferenceIds(safeKeyIdeas, "Key Idea");
+
+  return safeKeyIdeas;
+}
+
+function validateStudyNoteTextReferences<
+  TReference extends { id: string; text: string },
+>(references: readonly TReference[] | undefined, label: string): TReference[] {
+  const safeReferences = (references ?? []).map((reference) => ({
+    ...reference,
+    id: validateStableReferenceId(reference.id, label),
+    text: validateRequiredText(reference.text, label),
+  }));
+
+  validateUniqueReferenceIds(safeReferences, label);
+
+  return safeReferences;
+}
+
+export function validateAcceptedVariants(
+  acceptedVariants: readonly AppStudyNoteAcceptedVariant[] | undefined,
+): AppStudyNoteAcceptedVariant[] {
+  return validateStudyNoteTextReferences(acceptedVariants, "Accepted Variant");
+}
+
+export function validateProhibitedPhrases(
+  prohibitedPhrases: readonly AppStudyNoteProhibitedPhrase[] | undefined,
+): AppStudyNoteProhibitedPhrase[] {
+  return validateStudyNoteTextReferences(
+    prohibitedPhrases,
+    "Prohibited Phrase",
+  );
+}
+
 type PersistedStudyNoteRecord = Omit<
   AppStoredStudyNote,
-  "acronyms" | "metaphors"
+  | "acceptedVariants"
+  | "acronyms"
+  | "keyIdeas"
+  | "metaphors"
+  | "prohibitedPhrases"
 > & {
+  acceptedVariants?: AppStudyNoteAcceptedVariant[];
   acronyms?: AppStudyNoteAcronym[];
+  keyIdeas?: AppStudyNoteKeyIdea[];
   metaphors?: AppStudyNoteMetaphor[];
+  prohibitedPhrases?: AppStudyNoteProhibitedPhrase[];
 };
 
 type SourceDisplayNameStudyNote = {
@@ -321,13 +453,22 @@ function toPublicStudyNote(
   allStudyNotes: readonly AppStoredStudyNote[],
 ): AppStudyNote {
   return {
+    acceptedVariants: note.acceptedVariants.map((variant) => ({ ...variant })),
     acronyms: note.acronyms.map((acronym) => ({ ...acronym })),
     createdAt: note.createdAt,
     expectedAnswer: note.expectedAnswer,
     id: note.id,
+    keyIdeas: note.keyIdeas.map((keyIdea) => ({
+      ...keyIdea,
+      acceptedPhrases: [...keyIdea.acceptedPhrases],
+      prohibitedPhrases: [...keyIdea.prohibitedPhrases],
+    })),
     labelIds: [...note.labelIds],
     metaphors: note.metaphors.map((metaphor) => ({ ...metaphor })),
     prompt: note.prompt,
+    prohibitedPhrases: note.prohibitedPhrases.map((phrase) => ({
+      ...phrase,
+    })),
     source: {
       ...note.source,
       displayName: getStoredSourceDisplayName(note, allStudyNotes),
@@ -407,20 +548,64 @@ function hasOptionalStoredSupportDescriptions(value: unknown) {
   return value === undefined || isStoredSupportDescriptions(value);
 }
 
+function isStoredKeyIdea(value: unknown): value is AppStudyNoteKeyIdea {
+  return (
+    isObjectRecord(value) &&
+    Array.isArray(value.acceptedPhrases) &&
+    value.acceptedPhrases.every((phrase) => typeof phrase === "string") &&
+    typeof value.id === "string" &&
+    typeof value.importance === "string" &&
+    Array.isArray(value.prohibitedPhrases) &&
+    value.prohibitedPhrases.every((phrase) => typeof phrase === "string") &&
+    typeof value.text === "string"
+  );
+}
+
+function isStoredKeyIdeas(value: unknown): value is AppStudyNoteKeyIdea[] {
+  return Array.isArray(value) && value.every(isStoredKeyIdea);
+}
+
+function hasOptionalStoredKeyIdeas(value: unknown) {
+  return value === undefined || isStoredKeyIdeas(value);
+}
+
+function isStoredTextReference(
+  value: unknown,
+): value is AppStudyNoteAcceptedVariant | AppStudyNoteProhibitedPhrase {
+  return (
+    isObjectRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.text === "string"
+  );
+}
+
+function isStoredTextReferences(
+  value: unknown,
+): value is AppStudyNoteAcceptedVariant[] | AppStudyNoteProhibitedPhrase[] {
+  return Array.isArray(value) && value.every(isStoredTextReference);
+}
+
+function hasOptionalStoredTextReferences(value: unknown) {
+  return value === undefined || isStoredTextReferences(value);
+}
+
 function isPersistedStudyNote(
   value: unknown,
 ): value is PersistedStudyNoteRecord {
   return (
     isObjectRecord(value) &&
+    hasOptionalStoredTextReferences(value.acceptedVariants) &&
     hasOptionalStoredSupportDescriptions(value.acronyms) &&
     typeof value.createdAt === "string" &&
     typeof value.expectedAnswer === "string" &&
     typeof value.id === "string" &&
+    hasOptionalStoredKeyIdeas(value.keyIdeas) &&
     (value.labelIds === undefined ||
       (Array.isArray(value.labelIds) &&
         value.labelIds.every((labelId) => typeof labelId === "string"))) &&
     hasOptionalStoredSupportDescriptions(value.metaphors) &&
     typeof value.prompt === "string" &&
+    hasOptionalStoredTextReferences(value.prohibitedPhrases) &&
     typeof value.sourceNoteId === "string" &&
     typeof value.updatedAt === "string" &&
     typeof value.userId === "string" &&
@@ -433,9 +618,12 @@ function toStoredStudyNote(
 ): AppStoredStudyNote {
   return {
     ...studyNote,
+    acceptedVariants: studyNote.acceptedVariants ?? [],
     acronyms: studyNote.acronyms ?? [],
+    keyIdeas: studyNote.keyIdeas ?? [],
     labelIds: Array.isArray(studyNote.labelIds) ? studyNote.labelIds : [],
     metaphors: studyNote.metaphors ?? [],
+    prohibitedPhrases: studyNote.prohibitedPhrases ?? [],
   };
 }
 
@@ -508,6 +696,7 @@ export function createAppStudyNotesContext(
     createStudyNote(userId, input) {
       const validatedUserId = validateUserId(userId);
       const timestamp = new Date().toISOString();
+      const acceptedVariants = validateAcceptedVariants(input.acceptedVariants);
       const sourceTitle = validateOptionalText(input.sourceTitle);
       const sourceBody = validateOptionalText(input.sourceBody);
       const { expectedAnswer, prompt } = resolveCreateStudyNoteFields(input, {
@@ -515,20 +704,27 @@ export function createAppStudyNotesContext(
         prompt: sourceTitle,
       });
       const acronyms = validateAcronyms(input.acronyms);
+      const keyIdeas = validateStudyNoteKeyIdeas(input.keyIdeas);
       const labelIds = validateOwnedLabelIds(input.labelIds, {
         getOwnedLabelIdsForUser: options.getOwnedLabelIdsForUser,
         userId: validatedUserId,
       });
       const metaphors = validateMetaphors(input.metaphors);
+      const prohibitedPhrases = validateProhibitedPhrases(
+        input.prohibitedPhrases,
+      );
       const sourceNoteId = cryptoProvider.randomUUID();
       const studyNote: AppStoredStudyNote = {
+        acceptedVariants,
         acronyms,
         createdAt: timestamp,
         expectedAnswer,
         id: cryptoProvider.randomUUID(),
+        keyIdeas,
         labelIds,
         metaphors,
         prompt,
+        prohibitedPhrases,
         source: {
           body: sourceBody,
           id: sourceNoteId,
@@ -568,13 +764,16 @@ export function createAppStudyNotesContext(
         sourceTitle: sourceStudyNote.source.title,
       });
       const studyNote: AppStoredStudyNote = {
+        acceptedVariants: [],
         acronyms: [],
         createdAt: timestamp,
         expectedAnswer: sourceStudyNote.source.body,
         id: cryptoProvider.randomUUID(),
+        keyIdeas: [],
         labelIds: [],
         metaphors: [],
         prompt,
+        prohibitedPhrases: [],
         source: {
           body: sourceStudyNote.source.body,
           id: sourceStudyNote.source.id,
@@ -667,12 +866,17 @@ export function createAppStudyNotesContext(
       }
 
       const timestamp = new Date().toISOString();
+      const acceptedVariants = validateAcceptedVariants(input.acceptedVariants);
       const acronyms = validateAcronyms(input.acronyms);
+      const keyIdeas = validateStudyNoteKeyIdeas(input.keyIdeas);
       const labelIds = validateOwnedLabelIds(input.labelIds, {
         getOwnedLabelIdsForUser: options.getOwnedLabelIdsForUser,
         userId: validatedUserId,
       });
       const metaphors = validateMetaphors(input.metaphors);
+      const prohibitedPhrases = validateProhibitedPhrases(
+        input.prohibitedPhrases,
+      );
       const shouldDetachSource = snapshot.some(
         (studyNote) =>
           studyNote.userId === validatedUserId &&
@@ -690,11 +894,14 @@ export function createAppStudyNotesContext(
       };
       const updatedStudyNote: AppStoredStudyNote = {
         ...existingStudyNote,
+        acceptedVariants,
         acronyms,
         expectedAnswer: validateOptionalText(input.expectedAnswer),
+        keyIdeas,
         labelIds,
         metaphors,
         prompt: validateRequiredText(input.prompt, "Prompt"),
+        prohibitedPhrases,
         source: updatedSource,
         sourceNoteId,
         updatedAt: timestamp,

@@ -11,13 +11,16 @@ function buildStudyNote(
   const { id, labelIds, ...rest } = overrides;
 
   return {
+    acceptedVariants: [],
     acronyms: [],
     createdAt: timestamp,
     expectedAnswer: "Expected answer.",
     id,
+    keyIdeas: [],
     labelIds: [...labelIds],
     metaphors: [],
     prompt: `Prompt for ${id}`,
+    prohibitedPhrases: [],
     source: {
       body: "Source body.",
       id: `source-${id}`,

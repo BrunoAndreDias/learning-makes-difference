@@ -1,12 +1,15 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import type { PgDatabase } from "drizzle-orm/pg-core/db";
 import type { PgQueryResultHKT } from "drizzle-orm/pg-core/session";
 import { labelsTable, studyNoteLabelsTable } from "../labels/labels-schema";
 import { notesTable } from "../notes/notes-schema";
 import {
   type AppStudyNote,
+  type AppStudyNoteAcceptedVariant,
   type AppStudyNoteAcronym,
+  type AppStudyNoteKeyIdea,
   type AppStudyNoteMetaphor,
+  type AppStudyNoteProhibitedPhrase,
   AppStudyNotesError,
   type CreateStudyNoteFromSourceInput,
   type CreateStudyNoteInput,
@@ -14,11 +17,17 @@ import {
   getStudyNoteSourceDisplayName,
   resolveCreateStudyNoteFields,
   type UpdateStudyNoteInput,
+  validateAcceptedVariants,
+  validateProhibitedPhrases,
+  validateStudyNoteKeyIdeas,
   validateStudyNoteSupportDescriptions,
 } from "./study-notes";
 import {
+  studyNoteAcceptedVariantsTable,
   studyNoteAcronymsTable,
+  studyNoteKeyIdeasTable,
   studyNoteMetaphorsTable,
+  studyNoteProhibitedPhrasesTable,
   studyNotesTable,
 } from "./study-notes-schema";
 
@@ -77,10 +86,30 @@ type StudyNoteSupportDescriptionRow = {
   studyNoteId: string;
 };
 
+type StudyNoteKeyIdeaRow = {
+  acceptedPhrases: string[];
+  id: string;
+  importance: string;
+  position: number;
+  prohibitedPhrases: string[];
+  studyNoteId: string;
+  text: string;
+};
+
+type StudyNoteTextReferenceRow = {
+  id: string;
+  position: number;
+  studyNoteId: string;
+  text: string;
+};
+
 type StudyNoteRowWithDetails = StudyNoteRow & {
+  acceptedVariants: AppStudyNoteAcceptedVariant[];
   acronyms: AppStudyNoteAcronym[];
+  keyIdeas: AppStudyNoteKeyIdea[];
   labelIds: string[];
   metaphors: AppStudyNoteMetaphor[];
+  prohibitedPhrases: AppStudyNoteProhibitedPhrase[];
   sourceDisplayName: string;
 };
 
@@ -189,6 +218,35 @@ function createStudyNoteLabelRows(
   }));
 }
 
+function createStudyNoteKeyIdeaRows(
+  studyNoteId: string,
+  keyIdeas: readonly AppStudyNoteKeyIdea[],
+) {
+  return keyIdeas.map((keyIdea, position) => ({
+    acceptedPhrases: [...keyIdea.acceptedPhrases],
+    id: keyIdea.id,
+    importance: keyIdea.importance,
+    position,
+    prohibitedPhrases: [...keyIdea.prohibitedPhrases],
+    studyNoteId,
+    text: keyIdea.text,
+  }));
+}
+
+function createStudyNoteTextReferenceRows(
+  studyNoteId: string,
+  references:
+    | readonly AppStudyNoteAcceptedVariant[]
+    | readonly AppStudyNoteProhibitedPhrase[],
+) {
+  return references.map((reference, position) => ({
+    id: reference.id,
+    position,
+    studyNoteId,
+    text: reference.text,
+  }));
+}
+
 function groupSupportDescriptionsByStudyNoteId(
   rows: readonly StudyNoteSupportDescriptionRow[],
 ) {
@@ -205,6 +263,41 @@ function groupSupportDescriptionsByStudyNoteId(
   }
 
   return supportDescriptionsByStudyNoteId;
+}
+
+function groupKeyIdeasByStudyNoteId(rows: readonly StudyNoteKeyIdeaRow[]) {
+  const keyIdeasByStudyNoteId = new Map<string, AppStudyNoteKeyIdea[]>();
+
+  for (const row of rows) {
+    const keyIdeas = keyIdeasByStudyNoteId.get(row.studyNoteId) ?? [];
+    keyIdeas.push({
+      acceptedPhrases: [...row.acceptedPhrases],
+      id: row.id,
+      importance: row.importance as AppStudyNoteKeyIdea["importance"],
+      prohibitedPhrases: [...row.prohibitedPhrases],
+      text: row.text,
+    });
+    keyIdeasByStudyNoteId.set(row.studyNoteId, keyIdeas);
+  }
+
+  return keyIdeasByStudyNoteId;
+}
+
+function groupTextReferencesByStudyNoteId<
+  TReference extends { id: string; text: string },
+>(rows: readonly StudyNoteTextReferenceRow[]): Map<string, TReference[]> {
+  const referencesByStudyNoteId = new Map<string, TReference[]>();
+
+  for (const row of rows) {
+    const references = referencesByStudyNoteId.get(row.studyNoteId) ?? [];
+    references.push({
+      id: row.id,
+      text: row.text,
+    } as TReference);
+    referencesByStudyNoteId.set(row.studyNoteId, references);
+  }
+
+  return referencesByStudyNoteId;
 }
 
 function groupStudyNotesBySourceNoteId(rows: readonly StudyNoteRow[]) {
@@ -227,13 +320,20 @@ function getSingleSupportDescriptionText(
 
 function toAppStudyNote(input: StudyNoteRowWithDetails): AppStudyNote {
   return {
+    acceptedVariants: input.acceptedVariants.map((variant) => ({ ...variant })),
     acronyms: input.acronyms.map((acronym) => ({ ...acronym })),
     createdAt: input.createdAt.toISOString(),
     expectedAnswer: input.expectedAnswer,
     id: input.id,
+    keyIdeas: input.keyIdeas.map((keyIdea) => ({
+      ...keyIdea,
+      acceptedPhrases: [...keyIdea.acceptedPhrases],
+      prohibitedPhrases: [...keyIdea.prohibitedPhrases],
+    })),
     labelIds: [...input.labelIds],
     metaphors: input.metaphors.map((metaphor) => ({ ...metaphor })),
     prompt: input.prompt,
+    prohibitedPhrases: input.prohibitedPhrases.map((phrase) => ({ ...phrase })),
     source: {
       body: input.sourceBody,
       displayName: input.sourceDisplayName,
@@ -256,21 +356,51 @@ async function addDetailsToStudyNoteRows(
 
   const studyNoteIds = rows.map((row) => row.id);
   const sourceNoteIds = [...new Set(rows.map((row) => row.sourceNoteId))];
-  const [storedStudyNoteLabels, storedMetaphors, storedAcronyms] =
-    await Promise.all([
-      db
-        .select()
-        .from(studyNoteLabelsTable)
-        .where(inArray(studyNoteLabelsTable.studyNoteId, studyNoteIds)),
-      db
-        .select()
-        .from(studyNoteMetaphorsTable)
-        .where(inArray(studyNoteMetaphorsTable.studyNoteId, studyNoteIds)),
-      db
-        .select()
-        .from(studyNoteAcronymsTable)
-        .where(inArray(studyNoteAcronymsTable.studyNoteId, studyNoteIds)),
-    ]);
+  const [
+    storedStudyNoteLabels,
+    storedMetaphors,
+    storedAcronyms,
+    storedKeyIdeas,
+    storedAcceptedVariants,
+    storedProhibitedPhrases,
+  ] = await Promise.all([
+    db
+      .select()
+      .from(studyNoteLabelsTable)
+      .where(inArray(studyNoteLabelsTable.studyNoteId, studyNoteIds)),
+    db
+      .select()
+      .from(studyNoteMetaphorsTable)
+      .where(inArray(studyNoteMetaphorsTable.studyNoteId, studyNoteIds)),
+    db
+      .select()
+      .from(studyNoteAcronymsTable)
+      .where(inArray(studyNoteAcronymsTable.studyNoteId, studyNoteIds)),
+    db
+      .select()
+      .from(studyNoteKeyIdeasTable)
+      .where(inArray(studyNoteKeyIdeasTable.studyNoteId, studyNoteIds))
+      .orderBy(
+        asc(studyNoteKeyIdeasTable.studyNoteId),
+        asc(studyNoteKeyIdeasTable.position),
+      ),
+    db
+      .select()
+      .from(studyNoteAcceptedVariantsTable)
+      .where(inArray(studyNoteAcceptedVariantsTable.studyNoteId, studyNoteIds))
+      .orderBy(
+        asc(studyNoteAcceptedVariantsTable.studyNoteId),
+        asc(studyNoteAcceptedVariantsTable.position),
+      ),
+    db
+      .select()
+      .from(studyNoteProhibitedPhrasesTable)
+      .where(inArray(studyNoteProhibitedPhrasesTable.studyNoteId, studyNoteIds))
+      .orderBy(
+        asc(studyNoteProhibitedPhrasesTable.studyNoteId),
+        asc(studyNoteProhibitedPhrasesTable.position),
+      ),
+  ]);
   const linkedStudyNoteRows = await db
     .select(studyNoteSelectFields)
     .from(studyNotesTable)
@@ -283,17 +413,29 @@ async function addDetailsToStudyNoteRows(
     groupSupportDescriptionsByStudyNoteId(storedMetaphors);
   const acronymsByStudyNoteId =
     groupSupportDescriptionsByStudyNoteId(storedAcronyms);
+  const keyIdeasByStudyNoteId = groupKeyIdeasByStudyNoteId(storedKeyIdeas);
+  const acceptedVariantsByStudyNoteId =
+    groupTextReferencesByStudyNoteId<AppStudyNoteAcceptedVariant>(
+      storedAcceptedVariants,
+    );
+  const prohibitedPhrasesByStudyNoteId =
+    groupTextReferencesByStudyNoteId<AppStudyNoteProhibitedPhrase>(
+      storedProhibitedPhrases,
+    );
   const linkedStudyNotesBySourceNoteId =
     groupStudyNotesBySourceNoteId(linkedStudyNoteRows);
 
   return rows.map((row) => ({
+    acceptedVariants: acceptedVariantsByStudyNoteId.get(row.id) ?? [],
     ...row,
     acronyms: acronymsByStudyNoteId.get(row.id) ?? [],
+    keyIdeas: keyIdeasByStudyNoteId.get(row.id) ?? [],
     labelIds: getSortedStudyNoteLabelIds({
       labelIdsByStudyNoteId,
       studyNoteId: row.id,
     }),
     metaphors: metaphorsByStudyNoteId.get(row.id) ?? [],
+    prohibitedPhrases: prohibitedPhrasesByStudyNoteId.get(row.id) ?? [],
     sourceDisplayName: getSourceDisplayNameFromRows({
       linkedStudyNotes:
         linkedStudyNotesBySourceNoteId.get(row.sourceNoteId) ?? [],
@@ -357,6 +499,7 @@ export function createStudyNotesService({
       const timestamp = now();
       const sourceNoteId = crypto.randomUUID();
       const studyNoteId = crypto.randomUUID();
+      const acceptedVariants = validateAcceptedVariants(input.acceptedVariants);
       const sourceTitle = validateOptionalText(input.sourceTitle);
       const sourceBody = validateOptionalText(input.sourceBody);
       const { expectedAnswer, prompt } = resolveCreateStudyNoteFields(input, {
@@ -367,6 +510,7 @@ export function createStudyNotesService({
         input.acronyms,
         "Acronym",
       );
+      const keyIdeas = validateStudyNoteKeyIdeas(input.keyIdeas);
       const safeLabelIds = await validateOwnedLabelIds({
         db,
         labelIds: normalizeLabelIds(input.labelIds),
@@ -375,6 +519,9 @@ export function createStudyNotesService({
       const metaphors = validateStudyNoteSupportDescriptions(
         input.metaphors,
         "Metaphor",
+      );
+      const prohibitedPhrases = validateProhibitedPhrases(
+        input.prohibitedPhrases,
       );
 
       await db.transaction(async (tx) => {
@@ -415,16 +562,38 @@ export function createStudyNotesService({
             studyNoteId,
           });
         }
+        if (keyIdeas.length > 0) {
+          await tx
+            .insert(studyNoteKeyIdeasTable)
+            .values(createStudyNoteKeyIdeaRows(studyNoteId, keyIdeas));
+        }
+        if (acceptedVariants.length > 0) {
+          await tx
+            .insert(studyNoteAcceptedVariantsTable)
+            .values(
+              createStudyNoteTextReferenceRows(studyNoteId, acceptedVariants),
+            );
+        }
+        if (prohibitedPhrases.length > 0) {
+          await tx
+            .insert(studyNoteProhibitedPhrasesTable)
+            .values(
+              createStudyNoteTextReferenceRows(studyNoteId, prohibitedPhrases),
+            );
+        }
       });
 
       return toAppStudyNote({
+        acceptedVariants,
         acronyms,
         createdAt: timestamp,
         expectedAnswer,
         id: studyNoteId,
+        keyIdeas,
         labelIds: safeLabelIds,
         metaphors,
         prompt,
+        prohibitedPhrases,
         sourceBody,
         sourceDisplayName: getSourceDisplayNameFromRows({
           linkedStudyNotes: [{ createdAt: timestamp, prompt }],
@@ -488,13 +657,16 @@ export function createStudyNotesService({
       });
 
       return toAppStudyNote({
+        acceptedVariants: [],
         acronyms: [],
         createdAt: timestamp,
         expectedAnswer: source.body,
         id: studyNoteId,
+        keyIdeas: [],
         labelIds: [],
         metaphors: [],
         prompt,
+        prohibitedPhrases: [],
         sourceBody: source.body,
         sourceDisplayName: getSourceDisplayNameFromRows({
           linkedStudyNotes: [
@@ -605,11 +777,13 @@ export function createStudyNotesService({
         userId,
       });
       const timestamp = now();
+      const acceptedVariants = validateAcceptedVariants(input.acceptedVariants);
       const acronyms = validateStudyNoteSupportDescriptions(
         input.acronyms,
         "Acronym",
       );
       const expectedAnswer = validateOptionalText(input.expectedAnswer);
+      const keyIdeas = validateStudyNoteKeyIdeas(input.keyIdeas);
       const safeLabelIds = await validateOwnedLabelIds({
         db,
         labelIds: normalizeLabelIds(input.labelIds),
@@ -620,6 +794,9 @@ export function createStudyNotesService({
         "Metaphor",
       );
       const prompt = validateRequiredText(input.prompt, "Prompt");
+      const prohibitedPhrases = validateProhibitedPhrases(
+        input.prohibitedPhrases,
+      );
       const sourceTitle = validateOptionalText(input.sourceTitle);
       const sourceBody = validateOptionalText(input.sourceBody);
       const sourceStudyNotes = await db
@@ -687,6 +864,25 @@ export function createStudyNotesService({
         await tx
           .delete(studyNoteAcronymsTable)
           .where(eq(studyNoteAcronymsTable.studyNoteId, existingStudyNote.id));
+        await tx
+          .delete(studyNoteKeyIdeasTable)
+          .where(eq(studyNoteKeyIdeasTable.studyNoteId, existingStudyNote.id));
+        await tx
+          .delete(studyNoteAcceptedVariantsTable)
+          .where(
+            eq(
+              studyNoteAcceptedVariantsTable.studyNoteId,
+              existingStudyNote.id,
+            ),
+          );
+        await tx
+          .delete(studyNoteProhibitedPhrasesTable)
+          .where(
+            eq(
+              studyNoteProhibitedPhrasesTable.studyNoteId,
+              existingStudyNote.id,
+            ),
+          );
         const metaphorDescription = getSingleSupportDescriptionText(metaphors);
         const acronymDescription = getSingleSupportDescriptionText(acronyms);
 
@@ -701,6 +897,31 @@ export function createStudyNotesService({
             description: acronymDescription,
             studyNoteId: existingStudyNote.id,
           });
+        }
+        if (keyIdeas.length > 0) {
+          await tx
+            .insert(studyNoteKeyIdeasTable)
+            .values(createStudyNoteKeyIdeaRows(existingStudyNote.id, keyIdeas));
+        }
+        if (acceptedVariants.length > 0) {
+          await tx
+            .insert(studyNoteAcceptedVariantsTable)
+            .values(
+              createStudyNoteTextReferenceRows(
+                existingStudyNote.id,
+                acceptedVariants,
+              ),
+            );
+        }
+        if (prohibitedPhrases.length > 0) {
+          await tx
+            .insert(studyNoteProhibitedPhrasesTable)
+            .values(
+              createStudyNoteTextReferenceRows(
+                existingStudyNote.id,
+                prohibitedPhrases,
+              ),
+            );
         }
       });
 

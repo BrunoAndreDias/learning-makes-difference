@@ -545,13 +545,16 @@ describe("focus sessions", () => {
       storage: createMemoryStorage(),
     });
     const studyNote: AppStudyNote = {
+      acceptedVariants: [],
       acronyms: [{ description: "ATP: Adenosine triphosphate" }],
       createdAt: "2026-04-29T10:00:00.000Z",
       expectedAnswer: "ATP stores transferable energy.",
       id: "study-note-1",
+      keyIdeas: [],
       labelIds: ["label-biology"],
       metaphors: [{ description: "ATP acts like a charged battery." }],
       prompt: "What molecule stores transferable energy?",
+      prohibitedPhrases: [],
       source: {
         body: "Cell respiration source context.",
         id: "source-note-1",

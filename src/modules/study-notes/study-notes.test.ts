@@ -77,13 +77,16 @@ describe("app study notes context", () => {
       "user-casey",
       createdStudyNote.id,
       {
+        acceptedVariants: [],
         acronyms: [{ description: "HIP keeps the structure memorable." }],
         expectedAnswer: "It binds context for recall.",
+        keyIdeas: [],
         labelIds: [],
         metaphors: [
           { description: "The hippocampus is a library index for memory." },
         ],
         prompt: "What does the hippocampus support?",
+        prohibitedPhrases: [],
         sourceBody: "The hippocampus helps bind memory context and navigation.",
         sourceTitle: "Hippocampus source",
       },
@@ -226,14 +229,17 @@ describe("app study notes context", () => {
 
     expect(() =>
       studyNotes.updateStudyNote("user-casey", createdStudyNote.id, {
+        acceptedVariants: [],
         acronyms: [{ description: "HIP." }, { description: "CTX." }],
         expectedAnswer: "It binds context for recall.",
+        keyIdeas: [],
         labelIds: [],
         metaphors: [
           { description: "The hippocampus is a library index." },
           { description: "The hippocampus is a checkout desk." },
         ],
         prompt: "What does the hippocampus support?",
+        prohibitedPhrases: [],
         sourceBody: "The hippocampus helps bind memory context.",
         sourceTitle: "Hippocampus source",
       }),
@@ -296,11 +302,14 @@ describe("app study notes context", () => {
       "user-casey",
       secondStudyNote.id,
       {
+        acceptedVariants: [],
         acronyms: [{ description: "SPA cues spacing." }],
         expectedAnswer: "Use spacing for durable access.",
+        keyIdeas: [],
         labelIds: [],
         metaphors: [{ description: "Spacing is a path worn in over time." }],
         prompt: "How does spacing help?",
+        prohibitedPhrases: [],
         sourceBody: "Edited shared source context.",
         sourceTitle: "Edited practice source",
       },
@@ -388,11 +397,14 @@ describe("app study notes context", () => {
     });
 
     studyNotes.updateStudyNote("user-casey", "study-one", {
+      acceptedVariants: [],
       acronyms: [],
       expectedAnswer: "Answer one",
+      keyIdeas: [],
       labelIds: [],
       metaphors: [],
       prompt: "Prompt one",
+      prohibitedPhrases: [],
       sourceBody: "Edited source for one.",
       sourceTitle: "Edited source",
     });
@@ -420,6 +432,115 @@ describe("app study notes context", () => {
           sourceNoteId: "source-shared",
         }),
       ]),
+    );
+  });
+
+  it("defaults legacy answer-check reference material to empty arrays", () => {
+    const storage = createMemoryStorage();
+    storage.setItem(
+      "study-notes-legacy-answer-check-test:records",
+      JSON.stringify([
+        {
+          acronyms: [],
+          createdAt: "2025-01-01T00:00:00.000Z",
+          expectedAnswer: "Answer one",
+          id: "study-one",
+          labelIds: [],
+          metaphors: [],
+          prompt: "Prompt one",
+          source: {
+            body: "Original shared source.",
+            id: "source-shared",
+            title: "Shared source",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+          sourceNoteId: "source-shared",
+          updatedAt: "2025-01-01T00:00:00.000Z",
+          userId: "user-casey",
+        },
+      ]),
+    );
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-legacy-answer-check-test",
+      storage,
+    });
+
+    expect(
+      listStudyNotesForUser(studyNotes.getSnapshot(), "user-casey"),
+    ).toMatchObject([
+      {
+        acceptedVariants: [],
+        keyIdeas: [],
+        prohibitedPhrases: [],
+      },
+    ]);
+  });
+
+  it("validates answer-check reference material without requiring it", () => {
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-answer-check-validation-test",
+      storage: createMemoryStorage(),
+    });
+
+    expect(() =>
+      studyNotes.createStudyNote("user-casey", {
+        expectedAnswer: "Retrieval practice strengthens access to memory.",
+        keyIdeas: [
+          {
+            acceptedPhrases: [],
+            id: "key-1",
+            importance: "required",
+            prohibitedPhrases: [],
+            text: " ",
+          },
+        ],
+        prompt: "Why does retrieval practice help learning?",
+        sourceBody: "Practice recalling before review.",
+        sourceTitle: "Retrieval practice",
+      }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: "invalid_input",
+        message: "Key Idea is required.",
+      } satisfies Pick<AppStudyNotesError, "code" | "message">),
+    );
+
+    const createdStudyNote = studyNotes.createStudyNote("user-casey", {
+      expectedAnswer: "Retrieval practice strengthens access to memory.",
+      prompt: "Why does retrieval practice help learning?",
+      sourceBody: "Practice recalling before review.",
+      sourceTitle: "Retrieval practice",
+    });
+
+    expect(() =>
+      studyNotes.updateStudyNote("user-casey", createdStudyNote.id, {
+        acceptedVariants: [
+          {
+            id: "variant-1",
+            text: "Test yourself before rereading.",
+          },
+          {
+            id: "variant-1",
+            text: "Practice recalling before review.",
+          },
+        ],
+        acronyms: [],
+        expectedAnswer: "Retrieval practice strengthens access to memory.",
+        keyIdeas: [],
+        labelIds: [],
+        metaphors: [],
+        prompt: "Why does retrieval practice help learning?",
+        prohibitedPhrases: [],
+        sourceBody: "Practice recalling before review.",
+        sourceTitle: "Retrieval practice",
+      }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: "invalid_input",
+        message: "Accepted Variant ids must be unique per Study Note.",
+      } satisfies Pick<AppStudyNotesError, "code" | "message">),
     );
   });
 
@@ -452,20 +573,26 @@ describe("app study notes context", () => {
     });
 
     studyNotes.updateStudyNote("user-casey", secondStudyNote.id, {
+      acceptedVariants: [],
       acronyms: [],
       expectedAnswer: "Second answer.",
+      keyIdeas: [],
       labelIds: [],
       metaphors: [],
       prompt: "Newer prompt",
+      prohibitedPhrases: [],
       sourceBody: "Shared source body.",
       sourceTitle: "",
     });
     studyNotes.updateStudyNote("user-casey", createdStudyNote.id, {
+      acceptedVariants: [],
       acronyms: [],
       expectedAnswer: "First answer.",
+      keyIdeas: [],
       labelIds: [],
       metaphors: [],
       prompt: "Renamed oldest prompt",
+      prohibitedPhrases: [],
       sourceBody: "Shared source body.",
       sourceTitle: "",
     });
@@ -598,11 +725,14 @@ describe("app study notes context", () => {
 
     expect(() =>
       studyNotes.updateStudyNote("user-jordan", createdStudyNote.id, {
+        acceptedVariants: [],
         acronyms: [],
         expectedAnswer: "Cross-account answer.",
+        keyIdeas: [],
         labelIds: [],
         metaphors: [],
         prompt: "Cross-account prompt",
+        prohibitedPhrases: [],
         sourceBody: "Cross-account source.",
         sourceTitle: "Cross-account source",
       }),

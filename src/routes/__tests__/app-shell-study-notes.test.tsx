@@ -86,11 +86,14 @@ function updateStudyNoteSnapshot(
     input.userId,
     input.studyNoteId,
     {
+      acceptedVariants: [],
       acronyms: [],
       expectedAnswer: input.expectedAnswer,
+      keyIdeas: [],
       labelIds: input.labelIds ?? [],
       metaphors: [],
       prompt: input.prompt,
+      prohibitedPhrases: [],
       sourceBody: input.sourceBody,
       sourceTitle: input.sourceTitle,
     },
@@ -1242,6 +1245,166 @@ describe("authenticated Study Notes workspace", () => {
     });
   });
 
+  it("adds and updates answer-check reference material in the Study Note editor with stable IDs", async () => {
+    const studyNotesContext = createAppStudyNotesContext({
+      keyPrefix: `test-study-notes-answer-check-editor-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-study-note-answer-check-editor";
+
+    renderRoute("/study-notes", {
+      session: {
+        user: {
+          displayName: "Jordan Answer Check",
+          email: "jordan.answercheck@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+      studyNotesContext,
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "New Study Note" }),
+    );
+    fireEvent.change(screen.getByLabelText("Prompt"), {
+      target: { value: "Why does retrieval practice help learning?" },
+    });
+    fireEvent.change(screen.getByLabelText("Expected answer"), {
+      target: {
+        value: "Practice recalling before review strengthens access to memory.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("Saved just now"),
+    );
+
+    const answerCheck = screen.getByRole("region", {
+      name: "Answer-check reference material",
+    });
+    fireEvent.click(
+      within(answerCheck).getByText("Answer-check reference material"),
+    );
+    fireEvent.click(
+      within(answerCheck).getByRole("button", { name: "Add Key Idea" }),
+    );
+    fireEvent.change(within(answerCheck).getByLabelText("Key Idea"), {
+      target: { value: "Practice recalling before review." },
+    });
+    fireEvent.click(within(answerCheck).getByText("Advanced phrase rules"));
+    fireEvent.change(within(answerCheck).getByLabelText("Accepted phrases"), {
+      target: { value: "recall before reading" },
+    });
+    fireEvent.change(within(answerCheck).getByLabelText("Prohibited phrases"), {
+      target: { value: "just reread it" },
+    });
+    fireEvent.click(
+      within(answerCheck).getByRole("button", { name: "Add Accepted Variant" }),
+    );
+    fireEvent.change(within(answerCheck).getByLabelText("Accepted Variant"), {
+      target: { value: "Test yourself before rereading." },
+    });
+    fireEvent.click(
+      within(answerCheck).getByRole("button", {
+        name: "Add Prohibited Phrase",
+      }),
+    );
+    fireEvent.change(within(answerCheck).getByLabelText("Prohibited Phrase"), {
+      target: { value: "Recognition is enough." },
+    });
+
+    const saveBar = screen.getByRole("region", {
+      name: "Unsaved Study Note changes",
+    });
+    expect(saveBar).toHaveTextContent("You have unsaved changes.");
+    fireEvent.click(
+      within(saveBar).getByRole("button", { name: "Save changes" }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("Saved just now"),
+    );
+
+    const firstSavedStudyNote = studyNotesContext.getSnapshot()[0];
+
+    expect(firstSavedStudyNote).toMatchObject({
+      acceptedVariants: [
+        {
+          text: "Test yourself before rereading.",
+        },
+      ],
+      keyIdeas: [
+        {
+          acceptedPhrases: ["recall before reading"],
+          importance: "required",
+          prohibitedPhrases: ["just reread it"],
+          text: "Practice recalling before review.",
+        },
+      ],
+      prohibitedPhrases: [
+        {
+          text: "Recognition is enough.",
+        },
+      ],
+    });
+
+    const keyIdeaId = firstSavedStudyNote.keyIdeas[0]?.id;
+    const acceptedVariantId = firstSavedStudyNote.acceptedVariants[0]?.id;
+    const prohibitedPhraseId = firstSavedStudyNote.prohibitedPhrases[0]?.id;
+
+    if (
+      keyIdeaId === undefined ||
+      acceptedVariantId === undefined ||
+      prohibitedPhraseId === undefined
+    ) {
+      throw new Error("Expected saved answer-check reference IDs.");
+    }
+
+    fireEvent.change(within(answerCheck).getByLabelText("Key Idea"), {
+      target: { value: "Practice recalling before review with effort." },
+    });
+    fireEvent.change(within(answerCheck).getByLabelText("Accepted Variant"), {
+      target: { value: "Try to recall it before rereading." },
+    });
+    fireEvent.change(within(answerCheck).getByLabelText("Prohibited Phrase"), {
+      target: { value: "Recognition alone is enough." },
+    });
+    fireEvent.change(within(answerCheck).getByLabelText("Importance"), {
+      target: { value: "supporting" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("Saved just now"),
+    );
+
+    expect(studyNotesContext.getSnapshot()[0]).toMatchObject({
+      acceptedVariants: [
+        {
+          id: acceptedVariantId,
+          text: "Try to recall it before rereading.",
+        },
+      ],
+      keyIdeas: [
+        {
+          acceptedPhrases: ["recall before reading"],
+          id: keyIdeaId,
+          importance: "supporting",
+          prohibitedPhrases: ["just reread it"],
+          text: "Practice recalling before review with effort.",
+        },
+      ],
+      prohibitedPhrases: [
+        {
+          id: prohibitedPhraseId,
+          text: "Recognition alone is enough.",
+        },
+      ],
+    });
+  });
+
   it("guards Study Note switching and can discard or save before switching", async () => {
     const studyNotesContext = createAppStudyNotesContext({
       keyPrefix: `test-study-notes-switch-guard-${Math.random().toString(36).slice(2)}`,
@@ -2081,20 +2244,26 @@ describe("authenticated Study Notes workspace", () => {
       sourceNoteId: first.sourceNoteId,
     });
     const updatedFirst = studyNotesContext.updateStudyNote(userId, first.id, {
+      acceptedVariants: [],
       acronyms: [],
       expectedAnswer: "First expected answer.",
+      keyIdeas: [],
       labelIds: [],
       metaphors: [],
       prompt: "First recall target",
+      prohibitedPhrases: [],
       sourceBody: "Shared source context.",
       sourceTitle: "Shared source",
     });
     studyNotesContext.updateStudyNote(userId, second.id, {
+      acceptedVariants: [],
       acronyms: [],
       expectedAnswer: "Second expected answer.",
+      keyIdeas: [],
       labelIds: [],
       metaphors: [],
       prompt: "Second recall target",
+      prohibitedPhrases: [],
       sourceBody: "Shared source context.",
       sourceTitle: "Shared source",
     });

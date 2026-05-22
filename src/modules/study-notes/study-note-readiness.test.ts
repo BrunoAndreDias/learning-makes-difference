@@ -7,13 +7,16 @@ const timestamp = "2026-05-01T00:00:00.000Z";
 
 function buildStudyNote(overrides: Partial<AppStudyNote> = {}): AppStudyNote {
   return {
+    acceptedVariants: [],
     acronyms: [],
     createdAt: timestamp,
     expectedAnswer: "Expected answer",
     id: "study-note-1",
+    keyIdeas: [],
     labelIds: [],
     metaphors: [],
     prompt: "Prompt",
+    prohibitedPhrases: [],
     source: {
       body: "Source body",
       id: "source-1",
