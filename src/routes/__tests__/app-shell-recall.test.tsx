@@ -2853,16 +2853,16 @@ describe("authenticated recall workspace", () => {
       name: "Scheduled recall summary",
     });
     expect(within(summary).getByText("Scheduled now")).toBeInTheDocument();
-    expect(within(summary).getByText("2")).toBeInTheDocument();
+    expect(within(summary).getAllByText("1").length).toBeGreaterThan(0);
     expect(within(summary).getByText("Scheduled today")).toBeInTheDocument();
 
     const dueTodayQueue = screen.getByRole("region", {
       name: "Scheduled recall queue",
     });
-    expect(dueTodayQueue).toHaveTextContent("Needs practice prompt");
     expect(dueTodayQueue).toHaveTextContent("Due prompt");
     expect(dueTodayQueue).toHaveTextContent("Last score");
     expect(dueTodayQueue).toHaveTextContent("Scheduled");
+    expect(dueTodayQueue).not.toHaveTextContent("Needs practice prompt");
     expect(dueTodayQueue).not.toHaveTextContent("Not recalled prompt");
     expect(dueTodayQueue).not.toHaveTextContent("Incomplete prompt");
 
@@ -2922,7 +2922,7 @@ describe("authenticated recall workspace", () => {
     expect(screen.getByText("Nothing scheduled today")).toBeInTheDocument();
   });
 
-  it("shows schedule-due Practice Follow-ups in Due today without Practice Follow-up labels", async () => {
+  it("keeps schedule-due Practice Follow-ups out of Due today", async () => {
     const contexts = createDeterministicRecallTestContexts();
     const practiceFollowUp = contexts.studyNotesContext.createStudyNote(
       testUser.id,
@@ -2980,12 +2980,17 @@ describe("authenticated recall workspace", () => {
       },
     });
 
-    const dueTodayQueue = await screen.findByRole("region", {
-      name: "Scheduled recall queue",
-    });
-    expect(dueTodayQueue).toHaveTextContent("What stores transferable energy?");
-    expect(dueTodayQueue).toHaveTextContent("What organelle generates ATP?");
-    expect(dueTodayQueue).not.toHaveTextContent("Practice Follow-up");
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Scheduled" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", {
+        name: "Scheduled recall queue",
+      }),
+    ).toBeNull();
+    expect(screen.queryByText("What stores transferable energy?")).toBeNull();
+    expect(screen.queryByText("What organelle generates ATP?")).toBeNull();
+    expect(screen.getByText("Nothing scheduled today")).toBeInTheDocument();
   });
 
   it("keeps schedule-future Practice Follow-ups out of Due today", async () => {

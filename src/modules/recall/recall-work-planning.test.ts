@@ -8,6 +8,7 @@ import {
 } from "../study-notes";
 import type { RecallSelfRating, SessionResult } from "./recall";
 import { type AppRecallContext, createAppRecallContext } from "./recall";
+import type { RecallSchedule } from "./recall-schedule";
 import { planRecallWork } from "./recall-work-planning";
 
 const timestamp = "2026-05-01T09:00:00.000Z";
@@ -166,6 +167,20 @@ function buildSessionResultWithPracticeRepair(input: {
       },
     ],
     score: 50,
+  };
+}
+
+function buildSchedule(
+  studyNoteId: string,
+  nextRecallAt: string,
+): RecallSchedule {
+  return {
+    ease: 2.35,
+    intervalDays: 1,
+    lastRecalledAt: "2026-05-14T09:00:00.000Z",
+    nextRecallAt,
+    repetitionCount: 1,
+    studyNoteId,
   };
 }
 
@@ -515,6 +530,153 @@ describe("recall work planning", () => {
         id: dueForRecall.id,
         primaryReason: "due-for-recall",
         reasons: ["due-for-recall"],
+      },
+    ]);
+  });
+
+  it("builds Due for Recall from recall work planning with timezone-aware schedule rules and suppression", () => {
+    const dueNeedsPractice = buildStudyNote({
+      id: "due-needs-practice",
+      prompt: "Due and needs practice",
+    });
+    const dueFollowUp = buildStudyNote({
+      id: "due-follow-up",
+      prompt: "Due with follow-up",
+    });
+    const overdue = buildStudyNote({
+      id: "overdue",
+      prompt: "Overdue note",
+    });
+    const dueInUserTimeZone = buildStudyNote({
+      id: "due-in-user-time-zone",
+      prompt: "Due in user time zone",
+    });
+    const future = buildStudyNote({
+      id: "future",
+      prompt: "Future note",
+    });
+    const incomplete = buildStudyNote({
+      expectedAnswer: " ",
+      id: "incomplete",
+      prompt: "Incomplete note",
+    });
+    const unresolvedRepair = buildStudyNote({
+      id: "unresolved-repair",
+      prompt: "Unresolved repair note",
+    });
+
+    const plan = planRecallWork({
+      histories: [
+        {
+          attempts: [
+            {
+              completedAt: "2026-05-14T09:00:00.000Z",
+              rating: "hard",
+            },
+          ],
+          studyNoteId: dueNeedsPractice.id,
+        },
+        {
+          attempts: [
+            {
+              completedAt: "2026-05-14T10:00:00.000Z",
+              rating: "good",
+            },
+          ],
+          studyNoteId: dueFollowUp.id,
+        },
+        {
+          attempts: [
+            {
+              completedAt: "2026-05-10T09:00:00.000Z",
+              rating: "good",
+            },
+          ],
+          studyNoteId: overdue.id,
+        },
+        {
+          attempts: [
+            {
+              completedAt: "2026-05-14T11:00:00.000Z",
+              rating: "good",
+            },
+          ],
+          studyNoteId: dueInUserTimeZone.id,
+        },
+        {
+          attempts: [
+            {
+              completedAt: "2026-05-14T12:00:00.000Z",
+              rating: "easy",
+            },
+          ],
+          studyNoteId: future.id,
+        },
+        {
+          attempts: [
+            {
+              completedAt: "2026-05-14T13:00:00.000Z",
+              rating: "good",
+            },
+          ],
+          studyNoteId: unresolvedRepair.id,
+        },
+      ],
+      now: "2026-05-15T10:00:00.000Z",
+      recallSchedules: [
+        buildSchedule(dueNeedsPractice.id, "2026-05-15T23:30:00.000Z"),
+        buildSchedule(dueFollowUp.id, "2026-05-15T08:00:00.000Z"),
+        buildSchedule(overdue.id, "2026-05-13T08:00:00.000Z"),
+        buildSchedule(dueInUserTimeZone.id, "2026-05-16T03:30:00.000Z"),
+        buildSchedule(future.id, "2026-05-16T08:00:00.000Z"),
+        buildSchedule(incomplete.id, "2026-05-15T08:00:00.000Z"),
+        buildSchedule(unresolvedRepair.id, "2026-05-15T07:00:00.000Z"),
+      ],
+      sessionResults: [
+        buildSessionResultWithPracticeRepair({
+          correction:
+            "State ATP and explain that it stores transferable energy.",
+          lifecycle: {
+            completedAt: "2026-05-14T09:10:00.000Z",
+          },
+          prompt: "Due with follow-up",
+          questionResultId: "question-due-follow-up",
+          resultId: "result-due-follow-up",
+          studyNote: dueFollowUp,
+        }),
+        buildSessionResultWithPracticeRepair({
+          correction: "Repair the answer before scheduled recall.",
+          prompt: "Unresolved repair note",
+          questionResultId: "question-unresolved-repair",
+          resultId: "result-unresolved-repair",
+          studyNote: unresolvedRepair,
+        }),
+      ],
+      studyNotes: [
+        future,
+        dueNeedsPractice,
+        unresolvedRepair,
+        incomplete,
+        overdue,
+        dueFollowUp,
+        dueInUserTimeZone,
+      ],
+      userTimeZone: "America/New_York",
+    });
+
+    expect(
+      plan.dueForRecallQueue.map((item) => ({
+        id: item.studyNote.id,
+        nextRecallAt: item.schedule.nextRecallAt,
+      })),
+    ).toEqual([
+      {
+        id: overdue.id,
+        nextRecallAt: "2026-05-13T08:00:00.000Z",
+      },
+      {
+        id: dueInUserTimeZone.id,
+        nextRecallAt: "2026-05-16T03:30:00.000Z",
       },
     ]);
   });

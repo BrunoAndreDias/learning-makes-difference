@@ -336,7 +336,7 @@ describe("Study Guidance", () => {
     expect(guidance.summaryCards).toEqual([
       expect.objectContaining({ count: 1, id: "practice-repair" }),
       expect.objectContaining({ count: 1, id: "practice-follow-up" }),
-      expect.objectContaining({ count: 2, id: "due-today" }),
+      expect.objectContaining({ count: 1, id: "due-today" }),
       expect.objectContaining({ count: 1, id: "completion-blocker" }),
       expect.objectContaining({ count: 1, id: "first-recall" }),
       expect.objectContaining({ count: 1, id: "interleaving-ready" }),
@@ -541,7 +541,7 @@ describe("Study Guidance", () => {
     ]);
   });
 
-  it("counts scheduled completed Practice Follow-ups in the Today summary", () => {
+  it("keeps scheduled completed Practice Follow-ups in the Practice Follow-up summary only", () => {
     const biology: AppLabel = {
       id: "label-biology",
       name: "Biology",
@@ -596,7 +596,8 @@ describe("Study Guidance", () => {
     ).toBe(true);
     expect(guidance.summaryCards).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ count: 3, id: "due-today" }),
+        expect.objectContaining({ count: 3, id: "practice-follow-up" }),
+        expect.objectContaining({ count: 0, id: "due-today" }),
       ]),
     );
   });

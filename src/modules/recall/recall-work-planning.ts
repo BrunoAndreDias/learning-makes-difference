@@ -5,6 +5,7 @@ import { getLocalDateKey } from "./local-date";
 import type { RecallSelfRating, SessionResult } from "./recall";
 import {
   listActionablePracticeFollowUps,
+  listActivePracticeRepairQueueItems,
   type PracticeRepairEntry,
 } from "./recall-practice-repair";
 import type { RecallSchedule } from "./recall-schedule";
@@ -23,7 +24,14 @@ export type PlannedRecallWorkItem = {
   studyNote: AppStudyNote;
 };
 
+export type DueForRecallQueueItem = {
+  lastRating: RecallSelfRating | null;
+  schedule: RecallSchedule;
+  studyNote: AppStudyNote;
+};
+
 export type RecallWorkPlan = {
+  dueForRecallQueue: readonly DueForRecallQueueItem[];
   plannedItems: readonly PlannedRecallWorkItem[];
   recallTodayQueue: readonly PlannedRecallWorkItem[];
 };
@@ -114,6 +122,16 @@ function getActionablePracticeFollowUpByStudyNoteId(
   return practiceFollowUpByStudyNoteId;
 }
 
+function getActivePracticeRepairStudyNoteIds(
+  sessionResults: readonly SessionResult[],
+) {
+  return new Set(
+    listActivePracticeRepairQueueItems({
+      results: sessionResults,
+    }).map((item) => item.entry.reference.studyNoteId),
+  );
+}
+
 function getLatestRating(
   history: StudyNoteRecallHistory | null,
 ): RecallSelfRating | null {
@@ -163,11 +181,15 @@ export function planRecallWork(input: RecallWorkPlanningInput): RecallWorkPlan {
   const historyByStudyNoteId = new Map(
     input.histories.map((history) => [history.studyNoteId, history]),
   );
+  const activePracticeRepairStudyNoteIds = getActivePracticeRepairStudyNoteIds(
+    input.sessionResults,
+  );
   const practiceFollowUpByStudyNoteId =
     getActionablePracticeFollowUpByStudyNoteId(input.sessionResults);
   const scheduleByStudyNoteId = new Map(
     input.recallSchedules.map((schedule) => [schedule.studyNoteId, schedule]),
   );
+  const dueForRecallQueue: DueForRecallQueueItem[] = [];
   const rankedItems: RankedPlannedRecallWorkItem[] = [];
 
   for (const [originalIndex, studyNote] of input.studyNotes.entries()) {
@@ -179,13 +201,38 @@ export function planRecallWork(input: RecallWorkPlanningInput): RecallWorkPlan {
     const lastRating = getLatestRating(history);
     const practiceFollowUpEntry =
       practiceFollowUpByStudyNoteId.get(studyNote.id) ?? null;
+    const schedule = scheduleByStudyNoteId.get(studyNote.id) ?? null;
+    const scheduleDue =
+      schedule !== null &&
+      isScheduleDueOnOrBeforeToday({
+        now: input.now,
+        schedule,
+        userTimeZone: input.userTimeZone,
+      });
+    const unresolvedPracticeRepair = activePracticeRepairStudyNoteIds.has(
+      studyNote.id,
+    );
     const reasons = getRecallWorkReasons({
       history,
       now: input.now,
       practiceFollowUpEntry,
-      schedule: scheduleByStudyNoteId.get(studyNote.id) ?? null,
+      schedule,
       userTimeZone: input.userTimeZone,
     });
+
+    if (
+      schedule !== null &&
+      scheduleDue &&
+      !isNeedsPractice(lastRating) &&
+      practiceFollowUpEntry === null &&
+      !unresolvedPracticeRepair
+    ) {
+      dueForRecallQueue.push({
+        lastRating,
+        schedule,
+        studyNote,
+      });
+    }
 
     if (reasons.length === 0) {
       continue;
@@ -227,6 +274,7 @@ export function planRecallWork(input: RecallWorkPlanningInput): RecallWorkPlan {
     );
 
   return {
+    dueForRecallQueue,
     plannedItems,
     recallTodayQueue: plannedItems,
   };

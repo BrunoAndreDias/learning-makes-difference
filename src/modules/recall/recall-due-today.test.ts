@@ -147,7 +147,7 @@ function buildPracticeRepairResult(input: {
 }
 
 describe("Due today queue", () => {
-  it("keeps only schedule-due Study Notes and excludes active unresolved Practice Repair work", () => {
+  it("keeps only Due for Recall Study Notes from recall work planning", () => {
     const dueNeedsPractice = buildStudyNote({
       id: "due-needs-practice",
       prompt: "Due and needs practice",
@@ -215,10 +215,6 @@ describe("Due today queue", () => {
       userTimeZone: "America/New_York",
     });
 
-    expect(queue.map((item) => item.studyNote.id)).toEqual([
-      dueNeedsPractice.id,
-      overdue.id,
-      dueFollowUp.id,
-    ]);
+    expect(queue.map((item) => item.studyNote.id)).toEqual([overdue.id]);
   });
 });
