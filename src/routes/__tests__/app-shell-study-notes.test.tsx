@@ -1664,6 +1664,9 @@ describe("authenticated Study Notes workspace", () => {
     await waitFor(() =>
       expect(screen.getByRole("status")).toHaveTextContent("Saved just now"),
     );
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull(),
+    );
     const incompleteRecallInsights = screen.getByRole("region", {
       name: "Recall insights",
     });
@@ -1683,10 +1686,14 @@ describe("authenticated Study Notes workspace", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText("Due for Recall")).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Prompt"), {
+    const promptInput = screen.getByLabelText("Prompt");
+    fireEvent.change(promptInput, {
       target: { value: " " },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(promptInput).toHaveValue(" "));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Save changes" }),
+    );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Prompt is required.",

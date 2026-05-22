@@ -1637,12 +1637,15 @@ describe("recall session setup", () => {
       sourceTitle: "Retrieval practice",
     });
     const studyNote = studyNotes.updateStudyNote(userId, createdStudyNote.id, {
+      acceptedVariants: [],
       acronyms: [],
       expectedAnswer:
         "Retrieval practice strengthens access to long-term memory.",
+      keyIdeas: [],
       labelIds: [],
       metaphors: [],
       prompt: "What does retrieval practice strengthen?",
+      prohibitedPhrases: [],
       sourceBody: "Retrieval practice source context.",
       sourceTitle: "Retrieval practice",
     });
@@ -1678,11 +1681,14 @@ describe("recall session setup", () => {
     });
 
     studyNotes.updateStudyNote(userId, studyNote.id, {
+      acceptedVariants: [],
       acronyms: [],
       expectedAnswer: "Changed later answer.",
+      keyIdeas: [],
       labelIds: [],
       metaphors: [],
       prompt: "Changed later prompt?",
+      prohibitedPhrases: [],
       sourceBody: "Changed later source context.",
       sourceTitle: "Changed later source",
     });
