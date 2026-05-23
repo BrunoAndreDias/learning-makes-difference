@@ -143,6 +143,13 @@ type LinkedPracticeRepairContext = {
   entry: PracticeRepairEntry;
   practiceRepairEntryId: string;
 };
+type LinkedPracticeRepairSearch = Pick<
+  StudyNotesSearch,
+  | "practiceRepairAction"
+  | "practiceRepairEntryId"
+  | "practiceRepairQuestionResultId"
+  | "practiceRepairSessionResultId"
+>;
 
 type AnswerCheckSuggestionSession = {
   baselineDraft: UpdateStudyNoteInput;
@@ -484,8 +491,12 @@ function StudyNotesManagementPage({
       replace: true,
       search: {
         focus: search.focus,
-        practiceRepairAction: search.practiceRepairAction,
-        practiceRepairEntryId: search.practiceRepairEntryId,
+        ...getLinkedPracticeRepairSearch({
+          practiceRepairAction: search.practiceRepairAction,
+          practiceRepairEntryId: search.practiceRepairEntryId,
+          practiceRepairQuestionResultId: search.practiceRepairQuestionResultId,
+          practiceRepairSessionResultId: search.practiceRepairSessionResultId,
+        }),
       },
       to: appRoutePaths.studyNoteEditor,
     });
@@ -495,6 +506,8 @@ function StudyNotesManagementPage({
     search.focus,
     search.practiceRepairAction,
     search.practiceRepairEntryId,
+    search.practiceRepairQuestionResultId,
+    search.practiceRepairSessionResultId,
     search.studyNoteId,
   ]);
 
@@ -1181,6 +1194,17 @@ function getTargetStudyNoteId(input: {
   return input.searchStudyNoteId ?? null;
 }
 
+function getLinkedPracticeRepairSearch(
+  search: LinkedPracticeRepairSearch,
+): LinkedPracticeRepairSearch {
+  return {
+    practiceRepairAction: search.practiceRepairAction,
+    practiceRepairEntryId: search.practiceRepairEntryId,
+    practiceRepairQuestionResultId: search.practiceRepairQuestionResultId,
+    practiceRepairSessionResultId: search.practiceRepairSessionResultId,
+  };
+}
+
 function getLinkedPracticeRepairNavigationSearch(input: {
   linkedPracticeRepair: LinkedPracticeRepairContext | null;
   search: StudyNotesSearch;
@@ -1189,12 +1213,7 @@ function getLinkedPracticeRepairNavigationSearch(input: {
     return undefined;
   }
 
-  return {
-    practiceRepairAction: input.search.practiceRepairAction,
-    practiceRepairEntryId: input.search.practiceRepairEntryId,
-    practiceRepairQuestionResultId: input.search.practiceRepairQuestionResultId,
-    practiceRepairSessionResultId: input.search.practiceRepairSessionResultId,
-  };
+  return getLinkedPracticeRepairSearch(input.search);
 }
 
 function findLinkedPracticeRepairContext(input: {

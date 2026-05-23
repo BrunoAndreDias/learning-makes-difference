@@ -33,6 +33,7 @@ import {
   type PracticeRepairQuestionReference,
 } from "./recall-practice-repair";
 import {
+  createStudyNotesPracticeRepairSearch,
   ExternalLinkIcon,
   InfoIcon,
   PencilIcon,
@@ -105,37 +106,6 @@ function createPracticeRepairDraftReference(
     sessionResultId: workspace.sessionResultId,
     studyNoteId: workspace.question.noteId,
   };
-}
-
-function createStudyNotesPracticeRepairSearch(input: {
-  practiceRepairAction?: PracticeRepairIntent;
-  practiceRepairEntryId: string;
-  practiceRepairQuestionResultId?: string;
-  practiceRepairSessionResultId?: string;
-}) {
-  const search: {
-    practiceRepairAction?: PracticeRepairIntent;
-    practiceRepairEntryId: string;
-    practiceRepairQuestionResultId?: string;
-    practiceRepairSessionResultId?: string;
-  } = {
-    practiceRepairEntryId: input.practiceRepairEntryId,
-  };
-
-  if (input.practiceRepairAction !== undefined) {
-    search.practiceRepairAction = input.practiceRepairAction;
-  }
-
-  if (input.practiceRepairQuestionResultId !== undefined) {
-    search.practiceRepairQuestionResultId =
-      input.practiceRepairQuestionResultId;
-  }
-
-  if (input.practiceRepairSessionResultId !== undefined) {
-    search.practiceRepairSessionResultId = input.practiceRepairSessionResultId;
-  }
-
-  return search;
 }
 
 function getDraftPracticeRepairEntryId(
