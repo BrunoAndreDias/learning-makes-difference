@@ -11,7 +11,7 @@
 
 .study-guidance-workspace .page-layout__hero,
 .study-guidance-workspace .page-layout__body {
-  width: min(100%, 92rem);
+  width: min(100%, var(--workspace-content-width));
   justify-self: center;
 }
 
@@ -410,11 +410,6 @@
 }
 
 @media (min-width: 106rem) {
-  .study-guidance-workspace .page-layout__hero,
-  .study-guidance-workspace .page-layout__body {
-    width: min(100%, 100rem);
-  }
-
   .study-guidance-plan {
     --study-guidance-row-bucket-column: 12rem;
     --study-guidance-row-action-column: 14rem;

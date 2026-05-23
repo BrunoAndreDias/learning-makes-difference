@@ -12,10 +12,17 @@
 @import "../modules/access/access.css";
 
 .app-shell:has(.authenticated-shell) {
+  --workspace-content-width: 70rem;
   --workspace-page-inline: var(--lmd-page-padding-x);
   --workspace-page-block-start: var(--lmd-page-padding-y);
   --workspace-page-block-end: var(--lmd-page-padding-y);
   --workspace-collapsed-header-offset: clamp(5rem, 6vw, 6.5rem);
+}
+
+@media (min-width: 90rem) {
+  .app-shell:has(.authenticated-shell) {
+    --workspace-page-inline: clamp(3.5rem, 5vw, 6rem);
+  }
 }
 
 .app-shell:has(.authenticated-shell) .app-frame {
@@ -75,7 +82,7 @@
   .app-frame__content
   > .page-layout
   > .page-layout__body {
-  width: min(100%, 92rem);
+  width: min(100%, var(--workspace-content-width));
   justify-self: center;
 }
 
@@ -89,8 +96,15 @@
 .app-shell:has(.authenticated-shell)
   .app-frame__content
   > .recall-workspace:not(.page-layout) {
-  width: min(100%, 92rem);
+  width: min(100%, var(--workspace-content-width));
   justify-self: center;
+}
+
+.app-shell:has(.authenticated-shell)
+  .app-frame[data-workspace="recall-results"]
+  .app-frame__content
+  > .recall-workspace:not(.page-layout) {
+  padding-inline: 0;
 }
 
 .authenticated-shell[data-sidebar-state="collapsed"]
@@ -246,22 +260,6 @@
     .app-frame[data-workspace="settings"]
     .app-frame__content:has(> .settings-layout) {
     padding-inline-start: var(--workspace-page-inline);
-  }
-}
-
-@media (min-width: 106rem) {
-  .app-shell:has(.authenticated-shell)
-    .app-frame__content
-    > .page-layout
-    > .page-layout__hero,
-  .app-shell:has(.authenticated-shell)
-    .app-frame__content
-    > .page-layout
-    > .page-layout__body,
-  .app-shell:has(.authenticated-shell)
-    .app-frame__content
-    > .recall-workspace:not(.page-layout) {
-    width: min(100%, 100rem);
   }
 }
 

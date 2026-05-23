@@ -101,6 +101,7 @@ describe("desktop density tokens", () => {
     expect(appCss).toContain(
       "--workspace-page-inline: var(--lmd-page-padding-x);",
     );
+    expect(appCss).toContain("--workspace-content-width: 70rem;");
     expect(appCss).toContain(
       "--workspace-page-block-start: var(--lmd-page-padding-y);",
     );

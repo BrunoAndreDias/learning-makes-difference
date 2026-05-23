@@ -217,9 +217,6 @@ describe("page style normalization", () => {
   });
 
   it("keeps workspace page header copy consistent by role", () => {
-    const appCss = readFileSync(new URL("../styles/app.css", import.meta.url), {
-      encoding: "utf8",
-    });
     const pageHeaderCss = readFileSync(
       new URL("./page-header/page-header.css", import.meta.url),
       {
@@ -487,6 +484,10 @@ describe("page style normalization", () => {
       appCss,
       ".app-shell:has(.authenticated-shell) .app-frame__content > .recall-workspace:not(.page-layout)",
     ).join("\n");
+    const recallTodaySurfaceInsetStyle = getCssRules(
+      appCss,
+      '.app-shell:has(.authenticated-shell) .app-frame[data-workspace="recall-results"] .app-frame__content > .recall-workspace:not(.page-layout)',
+    ).join("\n");
     const focusRootStyle = getCssRules(focusCss, ".focus-workspace").join("\n");
     const studyNotesRootStyle = getCssRules(
       studyNotesCss,
@@ -508,19 +509,23 @@ describe("page style normalization", () => {
     expect(collapsedPageInsetStyle).toContain(
       "padding-inline-start: var(--workspace-collapsed-header-offset);",
     );
-    expect(sharedPageHeroInsetStyle).toContain("width: min(100%, 92rem);");
+    expect(appCss).toContain("--workspace-content-width: 70rem;");
+    expect(sharedPageHeroInsetStyle).toContain(
+      "width: min(100%, var(--workspace-content-width));",
+    );
     expect(sharedPageHeroInsetStyle).toContain("justify-self: center;");
-    expect(sharedPageBodyInsetStyle).toContain("width: min(100%, 92rem);");
+    expect(sharedPageBodyInsetStyle).toContain(
+      "width: min(100%, var(--workspace-content-width));",
+    );
     expect(sharedPageBodyInsetStyle).toContain("justify-self: center;");
     expect(sharedNonPageLayoutRecallInsetStyle).toContain(
-      "width: min(100%, 92rem);",
+      "width: min(100%, var(--workspace-content-width));",
     );
     expect(sharedNonPageLayoutRecallInsetStyle).toContain(
       "justify-self: center;",
     );
-    expect(appCss).toMatch(
-      /@media \(min-width: 106rem\)\s*\{[\s\S]*?\.app-shell:has\(\.authenticated-shell\)\s+\.app-frame__content\s+>\s+\.page-layout\s+>\s+\.page-layout__hero,[\s\S]*?width: min\(100%, 100rem\);/m,
-    );
+    expect(recallTodaySurfaceInsetStyle).toContain("padding-inline: 0;");
+    expect(appCss).not.toContain("width: min(100%, 100rem);");
     expect(appCss).toMatch(
       /@media \(max-width: 78rem\)\s*\{[\s\S]*?\.app-shell:has\(\.authenticated-shell\)\s+\.app-frame__content\s+>\s+\.page-layout\s+>\s+\.page-layout__hero,[\s\S]*?width: 100%;/m,
     );
