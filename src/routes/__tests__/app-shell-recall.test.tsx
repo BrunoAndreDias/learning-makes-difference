@@ -1571,6 +1571,90 @@ describe("authenticated recall workspace", () => {
     );
   });
 
+  it("returns linked Study Note edits to the originating draft Practice Repair workspace", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const weakStudyNote = contexts.studyNotesContext.createStudyNote(
+      testUser.id,
+      {
+        expectedAnswer: "ATP stores transferable energy for cells.",
+        prompt: "What stores transferable energy?",
+        sourceBody: "Cell respiration source context.",
+        sourceTitle: "Cell respiration source",
+      },
+    );
+
+    completeStudyNoteRecallAt({
+      rating: "hard",
+      recallContext: contexts.recallContext,
+      studyNoteId: weakStudyNote.id,
+      timestamp: "2026-05-15T09:00:00.000Z",
+    });
+
+    const result = contexts.recallContext.listSessionResults({
+      userId: testUser.id,
+    })[0];
+    const questionResultId = result?.questions[0]?.questionResultId;
+
+    if (result === undefined || questionResultId === undefined) {
+      throw new Error(
+        "Expected a stored weak-recall result with a question id.",
+      );
+    }
+
+    const practiceRepairDraftPath = `/practice-repair/results/${result.id}/questions/${questionResultId}`;
+    const routeRender = renderRoute(practiceRepairDraftPath, {
+      ...contexts,
+      session: createSession(),
+    });
+
+    const suggestions = await screen.findByRole("complementary", {
+      name: "Practice Repair actions",
+    });
+
+    fireEvent.click(
+      within(suggestions).getByRole("button", {
+        name: "Edit expected answer",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(routeRender.router.state.location.pathname).toBe(
+        getStudyNoteEditorPath(weakStudyNote.id),
+      );
+    });
+    expect(routeRender.router.state.location.search).toEqual({
+      practiceRepairAction: "tighten-expected-answer",
+      practiceRepairEntryId: createPracticeRepairEntryId({
+        questionIndex: 0,
+        questionResultId,
+        sessionResultId: result.id,
+        studyNoteId: weakStudyNote.id,
+      }),
+      practiceRepairQuestionResultId: questionResultId,
+      practiceRepairSessionResultId: result.id,
+    });
+
+    expect(
+      screen.getByRole("link", { name: "Return to Practice Repair" }),
+    ).toHaveAttribute("href", practiceRepairDraftPath);
+
+    fireEvent.click(
+      screen.getByRole("link", { name: "Return to Practice Repair" }),
+    );
+
+    await waitFor(() => {
+      expect(routeRender.router.state.location.pathname).toBe(
+        practiceRepairDraftPath,
+      );
+    });
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Practice Repair",
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("falls back to the Practice Repair queue when a Repair draft result is missing", async () => {
     const { router } = renderRoute(
       "/practice-repair/results/missing-result/questions/missing-question",

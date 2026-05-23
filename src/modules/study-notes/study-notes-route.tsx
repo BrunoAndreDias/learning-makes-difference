@@ -100,6 +100,8 @@ export const studyNotesSearchSchema = z.object({
   labelId: z.string().optional(),
   practiceRepairAction: z.enum(practiceRepairIntents).optional(),
   practiceRepairEntryId: z.string().optional(),
+  practiceRepairQuestionResultId: z.string().optional(),
+  practiceRepairSessionResultId: z.string().optional(),
   studyNoteId: z.string().optional(),
 });
 
@@ -1190,6 +1192,8 @@ function getLinkedPracticeRepairNavigationSearch(input: {
   return {
     practiceRepairAction: input.search.practiceRepairAction,
     practiceRepairEntryId: input.search.practiceRepairEntryId,
+    practiceRepairQuestionResultId: input.search.practiceRepairQuestionResultId,
+    practiceRepairSessionResultId: input.search.practiceRepairSessionResultId,
   };
 }
 
@@ -2251,12 +2255,29 @@ function formatOriginalNarrowedStatus(
     : "Practice Repair completed";
 }
 
-function getLinkedPracticeRepairReturnTarget(
-  linkedPracticeRepair: LinkedPracticeRepairContext,
-) {
+function getLinkedPracticeRepairReturnTarget(input: {
+  linkedPracticeRepair: LinkedPracticeRepairContext;
+  search: Pick<
+    StudyNotesSearch,
+    "practiceRepairQuestionResultId" | "practiceRepairSessionResultId"
+  >;
+}) {
+  if (
+    input.search.practiceRepairQuestionResultId !== undefined &&
+    input.search.practiceRepairSessionResultId !== undefined
+  ) {
+    return {
+      params: {
+        questionResultId: input.search.practiceRepairQuestionResultId,
+        sessionResultId: input.search.practiceRepairSessionResultId,
+      },
+      to: "/practice-repair/results/$sessionResultId/questions/$questionResultId" as const,
+    };
+  }
+
   return {
     params: {
-      practiceRepairEntryId: linkedPracticeRepair.practiceRepairEntryId,
+      practiceRepairEntryId: input.linkedPracticeRepair.practiceRepairEntryId,
     },
     to: "/practice-repair/$practiceRepairEntryId" as const,
   };
@@ -4615,7 +4636,10 @@ export function StudyNotesPage({
   const linkedPracticeRepairReturnTarget =
     linkedPracticeRepair === null
       ? null
-      : getLinkedPracticeRepairReturnTarget(linkedPracticeRepair);
+      : getLinkedPracticeRepairReturnTarget({
+          linkedPracticeRepair,
+          search,
+        });
   const linkedPracticeRepairAction = linkedPracticeRepair?.action ?? null;
   const isPromptPracticeRepairFocus =
     linkedPracticeRepairAction === "tighten-prompt" ||

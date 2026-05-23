@@ -108,13 +108,34 @@ function createPracticeRepairDraftReference(
 }
 
 function createStudyNotesPracticeRepairSearch(input: {
-  practiceRepairAction: PracticeRepairIntent;
+  practiceRepairAction?: PracticeRepairIntent;
   practiceRepairEntryId: string;
+  practiceRepairQuestionResultId?: string;
+  practiceRepairSessionResultId?: string;
 }) {
-  return {
-    practiceRepairAction: input.practiceRepairAction,
+  const search: {
+    practiceRepairAction?: PracticeRepairIntent;
+    practiceRepairEntryId: string;
+    practiceRepairQuestionResultId?: string;
+    practiceRepairSessionResultId?: string;
+  } = {
     practiceRepairEntryId: input.practiceRepairEntryId,
   };
+
+  if (input.practiceRepairAction !== undefined) {
+    search.practiceRepairAction = input.practiceRepairAction;
+  }
+
+  if (input.practiceRepairQuestionResultId !== undefined) {
+    search.practiceRepairQuestionResultId =
+      input.practiceRepairQuestionResultId;
+  }
+
+  if (input.practiceRepairSessionResultId !== undefined) {
+    search.practiceRepairSessionResultId = input.practiceRepairSessionResultId;
+  }
+
+  return search;
 }
 
 function getDraftPracticeRepairEntryId(
@@ -365,6 +386,8 @@ function RecallPracticeRepairDraftPage({
         search: createStudyNotesPracticeRepairSearch({
           practiceRepairAction: intent,
           practiceRepairEntryId: getDraftPracticeRepairEntryId(workspace),
+          practiceRepairQuestionResultId: workspace.questionResultId,
+          practiceRepairSessionResultId: workspace.sessionResultId,
         }),
         to: appRoutePaths.studyNoteEditor,
       });

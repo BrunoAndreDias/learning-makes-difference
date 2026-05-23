@@ -849,6 +849,7 @@ export function RecallPracticeRepairWorkspacePage({
                     studyNoteId: entry.reference.studyNoteId,
                   }}
                   search={createStudyNotesPracticeRepairSearch({
+                    practiceRepairAction: entry.intent,
                     practiceRepairEntryId,
                   })}
                   to={appRoutePaths.studyNoteEditor}
