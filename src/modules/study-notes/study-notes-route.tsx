@@ -21,6 +21,7 @@ import { z } from "zod";
 
 import { resizeTextareaToFitContent } from "../../design-system/auto-sizing-textarea";
 import { Button, ButtonLink } from "../../design-system/button";
+import { PageHeader } from "../../design-system/page-header";
 import { PageLayout } from "../../design-system/page-layout";
 import {
   defaultShowStudyNoteTemplatesPreference,
@@ -74,7 +75,6 @@ import {
   formatStudyNoteDueLabel,
   formatStudyNoteLearningStateCompactLabel,
   formatStudyNotePracticeSignalLabel,
-  getStudyNoteReadiness,
   hasStudyNoteSourceContentChanged,
   isUnlabeledStudyNotesFilterValue,
   listStudyNotesForUser,
@@ -177,41 +177,20 @@ function StudyNotesWorkspaceRoute() {
   return <StudyNotesManagementPage search={search} />;
 }
 
-type StudyNotesManagementStatusFilter =
-  | "all"
-  | "due-for-recall"
-  | "incomplete"
-  | "needs-practice"
-  | "not-recalled-yet";
+type StudyNotesManagementListView = "all" | "due-today" | "needs-repair";
 type StudyNotesManagementSortOrder =
   | "least-recently-updated"
   | "recently-updated"
   | "study-note-a-z"
   | "study-note-z-a";
-type StudyNotesManagementRecallGuidanceEntry = ReturnType<
-  typeof deriveRecallGuidance
->[number];
-type StudyNotesManagementRowStatusKind = "attention" | "neutral" | "practice";
 
 const studyNotesManagementStatusFilterOptions = [
-  { label: "All statuses", value: "all" },
-  { label: "Incomplete", value: "incomplete" },
-  { label: "Not recalled yet", value: "not-recalled-yet" },
-  { label: "Needs practice", value: "needs-practice" },
-  { label: "Due for Recall", value: "due-for-recall" },
+  { label: "Due today", value: "due-today" },
+  { label: "All notes", value: "all" },
+  { label: "Needs repair", value: "needs-repair" },
 ] as const satisfies readonly {
   label: string;
-  value: StudyNotesManagementStatusFilter;
-}[];
-
-const studyNotesManagementSortOptions = [
-  { label: "Recently updated", value: "recently-updated" },
-  { label: "Least recently updated", value: "least-recently-updated" },
-  { label: "Study note A-Z", value: "study-note-a-z" },
-  { label: "Study note Z-A", value: "study-note-z-a" },
-] as const satisfies readonly {
-  label: string;
-  value: StudyNotesManagementSortOrder;
+  value: StudyNotesManagementListView;
 }[];
 
 function StudyNotesManagementPage({
@@ -268,7 +247,6 @@ function StudyNotesManagementPage({
     userId === null ? [] : labelsContext.getLabelsForUser(userId),
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [isDeletingStudyNoteId, setDeletingStudyNoteId] = useState<
     string | null
   >(null);
@@ -276,14 +254,26 @@ function StudyNotesManagementPage({
   const [selectedLabelId, setSelectedLabelId] = useState(
     () => search.labelId ?? "",
   );
-  const [selectedStatusFilter, setSelectedStatusFilter] =
-    useState<StudyNotesManagementStatusFilter>("all");
-  const [selectedSortOrder, setSelectedSortOrder] =
-    useState<StudyNotesManagementSortOrder>("recently-updated");
+  const [selectedListView, setSelectedListView] =
+    useState<StudyNotesManagementListView>("all");
+  const [showUpcomingStudyNotes, setShowUpcomingStudyNotes] = useState(false);
   const allStudyNotes = useMemo(
     () => listStudyNotesForUser(studyNotesSnapshot, userId),
     [studyNotesSnapshot, userId],
   );
+  const studyNoteCountBySourceId = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    for (const studyNote of allStudyNotes) {
+      counts.set(
+        studyNote.sourceNoteId,
+        (counts.get(studyNote.sourceNoteId) ?? 0) + 1,
+      );
+    }
+
+    return counts;
+  }, [allStudyNotes]);
+  const storeMutation = persistentStudyNotesContext ?? studyNotesContext;
   const recallAttemptsByNote = useMemo(
     () =>
       userId === null || recallResultsSnapshot.length === 0
@@ -304,25 +294,6 @@ function StudyNotesManagementPage({
         studyNotes: allStudyNotes,
       }),
     [allStudyNotes, now, recallHistories, recallSchedulesSnapshot],
-  );
-  const recallGuidanceEntries = useMemo(
-    () =>
-      deriveRecallGuidance({
-        attemptsByNote: recallAttemptsByNote,
-        now,
-        recallSchedules: recallSchedulesSnapshot,
-        sessionResults: recallResultsSnapshot,
-        studyNotes: allStudyNotes,
-        userTimeZone,
-      }),
-    [
-      allStudyNotes,
-      now,
-      recallAttemptsByNote,
-      recallResultsSnapshot,
-      recallSchedulesSnapshot,
-      userTimeZone,
-    ],
   );
   const recallTodayQueue = useMemo(() => {
     if (userId === null) {
@@ -360,13 +331,6 @@ function StudyNotesManagementPage({
       ),
     [learningStates],
   );
-  const recallGuidanceByStudyNoteId = useMemo(
-    () =>
-      new Map(
-        recallGuidanceEntries.map((entry) => [entry.studyNote.id, entry]),
-      ),
-    [recallGuidanceEntries],
-  );
   const recallScheduleByStudyNoteId = useMemo(
     () =>
       new Map(
@@ -377,33 +341,15 @@ function StudyNotesManagementPage({
       ),
     [recallSchedulesSnapshot],
   );
-  const studyNoteCountBySourceId = useMemo(() => {
-    const counts = new Map<string, number>();
-
-    for (const studyNote of allStudyNotes) {
-      counts.set(
-        studyNote.sourceNoteId,
-        (counts.get(studyNote.sourceNoteId) ?? 0) + 1,
-      );
-    }
-
-    return counts;
-  }, [allStudyNotes]);
-  const filteredStudyNotes = useMemo(() => {
+  const recallTodayStudyNoteIdSet = useMemo(
+    () => new Set(recallTodayStudyNoteIds),
+    [recallTodayStudyNoteIds],
+  );
+  const baseFilteredStudyNotes = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
 
     return filterStudyNotesBySelectedLabel(allStudyNotes, selectedLabelId)
       .filter((studyNote) => {
-        if (
-          !matchesStudyNoteStatusFilter({
-            learningState: learningStateByStudyNoteId.get(studyNote.id) ?? null,
-            statusFilter: selectedStatusFilter,
-            studyNote,
-          })
-        ) {
-          return false;
-        }
-
         if (normalizedQuery.length === 0) {
           return true;
         }
@@ -425,22 +371,55 @@ function StudyNotesManagementPage({
         compareStudyNotesForManagementSort({
           left,
           right,
-          sortOrder: selectedSortOrder,
+          sortOrder: "recently-updated",
         }),
       );
-  }, [
-    allStudyNotes,
-    availableLabels,
-    learningStateByStudyNoteId,
-    searchQuery,
-    selectedLabelId,
-    selectedSortOrder,
-    selectedStatusFilter,
-  ]);
-  const storeMutation = persistentStudyNotesContext ?? studyNotesContext;
+  }, [allStudyNotes, availableLabels, searchQuery, selectedLabelId]);
+  const filteredStudyNotes = useMemo(
+    () =>
+      baseFilteredStudyNotes.filter((studyNote) =>
+        matchesStudyNoteListView({
+          learningState: learningStateByStudyNoteId.get(studyNote.id) ?? null,
+          listView: selectedListView,
+          recallTodayStudyNoteIds: recallTodayStudyNoteIdSet,
+        }),
+      ),
+    [
+      baseFilteredStudyNotes,
+      learningStateByStudyNoteId,
+      recallTodayStudyNoteIdSet,
+      selectedListView,
+    ],
+  );
+  const upcomingStudyNotes = useMemo(() => {
+    if (selectedListView !== "due-today") {
+      return [];
+    }
+
+    return baseFilteredStudyNotes.filter(
+      (studyNote) => !recallTodayStudyNoteIdSet.has(studyNote.id),
+    );
+  }, [baseFilteredStudyNotes, recallTodayStudyNoteIdSet, selectedListView]);
+  const visibleUpcomingStudyNotes = showUpcomingStudyNotes
+    ? upcomingStudyNotes
+    : [];
+  const newStudyNotesCount = useMemo(
+    () =>
+      allStudyNotes.filter(
+        (studyNote) =>
+          learningStateByStudyNoteId.get(studyNote.id)?.latestScore === null,
+      ).length,
+    [allStudyNotes, learningStateByStudyNoteId],
+  );
   const emptyManagementMessage = getStudyNotesManagementEmptyMessage({
     allStudyNotesCount: allStudyNotes.length,
     filteredStudyNotesCount: filteredStudyNotes.length,
+  });
+  const shouldShowManagementList =
+    emptyManagementMessage === null || upcomingStudyNotes.length > 0;
+  const selectedLabelFilterText = getStudyNotesSelectedLabelFilterText({
+    availableLabels,
+    selectedLabelId,
   });
 
   useEffect(() => {
@@ -547,52 +526,31 @@ function StudyNotesManagementPage({
     });
   }
 
-  function handleStatusFilterChange(event: ChangeEvent<HTMLSelectElement>) {
-    const nextStatusFilter = readStudyNotesManagementStatusFilter(
-      event.target.value,
-    );
-
-    if (nextStatusFilter === null) {
-      return;
-    }
-
-    setSelectedStatusFilter(nextStatusFilter);
-  }
-
-  function handleSortOrderChange(event: ChangeEvent<HTMLSelectElement>) {
-    const nextSortOrder = readStudyNotesManagementSortOrder(event.target.value);
-
-    if (nextSortOrder === null) {
-      return;
-    }
-
-    setSelectedSortOrder(nextSortOrder);
-  }
-
-  async function handleStartRecallSession() {
+  async function handleStartRecallSession(
+    studyNoteIds = recallTodayStudyNoteIds,
+  ) {
     if (userId === null) {
       return;
     }
 
-    if (recallTodayStudyNoteIds.length === 0) {
+    if (studyNoteIds.length === 0) {
       await navigate({ to: appRoutePaths.recall });
       return;
     }
 
     setErrorMessage(null);
-    setFeedbackMessage(null);
 
     try {
       if (persistentRecallContext === undefined) {
         recallContext.startFlashCardSession({
           mode: "FlashCard",
-          studyNoteIds: [...recallTodayStudyNoteIds],
+          studyNoteIds: [...studyNoteIds],
           userId,
         });
       } else {
         await persistentRecallContext.startFlashCardSession(userId, {
           mode: "FlashCard",
-          studyNoteIds: recallTodayStudyNoteIds,
+          studyNoteIds,
         });
       }
 
@@ -607,7 +565,7 @@ function StudyNotesManagementPage({
     }
   }
 
-  async function handleDeleteStudyNote(studyNote: AppStudyNote) {
+  async function handleRemoveStudyNote(studyNote: AppStudyNote) {
     if (userId === null) {
       return;
     }
@@ -625,13 +583,11 @@ function StudyNotesManagementPage({
 
     setDeletingStudyNoteId(studyNote.id);
     setErrorMessage(null);
-    setFeedbackMessage(null);
 
     try {
       await storeMutation.deleteStudyNote(userId, studyNote.id, {
         deleteSource: !hasSiblingStudyNotes,
       });
-      setFeedbackMessage(`Deleted ${studyNote.prompt}`);
     } catch (error) {
       if (error instanceof AppStudyNotesError) {
         setErrorMessage(error.message);
@@ -645,55 +601,79 @@ function StudyNotesManagementPage({
   }
 
   return (
-    <PageLayout
-      actions={
-        <>
-          <Button
-            aria-label="New Study Note"
-            className="study-notes-new-note"
-            onClick={handleNewStudyNote}
-            type="button"
-            variant="secondary"
-          >
-            <PlusIcon />
-            <span>New note</span>
-          </Button>
-          <Button
-            className="study-notes-start-recall"
-            onClick={() => void handleStartRecallSession()}
-            type="button"
-            variant="secondary"
-          >
-            <PlayIcon />
-            <span>Start Recall Session</span>
-          </Button>
-        </>
-      }
-      actionsClassName="study-notes-hero__actions"
-      bodyClassName="study-notes-management-page__body"
-      className="notes-workspace study-notes-management-page"
-      description="Browse, filter, and act on Study Notes without opening the editor."
-      headerClassName="study-notes-hero"
-      headingLevel={1}
-      title="Study Notes"
-    >
-      <div className="study-notes-management-shell">
+    <section className="page-layout notes-workspace study-notes-management-page">
+      <div className="study-notes-management-wrapper">
+        <PageHeader
+          actions={
+            <>
+              <Button
+                aria-label="New Study Note"
+                className="study-notes-new-note"
+                onClick={handleNewStudyNote}
+                type="button"
+                variant="secondary"
+              >
+                <PlusIcon />
+                <span>New note</span>
+              </Button>
+              <Button
+                className="study-notes-start-recall"
+                onClick={() => void handleStartRecallSession()}
+                type="button"
+                variant="secondary"
+              >
+                <span>
+                  {formatRecallQueueButtonLabel(recallTodayStudyNoteIds.length)}
+                </span>
+              </Button>
+            </>
+          }
+          actionsClassName="study-notes-hero__actions"
+          className="page-layout__header study-notes-hero"
+          description="Browse, filter, and recall your notes."
+          headingLevel={1}
+          title="Study Notes"
+        />
         <section
           aria-label="Study Notes management"
           className="study-notes-management"
         >
+          <div className="study-notes-tabs">
+            {studyNotesManagementStatusFilterOptions.map((option) => (
+              <button
+                aria-pressed={selectedListView === option.value}
+                className="study-notes-tabs__item"
+                data-active={
+                  selectedListView === option.value ? "true" : undefined
+                }
+                key={option.value}
+                onClick={() => {
+                  setSelectedListView(option.value);
+                  setShowUpcomingStudyNotes(false);
+                }}
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
           <div className="study-notes-management__filters">
-            <label className="study-notes-management__control">
-              <span>Search Study Notes</span>
+            <label className="study-notes-list-search">
+              <span className="sr-only">Search notes</span>
+              <SearchIcon />
               <input
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search Study Notes"
+                placeholder="Search notes..."
                 type="search"
                 value={searchQuery}
               />
             </label>
-            <label className="study-notes-management__control">
-              <span>Filter Study Notes by label</span>
+            <label className="study-notes-list-filter">
+              <SlidersIcon />
+              <span className="study-notes-list-filter__label">
+                {selectedLabelFilterText}
+              </span>
               <select
                 aria-label="Filter Study Notes by label"
                 onChange={(event) =>
@@ -712,40 +692,15 @@ function StudyNotesManagementPage({
                 ))}
               </select>
             </label>
-            <label className="study-notes-management__control">
-              <span>Filter Study Notes by status</span>
-              <select
-                aria-label="Filter Study Notes by status"
-                onChange={handleStatusFilterChange}
-                value={selectedStatusFilter}
-              >
-                {studyNotesManagementStatusFilterOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="study-notes-management__control">
-              <span>Sort Study Notes</span>
-              <select
-                aria-label="Sort Study Notes"
-                onChange={handleSortOrderChange}
-                value={selectedSortOrder}
-              >
-                {studyNotesManagementSortOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
           </div>
 
           <div className="study-notes-management__summary">
             <p>
-              Showing {filteredStudyNotes.length} of {allStudyNotes.length}{" "}
-              Study Notes
+              {formatStudyNotesListSummary({
+                newStudyNotesCount,
+                readyStudyNotesCount: recallTodayStudyNoteIds.length,
+                totalStudyNotesCount: allStudyNotes.length,
+              })}
             </p>
           </div>
 
@@ -754,56 +709,78 @@ function StudyNotesManagementPage({
               {errorMessage}
             </p>
           )}
-          {feedbackMessage === null ? null : (
-            <p className="study-notes-management__feedback" role="status">
-              {feedbackMessage}
-            </p>
-          )}
-
-          {emptyManagementMessage === null ? (
-            <div className="study-notes-management__table-wrap">
-              <table
+          {shouldShowManagementList ? (
+            <div className="study-notes-management__list-wrap">
+              <ul
                 aria-label="Study Notes management list"
-                className="study-notes-management__table"
+                className="study-notes-management__list"
               >
-                <thead>
-                  <tr>
-                    <th scope="col">Study note</th>
-                    <th scope="col">Labels</th>
-                    <th scope="col">Recall status</th>
-                    <th scope="col">Last updated</th>
-                    <th scope="col">Next recall / Suggested action</th>
-                    <th scope="col">Source</th>
-                    <th scope="col">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredStudyNotes.map((studyNote) => (
-                    <StudyNotesManagementTableRow
-                      availableLabels={availableLabels}
+                {filteredStudyNotes.map((studyNote) => (
+                  <StudyNotesManagementListRow
+                    isDeleting={isDeletingStudyNoteId === studyNote.id}
+                    key={studyNote.id}
+                    learningState={
+                      learningStateByStudyNoteId.get(studyNote.id) ?? null
+                    }
+                    now={now}
+                    onStartRecall={() =>
+                      void handleStartRecallSession([studyNote.id])
+                    }
+                    onRemoveStudyNote={handleRemoveStudyNote}
+                    schedule={
+                      recallScheduleByStudyNoteId.get(studyNote.id) ?? null
+                    }
+                    studyNote={studyNote}
+                    userTimeZone={userTimeZone}
+                  />
+                ))}
+              </ul>
+              {upcomingStudyNotes.length === 0 ? null : (
+                <button
+                  aria-expanded={showUpcomingStudyNotes}
+                  aria-label={`Upcoming · ${upcomingStudyNotes.length}`}
+                  className="study-notes-management__upcoming"
+                  data-expanded={showUpcomingStudyNotes ? "true" : undefined}
+                  onClick={() =>
+                    setShowUpcomingStudyNotes(
+                      (currentShowUpcomingStudyNotes) =>
+                        !currentShowUpcomingStudyNotes,
+                    )
+                  }
+                  type="button"
+                >
+                  <span>Upcoming</span>
+                  <span>·</span>
+                  <span>{upcomingStudyNotes.length}</span>
+                  <ChevronDownIcon />
+                </button>
+              )}
+              {visibleUpcomingStudyNotes.length === 0 ? null : (
+                <ul
+                  aria-label="Upcoming Study Notes management list"
+                  className="study-notes-management__list study-notes-management__upcoming-list"
+                >
+                  {visibleUpcomingStudyNotes.map((studyNote) => (
+                    <StudyNotesManagementListRow
                       isDeleting={isDeletingStudyNoteId === studyNote.id}
                       key={studyNote.id}
                       learningState={
                         learningStateByStudyNoteId.get(studyNote.id) ?? null
                       }
                       now={now}
-                      onDeleteStudyNote={handleDeleteStudyNote}
-                      recallGuidance={
-                        recallGuidanceByStudyNoteId.get(studyNote.id) ?? null
+                      onStartRecall={() =>
+                        void handleStartRecallSession([studyNote.id])
                       }
+                      onRemoveStudyNote={handleRemoveStudyNote}
                       schedule={
                         recallScheduleByStudyNoteId.get(studyNote.id) ?? null
-                      }
-                      sourceStudyNoteCount={
-                        studyNoteCountBySourceId.get(studyNote.sourceNoteId) ??
-                        0
                       }
                       studyNote={studyNote}
                       userTimeZone={userTimeZone}
                     />
                   ))}
-                </tbody>
-              </table>
+                </ul>
+              )}
             </div>
           ) : (
             <p className="muted study-notes-management__empty">
@@ -812,149 +789,77 @@ function StudyNotesManagementPage({
           )}
         </section>
       </div>
-    </PageLayout>
+    </section>
   );
 }
 
-function StudyNotesManagementTableRow({
-  availableLabels,
+function StudyNotesManagementListRow({
   isDeleting,
   learningState,
   now,
-  onDeleteStudyNote,
-  recallGuidance,
+  onRemoveStudyNote,
+  onStartRecall,
   schedule,
-  sourceStudyNoteCount,
   studyNote,
   userTimeZone,
 }: Readonly<{
-  availableLabels: readonly AppLabel[];
   isDeleting: boolean;
   learningState: StudyNoteLearningState | null;
   now: string;
-  onDeleteStudyNote: (studyNote: AppStudyNote) => Promise<void>;
-  recallGuidance: StudyNotesManagementRecallGuidanceEntry | null;
+  onRemoveStudyNote: (studyNote: AppStudyNote) => Promise<void>;
+  onStartRecall: () => void;
   schedule: RecallSchedule | null;
-  sourceStudyNoteCount: number;
   studyNote: AppStudyNote;
   userTimeZone: string;
 }>) {
-  const title = studyNote.prompt;
-  const labelNames = getStudyNoteLabelNames(
-    availableLabels,
-    studyNote.labelIds,
-  );
-  const nextRecallLabel =
-    formatNextRecallTiming({
-      now,
-      schedule,
-      userTimeZone,
-    }) ?? "On schedule";
-  const recallInsight = deriveStudyNoteRecallInsight({
-    draft: createDraftFromStudyNote(studyNote),
-    nextRecall: nextRecallLabel,
-    recallGuidance,
+  const metaParts = getStudyNotesListRowMeta({
+    learningState,
+    now,
+    schedule,
+    userTimeZone,
   });
-  const recallDetailLabel =
-    getStudyNotesManagementRecallDetailLabel(learningState);
-  const sourceLabel = getStudyNoteSourceDisplayLabel(studyNote);
-  const isSharedSource = sourceStudyNoteCount > 1;
 
   return (
-    <tr>
-      <td
-        className="study-notes-management__study-note"
-        data-label="Study note"
+    <li className="study-notes-management__item">
+      <Link
+        aria-label={studyNote.prompt}
+        className="study-notes-management__row-main"
+        params={{
+          studyNoteId: studyNote.id,
+        }}
+        to={appRoutePaths.studyNoteEditor}
       >
-        <Link
-          className="study-notes-management__title-link"
-          params={{
-            studyNoteId: studyNote.id,
-          }}
-          to={appRoutePaths.studyNoteEditor}
+        <strong>{studyNote.prompt}</strong>
+        <span>{getStudyNoteExpectedAnswerPreview(studyNote)}</span>
+        <span className="study-notes-management__row-meta">
+          {metaParts.join(" · ")}
+        </span>
+      </Link>
+      <div className="study-notes-management__row-actions">
+        <Button
+          className="study-notes-management__row-recall"
+          onClick={onStartRecall}
+          size="compact"
+          type="button"
+          variant="primary"
         >
-          {title}
-        </Link>
-        <p className="study-notes-management__study-note-meta">
-          {getStudyNoteExpectedAnswerPreview(studyNote)}
-        </p>
-      </td>
-      <td data-label="Labels">
-        <div className="study-notes-management__cell-stack">
-          <span>{labelNames.join(", ")}</span>
-        </div>
-      </td>
-      <td data-label="Recall status">
-        <div className="study-notes-management__cell-stack">
-          <span
-            className="study-notes-management__status-badge"
-            data-status-kind={getStudyNotesManagementRowStatusKind(
-              learningState,
-            )}
-          >
-            {getStudyNotesManagementRecallStatusLabel(learningState)}
-          </span>
-          {recallDetailLabel === null ? null : <span>{recallDetailLabel}</span>}
-        </div>
-      </td>
-      <td data-label="Last updated">
-        <div className="study-notes-management__cell-stack">
-          <span>{formatRelativeUpdatedLabel(studyNote.updatedAt)}</span>
-        </div>
-      </td>
-      <td data-label="Next recall / Suggested action">
-        <div className="study-notes-management__cell-stack">
-          <span>{nextRecallLabel}</span>
-          <span>{recallInsight.suggestedAction}</span>
-        </div>
-      </td>
-      <td data-label="Source">
-        <div className="study-notes-management__cell-stack">
-          <span>{sourceLabel}</span>
-          {isSharedSource ? <span>Shared source</span> : null}
-        </div>
-      </td>
-      <td data-label="Actions">
-        <div className="study-notes-management__actions">
-          <ButtonLink
-            aria-label={`Edit ${title}`}
-            params={{
-              studyNoteId: studyNote.id,
-            }}
-            size="compact"
-            to={appRoutePaths.studyNoteEditor}
-            variant="secondary"
-          >
-            Edit
-          </ButtonLink>
-          <Button
-            aria-label={`Delete ${title}`}
-            disabled={isDeleting}
-            onClick={() => void onDeleteStudyNote(studyNote)}
-            size="compact"
-            type="button"
-            variant="danger"
-          >
-            Delete
-          </Button>
-        </div>
-      </td>
-    </tr>
-  );
-}
-
-function readStudyNotesManagementStatusFilter(value: string) {
-  return (
-    studyNotesManagementStatusFilterOptions.find(
-      (option) => option.value === value,
-    )?.value ?? null
-  );
-}
-
-function readStudyNotesManagementSortOrder(value: string) {
-  return (
-    studyNotesManagementSortOptions.find((option) => option.value === value)
-      ?.value ?? null
+          Recall
+        </Button>
+        <Button
+          aria-label={`Remove ${studyNote.prompt}`}
+          className="study-notes-management__row-remove"
+          disabled={isDeleting}
+          iconOnly
+          onClick={() => void onRemoveStudyNote(studyNote)}
+          size="compact"
+          title="Remove"
+          type="button"
+          variant="danger"
+        >
+          <TrashIcon />
+        </Button>
+      </div>
+    </li>
   );
 }
 
@@ -964,6 +869,24 @@ function getStudyNotesManagementLabelSearchValue(labelId: string) {
   }
 
   return labelId;
+}
+
+function getStudyNotesSelectedLabelFilterText(input: {
+  availableLabels: readonly AppLabel[];
+  selectedLabelId: string;
+}) {
+  if (input.selectedLabelId.length === 0) {
+    return "All labels";
+  }
+
+  if (isUnlabeledStudyNotesFilterValue(input.selectedLabelId)) {
+    return unlabeledStudyNotesFilterLabel;
+  }
+
+  return (
+    input.availableLabels.find((label) => label.id === input.selectedLabelId)
+      ?.name ?? "All labels"
+  );
 }
 
 function getStudyNotesManagementEmptyMessage(input: {
@@ -989,70 +912,62 @@ function getStudyNoteExpectedAnswerPreview(studyNote: AppStudyNote) {
   return studyNote.expectedAnswer;
 }
 
-function getStudyNotesManagementRecallStatusLabel(
-  learningState: StudyNoteLearningState | null,
-) {
-  if (learningState === null) {
-    return "Study Note";
-  }
-
-  return formatStudyNoteLearningStateCompactLabel(learningState);
-}
-
-function getStudyNotesManagementRecallDetailLabel(
-  learningState: StudyNoteLearningState | null,
-) {
-  if (learningState?.needsPractice === true) {
-    return "Needs practice";
-  }
-
-  if (
-    learningState?.dueForRecall === true &&
-    learningState.latestScore !== null
-  ) {
-    return formatStudyNoteDueLabel(learningState);
-  }
-
-  return null;
-}
-
-function getStudyNotesManagementRowStatusKind(
-  learningState: StudyNoteLearningState | null,
-): StudyNotesManagementRowStatusKind {
-  if (learningState?.needsPractice === true) {
-    return "practice";
-  }
-
-  if (learningState?.dueForRecall === true) {
-    return "attention";
-  }
-
-  return "neutral";
-}
-
-function matchesStudyNoteStatusFilter(input: {
+function matchesStudyNoteListView(input: {
   learningState: StudyNoteLearningState | null;
-  statusFilter: StudyNotesManagementStatusFilter;
-  studyNote: AppStudyNote;
+  listView: StudyNotesManagementListView;
+  recallTodayStudyNoteIds: ReadonlySet<string>;
 }) {
-  const readiness = getStudyNoteReadiness(input.studyNote);
-
-  switch (input.statusFilter) {
+  switch (input.listView) {
     case "all":
       return true;
-    case "incomplete":
-      return readiness.incomplete;
-    case "not-recalled-yet":
-      return readiness.recallable && input.learningState?.latestScore === null;
-    case "needs-practice":
-      return input.learningState?.needsPractice === true;
-    case "due-for-recall":
+    case "due-today":
       return (
-        input.learningState?.dueForRecall === true &&
-        input.learningState.latestScore !== null &&
-        input.learningState.needsPractice === false
+        input.learningState !== null &&
+        input.recallTodayStudyNoteIds.has(input.learningState.studyNoteId)
       );
+    case "needs-repair":
+      return input.learningState?.needsPractice === true;
   }
+}
+
+function formatRecallQueueButtonLabel(recallableStudyNoteCount: number) {
+  if (recallableStudyNoteCount === 1) {
+    return "Recall 1 note";
+  }
+
+  return `Recall ${recallableStudyNoteCount} notes`;
+}
+
+function formatStudyNotesListSummary(input: {
+  newStudyNotesCount: number;
+  readyStudyNotesCount: number;
+  totalStudyNotesCount: number;
+}) {
+  return `${input.readyStudyNotesCount} notes ready · ${input.newStudyNotesCount} new · ${input.totalStudyNotesCount} total`;
+}
+
+function getStudyNotesListRowMeta(input: {
+  learningState: StudyNoteLearningState | null;
+  now: string;
+  schedule: RecallSchedule | null;
+  userTimeZone: string;
+}) {
+  const statusLabel =
+    input.learningState === null || input.learningState.latestScore === null
+      ? "New"
+      : input.learningState.needsPractice
+        ? "Needs repair"
+        : formatStudyNoteLearningStateCompactLabel(input.learningState);
+  const timingLabel =
+    input.learningState?.dueForRecall === true
+      ? "Due today"
+      : formatNextRecallTiming({
+          now: input.now,
+          schedule: input.schedule,
+          userTimeZone: input.userTimeZone,
+        });
+
+  return [statusLabel, timingLabel].filter((part) => part !== null);
 }
 
 function compareStudyNotesForManagementSort(input: {

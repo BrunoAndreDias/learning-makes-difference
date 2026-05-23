@@ -623,9 +623,7 @@ describe("authenticated Study Notes workspace", () => {
       }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Browse, filter, and act on Study Notes without opening the editor.",
-      ),
+      screen.getByText("Browse, filter, and recall your notes."),
     ).toHaveClass("page-header__description");
     const newStudyNoteButton = screen.getByRole("button", {
       name: "New Study Note",
@@ -636,9 +634,9 @@ describe("authenticated Study Notes workspace", () => {
     expect(
       screen.queryByRole("button", { name: "More actions" }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Start Recall Session" }),
-    ).toHaveClass("study-notes-start-recall");
+    expect(screen.getByRole("button", { name: "Recall 1 note" })).toHaveClass(
+      "study-notes-start-recall",
+    );
     expect(
       screen.queryByRole("form", { name: "Study Note editor surface" }),
     ).not.toBeInTheDocument();
@@ -647,8 +645,26 @@ describe("authenticated Study Notes workspace", () => {
     const managementRegion = screen.getByRole("region", {
       name: "Study Notes management",
     });
+    const managementWrapper = document.querySelector(
+      ".study-notes-management-wrapper",
+    );
+    expect(managementWrapper).toContainElement(pageHeading);
+    expect(managementWrapper).toContainElement(newStudyNoteButton);
+    expect(managementWrapper).toContainElement(managementRegion);
     expect(
-      within(managementRegion).getByLabelText("Search Study Notes"),
+      within(managementRegion).getByRole("button", { name: "All notes" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(managementRegion).getByRole("button", { name: "Due today" }),
+    ).toBeInTheDocument();
+    expect(
+      within(managementRegion).getByRole("button", { name: "Needs repair" }),
+    ).toBeInTheDocument();
+    expect(
+      within(managementRegion).queryByRole("button", { name: "More" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(managementRegion).getByLabelText("Search notes"),
     ).toBeInTheDocument();
     expect(
       within(managementRegion).getByRole("combobox", {
@@ -656,67 +672,22 @@ describe("authenticated Study Notes workspace", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      within(managementRegion).getByRole("combobox", {
-        name: "Filter Study Notes by status",
-      }),
-    ).toBeInTheDocument();
+      managementRegion.querySelector(".study-notes-list-filter__label"),
+    ).toHaveTextContent("All labels");
     expect(
-      within(managementRegion).getByRole("combobox", {
-        name: "Sort Study Notes",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      within(managementRegion).getByText("Showing 1 of 1 Study Notes"),
+      within(managementRegion).getByText("1 notes ready · 1 new · 1 total"),
     ).toBeInTheDocument();
 
-    const table = within(managementRegion).getByRole("table", {
+    const list = within(managementRegion).getByRole("list", {
       name: "Study Notes management list",
     });
-    expect(
-      within(table).getByRole("columnheader", { name: "Study note" }),
-    ).toBeInTheDocument();
-    expect(
-      within(table).getByRole("columnheader", { name: "Labels" }),
-    ).toBeInTheDocument();
-    expect(
-      within(table).getByRole("columnheader", { name: "Recall status" }),
-    ).toBeInTheDocument();
-    expect(
-      within(table).getByRole("columnheader", { name: "Last updated" }),
-    ).toBeInTheDocument();
-    expect(
-      within(table).getByRole("columnheader", {
-        name: "Next recall / Suggested action",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      within(table).getByRole("columnheader", { name: "Source" }),
-    ).toBeInTheDocument();
-    expect(
-      within(table).getByRole("columnheader", { name: "Actions" }),
-    ).toBeInTheDocument();
-
-    const noteLink = within(table).getByRole("link", {
+    const noteLink = within(list).getByRole("link", {
       name: "Retrieval practice",
     });
     expect(noteLink).toHaveAttribute("href", `/study-notes/${studyNote.id}`);
-    expect(within(table).getByText("General")).toBeInTheDocument();
-    expect(within(table).getByText("Not recalled yet")).toBeInTheDocument();
-    expect(within(table).getAllByText("Recall today").length).toBeGreaterThan(
-      0,
-    );
+    expect(within(list).getByText("New · Due today")).toBeInTheDocument();
     expect(
-      within(table).getByText("Retrieval practice source"),
-    ).toBeInTheDocument();
-    expect(
-      within(table).getByRole("link", {
-        name: "Edit Retrieval practice",
-      }),
-    ).toHaveAttribute("href", `/study-notes/${studyNote.id}`);
-    expect(
-      within(table).getByRole("button", {
-        name: "Delete Retrieval practice",
-      }),
+      within(list).getByText("Testing retrieval strengthens durable recall."),
     ).toBeInTheDocument();
 
     fireEvent.click(noteLink);
@@ -731,7 +702,65 @@ describe("authenticated Study Notes workspace", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows source display, shared-source state, and delete copy in the Study Notes management list", async () => {
+  it("defaults Study Notes management to All notes and toggles Upcoming notes in Due today", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const user = {
+      displayName: "Study Notes User",
+      email: "study-notes-upcoming@example.com",
+      id: "study-notes-upcoming-user",
+      userLanguage: "en",
+      userTimeZone: "UTC",
+    } as const;
+    const scenario = createRecallTodayStudyNotesScenario(contexts, user.id);
+
+    renderStudyNotesRoutePathForUser("/study-notes", contexts, user);
+
+    const managementRegion = await screen.findByRole("region", {
+      name: "Study Notes management",
+    });
+    expect(
+      within(managementRegion).getByRole("button", { name: "All notes" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(managementRegion).queryByRole("button", { name: "Upcoming · 1" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(managementRegion).getByRole("button", { name: "Due today" }),
+    );
+
+    const upcomingToggle = within(managementRegion).getByRole("button", {
+      name: "Upcoming · 1",
+    });
+    expect(upcomingToggle).toHaveAttribute("aria-expanded", "false");
+    expect(
+      within(managementRegion).queryByRole("list", {
+        name: "Upcoming Study Notes management list",
+      }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(upcomingToggle);
+
+    expect(upcomingToggle).toHaveAttribute("aria-expanded", "true");
+    const upcomingList = within(managementRegion).getByRole("list", {
+      name: "Upcoming Study Notes management list",
+    });
+    expect(
+      within(upcomingList).getByRole("link", {
+        name: scenario.selectedStudyNotePrompt,
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(managementRegion).getByRole("button", { name: "Needs repair" }),
+    );
+
+    expect(
+      within(managementRegion).queryByRole("button", { name: "Upcoming · 1" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows prompt, expected-answer preview, and due metadata in the Study Notes management list", async () => {
     const studyNotesContext = createAppStudyNotesContext({
       keyPrefix: `test-study-notes-management-source-${Math.random()
         .toString(36)
@@ -774,8 +803,6 @@ describe("authenticated Study Notes workspace", () => {
       sourceBody: "Standalone source context.",
       sourceTitle: "Standalone source",
     });
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
-
     renderRoute("/study-notes", {
       session: {
         user: {
@@ -791,52 +818,29 @@ describe("authenticated Study Notes workspace", () => {
     const managementRegion = await screen.findByRole("region", {
       name: "Study Notes management",
     });
-    const table = within(managementRegion).getByRole("table", {
+    const list = within(managementRegion).getByRole("list", {
       name: "Study Notes management list",
     });
-    const sharedRow = within(table)
+    const sharedRow = within(list)
       .getByRole("link", { name: "Sibling recall target" })
-      .closest("tr");
-    const standaloneRow = within(table)
+      .closest("li");
+    const standaloneRow = within(list)
       .getByRole("link", { name: "Standalone recall target" })
-      .closest("tr");
+      .closest("li");
 
-    if (!(sharedRow instanceof HTMLTableRowElement)) {
+    if (!(sharedRow instanceof HTMLLIElement)) {
       throw new Error("Expected the shared-source Study Note row.");
     }
 
-    if (!(standaloneRow instanceof HTMLTableRowElement)) {
+    if (!(standaloneRow instanceof HTMLLIElement)) {
       throw new Error("Expected the standalone Study Note row.");
     }
 
-    expect(within(sharedRow).getByText("Oldest fallback prompt")).toBeVisible();
-    expect(within(sharedRow).getByText("Shared source")).toBeVisible();
-    expect(within(standaloneRow).getByText("Standalone source")).toBeVisible();
-    expect(
-      within(standaloneRow).queryByText("Shared source"),
-    ).not.toBeInTheDocument();
+    expect(within(sharedRow).getByText("Second answer.")).toBeVisible();
+    expect(within(sharedRow).getByText("New · Due today")).toBeVisible();
+    expect(within(standaloneRow).getByText("Solo answer.")).toBeVisible();
+    expect(within(standaloneRow).getByText("New · Due today")).toBeVisible();
 
-    fireEvent.click(
-      within(sharedRow).getByRole("button", {
-        name: "Delete Sibling recall target",
-      }),
-    );
-    fireEvent.click(
-      within(standaloneRow).getByRole("button", {
-        name: "Delete Standalone recall target",
-      }),
-    );
-
-    expect(confirmSpy).toHaveBeenNthCalledWith(
-      1,
-      "Delete this Study Note only? Sibling Study Notes will keep the shared Reference explanation.",
-    );
-    expect(confirmSpy).toHaveBeenNthCalledWith(
-      2,
-      "Delete this last Study Note? The linked Reference explanation will also be deleted.",
-    );
-
-    confirmSpy.mockRestore();
     expect(studyNotesContext.getSnapshot()).toHaveLength(3);
     expect(titledStudyNote.source.title).toBe("Standalone source");
   });
@@ -2902,22 +2906,27 @@ describe("authenticated Study Notes workspace", () => {
     const labelFilter = await screen.findByLabelText(
       "Filter Study Notes by label",
     );
+    const labelFilterControl = labelFilter.closest(".study-notes-list-filter");
+    const labelFilterText = labelFilterControl?.querySelector(
+      ".study-notes-list-filter__label",
+    );
     const managementRegion = screen.getByRole("region", {
       name: "Study Notes management",
     });
-    const table = within(managementRegion).getByRole("table", {
+    const list = within(managementRegion).getByRole("list", {
       name: "Study Notes management list",
     });
 
     expect(labelFilter).toHaveValue(biology.id);
+    expect(labelFilterText).toHaveTextContent("Biology");
     expect(
-      within(table).getByRole("link", { name: "Biology recall" }),
+      within(list).getByRole("link", { name: "Biology recall" }),
     ).toBeInTheDocument();
     expect(
-      within(table).queryByRole("link", { name: "History recall" }),
+      within(list).queryByRole("link", { name: "History recall" }),
     ).toBeNull();
     expect(
-      within(table).queryByRole("link", { name: "Unlabeled recall" }),
+      within(list).queryByRole("link", { name: "Unlabeled recall" }),
     ).toBeNull();
 
     await router.navigate({
@@ -2930,14 +2939,15 @@ describe("authenticated Study Notes workspace", () => {
         unlabeledStudyNotesFilterValue,
       ),
     );
+    expect(labelFilterText).toHaveTextContent("Unlabeled Study Notes");
     expect(
-      within(table).getByRole("link", { name: "Unlabeled recall" }),
+      within(list).getByRole("link", { name: "Unlabeled recall" }),
     ).toBeInTheDocument();
     expect(
-      within(table).queryByRole("link", { name: "Biology recall" }),
+      within(list).queryByRole("link", { name: "Biology recall" }),
     ).toBeNull();
     expect(
-      within(table).queryByRole("link", { name: "History recall" }),
+      within(list).queryByRole("link", { name: "History recall" }),
     ).toBeNull();
   });
 
@@ -3069,26 +3079,29 @@ describe("authenticated Study Notes workspace", () => {
     const managementRegion = await screen.findByRole("region", {
       name: "Study Notes management",
     });
-    const table = within(managementRegion).getByRole("table", {
+    fireEvent.click(
+      within(managementRegion).getByRole("button", { name: "All notes" }),
+    );
+    const list = within(managementRegion).getByRole("list", {
       name: "Study Notes management list",
     });
-    const firstRow = within(table)
+    const firstRow = within(list)
       .getByRole("link", { name: "First recall target" })
-      .closest("tr");
-    const secondRow = within(table)
+      .closest("li");
+    const secondRow = within(list)
       .getByRole("link", { name: "Second recall target" })
-      .closest("tr");
+      .closest("li");
 
-    if (!(firstRow instanceof HTMLTableRowElement)) {
+    if (!(firstRow instanceof HTMLLIElement)) {
       throw new Error("Expected the first Study Note row.");
     }
 
-    if (!(secondRow instanceof HTMLTableRowElement)) {
+    if (!(secondRow instanceof HTMLLIElement)) {
       throw new Error("Expected the second Study Note row.");
     }
 
-    expect(firstRow).toHaveTextContent("Recall today");
-    expect(secondRow).toHaveTextContent("Recall today");
+    expect(firstRow).toHaveTextContent("Due today");
+    expect(secondRow).toHaveTextContent("Due today");
 
     act(() => {
       const session = recallContext.startFlashCardSession({
@@ -3103,26 +3116,26 @@ describe("authenticated Study Notes workspace", () => {
       });
     });
 
-    const updatedFirstRow = within(table)
+    const updatedFirstRow = within(list)
       .getByRole("link", { name: "First recall target" })
-      .closest("tr");
-    const unchangedSecondRow = within(table)
+      .closest("li");
+    const unchangedSecondRow = within(list)
       .getByRole("link", { name: "Second recall target" })
-      .closest("tr");
+      .closest("li");
 
-    if (!(updatedFirstRow instanceof HTMLTableRowElement)) {
+    if (!(updatedFirstRow instanceof HTMLLIElement)) {
       throw new Error("Expected the updated first Study Note row.");
     }
 
-    if (!(unchangedSecondRow instanceof HTMLTableRowElement)) {
+    if (!(unchangedSecondRow instanceof HTMLLIElement)) {
       throw new Error("Expected the unchanged second Study Note row.");
     }
 
-    expect(updatedFirstRow).toHaveTextContent("Needs practice");
-    expect(updatedFirstRow).not.toHaveTextContent("Recall today");
+    expect(updatedFirstRow).toHaveTextContent("Needs repair");
+    expect(updatedFirstRow).not.toHaveTextContent("Due today");
     expect(updatedFirstRow).not.toHaveTextContent("Weak");
-    expect(unchangedSecondRow).toHaveTextContent("Recall today");
-    expect(unchangedSecondRow).not.toHaveTextContent("Needs practice");
+    expect(unchangedSecondRow).toHaveTextContent("Due today");
+    expect(unchangedSecondRow).not.toHaveTextContent("Needs repair");
   });
 
   it("shows Practice Repair guidance for Study Notes with weak recall evidence", async () => {
@@ -3191,7 +3204,7 @@ describe("authenticated Study Notes workspace", () => {
     });
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Start Recall Session" }),
+      await screen.findByRole("button", { name: "Recall 4 notes" }),
     );
 
     expect(
@@ -3209,6 +3222,108 @@ describe("authenticated Study Notes workspace", () => {
         .getSnapshot()
         ?.notes.some((note) => note.title === scenario.selectedStudyNotePrompt),
     ).toBe(false);
+  });
+
+  it("starts Recall for a single Study Note from its management row action", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    const contexts = createDeterministicRecallTestContexts();
+    const userId = "user-study-notes-row-recall";
+    createRecallTodayStudyNotesScenario(contexts, userId);
+    const { router } = renderRoute("/study-notes", {
+      ...contexts,
+      session: {
+        user: {
+          displayName: "Jordan Row Recall",
+          email: "jordan.row.recall@example.com",
+          id: userId,
+          userLanguage: "en",
+          userTimeZone: "America/New_York",
+        },
+      },
+    });
+
+    const managementRegion = await screen.findByRole("region", {
+      name: "Study Notes management",
+    });
+    const list = within(managementRegion).getByRole("list", {
+      name: "Study Notes management list",
+    });
+    const row = within(list)
+      .getByRole("link", { name: "Due prompt" })
+      .closest("li");
+
+    if (!(row instanceof HTMLLIElement)) {
+      throw new Error("Expected the due Study Note row.");
+    }
+
+    fireEvent.click(within(row).getByRole("button", { name: "Recall" }));
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Recall session",
+      }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/recall/session");
+    expect(
+      contexts.recallContext.getSnapshot()?.notes.map((note) => note.title),
+    ).toEqual(["Due prompt"]);
+  });
+
+  it("removes a Study Note from its management row action after confirmation", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const user = {
+      displayName: "Jordan Row Remove",
+      email: "jordan.row.remove@example.com",
+      id: "user-study-notes-row-remove",
+      userLanguage: "en",
+    } as const;
+    const studyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Row remove answer.",
+      prompt: "Row remove prompt",
+      sourceBody: "Row remove source.",
+      sourceTitle: "Row remove source",
+      userId: user.id,
+    });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    renderRoute("/study-notes", {
+      ...contexts,
+      session: { user },
+    });
+
+    const managementRegion = await screen.findByRole("region", {
+      name: "Study Notes management",
+    });
+    const list = within(managementRegion).getByRole("list", {
+      name: "Study Notes management list",
+    });
+    const row = within(list)
+      .getByRole("link", { name: "Row remove prompt" })
+      .closest("li");
+
+    if (!(row instanceof HTMLLIElement)) {
+      throw new Error("Expected the removable Study Note row.");
+    }
+
+    fireEvent.click(
+      within(row).getByRole("button", { name: "Remove Row remove prompt" }),
+    );
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      "Delete this last Study Note? The linked Reference explanation will also be deleted.",
+    );
+    await waitFor(() =>
+      expect(contexts.studyNotesContext.getSnapshot()).not.toContainEqual(
+        expect.objectContaining({ id: studyNote.id }),
+      ),
+    );
+    expect(
+      screen.queryByRole("link", { name: "Row remove prompt" }),
+    ).not.toBeInTheDocument();
+
+    confirmSpy.mockRestore();
   });
 
   it("opens the base Recall section when Study Notes has no Recall Today work", async () => {
@@ -3234,7 +3349,7 @@ describe("authenticated Study Notes workspace", () => {
     });
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Start Recall Session" }),
+      await screen.findByRole("button", { name: "Recall 0 notes" }),
     );
 
     expect(

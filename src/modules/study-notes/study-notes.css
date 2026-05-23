@@ -42,72 +42,161 @@
 }
 
 .study-notes-management-page {
+  --study-notes-management-content-width: 70rem;
+
+  grid-template-rows: minmax(0, 1fr);
   margin: 0;
   max-width: none;
-  gap: var(--lmd-content-gap);
-}
-
-.study-notes-management-page .page-layout__hero,
-.study-notes-management-page .page-layout__body {
-  width: min(100%, 92rem);
-  justify-self: center;
-}
-
-.study-notes-management-page__body,
-.study-notes-management-shell {
+  height: 100%;
   min-height: 0;
+  gap: 0;
 }
 
-.study-notes-management-shell {
+.app-frame[data-workspace="notes"] .study-notes-management-page {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.study-notes-management-wrapper {
   display: grid;
+  align-content: start;
+  gap: var(--space-6);
+  width: 100%;
+  max-width: var(--study-notes-management-content-width);
+  min-width: 0;
+  margin-inline: auto;
 }
 
 .study-notes-management {
   display: grid;
-  gap: var(--space-4);
+  grid-template-rows: auto auto auto auto;
+  gap: var(--space-5);
   min-width: 0;
-  padding: var(--lmd-card-padding);
-  border: 1px solid var(--color-content-border-soft);
-  border-radius: 0.75rem;
-  background: var(--color-shell-panel);
-  box-shadow: 0 22px 44px -38px
-    color-mix(in srgb, var(--color-content-strong) 34%, transparent);
+  min-height: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.study-notes-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-5);
+  min-width: 0;
+  border-bottom: 1px solid var(--color-content-border-soft);
+}
+
+.study-notes-tabs__item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.6rem;
+  padding: 0 0.05rem 0.85rem;
+  border: 0;
+  background: transparent;
+  color: var(--color-content-muted);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 560;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.study-notes-tabs__item[data-active="true"] {
+  color: var(--color-content-strong);
+  font-weight: 760;
+}
+
+.study-notes-tabs__item[data-active="true"]::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 0.2rem;
+  border-radius: 999px 999px 0 0;
+  background: var(--color-primary);
+  content: "";
+}
+
+.study-notes-tabs__item:focus-visible {
+  border-radius: 0.3rem;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .study-notes-management__filters {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(11rem, 1fr));
+  grid-template-columns: minmax(16rem, 1fr) minmax(10rem, 15rem);
   gap: var(--space-3);
+  align-items: center;
   min-width: 0;
-}
-
-.study-notes-management__control {
-  display: grid;
-  gap: 0.45rem;
-  min-width: 0;
-  color: var(--color-content-strong);
-}
-
-.study-notes-management__control > span {
-  color: var(--color-content-muted);
-  font-size: 0.76rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.study-notes-management__control input,
-.study-notes-management__control select {
   width: 100%;
+}
+
+.study-notes-list-search,
+.study-notes-list-filter {
+  position: relative;
+  display: flex;
+  align-items: center;
   min-width: 0;
-  min-height: var(--lmd-input-height);
-  padding: 0 0.85rem;
+  height: 3.2rem;
   border: 1px solid var(--color-content-border-soft);
-  border-radius: 0.65rem;
+  border-radius: 0.45rem;
   background: var(--color-shell-panel);
   color: var(--color-content-strong);
+  box-shadow: 0 1px 0
+    color-mix(in srgb, var(--color-content-strong) 4%, transparent);
+}
+
+.study-notes-list-search {
+  gap: var(--space-3);
+  padding-inline: 1rem;
+}
+
+.study-notes-list-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-content-strong);
   font: inherit;
-  box-shadow: inset 0 1px 0
-    color-mix(in srgb, var(--color-content-strong) 6%, transparent);
+  font-size: 0.95rem;
+}
+
+.study-notes-list-search input::placeholder {
+  color: var(--color-content-muted);
+  opacity: 1;
+}
+
+.study-notes-list-filter {
+  justify-content: center;
+  gap: var(--space-2);
+  overflow: hidden;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.study-notes-list-filter__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.study-notes-list-filter select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  min-height: 100%;
+  appearance: none;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .study-notes-management__summary {
@@ -116,7 +205,7 @@
   justify-content: space-between;
   gap: var(--space-3);
   color: var(--color-content-muted);
-  font-size: 0.84rem;
+  font-size: 0.9rem;
   font-weight: 600;
 }
 
@@ -130,6 +219,189 @@
   color: var(--color-primary);
   font-size: 0.84rem;
   font-weight: 600;
+}
+
+.study-notes-management__list-wrap {
+  display: grid;
+  grid-template-rows: auto auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+}
+
+.study-notes-management__list {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  list-style: none;
+}
+
+.study-notes-management__list > li + li {
+  border-top: 1px solid var(--color-content-border-soft);
+}
+
+.study-notes-management__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-width: 0;
+  background: var(--color-shell-panel);
+  transition:
+    background-color var(--motion-fast),
+    box-shadow var(--motion-fast);
+}
+
+.study-notes-management__item::before {
+  position: absolute;
+  top: 0.9rem;
+  bottom: 0.9rem;
+  left: 0;
+  width: 0.15rem;
+  background: var(--color-primary);
+  opacity: 0;
+  content: "";
+}
+
+.study-notes-management__item:hover,
+.study-notes-management__item:focus-within {
+  background: color-mix(in srgb, var(--color-shell-inset) 38%, white);
+  box-shadow: 0 1px 0
+    color-mix(in srgb, var(--color-content-strong) 4%, transparent);
+}
+
+.study-notes-management__item:hover::before,
+.study-notes-management__item:focus-within::before {
+  opacity: 1;
+}
+
+.study-notes-management__row-main {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: 1.35rem 1rem 1.45rem 1.35rem;
+  color: var(--color-content-default);
+  text-decoration: none;
+}
+
+.study-notes-management__row-main strong {
+  overflow: hidden;
+  color: var(--color-content-strong);
+  font-size: 1rem;
+  font-weight: 760;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.study-notes-management__row-main
+  > span:not(.study-notes-management__row-meta) {
+  overflow: hidden;
+  color: var(--color-content-muted);
+  font-size: 0.95rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.study-notes-management__row-meta {
+  color: var(--color-content-muted);
+  font-size: 0.86rem;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.study-notes-management__row-main:focus-visible {
+  border-radius: 0.45rem;
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.study-notes-management__row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 1.8rem 0 var(--space-4);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--motion-fast),
+    visibility var(--motion-fast);
+}
+
+.study-notes-management__item:hover .study-notes-management__row-actions,
+.study-notes-management__item:focus-within
+  .study-notes-management__row-actions {
+  opacity: 1;
+  visibility: visible;
+}
+
+.study-notes-management__row-recall {
+  min-width: 5.4rem;
+  min-height: 2.65rem;
+  border-radius: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.study-notes-management__row-remove {
+  width: 2.4rem;
+  min-height: 2.4rem;
+  border-color: color-mix(
+    in srgb,
+    var(--color-danger-soft-border) 62%,
+    var(--color-content-border-soft)
+  );
+  background: color-mix(in srgb, var(--color-danger-soft) 46%, white);
+  color: color-mix(
+    in srgb,
+    var(--color-danger) 68%,
+    var(--color-content-muted)
+  );
+}
+
+.study-notes-management__row-remove:hover:not(:disabled) {
+  border-color: color-mix(
+    in srgb,
+    var(--color-danger-soft-border) 86%,
+    var(--color-content-border-soft)
+  );
+  background: color-mix(in srgb, var(--color-danger-soft) 68%, white);
+  color: var(--color-danger-soft-foreground);
+}
+
+.study-notes-management__upcoming {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 0.38rem;
+  min-height: 2.8rem;
+  margin-top: 0.5rem;
+  padding: 0 0.05rem;
+  border: 0;
+  background: transparent;
+  color: var(--color-content-strong);
+  font: inherit;
+  font-size: 0.96rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.study-notes-management__upcoming svg {
+  width: 1rem;
+  height: 1rem;
+  transition: transform 150ms ease;
+}
+
+.study-notes-management__upcoming[data-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.study-notes-management__upcoming-list {
+  margin-top: 0.25rem;
 }
 
 .study-notes-management__table-wrap {
@@ -240,7 +512,7 @@
 }
 
 .study-notes-start-recall {
-  min-width: 14.5rem;
+  min-width: 10rem;
   background:
     linear-gradient(
       135deg,
@@ -254,7 +526,7 @@
 }
 
 .study-notes-new-note {
-  min-width: 12.5rem;
+  min-width: 9.35rem;
   background: var(--color-shell-panel);
 }
 
@@ -264,6 +536,10 @@
 .study-notes-show-more svg,
 .study-notes-search svg,
 .study-notes-filter svg,
+.study-notes-tabs svg,
+.study-notes-list-search svg,
+.study-notes-list-filter svg,
+.study-notes-management__row-remove svg,
 .study-note-row svg,
 .study-notes-editor svg {
   width: 1.15rem;
@@ -282,7 +558,7 @@
 
 @media (max-width: 72rem) {
   .study-notes-management__filters {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr) minmax(9rem, 12rem);
   }
 }
 
@@ -338,6 +614,32 @@
     line-height: 1.2;
     text-transform: uppercase;
     letter-spacing: 0.02em;
+  }
+
+  .study-notes-tabs {
+    gap: var(--space-4);
+    overflow-x: auto;
+  }
+
+  .study-notes-management__list-wrap {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .study-notes-management__list {
+    overflow: visible;
+  }
+
+  .study-notes-management__item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .study-notes-management__row-main {
+    padding-inline: 0;
+  }
+
+  .study-notes-management__row-actions {
+    display: none;
   }
 }
 

@@ -29,13 +29,35 @@ function getMediaRule(css: string, mediaQuery: string, selector: string) {
 }
 
 describe("Study Notes styles", () => {
-  it("keeps the list-only Study Notes management table bounded on desktop and stacked on mobile", () => {
+  it("keeps the Study Notes management page on one centered content wrapper", () => {
     const css = readFileSync(
       new URL("./study-notes.css", import.meta.url),
       "utf8",
     );
 
     const pageStyle = getCssRule(css, ".study-notes-management-page");
+    const pageScrollStyle = getCssRule(
+      css,
+      '.app-frame[data-workspace="notes"] .study-notes-management-page',
+    );
+    const wrapperStyle = getCssRule(css, ".study-notes-management-wrapper");
+    const managementStyle = getCssRule(css, ".study-notes-management");
+    const filtersStyle = getCssRule(css, ".study-notes-management__filters");
+    const listWrapStyle = getCssRule(css, ".study-notes-management__list-wrap");
+    const listStyle = getCssRule(css, ".study-notes-management__list");
+    const itemStyle = getCssRule(css, ".study-notes-management__item");
+    const itemAccentStyle = getCssRule(
+      css,
+      ".study-notes-management__item::before",
+    );
+    const rowActionsStyle = getCssRule(
+      css,
+      ".study-notes-management__row-actions",
+    );
+    const rowRemoveStyle = getCssRule(
+      css,
+      ".study-notes-management__row-remove",
+    );
     const tableWrapStyle = getCssRule(
       css,
       ".study-notes-management__table-wrap",
@@ -53,6 +75,41 @@ describe("Study Notes styles", () => {
     );
 
     expect(pageStyle).toContain("max-width: none;");
+    expect(pageStyle).toContain("grid-template-rows: minmax(0, 1fr);");
+    expect(pageStyle).toContain("height: 100%;");
+    expect(pageScrollStyle).toContain("overflow-y: auto;");
+    expect(pageScrollStyle).toContain("overscroll-behavior: contain;");
+    expect(wrapperStyle).toContain("width: 100%;");
+    expect(wrapperStyle).toContain(
+      "max-width: var(--study-notes-management-content-width);",
+    );
+    expect(wrapperStyle).toContain("margin-inline: auto;");
+    expect(managementStyle).toContain(
+      "grid-template-rows: auto auto auto auto;",
+    );
+    expect(managementStyle).toContain("width: 100%;");
+    expect(managementStyle).toContain("min-height: 0;");
+    expect(filtersStyle).toContain(
+      "grid-template-columns: minmax(16rem, 1fr) minmax(10rem, 15rem);",
+    );
+    expect(filtersStyle).toContain("width: 100%;");
+    expect(listWrapStyle).toContain("grid-template-rows: auto auto;");
+    expect(listWrapStyle).not.toContain("max-height:");
+    expect(listWrapStyle).toContain("overflow: visible;");
+    expect(listStyle).toContain("overflow: visible;");
+    expect(listStyle).not.toContain("overscroll-behavior: contain;");
+    expect(itemStyle).toContain("grid-template-columns: minmax(0, 1fr) auto;");
+    expect(itemAccentStyle).toContain("background: var(--color-primary);");
+    expect(rowActionsStyle).toContain("opacity: 0;");
+    expect(rowActionsStyle).toContain("visibility: hidden;");
+    expect(rowRemoveStyle).toContain("var(--color-danger-soft)");
+    expect(rowRemoveStyle).toContain("var(--color-danger)");
+    expect(css).toMatch(
+      /\.study-notes-management__item:hover,\s*\.study-notes-management__item:focus-within\s*\{[^}]*background:/m,
+    );
+    expect(css).toMatch(
+      /\.study-notes-management__item:hover \.study-notes-management__row-actions,\s*\.study-notes-management__item:focus-within\s*\.study-notes-management__row-actions\s*\{[^}]*opacity: 1;[^}]*visibility: visible;/m,
+    );
     expect(tableWrapStyle).toContain("max-height:");
     expect(tableWrapStyle).toContain("overflow: auto;");
     expect(tableStyle).toContain("min-width: 73rem;");

@@ -911,7 +911,7 @@ describe("authenticated app shell", () => {
     const managementPage = screen.getByRole("region", {
       name: "Study Notes management",
     });
-    const managementList = within(managementPage).getByRole("table", {
+    const managementList = within(managementPage).getByRole("list", {
       name: "Study Notes management list",
     });
 
