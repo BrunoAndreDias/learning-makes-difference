@@ -715,6 +715,116 @@ describe("authenticated Study Notes workspace", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows source display, shared-source state, and delete copy in the Study Notes management list", async () => {
+    const studyNotesContext = createAppStudyNotesContext({
+      keyPrefix: `test-study-notes-management-source-${Math.random()
+        .toString(36)
+        .slice(2)}`,
+      storage: window.localStorage,
+    });
+    const userId = "user-management-source-display";
+    vi.setSystemTime(new Date("2025-01-01T00:00:00.000Z"));
+    const sharedStudyNote = studyNotesContext.createStudyNote(userId, {
+      expectedAnswer: "First answer.",
+      prompt: "Oldest fallback prompt",
+      sourceBody: "Shared source context.",
+      sourceTitle: "",
+    });
+    vi.setSystemTime(new Date("2025-01-01T00:00:01.000Z"));
+    const siblingStudyNote = studyNotesContext.createStudyNoteFromSource(
+      userId,
+      {
+        sourceNoteId: sharedStudyNote.sourceNoteId,
+      },
+    );
+
+    vi.setSystemTime(new Date("2025-01-01T00:00:02.000Z"));
+    studyNotesContext.updateStudyNote(userId, siblingStudyNote.id, {
+      acceptedVariants: [],
+      acronyms: [],
+      expectedAnswer: "Second answer.",
+      keyIdeas: [],
+      labelIds: [],
+      metaphors: [],
+      prompt: "Sibling recall target",
+      prohibitedPhrases: [],
+      sourceBody: "Shared source context.",
+      sourceTitle: "",
+    });
+    vi.setSystemTime(new Date("2025-01-01T00:00:03.000Z"));
+    const titledStudyNote = studyNotesContext.createStudyNote(userId, {
+      expectedAnswer: "Solo answer.",
+      prompt: "Standalone recall target",
+      sourceBody: "Standalone source context.",
+      sourceTitle: "Standalone source",
+    });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    renderRoute("/study-notes", {
+      session: {
+        user: {
+          displayName: "Jordan Review",
+          email: "jordan.management@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+      studyNotesContext,
+    });
+
+    const managementRegion = await screen.findByRole("region", {
+      name: "Study Notes management",
+    });
+    const table = within(managementRegion).getByRole("table", {
+      name: "Study Notes management list",
+    });
+    const sharedRow = within(table)
+      .getByRole("link", { name: "Sibling recall target" })
+      .closest("tr");
+    const standaloneRow = within(table)
+      .getByRole("link", { name: "Standalone recall target" })
+      .closest("tr");
+
+    if (!(sharedRow instanceof HTMLTableRowElement)) {
+      throw new Error("Expected the shared-source Study Note row.");
+    }
+
+    if (!(standaloneRow instanceof HTMLTableRowElement)) {
+      throw new Error("Expected the standalone Study Note row.");
+    }
+
+    expect(within(sharedRow).getByText("Oldest fallback prompt")).toBeVisible();
+    expect(within(sharedRow).getByText("Shared source")).toBeVisible();
+    expect(within(standaloneRow).getByText("Standalone source")).toBeVisible();
+    expect(
+      within(standaloneRow).queryByText("Shared source"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(sharedRow).getByRole("button", {
+        name: "Delete Sibling recall target",
+      }),
+    );
+    fireEvent.click(
+      within(standaloneRow).getByRole("button", {
+        name: "Delete Standalone recall target",
+      }),
+    );
+
+    expect(confirmSpy).toHaveBeenNthCalledWith(
+      1,
+      "Delete this Study Note only? Sibling Study Notes will keep the shared Reference explanation.",
+    );
+    expect(confirmSpy).toHaveBeenNthCalledWith(
+      2,
+      "Delete this last Study Note? The linked Reference explanation will also be deleted.",
+    );
+
+    confirmSpy.mockRestore();
+    expect(studyNotesContext.getSnapshot()).toHaveLength(3);
+    expect(titledStudyNote.source.title).toBe("Standalone source");
+  });
+
   it("hides Study Note prompt templates when the account preference is disabled", async () => {
     const studyNotesContext = createAppStudyNotesContext({
       keyPrefix: `test-study-notes-template-preference-${Math.random()
@@ -2446,7 +2556,7 @@ describe("authenticated Study Notes workspace", () => {
     ]);
   });
 
-  it("collapses empty reference material and detaches legacy shared source edits", async () => {
+  it("shows shared-source context before detaching legacy reference edits", async () => {
     const storage = window.localStorage;
     const keyPrefix = `test-study-notes-${Math.random().toString(36).slice(2)}`;
     storage.setItem(
@@ -2512,8 +2622,10 @@ describe("authenticated Study Notes workspace", () => {
       "Quem é o rei de PT?",
     );
     expect(
-      screen.queryByText(/^Editing this explanation updates/),
-    ).not.toBeInTheDocument();
+      screen.getByText(
+        "Shared source: Quem é o rei de PT?. 2 Study Notes use this Reference explanation. Saving changes here will make this Study Note independent.",
+      ),
+    ).toBeInTheDocument();
     const referenceExplanation = screen.getByRole("region", {
       name: "Reference explanation",
     });
@@ -2530,8 +2642,11 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("Saved just now"),
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Saved. Reference explanation is now independent from the shared source.",
+      ),
     );
+    expect(screen.queryByText(/^Shared source:/)).not.toBeInTheDocument();
 
     const listedStudyNotes = studyNotesContext.getSnapshot();
     expect(

@@ -549,7 +549,7 @@ describe("createStudyNotesService", () => {
         {
           prompt: "Newer prompt",
           source: {
-            displayName: "Newer prompt",
+            displayName: "Renamed oldest prompt",
             title: "",
           },
         },
@@ -618,6 +618,46 @@ describe("createStudyNotesService", () => {
         },
       ],
     ]);
+  });
+
+  it("keeps a shared source linked when only Study Note-owned fields change", async () => {
+    const { studyNotes } = await createStudyNotesHarness();
+    const firstStudyNote = await studyNotes.createStudyNote({
+      input: {
+        sourceBody: "Shared source body.",
+        sourceTitle: "Shared source",
+      },
+      userId: "user-casey",
+    });
+    const secondStudyNote = await studyNotes.createStudyNoteFromSource({
+      input: {
+        sourceNoteId: firstStudyNote.sourceNoteId,
+      },
+      userId: "user-casey",
+    });
+
+    await expect(
+      studyNotes.updateStudyNote({
+        input: {
+          acceptedVariants: [],
+          acronyms: [],
+          expectedAnswer: "Second answer.",
+          keyIdeas: [],
+          labelIds: [],
+          metaphors: [],
+          prompt: "Sibling recall target",
+          prohibitedPhrases: [],
+          sourceBody: "Shared source body.",
+          sourceTitle: "Shared source",
+          studyNoteId: secondStudyNote.id,
+        },
+        userId: "user-casey",
+      }),
+    ).resolves.toMatchObject({
+      id: secondStudyNote.id,
+      prompt: "Sibling recall target",
+      sourceNoteId: firstStudyNote.sourceNoteId,
+    });
   });
 
   it("assigns Labels to Study Notes independently from the source Note and protects label ownership", async () => {
@@ -818,7 +858,7 @@ describe("createStudyNotesService", () => {
     ]);
   });
 
-  it("keeps memory aids and source material owned by each Study Note across legacy shared sources", async () => {
+  it("keeps memory aids owned by each Study Note while legacy shared source material stays shared until edited", async () => {
     const { db, studyNotes } = await createStudyNotesHarness({
       now: () => TEST_UPDATED_AT,
       users: [
@@ -902,7 +942,7 @@ describe("createStudyNotesService", () => {
     const listedStudyNotes = [
       ...(await studyNotes.listStudyNotes({ userId: "user-casey" })),
     ].sort(byId);
-    expect(listedStudyNotes[0]?.sourceNoteId).not.toBe(
+    expect(listedStudyNotes[0]?.sourceNoteId).toBe(
       listedStudyNotes[1]?.sourceNoteId,
     );
     expect(listedStudyNotes).toMatchObject([
@@ -912,6 +952,10 @@ describe("createStudyNotesService", () => {
         metaphors: [
           { description: "First support description belongs to study one." },
         ],
+        source: {
+          body: "One source can support several precise recall targets.",
+          title: "Shared source",
+        },
       },
       {
         acronyms: [{ description: "TWO keeps the second target distinct." }],
@@ -919,6 +963,10 @@ describe("createStudyNotesService", () => {
         metaphors: [
           { description: "Second support description belongs to study two." },
         ],
+        source: {
+          body: "One source can support several precise recall targets.",
+          title: "Shared source",
+        },
       },
     ]);
 

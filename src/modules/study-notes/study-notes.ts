@@ -876,20 +876,29 @@ export function createAppStudyNotesContext(
       const prohibitedPhrases = validateProhibitedPhrases(
         input.prohibitedPhrases,
       );
-      const shouldDetachSource = snapshot.some(
-        (studyNote) =>
-          studyNote.userId === validatedUserId &&
-          studyNote.sourceNoteId === existingStudyNote.sourceNoteId &&
-          studyNote.id !== existingStudyNote.id,
-      );
+      const sourceBody = validateOptionalText(input.sourceBody);
+      const sourceTitle = validateOptionalText(input.sourceTitle);
+      const didSourceChange =
+        sourceBody !== existingStudyNote.source.body.trim() ||
+        sourceTitle !== existingStudyNote.source.title.trim();
+      const shouldDetachSource =
+        didSourceChange &&
+        snapshot.some(
+          (studyNote) =>
+            studyNote.userId === validatedUserId &&
+            studyNote.sourceNoteId === existingStudyNote.sourceNoteId &&
+            studyNote.id !== existingStudyNote.id,
+        );
       const sourceNoteId = shouldDetachSource
         ? cryptoProvider.randomUUID()
         : existingStudyNote.sourceNoteId;
       const updatedSource = {
-        body: validateOptionalText(input.sourceBody),
+        body: sourceBody,
         id: sourceNoteId,
-        title: validateOptionalText(input.sourceTitle),
-        updatedAt: timestamp,
+        title: sourceTitle,
+        updatedAt: didSourceChange
+          ? timestamp
+          : existingStudyNote.source.updatedAt,
       };
       const updatedStudyNote: AppStoredStudyNote = {
         ...existingStudyNote,

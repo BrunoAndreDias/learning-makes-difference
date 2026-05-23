@@ -347,6 +347,57 @@ describe("app study notes context", () => {
     ]);
   });
 
+  it("keeps a shared source linked when only Study Note-owned fields change", () => {
+    const studyNotes = createAppStudyNotesContext({
+      crypto: createDeterministicCrypto(),
+      keyPrefix: "study-notes-shared-source-owned-fields-test",
+      storage: createMemoryStorage(),
+    });
+    const firstStudyNote = studyNotes.createStudyNote("user-casey", {
+      sourceBody: "Broad source about spacing and retrieval.",
+      sourceTitle: "Practice source",
+    });
+    const secondStudyNote = studyNotes.createStudyNoteFromSource("user-casey", {
+      sourceNoteId: firstStudyNote.sourceNoteId,
+    });
+
+    const updatedSecondStudyNote = studyNotes.updateStudyNote(
+      "user-casey",
+      secondStudyNote.id,
+      {
+        acceptedVariants: [],
+        acronyms: [],
+        expectedAnswer: "Use spacing for durable access.",
+        keyIdeas: [],
+        labelIds: [],
+        metaphors: [],
+        prompt: "How does spacing help?",
+        prohibitedPhrases: [],
+        sourceBody: "Broad source about spacing and retrieval.",
+        sourceTitle: "Practice source",
+      },
+    );
+
+    expect(updatedSecondStudyNote.sourceNoteId).toBe(
+      firstStudyNote.sourceNoteId,
+    );
+    expect(
+      listStudyNotesForUser(studyNotes.getSnapshot(), "user-casey"),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: firstStudyNote.id,
+          sourceNoteId: firstStudyNote.sourceNoteId,
+        }),
+        expect.objectContaining({
+          id: secondStudyNote.id,
+          prompt: "How does spacing help?",
+          sourceNoteId: firstStudyNote.sourceNoteId,
+        }),
+      ]),
+    );
+  });
+
   it("detaches legacy shared source material when one Study Note is edited", () => {
     const storage = createMemoryStorage();
     storage.setItem(
@@ -611,7 +662,7 @@ describe("app study notes context", () => {
         expect.objectContaining({
           prompt: "Newer prompt",
           source: expect.objectContaining({
-            displayName: "Newer prompt",
+            displayName: "Renamed oldest prompt",
             title: "",
           }),
         }),

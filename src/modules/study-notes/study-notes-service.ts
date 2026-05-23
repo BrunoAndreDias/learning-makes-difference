@@ -804,9 +804,14 @@ export function createStudyNotesService({
         .where(
           eq(studyNotesTable.sourceNoteId, existingStudyNote.sourceNoteId),
         );
-      const shouldDetachSource = sourceStudyNotes.some(
-        (studyNote) => studyNote.id !== existingStudyNote.id,
-      );
+      const didSourceChange =
+        sourceTitle !== existingStudyNote.sourceTitle.trim() ||
+        sourceBody !== existingStudyNote.sourceBody.trim();
+      const shouldDetachSource =
+        didSourceChange &&
+        sourceStudyNotes.some(
+          (studyNote) => studyNote.id !== existingStudyNote.id,
+        );
       const sourceNoteId = shouldDetachSource
         ? crypto.randomUUID()
         : existingStudyNote.sourceNoteId;
@@ -832,7 +837,7 @@ export function createStudyNotesService({
             updatedAt: timestamp,
           })
           .where(eq(studyNotesTable.id, existingStudyNote.id));
-        if (!shouldDetachSource) {
+        if (didSourceChange && !shouldDetachSource) {
           await tx
             .update(notesTable)
             .set({

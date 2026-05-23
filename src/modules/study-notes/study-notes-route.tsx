@@ -598,11 +598,12 @@ function StudyNotesManagementPage({
 
     const hasSiblingStudyNotes =
       (studyNoteCountBySourceId.get(studyNote.sourceNoteId) ?? 0) > 1;
-    const confirmationMessage = hasSiblingStudyNotes
-      ? "Delete this Study Note? The shared reference explanation stays with the other Study Notes."
-      : "Delete this last Study Note and its reference explanation?";
 
-    if (!window.confirm(confirmationMessage)) {
+    if (
+      !window.confirm(
+        getDeleteStudyNoteConfirmationMessage(hasSiblingStudyNotes),
+      )
+    ) {
       return;
     }
 
@@ -1381,6 +1382,16 @@ function areStudyNoteDraftsEqual(
   );
 }
 
+function didStudyNoteReferenceDraftChange(input: {
+  draft: UpdateStudyNoteInput;
+  studyNote: AppStudyNote;
+}) {
+  return (
+    input.draft.sourceBody.trim() !== input.studyNote.source.body.trim() ||
+    input.draft.sourceTitle.trim() !== input.studyNote.source.title.trim()
+  );
+}
+
 function didSplitStudyNoteDraftChange(input: {
   draft: UpdateStudyNoteInput;
   studyNote: AppStudyNote;
@@ -1973,6 +1984,8 @@ const DISCARD_STUDY_NOTE_CHANGES_MESSAGE =
   "Discard unsaved changes and leave this Study Note?";
 const CANCEL_STUDY_NOTE_EDITOR_MESSAGE =
   "Discard unsaved changes and return to Study Notes?";
+const DETACHED_SHARED_SOURCE_SAVE_MESSAGE =
+  "Saved. Reference explanation is now independent from the shared source.";
 
 function confirmDiscardStudyNoteChanges() {
   return window.confirm(DISCARD_STUDY_NOTE_CHANGES_MESSAGE);
@@ -4341,6 +4354,12 @@ export function StudyNotesPage({
         selectedStudyNote === null
           ? null
           : findSplitStudyNotePracticeRepairEntry(activePracticeRepairEntries);
+      const didReferenceExplanationChange =
+        selectedStudyNote !== null &&
+        didStudyNoteReferenceDraftChange({
+          draft,
+          studyNote: selectedStudyNote,
+        });
       const shouldRecordSplitStudyNoteNarrowing =
         selectedStudyNote !== null &&
         activeSplitPracticeRepairEntry !== null &&
@@ -4393,9 +4412,18 @@ export function StudyNotesPage({
           savedStudyNote,
           shouldRecordSplitStudyNoteNarrowing,
         });
+      const didDetachSharedSource =
+        selectedStudyNote !== null &&
+        didReferenceExplanationChange &&
+        selectedSourceStudyNotes.length > 1 &&
+        savedStudyNote.sourceNoteId !== selectedStudyNote.sourceNoteId;
 
       if (!didHandlePracticeRepairSaveStatus) {
-        setSaveStatus("Saved just now");
+        setSaveStatus(
+          didDetachSharedSource
+            ? DETACHED_SHARED_SOURCE_SAVE_MESSAGE
+            : "Saved just now",
+        );
       }
 
       clearAnswerCheckSuggestionState();
@@ -4599,6 +4627,11 @@ export function StudyNotesPage({
   const referenceDisclosureDefaultOpen = referenceHasContent;
   const isReferenceOpen =
     isReferenceOpenOverride ?? referenceDisclosureDefaultOpen;
+  const selectedSourceDisplayLabel =
+    selectedStudyNote === null
+      ? null
+      : getStudyNoteSourceDisplayLabel(selectedStudyNote);
+  const isSelectedStudyNoteSourceShared = selectedSourceStudyNotes.length > 1;
   const memoryAidsHasContent = hasDraftMemoryAidContent(draft);
   const isMemoryAidsOpen = isMemoryAidsOpenOverride ?? memoryAidsHasContent;
   const saveBarStatusText = getSaveBarStatusText({
@@ -5559,6 +5592,15 @@ export function StudyNotesPage({
                       <ChevronDownIcon />
                     </summary>
                     <div className="study-notes-editor__disclosure-body">
+                      {!isSelectedStudyNoteSourceShared ||
+                      selectedSourceDisplayLabel === null ? null : (
+                        <p className="muted study-notes-editor__guidance">
+                          Shared source: {selectedSourceDisplayLabel}.{" "}
+                          {selectedSourceStudyNotes.length} Study Notes use this
+                          Reference explanation. Saving changes here will make
+                          this Study Note independent.
+                        </p>
+                      )}
                       <StudyNotesTextarea
                         label="Note title"
                         maxLength={200}
