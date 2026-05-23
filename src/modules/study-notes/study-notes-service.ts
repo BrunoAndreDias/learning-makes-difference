@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, ne } from "drizzle-orm";
 import type { PgDatabase } from "drizzle-orm/pg-core/db";
 import type { PgQueryResultHKT } from "drizzle-orm/pg-core/session";
 import { labelsTable, studyNoteLabelsTable } from "../labels/labels-schema";
@@ -16,6 +16,7 @@ import {
   type CreateStudyNoteInput,
   type DeleteStudyNoteInput,
   getStudyNoteSourceDisplayName,
+  hasStudyNoteSourceContentChanged,
   resolveCreateStudyNoteFields,
   type StudyNoteKeyIdeaImportance,
   type UpdateStudyNoteInput,
@@ -482,6 +483,28 @@ async function readOwnedStudyNote(input: {
   return (await addDetailsToStudyNoteRows(input.db, [row]))[0];
 }
 
+async function hasSiblingStudyNoteForSource(input: {
+  db: StudyNotesDatabase<Record<string, unknown>>;
+  sourceNoteId: string;
+  studyNoteId: string;
+}) {
+  const siblingStudyNote =
+    (
+      await input.db
+        .select({ id: studyNotesTable.id })
+        .from(studyNotesTable)
+        .where(
+          and(
+            eq(studyNotesTable.sourceNoteId, input.sourceNoteId),
+            ne(studyNotesTable.id, input.studyNoteId),
+          ),
+        )
+        .limit(1)
+    )[0] ?? null;
+
+  return siblingStudyNote !== null;
+}
+
 export function createStudyNotesService({
   crypto = getDefaultCrypto(),
   db,
@@ -798,20 +821,21 @@ export function createStudyNotesService({
       );
       const sourceTitle = validateOptionalText(input.sourceTitle);
       const sourceBody = validateOptionalText(input.sourceBody);
-      const sourceStudyNotes = await db
-        .select({ id: studyNotesTable.id })
-        .from(studyNotesTable)
-        .where(
-          eq(studyNotesTable.sourceNoteId, existingStudyNote.sourceNoteId),
-        );
-      const didSourceChange =
-        sourceTitle !== existingStudyNote.sourceTitle.trim() ||
-        sourceBody !== existingStudyNote.sourceBody.trim();
+      const didSourceChange = hasStudyNoteSourceContentChanged({
+        currentSource: {
+          body: existingStudyNote.sourceBody,
+          title: existingStudyNote.sourceTitle,
+        },
+        sourceBody,
+        sourceTitle,
+      });
       const shouldDetachSource =
         didSourceChange &&
-        sourceStudyNotes.some(
-          (studyNote) => studyNote.id !== existingStudyNote.id,
-        );
+        (await hasSiblingStudyNoteForSource({
+          db,
+          sourceNoteId: existingStudyNote.sourceNoteId,
+          studyNoteId: existingStudyNote.id,
+        }));
       const sourceNoteId = shouldDetachSource
         ? crypto.randomUUID()
         : existingStudyNote.sourceNoteId;

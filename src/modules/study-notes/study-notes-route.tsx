@@ -75,6 +75,7 @@ import {
   formatStudyNoteLearningStateCompactLabel,
   formatStudyNotePracticeSignalLabel,
   getStudyNoteReadiness,
+  hasStudyNoteSourceContentChanged,
   isUnlabeledStudyNotesFilterValue,
   listStudyNotesForUser,
   type StudyNoteKeyIdeaImportance,
@@ -1382,16 +1383,6 @@ function areStudyNoteDraftsEqual(
   );
 }
 
-function didStudyNoteReferenceDraftChange(input: {
-  draft: UpdateStudyNoteInput;
-  studyNote: AppStudyNote;
-}) {
-  return (
-    input.draft.sourceBody.trim() !== input.studyNote.source.body.trim() ||
-    input.draft.sourceTitle.trim() !== input.studyNote.source.title.trim()
-  );
-}
-
 function didSplitStudyNoteDraftChange(input: {
   draft: UpdateStudyNoteInput;
   studyNote: AppStudyNote;
@@ -1400,8 +1391,11 @@ function didSplitStudyNoteDraftChange(input: {
     input.draft.prompt.trim() !== input.studyNote.prompt.trim() ||
     input.draft.expectedAnswer.trim() !==
       input.studyNote.expectedAnswer.trim() ||
-    input.draft.sourceBody.trim() !== input.studyNote.source.body.trim() ||
-    input.draft.sourceTitle.trim() !== input.studyNote.source.title.trim()
+    hasStudyNoteSourceContentChanged({
+      currentSource: input.studyNote.source,
+      sourceBody: input.draft.sourceBody,
+      sourceTitle: input.draft.sourceTitle,
+    })
   );
 }
 
@@ -2001,6 +1995,17 @@ function getDeleteStudyNoteConfirmationMessage(hasSiblingStudyNotes: boolean) {
   }
 
   return "Delete this last Study Note? The linked Reference explanation will also be deleted.";
+}
+
+function getSharedSourceReferenceGuidance(input: {
+  sourceDisplayLabel: string;
+  studyNoteCount: number;
+}) {
+  return [
+    `Shared source: ${input.sourceDisplayLabel}.`,
+    `${input.studyNoteCount} Study Notes use this Reference explanation.`,
+    "Saving changes here will make this Study Note independent.",
+  ].join(" ");
 }
 
 function getUpdatedMemoryAidKind(input: {
@@ -4356,9 +4361,10 @@ export function StudyNotesPage({
           : findSplitStudyNotePracticeRepairEntry(activePracticeRepairEntries);
       const didReferenceExplanationChange =
         selectedStudyNote !== null &&
-        didStudyNoteReferenceDraftChange({
-          draft,
-          studyNote: selectedStudyNote,
+        hasStudyNoteSourceContentChanged({
+          currentSource: selectedStudyNote.source,
+          sourceBody: draft.sourceBody,
+          sourceTitle: draft.sourceTitle,
         });
       const shouldRecordSplitStudyNoteNarrowing =
         selectedStudyNote !== null &&
@@ -4627,11 +4633,13 @@ export function StudyNotesPage({
   const referenceDisclosureDefaultOpen = referenceHasContent;
   const isReferenceOpen =
     isReferenceOpenOverride ?? referenceDisclosureDefaultOpen;
-  const selectedSourceDisplayLabel =
-    selectedStudyNote === null
+  const sharedSourceReferenceGuidance =
+    selectedStudyNote === null || selectedSourceStudyNotes.length <= 1
       ? null
-      : getStudyNoteSourceDisplayLabel(selectedStudyNote);
-  const isSelectedStudyNoteSourceShared = selectedSourceStudyNotes.length > 1;
+      : getSharedSourceReferenceGuidance({
+          sourceDisplayLabel: getStudyNoteSourceDisplayLabel(selectedStudyNote),
+          studyNoteCount: selectedSourceStudyNotes.length,
+        });
   const memoryAidsHasContent = hasDraftMemoryAidContent(draft);
   const isMemoryAidsOpen = isMemoryAidsOpenOverride ?? memoryAidsHasContent;
   const saveBarStatusText = getSaveBarStatusText({
@@ -5592,13 +5600,9 @@ export function StudyNotesPage({
                       <ChevronDownIcon />
                     </summary>
                     <div className="study-notes-editor__disclosure-body">
-                      {!isSelectedStudyNoteSourceShared ||
-                      selectedSourceDisplayLabel === null ? null : (
+                      {sharedSourceReferenceGuidance === null ? null : (
                         <p className="muted study-notes-editor__guidance">
-                          Shared source: {selectedSourceDisplayLabel}.{" "}
-                          {selectedSourceStudyNotes.length} Study Notes use this
-                          Reference explanation. Saving changes here will make
-                          this Study Note independent.
+                          {sharedSourceReferenceGuidance}
                         </p>
                       )}
                       <StudyNotesTextarea

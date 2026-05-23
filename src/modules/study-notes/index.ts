@@ -45,5 +45,6 @@ export type {
 export {
   AppStudyNotesError,
   createAppStudyNotesContext,
+  hasStudyNoteSourceContentChanged,
   listStudyNotesForUser,
 } from "./study-notes";

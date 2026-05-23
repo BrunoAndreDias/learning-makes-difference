@@ -387,6 +387,8 @@ type SourceDisplayNameStudyNote = {
   prompt: string;
 };
 
+type StudyNoteSourceContent = Pick<AppStudyNoteSource, "body" | "title">;
+
 function compareSourceDisplayNameStudyNotes(
   left: SourceDisplayNameStudyNote,
   right: SourceDisplayNameStudyNote,
@@ -418,6 +420,17 @@ export function getStudyNoteSourceDisplayName(input: {
       ?.prompt.trim() ?? null;
 
   return fallbackPrompt ?? UNTITLED_SOURCE_DISPLAY_NAME;
+}
+
+export function hasStudyNoteSourceContentChanged(input: {
+  currentSource: StudyNoteSourceContent;
+  sourceBody: string;
+  sourceTitle: string;
+}): boolean {
+  return (
+    input.sourceBody.trim() !== input.currentSource.body.trim() ||
+    input.sourceTitle.trim() !== input.currentSource.title.trim()
+  );
 }
 
 export function resolveCreateStudyNoteFields(
@@ -475,6 +488,22 @@ function toPublicStudyNote(
     sourceNoteId: note.sourceNoteId,
     updatedAt: note.updatedAt,
   };
+}
+
+function hasSiblingStudyNoteForSource(
+  studyNotes: readonly AppStoredStudyNote[],
+  input: {
+    sourceNoteId: string;
+    studyNoteId: string;
+    userId: string;
+  },
+) {
+  return studyNotes.some(
+    (studyNote) =>
+      studyNote.userId === input.userId &&
+      studyNote.sourceNoteId === input.sourceNoteId &&
+      studyNote.id !== input.studyNoteId,
+  );
 }
 
 function sortStoredStudyNotes(
@@ -878,17 +907,18 @@ export function createAppStudyNotesContext(
       );
       const sourceBody = validateOptionalText(input.sourceBody);
       const sourceTitle = validateOptionalText(input.sourceTitle);
-      const didSourceChange =
-        sourceBody !== existingStudyNote.source.body.trim() ||
-        sourceTitle !== existingStudyNote.source.title.trim();
+      const didSourceChange = hasStudyNoteSourceContentChanged({
+        currentSource: existingStudyNote.source,
+        sourceBody,
+        sourceTitle,
+      });
       const shouldDetachSource =
         didSourceChange &&
-        snapshot.some(
-          (studyNote) =>
-            studyNote.userId === validatedUserId &&
-            studyNote.sourceNoteId === existingStudyNote.sourceNoteId &&
-            studyNote.id !== existingStudyNote.id,
-        );
+        hasSiblingStudyNoteForSource(snapshot, {
+          sourceNoteId: existingStudyNote.sourceNoteId,
+          studyNoteId: existingStudyNote.id,
+          userId: validatedUserId,
+        });
       const sourceNoteId = shouldDetachSource
         ? cryptoProvider.randomUUID()
         : existingStudyNote.sourceNoteId;
@@ -914,16 +944,14 @@ export function createAppStudyNotesContext(
         sourceNoteId,
         updatedAt: timestamp,
       };
-
-      writeSnapshot([
+      const nextSnapshot = [
         updatedStudyNote,
         ...snapshot.filter((studyNote) => studyNote.id !== studyNoteId),
-      ]);
+      ];
 
-      return toPublicStudyNote(updatedStudyNote, [
-        updatedStudyNote,
-        ...snapshot.filter((studyNote) => studyNote.id !== studyNoteId),
-      ]);
+      writeSnapshot(nextSnapshot);
+
+      return toPublicStudyNote(updatedStudyNote, nextSnapshot);
     },
   };
 }
