@@ -1601,15 +1601,6 @@ function StudyNoteDocumentIcon() {
   );
 }
 
-function EditIcon() {
-  return (
-    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-      <path d="m5 19 4.5-1 9-9a2.1 2.1 0 0 0-3-3l-9 9L5 19Z" />
-      <path d="m14 7 3 3" />
-    </svg>
-  );
-}
-
 function CopyIcon() {
   return (
     <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
@@ -1960,13 +1951,7 @@ function getSaveBarStatusText({
   }
 }
 
-function getSaveBarPrimaryAction(
-  pendingEditorTarget: StudyNoteEditorTarget | null,
-) {
-  if (pendingEditorTarget === null) {
-    return "Save changes";
-  }
-
+function getSaveBarPrimaryAction(pendingEditorTarget: StudyNoteEditorTarget) {
   switch (pendingEditorTarget.type) {
     case "new":
       return "Save and start new";
@@ -1975,13 +1960,7 @@ function getSaveBarPrimaryAction(
   }
 }
 
-function getSaveBarDiscardAction(
-  pendingEditorTarget: StudyNoteEditorTarget | null,
-) {
-  if (pendingEditorTarget === null) {
-    return "Discard changes";
-  }
-
+function getSaveBarDiscardAction(pendingEditorTarget: StudyNoteEditorTarget) {
   switch (pendingEditorTarget.type) {
     case "new":
       return "Discard and start new";
@@ -4629,8 +4608,6 @@ export function StudyNotesPage({
   });
   const shouldShowStudyNoteTemplates =
     showStudyNoteTemplates && draft.prompt.trim().length === 0;
-  const saveBarPrimaryAction = getSaveBarPrimaryAction(pendingEditorTarget);
-  const saveBarDiscardAction = getSaveBarDiscardAction(pendingEditorTarget);
   const visibleSelectedLabels =
     selectedLabels.length === 0
       ? [{ id: "general", name: "General" }]
@@ -5699,11 +5676,9 @@ export function StudyNotesPage({
                     onClick={discardDraft}
                     size="compact"
                     type="button"
-                    variant={
-                      pendingEditorTarget === null ? "secondary" : "danger"
-                    }
+                    variant="danger"
                   >
-                    {saveBarDiscardAction}
+                    {getSaveBarDiscardAction(pendingEditorTarget)}
                   </Button>
                   <Button
                     disabled={isSaving}
@@ -5712,7 +5687,9 @@ export function StudyNotesPage({
                     type="button"
                     variant="primary"
                   >
-                    {isSaving ? "Saving..." : saveBarPrimaryAction}
+                    {isSaving
+                      ? "Saving..."
+                      : getSaveBarPrimaryAction(pendingEditorTarget)}
                   </Button>
                 </>
               ) : hasDraftChanges ? (
