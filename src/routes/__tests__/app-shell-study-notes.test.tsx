@@ -285,8 +285,26 @@ function getPracticeRepairEntryPath(
   return `/practice-repair/${createPracticeRepairEntryId(reference)}`;
 }
 
+function getPracticeRepairDraftPath(
+  reference: NonNullable<
+    SessionResult["questions"][number]["practiceRepairEntry"]
+  >["reference"],
+) {
+  if (reference.questionResultId === undefined) {
+    throw new Error("Expected a Practice Repair question result id.");
+  }
+
+  return `/practice-repair/results/${reference.sessionResultId}/questions/${reference.questionResultId}`;
+}
+
 function getStudyNoteEditorPath(studyNoteId: string) {
   return `/study-notes/${studyNoteId}`;
+}
+
+function expectPracticeRepairReturnLinkHref(href: string) {
+  expect(
+    screen.getByRole("link", { name: "Return to Practice Repair" }),
+  ).toHaveAttribute("href", href);
 }
 
 function expectPracticeRepairReturnLink(
@@ -294,9 +312,7 @@ function expectPracticeRepairReturnLink(
     SessionResult["questions"][number]["practiceRepairEntry"]
   >["reference"],
 ) {
-  expect(
-    screen.getByRole("link", { name: "Return to Practice Repair" }),
-  ).toHaveAttribute("href", getPracticeRepairEntryPath(reference));
+  expectPracticeRepairReturnLinkHref(getPracticeRepairEntryPath(reference));
 }
 
 function _getActivePracticeRepairEntry(name: string) {
@@ -1988,6 +2004,71 @@ describe("authenticated Study Notes workspace", () => {
         id: studyNote.id,
         prompt: "Updated prompt",
       }),
+    );
+  });
+
+  it("redirects legacy Study Note selection links without losing draft Practice Repair return ids", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const user = {
+      displayName: "Jordan Draft Return Redirect",
+      email: "jordan.draft.return.redirect@example.com",
+      id: "user-study-note-draft-return-redirect",
+      userLanguage: "en",
+    } as const;
+    const studyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "ATP stores transferable energy for cells.",
+      prompt: "What stores transferable energy?",
+      sourceBody: "Cell respiration source context.",
+      sourceTitle: "Cell respiration source",
+      userId: user.id,
+    });
+
+    completeStudyNoteRecall(contexts, {
+      rating: "hard",
+      studyNoteId: studyNote.id,
+      userId: user.id,
+    });
+    const confirmedResult = confirmStudyNotePracticeRepair(contexts, {
+      correction: "Tighten the expected answer using the weak recall evidence.",
+      intent: "tighten-expected-answer",
+      studyNoteId: studyNote.id,
+      userId: user.id,
+    });
+    const confirmedReference =
+      getConfirmedPracticeRepairReference(confirmedResult);
+    const questionResultId = confirmedReference.questionResultId;
+
+    if (questionResultId === undefined) {
+      throw new Error("Expected a confirmed question result id.");
+    }
+
+    const practiceRepairEntryId =
+      getConfirmedPracticeRepairEntryId(confirmedResult);
+    const route = [
+      `/study-notes?studyNoteId=${studyNote.id}`,
+      `practiceRepairEntryId=${practiceRepairEntryId}`,
+      "practiceRepairAction=tighten-expected-answer",
+      `practiceRepairSessionResultId=${confirmedReference.sessionResultId}`,
+      `practiceRepairQuestionResultId=${questionResultId}`,
+    ].join("&");
+    const { router } = renderRoute(route, {
+      ...contexts,
+      session: { user },
+    });
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        getStudyNoteEditorPath(studyNote.id),
+      ),
+    );
+    expect(router.state.location.search).toMatchObject({
+      practiceRepairAction: "tighten-expected-answer",
+      practiceRepairEntryId,
+      practiceRepairQuestionResultId: questionResultId,
+      practiceRepairSessionResultId: confirmedReference.sessionResultId,
+    });
+    expectPracticeRepairReturnLinkHref(
+      getPracticeRepairDraftPath(confirmedReference),
     );
   });
 

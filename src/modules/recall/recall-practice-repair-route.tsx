@@ -496,19 +496,31 @@ function PracticeRepairWorkspaceActions({
   }
 }
 
-function createStudyNotesPracticeRepairSearch(input: {
+export type StudyNotesPracticeRepairSearch = {
   practiceRepairAction?: PracticeRepairIntent;
   practiceRepairEntryId: string;
-}) {
-  const search: {
-    practiceRepairAction?: PracticeRepairIntent;
-    practiceRepairEntryId: string;
-  } = {
+  practiceRepairQuestionResultId?: string;
+  practiceRepairSessionResultId?: string;
+};
+
+export function createStudyNotesPracticeRepairSearch(
+  input: StudyNotesPracticeRepairSearch,
+): StudyNotesPracticeRepairSearch {
+  const search: StudyNotesPracticeRepairSearch = {
     practiceRepairEntryId: input.practiceRepairEntryId,
   };
 
   if (input.practiceRepairAction !== undefined) {
     search.practiceRepairAction = input.practiceRepairAction;
+  }
+
+  if (input.practiceRepairQuestionResultId !== undefined) {
+    search.practiceRepairQuestionResultId =
+      input.practiceRepairQuestionResultId;
+  }
+
+  if (input.practiceRepairSessionResultId !== undefined) {
+    search.practiceRepairSessionResultId = input.practiceRepairSessionResultId;
   }
 
   return search;
@@ -849,6 +861,7 @@ export function RecallPracticeRepairWorkspacePage({
                     studyNoteId: entry.reference.studyNoteId,
                   }}
                   search={createStudyNotesPracticeRepairSearch({
+                    practiceRepairAction: entry.intent,
                     practiceRepairEntryId,
                   })}
                   to={appRoutePaths.studyNoteEditor}
