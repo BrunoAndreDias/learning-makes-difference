@@ -1,6 +1,7 @@
 import {
   createFileRoute,
   Link,
+  useBlocker,
   useNavigate,
   useRouteContext,
 } from "@tanstack/react-router";
@@ -1989,6 +1990,27 @@ function getSaveBarDiscardAction(
   }
 }
 
+const DISCARD_STUDY_NOTE_CHANGES_MESSAGE =
+  "Discard unsaved changes and leave this Study Note?";
+const CANCEL_STUDY_NOTE_EDITOR_MESSAGE =
+  "Discard unsaved changes and return to Study Notes?";
+
+function confirmDiscardStudyNoteChanges() {
+  return window.confirm(DISCARD_STUDY_NOTE_CHANGES_MESSAGE);
+}
+
+function confirmCancelStudyNoteEditor() {
+  return window.confirm(CANCEL_STUDY_NOTE_EDITOR_MESSAGE);
+}
+
+function getDeleteStudyNoteConfirmationMessage(hasSiblingStudyNotes: boolean) {
+  if (hasSiblingStudyNotes) {
+    return "Delete this Study Note only? Sibling Study Notes will keep the shared Reference explanation.";
+  }
+
+  return "Delete this last Study Note? The linked Reference explanation will also be deleted.";
+}
+
 function getUpdatedMemoryAidKind(input: {
   previousAcronym: string;
   previousMetaphor: string;
@@ -3125,6 +3147,12 @@ export function StudyNotesPage({
   const isSaveBarVisible =
     hasDraftChanges || isSaving || pendingEditorTarget !== null;
 
+  useBlocker({
+    disabled: !hasDraftChanges || isSaving,
+    enableBeforeUnload: hasDraftChanges && !isSaving,
+    shouldBlockFn: () => !confirmDiscardStudyNoteChanges(),
+  });
+
   useEffect(() => {
     if (persistentStudyNotesContext === undefined) {
       return;
@@ -3602,7 +3630,10 @@ export function StudyNotesPage({
   }
 
   function navigateToEditorTarget(target: StudyNoteEditorTarget) {
-    void navigate(getEditorTargetRouteTarget(target));
+    void navigate({
+      ...getEditorTargetRouteTarget(target),
+      ignoreBlocker: true,
+    });
   }
 
   function applyEditorTarget(target: StudyNoteEditorTarget) {
@@ -3702,6 +3733,19 @@ export function StudyNotesPage({
     setNewDiscardDialogOpen(false);
   }
 
+  async function handleCancelEditor() {
+    if (hasDraftChanges && !confirmCancelStudyNoteEditor()) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setSaveStatus(null);
+    await navigate({
+      ignoreBlocker: true,
+      to: appRoutePaths.studyNotes,
+    });
+  }
+
   async function handleDeleteStudyNote() {
     if (selectedStudyNote === null) {
       return;
@@ -3710,9 +3754,8 @@ export function StudyNotesPage({
     const hasSiblingStudyNotes = selectedSourceStudyNotes.length > 1;
 
     if (
-      !hasSiblingStudyNotes &&
       !window.confirm(
-        "Delete this last Study Note and its reference explanation?",
+        getDeleteStudyNoteConfirmationMessage(hasSiblingStudyNotes),
       )
     ) {
       return;
@@ -4866,6 +4909,30 @@ export function StudyNotesPage({
                       Return to Practice Repair
                     </ButtonLink>
                   )}
+                  <Button
+                    onClick={() => void handleCancelEditor()}
+                    size="compact"
+                    type="button"
+                    variant="secondary"
+                  >
+                    Cancel
+                  </Button>
+                  {selectedStudyNote === null ? null : (
+                    <Button
+                      onClick={() => void handleDeleteStudyNote()}
+                      size="compact"
+                      type="button"
+                      variant="danger"
+                    >
+                      <TrashIcon />
+                      Delete note
+                    </Button>
+                  )}
+                  {hasDraftChanges || isSaving ? (
+                    <Button size="compact" type="submit" variant="primary">
+                      {isSaving ? "Saving..." : "Save changes"}
+                    </Button>
+                  ) : null}
                   {linkedPracticeRepair?.action ===
                   "create-sibling-study-note" ? (
                     <Button
@@ -4899,14 +4966,6 @@ export function StudyNotesPage({
                     </Button>
                   ) : null}
                   <Button
-                    aria-label="Edit Study Note"
-                    iconOnly
-                    size="compact"
-                    type="button"
-                  >
-                    <EditIcon />
-                  </Button>
-                  <Button
                     aria-label="Add Study Note from this explanation"
                     disabled={selectedStudyNote === null}
                     iconOnly
@@ -4915,18 +4974,6 @@ export function StudyNotesPage({
                     type="button"
                   >
                     <CopyIcon />
-                  </Button>
-                  <Button
-                    aria-label="Delete Study Note"
-                    disabled={selectedStudyNote === null}
-                    iconOnly
-                    onClick={() => void handleDeleteStudyNote()}
-                    size="compact"
-                    type="button"
-                    variant="danger"
-                  >
-                    <TrashIcon />
-                    <span className="sr-only">Delete</span>
                   </Button>
                 </div>
               </div>
@@ -5645,7 +5692,7 @@ export function StudyNotesPage({
                   Stay
                 </Button>
               )}
-              {hasDraftChanges || pendingEditorTarget !== null ? (
+              {pendingEditorTarget !== null ? (
                 <>
                   <Button
                     disabled={isSaving}
@@ -5668,6 +5715,16 @@ export function StudyNotesPage({
                     {isSaving ? "Saving..." : saveBarPrimaryAction}
                   </Button>
                 </>
+              ) : hasDraftChanges ? (
+                <Button
+                  disabled={isSaving}
+                  onClick={discardDraft}
+                  size="compact"
+                  type="button"
+                  variant="secondary"
+                >
+                  Discard changes
+                </Button>
               ) : null}
             </div>
           </section>

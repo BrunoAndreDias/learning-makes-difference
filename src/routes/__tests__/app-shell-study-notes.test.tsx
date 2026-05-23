@@ -1230,9 +1230,7 @@ describe("authenticated Study Notes workspace", () => {
       within(saveBar).getByRole("button", { name: "Discard changes" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(
-      within(saveBar).getByRole("button", { name: "Save changes" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
       expect(studyNotesContext.getSnapshot()).toHaveLength(1),
@@ -1337,9 +1335,7 @@ describe("authenticated Study Notes workspace", () => {
       name: "Unsaved Study Note changes",
     });
     expect(saveBar).toHaveTextContent("You have unsaved changes.");
-    fireEvent.click(
-      within(saveBar).getByRole("button", { name: "Save changes" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
       expect(studyNotesContext.getSnapshot()[0]).toMatchObject({
@@ -1883,6 +1879,194 @@ describe("authenticated Study Notes workspace", () => {
         prompt: "Updated prompt",
       }),
     );
+  });
+
+  it("guards dirty Cancel on the dedicated editor route before returning to Study Notes", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const user = {
+      displayName: "Jordan Cancel Guard",
+      email: "jordan.cancel.guard@example.com",
+      id: "user-study-note-cancel-guard",
+      userLanguage: "en",
+    } as const;
+    const studyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Original expected answer.",
+      prompt: "Original prompt",
+      sourceBody: "Original source body.",
+      sourceTitle: "Original source title",
+      userId: user.id,
+    });
+    const confirmSpy = vi
+      .spyOn(window, "confirm")
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
+    const { router } = renderRoute(getStudyNoteEditorPath(studyNote.id), {
+      ...contexts,
+      session: { user },
+    });
+
+    expect(await screen.findByLabelText("Prompt")).toHaveValue(
+      "Original prompt",
+    );
+    fireEvent.change(screen.getByLabelText("Prompt"), {
+      target: { value: "Unsaved prompt" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(confirmSpy).toHaveBeenNthCalledWith(
+      1,
+      "Discard unsaved changes and return to Study Notes?",
+    );
+    expect(router.state.location.pathname).toBe(
+      getStudyNoteEditorPath(studyNote.id),
+    );
+    expect(screen.getByLabelText("Prompt")).toHaveValue("Unsaved prompt");
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(confirmSpy).toHaveBeenNthCalledWith(
+      2,
+      "Discard unsaved changes and return to Study Notes?",
+    );
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/study-notes"),
+    );
+    expect(screen.queryByLabelText("Prompt")).toBeNull();
+
+    confirmSpy.mockRestore();
+  });
+
+  it("returns to Study Notes immediately on clean Cancel from the dedicated editor route", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const user = {
+      displayName: "Jordan Clean Cancel",
+      email: "jordan.clean.cancel@example.com",
+      id: "user-study-note-clean-cancel",
+      userLanguage: "en",
+    } as const;
+    const studyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Original expected answer.",
+      prompt: "Original prompt",
+      sourceBody: "Original source body.",
+      sourceTitle: "Original source title",
+      userId: user.id,
+    });
+    const confirmSpy = vi.spyOn(window, "confirm");
+    const { router } = renderRoute(getStudyNoteEditorPath(studyNote.id), {
+      ...contexts,
+      session: { user },
+    });
+
+    expect(await screen.findByLabelText("Prompt")).toHaveValue(
+      "Original prompt",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/study-notes"),
+    );
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("Prompt")).toBeNull();
+
+    confirmSpy.mockRestore();
+  });
+
+  it("confirms deleting the last Study Note from the dedicated editor route before redirecting to Study Notes", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const user = {
+      displayName: "Jordan Delete Last",
+      email: "jordan.delete.last@example.com",
+      id: "user-study-note-delete-last",
+      userLanguage: "en",
+    } as const;
+    const studyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "Original expected answer.",
+      prompt: "Original prompt",
+      sourceBody: "Original source body.",
+      sourceTitle: "Original source title",
+      userId: user.id,
+    });
+    const confirmSpy = vi
+      .spyOn(window, "confirm")
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
+    const { router } = renderRoute(getStudyNoteEditorPath(studyNote.id), {
+      ...contexts,
+      session: { user },
+    });
+
+    await screen.findByLabelText("Prompt");
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete note" }));
+
+    expect(confirmSpy).toHaveBeenNthCalledWith(
+      1,
+      "Delete this last Study Note? The linked Reference explanation will also be deleted.",
+    );
+    expect(router.state.location.pathname).toBe(
+      getStudyNoteEditorPath(studyNote.id),
+    );
+    expect(contexts.studyNotesContext.getSnapshot()).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete note" }));
+
+    expect(confirmSpy).toHaveBeenNthCalledWith(
+      2,
+      "Delete this last Study Note? The linked Reference explanation will also be deleted.",
+    );
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/study-notes"),
+    );
+    expect(contexts.studyNotesContext.getSnapshot()).toHaveLength(0);
+
+    confirmSpy.mockRestore();
+  });
+
+  it("confirms deleting only the current shared-source Study Note from the dedicated editor route", async () => {
+    const contexts = createDeterministicRecallTestContexts();
+    const user = {
+      displayName: "Jordan Delete Shared",
+      email: "jordan.delete.shared@example.com",
+      id: "user-study-note-delete-shared",
+      userLanguage: "en",
+    } as const;
+    const firstStudyNote = createStudyNoteSnapshot(contexts, {
+      expectedAnswer: "First expected answer.",
+      prompt: "First prompt",
+      sourceBody: "Shared source body.",
+      sourceTitle: "Shared source title",
+      userId: user.id,
+    });
+    const siblingStudyNote =
+      contexts.studyNotesContext.createStudyNoteFromSource(user.id, {
+        sourceNoteId: firstStudyNote.sourceNoteId,
+      });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { router } = renderRoute(getStudyNoteEditorPath(firstStudyNote.id), {
+      ...contexts,
+      session: { user },
+    });
+
+    await screen.findByLabelText("Prompt");
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete note" }));
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      "Delete this Study Note only? Sibling Study Notes will keep the shared Reference explanation.",
+    );
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/study-notes"),
+    );
+    expect(contexts.studyNotesContext.getSnapshot()).toEqual([
+      expect.objectContaining({
+        id: siblingStudyNote.id,
+        sourceNoteId: firstStudyNote.sourceNoteId,
+      }),
+    ]);
+
+    confirmSpy.mockRestore();
   });
 
   it("shows a clear missing state for an unknown dedicated Study Note editor URL", async () => {
