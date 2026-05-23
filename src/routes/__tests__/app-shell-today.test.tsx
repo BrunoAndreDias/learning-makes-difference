@@ -396,7 +396,7 @@ describe("authenticated Today workspace", () => {
       }),
     ).toHaveAttribute(
       "href",
-      `/study-notes?focus=expected-answer&studyNoteId=${completionBlocker.id}`,
+      `/study-notes/${completionBlocker.id}?focus=expected-answer`,
     );
 
     const nextActions = screen.getByRole("region", {
@@ -442,7 +442,7 @@ describe("authenticated Today workspace", () => {
       }),
     ).toHaveAttribute(
       "href",
-      `/study-notes?focus=expected-answer&studyNoteId=${completionBlocker.id}`,
+      `/study-notes/${completionBlocker.id}?focus=expected-answer`,
     );
     expect(
       within(getTodayRow("Describe ATP")).getByRole("link", {

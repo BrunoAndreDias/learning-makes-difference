@@ -41,6 +41,196 @@
   gap: var(--space-4);
 }
 
+.study-notes-management-page {
+  margin: 0;
+  max-width: none;
+  gap: var(--lmd-content-gap);
+}
+
+.study-notes-management-page .page-layout__hero,
+.study-notes-management-page .page-layout__body {
+  width: min(100%, 92rem);
+  justify-self: center;
+}
+
+.study-notes-management-page__body,
+.study-notes-management-shell {
+  min-height: 0;
+}
+
+.study-notes-management-shell {
+  display: grid;
+}
+
+.study-notes-management {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--lmd-card-padding);
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.75rem;
+  background: var(--color-shell-panel);
+  box-shadow: 0 22px 44px -38px
+    color-mix(in srgb, var(--color-content-strong) 34%, transparent);
+}
+
+.study-notes-management__filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(11rem, 1fr));
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.study-notes-management__control {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  color: var(--color-content-strong);
+}
+
+.study-notes-management__control > span {
+  color: var(--color-content-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.study-notes-management__control input,
+.study-notes-management__control select {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--lmd-input-height);
+  padding: 0 0.85rem;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.65rem;
+  background: var(--color-shell-panel);
+  color: var(--color-content-strong);
+  font: inherit;
+  box-shadow: inset 0 1px 0
+    color-mix(in srgb, var(--color-content-strong) 6%, transparent);
+}
+
+.study-notes-management__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--color-content-muted);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.study-notes-management__summary p,
+.study-notes-management__empty,
+.study-notes-management__feedback {
+  margin: 0;
+}
+
+.study-notes-management__feedback {
+  color: var(--color-primary);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.study-notes-management__table-wrap {
+  min-width: 0;
+  max-height: min(38rem, calc(100dvh - 18rem));
+  overflow: auto;
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: 0.75rem;
+  background: var(--color-shell-panel);
+  box-shadow: inset 0 1px 0
+    color-mix(in srgb, var(--color-content-strong) 4%, transparent);
+}
+
+.study-notes-management__table {
+  width: 100%;
+  min-width: 73rem;
+  border-collapse: collapse;
+}
+
+.study-notes-management__table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--color-content-border-soft);
+  background: color-mix(in srgb, var(--color-shell-panel) 92%, white);
+  color: var(--color-content-muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.study-notes-management__table tbody td {
+  padding: 0.95rem 1rem;
+  border-top: 1px solid var(--color-content-border-soft);
+  vertical-align: top;
+}
+
+.study-notes-management__title-link {
+  color: var(--color-content-strong);
+  font-size: 0.96rem;
+  font-weight: 760;
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+.study-notes-management__title-link:hover,
+.study-notes-management__title-link:focus-visible {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.study-notes-management__study-note,
+.study-notes-management__cell-stack {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.study-notes-management__study-note-meta,
+.study-notes-management__cell-stack
+  > span:not(.study-notes-management__status-badge) {
+  margin: 0;
+  color: var(--color-content-muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.study-notes-management__status-badge {
+  justify-self: start;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-shell-inset) 78%, white);
+  color: var(--color-content-strong);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.study-notes-management__status-badge[data-status-kind="practice"] {
+  background: var(--color-danger-soft);
+  color: var(--color-danger-soft-foreground);
+}
+
+.study-notes-management__status-badge[data-status-kind="attention"] {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.study-notes-management__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.study-notes-management__actions .notes-action {
+  white-space: nowrap;
+}
+
 .study-notes-start-recall,
 .study-notes-new-note {
   min-height: var(--lmd-button-height-md);
@@ -88,6 +278,67 @@
 .study-notes-start-recall svg {
   fill: currentColor;
   stroke: none;
+}
+
+@media (max-width: 72rem) {
+  .study-notes-management__filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 56rem) {
+  .study-notes-management__filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .study-notes-management__table-wrap {
+    max-height: none;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .study-notes-management__table {
+    min-width: 0;
+  }
+
+  .study-notes-management__table thead {
+    display: none;
+  }
+
+  .study-notes-management__table tbody {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .study-notes-management__table tr {
+    display: grid;
+    gap: var(--space-3);
+    padding: var(--lmd-card-padding-compact);
+    border: 1px solid var(--color-content-border-soft);
+    border-radius: 0.75rem;
+    background: var(--color-shell-panel);
+    box-shadow: 0 18px 36px -34px
+      color-mix(in srgb, var(--color-content-strong) 28%, transparent);
+  }
+
+  .study-notes-management__table tbody td {
+    display: grid;
+    gap: 0.35rem;
+    padding: 0;
+    border: 0;
+  }
+
+  .study-notes-management__table tbody td::before {
+    content: attr(data-label);
+    color: var(--color-content-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
 }
 
 .study-notes-layout {

@@ -29,6 +29,37 @@ function getMediaRule(css: string, mediaQuery: string, selector: string) {
 }
 
 describe("Study Notes styles", () => {
+  it("keeps the list-only Study Notes management table bounded on desktop and stacked on mobile", () => {
+    const css = readFileSync(
+      new URL("./study-notes.css", import.meta.url),
+      "utf8",
+    );
+
+    const pageStyle = getCssRule(css, ".study-notes-management-page");
+    const tableWrapStyle = getCssRule(
+      css,
+      ".study-notes-management__table-wrap",
+    );
+    const tableStyle = getCssRule(css, ".study-notes-management__table");
+    const mobileTheadStyle = getMediaRule(
+      css,
+      "@media (max-width: 56rem)",
+      ".study-notes-management__table thead",
+    );
+    const mobileRowStyle = getMediaRule(
+      css,
+      "@media (max-width: 56rem)",
+      ".study-notes-management__table tr",
+    );
+
+    expect(pageStyle).toContain("max-width: none;");
+    expect(tableWrapStyle).toContain("max-height:");
+    expect(tableWrapStyle).toContain("overflow: auto;");
+    expect(tableStyle).toContain("min-width: 73rem;");
+    expect(mobileTheadStyle).toContain("display: none;");
+    expect(mobileRowStyle).toContain("display: grid;");
+  });
+
   it("uses a two-column desktop layout without the guidance sidebar", () => {
     const css = readFileSync(
       new URL("./study-notes.css", import.meta.url),

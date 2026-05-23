@@ -3,7 +3,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { createAppStudyNotesContext } from "../../modules/study-notes";
 import {
@@ -872,7 +872,7 @@ describe("authenticated app shell", () => {
     ).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("uses the in-page Study Notes list with a header navigation opener", async () => {
+  it("keeps /study-notes as a list-only management page with the header navigation opener", async () => {
     const studyNotesContext = createAppStudyNotesContext({
       getOwnedLabelIdsForUser: () => [],
       keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
@@ -883,12 +883,15 @@ describe("authenticated app shell", () => {
       sourceBody: "Repeated review strengthens long-term retention.",
       sourceTitle: "Spaced repetition",
     });
-    studyNotesContext.createStudyNote("user-jordan", {
-      sourceBody: "Retrieval cues make later recall easier.",
-      sourceTitle: "Retrieval practice",
-    });
+    const retrievalPracticeStudyNote = studyNotesContext.createStudyNote(
+      "user-jordan",
+      {
+        sourceBody: "Retrieval cues make later recall easier.",
+        sourceTitle: "Retrieval practice",
+      },
+    );
 
-    renderRoute("/study-notes", {
+    const { router } = renderRoute("/study-notes", {
       session: {
         user: {
           displayName: "Jordan Review",
@@ -905,35 +908,38 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument();
 
     const sidebar = getStudyNotesWorkspaceSidebar();
-    const studyNotesCatalog = screen.getByRole("complementary", {
-      name: "Study Notes catalog",
+    const managementPage = screen.getByRole("region", {
+      name: "Study Notes management",
     });
-    const studyNotesList = within(studyNotesCatalog).getByRole("navigation", {
-      name: "Study Notes list",
+    const managementList = within(managementPage).getByRole("table", {
+      name: "Study Notes management list",
     });
 
     expect(sidebar).toHaveAttribute("data-mobile-open", "false");
     expect(
       screen.getByRole("button", { name: "New Study Note" }),
     ).toBeInTheDocument();
-    expect(
-      within(sidebar).queryByRole("navigation", { name: "Study Notes list" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Prompt")).toBeNull();
     expect(getAppSections(sidebar)).toBeInTheDocument();
     expect(
       within(sidebar).getByRole("button", { name: /account menu/i }),
     ).toBeInTheDocument();
 
-    const retrievalPracticeButton = within(studyNotesList).getByRole("button", {
+    const retrievalPracticeLink = within(managementList).getByRole("link", {
       name: "Retrieval practice",
     });
 
-    retrievalPracticeButton.focus();
-    expect(retrievalPracticeButton).toHaveFocus();
+    retrievalPracticeLink.focus();
+    expect(retrievalPracticeLink).toHaveFocus();
 
-    fireEvent.click(retrievalPracticeButton);
+    fireEvent.click(retrievalPracticeLink);
 
     expect(sidebar).toHaveAttribute("data-mobile-open", "false");
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        `/study-notes/${retrievalPracticeStudyNote.id}`,
+      ),
+    );
     expect(screen.getByLabelText("Prompt")).toHaveValue("Retrieval practice");
     expect(
       screen.getByRole("button", { name: "Open navigation menu" }),

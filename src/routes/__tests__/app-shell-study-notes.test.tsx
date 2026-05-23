@@ -411,16 +411,6 @@ async function returnToCompletedPracticeRepairWorkspace(
   ).toHaveTextContent("Recall again soon");
 }
 
-function renderStudyNotesRouteForUser(
-  contexts: DeterministicRecallTestContexts,
-  user: NonNullable<AppSessionSnapshot["user"]>,
-) {
-  renderRoute("/study-notes", {
-    ...contexts,
-    session: { user },
-  });
-}
-
 function renderStudyNotesRoutePathForUser(
   path: string,
   contexts: DeterministicRecallTestContexts,
@@ -580,14 +570,13 @@ describe("authenticated Study Notes workspace", () => {
     );
   });
 
-  it("renders Study Notes as the primary workspace with source context below the Study Note fields", async () => {
+  it("renders /study-notes as a list-only management page and opens the dedicated editor from a row", async () => {
     const studyNotesContext = createAppStudyNotesContext({
       keyPrefix: `test-study-notes-${Math.random().toString(36).slice(2)}`,
       storage: window.localStorage,
     });
     const userId = "user-jordan";
-
-    studyNotesContext.createStudyNote(userId, {
+    const studyNote = studyNotesContext.createStudyNote(userId, {
       acronyms: [{ description: "RP means Retrieval Practice." }],
       metaphors: [{ description: "A trail gets clearer with each walk." }],
       prompt: "Retrieval practice",
@@ -595,7 +584,7 @@ describe("authenticated Study Notes workspace", () => {
       sourceTitle: "Retrieval practice source",
     });
 
-    renderRoute("/study-notes", {
+    const { router } = renderRoute("/study-notes", {
       session: {
         user: {
           displayName: "Jordan Review",
@@ -619,7 +608,7 @@ describe("authenticated Study Notes workspace", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getByText(
-        "Write stronger recall prompts with guidance and templates—no extra required fields.",
+        "Browse, filter, and act on Study Notes without opening the editor.",
       ),
     ).toHaveClass("page-header__description");
     const newStudyNoteButton = screen.getByRole("button", {
@@ -634,155 +623,96 @@ describe("authenticated Study Notes workspace", () => {
     expect(
       screen.getByRole("button", { name: "Start Recall Session" }),
     ).toHaveClass("study-notes-start-recall");
+    expect(
+      screen.queryByRole("form", { name: "Study Note editor surface" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Prompt")).toBeNull();
 
-    const catalog = screen.getByRole("complementary", {
-      name: "Study Notes catalog",
+    const managementRegion = screen.getByRole("region", {
+      name: "Study Notes management",
     });
     expect(
-      within(catalog).getByPlaceholderText("Search notes"),
+      within(managementRegion).getByLabelText("Search Study Notes"),
     ).toBeInTheDocument();
     expect(
-      within(catalog).getByRole("combobox", {
+      within(managementRegion).getByRole("combobox", {
         name: "Filter Study Notes by label",
       }),
     ).toBeInTheDocument();
-    expect(within(catalog).getByText("1 notes")).toBeInTheDocument();
     expect(
-      within(catalog).getByRole("button", { name: "Recently updated" }),
-    ).toBeInTheDocument();
-    expect(
-      within(catalog).getByRole("navigation", { name: "Study Notes list" }),
-    ).toBeInTheDocument();
-    expect(
-      within(catalog).getByRole("button", { name: "Retrieval practice" }),
-    ).toHaveAttribute("aria-current", "page");
-    expect(
-      within(catalog).getByRole("button", { name: "Retrieval practice" }),
-    ).not.toHaveTextContent("Retrieval practice source");
-    expect(
-      screen.queryByRole("button", { name: "Save changes" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", {
-        name: "Add Study Note from this explanation",
+      within(managementRegion).getByRole("combobox", {
+        name: "Filter Study Notes by status",
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", {
-        name: "Delete Study Note",
+      within(managementRegion).getByRole("combobox", {
+        name: "Sort Study Notes",
       }),
+    ).toBeInTheDocument();
+    expect(
+      within(managementRegion).getByText("Showing 1 of 1 Study Notes"),
     ).toBeInTheDocument();
 
-    const editor = screen.getByRole("form", {
-      name: "Study Note editor surface",
+    const table = within(managementRegion).getByRole("table", {
+      name: "Study Notes management list",
     });
-    expect(editor).toHaveAttribute("id", "study-note-editor-form");
     expect(
-      within(editor).getByRole("heading", {
-        level: 2,
-        name: "Retrieval practice",
+      within(table).getByRole("columnheader", { name: "Study note" }),
+    ).toBeInTheDocument();
+    expect(
+      within(table).getByRole("columnheader", { name: "Labels" }),
+    ).toBeInTheDocument();
+    expect(
+      within(table).getByRole("columnheader", { name: "Recall status" }),
+    ).toBeInTheDocument();
+    expect(
+      within(table).getByRole("columnheader", { name: "Last updated" }),
+    ).toBeInTheDocument();
+    expect(
+      within(table).getByRole("columnheader", {
+        name: "Next recall / Suggested action",
       }),
     ).toBeInTheDocument();
     expect(
-      within(editor).queryByRole("button", {
-        name: "New Study Note",
-      }),
-    ).not.toBeInTheDocument();
+      within(table).getByRole("columnheader", { name: "Source" }),
+    ).toBeInTheDocument();
     expect(
-      within(editor).queryByText("Quick start with a template (optional)"),
-    ).not.toBeInTheDocument();
-    expect(
-      within(editor).queryByRole("button", { name: "Why" }),
-    ).not.toBeInTheDocument();
-    expect(
-      within(editor).queryByRole("button", { name: "Cause & effect" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("complementary", { name: "Study Note guidance" }),
-    ).not.toBeInTheDocument();
+      within(table).getByRole("columnheader", { name: "Actions" }),
+    ).toBeInTheDocument();
 
-    expect(screen.getByLabelText("Prompt")).toHaveValue("Retrieval practice");
-    expect(screen.getByLabelText("Expected answer")).toHaveValue(
-      "Testing retrieval strengthens durable recall.",
-    );
-    expect(screen.getByLabelText("Metaphor")).toHaveValue(
-      "A trail gets clearer with each walk.",
-    );
-    expect(screen.getByLabelText("Acronym")).toHaveValue(
-      "RP means Retrieval Practice.",
-    );
-    const noteTitleField = screen.getByLabelText("Note title");
-    expect(noteTitleField).toBeInstanceOf(HTMLTextAreaElement);
-    expect(noteTitleField.closest("label")).toHaveClass("study-notes-field");
-    expect(noteTitleField).toHaveValue("Retrieval practice source");
-    expect(screen.getByLabelText("Explanation")).toHaveValue(
-      "Testing retrieval strengthens durable recall.",
+    const noteLink = within(table).getByRole("link", {
+      name: "Retrieval practice",
+    });
+    expect(noteLink).toHaveAttribute("href", `/study-notes/${studyNote.id}`);
+    expect(within(table).getByText("General")).toBeInTheDocument();
+    expect(within(table).getByText("Not recalled yet")).toBeInTheDocument();
+    expect(within(table).getAllByText("Recall today").length).toBeGreaterThan(
+      0,
     );
     expect(
-      screen.getByPlaceholderText(studyNotePromptPlaceholder),
-    ).toHaveAccessibleName("Prompt");
+      within(table).getByText("Retrieval practice source"),
+    ).toBeInTheDocument();
     expect(
-      screen.getByPlaceholderText(studyNoteExpectedAnswerPlaceholder),
-    ).toHaveAccessibleName("Expected answer");
+      within(table).getByRole("link", {
+        name: "Edit Retrieval practice",
+      }),
+    ).toHaveAttribute("href", `/study-notes/${studyNote.id}`);
     expect(
-      screen.getByPlaceholderText(studyNoteMetaphorPlaceholder),
-    ).toHaveAccessibleName("Metaphor");
-    expect(
-      screen.getByPlaceholderText(studyNoteAcronymPlaceholder),
-    ).toHaveAccessibleName("Acronym");
-    expect(screen.getByPlaceholderText("Note title")).toHaveAccessibleName(
-      "Note title",
-    );
-    expect(screen.getByPlaceholderText("Explanation")).toHaveAccessibleName(
-      "Explanation",
-    );
-    expect(
-      screen.queryByRole("heading", { level: 2, name: "Memory hooks" }),
-    ).not.toBeInTheDocument();
-    const memoryAids = screen.getByRole("region", { name: "Memory aids" });
-    expect(within(memoryAids).getByLabelText("Metaphor")).toHaveValue(
-      "A trail gets clearer with each walk.",
-    );
-    expect(within(memoryAids).getByLabelText("Acronym")).toHaveValue(
-      "RP means Retrieval Practice.",
-    );
-    expect(getDisclosureDetails(memoryAids)).toHaveAttribute("open");
-    expect(screen.getByText("Reference explanation")).toBeInTheDocument();
-    expect(
-      getDisclosureDetails(
-        screen.getByRole("region", { name: "Reference explanation" }),
+      within(table).getByRole("button", {
+        name: "Delete Retrieval practice",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(noteLink);
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        `/study-notes/${studyNote.id}`,
       ),
-    ).toHaveAttribute("open");
-    const recallInsights = screen.getByRole("region", {
-      name: "Recall insights",
-    });
+    );
     expect(
-      within(recallInsights).getByRole("heading", { level: 3, name: "New" }),
+      await screen.findByRole("form", { name: "Study Note editor surface" }),
     ).toBeInTheDocument();
-    expect(
-      within(recallInsights).getByText("Not enough recall data yet."),
-    ).toBeInTheDocument();
-    expect(within(recallInsights).getByText("Next recall")).toBeInTheDocument();
-    expect(within(recallInsights).getByText("Today")).toBeInTheDocument();
-    expect(within(recallInsights).getByText("Last result")).toBeInTheDocument();
-    expect(
-      within(recallInsights).getByText("Suggested action"),
-    ).toBeInTheDocument();
-    expect(
-      within(recallInsights).getByText("Recall today"),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", { name: "Recall schedule" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", { name: "Learning state" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", {
-        level: 2,
-        name: "Reference explanation",
-      }),
-    ).not.toBeInTheDocument();
   });
 
   it("hides Study Note prompt templates when the account preference is disabled", async () => {
@@ -794,14 +724,14 @@ describe("authenticated Study Notes workspace", () => {
     });
     const userId = "user-template-preference";
 
-    studyNotesContext.createStudyNote(userId, {
+    const studyNote = studyNotesContext.createStudyNote(userId, {
       expectedAnswer: "Testing retrieval strengthens durable recall.",
       prompt: "Retrieval practice",
       sourceBody: "Testing retrieval strengthens durable recall.",
       sourceTitle: "Retrieval practice source",
     });
 
-    renderRoute("/study-notes", {
+    renderRoute(getStudyNoteEditorPath(studyNote.id), {
       session: {
         user: {
           displayName: "Jordan Review",
@@ -827,7 +757,7 @@ describe("authenticated Study Notes workspace", () => {
   });
 
   it("shows Study Note prompt templates only for an empty prompt draft", async () => {
-    renderRoute("/study-notes", {
+    renderRoute("/study-notes/new", {
       session: {
         user: {
           displayName: "Jordan Review",
@@ -873,12 +803,12 @@ describe("authenticated Study Notes workspace", () => {
     });
     const userId = "user-direct-study-notes-labels";
 
-    studyNotesContext.createStudyNote(userId, {
+    const studyNote = studyNotesContext.createStudyNote(userId, {
       sourceBody: "Labels should be ready on direct Study Notes entry.",
       sourceTitle: "Direct labels hydration",
     });
 
-    renderRoute("/study-notes", {
+    renderRoute(getStudyNoteEditorPath(studyNote.id), {
       labelsContext,
       persistentLabelsContext,
       session: {
@@ -922,12 +852,12 @@ describe("authenticated Study Notes workspace", () => {
       name: "Biology",
       userId,
     });
-    studyNotesContext.createStudyNote(userId, {
+    const studyNote = studyNotesContext.createStudyNote(userId, {
       sourceBody: "Outside clicks should close the label manager.",
       sourceTitle: "Label manager",
     });
 
-    renderRoute("/study-notes", {
+    renderRoute(getStudyNoteEditorPath(studyNote.id), {
       labelsContext,
       session: {
         user: {
@@ -982,7 +912,7 @@ describe("authenticated Study Notes workspace", () => {
       userId,
     });
 
-    studyNotesContext.createStudyNote(userId, {
+    const firstStudyNote = studyNotesContext.createStudyNote(userId, {
       labelIds: [biology.id],
       sourceBody: "Concept grouping should stay visible.",
       sourceTitle: "Biology one",
@@ -995,7 +925,7 @@ describe("authenticated Study Notes workspace", () => {
 
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
 
-    renderRoute("/study-notes", {
+    renderRoute(getStudyNoteEditorPath(firstStudyNote.id), {
       labelsContext,
       session: {
         user: {
@@ -1065,7 +995,7 @@ describe("authenticated Study Notes workspace", () => {
       userId,
     });
 
-    studyNotesContext.createStudyNote(userId, {
+    const studyNote = studyNotesContext.createStudyNote(userId, {
       labelIds: [biology.id],
       sourceBody: "Cancelled deletion should leave this assignment untouched.",
       sourceTitle: "Biology one",
@@ -1073,7 +1003,7 @@ describe("authenticated Study Notes workspace", () => {
 
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
 
-    renderRoute("/study-notes", {
+    renderRoute(getStudyNoteEditorPath(studyNote.id), {
       labelsContext,
       session: {
         user: {
@@ -1204,14 +1134,14 @@ describe("authenticated Study Notes workspace", () => {
     });
     const userId = "user-study-note-save-bar";
 
-    studyNotesContext.createStudyNote(userId, {
+    const studyNote = studyNotesContext.createStudyNote(userId, {
       expectedAnswer: "Recall before rereading.",
       prompt: "What improves durable recall?",
       sourceBody: "Original source explanation.",
       sourceTitle: "Retrieval source",
     });
 
-    renderRoute("/study-notes", {
+    renderRoute(getStudyNoteEditorPath(studyNote.id), {
       session: {
         user: {
           displayName: "Jordan Save Bar",
@@ -1255,8 +1185,7 @@ describe("authenticated Study Notes workspace", () => {
       storage: window.localStorage,
     });
     const userId = "user-study-note-memory-save-bar";
-
-    renderRoute("/study-notes", {
+    const { router } = renderRoute("/study-notes/new", {
       session: {
         user: {
           displayName: "Jordan Memory Bar",
@@ -1268,11 +1197,9 @@ describe("authenticated Study Notes workspace", () => {
       studyNotesContext,
     });
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "New Study Note" }),
-    );
-
-    const memoryAids = screen.getByRole("region", { name: "Memory aids" });
+    const memoryAids = await screen.findByRole("region", {
+      name: "Memory aids",
+    });
     expect(getDisclosureDetails(memoryAids)).not.toHaveAttribute("open");
     fireEvent.click(within(memoryAids).getByText("Memory aids"));
     expect(within(memoryAids).getByLabelText("Metaphor")).toHaveValue("");
@@ -1308,9 +1235,20 @@ describe("authenticated Study Notes workspace", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("Saved just now"),
+      expect(studyNotesContext.getSnapshot()).toHaveLength(1),
     );
-    expect(studyNotesContext.getSnapshot()[0]).toMatchObject({
+    const createdStudyNote = studyNotesContext.getSnapshot()[0];
+
+    if (createdStudyNote === undefined) {
+      throw new Error("Expected a saved Study Note.");
+    }
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        getStudyNoteEditorPath(createdStudyNote.id),
+      ),
+    );
+    expect(createdStudyNote).toMatchObject({
       acronyms: [{ description: "TBR means Test Before Review." }],
       metaphors: [{ description: "A trail that gets clearer with each walk." }],
       prompt: "What makes recall durable?",
@@ -1323,8 +1261,7 @@ describe("authenticated Study Notes workspace", () => {
       storage: window.localStorage,
     });
     const userId = "user-study-note-answer-check-editor";
-
-    renderRoute("/study-notes", {
+    const { router } = renderRoute("/study-notes/new", {
       session: {
         user: {
           displayName: "Jordan Answer Check",
@@ -1336,9 +1273,7 @@ describe("authenticated Study Notes workspace", () => {
       studyNotesContext,
     });
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "New Study Note" }),
-    );
+    await screen.findByLabelText("Prompt");
     fireEvent.change(screen.getByLabelText("Prompt"), {
       target: { value: "Why does retrieval practice help learning?" },
     });
@@ -1350,10 +1285,21 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("Saved just now"),
+      expect(studyNotesContext.getSnapshot()).toHaveLength(1),
+    );
+    const createdStudyNote = studyNotesContext.getSnapshot()[0];
+
+    if (createdStudyNote === undefined) {
+      throw new Error("Expected a saved Study Note.");
+    }
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        getStudyNoteEditorPath(createdStudyNote.id),
+      ),
     );
 
-    const answerCheck = screen.getByRole("region", {
+    const answerCheck = await screen.findByRole("region", {
       name: "Answer-check reference material",
     });
     fireEvent.click(
@@ -1396,9 +1342,27 @@ describe("authenticated Study Notes workspace", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("Saved just now"),
+      expect(studyNotesContext.getSnapshot()[0]).toMatchObject({
+        acceptedVariants: [
+          {
+            text: "Test yourself before rereading.",
+          },
+        ],
+        keyIdeas: [
+          {
+            acceptedPhrases: ["recall before reading"],
+            importance: "required",
+            prohibitedPhrases: ["just reread it"],
+            text: "Practice recalling before review.",
+          },
+        ],
+        prohibitedPhrases: [
+          {
+            text: "Recognition is enough.",
+          },
+        ],
+      }),
     );
-
     const firstSavedStudyNote = studyNotesContext.getSnapshot()[0];
 
     expect(firstSavedStudyNote).toMatchObject({
@@ -1449,32 +1413,30 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("Saved just now"),
+      expect(studyNotesContext.getSnapshot()[0]).toMatchObject({
+        acceptedVariants: [
+          {
+            id: acceptedVariantId,
+            text: "Try to recall it before rereading.",
+          },
+        ],
+        keyIdeas: [
+          {
+            acceptedPhrases: ["recall before reading"],
+            id: keyIdeaId,
+            importance: "supporting",
+            prohibitedPhrases: ["just reread it"],
+            text: "Practice recalling before review with effort.",
+          },
+        ],
+        prohibitedPhrases: [
+          {
+            id: prohibitedPhraseId,
+            text: "Recognition alone is enough.",
+          },
+        ],
+      }),
     );
-
-    expect(studyNotesContext.getSnapshot()[0]).toMatchObject({
-      acceptedVariants: [
-        {
-          id: acceptedVariantId,
-          text: "Try to recall it before rereading.",
-        },
-      ],
-      keyIdeas: [
-        {
-          acceptedPhrases: ["recall before reading"],
-          id: keyIdeaId,
-          importance: "supporting",
-          prohibitedPhrases: ["just reread it"],
-          text: "Practice recalling before review with effort.",
-        },
-      ],
-      prohibitedPhrases: [
-        {
-          id: prohibitedPhraseId,
-          text: "Recognition alone is enough.",
-        },
-      ],
-    });
   });
 
   it("infers editable answer-check suggestions in Study Notes without auto-activating them before save", async () => {
@@ -1512,7 +1474,7 @@ describe("authenticated Study Notes workspace", () => {
       userId,
     });
 
-    renderRoute("/study-notes", {
+    renderRoute(getStudyNoteEditorPath(studyNote.id), {
       ...contexts,
       session: {
         user: {
@@ -1524,13 +1486,7 @@ describe("authenticated Study Notes workspace", () => {
       },
     });
 
-    fireEvent.click(
-      await screen.findByRole("button", {
-        name: "Why does retrieval practice help learning?",
-      }),
-    );
-
-    const answerCheck = screen.getByRole("region", {
+    const answerCheck = await screen.findByRole("region", {
       name: "Answer-check reference material",
     });
     fireEvent.click(
@@ -1629,32 +1585,31 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("Saved just now"),
+      expect(
+        contexts.studyNotesContext
+          .getSnapshot()
+          .find((note) => note.id === studyNote.id),
+      ).toMatchObject({
+        acceptedVariants: [
+          {
+            text: "Testing yourself strengthens long-term memory before review.",
+          },
+        ],
+        keyIdeas: [
+          {
+            text: "Retrieval practice strengthens memory access.",
+          },
+          {
+            text: "It exposes gaps before review.",
+          },
+        ],
+        prohibitedPhrases: [
+          {
+            text: "Passive review is enough.",
+          },
+        ],
+      }),
     );
-    expect(
-      contexts.studyNotesContext
-        .getSnapshot()
-        .find((note) => note.id === studyNote.id),
-    ).toMatchObject({
-      acceptedVariants: [
-        {
-          text: "Testing yourself strengthens long-term memory before review.",
-        },
-      ],
-      keyIdeas: [
-        {
-          text: "Retrieval practice strengthens memory access.",
-        },
-        {
-          text: "It exposes gaps before review.",
-        },
-      ],
-      prohibitedPhrases: [
-        {
-          text: "Passive review is enough.",
-        },
-      ],
-    });
   });
 
   it("guards Study Note switching and can discard or save before switching", async () => {
@@ -1676,7 +1631,7 @@ describe("authenticated Study Notes workspace", () => {
       sourceTitle: "Second source",
     });
 
-    renderRoute("/study-notes", {
+    const { router } = renderRoute(getStudyNoteEditorPath(first.id), {
       session: {
         user: {
           displayName: "Jordan Switch",
@@ -1709,7 +1664,14 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Second Study Note" }));
     fireEvent.click(screen.getByRole("button", { name: "Discard and switch" }));
 
-    expect(screen.getByLabelText("Prompt")).toHaveValue("Second Study Note");
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        getStudyNoteEditorPath(second.id),
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("Prompt")).toHaveValue("Second Study Note"),
+    );
     expect(studyNotesContext.getSnapshot()).toContainEqual(
       expect.objectContaining({
         id: first.id,
@@ -1718,12 +1680,27 @@ describe("authenticated Study Notes workspace", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "First Study Note" }));
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        getStudyNoteEditorPath(first.id),
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("Prompt")).toHaveValue("First Study Note"),
+    );
     fireEvent.change(screen.getByLabelText("Expected answer"), {
       target: { value: "Saved before switching." },
     });
     fireEvent.click(screen.getByRole("button", { name: "Second Study Note" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save and switch" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Save and switch" }),
+    );
 
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        getStudyNoteEditorPath(second.id),
+      ),
+    );
     await waitFor(() =>
       expect(screen.getByLabelText("Prompt")).toHaveValue("Second Study Note"),
     );
@@ -1748,28 +1725,35 @@ describe("authenticated Study Notes workspace", () => {
     });
     const userId = "user-study-note-new-discard";
 
-    studyNotesContext.createStudyNote(userId, {
+    const existingStudyNote = studyNotesContext.createStudyNote(userId, {
       expectedAnswer: "Existing answer.",
       prompt: "Existing Study Note",
       sourceBody: "Existing source.",
       sourceTitle: "Existing source",
     });
 
-    renderRoute("/study-notes", {
-      session: {
-        user: {
-          displayName: "Jordan New Discard",
-          email: "jordan.new.discard@example.com",
-          id: userId,
-          userLanguage: "en",
+    const { router } = renderRoute(
+      getStudyNoteEditorPath(existingStudyNote.id),
+      {
+        session: {
+          user: {
+            displayName: "Jordan New Discard",
+            email: "jordan.new.discard@example.com",
+            id: userId,
+            userLanguage: "en",
+          },
         },
+        studyNotesContext,
       },
-      studyNotesContext,
-    });
+    );
 
     fireEvent.click(
       await screen.findByRole("button", { name: "New Study Note" }),
     );
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/study-notes/new"),
+    );
+    expect(screen.getByLabelText("Prompt")).toHaveValue("");
     fireEvent.change(screen.getByLabelText("Prompt"), {
       target: { value: "Temporary draft" },
     });
@@ -1785,14 +1769,18 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Prompt")).toHaveValue(
-        "Existing Study Note",
-      ),
+      expect(screen.getByLabelText("Prompt")).toHaveValue(""),
     );
+    expect(router.state.location.pathname).toBe("/study-notes/new");
     expect(studyNotesContext.getSnapshot()).toHaveLength(1);
-    expect(
-      screen.queryByRole("button", { name: "Save changes" }),
-    ).not.toBeInTheDocument();
+    expect(studyNotesContext.getSnapshot()).toContainEqual(
+      expect.objectContaining({
+        id: existingStudyNote.id,
+        prompt: "Existing Study Note",
+      }),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
   });
 
   it("creates a Study Note from /study-notes/new and redirects to its dedicated editor route", async () => {
@@ -1927,8 +1915,7 @@ describe("authenticated Study Notes workspace", () => {
       storage: window.localStorage,
     });
     const userId = "user-study-guidance";
-
-    renderRoute("/study-notes", {
+    const { router } = renderRoute("/study-notes/new", {
       session: {
         user: {
           displayName: "Jordan Guidance",
@@ -1940,9 +1927,7 @@ describe("authenticated Study Notes workspace", () => {
       studyNotesContext,
     });
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "New Study Note" }),
-    );
+    await screen.findByLabelText("Prompt");
 
     expect(
       screen.getByPlaceholderText(studyNotePromptPlaceholder),
@@ -1991,9 +1976,20 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("Saved just now"),
+      expect(studyNotesContext.getSnapshot()).toHaveLength(1),
     );
-    expect(studyNotesContext.getSnapshot()[0]).toMatchObject({
+    const createdStudyNote = studyNotesContext.getSnapshot()[0];
+
+    if (createdStudyNote === undefined) {
+      throw new Error("Expected a saved Study Note.");
+    }
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        getStudyNoteEditorPath(createdStudyNote.id),
+      ),
+    );
+    expect(createdStudyNote).toMatchObject({
       acronyms: [],
       expectedAnswer:
         "It forces a retrieval attempt, exposes gaps, and makes feedback more useful.",
@@ -2008,8 +2004,7 @@ describe("authenticated Study Notes workspace", () => {
       storage: window.localStorage,
     });
     const userId = "user-jordan";
-
-    renderRoute("/study-notes", {
+    const { router } = renderRoute("/study-notes/new", {
       session: {
         user: {
           displayName: "Jordan Review",
@@ -2021,9 +2016,7 @@ describe("authenticated Study Notes workspace", () => {
       studyNotesContext,
     });
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "New Study Note" }),
-    );
+    await screen.findByLabelText("Prompt");
     fireEvent.change(screen.getByLabelText("Prompt"), {
       target: { value: "What needs an answer later?" },
     });
@@ -2040,7 +2033,18 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("Saved just now"),
+      expect(studyNotesContext.getSnapshot()).toHaveLength(1),
+    );
+    const createdStudyNote = studyNotesContext.getSnapshot()[0];
+
+    if (createdStudyNote === undefined) {
+      throw new Error("Expected a saved Study Note.");
+    }
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        getStudyNoteEditorPath(createdStudyNote.id),
+      ),
     );
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull(),
@@ -2085,14 +2089,14 @@ describe("authenticated Study Notes workspace", () => {
     });
     const userId = "user-jordan";
 
-    studyNotesContext.createStudyNote(userId, {
+    const studyNote = studyNotesContext.createStudyNote(userId, {
       expectedAnswer: "Testing retrieval strengthens durable recall.",
       prompt: "What strengthens durable recall?",
       sourceBody: "Testing retrieval strengthens durable recall.",
       sourceTitle: "Retrieval practice",
     });
 
-    renderRoute("/study-notes", {
+    renderRoute(getStudyNoteEditorPath(studyNote.id), {
       session: {
         user: {
           displayName: "Jordan Review",
@@ -2133,8 +2137,7 @@ describe("authenticated Study Notes workspace", () => {
       storage: window.localStorage,
     });
     const userId = "user-jordan";
-
-    renderRoute("/study-notes", {
+    const { router } = renderRoute("/study-notes/new", {
       session: {
         user: {
           displayName: "Jordan Review",
@@ -2146,9 +2149,7 @@ describe("authenticated Study Notes workspace", () => {
       studyNotesContext,
     });
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "New Study Note" }),
-    );
+    await screen.findByLabelText("Prompt");
     fireEvent.change(screen.getByLabelText("Prompt"), {
       target: { value: "Oldest fallback prompt" },
     });
@@ -2162,7 +2163,18 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("Saved just now"),
+      expect(studyNotesContext.getSnapshot()).toHaveLength(1),
+    );
+    const createdStudyNote = studyNotesContext.getSnapshot()[0];
+
+    if (createdStudyNote === undefined) {
+      throw new Error("Expected a saved Study Note.");
+    }
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        getStudyNoteEditorPath(createdStudyNote.id),
+      ),
     );
     expect(screen.getByLabelText("Note title")).toHaveValue("");
     expect(screen.getByLabelText("Note title")).toHaveAttribute(
@@ -2205,7 +2217,7 @@ describe("authenticated Study Notes workspace", () => {
       userId,
     });
 
-    renderRoute("/study-notes", {
+    renderRoute(getStudyNoteEditorPath(studyNote.id), {
       focusContext,
       labelsContext,
       session: {
@@ -2300,7 +2312,7 @@ describe("authenticated Study Notes workspace", () => {
     });
     const userId = "user-jordan";
 
-    renderRoute("/study-notes", {
+    renderRoute(getStudyNoteEditorPath("study-one"), {
       session: {
         user: {
           displayName: "Jordan Review",
@@ -2392,7 +2404,7 @@ describe("authenticated Study Notes workspace", () => {
       sourceTitle: "History recall",
     });
 
-    renderRoute("/study-notes", {
+    renderRoute(getStudyNoteEditorPath(first.id), {
       labelsContext,
       session: {
         user: {
@@ -2427,7 +2439,11 @@ describe("authenticated Study Notes workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("Saved just now"),
+      expect(
+        studyNotesContext
+          .getSnapshot()
+          .find((studyNote) => studyNote.id === first.id)?.labelIds,
+      ).toEqual([]),
     );
     expect(studyNotesContext.getSnapshot()).toContainEqual(
       expect.objectContaining({
@@ -2506,19 +2522,22 @@ describe("authenticated Study Notes workspace", () => {
     const labelFilter = await screen.findByLabelText(
       "Filter Study Notes by label",
     );
-    const catalog = screen.getByRole("complementary", {
-      name: "Study Notes catalog",
+    const managementRegion = screen.getByRole("region", {
+      name: "Study Notes management",
+    });
+    const table = within(managementRegion).getByRole("table", {
+      name: "Study Notes management list",
     });
 
     expect(labelFilter).toHaveValue(biology.id);
     expect(
-      within(catalog).getByRole("button", { name: "Biology recall" }),
+      within(table).getByRole("link", { name: "Biology recall" }),
     ).toBeInTheDocument();
     expect(
-      within(catalog).queryByRole("button", { name: "History recall" }),
+      within(table).queryByRole("link", { name: "History recall" }),
     ).toBeNull();
     expect(
-      within(catalog).queryByRole("button", { name: "Unlabeled recall" }),
+      within(table).queryByRole("link", { name: "Unlabeled recall" }),
     ).toBeNull();
 
     await router.navigate({
@@ -2532,13 +2551,13 @@ describe("authenticated Study Notes workspace", () => {
       ),
     );
     expect(
-      within(catalog).getByRole("button", { name: "Unlabeled recall" }),
+      within(table).getByRole("link", { name: "Unlabeled recall" }),
     ).toBeInTheDocument();
     expect(
-      within(catalog).queryByRole("button", { name: "Biology recall" }),
+      within(table).queryByRole("link", { name: "Biology recall" }),
     ).toBeNull();
     expect(
-      within(catalog).queryByRole("button", { name: "History recall" }),
+      within(table).queryByRole("link", { name: "History recall" }),
     ).toBeNull();
   });
 
@@ -2555,13 +2574,13 @@ describe("authenticated Study Notes workspace", () => {
     });
     const userId = "user-jordan-label-create";
 
-    studyNotesContext.createStudyNote(userId, {
+    const studyNote = studyNotesContext.createStudyNote(userId, {
       prompt: "What is active recall?",
       sourceBody: "Active recall means retrieving from memory.",
       sourceTitle: "Recall",
     });
 
-    renderRoute("/study-notes", {
+    renderRoute(getStudyNoteEditorPath(studyNote.id), {
       labelsContext,
       session: {
         user: {
@@ -2667,15 +2686,26 @@ describe("authenticated Study Notes workspace", () => {
       studyNotesContext,
     });
 
-    const catalog = await screen.findByRole("complementary", {
-      name: "Study Notes catalog",
+    const managementRegion = await screen.findByRole("region", {
+      name: "Study Notes management",
     });
-    const firstRow = within(catalog).getByRole("button", {
-      name: "First recall target",
+    const table = within(managementRegion).getByRole("table", {
+      name: "Study Notes management list",
     });
-    const secondRow = within(catalog).getByRole("button", {
-      name: "Second recall target",
-    });
+    const firstRow = within(table)
+      .getByRole("link", { name: "First recall target" })
+      .closest("tr");
+    const secondRow = within(table)
+      .getByRole("link", { name: "Second recall target" })
+      .closest("tr");
+
+    if (!(firstRow instanceof HTMLTableRowElement)) {
+      throw new Error("Expected the first Study Note row.");
+    }
+
+    if (!(secondRow instanceof HTMLTableRowElement)) {
+      throw new Error("Expected the second Study Note row.");
+    }
 
     expect(firstRow).toHaveTextContent("Recall today");
     expect(secondRow).toHaveTextContent("Recall today");
@@ -2693,12 +2723,20 @@ describe("authenticated Study Notes workspace", () => {
       });
     });
 
-    const updatedFirstRow = within(catalog).getByRole("button", {
-      name: "First recall target",
-    });
-    const unchangedSecondRow = within(catalog).getByRole("button", {
-      name: "Second recall target",
-    });
+    const updatedFirstRow = within(table)
+      .getByRole("link", { name: "First recall target" })
+      .closest("tr");
+    const unchangedSecondRow = within(table)
+      .getByRole("link", { name: "Second recall target" })
+      .closest("tr");
+
+    if (!(updatedFirstRow instanceof HTMLTableRowElement)) {
+      throw new Error("Expected the updated first Study Note row.");
+    }
+
+    if (!(unchangedSecondRow instanceof HTMLTableRowElement)) {
+      throw new Error("Expected the unchanged second Study Note row.");
+    }
 
     expect(updatedFirstRow).toHaveTextContent("Needs practice");
     expect(updatedFirstRow).not.toHaveTextContent("Recall today");
@@ -2719,12 +2757,16 @@ describe("authenticated Study Notes workspace", () => {
       userId,
     });
 
-    renderStudyNotesRouteForUser(contexts, {
-      displayName: "Jordan Repair",
-      email: "jordan.repair@example.com",
-      id: userId,
-      userLanguage: "en",
-    });
+    renderStudyNotesRoutePathForUser(
+      getStudyNoteEditorPath(studyNote.id),
+      contexts,
+      {
+        displayName: "Jordan Repair",
+        email: "jordan.repair@example.com",
+        id: userId,
+        userLanguage: "en",
+      },
+    );
 
     completeStudyNoteRecall(contexts, {
       rating: "hard",
@@ -2749,7 +2791,7 @@ describe("authenticated Study Notes workspace", () => {
     expect(screen.queryByText("Error log")).not.toBeInTheDocument();
   });
 
-  it("starts the current Recall Today queue from Study Notes without preselecting the selected Study Note", async () => {
+  it("starts the current Recall Today queue from the list-only Study Notes page", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
 
     const contexts = createDeterministicRecallTestContexts();
@@ -2769,12 +2811,7 @@ describe("authenticated Study Notes workspace", () => {
     });
 
     fireEvent.click(
-      await screen.findByRole("button", {
-        name: scenario.selectedStudyNotePrompt,
-      }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Start Recall Session" }),
+      await screen.findByRole("button", { name: "Start Recall Session" }),
     );
 
     expect(
@@ -2859,12 +2896,16 @@ describe("authenticated Study Notes workspace", () => {
     const confirmedReference =
       getConfirmedPracticeRepairReference(confirmedResult);
 
-    renderStudyNotesRouteForUser(contexts, {
-      displayName: "Jordan Active Repair",
-      email: "jordan.active.repair@example.com",
-      id: userId,
-      userLanguage: "en",
-    });
+    renderStudyNotesRoutePathForUser(
+      getStudyNoteEditorPath(studyNote.id),
+      contexts,
+      {
+        displayName: "Jordan Active Repair",
+        email: "jordan.active.repair@example.com",
+        id: userId,
+        userLanguage: "en",
+      },
+    );
 
     const activePracticeRepair = await screen.findByRole("region", {
       name: "Active Practice Repair",
@@ -2966,12 +3007,16 @@ describe("authenticated Study Notes workspace", () => {
       userId,
     });
 
-    renderStudyNotesRouteForUser(contexts, {
-      displayName: "Jordan Origin Repair",
-      email: "jordan.origin.repair@example.com",
-      id: userId,
-      userLanguage: "en",
-    });
+    renderStudyNotesRoutePathForUser(
+      getStudyNoteEditorPath(studyNote.id),
+      contexts,
+      {
+        displayName: "Jordan Origin Repair",
+        email: "jordan.origin.repair@example.com",
+        id: userId,
+        userLanguage: "en",
+      },
+    );
 
     const activePracticeRepair = await screen.findByRole("region", {
       name: "Active Practice Repair",
@@ -3081,7 +3126,7 @@ describe("authenticated Study Notes workspace", () => {
       });
     });
 
-    const { router } = renderRoute("/study-notes", {
+    const { router } = renderRoute(getStudyNoteEditorPath(anchor.id), {
       ...contexts,
       session: {
         user: {
@@ -3092,12 +3137,6 @@ describe("authenticated Study Notes workspace", () => {
         },
       },
     });
-
-    fireEvent.click(
-      await screen.findByRole("button", {
-        name: "Anchor prompt",
-      }),
-    );
 
     expect(
       await screen.findByRole("heading", {
@@ -3150,12 +3189,16 @@ describe("authenticated Study Notes workspace", () => {
       userId,
     });
 
-    renderStudyNotesRouteForUser(contexts, {
-      displayName: "Jordan Sibling Repair",
-      email: "jordan.sibling.repair@example.com",
-      id: userId,
-      userLanguage: "en",
-    });
+    renderStudyNotesRoutePathForUser(
+      getStudyNoteEditorPath(updatedStudyNote.id),
+      contexts,
+      {
+        displayName: "Jordan Sibling Repair",
+        email: "jordan.sibling.repair@example.com",
+        id: userId,
+        userLanguage: "en",
+      },
+    );
 
     completeStudyNoteRecall(contexts, {
       rating: "forgot",
@@ -3217,12 +3260,16 @@ describe("authenticated Study Notes workspace", () => {
     const confirmedReference =
       getConfirmedPracticeRepairReference(confirmedResult);
 
-    renderStudyNotesRouteForUser(contexts, {
-      displayName: "Jordan Active Sibling Repair",
-      email: "jordan.active.sibling.repair@example.com",
-      id: userId,
-      userLanguage: "en",
-    });
+    renderStudyNotesRoutePathForUser(
+      getStudyNoteEditorPath(studyNote.id),
+      contexts,
+      {
+        displayName: "Jordan Active Sibling Repair",
+        email: "jordan.active.sibling.repair@example.com",
+        id: userId,
+        userLanguage: "en",
+      },
+    );
 
     const activePracticeRepair = await screen.findByRole("region", {
       name: "Active Practice Repair",
@@ -3295,12 +3342,16 @@ describe("authenticated Study Notes workspace", () => {
     const confirmedReference =
       getConfirmedPracticeRepairReference(confirmedResult);
 
-    renderStudyNotesRouteForUser(contexts, {
-      displayName: "Jordan Active Split Repair",
-      email: "jordan.active.split.repair@example.com",
-      id: userId,
-      userLanguage: "en",
-    });
+    renderStudyNotesRoutePathForUser(
+      getStudyNoteEditorPath(studyNote.id),
+      contexts,
+      {
+        displayName: "Jordan Active Split Repair",
+        email: "jordan.active.split.repair@example.com",
+        id: userId,
+        userLanguage: "en",
+      },
+    );
 
     const activePracticeRepair = await screen.findByRole("region", {
       name: "Active Practice Repair",
@@ -3412,12 +3463,16 @@ describe("authenticated Study Notes workspace", () => {
     const confirmedReference =
       getConfirmedPracticeRepairReference(confirmedResult);
 
-    renderStudyNotesRouteForUser(contexts, {
-      displayName: "Jordan Active Memory Aid Repair",
-      email: "jordan.active.memory.aid.repair@example.com",
-      id: userId,
-      userLanguage: "en",
-    });
+    renderStudyNotesRoutePathForUser(
+      getStudyNoteEditorPath(studyNote.id),
+      contexts,
+      {
+        displayName: "Jordan Active Memory Aid Repair",
+        email: "jordan.active.memory.aid.repair@example.com",
+        id: userId,
+        userLanguage: "en",
+      },
+    );
 
     const activePracticeRepair = await screen.findByRole("region", {
       name: "Active Practice Repair",

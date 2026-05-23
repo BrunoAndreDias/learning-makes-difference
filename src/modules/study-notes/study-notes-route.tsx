@@ -1,5 +1,6 @@
 import {
   createFileRoute,
+  Link,
   useNavigate,
   useRouteContext,
 } from "@tanstack/react-router";
@@ -72,6 +73,7 @@ import {
   formatStudyNoteDueLabel,
   formatStudyNoteLearningStateCompactLabel,
   formatStudyNotePracticeSignalLabel,
+  getStudyNoteReadiness,
   isUnlabeledStudyNotesFilterValue,
   listStudyNotesForUser,
   type StudyNoteKeyIdeaImportance,
@@ -161,7 +163,782 @@ function createBlankDraft(): UpdateStudyNoteInput {
 function StudyNotesWorkspaceRoute() {
   const search = Route.useSearch();
 
-  return <StudyNotesPage routeMode={{ kind: "workspace" }} search={search} />;
+  return <StudyNotesManagementPage search={search} />;
+}
+
+type StudyNotesManagementStatusFilter =
+  | "all"
+  | "due-for-recall"
+  | "incomplete"
+  | "needs-practice"
+  | "not-recalled-yet";
+type StudyNotesManagementSortOrder =
+  | "least-recently-updated"
+  | "recently-updated"
+  | "study-note-a-z"
+  | "study-note-z-a";
+
+function StudyNotesManagementPage({
+  search,
+}: Readonly<{
+  search: StudyNotesSearch;
+}>) {
+  const navigate = useNavigate();
+  const studyNotesContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.studyNotes,
+  });
+  const persistentStudyNotesContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.persistentStudyNotes,
+  });
+  const labelsContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.labels,
+  });
+  const recallContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.recall,
+  });
+  const persistentRecallContext = useRouteContext({
+    from: "/_protected",
+    select: (context) => context.persistentRecall,
+  });
+  const { sessionSnapshot } = useResolvedProtectedSession("/_protected");
+  const userId = sessionSnapshot.user?.id ?? null;
+  const userTimeZone =
+    sessionSnapshot.user?.userTimeZone ?? defaultUserTimeZone;
+  const now = new Date().toISOString();
+  const studyNotesStore:
+    | Pick<AppStudyNotesContext, "getSnapshot" | "subscribe">
+    | Pick<AppPersistentStudyNotesContext, "getSnapshot" | "subscribe"> =
+    persistentStudyNotesContext ?? studyNotesContext;
+  const studyNotesSnapshot = useSyncExternalStore(
+    studyNotesStore.subscribe,
+    studyNotesStore.getSnapshot,
+    studyNotesStore.getSnapshot,
+  );
+  const recallResultsSnapshot = useSyncExternalStore(
+    recallContext.subscribe,
+    recallContext.getSessionResultsSnapshot,
+    recallContext.getSessionResultsSnapshot,
+  );
+  const recallSchedulesSnapshot = useSyncExternalStore(
+    recallContext.subscribe,
+    recallContext.getRecallSchedulesSnapshot,
+    recallContext.getRecallSchedulesSnapshot,
+  );
+  const [availableLabels, setAvailableLabels] = useState<AppLabel[]>(() =>
+    userId === null ? [] : labelsContext.getLabelsForUser(userId),
+  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [isDeletingStudyNoteId, setDeletingStudyNoteId] = useState<
+    string | null
+  >(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedLabelId, setSelectedLabelId] = useState(
+    () => search.labelId ?? "",
+  );
+  const [selectedStatusFilter, setSelectedStatusFilter] =
+    useState<StudyNotesManagementStatusFilter>("all");
+  const [selectedSortOrder, setSelectedSortOrder] =
+    useState<StudyNotesManagementSortOrder>("recently-updated");
+  const allStudyNotes = useMemo(
+    () => listStudyNotesForUser(studyNotesSnapshot, userId),
+    [studyNotesSnapshot, userId],
+  );
+  const recallAttemptsByNote = useMemo(
+    () =>
+      userId === null || recallResultsSnapshot.length === 0
+        ? []
+        : recallContext.listAttemptsByNote({ userId }),
+    [recallContext, recallResultsSnapshot, userId],
+  );
+  const recallHistories = useMemo(
+    () => toStudyNoteRecallHistories(recallAttemptsByNote),
+    [recallAttemptsByNote],
+  );
+  const learningStates = useMemo(
+    () =>
+      deriveStudyNoteLearningStates({
+        histories: recallHistories,
+        now,
+        recallSchedules: recallSchedulesSnapshot,
+        studyNotes: allStudyNotes,
+      }),
+    [allStudyNotes, now, recallHistories, recallSchedulesSnapshot],
+  );
+  const recallGuidanceEntries = useMemo(
+    () =>
+      deriveRecallGuidance({
+        attemptsByNote: recallAttemptsByNote,
+        now,
+        recallSchedules: recallSchedulesSnapshot,
+        sessionResults: recallResultsSnapshot,
+        studyNotes: allStudyNotes,
+        userTimeZone,
+      }),
+    [
+      allStudyNotes,
+      now,
+      recallAttemptsByNote,
+      recallResultsSnapshot,
+      recallSchedulesSnapshot,
+      userTimeZone,
+    ],
+  );
+  const recallTodayQueue = useMemo(() => {
+    if (userId === null) {
+      return [];
+    }
+
+    return planRecallWork({
+      histories: recallHistories,
+      now,
+      recallSchedules: recallSchedulesSnapshot,
+      sessionResults: recallResultsSnapshot,
+      studyNotes: allStudyNotes,
+      userTimeZone,
+    }).recallTodayQueue;
+  }, [
+    allStudyNotes,
+    now,
+    recallHistories,
+    recallResultsSnapshot,
+    recallSchedulesSnapshot,
+    userId,
+    userTimeZone,
+  ]);
+  const recallTodayStudyNoteIds = useMemo(
+    () => recallTodayQueue.map((queueItem) => queueItem.studyNote.id),
+    [recallTodayQueue],
+  );
+  const learningStateByStudyNoteId = useMemo(
+    () =>
+      new Map(
+        learningStates.map((learningState) => [
+          learningState.studyNoteId,
+          learningState,
+        ]),
+      ),
+    [learningStates],
+  );
+  const recallGuidanceByStudyNoteId = useMemo(
+    () =>
+      new Map(
+        recallGuidanceEntries.map((entry) => [entry.studyNote.id, entry]),
+      ),
+    [recallGuidanceEntries],
+  );
+  const recallScheduleByStudyNoteId = useMemo(
+    () =>
+      new Map(
+        recallSchedulesSnapshot.map((schedule) => [
+          schedule.studyNoteId,
+          schedule,
+        ]),
+      ),
+    [recallSchedulesSnapshot],
+  );
+  const studyNoteCountBySourceId = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    for (const studyNote of allStudyNotes) {
+      counts.set(
+        studyNote.sourceNoteId,
+        (counts.get(studyNote.sourceNoteId) ?? 0) + 1,
+      );
+    }
+
+    return counts;
+  }, [allStudyNotes]);
+  const filteredStudyNotes = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
+
+    return filterStudyNotesBySelectedLabel(allStudyNotes, selectedLabelId)
+      .filter((studyNote) => {
+        if (
+          !matchesStudyNoteStatusFilter({
+            learningState: learningStateByStudyNoteId.get(studyNote.id) ?? null,
+            statusFilter: selectedStatusFilter,
+            studyNote,
+          })
+        ) {
+          return false;
+        }
+
+        if (normalizedQuery.length === 0) {
+          return true;
+        }
+
+        const searchableText = [
+          studyNote.prompt,
+          studyNote.expectedAnswer,
+          studyNote.source.body,
+          studyNote.source.displayName ?? "",
+          studyNote.source.title,
+          getStudyNoteLabelNames(availableLabels, studyNote.labelIds).join(" "),
+        ]
+          .join(" ")
+          .toLocaleLowerCase();
+
+        return searchableText.includes(normalizedQuery);
+      })
+      .sort((left, right) =>
+        compareStudyNotesForManagementSort({
+          left,
+          right,
+          sortOrder: selectedSortOrder,
+        }),
+      );
+  }, [
+    allStudyNotes,
+    availableLabels,
+    learningStateByStudyNoteId,
+    searchQuery,
+    selectedLabelId,
+    selectedSortOrder,
+    selectedStatusFilter,
+  ]);
+  const storeMutation = persistentStudyNotesContext ?? studyNotesContext;
+
+  useEffect(() => {
+    if (persistentStudyNotesContext === undefined) {
+      return;
+    }
+
+    void persistentStudyNotesContext.refresh(userId).catch((error: unknown) => {
+      if (error instanceof AppStudyNotesError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    });
+  }, [persistentStudyNotesContext, userId]);
+
+  useEffect(() => {
+    function syncLabels() {
+      if (userId === null) {
+        setAvailableLabels([]);
+        return;
+      }
+
+      setAvailableLabels(labelsContext.getLabelsForUser(userId));
+    }
+
+    syncLabels();
+
+    return labelsContext.subscribe(syncLabels);
+  }, [labelsContext, userId]);
+
+  useEffect(() => {
+    setSelectedLabelId(search.labelId ?? "");
+  }, [search.labelId]);
+
+  useEffect(() => {
+    if (
+      search.studyNoteId === undefined ||
+      !allStudyNotes.some((studyNote) => studyNote.id === search.studyNoteId)
+    ) {
+      return;
+    }
+
+    void navigate({
+      params: {
+        studyNoteId: search.studyNoteId,
+      },
+      replace: true,
+      search: {
+        focus: search.focus,
+        practiceRepairAction: search.practiceRepairAction,
+        practiceRepairEntryId: search.practiceRepairEntryId,
+      },
+      to: appRoutePaths.studyNoteEditor,
+    });
+  }, [
+    allStudyNotes,
+    navigate,
+    search.focus,
+    search.practiceRepairAction,
+    search.practiceRepairEntryId,
+    search.studyNoteId,
+  ]);
+
+  useEffect(() => {
+    if (
+      selectedLabelId === "" ||
+      isUnlabeledStudyNotesFilterValue(selectedLabelId) ||
+      availableLabels.some((label) => label.id === selectedLabelId)
+    ) {
+      return;
+    }
+
+    void navigate({
+      replace: true,
+      search: (previousSearch) => ({
+        ...previousSearch,
+        labelId: undefined,
+      }),
+      to: appRoutePaths.studyNotes,
+    });
+  }, [availableLabels, navigate, selectedLabelId]);
+
+  function handleNewStudyNote() {
+    void navigate({ to: appRoutePaths.studyNotesNew });
+  }
+
+  async function handleStartRecallSession() {
+    if (userId === null) {
+      return;
+    }
+
+    if (recallTodayStudyNoteIds.length === 0) {
+      await navigate({ to: appRoutePaths.recall });
+      return;
+    }
+
+    setErrorMessage(null);
+    setFeedbackMessage(null);
+
+    try {
+      if (persistentRecallContext === undefined) {
+        recallContext.startFlashCardSession({
+          mode: "FlashCard",
+          studyNoteIds: [...recallTodayStudyNoteIds],
+          userId,
+        });
+      } else {
+        await persistentRecallContext.startFlashCardSession(userId, {
+          mode: "FlashCard",
+          studyNoteIds: recallTodayStudyNoteIds,
+        });
+      }
+
+      await navigate({ to: appRoutePaths.recallSession });
+    } catch (error) {
+      if (error instanceof AppRecallError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    }
+  }
+
+  async function handleDeleteStudyNote(studyNote: AppStudyNote) {
+    if (userId === null) {
+      return;
+    }
+
+    const hasSiblingStudyNotes =
+      (studyNoteCountBySourceId.get(studyNote.sourceNoteId) ?? 0) > 1;
+    const confirmationMessage = hasSiblingStudyNotes
+      ? "Delete this Study Note? The shared reference explanation stays with the other Study Notes."
+      : "Delete this last Study Note and its reference explanation?";
+
+    if (!window.confirm(confirmationMessage)) {
+      return;
+    }
+
+    setDeletingStudyNoteId(studyNote.id);
+    setErrorMessage(null);
+    setFeedbackMessage(null);
+
+    try {
+      await storeMutation.deleteStudyNote(userId, studyNote.id, {
+        deleteSource: !hasSiblingStudyNotes,
+      });
+      setFeedbackMessage(`Deleted ${studyNote.prompt}`);
+    } catch (error) {
+      if (error instanceof AppStudyNotesError) {
+        setErrorMessage(error.message);
+        return;
+      }
+
+      throw error;
+    } finally {
+      setDeletingStudyNoteId(null);
+    }
+  }
+
+  return (
+    <PageLayout
+      actions={
+        <>
+          <Button
+            aria-label="New Study Note"
+            className="study-notes-new-note"
+            onClick={handleNewStudyNote}
+            type="button"
+            variant="secondary"
+          >
+            <PlusIcon />
+            <span>New note</span>
+          </Button>
+          <Button
+            className="study-notes-start-recall"
+            onClick={() => void handleStartRecallSession()}
+            type="button"
+            variant="secondary"
+          >
+            <PlayIcon />
+            <span>Start Recall Session</span>
+          </Button>
+        </>
+      }
+      actionsClassName="study-notes-hero__actions"
+      bodyClassName="study-notes-management-page__body"
+      className="notes-workspace study-notes-management-page"
+      description="Browse, filter, and act on Study Notes without opening the editor."
+      headerClassName="study-notes-hero"
+      headingLevel={1}
+      title="Study Notes"
+    >
+      <div className="study-notes-management-shell">
+        <section
+          aria-label="Study Notes management"
+          className="study-notes-management"
+        >
+          <div className="study-notes-management__filters">
+            <label className="study-notes-management__control">
+              <span>Search Study Notes</span>
+              <input
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search Study Notes"
+                type="search"
+                value={searchQuery}
+              />
+            </label>
+            <label className="study-notes-management__control">
+              <span>Filter Study Notes by label</span>
+              <select
+                aria-label="Filter Study Notes by label"
+                onChange={(event) => {
+                  const nextSelectedLabelId = event.target.value;
+
+                  setSelectedLabelId(nextSelectedLabelId);
+                  void navigate({
+                    replace: true,
+                    search: (previousSearch) => ({
+                      ...previousSearch,
+                      labelId:
+                        nextSelectedLabelId.length === 0
+                          ? undefined
+                          : nextSelectedLabelId,
+                    }),
+                    to: appRoutePaths.studyNotes,
+                  });
+                }}
+                value={selectedLabelId}
+              >
+                <option value="">All labels</option>
+                <option value={unlabeledStudyNotesFilterValue}>
+                  {unlabeledStudyNotesFilterLabel}
+                </option>
+                {availableLabels.map((label) => (
+                  <option key={label.id} value={label.id}>
+                    {label.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="study-notes-management__control">
+              <span>Filter Study Notes by status</span>
+              <select
+                aria-label="Filter Study Notes by status"
+                onChange={(event) =>
+                  setSelectedStatusFilter(
+                    event.target.value as StudyNotesManagementStatusFilter,
+                  )
+                }
+                value={selectedStatusFilter}
+              >
+                <option value="all">All statuses</option>
+                <option value="incomplete">Incomplete</option>
+                <option value="not-recalled-yet">Not recalled yet</option>
+                <option value="needs-practice">Needs practice</option>
+                <option value="due-for-recall">Due for Recall</option>
+              </select>
+            </label>
+            <label className="study-notes-management__control">
+              <span>Sort Study Notes</span>
+              <select
+                aria-label="Sort Study Notes"
+                onChange={(event) =>
+                  setSelectedSortOrder(
+                    event.target.value as StudyNotesManagementSortOrder,
+                  )
+                }
+                value={selectedSortOrder}
+              >
+                <option value="recently-updated">Recently updated</option>
+                <option value="least-recently-updated">
+                  Least recently updated
+                </option>
+                <option value="study-note-a-z">Study note A-Z</option>
+                <option value="study-note-z-a">Study note Z-A</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="study-notes-management__summary">
+            <p>
+              Showing {filteredStudyNotes.length} of {allStudyNotes.length}{" "}
+              Study Notes
+            </p>
+          </div>
+
+          {errorMessage === null ? null : (
+            <p className="form-error" role="alert">
+              {errorMessage}
+            </p>
+          )}
+          {feedbackMessage === null ? null : (
+            <p className="study-notes-management__feedback" role="status">
+              {feedbackMessage}
+            </p>
+          )}
+
+          {allStudyNotes.length === 0 ? (
+            <p className="muted study-notes-management__empty">
+              Create a Study Note to start practicing.
+            </p>
+          ) : filteredStudyNotes.length === 0 ? (
+            <p className="muted study-notes-management__empty">
+              No Study Notes match the current filters.
+            </p>
+          ) : (
+            <div className="study-notes-management__table-wrap">
+              <table
+                aria-label="Study Notes management list"
+                className="study-notes-management__table"
+              >
+                <thead>
+                  <tr>
+                    <th scope="col">Study note</th>
+                    <th scope="col">Labels</th>
+                    <th scope="col">Recall status</th>
+                    <th scope="col">Last updated</th>
+                    <th scope="col">Next recall / Suggested action</th>
+                    <th scope="col">Source</th>
+                    <th scope="col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredStudyNotes.map((studyNote) => {
+                    const title = studyNote.prompt;
+                    const labelNames = getStudyNoteLabelNames(
+                      availableLabels,
+                      studyNote.labelIds,
+                    );
+                    const learningState =
+                      learningStateByStudyNoteId.get(studyNote.id) ?? null;
+                    const recallGuidance =
+                      recallGuidanceByStudyNoteId.get(studyNote.id) ?? null;
+                    const schedule =
+                      recallScheduleByStudyNoteId.get(studyNote.id) ?? null;
+                    const recallStatusLabel =
+                      learningState === null
+                        ? "Study Note"
+                        : formatStudyNoteLearningStateCompactLabel(
+                            learningState,
+                          );
+                    const nextRecallLabel =
+                      formatNextRecallTiming({
+                        now,
+                        schedule,
+                        userTimeZone,
+                      }) ?? "On schedule";
+                    const recallInsight = deriveStudyNoteRecallInsight({
+                      draft: createDraftFromStudyNote(studyNote),
+                      nextRecall: nextRecallLabel,
+                      recallGuidance,
+                    });
+                    const sourceLabel =
+                      getStudyNoteSourceDisplayLabel(studyNote);
+                    const isSharedSource =
+                      (studyNoteCountBySourceId.get(studyNote.sourceNoteId) ??
+                        0) > 1;
+                    const rowStatus =
+                      learningState?.needsPractice === true
+                        ? "practice"
+                        : learningState?.dueForRecall === true
+                          ? "attention"
+                          : "neutral";
+
+                    return (
+                      <tr key={studyNote.id}>
+                        <td
+                          className="study-notes-management__study-note"
+                          data-label="Study note"
+                        >
+                          <Link
+                            className="study-notes-management__title-link"
+                            params={{
+                              studyNoteId: studyNote.id,
+                            }}
+                            to={appRoutePaths.studyNoteEditor}
+                          >
+                            {title}
+                          </Link>
+                          <p className="study-notes-management__study-note-meta">
+                            {studyNote.expectedAnswer.trim().length === 0
+                              ? "Add the expected answer before recall."
+                              : studyNote.expectedAnswer}
+                          </p>
+                        </td>
+                        <td data-label="Labels">
+                          <div className="study-notes-management__cell-stack">
+                            <span>{labelNames.join(", ")}</span>
+                          </div>
+                        </td>
+                        <td data-label="Recall status">
+                          <div className="study-notes-management__cell-stack">
+                            <span
+                              className="study-notes-management__status-badge"
+                              data-status-kind={rowStatus}
+                            >
+                              {recallStatusLabel}
+                            </span>
+                            {learningState?.needsPractice === true ? (
+                              <span>Needs practice</span>
+                            ) : learningState?.dueForRecall === true &&
+                              learningState.latestScore !== null ? (
+                              <span>
+                                {formatStudyNoteDueLabel(learningState)}
+                              </span>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td data-label="Last updated">
+                          <div className="study-notes-management__cell-stack">
+                            <span>
+                              {formatRelativeUpdatedLabel(studyNote.updatedAt)}
+                            </span>
+                          </div>
+                        </td>
+                        <td data-label="Next recall / Suggested action">
+                          <div className="study-notes-management__cell-stack">
+                            <span>{nextRecallLabel}</span>
+                            <span>{recallInsight.suggestedAction}</span>
+                          </div>
+                        </td>
+                        <td data-label="Source">
+                          <div className="study-notes-management__cell-stack">
+                            <span>{sourceLabel}</span>
+                            {isSharedSource ? <span>Shared source</span> : null}
+                          </div>
+                        </td>
+                        <td data-label="Actions">
+                          <div className="study-notes-management__actions">
+                            <ButtonLink
+                              aria-label={`Edit ${title}`}
+                              params={{
+                                studyNoteId: studyNote.id,
+                              }}
+                              size="compact"
+                              to={appRoutePaths.studyNoteEditor}
+                              variant="secondary"
+                            >
+                              Edit
+                            </ButtonLink>
+                            <Button
+                              aria-label={`Delete ${title}`}
+                              disabled={isDeletingStudyNoteId === studyNote.id}
+                              onClick={() =>
+                                void handleDeleteStudyNote(studyNote)
+                              }
+                              size="compact"
+                              type="button"
+                              variant="danger"
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </div>
+    </PageLayout>
+  );
+}
+
+function matchesStudyNoteStatusFilter(input: {
+  learningState: StudyNoteLearningState | null;
+  statusFilter: StudyNotesManagementStatusFilter;
+  studyNote: AppStudyNote;
+}) {
+  const readiness = getStudyNoteReadiness(input.studyNote);
+
+  switch (input.statusFilter) {
+    case "all":
+      return true;
+    case "incomplete":
+      return readiness.incomplete;
+    case "not-recalled-yet":
+      return readiness.recallable && input.learningState?.latestScore === null;
+    case "needs-practice":
+      return input.learningState?.needsPractice === true;
+    case "due-for-recall":
+      return (
+        input.learningState?.dueForRecall === true &&
+        input.learningState.latestScore !== null &&
+        input.learningState.needsPractice === false
+      );
+  }
+}
+
+function compareStudyNotesForManagementSort(input: {
+  left: AppStudyNote;
+  right: AppStudyNote;
+  sortOrder: StudyNotesManagementSortOrder;
+}) {
+  switch (input.sortOrder) {
+    case "least-recently-updated":
+      return (
+        input.left.updatedAt.localeCompare(input.right.updatedAt) ||
+        input.left.prompt.localeCompare(input.right.prompt)
+      );
+    case "recently-updated":
+      return (
+        input.right.updatedAt.localeCompare(input.left.updatedAt) ||
+        input.left.prompt.localeCompare(input.right.prompt)
+      );
+    case "study-note-a-z":
+      return (
+        input.left.prompt.localeCompare(input.right.prompt) ||
+        input.right.updatedAt.localeCompare(input.left.updatedAt)
+      );
+    case "study-note-z-a":
+      return (
+        input.right.prompt.localeCompare(input.left.prompt) ||
+        input.right.updatedAt.localeCompare(input.left.updatedAt)
+      );
+  }
+}
+
+function getStudyNoteSourceDisplayLabel(studyNote: AppStudyNote) {
+  const displayName = studyNote.source.displayName?.trim();
+
+  if (displayName !== undefined && displayName.length > 0) {
+    return displayName;
+  }
+
+  const sourceTitle = studyNote.source.title.trim();
+
+  if (sourceTitle.length > 0) {
+    return sourceTitle;
+  }
+
+  return "Untitled source";
 }
 
 function getRouteStudyNoteId(routeMode: StudyNotesRouteMode) {

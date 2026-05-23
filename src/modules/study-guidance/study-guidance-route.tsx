@@ -265,8 +265,9 @@ function StudyGuidanceSummaryCardView({
         <Link
           aria-label={`${action.label}: ${card.detail}`}
           className="study-guidance-card study-guidance-card--link"
-          search={{ focus: action.focus, studyNoteId: action.studyNoteId }}
-          to={appRoutePaths.studyNotes}
+          params={{ studyNoteId: action.studyNoteId }}
+          search={{ focus: action.focus }}
+          to={appRoutePaths.studyNoteEditor}
         >
           {content}
         </Link>
@@ -349,8 +350,9 @@ function StudyGuidanceActionLink({
     case "study-note-completion":
       return (
         <ButtonLink
-          search={{ focus: action.focus, studyNoteId: action.studyNoteId }}
-          to={appRoutePaths.studyNotes}
+          params={{ studyNoteId: action.studyNoteId }}
+          search={{ focus: action.focus }}
+          to={appRoutePaths.studyNoteEditor}
           variant={variant}
         >
           {action.label}
