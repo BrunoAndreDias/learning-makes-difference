@@ -1,6 +1,5 @@
 @import "../design-system/global.css";
-@import "../design-system/floating-textarea/floating-textarea.css";
-@import "../design-system/list-card/list-card.css";
+@import "../design-system/breadcrumb/breadcrumb.css";
 @import "../design-system/page-layout/page-layout.css";
 @import "../design-system/page-header/page-header.css";
 @import "../design-system/shared-actions.css";
@@ -12,7 +11,7 @@
 @import "../modules/access/access.css";
 
 .app-shell:has(.authenticated-shell) {
-  --workspace-content-width: 70rem;
+  --workspace-content-width: 84rem;
   --workspace-page-inline: var(--lmd-page-padding-x);
   --workspace-page-block-start: var(--lmd-page-padding-y);
   --workspace-page-block-end: var(--lmd-page-padding-y);
@@ -21,7 +20,7 @@
 
 @media (min-width: 90rem) {
   .app-shell:has(.authenticated-shell) {
-    --workspace-page-inline: clamp(3.5rem, 5vw, 6rem);
+    --workspace-page-inline: clamp(2rem, 3vw, 3.5rem);
   }
 }
 

@@ -78,6 +78,13 @@ function sortStoredStudyNotes(studyNotes: readonly AppStoredStudyNote[]) {
   );
 }
 
+function areStoredStudyNoteSnapshotsEqual(
+  currentSnapshot: readonly AppStoredStudyNote[],
+  nextSnapshot: readonly AppStoredStudyNote[],
+) {
+  return JSON.stringify(currentSnapshot) === JSON.stringify(nextSnapshot);
+}
+
 function createMissingServiceError(): Error {
   return new Error("Persistent Study Notes service is not configured.");
 }
@@ -129,7 +136,13 @@ export function createPersistentStudyNotesContext(
   }
 
   function writeSnapshot(nextSnapshot: readonly AppStoredStudyNote[]) {
-    snapshot = sortStoredStudyNotes(nextSnapshot);
+    const sortedSnapshot = sortStoredStudyNotes(nextSnapshot);
+
+    if (areStoredStudyNoteSnapshotsEqual(snapshot, sortedSnapshot)) {
+      return snapshot;
+    }
+
+    snapshot = sortedSnapshot;
     notifyListeners();
     return snapshot;
   }

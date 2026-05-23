@@ -8,7 +8,6 @@ export {
   deriveLearningStates,
   formatLearningStateCompactLabel,
   formatLearningStateScoreLabel,
-  toNoteRecallHistories,
 } from "./learning-state";
 export type {
   AppAcronym,
@@ -30,9 +29,7 @@ export {
 } from "./notes-workspace/notes";
 export {
   NotesWorkspaceProvider,
-  useNotesWorkspace,
 } from "./notes-workspace/notes-workspace";
-export { NotesWorkspaceSidebar } from "./notes-workspace/notes-workspace-sidebar";
 export type {
   AppPersistentNotesContext,
   AppPersistentNotesService,

@@ -2,7 +2,6 @@ import {
   createContext,
   type ReactNode,
   useCallback,
-  useContext,
   useState,
 } from "react";
 
@@ -361,14 +360,4 @@ export function NotesWorkspaceProvider({
       {children}
     </NotesWorkspaceContext.Provider>
   );
-}
-
-export function useNotesWorkspace() {
-  const context = useContext(NotesWorkspaceContext);
-
-  if (context === null) {
-    throw new Error("Notes workspace context is not available.");
-  }
-
-  return context;
 }

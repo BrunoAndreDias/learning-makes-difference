@@ -77,18 +77,6 @@ export function deriveLearningState(input: {
   };
 }
 
-export function toNoteRecallHistories(
-  histories: readonly NoteRecallHistorySource[],
-): NoteRecallHistory[] {
-  return histories.map((history) => ({
-    attempts: history.attempts.map((attempt) => ({
-      completedAt: attempt.completedAt,
-      rating: attempt.rating,
-    })),
-    noteId: history.noteId,
-  }));
-}
-
 export function deriveLearningStates(input: {
   histories: readonly NoteRecallHistory[];
   notes: readonly AppNote[];

@@ -978,13 +978,12 @@ describe("authenticated recall workspace", () => {
     });
 
     expect(
-      within(selectedResult).getByText("Session self rating"),
+      within(selectedResult).getByText(/75% self-rated/),
     ).toBeInTheDocument();
-    expect(within(selectedResult).getByText("75%")).toBeInTheDocument();
     expect(within(selectedResult).queryByText("Score")).toBeNull();
   });
 
-  it("keeps Session self rating visible on tight layouts while only showing rating distribution when space stays calm", async () => {
+  it("keeps Session self rating and distribution visible as compact text on tight layouts", async () => {
     setViewportWidth(960);
 
     const contexts = createDeterministicRecallTestContexts();
@@ -1029,16 +1028,14 @@ describe("authenticated recall workspace", () => {
     const detailScope = within(detail);
     const distributionLabel = "Easy 1 · Good 1 · Hard 1 · Forgot 1";
 
-    expect(detailScope.getByText("Session self rating")).toBeInTheDocument();
-    expect(detailScope.getByText("56%")).toBeInTheDocument();
+    expect(detailScope.getByText(/56% self-rated/)).toBeInTheDocument();
     expect(detailScope.getByText(distributionLabel)).toBeInTheDocument();
 
     setViewportWidth(640);
 
     await waitFor(() => {
-      expect(detailScope.getByText("Session self rating")).toBeInTheDocument();
-      expect(detailScope.getByText("56%")).toBeInTheDocument();
-      expect(detailScope.queryByText(distributionLabel)).toBeNull();
+      expect(detailScope.getByText(/56% self-rated/)).toBeInTheDocument();
+      expect(detailScope.getByText(distributionLabel)).toBeInTheDocument();
     });
   });
 
@@ -1084,11 +1081,14 @@ describe("authenticated recall workspace", () => {
     const recallTodayQueue = screen.getByRole("region", {
       name: "Recall Today queue",
     });
-    expect(recallTodayQueue).toHaveTextContent("Discarded session prompt");
-    expect(recallTodayQueue).toHaveTextContent("Not recalled yet");
-    expect(
-      screen.getByRole("link", { name: "Manual selection" }),
-    ).toHaveAttribute("href", "/recall/select");
+    expect(recallTodayQueue).toHaveTextContent("Newly recallable · 1");
+    expect(recallTodayQueue).toHaveTextContent(
+      "New notes ready after the priority items",
+    );
+    expect(screen.getByRole("link", { name: "Choose notes" })).toHaveAttribute(
+      "href",
+      "/recall/select",
+    );
     expect(
       contexts.recallContext.listSessionResults({ userId: testUser.id }),
     ).toEqual([]);
@@ -1170,9 +1170,6 @@ describe("authenticated recall workspace", () => {
     expect(
       detailScope.getByRole("heading", { level: 4, name: "Questions" }),
     ).toBeInTheDocument();
-    expect(
-      detailScope.getByText("Questions", { selector: "span" }),
-    ).toBeInTheDocument();
     expect(detailScope.queryByText("Notes used")).toBeNull();
     expect(detailScope.queryByText("Not reached Study Notes")).toBeNull();
     expect(detailScope.getByText("1 Study Note")).toBeInTheDocument();
@@ -1234,12 +1231,9 @@ describe("authenticated recall workspace", () => {
       name: "Selected result",
     });
     const detailScope = within(detail);
-    const notReachedSection = detailScope
-      .getByRole("heading", {
-        level: 4,
-        name: "Not reached Study Notes",
-      })
-      .closest("section");
+    const notReachedSection = detailScope.getByRole("region", {
+      name: "Queued but not asked · 2",
+    });
 
     expect(detailScope.getByText("3 targeted Study Notes")).toBeInTheDocument();
     expect(
@@ -1247,7 +1241,7 @@ describe("authenticated recall workspace", () => {
     ).toBeInTheDocument();
     expect(detailScope.queryByText("Notes used")).toBeNull();
     if (!(notReachedSection instanceof HTMLElement)) {
-      throw new Error("Expected Not reached Study Notes section to exist.");
+      throw new Error("Expected queued notes section to exist.");
     }
 
     const notReachedScope = within(notReachedSection);

@@ -1,8 +1,13 @@
 import { useNavigate, useRouteContext } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import { Button, ButtonLink } from "../../design-system/button";
-import { ListCard } from "../../design-system/list-card";
 import { PageHeader } from "../../design-system/page-header";
 import { PageLayout } from "../../design-system/page-layout";
 import { formatCount } from "../../lib/format-count";
@@ -55,53 +60,27 @@ import {
 
 const recallSessionSavedMessageKey = "learning-makes-difference:recall-saved";
 const recallModes = ["FlashCard", "AiAssisted", "AiGraded"] as const;
-const resultDateFormatter = new Intl.DateTimeFormat("en", {
+const resultDateTimeFormatter = new Intl.DateTimeFormat("en", {
   dateStyle: "medium",
-  timeZone: "UTC",
-});
-const resultTimeFormatter = new Intl.DateTimeFormat("en", {
   timeStyle: "short",
   timeZone: "UTC",
 });
-const calmReviewStatsMinWidth = 960;
-
 type RecallTypeFilter = "all" | RecallMode;
 type ExpandedQuestionKey = string | null;
 type ExpandedQuestionKeyChange = (questionKey: ExpandedQuestionKey) => void;
 
-function formatResultDate(timestamp: string) {
+function formatResultDateTime(timestamp: string) {
   const resultDate = new Date(timestamp);
 
   if (Number.isNaN(resultDate.getTime())) {
-    return "Unknown date";
+    return "Unknown date and time";
   }
 
-  return resultDateFormatter.format(resultDate);
-}
-
-function formatResultTime(timestamp: string) {
-  const resultDate = new Date(timestamp);
-
-  if (Number.isNaN(resultDate.getTime())) {
-    return "Unknown time";
-  }
-
-  return resultTimeFormatter.format(resultDate);
+  return resultDateTimeFormatter.format(resultDate);
 }
 
 function formatResultScore(score: number | null) {
   return score === null ? "No score" : `${Math.round(score)}%`;
-}
-
-function getModeTone(mode: RecallMode) {
-  switch (mode) {
-    case "FlashCard":
-      return "flash-card";
-    case "AiAssisted":
-      return "ai-assisted";
-    case "AiGraded":
-      return "ai-graded";
-  }
 }
 
 function getScoreTone(score: number | null) {
@@ -197,26 +176,6 @@ function getQuestionKey(question: RecallQuestion, index: number) {
 
 function getQuestionDetailId(index: number) {
   return `recall-result-question-detail-${index}`;
-}
-
-function getHasCalmReviewStatsLayout() {
-  if (typeof window === "undefined") {
-    return true;
-  }
-
-  return window.innerWidth >= calmReviewStatsMinWidth;
-}
-
-function subscribeToReviewStatsLayout(callback: () => void) {
-  if (typeof window === "undefined") {
-    return () => undefined;
-  }
-
-  window.addEventListener("resize", callback);
-
-  return () => {
-    window.removeEventListener("resize", callback);
-  };
 }
 
 function useRecallWorkspaceState() {
@@ -709,7 +668,7 @@ function getRecallTodayQueueTone(item: RecallTodayQueueItem): QueueTone {
   }
 }
 
-function getRecallTodaySectionTitleText(tone: QueueTone, t: AppTranslate) {
+function _getRecallTodaySectionTitleText(tone: QueueTone, t: AppTranslate) {
   switch (tone) {
     case "practice":
       return t("recall.today.section.focusFirst");
@@ -720,7 +679,7 @@ function getRecallTodaySectionTitleText(tone: QueueTone, t: AppTranslate) {
   }
 }
 
-function getRecallTodaySectionHelperText(tone: QueueTone, t: AppTranslate) {
+function _getRecallTodaySectionHelperText(tone: QueueTone, t: AppTranslate) {
   switch (tone) {
     case "practice":
       return `${t("recall.today.reason.practiceFollowUp")} · ${t("recall.today.reason.needsPractice")}`;
@@ -778,14 +737,20 @@ function RecallTodayPage({
 }: RecallTodayPageProps) {
   const { t } = useAppTranslation();
   const queueSections = buildRecallTodayQueueSections(queue);
+  const practiceSectionItems =
+    queueSections.find((section) => section.tone === "practice")?.items ?? [];
+  const dueSectionItems =
+    queueSections.find((section) => section.tone === "due")?.items ?? [];
+  const newSectionItems =
+    queueSections.find((section) => section.tone === "new")?.items ?? [];
 
   return (
     <section
       aria-label={t("shell.workspace.recall")}
-      className="recall-workspace"
+      className="page-layout recall-workspace recall-today-page"
     >
-      <article className="recall-surface recall-today-surface">
-        <div className="recall-today-top">
+      <div className="recall-today-wrapper">
+        <article className="recall-surface recall-today-surface">
           <PageHeader
             actions={
               <fieldset className="recall-today-actions">
@@ -805,15 +770,13 @@ function RecallTodayPage({
             description={t("recall.today.description")}
             headingLevel={1}
             title={t("recall.today.title")}
-          />
-        </div>
+          >
+            <p className="recall-today-hero__summary">
+              {formatCount(queue.length, "note")} ready{" "}
+              <span aria-hidden="true">·</span> recommended order prepared
+            </p>
+          </PageHeader>
 
-        <RecallTodaySummary
-          queueSections={queueSections}
-          totalCount={queue.length}
-        />
-
-        <div className="recall-today-layout">
           {queue.length === 0 ? (
             <div className="recall-today-queue">
               <div className="recall-results-empty" role="status">
@@ -823,14 +786,15 @@ function RecallTodayPage({
             </div>
           ) : (
             <RecallTodayQueue
+              dueCount={dueSectionItems.length}
               labelsById={labelsById}
-              queueSections={queueSections}
+              newCount={newSectionItems.length}
+              priorityCount={practiceSectionItems.length}
+              priorityItems={practiceSectionItems.slice(0, 3)}
             />
           )}
-
-          <RecallTodayHowPanel />
-        </div>
-      </article>
+        </article>
+      </div>
     </section>
   );
 }
@@ -854,7 +818,7 @@ function buildRecallTodayQueueSections(
   }));
 }
 
-function getRecallTodaySectionCount(
+function _getRecallTodaySectionCount(
   queueSections: readonly RecallTodayQueueSection[],
   tone: QueueTone,
 ) {
@@ -867,116 +831,93 @@ function formatSummaryUnitLabel(count: number) {
   return formatCount(count, "note").replace(/^\d+\s/, "");
 }
 
-function RecallTodaySummary({
-  queueSections,
-  totalCount,
+function RecallTodayQueue({
+  dueCount,
+  labelsById,
+  newCount,
+  priorityCount,
+  priorityItems,
 }: Readonly<{
-  queueSections: readonly RecallTodayQueueSection[];
-  totalCount: number;
+  dueCount: number;
+  labelsById: ReadonlyMap<string, AppLabel>;
+  newCount: number;
+  priorityCount: number;
+  priorityItems: readonly RecallTodayQueueItem[];
 }>) {
   const { t } = useAppTranslation();
-  const summaryItems = [
+  const continuationRows = [
     {
-      count: totalCount,
-      icon: <CalendarQueueIcon />,
-      label: t("recall.today.metric.total"),
-      tone: "total",
+      helper: "Scheduled reviews due today",
+      label: "Due reviews",
+      to: appRoutePaths.recallDueToday,
+      value: dueCount,
     },
     {
-      count: getRecallTodaySectionCount(queueSections, "practice"),
-      icon: <WarningIcon />,
-      label: t("recall.today.section.focusFirst"),
-      tone: "practice",
+      helper: "New notes ready after the priority items",
+      label: "Newly recallable",
+      to: appRoutePaths.recallSelect,
+      value: newCount,
     },
     {
-      count: getRecallTodaySectionCount(queueSections, "new"),
-      icon: <NoteIcon />,
-      label: t("recall.today.section.newlyRecallable"),
-      tone: "new",
-    },
-    {
-      count: getRecallTodaySectionCount(queueSections, "due"),
-      icon: <CheckIcon />,
-      label: t("recall.today.section.scheduledToday"),
-      tone: "due",
+      helper: "Not needed right now",
+      label: "Upcoming",
+      to: appRoutePaths.recallSelect,
+      value: 0,
     },
   ] as const;
-
-  return (
-    <ul aria-label={t("recall.today.summary")} className="recall-today-summary">
-      {summaryItems.map((item) => (
-        <li
-          className="recall-today-summary__item"
-          data-tone={item.tone}
-          key={item.label}
-        >
-          <span aria-hidden="true" className="recall-today-summary__icon">
-            {item.icon}
-          </span>
-          <span className="recall-today-summary__copy">
-            <span>{item.label}</span>
-            <strong>{item.count}</strong>
-            <span>{formatSummaryUnitLabel(item.count)}</span>
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function RecallTodayQueue({
-  labelsById,
-  queueSections,
-}: Readonly<{
-  labelsById: ReadonlyMap<string, AppLabel>;
-  queueSections: readonly RecallTodayQueueSection[];
-}>) {
-  const { t } = useAppTranslation();
 
   return (
     <section
       aria-label={t("recall.today.queue")}
       className="recall-today-queue"
     >
-      {queueSections.map((section) => {
-        if (section.items.length === 0) {
-          return null;
-        }
+      <h2 className="recall-today-plan-title">Today's plan</h2>
+      <section className="recall-today-priority" data-tone="practice">
+        <header className="recall-today-priority__header">
+          <h3>
+            Start here <span aria-hidden="true">·</span>{" "}
+            <span>Needs practice</span> <span aria-hidden="true">·</span>{" "}
+            <span>{priorityCount}</span>
+          </h3>
+          <p>Review these before adding new material.</p>
+        </header>
 
-        return (
-          <section
-            className="recall-today-section"
-            data-tone={section.tone}
-            key={section.tone}
+        <ul className="recall-today-priority__rows">
+          {priorityItems.map((item) => (
+            <RecallTodayQueueRow
+              item={item}
+              key={item.studyNote.id}
+              labelsById={labelsById}
+            />
+          ))}
+        </ul>
+      </section>
+
+      <div className="recall-today-continuation">
+        <span className="recall-today-continuation__label">
+          Continue after that
+        </span>
+        <div className="recall-today-continuation__rule" />
+      </div>
+
+      <div className="recall-today-collapsed-list">
+        {continuationRows.map((row) => (
+          <ButtonLink
+            className="recall-today-collapsed-row"
+            key={row.label}
+            to={row.to}
+            variant="standard"
           >
-            <header className="recall-today-section__header">
-              <div className="recall-today-section__title">
-                <span className="recall-today-section__badge">
-                  {section.items.length}
-                </span>
-                <h2>{getRecallTodaySectionTitleText(section.tone, t)}</h2>
-                <span className="recall-today-section__count">
-                  {section.items.length}
-                </span>
-              </div>
-              <div className="recall-today-section__helper">
-                <span>{getRecallTodaySectionHelperText(section.tone, t)}</span>
-                <InfoIcon />
-              </div>
-            </header>
-
-            <ul className="recall-today-section__rows">
-              {section.items.map((item) => (
-                <RecallTodayQueueRow
-                  item={item}
-                  key={item.studyNote.id}
-                  labelsById={labelsById}
-                />
-              ))}
-            </ul>
-          </section>
-        );
-      })}
+            <span className="recall-today-collapsed-row__copy">
+              <strong>
+                {row.label} <span aria-hidden="true">·</span> {row.value}
+              </strong>
+              <span>{row.helper}</span>
+            </span>
+            <ChevronRightIcon />
+          </ButtonLink>
+        ))}
+      </div>
     </section>
   );
 }
@@ -989,89 +930,28 @@ function RecallTodayQueueRow({
   labelsById: ReadonlyMap<string, AppLabel>;
 }>) {
   const { t } = useAppTranslation();
-  const tone = getRecallTodayQueueTone(item);
-  const dotCount = getRecallRatingDotCount(item.lastRating);
   const metaLine = getRecallTodayMetaLine({
     item,
     labelsById,
     t,
   });
-  const lastScoreText = getLastScoreText(item.lastRating, t);
-  const reasonText = getRecallTodayReasonText(item.primaryReason, t);
 
   return (
-    <li className="recall-today-row" data-tone={tone}>
-      <span aria-hidden="true" className="recall-today-row__note-icon">
-        <NoteIcon />
-      </span>
+    <li className="recall-today-row">
       <div className="recall-today-row__main">
-        <h3>{item.studyNote.prompt}</h3>
+        <strong>{item.studyNote.prompt}</strong>
         {metaLine.length > 0 ? <p>{metaLine}</p> : null}
       </div>
-      <div className="recall-today-row__score">
-        <span>{t("recall.today.lastScore")}</span>
-        <strong>{lastScoreText}</strong>
-        <RatingDots activeCount={dotCount} tone={tone} />
-      </div>
-      <div className="recall-today-row__reason">
-        <span>{t("recall.today.reason")}</span>
-        <strong>{reasonText}</strong>
-      </div>
-      <div className="recall-today-row__next">
-        <span>{t("recall.today.nextRecall")}</span>
-        <strong>{t("recall.today.nextRecall.today")}</strong>
-      </div>
+      <ButtonLink
+        className="recall-today-row__action"
+        search={{ studyNoteIds: item.studyNote.id }}
+        size="compact"
+        to={appRoutePaths.recallSelect}
+        variant="standard"
+      >
+        Recall this
+      </ButtonLink>
     </li>
-  );
-}
-
-function RecallTodayHowPanel() {
-  const { t } = useAppTranslation();
-  const steps = [
-    {
-      bodyKey: "recall.today.how.hidden.body",
-      icon: <HiddenAnswerIcon />,
-      titleKey: "recall.today.how.hidden.title",
-    },
-    {
-      bodyKey: "recall.today.how.rate.body",
-      icon: <RatingScaleIcon />,
-      titleKey: "recall.today.how.rate.title",
-    },
-    {
-      bodyKey: "recall.today.how.schedule.body",
-      icon: <CalendarQueueIcon />,
-      titleKey: "recall.today.how.schedule.title",
-    },
-  ] as const;
-
-  return (
-    <aside
-      aria-label={t("recall.today.how.title")}
-      className="recall-today-how"
-    >
-      <div aria-hidden="true" className="recall-today-how__lock">
-        <LockIcon />
-      </div>
-      <h2>{t("recall.today.how.title")}</h2>
-      <div className="recall-today-how__steps">
-        {steps.map((step) => (
-          <section className="recall-today-how__step" key={step.titleKey}>
-            <span aria-hidden="true" className="recall-today-how__step-icon">
-              {step.icon}
-            </span>
-            <div>
-              <h3>{t(step.titleKey)}</h3>
-              <p>{t(step.bodyKey)}</p>
-            </div>
-          </section>
-        ))}
-      </div>
-      <p className="recall-today-how__tip">
-        <LightbulbIcon />
-        <span>{t("recall.today.how.tip")}</span>
-      </p>
-    </aside>
   );
 }
 
@@ -1219,8 +1099,6 @@ function RecallTodayPrimaryAction({
   onStartRecallToday: () => void;
   queue: readonly RecallTodayQueueItem[];
 }>) {
-  const { t } = useAppTranslation();
-
   if (queue.length === 0) {
     return null;
   }
@@ -1233,7 +1111,7 @@ function RecallTodayPrimaryAction({
       variant="primary"
     >
       <PlayIcon />
-      {t("recall.today.start")}
+      Recall {formatCount(queue.length, "note")}
     </Button>
   );
 }
@@ -1477,14 +1355,6 @@ function RecallDueTodayHowPanel() {
   );
 }
 
-function useHasCalmReviewStatsLayout() {
-  return useSyncExternalStore(
-    subscribeToReviewStatsLayout,
-    getHasCalmReviewStatsLayout,
-    getHasCalmReviewStatsLayout,
-  );
-}
-
 function NoNotesRecallState() {
   const { t } = useAppTranslation();
 
@@ -1530,60 +1400,99 @@ function ResultsMasterPanel({
   totalResults: number;
 }) {
   const { t } = useAppTranslation();
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isFilterMenuOpen) {
+      return undefined;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      if (
+        filterRef.current !== null &&
+        event.target instanceof Node &&
+        !filterRef.current.contains(event.target)
+      ) {
+        setIsFilterMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [isFilterMenuOpen]);
 
   return (
     <section
       aria-label={t("recall.results")}
       className="recall-panel recall-results-master"
     >
-      <label
-        className="recall-field recall-search-field"
-        htmlFor="recall-results-search"
-      >
-        <span className="sr-only">{t("recall.result.search")}</span>
-        <SearchIcon />
-        <input
-          id="recall-results-search"
-          onChange={(event) => onQueryChange(event.target.value)}
-          placeholder={t("recall.result.searchPlaceholder")}
-          type="search"
-          value={query}
-        />
-      </label>
+      <h4>{t("recall.result.pastSessions")}</h4>
 
-      <div className="recall-results-filters">
-        <label className="recall-field" htmlFor="recall-results-label">
-          <span className="sr-only">{t("recall.filters.label")}</span>
-          <select
-            id="recall-results-label"
-            onChange={(event) => onLabelChange(event.target.value)}
-            value={selectedLabelId}
-          >
-            <option value="">{t("recall.filters.allLabels")}</option>
-            {labels.map((label) => (
-              <option key={label.id} value={label.id}>
-                {label.name}
-              </option>
-            ))}
-          </select>
+      <div className="recall-results-toolbar">
+        <label
+          className="recall-field recall-search-field"
+          htmlFor="recall-results-search"
+        >
+          <span className="sr-only">{t("recall.result.search")}</span>
+          <SearchIcon />
+          <input
+            id="recall-results-search"
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder={t("recall.result.searchPlaceholder")}
+            type="search"
+            value={query}
+          />
         </label>
-        <label className="recall-field" htmlFor="recall-results-type">
-          <span className="sr-only">{t("recall.filters.type")}</span>
-          <select
-            id="recall-results-type"
-            onChange={(event) =>
-              onRecallTypeChange(event.target.value as RecallTypeFilter)
-            }
-            value={selectedRecallType}
+
+        <div className="recall-results-filter" ref={filterRef}>
+          <button
+            aria-expanded={isFilterMenuOpen}
+            className="recall-results-filter__button"
+            onClick={() => setIsFilterMenuOpen((isOpen) => !isOpen)}
+            type="button"
           >
-            <option value="all">{t("recall.filters.allModes")}</option>
-            {recallModes.map((mode) => (
-              <option key={mode} value={mode}>
-                {t(getRecallModeTranslationKey(mode))}
-              </option>
-            ))}
-          </select>
-        </label>
+            <FilterIcon />
+            {t("recall.result.filter")}
+          </button>
+          <div className="recall-results-filters" hidden={!isFilterMenuOpen}>
+            <label className="recall-field" htmlFor="recall-results-label">
+              <span>{t("recall.filters.label")}</span>
+              <select
+                id="recall-results-label"
+                onChange={(event) => onLabelChange(event.target.value)}
+                value={selectedLabelId}
+              >
+                <option value="">{t("recall.filters.allLabels")}</option>
+                {labels.map((label) => (
+                  <option key={label.id} value={label.id}>
+                    {label.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="recall-field" htmlFor="recall-results-type">
+              <span>{t("recall.filters.type")}</span>
+              <select
+                id="recall-results-type"
+                onChange={(event) =>
+                  onRecallTypeChange(event.target.value as RecallTypeFilter)
+                }
+                value={selectedRecallType}
+              >
+                <option value="all">{t("recall.filters.allModes")}</option>
+                {recallModes.map((mode) => (
+                  <option key={mode} value={mode}>
+                    {t(getRecallModeTranslationKey(mode))}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
       </div>
 
       <ResultsMasterPanelContent
@@ -1629,64 +1538,49 @@ function ResultsMasterPanelContent({
 
   return (
     <div className="recall-results-list-frame">
-      <ol className="recall-results-list">
+      <ol
+        aria-label={t("recall.result.pastSessions")}
+        className="recall-results-list"
+        tabIndex={0}
+      >
         {results.map((result) => {
           const isSelected = result.id === selectedResultId;
 
           return (
             <li key={result.id}>
-              <ListCard
+              <button
                 aria-pressed={isSelected}
-                chip={t(getRecallModeTranslationKey(result.mode))}
-                description={
-                  <>
-                    <span>{formatResultTime(result.completedAt)}</span>
-                    <span>
-                      {formatCount(result.questions.length, "question")}{" "}
-                      <span aria-hidden="true">·</span>{" "}
-                      <span
-                        className="recall-result-card__score"
-                        data-score-tone={getScoreTone(result.score ?? null)}
-                      >
-                        {formatResultScore(result.score ?? null)}
-                      </span>
-                    </span>
-                  </>
-                }
+                className="recall-result-row"
+                data-selected={isSelected ? "true" : undefined}
                 onClick={() => onSelectResult(result.id)}
-                selected={isSelected}
-                title={formatResultDate(result.completedAt)}
-              />
+                type="button"
+              >
+                <span className="recall-result-row__when">
+                  {formatResultDateTime(result.completedAt)}
+                </span>
+                <span className="recall-result-row__questions">
+                  {formatCount(result.questions.length, "question")}
+                </span>
+                <span
+                  className="recall-result-card__score recall-result-row__score"
+                  data-score-tone={getScoreTone(result.score ?? null)}
+                >
+                  {formatResultScore(result.score ?? null)}
+                </span>
+                <span className="recall-result-row__mode">
+                  {t(getRecallModeTranslationKey(result.mode))}
+                </span>
+              </button>
             </li>
           );
         })}
       </ol>
       <p className="recall-results-count">
         {results.length === 1
-          ? t("recall.result.count", { count: results.length })
-          : t("recall.result.count_plural", { count: results.length })}
+          ? t("recall.result.sessionsShown", { count: results.length })
+          : t("recall.result.sessionsShown_plural", { count: results.length })}
       </p>
     </div>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="18"
-      viewBox="0 0 24 24"
-      width="18"
-    >
-      <path
-        d="M8 2v4M16 2v4M3 10h18M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-      />
-    </svg>
   );
 }
 
@@ -1717,6 +1611,26 @@ function ListIcon() {
         d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"
         stroke="currentColor"
         strokeLinecap="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="18"
+      viewBox="0 0 24 24"
+      width="18"
+    >
+      <path
+        d="m9 18 6-6-6-6"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
         strokeWidth="2"
       />
     </svg>
@@ -1943,6 +1857,26 @@ function SearchIcon() {
   );
 }
 
+function FilterIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="16"
+      viewBox="0 0 24 24"
+      width="16"
+    >
+      <path
+        d="M4 6h16M7 12h10M10 18h4"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
 function ResultsDetailPanel({
   expandedQuestionKey,
   hasAnyResults,
@@ -1960,23 +1894,26 @@ function ResultsDetailPanel({
     <section
       aria-label={t("recall.result.selected")}
       className="recall-panel recall-results-detail-panel"
+      tabIndex={0}
     >
-      {result === null ? (
-        <div className="recall-results-empty" role="status">
-          <h4>
-            {hasAnyResults
-              ? t("recall.result.noResultSelected")
-              : t("recall.result.resultsEmptyTitle")}
-          </h4>
-          <p className="muted">{t("recall.result.resultsEmptyBody")}</p>
-        </div>
-      ) : (
-        <SelectedResultDetail
-          expandedQuestionKey={expandedQuestionKey}
-          onExpandedQuestionKeyChange={onExpandedQuestionKeyChange}
-          result={result}
-        />
-      )}
+      <div className="recall-results-detail-scroll-content">
+        {result === null ? (
+          <div className="recall-results-empty" role="status">
+            <h4>
+              {hasAnyResults
+                ? t("recall.result.noResultSelected")
+                : t("recall.result.resultsEmptyTitle")}
+            </h4>
+            <p className="muted">{t("recall.result.resultsEmptyBody")}</p>
+          </div>
+        ) : (
+          <SelectedResultDetail
+            expandedQuestionKey={expandedQuestionKey}
+            onExpandedQuestionKeyChange={onExpandedQuestionKeyChange}
+            result={result}
+          />
+        )}
+      </div>
     </section>
   );
 }
@@ -1993,12 +1930,9 @@ function SelectedResultDetail({
   const { t } = useAppTranslation();
   const review = projectSessionReview(result);
   const questionsAttempted = review.attemptedQuestions.length;
-  const resultScore = result.score ?? null;
-  const hasCalmReviewStatsLayout = useHasCalmReviewStatsLayout();
-  const visibleSelfRatingDistribution =
-    result.mode === "FlashCard" && hasCalmReviewStatsLayout
-      ? review.selfRatingDistribution
-      : null;
+  const selfRatingDistribution =
+    review.selfRatingDistribution?.label ??
+    "Easy 0 · Good 0 · Hard 0 · Forgot 0";
 
   return (
     <div className="recall-results-detail recall-selected-result">
@@ -2006,91 +1940,27 @@ function SelectedResultDetail({
         <h4>{t("recall.result.sessionReview")}</h4>
       </header>
 
-      <div
-        className="recall-selected-result__stats"
-        data-has-distribution={visibleSelfRatingDistribution !== null}
-      >
-        <div className="recall-selected-result__stat">
-          <span
-            aria-hidden="true"
-            className="recall-selected-result__stat-icon"
-          >
-            <CalendarIcon />
-          </span>
-          <div className="recall-selected-result__stat-copy">
-            <strong>{formatResultDate(result.completedAt)}</strong>
-            <span>{formatResultTime(result.completedAt)}</span>
-          </div>
-        </div>
-        <div className="recall-selected-result__stat recall-selected-result__stat--mode">
-          <span
-            className="recall-mode-pill recall-selected-result__mode-pill"
-            data-mode-tone={getModeTone(result.mode)}
-          >
-            <SparklesIcon />
-            {t(getRecallModeTranslationKey(result.mode))}
-          </span>
-        </div>
-        <div className="recall-selected-result__stat">
-          <ScoreRing score={resultScore} />
-          <div className="recall-selected-result__stat-copy recall-selected-result__stat-copy--stacked">
-            <strong>{formatResultScore(resultScore)}</strong>
-            <span>
-              {result.mode === "FlashCard"
-                ? t("recall.result.metric.selfRating")
-                : t("recall.result.metric.score")}
-            </span>
-          </div>
-        </div>
-        <div className="recall-selected-result__stat">
-          <span
-            aria-hidden="true"
-            className="recall-selected-result__stat-icon"
-          >
-            <QuestionsIcon />
-          </span>
-          <div className="recall-selected-result__stat-copy recall-selected-result__stat-copy--stacked">
-            <strong>{questionsAttempted}</strong>
-            <span>{t("recall.result.questions")}</span>
-          </div>
-        </div>
-        {visibleSelfRatingDistribution !== null ? (
-          <div className="recall-selected-result__stat">
-            <div className="recall-selected-result__stat-copy recall-selected-result__stat-copy--distribution">
-              <strong>{t("recall.result.distribution")}</strong>
-              <span>{visibleSelfRatingDistribution.label}</span>
-            </div>
-          </div>
-        ) : null}
+      <div className="recall-selected-result__meta">
+        <p>
+          <span>{formatResultDateTime(result.completedAt)}</span>
+          <span aria-hidden="true">·</span>
+          <span>{t(getRecallModeTranslationKey(result.mode))}</span>
+          <span aria-hidden="true">·</span>
+          <span>{formatCount(questionsAttempted, "question")} attempted</span>
+          <span aria-hidden="true">·</span>
+          <span>{formatResultScore(result.score ?? null)} self-rated</span>
+          <span aria-hidden="true">·</span>
+          <span>{review.summary.durationLabel}</span>
+          <span aria-hidden="true">·</span>
+          <span>{selfRatingDistribution}</span>
+        </p>
       </div>
 
-      <p className="recall-selected-result__summary">
+      <p className="sr-only">
         <span>{review.summary.noteCountLabel}</span>
         <span aria-hidden="true">•</span>
         <span>{review.summary.questionCoverageLabel}</span>
-        <span aria-hidden="true">•</span>
-        <span>{review.summary.durationLabel}</span>
       </p>
-
-      {review.notReachedNotes.length > 0 ? (
-        <section
-          aria-labelledby="recall-result-not-reached-notes"
-          className="recall-selected-result__section"
-        >
-          <h4 id="recall-result-not-reached-notes">
-            {t("recall.result.notReachedStudyNotes")}
-          </h4>
-          <ol className="recall-selected-result__list">
-            {review.notReachedNotes.map((note) => (
-              <li key={note.id}>
-                <p className="recall-selected-result__row-title">
-                  {getNoteResultTitle(note)}
-                </p>
-              </li>
-            ))}
-          </ol>
-        </section>
-      ) : null}
 
       <section
         aria-labelledby="recall-result-questions-answers"
@@ -2121,7 +1991,45 @@ function SelectedResultDetail({
           </ol>
         )}
       </section>
+
+      <QueuedButNotAskedSection notes={review.notReachedNotes} />
     </div>
+  );
+}
+
+function QueuedButNotAskedSection({
+  notes,
+}: {
+  notes: ReturnType<typeof projectSessionReview>["notReachedNotes"];
+}) {
+  return (
+    <section
+      aria-labelledby="recall-result-queued-notes"
+      className="recall-selected-result__section recall-selected-result__section--queued"
+    >
+      <details className="recall-selected-result__queued">
+        <summary id="recall-result-queued-notes">
+          <span>Queued but not asked · {notes.length}</span>
+          <ChevronDownIcon />
+        </summary>
+        {notes.length === 0 ? (
+          <p className="muted">No queued notes stayed behind.</p>
+        ) : (
+          <ol className="recall-selected-result__list">
+            {notes.map((note) => (
+              <li key={note.id}>
+                <p className="recall-selected-result__row-title">
+                  {getNoteResultTitle(note)}
+                </p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </details>
+      <p className="muted">
+        These notes stayed in the queue and can appear later.
+      </p>
+    </section>
   );
 }
 
@@ -2387,85 +2295,6 @@ function PracticeRepairDraftPanel({
         Practice Repair
       </ButtonLink>
     </div>
-  );
-}
-
-function ScoreRing({ score }: { score: number | null }) {
-  const clampedScore =
-    score === null ? 0 : Math.max(0, Math.min(100, Math.round(score)));
-  const radius = 12;
-  const circumference = 2 * Math.PI * radius;
-  const dashOffset = circumference - (clampedScore / 100) * circumference;
-
-  return (
-    <span aria-hidden="true" className="recall-selected-result__score-ring">
-      <svg
-        aria-label={`Score ring: ${clampedScore}%`}
-        fill="none"
-        height="34"
-        role="img"
-        viewBox="0 0 34 34"
-        width="34"
-      >
-        <title>{`Score ring: ${clampedScore}%`}</title>
-        <circle
-          className="recall-selected-result__score-ring-track"
-          cx="17"
-          cy="17"
-          r={radius}
-        />
-        <circle
-          className="recall-selected-result__score-ring-progress"
-          cx="17"
-          cy="17"
-          r={radius}
-          style={{
-            strokeDasharray: `${circumference} ${circumference}`,
-            strokeDashoffset: dashOffset,
-          }}
-        />
-      </svg>
-    </span>
-  );
-}
-
-function SparklesIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="16"
-      viewBox="0 0 24 24"
-      width="16"
-    >
-      <path
-        d="m7 4 1.2 2.6L11 7.8 8.4 9 7 11.8 5.7 9 3 7.8l2.7-1.2L7 4ZM17 3l.8 1.7L19.5 5.5l-1.7.8L17 8l-.8-1.7-1.7-.8 1.7-.8L17 3ZM17 12l1.6 3.4L22 17l-3.4 1.6L17 22l-1.6-3.4L12 17l3.4-1.6L17 12Z"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.6"
-      />
-    </svg>
-  );
-}
-
-function QuestionsIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="16"
-      viewBox="0 0 24 24"
-      width="16"
-    >
-      <path
-        d="M7 5h10M7 10h10M7 15h6M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.7"
-      />
-    </svg>
   );
 }
 

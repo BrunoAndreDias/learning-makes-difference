@@ -4,6 +4,7 @@ import {
   Outlet,
   useNavigate,
   useRouteContext,
+  useRouterState,
 } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
@@ -38,6 +39,9 @@ function RecallRouteShell() {
   const persistentRecallContext = useRouteContext({
     from: "/_protected/recall",
     select: (context) => context.persistentRecall,
+  });
+  const isRecallSessionRoute = useRouterState({
+    select: (state) => state.location.pathname === appRoutePaths.recallSession,
   });
   const { sessionSnapshot } = useResolvedProtectedSession("/_protected/recall");
   const userId = sessionSnapshot.user?.id ?? null;
@@ -77,7 +81,7 @@ function RecallRouteShell() {
     };
   }, [persistentRecallContext, userId]);
 
-  if (!isReady) {
+  if (!isReady && isRecallSessionRoute) {
     return null;
   }
 
@@ -134,6 +138,54 @@ function getStudyNotePreview(
   return expectedAnswer.length > 150
     ? `${expectedAnswer.slice(0, 147)}...`
     : expectedAnswer;
+}
+
+function formatStudyNoteSupportMetadata(input: {
+  acronymCount: number;
+  metaphorCount: number;
+  t: AppTranslate;
+}) {
+  const metadata: string[] = [];
+
+  if (input.metaphorCount > 0) {
+    metadata.push(
+      input.t(
+        input.metaphorCount === 1
+          ? "recall.selection.counts.metaphor"
+          : "recall.selection.counts.metaphors",
+        { count: input.metaphorCount },
+      ),
+    );
+  }
+
+  if (input.acronymCount > 0) {
+    metadata.push(
+      input.t(
+        input.acronymCount === 1
+          ? "recall.selection.counts.acronym"
+          : "recall.selection.counts.acronyms",
+        { count: input.acronymCount },
+      ),
+    );
+  }
+
+  return metadata.join(" · ");
+}
+
+function formatSelectedStudyNotesCount(count: number, t: AppTranslate) {
+  return t(
+    count === 1
+      ? "recall.selection.noteSelected"
+      : "recall.selection.notesSelected",
+    { count },
+  );
+}
+
+function formatShownStudyNotesCount(count: number, t: AppTranslate) {
+  return t(
+    count === 1 ? "recall.selection.noteShown" : "recall.selection.notesShown",
+    { count },
+  );
 }
 
 function getLabelNames(
@@ -490,16 +542,13 @@ export function RecallSelectionPage({
 
             <div className="recall-select-filter-summary">
               <div className="recall-select-filter-summary__copy">
-                <span>{t("recall.selection.currentlyViewing")}</span>
-                <span className="recall-select-note-row__label">
+                <strong>
+                  {formatShownStudyNotesCount(visibleStudyNotes.length, t)}
+                </strong>
+                <span aria-hidden="true">·</span>
+                <span>
                   {selectedFilterLabel?.name ?? t("recall.selection.allLabels")}
                 </span>
-                <span aria-hidden="true">|</span>
-                <strong>
-                  {t("recall.selection.showingFilteredNotes", {
-                    count: visibleStudyNotes.length,
-                  })}
-                </strong>
               </div>
               <div className="recall-select-filter-summary__actions">
                 <Button
@@ -511,9 +560,7 @@ export function RecallSelectionPage({
                 >
                   <CheckCircleIcon />
                   {t("recall.selection.selectAllFrom", {
-                    label:
-                      selectedFilterLabel?.name ??
-                      t("recall.selection.currentView"),
+                    label: t("recall.selection.currentView"),
                   })}
                 </Button>
                 <Button
@@ -524,47 +571,20 @@ export function RecallSelectionPage({
                   variant="secondary"
                 >
                   <CloseIcon />
-                  {t("recall.selection.resetAllFrom", {
-                    label:
-                      selectedFilterLabel?.name ??
-                      t("recall.selection.currentView"),
-                  })}
+                  {t("recall.selection.resetCurrentView")}
                 </Button>
-                {selectedLabelId.length > 0 ? (
-                  <Button
-                    onClick={() => setSelectedLabelId("")}
-                    size="compact"
-                    type="button"
-                    variant="secondary"
-                  >
-                    <FilterOffIcon />
-                    {t("recall.selection.clearFilter")}
-                  </Button>
-                ) : null}
               </div>
-            </div>
-
-            <div className="recall-select-note-picker__section-heading">
-              <h4>
-                {selectedFilterLabel === null
-                  ? t("recall.selection.notesInAllLabels")
-                  : t("recall.selection.notesInLabel", {
-                      label: selectedFilterLabel.name,
-                    })}
-              </h4>
-              <p className="muted">
-                {selectedFilterLabel === null
-                  ? t("recall.selection.notesInAllLabelsDescription")
-                  : t("recall.selection.notesInLabelDescription", {
-                      label: selectedFilterLabel.name,
-                    })}
-              </p>
             </div>
 
             <ol className="recall-note-picker__list">
               {visibleStudyNotes.map((studyNote) => {
                 const labelNames = getLabelNames(studyNote, labelsById);
                 const isRecallable = isStudyNoteRecallable(studyNote);
+                const supportMetadata = formatStudyNoteSupportMetadata({
+                  acronymCount: studyNote.acronyms.length,
+                  metaphorCount: studyNote.metaphors.length,
+                  t,
+                });
 
                 return (
                   <li key={studyNote.id}>
@@ -615,16 +635,7 @@ export function RecallSelectionPage({
                           </span>
                         </span>
                         <span className="recall-select-note-row__counts">
-                          <span className="recall-select-note-row__count">
-                            <span>
-                              {t("recall.selection.counts.metaphors")}
-                            </span>
-                            <strong>{studyNote.metaphors.length}</strong>
-                          </span>
-                          <span className="recall-select-note-row__count">
-                            <span>{t("recall.selection.counts.acronyms")}</span>
-                            <strong>{studyNote.acronyms.length}</strong>
-                          </span>
+                          {supportMetadata}
                         </span>
                       </span>
                     </label>
@@ -709,49 +720,9 @@ function SessionSetupPanel({
 
       <div className="recall-select-session-setup__selected-notes">
         <div className="recall-select-session-setup__selected-summary">
-          <div>
-            <p className="muted">{t("recall.selection.selectedNotes")}</p>
-            <p className="recall-select-session-setup__selected-count">
-              {selectedStudyNotes.length}
-            </p>
-          </div>
-          <div className="recall-select-session-setup__top-actions">
-            <Button
-              disabled={selectedStudyNotes.length === 0}
-              onClick={onResetSelectedStudyNotes}
-              size="compact"
-              type="button"
-              variant="secondary"
-            >
-              <FilterOffIcon />
-              {t("recall.selection.resetSelected")}
-            </Button>
-            <Button
-              className="recall-select-session-setup__cancel"
-              onClick={onCancel}
-              size="compact"
-              type="button"
-            >
-              {t("recall.selection.cancel")}
-            </Button>
-            <Button
-              aria-describedby={
-                recallTypeWarning === null ? undefined : "recall-start-reason"
-              }
-              className="recall-select-session-setup__start"
-              disabled={disabledStartReason !== null}
-              onClick={onStartRecall}
-              size="compact"
-              type="button"
-              variant="primary"
-              aria-label={t("recall.selection.start")}
-            >
-              {t("recall.selection.startWithCount", {
-                count: selectedStudyNotes.length,
-              })}
-              <ChevronRightIcon />
-            </Button>
-          </div>
+          <p className="recall-select-session-setup__selected-count">
+            {formatSelectedStudyNotesCount(selectedStudyNotes.length, t)}
+          </p>
         </div>
         {selectedStudyNotes.length > 0 ? (
           <ol
@@ -853,6 +824,41 @@ function SessionSetupPanel({
           {recallTypeWarning}
         </p>
       ) : null}
+
+      <div className="recall-select-session-setup__top-actions">
+        <Button
+          className="recall-select-session-setup__cancel"
+          onClick={onCancel}
+          size="compact"
+          type="button"
+          variant="secondary"
+        >
+          {t("recall.selection.cancel")}
+        </Button>
+        <Button
+          disabled={selectedStudyNotes.length === 0}
+          onClick={onResetSelectedStudyNotes}
+          size="compact"
+          type="button"
+          variant="secondary"
+        >
+          {t("recall.selection.reset")}
+        </Button>
+        <Button
+          aria-describedby={
+            recallTypeWarning === null ? undefined : "recall-start-reason"
+          }
+          className="recall-select-session-setup__start"
+          disabled={disabledStartReason !== null}
+          onClick={onStartRecall}
+          size="compact"
+          type="button"
+          variant="primary"
+          aria-label={t("recall.selection.start")}
+        >
+          {t("recall.selection.start")}
+        </Button>
+      </div>
     </aside>
   );
 }
@@ -902,25 +908,6 @@ function CheckCircleIcon() {
   );
 }
 
-function FilterOffIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="16"
-      viewBox="0 0 24 24"
-      width="16"
-    >
-      <path
-        d="M5 6h14m-3 6H8m2 6h4M4 4l16 16"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeWidth="1.8"
-      />
-    </svg>
-  );
-}
-
 function GripIcon() {
   return (
     <svg
@@ -953,26 +940,6 @@ function CloseIcon() {
         d="m7 7 10 10M17 7 7 17"
         stroke="currentColor"
         strokeLinecap="round"
-        strokeWidth="2"
-      />
-    </svg>
-  );
-}
-
-function ChevronRightIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="18"
-      viewBox="0 0 24 24"
-      width="18"
-    >
-      <path
-        d="m10 7 5 5-5 5"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
         strokeWidth="2"
       />
     </svg>

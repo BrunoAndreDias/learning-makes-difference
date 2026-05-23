@@ -896,9 +896,51 @@ describe("authenticated recall workspace", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("No Recall Today work")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Choose notes" })).toHaveAttribute(
+      "href",
+      "/recall/select",
+    );
+  });
+
+  it("renders Recall Today immediately while persistent recall refresh runs on route entry", async () => {
+    let resolveRefresh: (() => void) | undefined;
+    const refreshGate = new Promise<void>((resolve) => {
+      resolveRefresh = resolve;
+    });
+    let refreshCount = 0;
+    const persistentRecallContext = createPersistentRecallContext({
+      service: createPersistentRecallService({
+        getActiveSession: vi.fn(async () => {
+          refreshCount += 1;
+
+          if (refreshCount === 1) {
+            return null;
+          }
+
+          await refreshGate;
+          return null;
+        }),
+      }),
+    });
+
+    const { router } = renderRoute("/settings", {
+      persistentRecallContext,
+      session: createSession(),
+    });
+
+    await waitFor(() => expect(refreshCount).toBe(1));
+
+    await router.navigate({ to: "/recall" });
+
+    expect(router.state.location.pathname).toBe("/recall");
     expect(
-      screen.getByRole("link", { name: "Manual selection" }),
-    ).toHaveAttribute("href", "/recall/select");
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Recall Today",
+      }),
+    ).toBeInTheDocument();
+
+    resolveRefresh?.();
   });
 
   it("shows newly recallable Study Notes in the Recall Today queue with prioritized reasons", async () => {
@@ -926,17 +968,33 @@ describe("authenticated recall workspace", () => {
     const queue = screen.getByRole("region", {
       name: "Recall Today queue",
     });
-    expect(queue).toHaveTextContent("Practice Follow-up");
+    expect(queue).toHaveTextContent("Today's plan");
+    expect(queue).toHaveTextContent("Start here · Needs practice · 2");
+    expect(queue).toHaveTextContent("Review these before adding new material.");
+    expect(queue).toHaveTextContent("Continue after that");
+    expect(queue).toHaveTextContent("Due reviews · 1");
+    expect(queue).toHaveTextContent("Newly recallable · 1");
+    expect(queue).toHaveTextContent("Upcoming · 0");
     expect(queue).toHaveTextContent("Needs practice");
-    expect(queue).toHaveTextContent("Not recalled yet");
-    expect(queue).toHaveTextContent("Scheduled");
     expect(queue).not.toHaveTextContent("Incomplete prompt");
 
-    expect(
-      within(queue)
-        .getAllByRole("heading", { level: 3 })
-        .map((heading) => heading.textContent),
-    ).toEqual(scenario.queuePrompts);
+    expect(within(queue).getByText(scenario.queuePrompts[0])).toBeVisible();
+    expect(within(queue).getByText(scenario.queuePrompts[1])).toBeVisible();
+    expect(within(queue).queryByText(scenario.queuePrompts[2])).toBeNull();
+    expect(within(queue).queryByText(scenario.queuePrompts[3])).toBeNull();
+
+    const rowActions = within(queue).getAllByRole("link", {
+      name: "Recall this",
+    });
+    expect(rowActions).toHaveLength(2);
+    expect(rowActions[0]).toHaveAttribute(
+      "href",
+      `/recall/select?studyNoteIds=${scenario.queueStudyNoteIds[0]}`,
+    );
+    expect(rowActions[1]).toHaveAttribute(
+      "href",
+      `/recall/select?studyNoteIds=${scenario.queueStudyNoteIds[1]}`,
+    );
   });
 
   it("starts one FlashCard RecallSession from all current Recall Today Study Notes and uses session shuffling", async () => {
@@ -970,13 +1028,12 @@ describe("authenticated recall workspace", () => {
     const queue = screen.getByRole("region", {
       name: "Recall Today queue",
     });
-    expect(
-      within(queue)
-        .getAllByRole("heading", { level: 3 })
-        .map((heading) => heading.textContent),
-    ).toEqual(scenario.queuePrompts);
+    expect(within(queue).getByText(scenario.queuePrompts[0])).toBeVisible();
+    expect(within(queue).getByText(scenario.queuePrompts[1])).toBeVisible();
+    expect(within(queue).queryByText(scenario.queuePrompts[2])).toBeNull();
+    expect(within(queue).queryByText(scenario.queuePrompts[3])).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Start Recall Today" }));
+    fireEvent.click(screen.getByRole("button", { name: "Recall 4 notes" }));
 
     expect(
       await screen.findByRole("heading", { level: 3, name: "Recall session" }),
@@ -1022,9 +1079,7 @@ describe("authenticated recall workspace", () => {
     const selectedResult = screen.getByRole("region", {
       name: "Selected result",
     });
-    expect(
-      within(results).getByText("Showing 1-1 of 1 result"),
-    ).toBeInTheDocument();
+    expect(within(results).getByText("1 session shown")).toBeInTheDocument();
     expect(
       within(selectedResult).getAllByText("Stored prompt title").length,
     ).toBeGreaterThan(0);
@@ -1096,6 +1151,7 @@ describe("authenticated recall workspace", () => {
     renderRoute("/recall/results", { ...contexts, session: createSession() });
 
     await screen.findByRole("region", { name: "Selected result" });
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }));
     fireEvent.change(screen.getByLabelText("Filter results by label"), {
       target: { value: label.id },
     });
@@ -1113,8 +1169,8 @@ describe("authenticated recall workspace", () => {
       within(selectedResult).getByText("2 targeted Study Notes"),
     ).toBeInTheDocument();
     expect(
-      within(selectedResult).getByRole("heading", {
-        name: "Not reached Study Notes",
+      within(selectedResult).getByRole("region", {
+        name: "Queued but not asked · 1",
       }),
     ).toBeInTheDocument();
 
@@ -2966,6 +3022,7 @@ describe("authenticated recall workspace", () => {
       "/recall/select",
     );
     expect(screen.queryByRole("link", { name: "Start Recall" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }));
     expect(
       screen.getByRole("option", { name: "All modes" }),
     ).toBeInTheDocument();
@@ -3087,14 +3144,13 @@ describe("authenticated recall workspace", () => {
       await screen.findByRole("heading", { level: 1, name: "Recall Today" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Your recommended recall queue for today. Focus on what matters most.",
-      ),
+      screen.getByText("Your recommended recall queue for today."),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
-    expect(
-      screen.getByRole("link", { name: "Manual selection" }),
-    ).toHaveAttribute("href", "/recall/select");
+    expect(screen.getByRole("link", { name: "Choose notes" })).toHaveAttribute(
+      "href",
+      "/recall/select",
+    );
 
     expect(
       screen.queryByRole("navigation", { name: "Recall pages" }),
@@ -3504,11 +3560,11 @@ describe("authenticated recall workspace", () => {
     expect(
       within(detail).getAllByText("Newest result note").length,
     ).toBeGreaterThan(0);
-    expect(screen.getByText("Showing 1-2 of 2 results")).toBeInTheDocument();
+    expect(screen.getByText("2 sessions shown")).toBeInTheDocument();
 
     const results = screen.getByRole("region", { name: "Recall results" });
     const resultButtons = within(results).getAllByRole("button");
-    fireEvent.click(resultButtons[1]);
+    fireEvent.click(resultButtons[2]);
 
     expect(router.state.location.pathname).toBe("/recall/results");
     expect(
@@ -3548,6 +3604,7 @@ describe("authenticated recall workspace", () => {
     renderRoute("/recall/results", { ...contexts, session: createSession() });
 
     await screen.findByRole("region", { name: "Recall results" });
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }));
     fireEvent.change(screen.getByLabelText("Filter results by label"), {
       target: { value: label.id },
     });
@@ -3563,6 +3620,16 @@ describe("authenticated recall workspace", () => {
       target: { value: "AiAssisted" },
     });
     expect(screen.getByText("No matching results")).toBeInTheDocument();
+
+    fireEvent.pointerDown(document.body);
+
+    expect(screen.getByRole("button", { name: "Filter" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(
+      screen.getByLabelText("Filter results by label").closest("div"),
+    ).toHaveAttribute("hidden");
   });
 
   it("selects Study Notes, blocks disabled AI Recall types, clears selection, and starts FlashCard", async () => {
@@ -3600,8 +3667,7 @@ describe("authenticated recall workspace", () => {
     fireEvent.change(screen.getByLabelText("Search Study Notes"), {
       target: { value: "lighthouse" },
     });
-    expect(screen.getByText("Metaphor description")).toBeInTheDocument();
-    expect(screen.getByText("Acronym description")).toBeInTheDocument();
+    expect(screen.getByText("1 metaphor · 1 acronym")).toBeInTheDocument();
     expect(screen.queryByText("Metaphors")).toBeNull();
     expect(screen.queryByText("Acronyms")).toBeNull();
     fireEvent.click(
@@ -3684,9 +3750,8 @@ describe("authenticated recall workspace", () => {
       target: { value: biologyLabel.id },
     });
 
-    expect(screen.getByText("Currently viewing:")).toBeInTheDocument();
-    expect(screen.getByText("Notes in Biology")).toBeInTheDocument();
-    expect(screen.getByText("Showing 3 notes")).toBeInTheDocument();
+    expect(screen.getByText("3 notes shown")).toBeInTheDocument();
+    expect(screen.getAllByText("Biology").length).toBeGreaterThan(0);
     expect(screen.getByText("Selected biology Study Note")).toBeInTheDocument();
     expect(screen.getByText("Added biology Study Note")).toBeInTheDocument();
     expect(
@@ -3695,14 +3760,14 @@ describe("authenticated recall workspace", () => {
     expect(screen.queryByText("History Study Note")).toBeNull();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Select all from Biology" }),
+      screen.getByRole("button", { name: "Select all from current view" }),
     );
 
     const sessionSetup = screen.getByRole("complementary", {
       name: "Session setup",
     });
     expect(
-      within(sessionSetup).getByText("2", {
+      within(sessionSetup).getByText("2 notes selected", {
         selector: ".recall-select-session-setup__selected-count",
       }),
     ).toBeInTheDocument();
@@ -3720,10 +3785,10 @@ describe("authenticated recall workspace", () => {
     ).not.toBeChecked();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Reset all from Biology" }),
+      screen.getByRole("button", { name: "Reset current view" }),
     );
     expect(
-      within(sessionSetup).getByText("0", {
+      within(sessionSetup).getByText("0 notes selected", {
         selector: ".recall-select-session-setup__selected-count",
       }),
     ).toBeInTheDocument();
@@ -3735,21 +3800,21 @@ describe("authenticated recall workspace", () => {
     ).not.toBeChecked();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Select all from Biology" }),
+      screen.getByRole("button", { name: "Select all from current view" }),
     );
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Reset all selected Study Notes",
+        name: "Reset",
       }),
     );
     expect(
-      within(sessionSetup).getByText("0", {
+      within(sessionSetup).getByText("0 notes selected", {
         selector: ".recall-select-session-setup__selected-count",
       }),
     ).toBeInTheDocument();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Select all from Biology" }),
+      screen.getByRole("button", { name: "Select all from current view" }),
     );
     fireEvent.click(
       within(sessionSetup).getByRole("button", {
@@ -3815,7 +3880,7 @@ describe("authenticated recall workspace", () => {
       target: { value: biologyLabel.id },
     });
     fireEvent.click(
-      screen.getByRole("button", { name: "Select all from Biology" }),
+      screen.getByRole("button", { name: "Select all from current view" }),
     );
 
     const selectedStudyNotesList = within(sessionSetup).getByRole("list", {
@@ -3927,7 +3992,7 @@ describe("authenticated recall workspace", () => {
       target: { value: biologyLabel.id },
     });
     fireEvent.click(
-      screen.getByRole("button", { name: "Select all from Biology" }),
+      screen.getByRole("button", { name: "Select all from current view" }),
     );
     fireEvent.click(
       screen.getByRole("button", {
@@ -4037,7 +4102,7 @@ describe("authenticated recall workspace", () => {
     expect(
       within(
         screen.getByRole("complementary", { name: "Session setup" }),
-      ).getByText("1"),
+      ).getByText("1 note selected"),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Start recall" }));
@@ -4069,7 +4134,7 @@ describe("authenticated recall workspace", () => {
       level: 3,
       name: "Select Study Notes",
     });
-    expect(screen.getByText("1")).toBeInTheDocument();
+    expect(screen.getByText("1 note selected")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/recall"));

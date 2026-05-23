@@ -645,12 +645,20 @@ describe("authenticated Study Notes workspace", () => {
     const managementRegion = screen.getByRole("region", {
       name: "Study Notes management",
     });
-    const managementWrapper = document.querySelector(
-      ".study-notes-management-wrapper",
+    const managementPage = document.querySelector(
+      ".study-notes-management-page",
     );
-    expect(managementWrapper).toContainElement(pageHeading);
-    expect(managementWrapper).toContainElement(newStudyNoteButton);
-    expect(managementWrapper).toContainElement(managementRegion);
+    const managementHero = document.querySelector(
+      ".study-notes-management-page > .page-layout__hero",
+    );
+    const managementBody = document.querySelector(
+      ".study-notes-management-page > .page-layout__body",
+    );
+    expect(managementPage).toContainElement(managementHero);
+    expect(managementPage).toContainElement(managementBody);
+    expect(managementHero).toContainElement(pageHeading);
+    expect(managementHero).toContainElement(newStudyNoteButton);
+    expect(managementBody).toContainElement(managementRegion);
     expect(
       within(managementRegion).getByRole("button", { name: "All notes" }),
     ).toHaveAttribute("aria-pressed", "true");

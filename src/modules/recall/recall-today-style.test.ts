@@ -36,40 +36,93 @@ function expectRuleToUse(css: string, selector: string, declaration: string) {
 }
 
 describe("Recall Today styles", () => {
-  it("uses shared page spacing and PageHeader typography for Recall Today cards", () => {
+  it("uses the centered page wrapper and quiet guided-plan rhythm", () => {
     const css = readFileSync(
       new URL("./recall-workspaces.css", import.meta.url),
       "utf8",
     );
-    const surfaceStyle = getCssRule(css, ".recall-today-surface");
-    const summaryStyle = getCssRule(css, ".recall-today-summary");
-    const layoutStyle = getCssRule(css, ".recall-today-layout");
-    const queueStyle = getCssRule(css, ".recall-today-queue");
-    const sectionStyle = getCssRule(css, ".recall-today-section");
-    const sectionTitleStyle = getCssRule(
+    const wrapperStyle = getCssRule(css, ".recall-today-wrapper");
+    const surfaceStyle = getCssRule(
       css,
-      ".recall-today-section__title h2",
+      ".recall-today-page .recall-today-surface",
     );
-    const rowTitleStyle = getCssRule(css, ".recall-today-row__main h3");
-    const howTitleStyle = getCssRule(css, ".recall-today-how h2");
+    const queueStyle = getCssRule(
+      css,
+      ".recall-today-page .recall-today-queue",
+    );
+    const priorityStyle = getCssRule(css, ".recall-today-priority");
+    const priorityHeadingStyle = getCssRule(
+      css,
+      ".recall-today-priority__header h3",
+    );
+    const descriptionStyle = getCssRule(
+      css,
+      ".recall-today-page .recall-today-hero .page-header__description",
+    );
+    const summaryStyle = getCssRule(css, ".recall-today-hero__summary");
+    const actionsStyle = getCssRule(
+      css,
+      ".recall-today-page .recall-today-hero__actions",
+    );
+    const rowTitleStyle = getCssRule(
+      css,
+      ".recall-today-page .recall-today-row__main strong",
+    );
 
+    expect(wrapperStyle).toContain(
+      "width: min(100%, var(--workspace-content-width));",
+    );
     expect(surfaceStyle).toContain("display: grid;");
-    expect(surfaceStyle).toContain("gap: var(--lmd-content-gap);");
-    expect(summaryStyle).toContain("gap: var(--lmd-list-row-gap);");
-    expect(summaryStyle).toContain("padding: var(--lmd-card-padding-compact);");
-    expect(layoutStyle).toContain("gap: var(--lmd-content-gap);");
-    expect(queueStyle).toContain("gap: var(--lmd-section-gap);");
-    expect(sectionStyle).toContain("gap: var(--lmd-card-gap);");
-    expect(sectionStyle).toContain("padding: var(--lmd-card-padding-compact);");
-    expect(sectionTitleStyle).toContain(
+    expect(surfaceStyle).toContain("gap: var(--space-7);");
+    expect(surfaceStyle).toContain("width: 100%;");
+    expect(queueStyle).toContain("width: 100%;");
+    expect(queueStyle).not.toMatch(/width:\s*min\(/);
+    expect(priorityStyle).toContain(
+      "border-left: 2px solid var(--color-warning-soft-border);",
+    );
+    expect(priorityHeadingStyle).toContain(
       "font-size: var(--lmd-card-title-size);",
     );
+    expect(descriptionStyle).toContain("max-width: none;");
+    expect(descriptionStyle).toContain("white-space: nowrap;");
+    expect(summaryStyle).toContain("white-space: nowrap;");
+    expect(actionsStyle).toContain("flex: 0 0 auto;");
     expect(rowTitleStyle).toContain("font-size: var(--lmd-body-size);");
-    expect(howTitleStyle).toContain("font-size: var(--lmd-card-title-size);");
     expect(css).not.toMatch(/\.recall-today-hero \.page-header__title\s*\{/);
-    expect(css).not.toMatch(
-      /\.recall-today-hero \.page-header__description\s*\{/,
+  });
+
+  it("keeps priority row actions quiet until hover or keyboard focus", () => {
+    const css = readFileSync(
+      new URL("./recall-workspaces.css", import.meta.url),
+      "utf8",
     );
+    const rowStyle = getCssRule(css, ".recall-today-page .recall-today-row");
+    const actionStyle = getCssRule(
+      css,
+      ".recall-today-row__action.notes-action",
+    );
+    const rowHoverStyle = getCssRule(
+      css,
+      ".recall-today-page .recall-today-row:hover .recall-today-row__action",
+    );
+    const rowFocusWithinStyle = getCssRule(
+      css,
+      ".recall-today-page .recall-today-row:focus-within .recall-today-row__action",
+    );
+    const actionFocusStyle = getCssRule(
+      css,
+      ".recall-today-row__action.notes-action:focus-visible",
+    );
+
+    expect(rowStyle).toContain("display: grid;");
+    expect(rowStyle).toContain("grid-template-columns: minmax(0, 1fr) auto;");
+    expect(actionStyle).toContain("background: transparent;");
+    expect(actionStyle).toContain("color: var(--color-content-muted);");
+    expect(actionStyle).toContain("opacity: 0;");
+    expect(rowHoverStyle).toContain("opacity: 1;");
+    expect(rowFocusWithinStyle).toContain("opacity: 1;");
+    expect(actionFocusStyle).toContain("box-shadow: var(--focus-ring);");
+    expect(actionStyle).not.toContain("var(--color-primary");
   });
 
   it("keeps priority status tones strong enough for small badges and score dots", () => {

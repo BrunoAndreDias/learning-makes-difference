@@ -509,7 +509,7 @@ describe("page style normalization", () => {
     expect(collapsedPageInsetStyle).toContain(
       "padding-inline-start: var(--workspace-collapsed-header-offset);",
     );
-    expect(appCss).toContain("--workspace-content-width: 70rem;");
+    expect(appCss).toContain("--workspace-content-width: 84rem;");
     expect(sharedPageHeroInsetStyle).toContain(
       "width: min(100%, var(--workspace-content-width));",
     );

@@ -10,7 +10,7 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-import { type ReactNode, useSyncExternalStore } from "react";
+import { type ReactNode, useEffect, useSyncExternalStore } from "react";
 import appLogo from "../../../../docs/layout/logo.svg";
 import appCss from "../../../styles/app.css?url";
 import {
@@ -47,6 +47,27 @@ const redirectableProtectedPaths = [
   appRoutePaths.studyNotes,
   authenticatedLandingPath,
 ];
+
+export function resolveRootRouteSessionSnapshot({
+  routedSessionSnapshot,
+  session,
+}: Readonly<{
+  routedSessionSnapshot?: AppSessionSnapshot;
+  session: AppSessionContext;
+}>): AppSessionSnapshot | Promise<AppSessionSnapshot> {
+  if (
+    routedSessionSnapshot !== undefined &&
+    hasActiveSession(routedSessionSnapshot)
+  ) {
+    return routedSessionSnapshot;
+  }
+
+  const cachedSessionSnapshot = session.getSnapshot();
+
+  return hasActiveSession(cachedSessionSnapshot)
+    ? cachedSessionSnapshot
+    : session.refresh();
+}
 
 function isProtectedPath(pathname: string): boolean {
   if (isRemovedRecallPracticeRepairPath(pathname)) {
@@ -92,7 +113,10 @@ export const Route = createRootRouteWithContext<{
     ],
   }),
   beforeLoad: async ({ context, location }) => {
-    const sessionSnapshot = await context.session.refresh();
+    const sessionSnapshot = await resolveRootRouteSessionSnapshot({
+      routedSessionSnapshot: context.sessionSnapshot,
+      session: context.session,
+    });
 
     if (hasActiveSession(sessionSnapshot)) {
       return { sessionSnapshot };
@@ -136,6 +160,15 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   const session = Route.useRouteContext({
     select: (context) => context.session,
   });
+
+  useEffect(() => {
+    if (sessionSnapshot === undefined) {
+      return;
+    }
+
+    session.hydrate?.(sessionSnapshot);
+  }, [session, sessionSnapshot]);
+
   const clientUserLanguage = useSyncExternalStore(
     session.subscribe,
     () => session.getSnapshot().user?.userLanguage,

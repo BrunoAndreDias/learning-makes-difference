@@ -20,8 +20,8 @@ import {
 import { z } from "zod";
 
 import { resizeTextareaToFitContent } from "../../design-system/auto-sizing-textarea";
+import { Breadcrumb } from "../../design-system/breadcrumb";
 import { Button, ButtonLink } from "../../design-system/button";
-import { PageHeader } from "../../design-system/page-header";
 import { PageLayout } from "../../design-system/page-layout";
 import {
   defaultShowStudyNoteTemplatesPreference,
@@ -601,121 +601,165 @@ function StudyNotesManagementPage({
   }
 
   return (
-    <section className="page-layout notes-workspace study-notes-management-page">
-      <div className="study-notes-management-wrapper">
-        <PageHeader
-          actions={
-            <>
-              <Button
-                aria-label="New Study Note"
-                className="study-notes-new-note"
-                onClick={handleNewStudyNote}
-                type="button"
-                variant="secondary"
-              >
-                <PlusIcon />
-                <span>New note</span>
-              </Button>
-              <Button
-                className="study-notes-start-recall"
-                onClick={() => void handleStartRecallSession()}
-                type="button"
-                variant="secondary"
-              >
-                <span>
-                  {formatRecallQueueButtonLabel(recallTodayStudyNoteIds.length)}
-                </span>
-              </Button>
-            </>
-          }
-          actionsClassName="study-notes-hero__actions"
-          className="page-layout__header study-notes-hero"
-          description="Browse, filter, and recall your notes."
-          headingLevel={1}
-          title="Study Notes"
-        />
-        <section
-          aria-label="Study Notes management"
-          className="study-notes-management"
-        >
-          <div className="study-notes-tabs">
-            {studyNotesManagementStatusFilterOptions.map((option) => (
-              <button
-                aria-pressed={selectedListView === option.value}
-                className="study-notes-tabs__item"
-                data-active={
-                  selectedListView === option.value ? "true" : undefined
-                }
-                key={option.value}
-                onClick={() => {
-                  setSelectedListView(option.value);
-                  setShowUpcomingStudyNotes(false);
-                }}
-                type="button"
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+    <PageLayout
+      actions={
+        <>
+          <Button
+            aria-label="New Study Note"
+            className="study-notes-new-note"
+            onClick={handleNewStudyNote}
+            type="button"
+            variant="secondary"
+          >
+            <PlusIcon />
+            <span>New note</span>
+          </Button>
+          <Button
+            className="study-notes-start-recall"
+            onClick={() => void handleStartRecallSession()}
+            type="button"
+            variant="secondary"
+          >
+            <span>
+              {formatRecallQueueButtonLabel(recallTodayStudyNoteIds.length)}
+            </span>
+          </Button>
+        </>
+      }
+      actionsClassName="study-notes-hero__actions"
+      className="notes-workspace study-notes-management-page"
+      description="Browse, filter, and recall your notes."
+      headerClassName="study-notes-hero"
+      headingLevel={1}
+      title="Study Notes"
+    >
+      <section
+        aria-label="Study Notes management"
+        className="study-notes-management"
+      >
+        <div className="study-notes-tabs">
+          {studyNotesManagementStatusFilterOptions.map((option) => (
+            <button
+              aria-pressed={selectedListView === option.value}
+              className="study-notes-tabs__item"
+              data-active={
+                selectedListView === option.value ? "true" : undefined
+              }
+              key={option.value}
+              onClick={() => {
+                setSelectedListView(option.value);
+                setShowUpcomingStudyNotes(false);
+              }}
+              type="button"
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
 
-          <div className="study-notes-management__filters">
-            <label className="study-notes-list-search">
-              <span className="sr-only">Search notes</span>
-              <SearchIcon />
-              <input
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search notes..."
-                type="search"
-                value={searchQuery}
-              />
-            </label>
-            <label className="study-notes-list-filter">
-              <SlidersIcon />
-              <span className="study-notes-list-filter__label">
-                {selectedLabelFilterText}
-              </span>
-              <select
-                aria-label="Filter Study Notes by label"
-                onChange={(event) =>
-                  handleSelectedLabelChange(event.target.value)
-                }
-                value={selectedLabelId}
-              >
-                <option value="">All labels</option>
-                <option value={unlabeledStudyNotesFilterValue}>
-                  {unlabeledStudyNotesFilterLabel}
+        <div className="study-notes-management__filters">
+          <label className="study-notes-list-search">
+            <span className="sr-only">Search notes</span>
+            <SearchIcon />
+            <input
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search notes..."
+              type="search"
+              value={searchQuery}
+            />
+          </label>
+          <label className="study-notes-list-filter">
+            <SlidersIcon />
+            <span className="study-notes-list-filter__label">
+              {selectedLabelFilterText}
+            </span>
+            <select
+              aria-label="Filter Study Notes by label"
+              onChange={(event) =>
+                handleSelectedLabelChange(event.target.value)
+              }
+              value={selectedLabelId}
+            >
+              <option value="">All labels</option>
+              <option value={unlabeledStudyNotesFilterValue}>
+                {unlabeledStudyNotesFilterLabel}
+              </option>
+              {availableLabels.map((label) => (
+                <option key={label.id} value={label.id}>
+                  {label.name}
                 </option>
-                {availableLabels.map((label) => (
-                  <option key={label.id} value={label.id}>
-                    {label.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+              ))}
+            </select>
+          </label>
+        </div>
 
-          <div className="study-notes-management__summary">
-            <p>
-              {formatStudyNotesListSummary({
-                newStudyNotesCount,
-                readyStudyNotesCount: recallTodayStudyNoteIds.length,
-                totalStudyNotesCount: allStudyNotes.length,
-              })}
-            </p>
-          </div>
+        <div className="study-notes-management__summary">
+          <p>
+            {formatStudyNotesListSummary({
+              newStudyNotesCount,
+              readyStudyNotesCount: recallTodayStudyNoteIds.length,
+              totalStudyNotesCount: allStudyNotes.length,
+            })}
+          </p>
+        </div>
 
-          {errorMessage === null ? null : (
-            <p className="form-error" role="alert">
-              {errorMessage}
-            </p>
-          )}
-          {shouldShowManagementList ? (
-            <div className="study-notes-management__list-wrap">
-              <ul
-                aria-label="Study Notes management list"
-                className="study-notes-management__list"
+        {errorMessage === null ? null : (
+          <p className="form-error" role="alert">
+            {errorMessage}
+          </p>
+        )}
+        {shouldShowManagementList ? (
+          <div className="study-notes-management__list-wrap">
+            <ul
+              aria-label="Study Notes management list"
+              className="study-notes-management__list"
+            >
+              {filteredStudyNotes.map((studyNote) => (
+                <StudyNotesManagementListRow
+                  isDeleting={isDeletingStudyNoteId === studyNote.id}
+                  key={studyNote.id}
+                  learningState={
+                    learningStateByStudyNoteId.get(studyNote.id) ?? null
+                  }
+                  now={now}
+                  onStartRecall={() =>
+                    void handleStartRecallSession([studyNote.id])
+                  }
+                  onRemoveStudyNote={handleRemoveStudyNote}
+                  schedule={
+                    recallScheduleByStudyNoteId.get(studyNote.id) ?? null
+                  }
+                  studyNote={studyNote}
+                  userTimeZone={userTimeZone}
+                />
+              ))}
+            </ul>
+            {upcomingStudyNotes.length === 0 ? null : (
+              <button
+                aria-expanded={showUpcomingStudyNotes}
+                aria-label={`Upcoming · ${upcomingStudyNotes.length}`}
+                className="study-notes-management__upcoming"
+                data-expanded={showUpcomingStudyNotes ? "true" : undefined}
+                onClick={() =>
+                  setShowUpcomingStudyNotes(
+                    (currentShowUpcomingStudyNotes) =>
+                      !currentShowUpcomingStudyNotes,
+                  )
+                }
+                type="button"
               >
-                {filteredStudyNotes.map((studyNote) => (
+                <span>Upcoming</span>
+                <span>·</span>
+                <span>{upcomingStudyNotes.length}</span>
+                <ChevronDownIcon />
+              </button>
+            )}
+            {visibleUpcomingStudyNotes.length === 0 ? null : (
+              <ul
+                aria-label="Upcoming Study Notes management list"
+                className="study-notes-management__list study-notes-management__upcoming-list"
+              >
+                {visibleUpcomingStudyNotes.map((studyNote) => (
                   <StudyNotesManagementListRow
                     isDeleting={isDeletingStudyNoteId === studyNote.id}
                     key={studyNote.id}
@@ -735,61 +779,15 @@ function StudyNotesManagementPage({
                   />
                 ))}
               </ul>
-              {upcomingStudyNotes.length === 0 ? null : (
-                <button
-                  aria-expanded={showUpcomingStudyNotes}
-                  aria-label={`Upcoming · ${upcomingStudyNotes.length}`}
-                  className="study-notes-management__upcoming"
-                  data-expanded={showUpcomingStudyNotes ? "true" : undefined}
-                  onClick={() =>
-                    setShowUpcomingStudyNotes(
-                      (currentShowUpcomingStudyNotes) =>
-                        !currentShowUpcomingStudyNotes,
-                    )
-                  }
-                  type="button"
-                >
-                  <span>Upcoming</span>
-                  <span>·</span>
-                  <span>{upcomingStudyNotes.length}</span>
-                  <ChevronDownIcon />
-                </button>
-              )}
-              {visibleUpcomingStudyNotes.length === 0 ? null : (
-                <ul
-                  aria-label="Upcoming Study Notes management list"
-                  className="study-notes-management__list study-notes-management__upcoming-list"
-                >
-                  {visibleUpcomingStudyNotes.map((studyNote) => (
-                    <StudyNotesManagementListRow
-                      isDeleting={isDeletingStudyNoteId === studyNote.id}
-                      key={studyNote.id}
-                      learningState={
-                        learningStateByStudyNoteId.get(studyNote.id) ?? null
-                      }
-                      now={now}
-                      onStartRecall={() =>
-                        void handleStartRecallSession([studyNote.id])
-                      }
-                      onRemoveStudyNote={handleRemoveStudyNote}
-                      schedule={
-                        recallScheduleByStudyNoteId.get(studyNote.id) ?? null
-                      }
-                      studyNote={studyNote}
-                      userTimeZone={userTimeZone}
-                    />
-                  ))}
-                </ul>
-              )}
-            </div>
-          ) : (
-            <p className="muted study-notes-management__empty">
-              {emptyManagementMessage}
-            </p>
-          )}
-        </section>
-      </div>
-    </section>
+            )}
+          </div>
+        ) : (
+          <p className="muted study-notes-management__empty">
+            {emptyManagementMessage}
+          </p>
+        )}
+      </section>
+    </PageLayout>
   );
 }
 
@@ -2358,7 +2356,7 @@ const ANSWER_CHECK_TEXT_REFERENCE_COPY = {
     emptyLabel: "No Accepted Variants yet.",
     itemLabel: "Accepted Variant",
     placeholder: "A full alternative answer.",
-    summary: "Save full-answer alternatives the User has explicitly approved.",
+    summary: "Save full-answer alternatives you have explicitly approved.",
     title: "Accepted Variants",
   },
   prohibitedPhrases: {
@@ -2402,8 +2400,8 @@ function StudyNotesKeyIdeasEditor({
         <div>
           <span className="study-notes-editor__group-label">Key Ideas</span>
           <p className="study-notes-editor__summary-copy">
-            Add the concepts the User expects to recall. The normal flow needs
-            only the idea and whether it is required or supporting.
+            Add the concepts you expect to recall. The normal flow needs only
+            the idea and whether it is required or supporting.
           </p>
         </div>
         <Button
@@ -3038,7 +3036,7 @@ export function StudyNotesPage({
     createDraftFromStudyNote(selectedStudyNote),
   );
   const selectedLabels = getAttachedLabels(availableLabels, draft.labelIds);
-  const promptInputRef = useRef<HTMLInputElement>(null);
+  const promptInputRef = useRef<HTMLTextAreaElement>(null);
   const expectedAnswerInputRef = useRef<HTMLTextAreaElement>(null);
   const metaphorInputRef = useRef<HTMLTextAreaElement>(null);
   const acronymInputRef = useRef<HTMLInputElement>(null);
@@ -4602,8 +4600,11 @@ export function StudyNotesPage({
     pendingEditorTarget,
     saveStatus,
   });
+  const isDedicatedEditorRoute = routeKind !== "workspace";
   const shouldShowStudyNoteTemplates =
-    showStudyNoteTemplates && draft.prompt.trim().length === 0;
+    !isDedicatedEditorRoute &&
+    showStudyNoteTemplates &&
+    draft.prompt.trim().length === 0;
   const visibleSelectedLabels =
     selectedLabels.length === 0
       ? [{ id: "general", name: "General" }]
@@ -4624,35 +4625,46 @@ export function StudyNotesPage({
   const isMemoryAidsPracticeRepairFocus =
     linkedPracticeRepairAction === "add-memory-aid";
   const shouldShowEditorPracticeRepairSections = linkedPracticeRepair === null;
+  const editorTitle =
+    selectedStudyNote === null
+      ? "New Study Note"
+      : draft.prompt.trim() || "Study Note";
+  const editorSubtitle =
+    selectedStudyNote === null
+      ? "Create a clear prompt and expected answer."
+      : `Updated ${formatRelativeUpdatedLabel(selectedStudyNote.updatedAt).toLowerCase()}`;
 
   return (
     <PageLayout
       actions={
-        <>
-          <Button
-            aria-label="New Study Note"
-            className="study-notes-new-note"
-            onClick={handleNewStudyNote}
-            type="button"
-            variant="secondary"
-          >
-            <PlusIcon />
-            <span>New note</span>
-          </Button>
-          <Button
-            className="study-notes-start-recall"
-            onClick={() => void handleStartRecallSession()}
-            type="button"
-            variant="secondary"
-          >
-            <PlayIcon />
-            <span>Start Recall Session</span>
-          </Button>
-        </>
+        isDedicatedEditorRoute ? null : (
+          <>
+            <Button
+              aria-label="New Study Note"
+              className="study-notes-new-note"
+              onClick={handleNewStudyNote}
+              type="button"
+              variant="secondary"
+            >
+              <PlusIcon />
+              <span>New note</span>
+            </Button>
+            <Button
+              className="study-notes-start-recall"
+              onClick={() => void handleStartRecallSession()}
+              type="button"
+              variant="secondary"
+            >
+              <PlayIcon />
+              <span>Start Recall Session</span>
+            </Button>
+          </>
+        )
       }
       actionsClassName="study-notes-hero__actions"
       bodyClassName="study-notes-workspace__body"
       className="notes-workspace study-notes-workspace"
+      data-route-kind={routeKind}
       description="Write stronger recall prompts with guidance and templates—no extra required fields."
       headerClassName="study-notes-hero"
       headingLevel={1}
@@ -4662,166 +4674,170 @@ export function StudyNotesPage({
         className="notes-layout study-notes-layout"
         data-save-bar-visible={isSaveBarVisible ? "true" : "false"}
       >
-        <aside
-          aria-label="Study Notes catalog"
-          className="notes-list-panel"
-          data-list-expanded={isStudyNotesCatalogExpanded ? "true" : undefined}
-        >
-          <div className="study-notes-catalog-tools">
-            <label className="study-notes-search">
-              <span className="sr-only">Search notes</span>
-              <SearchIcon />
-              <input
-                onChange={(event) => {
-                  setSearchQuery(event.target.value);
-                  setStudyNotesCatalogExpanded(false);
-                }}
-                placeholder="Search notes"
-                type="search"
-                value={searchQuery}
-              />
-            </label>
-            <label className="study-notes-filter">
-              <span className="sr-only">Filter by label</span>
-              <SlidersIcon />
-              <select
-                aria-label="Filter Study Notes by label"
-                onChange={(event) => {
-                  const nextSelectedLabelId = event.target.value;
-
-                  setSelectedLabelId(nextSelectedLabelId);
-                  setStudyNotesCatalogExpanded(false);
-                  void navigate({
-                    ...currentStudyNotesRouteTarget,
-                    replace: true,
-                    search: (previousSearch) => ({
-                      ...previousSearch,
-                      labelId:
-                        nextSelectedLabelId.length === 0
-                          ? undefined
-                          : nextSelectedLabelId,
-                    }),
-                  });
-                }}
-                value={selectedLabelId}
-              >
-                <option value="">All labels</option>
-                <option value={unlabeledStudyNotesFilterValue}>
-                  {unlabeledStudyNotesFilterLabel}
-                </option>
-                {availableLabels.map((label) => (
-                  <option key={label.id} value={label.id}>
-                    {label.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div className="study-notes-catalog-meta">
-            <span>{studyNotes.length} notes</span>
-            <button className="study-notes-sort" type="button">
-              Recently updated
-              <ChevronDownIcon />
-            </button>
-          </div>
-          <nav
-            aria-label="Study Notes list"
-            className="notes-list"
-            ref={studyNotesCatalogListRef}
+        {isDedicatedEditorRoute ? null : (
+          <aside
+            aria-label="Study Notes catalog"
+            className="notes-list-panel"
+            data-list-expanded={
+              isStudyNotesCatalogExpanded ? "true" : undefined
+            }
           >
-            {studyNotes.length === 0 ? (
-              <p className="muted notes-list__empty">
-                Create a Study Note to start practicing.
-              </p>
-            ) : (
-              <ul className="notes-list__items">
-                {visibleStudyNotes.map((studyNote) => {
-                  const learningState = learningStateByStudyNoteId.get(
-                    studyNote.id,
-                  );
-                  const learningLabels =
-                    learningState === undefined
-                      ? null
-                      : getStudyNoteLearningLabels(learningState);
-                  const labelNames = getStudyNoteLabelNames(
-                    availableLabels,
-                    studyNote.labelIds,
-                  );
-                  const schedule =
-                    recallScheduleByStudyNoteId.get(studyNote.id) ?? null;
-                  const timingLabel = formatNextRecallTiming({
-                    now,
-                    schedule,
-                    userTimeZone,
-                  });
-                  const rowStatus =
-                    learningLabels?.practice ??
-                    (learningLabels?.due
-                      ? timingLabel
-                      : learningLabels?.compact) ??
-                    "Study Note";
-                  const statusKind = getStudyNoteStatusKind(
-                    learningState ?? null,
-                  );
+            <div className="study-notes-catalog-tools">
+              <label className="study-notes-search">
+                <span className="sr-only">Search notes</span>
+                <SearchIcon />
+                <input
+                  onChange={(event) => {
+                    setSearchQuery(event.target.value);
+                    setStudyNotesCatalogExpanded(false);
+                  }}
+                  placeholder="Search notes"
+                  type="search"
+                  value={searchQuery}
+                />
+              </label>
+              <label className="study-notes-filter">
+                <span className="sr-only">Filter by label</span>
+                <SlidersIcon />
+                <select
+                  aria-label="Filter Study Notes by label"
+                  onChange={(event) => {
+                    const nextSelectedLabelId = event.target.value;
 
-                  return (
-                    <li key={studyNote.id}>
+                    setSelectedLabelId(nextSelectedLabelId);
+                    setStudyNotesCatalogExpanded(false);
+                    void navigate({
+                      ...currentStudyNotesRouteTarget,
+                      replace: true,
+                      search: (previousSearch) => ({
+                        ...previousSearch,
+                        labelId:
+                          nextSelectedLabelId.length === 0
+                            ? undefined
+                            : nextSelectedLabelId,
+                      }),
+                    });
+                  }}
+                  value={selectedLabelId}
+                >
+                  <option value="">All labels</option>
+                  <option value={unlabeledStudyNotesFilterValue}>
+                    {unlabeledStudyNotesFilterLabel}
+                  </option>
+                  {availableLabels.map((label) => (
+                    <option key={label.id} value={label.id}>
+                      {label.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="study-notes-catalog-meta">
+              <span>{studyNotes.length} notes</span>
+              <button className="study-notes-sort" type="button">
+                Recently updated
+                <ChevronDownIcon />
+              </button>
+            </div>
+            <nav
+              aria-label="Study Notes list"
+              className="notes-list"
+              ref={studyNotesCatalogListRef}
+            >
+              {studyNotes.length === 0 ? (
+                <p className="muted notes-list__empty">
+                  Create a Study Note to start practicing.
+                </p>
+              ) : (
+                <ul className="notes-list__items">
+                  {visibleStudyNotes.map((studyNote) => {
+                    const learningState = learningStateByStudyNoteId.get(
+                      studyNote.id,
+                    );
+                    const learningLabels =
+                      learningState === undefined
+                        ? null
+                        : getStudyNoteLearningLabels(learningState);
+                    const labelNames = getStudyNoteLabelNames(
+                      availableLabels,
+                      studyNote.labelIds,
+                    );
+                    const schedule =
+                      recallScheduleByStudyNoteId.get(studyNote.id) ?? null;
+                    const timingLabel = formatNextRecallTiming({
+                      now,
+                      schedule,
+                      userTimeZone,
+                    });
+                    const rowStatus =
+                      learningLabels?.practice ??
+                      (learningLabels?.due
+                        ? timingLabel
+                        : learningLabels?.compact) ??
+                      "Study Note";
+                    const statusKind = getStudyNoteStatusKind(
+                      learningState ?? null,
+                    );
+
+                    return (
+                      <li key={studyNote.id}>
+                        <button
+                          aria-label={studyNote.prompt}
+                          aria-current={
+                            studyNote.id === selectedStudyNote?.id
+                              ? "page"
+                              : undefined
+                          }
+                          className="study-note-row"
+                          data-selected={
+                            studyNote.id === selectedStudyNote?.id
+                              ? "true"
+                              : undefined
+                          }
+                          data-status-kind={statusKind}
+                          onClick={() =>
+                            requestEditorTarget({
+                              studyNoteId: studyNote.id,
+                              type: "study-note",
+                            })
+                          }
+                          type="button"
+                        >
+                          <span className="study-note-row__icon">
+                            <StudyNoteDocumentIcon />
+                          </span>
+                          <span className="study-note-row__content">
+                            <strong>{studyNote.prompt}</strong>
+                            <span>{labelNames.slice(0, 2).join(" · ")}</span>
+                            <span className="study-note-row__status">
+                              {rowStatus}
+                            </span>
+                          </span>
+                          <span className="study-note-row__updated-inline">
+                            {formatRelativeUpdatedLabel(studyNote.updatedAt)}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                  {isStudyNotesCatalogExpandable &&
+                  !isStudyNotesCatalogExpanded ? (
+                    <li className="study-notes-catalog-footer">
                       <button
-                        aria-label={studyNote.prompt}
-                        aria-current={
-                          studyNote.id === selectedStudyNote?.id
-                            ? "page"
-                            : undefined
-                        }
-                        className="study-note-row"
-                        data-selected={
-                          studyNote.id === selectedStudyNote?.id
-                            ? "true"
-                            : undefined
-                        }
-                        data-status-kind={statusKind}
-                        onClick={() =>
-                          requestEditorTarget({
-                            studyNoteId: studyNote.id,
-                            type: "study-note",
-                          })
-                        }
+                        className="study-notes-show-more"
+                        onClick={() => setStudyNotesCatalogExpanded(true)}
                         type="button"
                       >
-                        <span className="study-note-row__icon">
-                          <StudyNoteDocumentIcon />
-                        </span>
-                        <span className="study-note-row__content">
-                          <strong>{studyNote.prompt}</strong>
-                          <span>{labelNames.slice(0, 2).join(" · ")}</span>
-                          <span className="study-note-row__status">
-                            {rowStatus}
-                          </span>
-                        </span>
-                        <span className="study-note-row__updated-inline">
-                          {formatRelativeUpdatedLabel(studyNote.updatedAt)}
-                        </span>
+                        Show {hiddenStudyNotesCount} more
+                        <ChevronDownIcon />
                       </button>
                     </li>
-                  );
-                })}
-                {isStudyNotesCatalogExpandable &&
-                !isStudyNotesCatalogExpanded ? (
-                  <li className="study-notes-catalog-footer">
-                    <button
-                      className="study-notes-show-more"
-                      onClick={() => setStudyNotesCatalogExpanded(true)}
-                      type="button"
-                    >
-                      Show {hiddenStudyNotesCount} more
-                      <ChevronDownIcon />
-                    </button>
-                  </li>
-                ) : null}
-              </ul>
-            )}
-          </nav>
-        </aside>
+                  ) : null}
+                </ul>
+              )}
+            </nav>
+          </aside>
+        )}
 
         {isMissingSelectedStudyNote ? (
           <section
@@ -4856,15 +4872,29 @@ export function StudyNotesPage({
               <legend className="sr-only">Study Note</legend>
               <div className="study-notes-editor__masthead">
                 <div className="study-notes-editor__title">
-                  <h2>{draft.prompt.trim() || "New Study Note"}</h2>
+                  {isDedicatedEditorRoute ? (
+                    <Breadcrumb
+                      className="study-notes-editor__breadcrumb"
+                      items={[
+                        {
+                          label: "Study Notes",
+                          to: appRoutePaths.studyNotes,
+                        },
+                        {
+                          current: true,
+                          label:
+                            selectedStudyNote === null
+                              ? "New note"
+                              : "Edit note",
+                        },
+                      ]}
+                    />
+                  ) : null}
+                  <h2>{editorTitle}</h2>
                   <p className="study-notes-editor__title-meta">
-                    {visibleSelectedLabels
-                      .map((label) => label.name)
-                      .join(" · ")}
-                    {visibleSelectedLabels.length === 0 ? null : " · "}
-                    {selectedStudyNote === null
-                      ? "Draft"
-                      : `Updated ${formatRelativeUpdatedLabel(selectedStudyNote.updatedAt).toLowerCase()}`}
+                    {isDedicatedEditorRoute
+                      ? editorSubtitle
+                      : `${visibleSelectedLabels.map((label) => label.name).join(" · ")}${visibleSelectedLabels.length === 0 ? "" : " · "}${selectedStudyNote === null ? "Draft" : `Updated ${formatRelativeUpdatedLabel(selectedStudyNote.updatedAt).toLowerCase()}`}`}
                   </p>
                 </div>
                 <div className="study-notes-editor__toolbar">
@@ -4887,7 +4917,7 @@ export function StudyNotesPage({
                   )}
                   <Button
                     onClick={() => void handleCancelEditor()}
-                    size="compact"
+                    size={isDedicatedEditorRoute ? "regular" : "compact"}
                     type="button"
                     variant="secondary"
                   >
@@ -4904,9 +4934,20 @@ export function StudyNotesPage({
                       Delete note
                     </Button>
                   )}
-                  {hasDraftChanges || isSaving ? (
-                    <Button size="compact" type="submit" variant="primary">
-                      {isSaving ? "Saving..." : "Save changes"}
+                  {hasDraftChanges ||
+                  isSaving ||
+                  (isDedicatedEditorRoute && selectedStudyNote === null) ? (
+                    <Button
+                      aria-label={hasDraftChanges ? "Save changes" : undefined}
+                      size={isDedicatedEditorRoute ? "regular" : "compact"}
+                      type="submit"
+                      variant="primary"
+                    >
+                      {isSaving
+                        ? "Saving..."
+                        : selectedStudyNote === null
+                          ? "Save note"
+                          : "Save changes"}
                     </Button>
                   ) : null}
                   {linkedPracticeRepair?.action ===
@@ -4941,16 +4982,18 @@ export function StudyNotesPage({
                       <span>Create split target</span>
                     </Button>
                   ) : null}
-                  <Button
-                    aria-label="Add Study Note from this explanation"
-                    disabled={selectedStudyNote === null}
-                    iconOnly
-                    onClick={() => void handleCreateSiblingStudyNote()}
-                    size="compact"
-                    type="button"
-                  >
-                    <CopyIcon />
-                  </Button>
+                  {isDedicatedEditorRoute ? null : (
+                    <Button
+                      aria-label="Add Study Note from this explanation"
+                      disabled={selectedStudyNote === null}
+                      iconOnly
+                      onClick={() => void handleCreateSiblingStudyNote()}
+                      size="compact"
+                      type="button"
+                    >
+                      <CopyIcon />
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -4977,7 +5020,7 @@ export function StudyNotesPage({
                     </div>
                   </section>
                 )}
-                <StudyNotesTextField
+                <StudyNotesTextarea
                   inputRef={promptInputRef}
                   isPracticeRepairFocus={isPromptPracticeRepairFocus}
                   label="Prompt"
@@ -4989,6 +5032,7 @@ export function StudyNotesPage({
                     }))
                   }
                   placeholder={STUDY_NOTE_GUIDANCE_COPY.promptPlaceholder}
+                  rows={3}
                   value={draft.prompt}
                 />
                 {shouldShowStudyNoteTemplates ? (
@@ -5591,38 +5635,40 @@ export function StudyNotesPage({
                   </details>
                 </section>
 
-                <section
-                  aria-label="Recall insights"
-                  className="study-notes-summary-card study-notes-recall-insights"
-                  data-insight-kind={selectedRecallInsight.kind}
-                >
-                  <div className="study-notes-summary-card__header">
-                    <span className="study-notes-summary-card__icon">
-                      <TrendIcon />
-                    </span>
-                    <div>
-                      <h3>{selectedRecallInsight.statusLabel}</h3>
-                      <p>{selectedRecallInsight.description}</p>
+                {isDedicatedEditorRoute ? null : (
+                  <section
+                    aria-label="Recall insights"
+                    className="study-notes-summary-card study-notes-recall-insights"
+                    data-insight-kind={selectedRecallInsight.kind}
+                  >
+                    <div className="study-notes-summary-card__header">
+                      <span className="study-notes-summary-card__icon">
+                        <TrendIcon />
+                      </span>
+                      <div>
+                        <h3>{selectedRecallInsight.statusLabel}</h3>
+                        <p>{selectedRecallInsight.description}</p>
+                      </div>
                     </div>
-                  </div>
-                  <dl className="study-notes-summary-card__facts">
-                    <StudyNoteFact
-                      icon={<ClockIcon />}
-                      label="Next recall"
-                      value={selectedRecallInsight.nextRecall}
-                    />
-                    <StudyNoteFact
-                      icon={<CalendarCheckIcon />}
-                      label="Last result"
-                      value={selectedRecallInsight.lastResult}
-                    />
-                    <StudyNoteFact
-                      icon={<StudyNoteDocumentIcon />}
-                      label="Suggested action"
-                      value={selectedRecallInsight.suggestedAction}
-                    />
-                  </dl>
-                </section>
+                    <dl className="study-notes-summary-card__facts">
+                      <StudyNoteFact
+                        icon={<ClockIcon />}
+                        label="Next recall"
+                        value={selectedRecallInsight.nextRecall}
+                      />
+                      <StudyNoteFact
+                        icon={<CalendarCheckIcon />}
+                        label="Last result"
+                        value={selectedRecallInsight.lastResult}
+                      />
+                      <StudyNoteFact
+                        icon={<StudyNoteDocumentIcon />}
+                        label="Suggested action"
+                        value={selectedRecallInsight.suggestedAction}
+                      />
+                    </dl>
+                  </section>
+                )}
               </div>
             </fieldset>
 

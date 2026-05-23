@@ -73,6 +73,7 @@ export type AppSessionService = {
 
 export type AppSessionContext = {
   getSnapshot: () => AppSessionSnapshot;
+  hydrate?: (snapshot: AppSessionSnapshot) => void;
   refresh: () => Promise<AppSessionSnapshot>;
   subscribe: (listener: SessionListener) => () => void;
   register: (input: RegisterInput) => Promise<AppSessionSnapshot>;
@@ -300,6 +301,13 @@ export function resolveProtectedSessionSnapshot({
   return routedSessionSnapshot;
 }
 
+function areSessionSnapshotsEqual(
+  currentSnapshot: AppSessionSnapshot,
+  nextSnapshot: AppSessionSnapshot,
+): boolean {
+  return JSON.stringify(currentSnapshot) === JSON.stringify(nextSnapshot);
+}
+
 export function createGuestSessionContext(): AppSessionContext {
   const snapshot = buildAnonymousSnapshot();
 
@@ -489,12 +497,17 @@ export function createAppSessionContext(
   }
 
   function commitSnapshot(nextSnapshot: AppSessionSnapshot) {
+    if (areSessionSnapshotsEqual(snapshot, nextSnapshot)) {
+      return;
+    }
+
     snapshot = nextSnapshot;
     notifyListeners();
   }
 
   return {
     getSnapshot: () => snapshot,
+    hydrate: commitSnapshot,
     refresh: async () => {
       let nextSnapshot: AppSessionSnapshot;
 

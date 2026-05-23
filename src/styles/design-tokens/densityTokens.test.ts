@@ -79,10 +79,6 @@ describe("desktop density tokens", () => {
       new URL("../../design-system/shared-actions.css", import.meta.url),
       "utf8",
     );
-    const listCardCss = readFileSync(
-      new URL("../../design-system/list-card/list-card.css", import.meta.url),
-      "utf8",
-    );
     const pageHeaderCss = readFileSync(
       new URL(
         "../../design-system/page-header/page-header.css",
@@ -101,7 +97,7 @@ describe("desktop density tokens", () => {
     expect(appCss).toContain(
       "--workspace-page-inline: var(--lmd-page-padding-x);",
     );
-    expect(appCss).toContain("--workspace-content-width: 70rem;");
+    expect(appCss).toContain("--workspace-content-width: 84rem;");
     expect(appCss).toContain(
       "--workspace-page-block-start: var(--lmd-page-padding-y);",
     );
@@ -119,9 +115,6 @@ describe("desktop density tokens", () => {
     );
     expect(sharedActionsCss).toContain(
       "--action-control-height: var(--lmd-button-height-md);",
-    );
-    expect(listCardCss).toContain(
-      "min-height: var(--lmd-list-row-height-compact);",
     );
     expect(pageHeaderCss).toContain("font-size: var(--lmd-page-title-size);");
     expect(notesEditorCss).toContain(

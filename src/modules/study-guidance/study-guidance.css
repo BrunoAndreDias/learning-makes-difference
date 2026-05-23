@@ -9,12 +9,6 @@
   width: 100%;
 }
 
-.study-guidance-workspace .page-layout__hero,
-.study-guidance-workspace .page-layout__body {
-  width: min(100%, var(--workspace-content-width));
-  justify-self: center;
-}
-
 .study-guidance-workspace .page-header__title {
   font-size: clamp(2rem, 1.76rem + 0.58vw, 2.45rem);
   line-height: 1.08;
@@ -436,11 +430,6 @@
 
   .study-guidance-summary__list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .study-guidance-workspace .page-layout__hero,
-  .study-guidance-workspace .page-layout__body {
-    width: 100%;
   }
 
   .study-guidance-row {

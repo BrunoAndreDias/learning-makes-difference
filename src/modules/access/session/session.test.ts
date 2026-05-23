@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   type AppAuthError,
   createAppSessionContext,
@@ -209,6 +209,30 @@ describe("app session context", () => {
     expect(
       store.sessions.some((session) => session.id === activeSessionId),
     ).toBe(false);
+  });
+
+  it("hydrates routed session snapshots without notifying when nothing changed", () => {
+    const session = createAppSessionContext();
+    const activeSnapshot = {
+      user: {
+        displayName: "Casey Learner",
+        email: "casey@example.com",
+        id: "user-casey",
+        userLanguage: "en",
+      },
+    } as const;
+    const listener = vi.fn();
+
+    session.subscribe(listener);
+
+    session.hydrate?.(activeSnapshot);
+
+    expect(session.getSnapshot()).toEqual(activeSnapshot);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    session.hydrate?.(activeSnapshot);
+
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to an anonymous snapshot when persisted session restoration fails", async () => {

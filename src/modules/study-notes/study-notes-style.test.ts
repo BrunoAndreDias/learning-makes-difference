@@ -29,7 +29,7 @@ function getMediaRule(css: string, mediaQuery: string, selector: string) {
 }
 
 describe("Study Notes styles", () => {
-  it("keeps the Study Notes management page on one centered content wrapper", () => {
+  it("keeps the Study Notes management page on the shared PageLayout content lane", () => {
     const css = readFileSync(
       new URL("./study-notes.css", import.meta.url),
       "utf8",
@@ -40,7 +40,6 @@ describe("Study Notes styles", () => {
       css,
       '.app-frame[data-workspace="notes"] .study-notes-management-page',
     );
-    const wrapperStyle = getCssRule(css, ".study-notes-management-wrapper");
     const managementStyle = getCssRule(css, ".study-notes-management");
     const filtersStyle = getCssRule(css, ".study-notes-management__filters");
     const listWrapStyle = getCssRule(css, ".study-notes-management__list-wrap");
@@ -75,15 +74,12 @@ describe("Study Notes styles", () => {
     );
 
     expect(pageStyle).toContain("max-width: none;");
-    expect(pageStyle).toContain("grid-template-rows: minmax(0, 1fr);");
+    expect(pageStyle).toContain("grid-template-rows: auto minmax(0, 1fr);");
     expect(pageStyle).toContain("height: 100%;");
     expect(pageScrollStyle).toContain("overflow-y: auto;");
     expect(pageScrollStyle).toContain("overscroll-behavior: contain;");
-    expect(wrapperStyle).toContain("width: 100%;");
-    expect(wrapperStyle).toContain(
-      "max-width: var(--study-notes-management-content-width);",
-    );
-    expect(wrapperStyle).toContain("margin-inline: auto;");
+    expect(css).not.toContain(".study-notes-management-wrapper");
+    expect(css).not.toContain("--study-notes-management-content-width");
     expect(managementStyle).toContain(
       "grid-template-rows: auto auto auto auto;",
     );
@@ -139,12 +135,24 @@ describe("Study Notes styles", () => {
     expect(css).not.toContain(".study-notes-guidance-panel");
     expect(mediumLayoutStyle).toContain("minmax(16.5rem, 18.5rem)");
     expect(mediumLayoutStyle).not.toContain("minmax(13.5rem, 16rem)");
-    expect(css).toMatch(
-      /\.study-notes-workspace \.page-layout__hero,\s*\.study-notes-workspace \.page-layout__body\s*\{[^}]*width: min\(100%, 92rem\);/m,
+    expect(css).not.toContain("--workspace-content-width");
+    expect(css).not.toContain("@media (min-width: 106rem)");
+  });
+
+  it("keeps dedicated Study Note editor routes on the shared page content width", () => {
+    const css = readFileSync(
+      new URL("./study-notes.css", import.meta.url),
+      "utf8",
     );
-    expect(css).toMatch(
-      /@media \(min-width: 106rem\)\s*\{[\s\S]*?\.study-notes-workspace \.page-layout__hero,\s*\.study-notes-workspace \.page-layout__body\s*\{[^}]*width: min\(100%, 100rem\);/m,
+
+    const dedicatedEditorBodyStyle = getCssRule(
+      css,
+      '.study-notes-workspace[data-route-kind="create"] .page-layout__body,\n.study-notes-workspace[data-route-kind="edit"] .page-layout__body',
     );
+
+    expect(dedicatedEditorBodyStyle).toContain("padding-top: var(--space-4);");
+    expect(dedicatedEditorBodyStyle).not.toContain("width:");
+    expect(dedicatedEditorBodyStyle).not.toContain("max-width:");
   });
 
   it("bounds the Study Notes catalog so expanded rows scroll inside the list", () => {

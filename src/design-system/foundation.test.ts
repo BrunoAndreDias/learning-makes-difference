@@ -434,7 +434,7 @@ describe("foundationTokens", () => {
     expect(notesResponsiveCss).toContain("grid-row: auto;");
   });
 
-  it("keeps Recall Results fixed-height with internal result scrolling", () => {
+  it("keeps Recall Results on the calm centered no-card layout", () => {
     const workspaceShellCss = readFileSync(
       new URL(
         "../modules/workspace-shell/workspace-shell.css",
@@ -450,11 +450,6 @@ describe("foundationTokens", () => {
       new URL("../modules/recall/recall-responsive.css", import.meta.url),
       "utf8",
     );
-    const listCardCss = readFileSync(
-      new URL("./list-card/list-card.css", import.meta.url),
-      "utf8",
-    );
-
     expect(workspaceShellCss).toContain(
       '.app-frame[data-workspace="recall-results"] {',
     );
@@ -468,11 +463,22 @@ describe("foundationTokens", () => {
     expect(recallWorkspaceCss).toContain(
       "grid-template-rows: auto minmax(0, 1fr);",
     );
+    expect(recallWorkspaceCss).toContain("height: calc(100dvh - 2rem);");
+    expect(recallWorkspaceCss).toContain(
+      "> .recall-results-surface\n  > .page-layout__hero,",
+    );
+    expect(recallWorkspaceCss).toContain(
+      "> .recall-results-surface\n  > .page-layout__body",
+    );
+    expect(recallWorkspaceCss).toContain(
+      "width: min(100%, var(--workspace-content-width));",
+    );
+    expect(recallWorkspaceCss).toContain("border-bottom: 1px solid");
     expect(recallWorkspaceCss).toContain(
       '.app-frame[data-workspace="recall-results"] .recall-results-master',
     );
     expect(recallWorkspaceCss).toContain(
-      "grid-template-rows: auto auto auto minmax(0, 1fr);",
+      "grid-template-rows: auto auto minmax(0, 1fr);",
     );
     expect(recallWorkspaceCss).toContain(
       '.app-frame[data-workspace="recall-results"] .recall-results-list',
@@ -488,29 +494,32 @@ describe("foundationTokens", () => {
       getCssRule(recallWorkspaceCss, ".recall-results-list-frame"),
     ).not.toContain("background:");
     expect(recallWorkspaceCss).toContain("align-content: start;");
-    expect(recallWorkspaceCss).toContain("gap: 0.5rem;");
-    expect(recallWorkspaceCss).not.toContain(".recall-result-row {");
-    expect(listCardCss).toContain(".list-card {");
-    expect(getCssRule(listCardCss, ".list-card")).toContain(
-      "grid-template-columns: minmax(0, 1fr) auto;",
+    expect(recallWorkspaceCss).toContain(
+      "grid-template-columns: minmax(27rem, 0.68fr) minmax(0, 1fr);",
     );
-    expect(getCssRule(listCardCss, ".list-card__description")).toContain(
-      "overflow-wrap: anywhere;",
-    );
-    expect(getCssRule(listCardCss, ".list-card__chip")).toContain(
-      "align-self: start;",
+    expect(recallWorkspaceCss).toContain(".recall-result-row {");
+    expect(getCssRule(recallWorkspaceCss, ".recall-result-row")).toContain(
+      "border-bottom: 1px solid var(--color-content-border-soft);",
     );
     expect(
-      getCssRule(listCardCss, '.list-card[data-selected="true"]'),
-    ).toContain("box-shadow: inset 0 0 0 1px");
+      getCssRule(
+        recallWorkspaceCss,
+        '.recall-result-row[data-selected="true"]',
+      ),
+    ).toContain("box-shadow: inset 3px 0 0 var(--color-primary);");
     expect(recallWorkspaceCss).toContain(".recall-results-count");
     expect(recallWorkspaceCss).not.toContain(
       ".recall-results-list li + li .recall-result-row",
     );
     expect(recallWorkspaceCss).toContain("max-height: none;");
     expect(recallWorkspaceCss).toContain("overflow-y: auto;");
-    expect(recallResponsiveCss).toContain(
-      "grid-template-rows: minmax(0, 0.95fr) minmax(0, 1.05fr);",
+    expect(recallWorkspaceCss).toContain("scrollbar-gutter: stable;");
+    expect(recallWorkspaceCss).toContain(
+      ".recall-results-detail-scroll-content",
     );
+    expect(recallResponsiveCss).toContain(
+      "grid-template-rows: auto auto;",
+    );
+    expect(recallResponsiveCss).toContain("overflow: visible;");
   });
 });
