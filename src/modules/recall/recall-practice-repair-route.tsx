@@ -6,12 +6,14 @@ import {
 } from "@tanstack/react-router";
 import {
   type ChangeEvent,
+  type FormEvent,
   type KeyboardEvent,
   type ReactNode,
   useEffect,
   useState,
   useSyncExternalStore,
 } from "react";
+import { z } from "zod";
 
 import { Button, ButtonLink } from "../../design-system/button";
 import { PageLayout } from "../../design-system/page-layout";
@@ -48,11 +50,26 @@ import {
   type PracticeRepairEntry,
   type PracticeRepairEntryLifecycleKind,
   type PracticeRepairIntent,
+  type PracticeRepairMemoryAidKind,
 } from "./recall-practice-repair";
+
+const practiceRepairModes = [
+  "edit-answer",
+  "split-note",
+  "create-sibling",
+  "memory-aid",
+] as const;
+
+type PracticeRepairMode = (typeof practiceRepairModes)[number];
+
+const practiceRepairSearchSchema = z.object({
+  mode: z.enum(practiceRepairModes).catch("edit-answer").optional(),
+});
 
 export const Route = createFileRoute(
   "/_protected/practice-repair/$practiceRepairEntryId",
 )({
+  validateSearch: practiceRepairSearchSchema,
   component: RecallPracticeRepairRoute,
 });
 
@@ -65,6 +82,7 @@ export type PracticeRepairWorkspace = {
 type PracticeRepairWorkspaceActionCard = {
   description: string;
   intent: PracticeRepairIntent;
+  mode: PracticeRepairMode;
   title: string;
 };
 
@@ -73,27 +91,41 @@ const workspaceActionCards = [
     description:
       "Refine or expand the answer so the recall target is clearer and easier to judge.",
     intent: "tighten-expected-answer",
+    mode: "edit-answer",
     title: "Edit expected answer",
   },
   {
     description:
       "Break a broad concept into smaller Study Notes you can train one at a time.",
     intent: "split-study-note",
+    mode: "split-note",
     title: "Split this Study Note",
   },
   {
     description:
       "Add a related concept or contrast from the same source explanation.",
     intent: "create-sibling-study-note",
+    mode: "create-sibling",
     title: "Create a sibling Study Note",
   },
   {
     description:
       "Add a Metaphor or Acronym only when it would make the answer easier to retrieve.",
     intent: "add-memory-aid",
+    mode: "memory-aid",
     title: "Add a memory aid",
   },
 ] as const satisfies readonly PracticeRepairWorkspaceActionCard[];
+
+function getDefaultPracticeRepairActionCard(): PracticeRepairWorkspaceActionCard {
+  const [defaultActionCard] = workspaceActionCards;
+
+  if (defaultActionCard === undefined) {
+    throw new Error("Practice Repair requires at least one repair option.");
+  }
+
+  return defaultActionCard;
+}
 
 type PracticeRepairLifecycleAction = "complete" | "dismiss";
 
@@ -107,6 +139,23 @@ type PracticeRepairCurrentStudyNoteDraft = Pick<
   UpdateStudyNoteInput,
   "expectedAnswer" | "prompt"
 >;
+
+type PracticeRepairSplitStudyNoteDraft = {
+  originalExpectedAnswer: string;
+  originalPrompt: string;
+  splitExpectedAnswer: string;
+  splitPrompt: string;
+};
+
+type PracticeRepairSiblingStudyNoteDraft = {
+  expectedAnswer: string;
+  prompt: string;
+};
+
+type PracticeRepairMemoryAidDraft = {
+  description: string;
+  kind: PracticeRepairMemoryAidKind;
+};
 
 function findPracticeRepairWorkspace(input: {
   practiceRepairEntryId: string;
@@ -161,6 +210,54 @@ function createCurrentStudyNoteDraft(
   };
 }
 
+function createSplitStudyNoteDraft(
+  studyNote: AppStudyNote | null,
+): PracticeRepairSplitStudyNoteDraft {
+  return {
+    originalExpectedAnswer: studyNote?.expectedAnswer ?? "",
+    originalPrompt: studyNote?.prompt ?? "",
+    splitExpectedAnswer: studyNote?.source.body ?? "",
+    splitPrompt: "",
+  };
+}
+
+function createSiblingStudyNoteDraft(
+  studyNote: AppStudyNote | null,
+): PracticeRepairSiblingStudyNoteDraft {
+  return {
+    expectedAnswer: studyNote?.source.body ?? "",
+    prompt: "",
+  };
+}
+
+function getMemoryAidDescription(input: {
+  kind: PracticeRepairMemoryAidKind;
+  studyNote: AppStudyNote | null;
+}) {
+  if (input.studyNote === null) {
+    return "";
+  }
+
+  const supportDescriptions =
+    input.kind === "Metaphor"
+      ? input.studyNote.metaphors
+      : input.studyNote.acronyms;
+
+  return supportDescriptions[0]?.description ?? "";
+}
+
+function createMemoryAidDraft(
+  studyNote: AppStudyNote | null,
+): PracticeRepairMemoryAidDraft {
+  return {
+    description: getMemoryAidDescription({
+      kind: "Metaphor",
+      studyNote,
+    }),
+    kind: "Metaphor",
+  };
+}
+
 function hasCurrentStudyNoteDraftChanges(input: {
   draft: PracticeRepairCurrentStudyNoteDraft;
   studyNote: AppStudyNote | null;
@@ -175,30 +272,87 @@ function hasCurrentStudyNoteDraftChanges(input: {
   );
 }
 
-function createQuickRepairStudyNoteUpdate(input: {
-  draft: PracticeRepairCurrentStudyNoteDraft;
+function hasSplitStudyNoteDraftChanges(input: {
+  draft: PracticeRepairSplitStudyNoteDraft;
+  studyNote: AppStudyNote | null;
+}) {
+  if (input.studyNote === null) {
+    return false;
+  }
+
+  return (
+    input.draft.originalPrompt.trim() !== input.studyNote.prompt.trim() ||
+    input.draft.originalExpectedAnswer.trim() !==
+      input.studyNote.expectedAnswer.trim() ||
+    input.draft.splitPrompt.trim().length > 0 ||
+    input.draft.splitExpectedAnswer.trim() !==
+      input.studyNote.source.body.trim()
+  );
+}
+
+function hasSiblingStudyNoteDraftChanges(
+  draft: PracticeRepairSiblingStudyNoteDraft,
+) {
+  return (
+    draft.prompt.trim().length > 0 || draft.expectedAnswer.trim().length > 0
+  );
+}
+
+function hasMemoryAidDraftChanges(input: {
+  draft: PracticeRepairMemoryAidDraft;
+  studyNote: AppStudyNote | null;
+}) {
+  return (
+    input.draft.description.trim() !==
+    getMemoryAidDescription({
+      kind: input.draft.kind,
+      studyNote: input.studyNote,
+    }).trim()
+  );
+}
+
+function createPracticeRepairStudyNoteUpdate(input: {
+  acronyms?: AppStudyNote["acronyms"];
+  expectedAnswer: string;
+  metaphors?: AppStudyNote["metaphors"];
+  prompt: string;
   studyNote: AppStudyNote;
 }): UpdateStudyNoteInput {
   return {
     acceptedVariants: input.studyNote.acceptedVariants.map((variant) => ({
       ...variant,
     })),
-    acronyms: input.studyNote.acronyms.map((acronym) => ({ ...acronym })),
-    expectedAnswer: input.draft.expectedAnswer,
+    acronyms:
+      input.acronyms ??
+      input.studyNote.acronyms.map((acronym) => ({ ...acronym })),
+    expectedAnswer: input.expectedAnswer,
     keyIdeas: input.studyNote.keyIdeas.map((keyIdea) => ({
       ...keyIdea,
       acceptedPhrases: [...keyIdea.acceptedPhrases],
       prohibitedPhrases: [...keyIdea.prohibitedPhrases],
     })),
     labelIds: [...input.studyNote.labelIds],
-    metaphors: input.studyNote.metaphors.map((metaphor) => ({ ...metaphor })),
-    prompt: input.draft.prompt,
+    metaphors:
+      input.metaphors ??
+      input.studyNote.metaphors.map((metaphor) => ({ ...metaphor })),
+    prompt: input.prompt,
     prohibitedPhrases: input.studyNote.prohibitedPhrases.map((phrase) => ({
       ...phrase,
     })),
     sourceBody: input.studyNote.source.body,
     sourceTitle: input.studyNote.source.title,
   };
+}
+
+function createQuickRepairStudyNoteUpdate(input: {
+  draft: PracticeRepairCurrentStudyNoteDraft;
+  studyNote: AppStudyNote;
+}): UpdateStudyNoteInput {
+  return createPracticeRepairStudyNoteUpdate({
+    expectedAnswer: input.draft.expectedAnswer,
+    prompt: input.draft.prompt,
+    studyNote: input.studyNote,
+  });
 }
 
 function findSupersedingPracticeRepairEntryId(input: {
@@ -400,6 +554,104 @@ async function updatePracticeRepairStudyNote(input: {
   );
 }
 
+async function createPracticeRepairSiblingStudyNote(input: {
+  draft: PracticeRepairSiblingStudyNoteDraft;
+  persistentStudyNotesContext: AppPersistentStudyNotesContext | undefined;
+  sourceStudyNote: AppStudyNote;
+  studyNotesContext: AppStudyNotesContext;
+  userId: string | null;
+}) {
+  const studyNotesMutation =
+    input.persistentStudyNotesContext ?? input.studyNotesContext;
+  const createdStudyNote = await studyNotesMutation.createStudyNoteFromSource(
+    input.userId,
+    {
+      sourceNoteId: input.sourceStudyNote.sourceNoteId,
+    },
+  );
+  const updateInput = createPracticeRepairStudyNoteUpdate({
+    expectedAnswer: input.draft.expectedAnswer,
+    prompt: input.draft.prompt,
+    studyNote: createdStudyNote,
+  });
+
+  return studyNotesMutation.updateStudyNote(
+    input.userId,
+    createdStudyNote.id,
+    updateInput,
+  );
+}
+
+async function updatePracticeRepairMemoryAid(input: {
+  draft: PracticeRepairMemoryAidDraft;
+  persistentStudyNotesContext: AppPersistentStudyNotesContext | undefined;
+  studyNote: AppStudyNote;
+  studyNotesContext: AppStudyNotesContext;
+  userId: string | null;
+}) {
+  const description = input.draft.description.trim();
+  const updateInput = createPracticeRepairStudyNoteUpdate({
+    acronyms:
+      input.draft.kind === "Acronym"
+        ? [{ description }]
+        : input.studyNote.acronyms.map((acronym) => ({ ...acronym })),
+    expectedAnswer: input.studyNote.expectedAnswer,
+    metaphors:
+      input.draft.kind === "Metaphor"
+        ? [{ description }]
+        : input.studyNote.metaphors.map((metaphor) => ({ ...metaphor })),
+    prompt: input.studyNote.prompt,
+    studyNote: input.studyNote,
+  });
+
+  if (input.persistentStudyNotesContext !== undefined) {
+    return input.persistentStudyNotesContext.updateStudyNote(
+      input.userId,
+      input.studyNote.id,
+      updateInput,
+    );
+  }
+
+  return input.studyNotesContext.updateStudyNote(
+    input.userId,
+    input.studyNote.id,
+    updateInput,
+  );
+}
+
+async function savePracticeRepairSplitStudyNote(input: {
+  draft: PracticeRepairSplitStudyNoteDraft;
+  persistentStudyNotesContext: AppPersistentStudyNotesContext | undefined;
+  studyNote: AppStudyNote;
+  studyNotesContext: AppStudyNotesContext;
+  userId: string | null;
+}) {
+  const studyNotesMutation =
+    input.persistentStudyNotesContext ?? input.studyNotesContext;
+  const originalUpdate = createPracticeRepairStudyNoteUpdate({
+    expectedAnswer: input.draft.originalExpectedAnswer,
+    prompt: input.draft.originalPrompt,
+    studyNote: input.studyNote,
+  });
+
+  await studyNotesMutation.updateStudyNote(
+    input.userId,
+    input.studyNote.id,
+    originalUpdate,
+  );
+
+  return createPracticeRepairSiblingStudyNote({
+    draft: {
+      expectedAnswer: input.draft.splitExpectedAnswer,
+      prompt: input.draft.splitPrompt,
+    },
+    persistentStudyNotesContext: input.persistentStudyNotesContext,
+    sourceStudyNote: input.studyNote,
+    studyNotesContext: input.studyNotesContext,
+    userId: input.userId,
+  });
+}
+
 function useSessionResultsSubscription(recallResultsStore: RecallResultsStore) {
   useSyncExternalStore(
     recallResultsStore.subscribe,
@@ -449,7 +701,7 @@ function PracticeRepairWorkspaceActions({
             disabled={isMutationPending}
             onClick={onDismiss}
             type="button"
-            variant="danger"
+            variant="secondary"
           >
             Dismiss repair
           </Button>
@@ -547,8 +799,282 @@ function PracticeRepairWorkspaceDetail({
   );
 }
 
+function PracticeRepairInlineEditor({
+  activeActionCard,
+  canEditCurrentStudyNote,
+  hasStudyNoteDraftChanges,
+  isStudyNoteSavePending,
+  memoryAidDraft,
+  mode,
+  onCreateSiblingStudyNote,
+  onMemoryAidDescriptionChange,
+  onMemoryAidKindChange,
+  onSaveSplitStudyNote,
+  onSaveStudyNoteChanges,
+  onSaveMemoryAid,
+  onSiblingDraftChange,
+  onSplitDraftChange,
+  onStudyNoteDraftChange,
+  siblingStudyNoteDraft,
+  splitStudyNoteDraft,
+  studyNote,
+  studyNoteDraft,
+}: Readonly<{
+  activeActionCard: PracticeRepairWorkspaceActionCard;
+  canEditCurrentStudyNote: boolean;
+  hasStudyNoteDraftChanges: boolean;
+  isStudyNoteSavePending: boolean;
+  memoryAidDraft: PracticeRepairMemoryAidDraft;
+  mode: PracticeRepairMode;
+  onCreateSiblingStudyNote: (event: FormEvent<HTMLFormElement>) => void;
+  onMemoryAidDescriptionChange: (
+    event: ChangeEvent<HTMLTextAreaElement>,
+  ) => void;
+  onMemoryAidKindChange: (event: ChangeEvent<HTMLSelectElement>) => void;
+  onSaveMemoryAid: (event: FormEvent<HTMLFormElement>) => void;
+  onSaveSplitStudyNote: (event: FormEvent<HTMLFormElement>) => void;
+  onSaveStudyNoteChanges: () => void;
+  onSiblingDraftChange: (
+    field: keyof PracticeRepairSiblingStudyNoteDraft,
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => void;
+  onSplitDraftChange: (
+    field: keyof PracticeRepairSplitStudyNoteDraft,
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => void;
+  onStudyNoteDraftChange: (
+    field: keyof PracticeRepairCurrentStudyNoteDraft,
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => void;
+  siblingStudyNoteDraft: PracticeRepairSiblingStudyNoteDraft;
+  splitStudyNoteDraft: PracticeRepairSplitStudyNoteDraft;
+  studyNote: AppStudyNote | null;
+  studyNoteDraft: PracticeRepairCurrentStudyNoteDraft;
+}>) {
+  const isUnavailable = studyNote === null || !canEditCurrentStudyNote;
+  const splitSubmitDisabled =
+    isUnavailable ||
+    isStudyNoteSavePending ||
+    splitStudyNoteDraft.splitPrompt.trim().length === 0 ||
+    splitStudyNoteDraft.splitExpectedAnswer.trim().length === 0;
+  const siblingSubmitDisabled =
+    isUnavailable ||
+    isStudyNoteSavePending ||
+    siblingStudyNoteDraft.prompt.trim().length === 0 ||
+    siblingStudyNoteDraft.expectedAnswer.trim().length === 0;
+  const memoryAidSubmitDisabled =
+    isUnavailable ||
+    isStudyNoteSavePending ||
+    memoryAidDraft.description.trim().length === 0;
+
+  return (
+    <section
+      aria-label="Current repair"
+      className="recall-practice-repair-workspace__current-editor"
+    >
+      <div className="recall-practice-repair-workspace__current-editor-copy">
+        <p>Current repair</p>
+        <h3>{activeActionCard.title}</h3>
+        <span>{activeActionCard.description}</span>
+      </div>
+
+      {studyNote === null ? (
+        <p className="recall-practice-repair-workspace__current-editor-unavailable">
+          This Study Note is not available for inline repair.
+        </p>
+      ) : null}
+
+      {mode === "edit-answer" ? (
+        <div className="recall-practice-repair-workspace__current-fields">
+          <label className="recall-practice-repair-workspace__current-field">
+            <span>Current prompt</span>
+            <input
+              disabled={isUnavailable}
+              maxLength={500}
+              onChange={(event) => onStudyNoteDraftChange("prompt", event)}
+              value={studyNoteDraft.prompt}
+            />
+          </label>
+
+          <label className="recall-practice-repair-workspace__current-field">
+            <span>Expected answer</span>
+            <textarea
+              disabled={isUnavailable}
+              maxLength={1000}
+              onChange={(event) =>
+                onStudyNoteDraftChange("expectedAnswer", event)
+              }
+              rows={5}
+              value={studyNoteDraft.expectedAnswer}
+            />
+          </label>
+
+          {hasStudyNoteDraftChanges ? (
+            <div className="recall-practice-repair-workspace__editor-actions">
+              <Button
+                disabled={isUnavailable || isStudyNoteSavePending}
+                onClick={onSaveStudyNoteChanges}
+                type="button"
+                variant="secondary"
+              >
+                {isStudyNoteSavePending ? "Saving..." : "Save changes"}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {mode === "split-note" ? (
+        <form
+          className="recall-practice-repair-workspace__current-fields"
+          onSubmit={onSaveSplitStudyNote}
+        >
+          <label className="recall-practice-repair-workspace__current-field">
+            <span>Original prompt</span>
+            <input
+              disabled={isUnavailable}
+              maxLength={500}
+              onChange={(event) => onSplitDraftChange("originalPrompt", event)}
+              value={splitStudyNoteDraft.originalPrompt}
+            />
+          </label>
+
+          <label className="recall-practice-repair-workspace__current-field">
+            <span>Original expected answer</span>
+            <textarea
+              disabled={isUnavailable}
+              maxLength={1000}
+              onChange={(event) =>
+                onSplitDraftChange("originalExpectedAnswer", event)
+              }
+              rows={4}
+              value={splitStudyNoteDraft.originalExpectedAnswer}
+            />
+          </label>
+
+          <label className="recall-practice-repair-workspace__current-field">
+            <span>New Study Note prompt</span>
+            <input
+              disabled={isUnavailable}
+              maxLength={500}
+              onChange={(event) => onSplitDraftChange("splitPrompt", event)}
+              value={splitStudyNoteDraft.splitPrompt}
+            />
+          </label>
+
+          <label className="recall-practice-repair-workspace__current-field">
+            <span>New expected answer</span>
+            <textarea
+              disabled={isUnavailable}
+              maxLength={1000}
+              onChange={(event) =>
+                onSplitDraftChange("splitExpectedAnswer", event)
+              }
+              rows={4}
+              value={splitStudyNoteDraft.splitExpectedAnswer}
+            />
+          </label>
+
+          <div className="recall-practice-repair-workspace__editor-actions">
+            <Button
+              disabled={splitSubmitDisabled}
+              type="submit"
+              variant="secondary"
+            >
+              {isStudyNoteSavePending ? "Saving..." : "Save split"}
+            </Button>
+          </div>
+        </form>
+      ) : null}
+
+      {mode === "create-sibling" ? (
+        <form
+          className="recall-practice-repair-workspace__current-fields"
+          onSubmit={onCreateSiblingStudyNote}
+        >
+          <label className="recall-practice-repair-workspace__current-field">
+            <span>Sibling prompt</span>
+            <input
+              disabled={isUnavailable}
+              maxLength={500}
+              onChange={(event) => onSiblingDraftChange("prompt", event)}
+              value={siblingStudyNoteDraft.prompt}
+            />
+          </label>
+
+          <label className="recall-practice-repair-workspace__current-field">
+            <span>Sibling expected answer</span>
+            <textarea
+              disabled={isUnavailable}
+              maxLength={1000}
+              onChange={(event) =>
+                onSiblingDraftChange("expectedAnswer", event)
+              }
+              rows={5}
+              value={siblingStudyNoteDraft.expectedAnswer}
+            />
+          </label>
+
+          <div className="recall-practice-repair-workspace__editor-actions">
+            <Button
+              disabled={siblingSubmitDisabled}
+              type="submit"
+              variant="secondary"
+            >
+              {isStudyNoteSavePending
+                ? "Creating..."
+                : "Create sibling Study Note"}
+            </Button>
+          </div>
+        </form>
+      ) : null}
+
+      {mode === "memory-aid" ? (
+        <form
+          className="recall-practice-repair-workspace__current-fields"
+          onSubmit={onSaveMemoryAid}
+        >
+          <label className="recall-practice-repair-workspace__current-field">
+            <span>Memory aid type</span>
+            <select
+              disabled={isUnavailable}
+              onChange={onMemoryAidKindChange}
+              value={memoryAidDraft.kind}
+            >
+              <option value="Metaphor">Metaphor</option>
+              <option value="Acronym">Acronym</option>
+            </select>
+          </label>
+
+          <label className="recall-practice-repair-workspace__current-field">
+            <span>Memory aid</span>
+            <textarea
+              disabled={isUnavailable}
+              maxLength={500}
+              onChange={onMemoryAidDescriptionChange}
+              rows={4}
+              value={memoryAidDraft.description}
+            />
+          </label>
+
+          <div className="recall-practice-repair-workspace__editor-actions">
+            <Button
+              disabled={memoryAidSubmitDisabled}
+              type="submit"
+              variant="secondary"
+            >
+              {isStudyNoteSavePending ? "Saving..." : "Save memory aid"}
+            </Button>
+          </div>
+        </form>
+      ) : null}
+    </section>
+  );
+}
+
 function RecallPracticeRepairRoute() {
   const { practiceRepairEntryId } = Route.useParams();
+  const search = Route.useSearch();
   const recallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.recall,
@@ -601,6 +1127,7 @@ function RecallPracticeRepairRoute() {
       }
       studyNotesContext={studyNotesContext}
       userId={userId}
+      selectedMode={search.mode ?? "edit-answer"}
       workspace={workspace}
     />
   );
@@ -611,6 +1138,7 @@ export function RecallPracticeRepairWorkspacePage({
   persistentStudyNotesContext,
   recallContext,
   sessionResults,
+  selectedMode,
   studyNote,
   studyNotesContext,
   userId,
@@ -620,6 +1148,7 @@ export function RecallPracticeRepairWorkspacePage({
   persistentStudyNotesContext: AppPersistentStudyNotesContext | undefined;
   recallContext: AppRecallContext;
   sessionResults: readonly FlashCardSessionResult[];
+  selectedMode: PracticeRepairMode;
   studyNote: AppStudyNote | null;
   studyNotesContext: AppStudyNotesContext;
   userId: string | null;
@@ -633,6 +1162,18 @@ export function RecallPracticeRepairWorkspacePage({
   const [isStudyNoteSavePending, setIsStudyNoteSavePending] = useState(false);
   const [pendingAction, setPendingAction] =
     useState<PracticeRepairLifecycleAction | null>(null);
+  const [splitStudyNoteDraft, setSplitStudyNoteDraft] =
+    useState<PracticeRepairSplitStudyNoteDraft>(() =>
+      createSplitStudyNoteDraft(studyNote),
+    );
+  const [siblingStudyNoteDraft, setSiblingStudyNoteDraft] =
+    useState<PracticeRepairSiblingStudyNoteDraft>(() =>
+      createSiblingStudyNoteDraft(studyNote),
+    );
+  const [memoryAidDraft, setMemoryAidDraft] =
+    useState<PracticeRepairMemoryAidDraft>(() =>
+      createMemoryAidDraft(studyNote),
+    );
   const [studyNoteDraft, setStudyNoteDraft] =
     useState<PracticeRepairCurrentStudyNoteDraft>(() =>
       createCurrentStudyNoteDraft(studyNote),
@@ -674,9 +1215,23 @@ export function RecallPracticeRepairWorkspacePage({
     draft: studyNoteDraft,
     studyNote,
   });
+  const hasSplitDraftChanges = hasSplitStudyNoteDraftChanges({
+    draft: splitStudyNoteDraft,
+    studyNote,
+  });
+  const hasSiblingDraftChanges = hasSiblingStudyNoteDraftChanges(
+    siblingStudyNoteDraft,
+  );
+  const hasMemoryAidChanges = hasMemoryAidDraftChanges({
+    draft: memoryAidDraft,
+    studyNote,
+  });
   const canEditCurrentStudyNote =
     lifecycleKind === "active" && canOpenStudyNotes && studyNote !== null;
   const showSuggestedRepairs = lifecycleKind === "active";
+  const activeActionCard =
+    workspaceActionCards.find((card) => card.mode === selectedMode) ??
+    getDefaultPracticeRepairActionCard();
 
   useEffect(() => {
     if (hasStudyNoteDraftChanges) {
@@ -685,6 +1240,30 @@ export function RecallPracticeRepairWorkspacePage({
 
     setStudyNoteDraft(createCurrentStudyNoteDraft(studyNote));
   }, [hasStudyNoteDraftChanges, studyNote]);
+
+  useEffect(() => {
+    if (hasSplitDraftChanges) {
+      return;
+    }
+
+    setSplitStudyNoteDraft(createSplitStudyNoteDraft(studyNote));
+  }, [hasSplitDraftChanges, studyNote]);
+
+  useEffect(() => {
+    if (hasSiblingDraftChanges) {
+      return;
+    }
+
+    setSiblingStudyNoteDraft(createSiblingStudyNoteDraft(studyNote));
+  }, [hasSiblingDraftChanges, studyNote]);
+
+  useEffect(() => {
+    if (hasMemoryAidChanges) {
+      return;
+    }
+
+    setMemoryAidDraft(createMemoryAidDraft(studyNote));
+  }, [hasMemoryAidChanges, studyNote]);
 
   function updateStudyNoteDraft(
     field: keyof PracticeRepairCurrentStudyNoteDraft,
@@ -696,6 +1275,61 @@ export function RecallPracticeRepairWorkspacePage({
       ...current,
       [field]: value,
     }));
+  }
+
+  function updateSplitStudyNoteDraft(
+    field: keyof PracticeRepairSplitStudyNoteDraft,
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) {
+    const value = event.target.value;
+
+    setSplitStudyNoteDraft((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  function updateSiblingStudyNoteDraft(
+    field: keyof PracticeRepairSiblingStudyNoteDraft,
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) {
+    const value = event.target.value;
+
+    setSiblingStudyNoteDraft((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  function updateMemoryAidKind(event: ChangeEvent<HTMLSelectElement>) {
+    const kind = event.target.value as PracticeRepairMemoryAidKind;
+
+    setMemoryAidDraft({
+      description: getMemoryAidDescription({
+        kind,
+        studyNote,
+      }),
+      kind,
+    });
+  }
+
+  function updateMemoryAidDescription(event: ChangeEvent<HTMLTextAreaElement>) {
+    setMemoryAidDraft((current) => ({
+      ...current,
+      description: event.target.value,
+    }));
+  }
+
+  function selectRepairMode(mode: PracticeRepairMode) {
+    void navigate({
+      params: {
+        practiceRepairEntryId,
+      },
+      search: {
+        mode,
+      },
+      to: "/practice-repair/$practiceRepairEntryId",
+    });
   }
 
   async function handleSaveStudyNoteChanges() {
@@ -731,9 +1365,129 @@ export function RecallPracticeRepairWorkspacePage({
     }
   }
 
+  async function handleSaveSplitStudyNote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (
+      studyNote === null ||
+      isStudyNoteSavePending ||
+      splitStudyNoteDraft.splitPrompt.trim().length === 0 ||
+      splitStudyNoteDraft.splitExpectedAnswer.trim().length === 0
+    ) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setFeedbackMessage(null);
+    setIsStudyNoteSavePending(true);
+
+    try {
+      await savePracticeRepairSplitStudyNote({
+        draft: splitStudyNoteDraft,
+        persistentStudyNotesContext,
+        studyNote,
+        studyNotesContext,
+        userId,
+      });
+      setFeedbackMessage("Split Study Note saved");
+      setSplitStudyNoteDraft(createSplitStudyNoteDraft(studyNote));
+    } catch (error) {
+      setErrorMessage(
+        error instanceof AppStudyNotesError
+          ? error.message
+          : "Split Study Note could not be saved.",
+      );
+    } finally {
+      setIsStudyNoteSavePending(false);
+    }
+  }
+
+  async function handleCreateSiblingStudyNote(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    if (
+      studyNote === null ||
+      isStudyNoteSavePending ||
+      siblingStudyNoteDraft.prompt.trim().length === 0 ||
+      siblingStudyNoteDraft.expectedAnswer.trim().length === 0
+    ) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setFeedbackMessage(null);
+    setIsStudyNoteSavePending(true);
+
+    try {
+      await createPracticeRepairSiblingStudyNote({
+        draft: siblingStudyNoteDraft,
+        persistentStudyNotesContext,
+        sourceStudyNote: studyNote,
+        studyNotesContext,
+        userId,
+      });
+      setFeedbackMessage("Sibling Study Note created");
+      setSiblingStudyNoteDraft(createSiblingStudyNoteDraft(studyNote));
+    } catch (error) {
+      setErrorMessage(
+        error instanceof AppStudyNotesError
+          ? error.message
+          : "Sibling Study Note could not be created.",
+      );
+    } finally {
+      setIsStudyNoteSavePending(false);
+    }
+  }
+
+  async function handleSaveMemoryAid(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (
+      studyNote === null ||
+      isStudyNoteSavePending ||
+      memoryAidDraft.description.trim().length === 0
+    ) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setFeedbackMessage(null);
+    setIsStudyNoteSavePending(true);
+
+    try {
+      await updatePracticeRepairMemoryAid({
+        draft: memoryAidDraft,
+        persistentStudyNotesContext,
+        studyNote,
+        studyNotesContext,
+        userId,
+      });
+      setFeedbackMessage("Memory aid saved");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof AppStudyNotesError
+          ? error.message
+          : "Memory aid could not be saved.",
+      );
+    } finally {
+      setIsStudyNoteSavePending(false);
+    }
+  }
+
   async function handleLifecycleMutation(
     action: PracticeRepairLifecycleAction,
   ) {
+    if (
+      action === "dismiss" &&
+      !window.confirm(
+        "Dismiss this Practice Repair? It will leave the active queue but stay in Results history.",
+      )
+    ) {
+      return;
+    }
+
     setErrorMessage(null);
     setFeedbackMessage(null);
     setPendingAction(action);
@@ -784,21 +1538,6 @@ export function RecallPracticeRepairWorkspacePage({
     } finally {
       setIsFollowUpRecallPending(false);
     }
-  }
-
-  function openStudyNotesPracticeRepair(
-    practiceRepairAction?: PracticeRepairIntent,
-  ) {
-    void navigate({
-      params: {
-        studyNoteId: entry.reference.studyNoteId,
-      },
-      search: createStudyNotesPracticeRepairSearch({
-        practiceRepairAction,
-        practiceRepairEntryId,
-      }),
-      to: appRoutePaths.studyNoteEditor,
-    });
   }
 
   return (
@@ -869,17 +1608,17 @@ export function RecallPracticeRepairWorkspacePage({
                 >
                   {lifecycleKind === "active" ? (
                     <>
-                      <span>View note</span>
+                      <span>View full note</span>
                       <ExternalLinkIcon />
                     </>
                   ) : (
-                    "View note"
+                    "View full note"
                   )}
                 </ButtonLink>
               ) : null}
             </header>
 
-            <PracticeRepairWorkspaceDetail label="Prompt (what you were asked)">
+            <PracticeRepairWorkspaceDetail label="Prompt">
               {prompt}
             </PracticeRepairWorkspaceDetail>
 
@@ -888,12 +1627,14 @@ export function RecallPracticeRepairWorkspacePage({
                 <p className="recall-practice-repair-workspace__detail-label">
                   Your answer
                 </p>
-                <span
-                  className="recall-selected-result__row-pill recall-practice-repair-workspace__rating"
-                  data-rating-tone={ratingTone}
-                >
-                  {ratingLabel}
-                </span>
+                {lifecycleKind === "active" ? null : (
+                  <span
+                    className="recall-selected-result__row-pill recall-practice-repair-workspace__rating"
+                    data-rating-tone={ratingTone}
+                  >
+                    {ratingLabel}
+                  </span>
+                )}
               </div>
               <div
                 className="recall-practice-repair-workspace__detail-copy"
@@ -907,50 +1648,6 @@ export function RecallPracticeRepairWorkspacePage({
               {expectedAnswer}
             </PracticeRepairWorkspaceDetail>
 
-            {lifecycleKind === "active" ? (
-              <section
-                aria-label="Current Study Note quick edit"
-                className="recall-practice-repair-workspace__current-editor"
-              >
-                <div className="recall-practice-repair-workspace__current-editor-copy">
-                  <h3>Current Study Note</h3>
-                </div>
-
-                {studyNote === null ? (
-                  <p className="recall-practice-repair-workspace__current-editor-unavailable">
-                    This Study Note is not available for quick editing.
-                  </p>
-                ) : (
-                  <div className="recall-practice-repair-workspace__current-fields">
-                    <label className="recall-practice-repair-workspace__current-field">
-                      <span>Current prompt</span>
-                      <input
-                        disabled={!canEditCurrentStudyNote}
-                        maxLength={500}
-                        onChange={(event) =>
-                          updateStudyNoteDraft("prompt", event)
-                        }
-                        value={studyNoteDraft.prompt}
-                      />
-                    </label>
-
-                    <label className="recall-practice-repair-workspace__current-field">
-                      <span>Current expected answer</span>
-                      <textarea
-                        disabled={!canEditCurrentStudyNote}
-                        maxLength={1000}
-                        onChange={(event) =>
-                          updateStudyNoteDraft("expectedAnswer", event)
-                        }
-                        rows={5}
-                        value={studyNoteDraft.expectedAnswer}
-                      />
-                    </label>
-                  </div>
-                )}
-              </section>
-            ) : null}
-
             {lifecycleKind === "active" ? null : (
               <PracticeRepairWorkspaceDetail label="Reference explanation">
                 <strong>{referenceTitle}</strong>
@@ -958,73 +1655,42 @@ export function RecallPracticeRepairWorkspacePage({
               </PracticeRepairWorkspaceDetail>
             )}
 
-            <section className="recall-practice-repair-workspace__callout">
-              {lifecycleKind === "active" ? (
-                <WarningIcon className="recall-practice-repair-workspace__callout-icon" />
-              ) : null}
-              <div className="recall-practice-repair-workspace__callout-copy">
-                <strong>
-                  {lifecycleKind === "active"
-                    ? `Your last score: ${ratingLabel}`
-                    : `Last score: ${ratingLabel}`}
+            <section className="recall-practice-repair-workspace__detail">
+              <p className="recall-practice-repair-workspace__detail-label">
+                Last score
+              </p>
+              <div className="recall-practice-repair-workspace__detail-copy">
+                <strong className="recall-practice-repair-workspace__score-value">
+                  {ratingLabel}
                 </strong>
-                {lifecycleKind === "active" ? (
-                  <p>
-                    It's okay--weak recall is a signal to adjust and reinforce.
-                  </p>
-                ) : (
-                  <p>
-                    Needs practice is a signal to adjust and reinforce before
-                    the next recall.
-                  </p>
-                )}
+                <span>Weak recall is a signal to adjust and reinforce.</span>
               </div>
             </section>
 
             {lifecycleKind === "active" ? (
-              <div
-                className="recall-practice-repair-workspace__actions recall-practice-repair-workspace__quick-actions"
-                data-has-save-action={
-                  hasStudyNoteDraftChanges ? "true" : "false"
-                }
-              >
-                {hasStudyNoteDraftChanges ? (
-                  <Button
-                    className="recall-practice-repair-workspace__action-button"
-                    disabled={isStudyNoteSavePending}
-                    onClick={() => void handleSaveStudyNoteChanges()}
-                    type="button"
-                    variant="secondary"
-                  >
-                    <SaveIcon />
-                    <span>
-                      {isStudyNoteSavePending ? "Saving..." : "Save changes"}
-                    </span>
-                  </Button>
-                ) : null}
-                <Button
-                  className="recall-practice-repair-workspace__action-button"
-                  disabled={isFollowUpRecallPending}
-                  onClick={() => void handleStartFollowUpRecall()}
-                  type="button"
-                  variant="primary"
-                >
-                  <RefreshIcon />
-                  <span>Recall again</span>
-                </Button>
-              </div>
+              <PracticeRepairInlineEditor
+                activeActionCard={activeActionCard}
+                canEditCurrentStudyNote={canEditCurrentStudyNote}
+                hasStudyNoteDraftChanges={hasStudyNoteDraftChanges}
+                isStudyNoteSavePending={isStudyNoteSavePending}
+                memoryAidDraft={memoryAidDraft}
+                mode={selectedMode}
+                onCreateSiblingStudyNote={handleCreateSiblingStudyNote}
+                onMemoryAidDescriptionChange={updateMemoryAidDescription}
+                onMemoryAidKindChange={updateMemoryAidKind}
+                onSaveMemoryAid={handleSaveMemoryAid}
+                onSaveSplitStudyNote={handleSaveSplitStudyNote}
+                onSaveStudyNoteChanges={() => void handleSaveStudyNoteChanges()}
+                onSiblingDraftChange={updateSiblingStudyNoteDraft}
+                onSplitDraftChange={updateSplitStudyNoteDraft}
+                onStudyNoteDraftChange={updateStudyNoteDraft}
+                siblingStudyNoteDraft={siblingStudyNoteDraft}
+                splitStudyNoteDraft={splitStudyNoteDraft}
+                studyNote={studyNote}
+                studyNoteDraft={studyNoteDraft}
+              />
             ) : null}
           </section>
-
-          {lifecycleKind === "active" ? (
-            <p className="recall-practice-repair-workspace__footer-note">
-              <InfoIcon />
-              <span>
-                Metaphors and acronyms are optional support material, not
-                required.
-              </span>
-            </p>
-          ) : null}
         </div>
 
         <aside
@@ -1033,12 +1699,10 @@ export function RecallPracticeRepairWorkspacePage({
         >
           <section className="recall-panel recall-practice-repair-workspace__panel">
             <div className="recall-practice-repair-workspace__panel-copy">
-              <h2>
-                {showSuggestedRepairs ? "Suggested repairs" : "Next step"}
-              </h2>
+              <h2>{showSuggestedRepairs ? "Repair options" : "Next step"}</h2>
               <p>
                 {showSuggestedRepairs
-                  ? "Open the Study Notes action you want to make next. The highlighted card is the repair saved on this entry."
+                  ? "Choose one exact improvement to make now. Do one thing well, not many."
                   : nextStepCopy}
               </p>
             </div>
@@ -1048,9 +1712,9 @@ export function RecallPracticeRepairWorkspacePage({
                 {workspaceActionCards.map((card) => (
                   <PracticeRepairWorkspaceActionButton
                     card={card}
-                    isSelected={entry.intent === card.intent}
+                    isSelected={selectedMode === card.mode}
                     key={card.intent}
-                    onSelect={openStudyNotesPracticeRepair}
+                    onSelect={selectRepairMode}
                   />
                 ))}
               </div>
@@ -1102,10 +1766,10 @@ function PracticeRepairWorkspaceActionButton({
 }: Readonly<{
   card: PracticeRepairWorkspaceActionCard;
   isSelected: boolean;
-  onSelect: (intent: PracticeRepairIntent) => void;
+  onSelect: (mode: PracticeRepairMode) => void;
 }>) {
-  const titleId = `practice-repair-workspace-card-title-${card.intent}`;
-  const descriptionId = `practice-repair-workspace-card-description-${card.intent}`;
+  const titleId = `practice-repair-workspace-card-title-${card.mode}`;
+  const descriptionId = `practice-repair-workspace-card-description-${card.mode}`;
 
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     if (!isActionSelectionKey(event.key)) {
@@ -1113,7 +1777,7 @@ function PracticeRepairWorkspaceActionButton({
     }
 
     event.preventDefault();
-    onSelect(card.intent);
+    onSelect(card.mode);
   }
 
   return (
@@ -1124,17 +1788,13 @@ function PracticeRepairWorkspaceActionButton({
       <button
         aria-describedby={descriptionId}
         aria-labelledby={titleId}
+        aria-pressed={isSelected}
         className="recall-practice-repair-workspace__repair-button"
-        onClick={() => onSelect(card.intent)}
+        onClick={() => onSelect(card.mode)}
         onKeyDown={handleKeyDown}
         type="button"
       >
         <span className="recall-practice-repair-workspace__repair-copy">
-          {isSelected ? (
-            <span className="recall-practice-repair-workspace__repair-tag">
-              Current repair
-            </span>
-          ) : null}
           <span
             className="recall-practice-repair-workspace__repair-title"
             id={titleId}
@@ -1199,16 +1859,6 @@ export function ExternalLinkIcon() {
       <path d="M14 5h5v5" />
       <path d="m10 14 9-9" />
       <path d="M19 14v5H5V5h5" />
-    </svg>
-  );
-}
-
-function SaveIcon() {
-  return (
-    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-      <path d="M5 4h12l2 2v14H5V4Z" />
-      <path d="M8 4v6h8V4" />
-      <path d="M8 20v-6h8v6" />
     </svg>
   );
 }

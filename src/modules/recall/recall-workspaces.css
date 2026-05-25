@@ -968,6 +968,199 @@
   color: var(--color-content-muted);
 }
 
+.recall-scheduled-page .recall-scheduled-surface {
+  --recall-scheduled-overdue: color-mix(
+    in srgb,
+    var(--color-danger-soft-foreground) 72%,
+    var(--color-content-muted)
+  );
+}
+
+.recall-scheduled-summary {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-7);
+  color: var(--color-content-muted);
+}
+
+.recall-scheduled-summary__line,
+.recall-scheduled-summary__helper {
+  margin: 0;
+  font-size: var(--lmd-body-size);
+  line-height: var(--lmd-body-line-height);
+}
+
+.recall-scheduled-summary__line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  color: var(--color-content-muted);
+  font-weight: 650;
+}
+
+.recall-scheduled-summary__line [data-tone="ready"] {
+  color: var(--color-primary);
+}
+
+.recall-scheduled-summary__line [data-tone="overdue"] {
+  color: var(--recall-scheduled-overdue);
+}
+
+.recall-scheduled-summary__line [data-tone="later"] {
+  color: var(--color-content-muted);
+}
+
+.recall-scheduled-summary__helper {
+  color: var(--color-content-muted);
+}
+
+.recall-scheduled-disclosure {
+  display: grid;
+  border-top: 1px solid var(--color-content-border-soft);
+  border-bottom: 1px solid var(--color-content-border-soft);
+}
+
+.recall-scheduled-disclosure__button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 3.8rem;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-content-default);
+  font: inherit;
+  font-size: var(--lmd-body-size);
+  font-weight: 600;
+  line-height: var(--lmd-body-line-height);
+  text-align: left;
+  cursor: pointer;
+}
+
+.recall-scheduled-disclosure__button:hover {
+  color: var(--color-content-strong);
+}
+
+.recall-scheduled-disclosure__button:focus-visible {
+  border-radius: 0.35rem;
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.recall-scheduled-disclosure__chevron {
+  color: var(--color-content-muted);
+  font-size: 1.35rem;
+  line-height: 1;
+  transform: translateY(-0.02rem);
+  transition: transform var(--motion-fast);
+}
+
+.recall-scheduled-disclosure__button[aria-expanded="true"]
+  .recall-scheduled-disclosure__chevron {
+  transform: rotate(90deg);
+}
+
+.recall-scheduled-disclosure__content {
+  margin: calc(var(--space-2) * -1) 0 var(--space-4)
+    calc(var(--space-6) - 0.1rem);
+  max-width: 42rem;
+  color: var(--color-content-muted);
+  font-size: var(--lmd-body-size);
+  line-height: var(--lmd-body-line-height);
+}
+
+.recall-scheduled-queue {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  width: 100%;
+}
+
+.recall-scheduled-section-label {
+  margin: 0;
+  color: var(--color-content-default);
+  font-size: var(--lmd-body-size);
+  font-weight: 700;
+  line-height: var(--lmd-body-line-height);
+}
+
+.recall-scheduled-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recall-scheduled-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 28rem);
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 5.85rem;
+  padding: var(--space-4) var(--space-3) var(--space-4) var(--space-4);
+  border-bottom: 1px solid var(--color-content-border-soft);
+  background: transparent;
+}
+
+.recall-scheduled-row__main {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.recall-scheduled-row__main h3,
+.recall-scheduled-row__main p,
+.recall-scheduled-row__meta {
+  margin: 0;
+}
+
+.recall-scheduled-row__main h3 {
+  overflow: hidden;
+  color: var(--color-content-strong);
+  font-size: var(--lmd-body-size);
+  font-weight: 760;
+  line-height: var(--lmd-body-line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recall-scheduled-row__main p {
+  overflow: hidden;
+  color: var(--color-content-muted);
+  font-size: var(--lmd-body-size);
+  line-height: var(--lmd-body-line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recall-scheduled-row__meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  justify-self: end;
+  min-width: 0;
+  color: var(--color-content-default);
+  font-size: var(--lmd-body-size);
+  line-height: var(--lmd-body-line-height);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.recall-scheduled-row__meta-label {
+  color: var(--color-content-muted);
+}
+
+.recall-scheduled-row__status {
+  color: var(--color-content-muted);
+}
+
+.recall-scheduled-row__meta [data-status="overdue"] {
+  color: var(--recall-scheduled-overdue);
+}
+
 .app-frame[data-workspace="recall-results"] .recall-workspace {
   grid-template-rows: minmax(0, 1fr);
   height: 100%;
@@ -1159,9 +1352,7 @@
   .recall-results-detail-panel:focus-visible,
 .app-frame[data-workspace="recall-results"]
   .recall-results-detail-panel:focus-within {
-  --recall-results-pane-scrollbar-thumb: var(
-    --recall-results-scrollbar-thumb
-  );
+  --recall-results-pane-scrollbar-thumb: var(--recall-results-scrollbar-thumb);
 }
 
 .recall-results-detail-panel::-webkit-scrollbar {
@@ -1199,7 +1390,12 @@
 .recall-practice-repair-queue {
   display: grid;
   align-content: start;
-  gap: var(--space-4);
+  gap: var(--space-6);
+}
+
+.recall-practice-repair-queue-surface.recall-surface {
+  height: auto;
+  overflow: visible;
 }
 
 .recall-workspace > .recall-practice-repair-queue__body {
@@ -1211,32 +1407,49 @@
 .recall-practice-repair-queue__section {
   display: grid;
   align-content: start;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .recall-practice-repair-queue__header {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-1);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-content-border-soft);
 }
 
 .recall-practice-repair-queue__header h4,
-.recall-practice-repair-queue__item h5 {
+.recall-practice-repair-queue__item h5,
+.recall-practice-repair-queue__empty h4,
+.recall-practice-repair-queue__empty h5 {
   margin: 0;
 }
 
 .recall-practice-repair-queue__list {
   display: grid;
-  gap: var(--space-3);
   margin: 0;
   padding: 0;
+  border-bottom: 1px solid var(--color-content-border-soft);
   list-style: none;
+}
+
+.recall-practice-repair-queue__list > :where(li + li) {
+  border-top: 1px solid var(--color-content-border-soft);
 }
 
 .recall-practice-repair-queue__item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-5);
+  min-width: 0;
+  padding: var(--space-4) var(--space-3);
+  background: transparent;
+  transition: background-color var(--motion-fast);
+}
+
+.recall-practice-repair-queue__item:hover,
+.recall-practice-repair-queue__item:focus-within {
+  background: color-mix(in srgb, var(--color-shell-inset) 28%, transparent);
 }
 
 .recall-practice-repair-queue__content {
@@ -1253,16 +1466,72 @@
 
 .recall-practice-repair-queue__eyebrow,
 .recall-practice-repair-queue__rating {
-  font-size: 0.9rem;
+  margin: 0;
+  color: var(--color-content-muted);
+  font-size: var(--lmd-meta-size);
+  font-weight: 500;
+  line-height: var(--lmd-meta-line-height);
 }
 
 .recall-practice-repair-queue__eyebrow {
-  color: var(--color-content-strong);
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 560;
 }
 
-.recall-practice-repair-queue__rating {
-  color: var(--color-content-muted);
+.recall-practice-repair-queue__eyebrow[data-has-status-dot="true"]::before {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  content: "";
+}
+
+.recall-practice-repair-queue__content > p {
+  margin: 0;
+}
+
+.recall-practice-repair-queue__item h5 {
+  color: var(--color-content-strong);
+  font-size: var(--lmd-body-size);
+  line-height: var(--lmd-body-line-height);
+}
+
+.recall-practice-repair-queue__candidate-action {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-fast);
+}
+
+.recall-practice-repair-queue__item:hover
+  .recall-practice-repair-queue__candidate-action,
+.recall-practice-repair-queue__item:focus-within
+  .recall-practice-repair-queue__candidate-action,
+.recall-practice-repair-queue__candidate-action:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.recall-practice-repair-queue__empty {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-4) var(--space-3);
+  border-bottom: 1px solid var(--color-content-border-soft);
+}
+
+.recall-practice-repair-queue__empty--page {
+  min-height: 16rem;
+  align-content: center;
+  border-bottom: 0;
+}
+
+@media (hover: none) {
+  .recall-practice-repair-queue__candidate-action {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .recall-empty-surface,
@@ -1493,9 +1762,7 @@
 .recall-results-list:hover,
 .recall-results-list:focus-visible,
 .recall-results-list:focus-within {
-  --recall-results-pane-scrollbar-thumb: var(
-    --recall-results-scrollbar-thumb
-  );
+  --recall-results-pane-scrollbar-thumb: var(--recall-results-scrollbar-thumb);
 }
 
 .recall-results-list::-webkit-scrollbar {
@@ -1548,6 +1815,11 @@
 }
 
 .recall-result-row[data-selected="true"] {
+  --recall-result-row-selected-border: color-mix(
+    in srgb,
+    var(--color-primary-soft-border) 72%,
+    var(--color-content-border-soft)
+  );
   border-bottom-color: color-mix(
     in srgb,
     var(--color-primary-soft-border) 60%,
@@ -1556,7 +1828,9 @@
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--color-primary-soft) 32%, transparent);
   padding-inline-start: 1.05rem;
-  box-shadow: inset 3px 0 0 var(--color-primary);
+  box-shadow:
+    inset 3px 0 0 var(--color-primary),
+    inset 0 0 0 1px var(--recall-result-row-selected-border);
 }
 
 .app-frame[data-workspace="recall-results"] .recall-results-list {
@@ -3167,9 +3441,9 @@
 
 .recall-practice-repair-workspace__layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.8fr);
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 28rem);
   align-items: start;
-  gap: var(--space-5);
+  gap: var(--space-6);
 }
 
 .recall-practice-repair-workspace__main {
@@ -3201,9 +3475,9 @@
   display: grid;
   padding: 0;
   overflow: hidden;
-  border: 1px solid var(--color-content-border-soft);
-  border-radius: 0.75rem;
-  background: var(--color-shell-panel);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   box-shadow: none;
 }
 
@@ -3328,6 +3602,8 @@
 
 .recall-practice-repair-workspace__evidence--compact
   .recall-practice-repair-workspace__detail {
+  grid-template-columns: minmax(8rem, 10rem) minmax(0, 1fr);
+  align-items: start;
   padding: 1.85rem var(--space-6);
 }
 
@@ -3396,11 +3672,10 @@
 .recall-practice-repair-workspace__current-editor {
   display: grid;
   gap: var(--space-4);
-  margin: var(--space-2) var(--space-6) 0;
-  padding: var(--space-5);
-  border: 1px solid var(--color-content-border-soft);
-  border-radius: 0.65rem;
-  background: color-mix(in srgb, var(--color-shell-panel) 92%, white);
+  margin: 0;
+  padding: var(--space-4) var(--space-6) var(--space-6);
+  border-top: 1px solid var(--color-content-border-soft);
+  background: transparent;
 }
 
 .recall-practice-repair-workspace__current-editor-copy h3 {
@@ -3408,6 +3683,22 @@
   color: var(--color-content-strong);
   font-size: 1rem;
   line-height: 1.2;
+}
+
+.recall-practice-repair-workspace__current-editor-copy p,
+.recall-practice-repair-workspace__current-editor-copy span {
+  margin: 0;
+}
+
+.recall-practice-repair-workspace__current-editor-copy p {
+  color: var(--color-success);
+  font-size: 0.86rem;
+  font-weight: 750;
+}
+
+.recall-practice-repair-workspace__current-editor-copy span {
+  color: var(--color-content-muted);
+  line-height: 1.55;
 }
 
 .recall-practice-repair-workspace__current-fields {
@@ -3427,6 +3718,7 @@
 }
 
 .recall-practice-repair-workspace__current-field input,
+.recall-practice-repair-workspace__current-field select,
 .recall-practice-repair-workspace__current-field textarea {
   width: 100%;
   min-width: 0;
@@ -3438,7 +3730,8 @@
   line-height: 1.45;
 }
 
-.recall-practice-repair-workspace__current-field input {
+.recall-practice-repair-workspace__current-field input,
+.recall-practice-repair-workspace__current-field select {
   min-height: var(--lmd-input-height);
   padding: 0 var(--space-3);
 }
@@ -3450,15 +3743,26 @@
 }
 
 .recall-practice-repair-workspace__current-field input:focus,
+.recall-practice-repair-workspace__current-field select:focus,
 .recall-practice-repair-workspace__current-field textarea:focus {
   border-color: var(--color-accent-strong);
   outline: 3px solid
     color-mix(in srgb, var(--color-accent-strong) 20%, transparent);
 }
 
+.recall-practice-repair-workspace__editor-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
 .recall-practice-repair-workspace__current-editor-unavailable {
   margin: 0;
   color: var(--color-content-muted);
+}
+
+.recall-practice-repair-workspace__score-value {
+  color: var(--color-content-strong);
+  font-weight: 700;
 }
 
 .recall-practice-repair-workspace__rating {
@@ -3599,15 +3903,34 @@
 .recall-practice-repair-workspace__sidebar {
   display: grid;
   gap: var(--space-4);
+  min-height: 100%;
+  padding-left: var(--space-6);
+  border-left: 1px solid var(--color-content-border-soft);
 }
 
 .recall-practice-repair-workspace__panel {
   gap: var(--space-4);
-  padding: var(--space-4);
-  border-radius: 0.7rem;
-  background: var(--color-shell-panel);
-  box-shadow: 0 18px 32px -30px
-    color-mix(in srgb, var(--color-content-strong) 24%, transparent);
+  padding: var(--space-5) 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.recall-practice-repair-workspace__panel
+  .recall-practice-repair-workspace__actions
+  .notes-action-primary {
+  width: 100%;
+  border-color: var(--color-success);
+  background: var(--color-success);
+  color: var(--color-success-foreground);
+}
+
+.recall-practice-repair-workspace__panel
+  .recall-practice-repair-workspace__actions
+  .notes-action-primary:hover:not(:disabled) {
+  border-color: var(--color-success-hover);
+  background: var(--color-success-hover);
 }
 
 .recall-practice-repair-workspace__panel-copy {
@@ -3644,21 +3967,16 @@
 }
 
 .recall-practice-repair-workspace__quick-actions {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
   padding: var(--space-5);
 }
 
 .recall-practice-repair-workspace__evidence--compact
   .recall-practice-repair-workspace__quick-actions {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-5);
   padding: var(--space-5) var(--space-6) var(--space-6);
-}
-
-.recall-practice-repair-workspace__evidence--compact
-  .recall-practice-repair-workspace__quick-actions[data-has-save-action="false"] {
-  grid-template-columns: minmax(0, 1fr);
 }
 
 .recall-practice-repair-workspace__repair-list {
@@ -3667,22 +3985,31 @@
 }
 
 .recall-practice-repair-workspace__repair-card {
-  border: 1px solid var(--color-content-border-soft);
-  border-radius: 0.7rem;
+  position: relative;
+  border: 0;
+  border-radius: 0.25rem;
   background: var(--color-shell-panel);
-  box-shadow: 0 18px 32px -30px
-    color-mix(in srgb, var(--color-content-strong) 24%, transparent);
+  box-shadow: none;
+}
+
+.recall-practice-repair-workspace__repair-card
+  + .recall-practice-repair-workspace__repair-card {
+  border-top: 1px solid var(--color-content-border-soft);
 }
 
 .recall-practice-repair-workspace__repair-card[data-selected="true"] {
-  border-color: var(--color-primary-soft-border);
-  background: color-mix(
-    in srgb,
-    var(--color-primary-soft) 48%,
-    var(--color-shell-panel)
-  );
-  box-shadow: 0 20px 34px -28px
-    color-mix(in srgb, var(--color-primary) 30%, transparent);
+  background: color-mix(in srgb, var(--color-shell-panel) 86%, white);
+  box-shadow: 0 18px 38px -34px
+    color-mix(in srgb, var(--color-content-strong) 24%, transparent);
+}
+
+.recall-practice-repair-workspace__repair-card[data-selected="true"]::before {
+  position: absolute;
+  inset: var(--space-3) auto var(--space-3) 0;
+  width: 0.2rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-success);
+  content: "";
 }
 
 .recall-practice-repair-workspace__repair-button {
@@ -3708,6 +4035,11 @@
 .recall-practice-repair-workspace__repair-button:focus-visible {
   background: color-mix(in srgb, var(--color-primary-soft) 54%, white);
   outline: none;
+}
+
+.recall-practice-repair-workspace__repair-button:focus-visible {
+  box-shadow: inset 0 0 0 3px
+    color-mix(in srgb, var(--color-accent-strong) 22%, transparent);
 }
 
 .recall-practice-repair-workspace__repair-copy {

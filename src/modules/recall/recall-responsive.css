@@ -66,6 +66,11 @@
     align-items: start;
   }
 
+  .recall-practice-repair-queue__candidate-action {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   .recall-today-summary {
     gap: 0;
     padding: 0;
@@ -114,6 +119,19 @@
 
   .recall-today-row__next {
     grid-area: next;
+  }
+
+  .recall-scheduled-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+    padding-inline: 0;
+  }
+
+  .recall-scheduled-row__meta {
+    justify-content: flex-start;
+    min-width: 0;
+    text-align: left;
+    white-space: normal;
   }
 
   .recall-results-workspace,

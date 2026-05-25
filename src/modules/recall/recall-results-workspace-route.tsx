@@ -608,21 +608,6 @@ function getLastScoreText(
   return t(getRecallRatingTranslationKey(lastRating));
 }
 
-function getRecallRatingDotCount(rating: RecallSelfRating | null) {
-  switch (rating) {
-    case "forgot":
-      return 1;
-    case "hard":
-      return 2;
-    case "good":
-      return 3;
-    case "easy":
-      return 4;
-    case null:
-      return 0;
-  }
-}
-
 function getStudyNoteMetaLine(
   item: Pick<DueTodayQueueItem, "studyNote">,
   labelsById: ReadonlyMap<string, AppLabel>,
@@ -827,10 +812,6 @@ function _getRecallTodaySectionCount(
   );
 }
 
-function formatSummaryUnitLabel(count: number) {
-  return formatCount(count, "note").replace(/^\d+\s/, "");
-}
-
 function RecallTodayQueue({
   dueCount,
   labelsById,
@@ -1002,10 +983,10 @@ function RecallDueTodayPage({
   return (
     <section
       aria-label={t("shell.workspace.recall")}
-      className="recall-workspace"
+      className="page-layout recall-workspace recall-today-page recall-scheduled-page"
     >
-      <article className="recall-surface recall-today-surface">
-        <div className="recall-today-top">
+      <div className="recall-today-wrapper">
+        <article className="recall-surface recall-today-surface recall-scheduled-surface">
           <PageHeader
             actions={
               <RecallDueTodayPrimaryAction
@@ -1018,35 +999,33 @@ function RecallDueTodayPage({
             description={t("recall.dueToday.description")}
             headingLevel={1}
             title={t("recall.dueToday.title")}
-          />
-        </div>
+          >
+            <RecallDueTodaySummary
+              now={now}
+              queue={queue}
+              userTimeZone={userTimeZone}
+            />
+          </PageHeader>
 
-        <RecallDueTodaySummary
-          now={now}
-          queue={queue}
-          userTimeZone={userTimeZone}
-        />
+          <RecallDueTodayDisclosure />
 
-        <div className="recall-today-layout">
-          <div className="recall-today-queue">
-            {queue.length === 0 ? (
+          {queue.length === 0 ? (
+            <div className="recall-scheduled-queue">
               <div className="recall-results-empty" role="status">
                 <h4>{t("recall.dueToday.emptyTitle")}</h4>
                 <p className="muted">{t("recall.dueToday.emptyBody")}</p>
               </div>
-            ) : (
-              <RecallDueTodayQueue
-                labelsById={labelsById}
-                now={now}
-                queue={queue}
-                userTimeZone={userTimeZone}
-              />
-            )}
-          </div>
-
-          <RecallDueTodayHowPanel />
-        </div>
-      </article>
+            </div>
+          ) : (
+            <RecallDueTodayQueue
+              labelsById={labelsById}
+              now={now}
+              queue={queue}
+              userTimeZone={userTimeZone}
+            />
+          )}
+        </article>
+      </div>
     </section>
   );
 }
@@ -1135,49 +1114,67 @@ function RecallDueTodaySummary({
       }) === "overdue",
   ).length;
   const dueTodayCount = queue.length - overdueCount;
-  const summaryItems = [
-    {
-      count: queue.length,
-      icon: <CalendarQueueIcon />,
-      label: t("recall.dueToday.metric.total"),
-      tone: "total",
-    },
-    {
-      count: dueTodayCount,
-      icon: <CheckIcon />,
-      label: t("recall.dueToday.metric.dueToday"),
-      tone: "due",
-    },
-    {
-      count: overdueCount,
-      icon: <WarningIcon />,
-      label: t("recall.dueToday.metric.overdue"),
-      tone: "practice",
-    },
-  ] as const;
 
   return (
-    <ul
+    <section
       aria-label={t("recall.dueToday.summary")}
-      className="recall-today-summary"
+      className="recall-scheduled-summary"
     >
-      {summaryItems.map((item) => (
-        <li
-          className="recall-today-summary__item"
-          data-tone={item.tone}
-          key={item.label}
+      <p className="recall-scheduled-summary__line">
+        <span data-tone="ready">
+          {queue.length === 1
+            ? t("recall.dueToday.summary.ready", { count: queue.length })
+            : t("recall.dueToday.summary.ready_plural", {
+                count: queue.length,
+              })}
+        </span>
+        <span aria-hidden="true">·</span>
+        <span data-tone="overdue">
+          {t("recall.dueToday.summary.overdue", { count: overdueCount })}
+        </span>
+        <span aria-hidden="true">·</span>
+        <span data-tone="later">
+          {t("recall.dueToday.summary.laterToday", { count: dueTodayCount })}
+        </span>
+      </p>
+      <p className="recall-scheduled-summary__helper">
+        {t("recall.dueToday.summary.helper")}
+      </p>
+    </section>
+  );
+}
+
+function RecallDueTodayDisclosure() {
+  const { t } = useAppTranslation();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const disclosureContentId = "recall-scheduled-disclosure-content";
+
+  return (
+    <section className="recall-scheduled-disclosure">
+      <button
+        aria-controls={disclosureContentId}
+        aria-expanded={isExpanded}
+        className="recall-scheduled-disclosure__button"
+        onClick={() => setIsExpanded((current) => !current)}
+        type="button"
+      >
+        <span
+          aria-hidden="true"
+          className="recall-scheduled-disclosure__chevron"
         >
-          <span aria-hidden="true" className="recall-today-summary__icon">
-            {item.icon}
-          </span>
-          <span className="recall-today-summary__copy">
-            <span>{item.label}</span>
-            <strong>{item.count}</strong>
-            <span>{formatSummaryUnitLabel(item.count)}</span>
-          </span>
-        </li>
-      ))}
-    </ul>
+          ›
+        </span>
+        <span>{t("recall.dueToday.how.title")}</span>
+      </button>
+      {isExpanded ? (
+        <p
+          className="recall-scheduled-disclosure__content"
+          id={disclosureContentId}
+        >
+          {t("recall.dueToday.helper")}
+        </p>
+      ) : null}
+    </section>
   );
 }
 
@@ -1197,22 +1194,14 @@ function RecallDueTodayQueue({
   return (
     <section
       aria-label={t("recall.dueToday.queue")}
-      className="recall-today-section"
-      data-tone="due"
+      className="recall-scheduled-queue"
     >
-      <header className="recall-today-section__header">
-        <div className="recall-today-section__title">
-          <span className="recall-today-section__badge">{queue.length}</span>
-          <h2>{t("recall.dueToday.queueTitle")}</h2>
-          <span className="recall-today-section__count">{queue.length}</span>
-        </div>
-        <div className="recall-today-section__helper">
-          <span>{t("recall.dueToday.helper")}</span>
-          <InfoIcon />
-        </div>
-      </header>
+      <h2 className="recall-scheduled-section-label">
+        {t("recall.dueToday.queueTitle")} <span aria-hidden="true">·</span>{" "}
+        {queue.length}
+      </h2>
 
-      <ul className="recall-today-section__rows">
+      <ul className="recall-scheduled-list">
         {queue.map((item) => (
           <RecallDueTodayQueueRow
             item={item}
@@ -1244,8 +1233,6 @@ function RecallDueTodayQueueRow({
     now,
     userTimeZone,
   });
-  const tone: QueueTone = status === "overdue" ? "practice" : "due";
-  const dotCount = getRecallRatingDotCount(item.lastRating);
   const metaLine = getStudyNoteMetaLine(item, labelsById);
   const lastScoreText = getLastScoreText(item.lastRating, t);
   const statusText =
@@ -1256,102 +1243,29 @@ function RecallDueTodayQueueRow({
     timestamp: item.schedule.nextRecallAt,
     userTimeZone,
   });
+  const scheduledTimingText =
+    status === "overdue"
+      ? t("recall.dueToday.since", { date: scheduledDateText })
+      : t("recall.dueToday.for", { date: scheduledDateText });
 
   return (
-    <li className="recall-today-row" data-tone={tone}>
-      <span aria-hidden="true" className="recall-today-row__note-icon">
-        <NoteIcon />
-      </span>
-      <div className="recall-today-row__main">
+    <li className="recall-scheduled-row">
+      <div className="recall-scheduled-row__main">
         <h3>{item.studyNote.prompt}</h3>
         {metaLine.length > 0 ? <p>{metaLine}</p> : null}
       </div>
-      <div className="recall-today-row__score">
-        <span>{t("recall.dueToday.lastScore")}</span>
-        <strong>{lastScoreText}</strong>
-        <RatingDots activeCount={dotCount} tone={tone} />
-      </div>
-      <div className="recall-today-row__reason">
-        <span>{t("recall.dueToday.status.label")}</span>
-        <strong>{statusText}</strong>
-      </div>
-      <div className="recall-today-row__next">
-        <span>{t("recall.dueToday.scheduled")}</span>
-        <strong>{scheduledDateText}</strong>
-      </div>
-    </li>
-  );
-}
-
-const ratingDotKeys = ["dot-1", "dot-2", "dot-3", "dot-4"] as const;
-
-function RatingDots({
-  activeCount,
-  tone,
-}: {
-  activeCount: number;
-  tone: QueueTone;
-}) {
-  return (
-    <span
-      aria-hidden="true"
-      className="recall-today-rating-dots"
-      data-tone={tone}
-    >
-      {ratingDotKeys.map((dotKey, index) => (
-        <span data-active={index < activeCount} key={dotKey} />
-      ))}
-    </span>
-  );
-}
-
-function RecallDueTodayHowPanel() {
-  const { t } = useAppTranslation();
-  const steps = [
-    {
-      bodyKey: "recall.dueToday.how.hidden.body",
-      icon: <HiddenAnswerIcon />,
-      titleKey: "recall.dueToday.how.hidden.title",
-    },
-    {
-      bodyKey: "recall.dueToday.how.rate.body",
-      icon: <RatingScaleIcon />,
-      titleKey: "recall.dueToday.how.rate.title",
-    },
-    {
-      bodyKey: "recall.dueToday.how.schedule.body",
-      icon: <CalendarQueueIcon />,
-      titleKey: "recall.dueToday.how.schedule.title",
-    },
-  ] as const;
-
-  return (
-    <aside
-      aria-label={t("recall.dueToday.how.title")}
-      className="recall-today-how"
-    >
-      <div aria-hidden="true" className="recall-today-how__lock">
-        <LockIcon />
-      </div>
-      <h2>{t("recall.dueToday.how.title")}</h2>
-      <div className="recall-today-how__steps">
-        {steps.map((step) => (
-          <section className="recall-today-how__step" key={step.titleKey}>
-            <span aria-hidden="true" className="recall-today-how__step-icon">
-              {step.icon}
-            </span>
-            <div>
-              <h3>{t(step.titleKey)}</h3>
-              <p>{t(step.bodyKey)}</p>
-            </div>
-          </section>
-        ))}
-      </div>
-      <p className="recall-today-how__tip">
-        <LightbulbIcon />
-        <span>{t("recall.dueToday.how.tip")}</span>
+      <p className="recall-scheduled-row__meta">
+        <span className="recall-scheduled-row__meta-label">
+          {t("recall.dueToday.lastResult")}:
+        </span>
+        <span>{lastScoreText}</span>
+        <span aria-hidden="true">·</span>
+        <span className="recall-scheduled-row__status">
+          <span data-status={status}>{statusText}</span>{" "}
+          <span>{scheduledTimingText}</span>
+        </span>
       </p>
-    </aside>
+    </li>
   );
 }
 
@@ -1632,206 +1546,6 @@ function ChevronRightIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="2"
-      />
-    </svg>
-  );
-}
-
-function CalendarQueueIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="20"
-      viewBox="0 0 24 24"
-      width="20"
-    >
-      <path
-        d="M7 3v3M17 3v3M4.5 9h15M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-      />
-      <path
-        d="m8.5 14 2 2 4.5-4.5"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-      />
-    </svg>
-  );
-}
-
-function WarningIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="20"
-      viewBox="0 0 24 24"
-      width="20"
-    >
-      <path d="M12 4 3.5 19h17L12 4Z" fill="currentColor" opacity="0.2" />
-      <path
-        d="M12 8.5v4.7M12 16.8h.01M12 4 3.5 19h17L12 4Z"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-      />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="20"
-      viewBox="0 0 24 24"
-      width="20"
-    >
-      <path
-        d="m6 12.5 4 4L18 8"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-      />
-    </svg>
-  );
-}
-
-function InfoIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="15"
-      viewBox="0 0 24 24"
-      width="15"
-    >
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
-      <path
-        d="M12 10.5v5"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeWidth="1.8"
-      />
-      <circle cx="12" cy="7.5" fill="currentColor" r="1" />
-    </svg>
-  );
-}
-
-function NoteIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="19"
-      viewBox="0 0 24 24"
-      width="19"
-    >
-      <path
-        d="M7 3.5h7l3 3v14H7v-17Z"
-        stroke="currentColor"
-        strokeLinejoin="round"
-        strokeWidth="1.7"
-      />
-      <path d="M14 3.5v4h4" stroke="currentColor" strokeLinejoin="round" />
-      <path
-        d="M9.5 11.5h5M9.5 15h5"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeWidth="1.7"
-      />
-    </svg>
-  );
-}
-
-function HiddenAnswerIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="22"
-      viewBox="0 0 24 24"
-      width="22"
-    >
-      <path
-        d="M3 12s3-5 9-5 9 5 9 5a12.2 12.2 0 0 1-3.2 3.4M14.1 14.2A3 3 0 0 1 9.8 9.9M4 4l16 16"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-      />
-    </svg>
-  );
-}
-
-function RatingScaleIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="24"
-      viewBox="0 0 54 18"
-      width="54"
-    >
-      <circle cx="8" cy="9" fill="currentColor" opacity="0.36" r="4" />
-      <circle cx="21" cy="9" fill="currentColor" opacity="0.5" r="4" />
-      <circle cx="34" cy="9" fill="currentColor" opacity="0.72" r="4" />
-      <circle cx="47" cy="9" fill="currentColor" r="4" />
-    </svg>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="28"
-      viewBox="0 0 24 24"
-      width="28"
-    >
-      <rect
-        height="9"
-        rx="2"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        width="13"
-        x="5.5"
-        y="10"
-      />
-      <path
-        d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeWidth="1.8"
-      />
-    </svg>
-  );
-}
-
-function LightbulbIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="30"
-      viewBox="0 0 24 24"
-      width="30"
-    >
-      <path
-        d="M9 18h6M10 21h4M8 14.5a6 6 0 1 1 8 0c-.9.7-1.2 1.4-1.2 2.5H9.2c0-1.1-.3-1.8-1.2-2.5Z"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
       />
     </svg>
   );

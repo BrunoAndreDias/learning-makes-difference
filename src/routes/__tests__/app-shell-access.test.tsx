@@ -139,7 +139,7 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", {
         level: 1,
-        name: "Practice Repair Queue",
+        name: "Practice Repair",
       }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/practice-repair");

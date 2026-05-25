@@ -125,6 +125,49 @@ describe("Recall Today styles", () => {
     expect(actionStyle).not.toContain("var(--color-primary");
   });
 
+  it("renders Scheduled recall as a centered quiet no-card list", () => {
+    const css = readFileSync(
+      new URL("./recall-workspaces.css", import.meta.url),
+      "utf8",
+    );
+    const summaryStyle = getCssRule(css, ".recall-scheduled-summary");
+    const disclosureStyle = getCssRule(css, ".recall-scheduled-disclosure");
+    const listStyle = getCssRule(css, ".recall-scheduled-list");
+    const rowStyle = getCssRule(css, ".recall-scheduled-row");
+    const metaStyle = getCssRule(css, ".recall-scheduled-row__meta");
+    const metaLabelStyle = getCssRule(
+      css,
+      ".recall-scheduled-row__meta-label",
+    );
+    const statusStyle = getCssRule(css, ".recall-scheduled-row__status");
+    const overdueStyle = getCssRule(
+      css,
+      '.recall-scheduled-row__meta [data-status="overdue"]',
+    );
+
+    expect(summaryStyle).toContain("display: grid;");
+    expect(summaryStyle).toContain("color: var(--color-content-muted);");
+    expect(disclosureStyle).toContain(
+      "border-top: 1px solid var(--color-content-border-soft);",
+    );
+    expect(disclosureStyle).toContain(
+      "border-bottom: 1px solid var(--color-content-border-soft);",
+    );
+    expect(listStyle).toContain("list-style: none;");
+    expect(rowStyle).toContain(
+      "grid-template-columns: minmax(0, 1fr) minmax(18rem, 28rem);",
+    );
+    expect(rowStyle).toContain(
+      "border-bottom: 1px solid var(--color-content-border-soft);",
+    );
+    expect(rowStyle).toContain("background: transparent;");
+    expect(metaStyle).toContain("justify-self: end;");
+    expect(metaStyle).toContain("text-align: right;");
+    expect(metaLabelStyle).toContain("color: var(--color-content-muted);");
+    expect(statusStyle).toContain("color: var(--color-content-muted);");
+    expect(overdueStyle).toContain("color: var(--recall-scheduled-overdue);");
+  });
+
   it("keeps priority status tones strong enough for small badges and score dots", () => {
     const css = readFileSync(
       new URL("./recall-workspaces.css", import.meta.url),

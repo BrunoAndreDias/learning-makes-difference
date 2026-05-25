@@ -9,7 +9,6 @@ import { getStudyNoteReadiness, listStudyNotesForUser } from "../study-notes";
 import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import { getRecallRatingTranslationKey } from "./learner-copy";
 import {
-  formatPracticeRepairIntentLabel,
   getPracticeRepairEntryId,
   getPracticeRepairQuestionPrompt,
   getPracticeRepairQuestionReferenceTitle,
@@ -74,6 +73,12 @@ function getPracticeRepairQueueRating(
   return translate(getRecallRatingTranslationKey(question.selfRating));
 }
 
+function formatPracticeRepairCandidateCount(count: number) {
+  return count === 1
+    ? "1 candidate from recent weak recall evidence."
+    : `${count} candidates from recent weak recall evidence.`;
+}
+
 function PracticeRepairQueueHeaderAction({
   emptyStateAction,
   nextActiveEntry,
@@ -117,29 +122,30 @@ function PracticeRepairQueueHeaderAction({
   switch (emptyStateAction) {
     case "review-results":
       return (
-        <ButtonLink to={appRoutePaths.recallResults} variant="primary">
+        <ButtonLink to={appRoutePaths.recallResults} variant="secondary">
           Review results
         </ButtonLink>
       );
     case "start-custom-recall":
       return (
-        <ButtonLink to={appRoutePaths.recallSelect} variant="primary">
+        <ButtonLink to={appRoutePaths.recallSelect} variant="secondary">
           Start custom recall
         </ButtonLink>
       );
     case "create-first-study-note":
       return (
-        <ButtonLink to={appRoutePaths.studyNotes} variant="primary">
+        <ButtonLink to={appRoutePaths.studyNotes} variant="secondary">
           Create first Study Note
         </ButtonLink>
       );
   }
 }
 
-function PracticeRepairQueueCard({
+function PracticeRepairQueueRow({
   action,
   body,
   eyebrow,
+  hasStatusDot = false,
   question,
   rating,
   supportingSummary,
@@ -147,16 +153,22 @@ function PracticeRepairQueueCard({
   action: ReactNode;
   body: string;
   eyebrow: string;
+  hasStatusDot?: boolean;
   question: PracticeRepairQueueQuestionLike;
   rating: string;
   supportingSummary?: string;
 }>) {
   return (
-    <article className="recall-panel recall-practice-repair-queue__item">
+    <article className="recall-practice-repair-queue__item">
       <div className="recall-practice-repair-queue__content">
         <div className="recall-practice-repair-queue__meta">
-          <p className="recall-practice-repair-queue__eyebrow">{eyebrow}</p>
-          <p className="recall-practice-repair-queue__rating">{rating}</p>
+          <p
+            className="recall-practice-repair-queue__eyebrow"
+            data-has-status-dot={hasStatusDot ? "true" : undefined}
+          >
+            {eyebrow}
+          </p>
+          <p className="recall-practice-repair-queue__rating">· {rating}</p>
         </div>
         <h5>{getPracticeRepairQuestionPrompt(question)}</h5>
         <p>{body}</p>
@@ -164,8 +176,7 @@ function PracticeRepairQueueCard({
           <p className="muted">{supportingSummary}</p>
         )}
         <p className="muted">
-          Reference explanation:{" "}
-          {getPracticeRepairQuestionReferenceTitle(question)}
+          Reference: {getPracticeRepairQuestionReferenceTitle(question)}
         </p>
       </div>
 
@@ -174,16 +185,34 @@ function PracticeRepairQueueCard({
   );
 }
 
-function PracticeRepairQueueEmptyState({
+function PracticeRepairNoWorkEmptyState({
   action,
 }: Readonly<{
   action: PracticeRepairEmptyStateAction;
 }>) {
   return (
-    <section className="recall-panel recall-empty-state" role="status">
-      <h4>No active Practice Repair entries.</h4>
+    <section
+      className="recall-practice-repair-queue__empty recall-practice-repair-queue__empty--page"
+      role="status"
+    >
+      <h4>No repair work right now.</h4>
       <p className="muted">{getPracticeRepairEmptyStateDescription(action)}</p>
     </section>
+  );
+}
+
+function PracticeRepairSectionEmptyState({
+  children,
+  title,
+}: Readonly<{
+  children: ReactNode;
+  title: string;
+}>) {
+  return (
+    <div className="recall-practice-repair-queue__empty" role="status">
+      <h5>{title}</h5>
+      <p className="muted">{children}</p>
+    </div>
   );
 }
 
@@ -237,41 +266,43 @@ function RecallPracticeRepairQueueRoute() {
           nextCandidateEntry={nextCandidateEntry}
         />
       }
-      aria-label="Practice Repair Queue"
+      aria-label="Practice Repair"
       as="section"
       bodyClassName="recall-practice-repair-queue__body"
-      className="recall-workspace recall-surface"
-      description="Resume active Practice Repair work first, then open the newest repair candidates from weak Results evidence."
+      className="recall-workspace recall-surface recall-practice-repair-queue-surface"
+      description="Fix weak recall evidence before the next attempt."
       headerClassName="recall-surface__header"
       headingLevel={1}
-      title="Practice Repair Queue"
+      title="Practice Repair"
     >
       {queueItems.length === 0 ? (
-        <PracticeRepairQueueEmptyState action={emptyStateAction} />
+        <PracticeRepairNoWorkEmptyState action={emptyStateAction} />
       ) : (
         <section className="recall-practice-repair-queue">
-          {activeQueue.length === 0 ? null : (
-            <section className="recall-practice-repair-queue__section">
-              <div className="recall-practice-repair-queue__header">
-                <h4>Active Practice Repair</h4>
-                <p className="muted">
-                  Resume confirmed repairs before starting new repair work.
-                </p>
-              </div>
+          <section className="recall-practice-repair-queue__section">
+            <div className="recall-practice-repair-queue__header">
+              <h4>Active repair</h4>
+              <p className="muted">Continue the repair you already started.</p>
+            </div>
 
+            {activeQueue.length === 0 ? (
+              <PracticeRepairSectionEmptyState title="No active repair.">
+                Confirm one candidate to keep a focused repair in progress.
+              </PracticeRepairSectionEmptyState>
+            ) : (
               <ol
-                aria-label="Active Practice Repair entries"
+                aria-label="Active repair entries"
                 className="recall-practice-repair-queue__list"
               >
                 {activeQueue.map(({ entry, question }) => {
-                  const rating = getPracticeRepairQueueRating(question, t);
                   const practiceRepairEntryId = getPracticeRepairEntryId(entry);
 
                   return (
                     <li key={practiceRepairEntryId}>
-                      <PracticeRepairQueueCard
+                      <PracticeRepairQueueRow
                         action={
                           <ButtonLink
+                            className="recall-practice-repair-queue__active-action"
                             size="compact"
                             params={{
                               practiceRepairEntryId,
@@ -279,33 +310,37 @@ function RecallPracticeRepairQueueRoute() {
                             to="/practice-repair/$practiceRepairEntryId"
                             variant="secondary"
                           >
-                            Resume Practice Repair
+                            Continue repair
                           </ButtonLink>
                         }
                         body={entry.correction}
-                        eyebrow={formatPracticeRepairIntentLabel(entry.intent)}
+                        eyebrow="Active repair"
+                        hasStatusDot
                         question={question}
-                        rating={rating}
+                        rating="in progress"
                       />
                     </li>
                   );
                 })}
               </ol>
-            </section>
-          )}
+            )}
+          </section>
 
-          {candidateQueue.length === 0 ? null : (
-            <section className="recall-practice-repair-queue__section">
-              <div className="recall-practice-repair-queue__header">
-                <h4>Repair candidates</h4>
-                <p className="muted">
-                  Open one candidate when Recall shows new needs-practice
-                  evidence.
-                </p>
-              </div>
+          <section className="recall-practice-repair-queue__section">
+            <div className="recall-practice-repair-queue__header">
+              <h4>New repair candidates</h4>
+              <p className="muted">
+                {formatPracticeRepairCandidateCount(candidateQueue.length)}
+              </p>
+            </div>
 
+            {candidateQueue.length === 0 ? (
+              <PracticeRepairSectionEmptyState title="No new candidates.">
+                Forgot or Hard results will appear here after recall.
+              </PracticeRepairSectionEmptyState>
+            ) : (
               <ol
-                aria-label="Practice Repair candidates"
+                aria-label="New repair candidates"
                 className="recall-practice-repair-queue__list"
               >
                 {candidateQueue.map((item) => {
@@ -314,9 +349,10 @@ function RecallPracticeRepairQueueRoute() {
 
                   return (
                     <li key={question.questionResultId}>
-                      <PracticeRepairQueueCard
+                      <PracticeRepairQueueRow
                         action={
                           <ButtonLink
+                            className="recall-practice-repair-queue__candidate-action"
                             size="compact"
                             to="/practice-repair/results/$sessionResultId/questions/$questionResultId"
                             params={{
@@ -325,11 +361,11 @@ function RecallPracticeRepairQueueRoute() {
                             }}
                             variant="secondary"
                           >
-                            Open Practice Repair
+                            Open repair
                           </ButtonLink>
                         }
                         body={draft.summary}
-                        eyebrow="Needs practice candidate"
+                        eyebrow="Needs repair candidate"
                         question={question}
                         rating={rating}
                         supportingSummary={
@@ -340,8 +376,8 @@ function RecallPracticeRepairQueueRoute() {
                   );
                 })}
               </ol>
-            </section>
-          )}
+            )}
+          </section>
         </section>
       )}
     </PageLayout>

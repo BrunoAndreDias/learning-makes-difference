@@ -4,18 +4,20 @@ import {
   useNavigate,
   useRouteContext,
 } from "@tanstack/react-router";
-import { type KeyboardEvent, useState, useSyncExternalStore } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
-import { Button, ButtonLink } from "../../design-system/button";
+import { ButtonLink } from "../../design-system/button";
 import { PageLayout } from "../../design-system/page-layout";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { useAppTranslation } from "../language";
 import { listStudyNotesForUser } from "../study-notes";
 import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
-import {
-  getRecallRatingTone,
-  getRecallRatingTranslationKey,
-} from "./learner-copy";
+import { getRecallRatingTranslationKey } from "./learner-copy";
 import {
   AppRecallError,
   type FlashCardSessionResult,
@@ -28,21 +30,15 @@ import {
   getPracticeRepairQuestionReferenceTitle,
   getPracticeRepairRecordedAnswer,
   getQuestionPracticeRepairDraft,
-  type PracticeRepairDraft,
   type PracticeRepairIntent,
   type PracticeRepairQuestionReference,
 } from "./recall-practice-repair";
 import {
-  createStudyNotesPracticeRepairSearch,
   ExternalLinkIcon,
-  InfoIcon,
-  PencilIcon,
   type PracticeRepairWorkspace,
   RecallPracticeRepairWorkspacePage,
-  RefreshIcon,
   StudyNoteDocumentIcon,
   SuggestionChevronIcon,
-  WarningIcon,
 } from "./recall-practice-repair-route";
 
 type RecallResultsStore = {
@@ -67,32 +63,42 @@ type PracticeRepairDraftWorkspace = {
 type DraftPracticeRepairIntentCard = {
   description: string;
   intent: PracticeRepairIntent;
+  mode: DraftPracticeRepairMode;
   title: string;
 };
+
+type DraftPracticeRepairMode =
+  | "create-sibling"
+  | "edit-answer"
+  | "memory-aid"
+  | "split-note";
 
 const draftIntentCards = [
   {
     description:
-      "Refine or expand the answer so the next recall target is clearer and easier to judge.",
+      "Refine or expand the answer so the recall target is clearer and easier to judge.",
     intent: "tighten-expected-answer",
+    mode: "edit-answer",
     title: "Edit expected answer",
   },
   {
     description:
-      "Break a broad concept into smaller, focused Study Notes you can train one at a time.",
+      "Break a broad concept into smaller Study Notes you can practice one at a time.",
     intent: "split-study-note",
+    mode: "split-note",
     title: "Split this Study Note",
   },
   {
     description:
       "Add a related concept or contrast from the same source explanation.",
     intent: "create-sibling-study-note",
+    mode: "create-sibling",
     title: "Create a sibling Study Note",
   },
   {
-    description:
-      "Use a Metaphor or Acronym only if it solves this recall problem.",
+    description: "Add a metaphor or acronym only when it helps recall.",
     intent: "add-memory-aid",
+    mode: "memory-aid",
     title: "Add a memory aid",
   },
 ] as const satisfies readonly DraftPracticeRepairIntentCard[];
@@ -259,6 +265,7 @@ function RecallPracticeRepairDraftRoute() {
         }
         studyNotesContext={studyNotesContext}
         userId={userId}
+        selectedMode="edit-answer"
         workspace={
           {
             entry: confirmedPracticeRepairEntry,
@@ -278,19 +285,12 @@ function RecallPracticeRepairDraftRoute() {
     return <Navigate to="/practice-repair" />;
   }
 
-  return (
-    <RecallPracticeRepairDraftPage
-      practiceRepairDraft={practiceRepairDraft}
-      workspace={workspace}
-    />
-  );
+  return <RecallPracticeRepairDraftPage workspace={workspace} />;
 }
 
 function RecallPracticeRepairDraftPage({
-  practiceRepairDraft,
   workspace,
 }: Readonly<{
-  practiceRepairDraft: PracticeRepairDraft;
   workspace: PracticeRepairDraftWorkspace;
 }>) {
   const navigate = useNavigate();
@@ -313,29 +313,28 @@ function RecallPracticeRepairDraftPage({
     question.selfRating === null
       ? "Not rated"
       : t(getRecallRatingTranslationKey(question.selfRating));
-  const ratingTone = getRecallRatingTone(question.selfRating);
   const recordedAnswer = getPracticeRepairRecordedAnswer(question);
   const hasRecordedAnswer = (question.typedAnswer?.trim() ?? "").length > 0;
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pendingIntent, setPendingIntent] =
     useState<PracticeRepairIntent | null>(null);
-  const [isRecallPending, setIsRecallPending] = useState(false);
 
-  async function startPracticeRepair(intent: PracticeRepairIntent) {
+  async function startPracticeRepair(card: DraftPracticeRepairIntentCard) {
     if (userId === null) {
       return;
     }
 
     setErrorMessage(null);
-    setPendingIntent(intent);
+    setPendingIntent(card.intent);
 
     try {
       const reference = createPracticeRepairDraftReference(workspace);
       const confirmation = {
-        correction: getDraftCorrection(intent),
-        intent,
+        correction: getDraftCorrection(card.intent),
+        intent: card.intent,
         reference,
       };
+      const practiceRepairEntryId = getDraftPracticeRepairEntryId(workspace);
 
       if (persistentRecallContext === undefined) {
         recallContext.confirmPracticeRepairEntry({
@@ -351,15 +350,12 @@ function RecallPracticeRepairDraftPage({
 
       await navigate({
         params: {
-          studyNoteId: question.noteId,
+          practiceRepairEntryId,
         },
-        search: createStudyNotesPracticeRepairSearch({
-          practiceRepairAction: intent,
-          practiceRepairEntryId: getDraftPracticeRepairEntryId(workspace),
-          practiceRepairQuestionResultId: workspace.questionResultId,
-          practiceRepairSessionResultId: workspace.sessionResultId,
-        }),
-        to: appRoutePaths.studyNoteEditor,
+        search: {
+          mode: card.mode,
+        },
+        to: "/practice-repair/$practiceRepairEntryId",
       });
     } catch (error) {
       setErrorMessage(
@@ -369,44 +365,6 @@ function RecallPracticeRepairDraftPage({
       );
     } finally {
       setPendingIntent(null);
-    }
-  }
-
-  async function handleStartRecallAgain() {
-    if (userId === null || question.noteId === undefined) {
-      return;
-    }
-
-    setErrorMessage(null);
-    setIsRecallPending(true);
-
-    try {
-      const sessionInput = {
-        mode: "FlashCard" as const,
-        studyNoteIds: [question.noteId],
-      };
-
-      if (persistentRecallContext === undefined) {
-        recallContext.startFlashCardSession({
-          ...sessionInput,
-          userId,
-        });
-      } else {
-        await persistentRecallContext.startFlashCardSession(
-          userId,
-          sessionInput,
-        );
-      }
-
-      await navigate({ to: "/recall/session" });
-    } catch (error) {
-      setErrorMessage(
-        error instanceof AppRecallError
-          ? error.message
-          : "Recall again could not be started.",
-      );
-    } finally {
-      setIsRecallPending(false);
     }
   }
 
@@ -420,7 +378,7 @@ function RecallPracticeRepairDraftPage({
       aria-label="Practice Repair workspace"
       as="section"
       className="recall-workspace recall-surface recall-practice-repair-workspace"
-      description="Keep the original Needs practice evidence visible while you choose the smallest repair."
+      description="Keep the original Needs practice evidence visible while you finish one concrete repair from Recall."
       headerClassName="recall-surface__header"
       headingLevel={1}
       title="Practice Repair"
@@ -456,31 +414,20 @@ function RecallPracticeRepairDraftPage({
                 to={appRoutePaths.studyNoteEditor}
                 variant="secondary"
               >
-                <span>View note</span>
+                <span>View full note</span>
                 <ExternalLinkIcon />
               </ButtonLink>
             </header>
 
-            <section className="recall-practice-repair-workspace__detail">
-              <p className="recall-practice-repair-workspace__detail-label">
-                Prompt (what you were asked)
-              </p>
-              <div className="recall-practice-repair-workspace__detail-copy">
-                {prompt}
-              </div>
-            </section>
+            <PracticeRepairDraftDetail label="Prompt">
+              {prompt}
+            </PracticeRepairDraftDetail>
 
             <section className="recall-practice-repair-workspace__detail">
               <div className="recall-practice-repair-workspace__detail-header">
                 <p className="recall-practice-repair-workspace__detail-label">
                   Your answer
                 </p>
-                <span
-                  className="recall-selected-result__row-pill recall-practice-repair-workspace__rating"
-                  data-rating-tone={ratingTone}
-                >
-                  {ratingLabel}
-                </span>
               </div>
               <div
                 className="recall-practice-repair-workspace__detail-copy"
@@ -490,58 +437,22 @@ function RecallPracticeRepairDraftPage({
               </div>
             </section>
 
+            <PracticeRepairDraftDetail label="Expected answer">
+              {expectedAnswer}
+            </PracticeRepairDraftDetail>
+
             <section className="recall-practice-repair-workspace__detail">
               <p className="recall-practice-repair-workspace__detail-label">
-                Expected answer
+                Last score
               </p>
               <div className="recall-practice-repair-workspace__detail-copy">
-                {expectedAnswer}
+                <strong className="recall-practice-repair-workspace__score-value">
+                  {ratingLabel}
+                </strong>
+                <span>Weak recall is a signal to adjust and reinforce.</span>
               </div>
             </section>
-
-            <section className="recall-practice-repair-workspace__callout">
-              <WarningIcon className="recall-practice-repair-workspace__callout-icon" />
-              <div className="recall-practice-repair-workspace__callout-copy">
-                <strong>{`Your last score: ${ratingLabel}`}</strong>
-                <p>
-                  It's okay--weak recall is a signal to adjust and reinforce.
-                </p>
-              </div>
-            </section>
-
-            <div className="recall-practice-repair-workspace__actions recall-practice-repair-workspace__quick-actions">
-              <Button
-                className="recall-practice-repair-workspace__action-button"
-                disabled={pendingIntent !== null}
-                onClick={() =>
-                  void startPracticeRepair("tighten-expected-answer")
-                }
-                type="button"
-                variant="secondary"
-              >
-                <PencilIcon />
-                <span>Edit note</span>
-              </Button>
-              <Button
-                className="recall-practice-repair-workspace__action-button"
-                disabled={isRecallPending}
-                onClick={() => void handleStartRecallAgain()}
-                type="button"
-                variant="primary"
-              >
-                <RefreshIcon />
-                <span>Recall again</span>
-              </Button>
-            </div>
           </section>
-
-          <p className="recall-practice-repair-workspace__footer-note">
-            <InfoIcon />
-            <span>
-              Metaphors and acronyms are optional support material, not
-              required.
-            </span>
-          </p>
         </div>
 
         <aside
@@ -550,8 +461,11 @@ function RecallPracticeRepairDraftPage({
         >
           <section className="recall-panel recall-practice-repair-workspace__panel">
             <div className="recall-practice-repair-workspace__panel-copy">
-              <h2>Suggested repairs</h2>
-              <p>{practiceRepairDraft.summary}</p>
+              <h2>Repair options</h2>
+              <p>
+                Choose one exact improvement to make now. Do one thing well, not
+                many.
+              </p>
             </div>
 
             <div className="recall-practice-repair-workspace__repair-list">
@@ -559,8 +473,11 @@ function RecallPracticeRepairDraftPage({
                 <PracticeRepairDraftActionButton
                   card={card}
                   isDisabled={pendingIntent !== null}
+                  isSelected={card.mode === "edit-answer"}
                   key={card.intent}
-                  onSelect={(intent) => void startPracticeRepair(intent)}
+                  onSelect={(selectedCard) =>
+                    void startPracticeRepair(selectedCard)
+                  }
                 />
               ))}
             </div>
@@ -573,11 +490,6 @@ function RecallPracticeRepairDraftPage({
                 {errorMessage}
               </p>
             )}
-
-            <p className="recall-practice-repair-workspace__support">
-              Opening a repair starts it with that action and keeps this
-              evidence attached.
-            </p>
           </section>
         </aside>
       </div>
@@ -585,17 +497,36 @@ function RecallPracticeRepairDraftPage({
   );
 }
 
+function PracticeRepairDraftDetail({
+  children,
+  label,
+}: Readonly<{
+  children: ReactNode;
+  label: string;
+}>) {
+  return (
+    <section className="recall-practice-repair-workspace__detail">
+      <p className="recall-practice-repair-workspace__detail-label">{label}</p>
+      <div className="recall-practice-repair-workspace__detail-copy">
+        {children}
+      </div>
+    </section>
+  );
+}
+
 function PracticeRepairDraftActionButton({
   card,
   isDisabled,
+  isSelected,
   onSelect,
 }: Readonly<{
   card: DraftPracticeRepairIntentCard;
   isDisabled: boolean;
-  onSelect: (intent: PracticeRepairIntent) => void;
+  isSelected: boolean;
+  onSelect: (card: DraftPracticeRepairIntentCard) => void;
 }>) {
-  const titleId = `practice-repair-draft-card-title-${card.intent}`;
-  const descriptionId = `practice-repair-draft-card-description-${card.intent}`;
+  const titleId = `practice-repair-draft-card-title-${card.mode}`;
+  const descriptionId = `practice-repair-draft-card-description-${card.mode}`;
 
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     if (!isIntentSelectionKey(event.key)) {
@@ -603,17 +534,21 @@ function PracticeRepairDraftActionButton({
     }
 
     event.preventDefault();
-    onSelect(card.intent);
+    onSelect(card);
   }
 
   return (
-    <article className="recall-practice-repair-workspace__repair-card">
+    <article
+      className="recall-practice-repair-workspace__repair-card"
+      data-selected={isSelected ? "true" : "false"}
+    >
       <button
         aria-describedby={descriptionId}
         aria-labelledby={titleId}
+        aria-pressed={isSelected}
         className="recall-practice-repair-workspace__repair-button"
         disabled={isDisabled}
-        onClick={() => onSelect(card.intent)}
+        onClick={() => onSelect(card)}
         onKeyDown={handleKeyDown}
         type="button"
       >

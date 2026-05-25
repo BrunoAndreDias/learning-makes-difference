@@ -501,12 +501,16 @@ describe("foundationTokens", () => {
     expect(getCssRule(recallWorkspaceCss, ".recall-result-row")).toContain(
       "border-bottom: 1px solid var(--color-content-border-soft);",
     );
-    expect(
-      getCssRule(
-        recallWorkspaceCss,
-        '.recall-result-row[data-selected="true"]',
-      ),
-    ).toContain("box-shadow: inset 3px 0 0 var(--color-primary);");
+    const selectedResultRowRule = getCssRule(
+      recallWorkspaceCss,
+      '.recall-result-row[data-selected="true"]',
+    );
+    expect(selectedResultRowRule).toContain(
+      "inset 3px 0 0 var(--color-primary),",
+    );
+    expect(selectedResultRowRule).toContain(
+      "inset 0 0 0 1px var(--recall-result-row-selected-border);",
+    );
     expect(recallWorkspaceCss).toContain(".recall-results-count");
     expect(recallWorkspaceCss).not.toContain(
       ".recall-results-list li + li .recall-result-row",
