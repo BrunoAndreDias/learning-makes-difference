@@ -370,24 +370,65 @@ export function createPersistentRecallContext(
     return service;
   }
 
-  function writeUpdatedSessionResult(
-    updatedResult: SessionResult,
-    validatedUserId: string,
-  ) {
-    writeState({
-      activeSession: snapshot,
-      sessionResults: toStoredSessionResults(
-        [
-          updatedResult,
-          ...sessionResultsSnapshot.filter(
-            (result) => result.id !== updatedResult.id,
-          ),
-        ],
-        validatedUserId,
-      ),
-    });
+  function applyReturnedMutationLocally(input: {
+    activeSession?: RecallSession | null;
+    sessionResult?: SessionResult;
+    userId: string;
+  }) {
+    if ("activeSession" in input) {
+      writeState({
+        activeSession: toStoredRecallSession(
+          input.activeSession ?? null,
+          input.userId,
+        ),
+        sessionResults,
+      });
 
-    return cloneSessionResult(updatedResult);
+      return;
+    }
+
+    if (input.sessionResult !== undefined) {
+      writeState({
+        activeSession: snapshot,
+        sessionResults: toStoredSessionResults(
+          [
+            input.sessionResult,
+            ...sessionResultsSnapshot.filter(
+              (result) => result.id !== input.sessionResult?.id,
+            ),
+          ],
+          input.userId,
+        ),
+      });
+    }
+  }
+
+  async function refreshAuthoritativeState(input: {
+    activeSession?: RecallSession | null;
+    refreshRecallSchedules?: boolean;
+    refreshSessionResults?: boolean;
+    userId: string;
+  }) {
+    const [nextResults, nextRecallSchedules] = await Promise.all([
+      input.refreshSessionResults
+        ? requireService().listSessionResults()
+        : Promise.resolve<SessionResult[] | null>(null),
+      input.refreshRecallSchedules
+        ? listServiceRecallSchedules(input.userId)
+        : Promise.resolve<StoredRecallSchedule[] | null>(null),
+    ]);
+
+    return writeState({
+      activeSession:
+        input.activeSession === undefined
+          ? snapshot
+          : toStoredRecallSession(input.activeSession, input.userId),
+      recallSchedules: nextRecallSchedules ?? recallSchedules,
+      sessionResults:
+        nextResults === null
+          ? sessionResults
+          : toStoredSessionResults(nextResults, input.userId),
+    });
   }
 
   async function emitStudyActivity(
@@ -650,39 +691,57 @@ export function createPersistentRecallContext(
       const updatedResult =
         await requireService().completePracticeRepairEntry(input);
 
-      return writeUpdatedSessionResult(updatedResult, validatedUserId);
+      applyReturnedMutationLocally({
+        sessionResult: updatedResult,
+        userId: validatedUserId,
+      });
+
+      return cloneSessionResult(updatedResult);
     },
     async completeLinkedPracticeRepairEntry(userId, input) {
       const validatedUserId = requireUserId(userId);
       const updatedResult =
         await requireService().completeLinkedPracticeRepairEntry(input);
 
-      return writeUpdatedSessionResult(updatedResult, validatedUserId);
+      applyReturnedMutationLocally({
+        sessionResult: updatedResult,
+        userId: validatedUserId,
+      });
+
+      return cloneSessionResult(updatedResult);
     },
     async confirmPracticeRepairEntry(userId, input) {
       const validatedUserId = requireUserId(userId);
       const updatedResult =
         await requireService().confirmPracticeRepairEntry(input);
 
-      return writeUpdatedSessionResult(updatedResult, validatedUserId);
+      applyReturnedMutationLocally({
+        sessionResult: updatedResult,
+        userId: validatedUserId,
+      });
+
+      return cloneSessionResult(updatedResult);
     },
     async dismissPracticeRepairEntry(userId, input) {
       const validatedUserId = requireUserId(userId);
       const updatedResult =
         await requireService().dismissPracticeRepairEntry(input);
 
-      return writeUpdatedSessionResult(updatedResult, validatedUserId);
+      applyReturnedMutationLocally({
+        sessionResult: updatedResult,
+        userId: validatedUserId,
+      });
+
+      return cloneSessionResult(updatedResult);
     },
     async endFlashCardSession(userId, input) {
       const validatedUserId = requireUserId(userId);
-      const [endedSession, nextResults] = await Promise.all([
-        requireService().endRecallSession(input),
-        requireService().listSessionResults(),
-      ]);
+      const endedSession = await requireService().endRecallSession(input);
 
-      writeState({
+      await refreshAuthoritativeState({
         activeSession: null,
-        sessionResults: toStoredSessionResults(nextResults, validatedUserId),
+        refreshSessionResults: true,
+        userId: validatedUserId,
       });
 
       return cloneSession(endedSession);
@@ -699,30 +758,28 @@ export function createPersistentRecallContext(
     async rateFlashCardAnswer(userId, input) {
       const validatedUserId = requireUserId(userId);
       const nextSession = await requireService().rateFlashCardAnswer(input);
-      const nextRecallSchedules =
-        await listServiceRecallSchedules(validatedUserId);
 
       if (nextSession !== null) {
-        writeState({
-          activeSession: toStoredRecallSession(nextSession, validatedUserId),
-          recallSchedules: nextRecallSchedules,
-          sessionResults,
+        await refreshAuthoritativeState({
+          activeSession: nextSession,
+          refreshRecallSchedules: true,
+          userId: validatedUserId,
         });
         await emitStudyActivity(validatedUserId, nextSession);
 
         return cloneSession(nextSession);
       }
 
-      const nextResults = await requireService().listSessionResults();
-
-      writeState({
+      const nextState = await refreshAuthoritativeState({
         activeSession: null,
-        recallSchedules: nextRecallSchedules,
-        sessionResults: toStoredSessionResults(nextResults, validatedUserId),
+        refreshRecallSchedules: true,
+        refreshSessionResults: true,
+        userId: validatedUserId,
       });
       await emitStudyActivity(
         validatedUserId,
-        nextResults.find((result) => result.id === input.sessionId) ?? null,
+        nextState.sessionResults.find((result) => result.id === input.sessionId) ??
+          null,
       );
 
       return null;
@@ -768,9 +825,9 @@ export function createPersistentRecallContext(
       const revealedSession =
         await requireService().revealFlashCardAnswer(input);
 
-      writeState({
-        activeSession: toStoredRecallSession(revealedSession, validatedUserId),
-        sessionResults,
+      applyReturnedMutationLocally({
+        activeSession: revealedSession,
+        userId: validatedUserId,
       });
 
       return cloneSession(revealedSession);
@@ -786,19 +843,18 @@ export function createPersistentRecallContext(
       const nextSession = await skipQuestion(input);
 
       if (nextSession !== null) {
-        writeState({
-          activeSession: toStoredRecallSession(nextSession, validatedUserId),
-          sessionResults,
+        applyReturnedMutationLocally({
+          activeSession: nextSession,
+          userId: validatedUserId,
         });
 
         return cloneSession(nextSession);
       }
 
-      const nextResults = await requireService().listSessionResults();
-
-      writeState({
+      await refreshAuthoritativeState({
         activeSession: null,
-        sessionResults: toStoredSessionResults(nextResults, validatedUserId),
+        refreshSessionResults: true,
+        userId: validatedUserId,
       });
 
       return null;
@@ -808,9 +864,9 @@ export function createPersistentRecallContext(
       const startedSession =
         await requireService().startFlashCardSession(input);
 
-      writeState({
-        activeSession: toStoredRecallSession(startedSession, validatedUserId),
-        sessionResults,
+      applyReturnedMutationLocally({
+        activeSession: startedSession,
+        userId: validatedUserId,
       });
       await emitStudyActivity(validatedUserId, startedSession);
 
@@ -828,16 +884,21 @@ export function createPersistentRecallContext(
       const updatedResult =
         await requireService().updatePracticeRepairEntryCorrection(input);
 
-      return writeUpdatedSessionResult(updatedResult, validatedUserId);
+      applyReturnedMutationLocally({
+        sessionResult: updatedResult,
+        userId: validatedUserId,
+      });
+
+      return cloneSessionResult(updatedResult);
     },
     async updateFlashCardAttemptText(userId, input) {
       const validatedUserId = requireUserId(userId);
       const updatedSession =
         await requireService().updateFlashCardAttemptText(input);
 
-      writeState({
-        activeSession: toStoredRecallSession(updatedSession, validatedUserId),
-        sessionResults,
+      applyReturnedMutationLocally({
+        activeSession: updatedSession,
+        userId: validatedUserId,
       });
 
       return cloneSession(updatedSession);

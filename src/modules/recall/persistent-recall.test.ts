@@ -447,6 +447,316 @@ describe("createPersistentRecallContext", () => {
     ]);
   });
 
+  it("refreshes only the authoritative Recall state each async mutation requires", async () => {
+    let sessionCounter = 0;
+    let activeSession: RecallSession | null = null;
+    let sessionResults: SessionResult[] = [];
+    let recallSchedules: RecallSchedule[] = [];
+
+    function createStartedSession(noteIds: string[]) {
+      const id = `session-${++sessionCounter}`;
+
+      return createSession({
+        id,
+        notes: noteIds.map((noteId, index) => ({
+          acronyms: [],
+          body: `Body ${index + 1}`,
+          createdAt: "2026-05-02T12:00:00.000Z",
+          id: noteId,
+          labelIds: [],
+          metaphors: [],
+          title: `Note ${index + 1}`,
+          updatedAt: "2026-05-02T12:00:00.000Z",
+        })),
+        questions: noteIds.map((noteId, index) =>
+          createQuestion({
+            noteId,
+            noteSnapshot: {
+              acronyms: [],
+              body: `Body ${index + 1}`,
+              createdAt: "2026-05-02T12:00:00.000Z",
+              id: noteId,
+              labelIds: [],
+              metaphors: [],
+              title: `Note ${index + 1}`,
+              updatedAt: "2026-05-02T12:00:00.000Z",
+            },
+          }),
+        ),
+      });
+    }
+
+    function storeResult(session: RecallSession, completedAt: string) {
+      sessionResults = [
+        createResult({
+          attempts: session.attempts,
+          completedAt,
+          createdAt: session.createdAt,
+          id: session.id,
+          notes: session.notes,
+          questions: session.questions,
+        }),
+        ...sessionResults.filter((result) => result.id !== session.id),
+      ];
+    }
+
+    const listSessionResults = vi.fn(async () => sessionResults);
+    const listRecallSchedules = vi.fn(async () => recallSchedules);
+    const service: AppPersistentRecallService = {
+      completePracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      completeLinkedPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      confirmPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      dismissPracticeRepairEntry: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      endRecallSession: vi.fn(async () => {
+        if (activeSession === null) {
+          throw new Error("Missing session");
+        }
+
+        const endedSession = activeSession;
+        activeSession = null;
+        storeResult(endedSession, "2026-05-02T12:40:00.000Z");
+
+        return endedSession;
+      }),
+      getActiveSession: vi.fn(async () => activeSession),
+      listRecallSchedules,
+      listSessionResults,
+      rateFlashCardAnswer: vi.fn(async ({ rating }) => {
+        if (activeSession === null) {
+          throw new Error("Missing session");
+        }
+
+        const currentQuestionIndex = activeSession.currentQuestionIndex;
+        const currentQuestion = activeSession.questions[currentQuestionIndex];
+
+        if (currentQuestion === undefined) {
+          throw new Error("Missing question");
+        }
+
+        const ratedSession = {
+          ...activeSession,
+          attempts: [
+            ...activeSession.attempts,
+            {
+              noteId: currentQuestion.noteId,
+              rating,
+              text: activeSession.draftAnswer?.trim() || null,
+            },
+          ],
+          currentIndex: currentQuestionIndex + 1,
+          currentQuestionIndex: currentQuestionIndex + 1,
+          draftAnswer: "",
+          isAnswerRevealed: false,
+          questions: activeSession.questions.map((question, index) =>
+            index === currentQuestionIndex
+              ? {
+                  ...question,
+                  isAnswerRevealed: false,
+                  selfRating: rating,
+                  typedAnswer: activeSession?.draftAnswer ?? "",
+                }
+              : question,
+          ),
+        } satisfies RecallSession;
+
+        recallSchedules = [
+          createSchedule({
+            intervalDays: ratedSession.currentQuestionIndex >= ratedSession.notes.length ? 5 : 3,
+            lastRecalledAt:
+              ratedSession.currentQuestionIndex >= ratedSession.notes.length
+                ? "2026-05-02T12:35:00.000Z"
+                : "2026-05-02T12:20:00.000Z",
+            nextRecallAt:
+              ratedSession.currentQuestionIndex >= ratedSession.notes.length
+                ? "2026-05-07T12:35:00.000Z"
+                : "2026-05-05T12:20:00.000Z",
+            repetitionCount:
+              ratedSession.currentQuestionIndex >= ratedSession.notes.length
+                ? 2
+                : 1,
+            studyNoteId: currentQuestion.noteId,
+          }),
+        ];
+
+        if (ratedSession.currentQuestionIndex >= ratedSession.notes.length) {
+          activeSession = null;
+          storeResult(ratedSession, "2026-05-02T12:35:00.000Z");
+
+          return null;
+        }
+
+        activeSession = ratedSession;
+
+        return ratedSession;
+      }),
+      revealFlashCardAnswer: vi.fn(async () => {
+        if (activeSession === null) {
+          throw new Error("Missing session");
+        }
+
+        activeSession = {
+          ...activeSession,
+          isAnswerRevealed: true,
+          questions: activeSession.questions.map((question, index) =>
+            index === activeSession?.currentQuestionIndex
+              ? {
+                  ...question,
+                  isAnswerRevealed: true,
+                }
+              : question,
+          ),
+        };
+
+        return activeSession;
+      }),
+      skipFlashCardQuestion: vi.fn(async () => {
+        if (activeSession === null) {
+          throw new Error("Missing session");
+        }
+
+        const skippedSession = {
+          ...activeSession,
+          currentIndex: activeSession.currentQuestionIndex + 1,
+          currentQuestionIndex: activeSession.currentQuestionIndex + 1,
+          draftAnswer: "",
+          isAnswerRevealed: false,
+        } satisfies RecallSession;
+
+        if (skippedSession.currentQuestionIndex >= skippedSession.notes.length) {
+          activeSession = null;
+          storeResult(skippedSession, "2026-05-02T12:50:00.000Z");
+
+          return null;
+        }
+
+        activeSession = skippedSession;
+
+        return skippedSession;
+      }),
+      startFlashCardSession: vi.fn(async ({ noteIds }) => {
+        activeSession = createStartedSession(noteIds);
+
+        return activeSession;
+      }),
+      updatePracticeRepairEntryCorrection: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      updateFlashCardAttemptText: vi.fn(async ({ text }) => {
+        if (activeSession === null) {
+          throw new Error("Missing session");
+        }
+
+        activeSession = {
+          ...activeSession,
+          draftAnswer: text,
+          questions: activeSession.questions.map((question, index) =>
+            index === activeSession?.currentQuestionIndex
+              ? {
+                  ...question,
+                  typedAnswer: text,
+                }
+              : question,
+          ),
+        };
+
+        return activeSession;
+      }),
+    };
+    const persistentRecall = createPersistentRecallContext({
+      service,
+    });
+
+    await persistentRecall.startFlashCardSession("user-casey", {
+      noteIds: ["note-1", "note-2"],
+    });
+    expect(listSessionResults).not.toHaveBeenCalled();
+    expect(listRecallSchedules).not.toHaveBeenCalled();
+
+    await persistentRecall.updateFlashCardAttemptText("user-casey", {
+      sessionId: "session-1",
+      text: "First draft",
+    });
+    await persistentRecall.revealFlashCardAnswer("user-casey", {
+      sessionId: "session-1",
+    });
+    expect(listSessionResults).not.toHaveBeenCalled();
+    expect(listRecallSchedules).not.toHaveBeenCalled();
+
+    await persistentRecall.rateFlashCardAnswer("user-casey", {
+      rating: "hard",
+      sessionId: "session-1",
+    });
+    expect(listSessionResults).not.toHaveBeenCalled();
+    expect(listRecallSchedules).toHaveBeenCalledTimes(1);
+
+    listSessionResults.mockClear();
+    listRecallSchedules.mockClear();
+
+    await persistentRecall.revealFlashCardAnswer("user-casey", {
+      sessionId: "session-1",
+    });
+    await persistentRecall.rateFlashCardAnswer("user-casey", {
+      rating: "good",
+      sessionId: "session-1",
+    });
+    expect(listRecallSchedules).toHaveBeenCalledTimes(1);
+    expect(listSessionResults).toHaveBeenCalledTimes(1);
+
+    listSessionResults.mockClear();
+    listRecallSchedules.mockClear();
+
+    await persistentRecall.startFlashCardSession("user-casey", {
+      noteIds: ["note-1", "note-2"],
+    });
+    await persistentRecall.revealFlashCardAnswer("user-casey", {
+      sessionId: "session-2",
+    });
+    await persistentRecall.rateFlashCardAnswer("user-casey", {
+      rating: "hard",
+      sessionId: "session-2",
+    });
+
+    listSessionResults.mockClear();
+    listRecallSchedules.mockClear();
+
+    await persistentRecall.endFlashCardSession("user-casey", {
+      sessionId: "session-2",
+    });
+    expect(listSessionResults).toHaveBeenCalledTimes(1);
+    expect(listRecallSchedules).not.toHaveBeenCalled();
+
+    listSessionResults.mockClear();
+    listRecallSchedules.mockClear();
+
+    await persistentRecall.startFlashCardSession("user-casey", {
+      noteIds: ["note-1", "note-2"],
+    });
+    await persistentRecall.revealFlashCardAnswer("user-casey", {
+      sessionId: "session-3",
+    });
+    await persistentRecall.rateFlashCardAnswer("user-casey", {
+      rating: "good",
+      sessionId: "session-3",
+    });
+
+    listSessionResults.mockClear();
+    listRecallSchedules.mockClear();
+
+    await persistentRecall.skipFlashCardQuestion("user-casey", {
+      sessionId: "session-3",
+    });
+    expect(listSessionResults).toHaveBeenCalledTimes(1);
+    expect(listRecallSchedules).not.toHaveBeenCalled();
+  });
+
   it("confirms Practice Repair entries into the persisted results snapshot", async () => {
     let sessionResults: SessionResult[] = [
       createResult({
