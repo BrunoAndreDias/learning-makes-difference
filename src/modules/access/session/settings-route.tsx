@@ -10,6 +10,7 @@ import { PageLayout } from "../../../design-system/page-layout";
 import { type AppTranslationKey, useAppTranslation } from "../../language";
 import {
   hasPendingProtectedWorkspaceRefresh,
+  type ProtectedWorkspaceRefreshKey,
   useProtectedWorkspaceRefreshState,
 } from "../../workspace-shell/app-shell/protected-workspace-refresh";
 import {
@@ -42,6 +43,12 @@ const languageLabels: Record<UserLanguage, string> = {
 
 const settingsFallbackErrorKey =
   "settings.error.fallback" satisfies AppTranslationKey;
+const settingsReadinessRefreshKeys = [
+  "focus",
+  "labels",
+  "recall",
+  "studyNotes",
+] as const satisfies readonly ProtectedWorkspaceRefreshKey[];
 
 const studyObjectiveLabelKeys = {
   university_study: "settings.studyObjective.universityStudy",
@@ -154,12 +161,10 @@ function SettingsPage() {
     setUserTimeZone(user?.userTimeZone ?? defaultUserTimeZone);
   }, [user]);
 
-  const isPagePreparing = hasPendingProtectedWorkspaceRefresh(refreshState, [
-    "focus",
-    "labels",
-    "recall",
-    "studyNotes",
-  ]);
+  const isPagePreparing = hasPendingProtectedWorkspaceRefresh(
+    refreshState,
+    settingsReadinessRefreshKeys,
+  );
 
   if (isPagePreparing) {
     return <SettingsPageReadinessState />;

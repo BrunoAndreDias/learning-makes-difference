@@ -10,6 +10,7 @@ import { listNotesForUser } from "../notes";
 import { listStudyNotesForUser } from "../study-notes";
 import {
   hasPendingProtectedWorkspaceRefresh,
+  type ProtectedWorkspaceRefreshKey,
   useProtectedWorkspaceRefreshState,
 } from "../workspace-shell/app-shell/protected-workspace-refresh";
 import {
@@ -95,6 +96,11 @@ const DEFAULT_FOCUS_SESSION_START_VALUES: FocusSessionStartValues = {
   focusMinutes: DEFAULT_FOCUS_MINUTES,
   plannedFocusIntervals: DEFAULT_PLANNED_FOCUS_INTERVALS,
 };
+const focusReadinessRefreshKeys = [
+  "focus",
+  "recall",
+  "studyNotes",
+] as const satisfies readonly ProtectedWorkspaceRefreshKey[];
 const focusAnalyticsComparisonSuffix = " vs last week";
 const focusAnalyticsNoChangeComparison = `No change${focusAnalyticsComparisonSuffix}`;
 const focusAnalyticsMetricLabelKeys = {
@@ -182,6 +188,15 @@ function FocusPage() {
   const activeSession =
     userId === null ? null : focus.getActiveSession({ userId });
   useFocusTimerTick(activeSession);
+  const isPagePreparing = hasPendingProtectedWorkspaceRefresh(
+    refreshState,
+    focusReadinessRefreshKeys,
+  );
+
+  if (isPagePreparing) {
+    return <FocusPageReadinessState />;
+  }
+
   const records =
     userId === null
       ? []
@@ -221,15 +236,6 @@ function FocusPage() {
     weeklyAnalytics,
     t,
   );
-  const isPagePreparing = hasPendingProtectedWorkspaceRefresh(refreshState, [
-    "focus",
-    "recall",
-    "studyNotes",
-  ]);
-
-  if (isPagePreparing) {
-    return <FocusPageReadinessState />;
-  }
 
   return (
     <PageLayout

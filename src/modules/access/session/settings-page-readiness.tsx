@@ -7,35 +7,30 @@ import {
 
 const readinessLabel = "Preparing Settings";
 
-const settingsFieldWidths = [
+const settingsFormFields = [
   {
-    controlWidth: "100%",
     id: "display-name",
     labelWidth: "5.5rem",
   },
   {
-    controlWidth: "100%",
     id: "language",
     labelWidth: "4.5rem",
   },
   {
-    controlWidth: "100%",
     id: "study-objective",
     labelWidth: "6.5rem",
   },
   {
-    controlWidth: "100%",
     id: "study-intensity",
     labelWidth: "6rem",
   },
   {
-    controlWidth: "100%",
     id: "user-time-zone",
     labelWidth: "5.75rem",
   },
 ] as const;
 
-const settingsSummaryWidths = [
+const settingsSummaryRows = [
   {
     detailWidth: "14rem",
     id: "email",
@@ -68,6 +63,9 @@ const settingsSummaryWidths = [
   },
 ] as const;
 
+type SettingsFormFieldReadinessConfig = (typeof settingsFormFields)[number];
+type SettingsSummaryRowReadinessConfig = (typeof settingsSummaryRows)[number];
+
 export function SettingsPageReadinessState() {
   return (
     <PageLayout
@@ -90,87 +88,98 @@ export function SettingsPageReadinessState() {
     >
       <PageReadinessState className="settings-readiness" label={readinessLabel}>
         <div className="settings-main-grid">
-          <article
-            aria-hidden="true"
-            className="settings-panel settings-panel--form"
-          >
-            <div className="settings-panel__header">
-              <SkeletonBlock as="div" height="0.8rem" width="5rem" />
-              <SkeletonBlock as="div" height="1.15rem" width="10rem" />
-            </div>
-
-            <div className="settings-form settings-readiness__form">
-              {settingsFieldWidths.map((field) => (
-                <div
-                  className="settings-form__field settings-readiness__field"
-                  key={field.id}
-                >
-                  <SkeletonBlock
-                    as="span"
-                    height="0.85rem"
-                    width={field.labelWidth}
-                  />
-                  <SkeletonBlock
-                    as="span"
-                    height="2.45rem"
-                    width={field.controlWidth}
-                  />
-                </div>
-              ))}
-
-              <div className="settings-form__checkbox-field settings-readiness__checkbox">
-                <SkeletonBlock
-                  as="span"
-                  height="1rem"
-                  radius="pill"
-                  width="1rem"
-                />
-                <SkeletonBlock as="span" height="0.9rem" width="11rem" />
-              </div>
-
-              <SkeletonBlock as="div" height="1rem" width="8rem" />
-              <SkeletonBlock
-                as="div"
-                className="settings-readiness__submit"
-                height="2.6rem"
-                radius="pill"
-                width="11.5rem"
-              />
-            </div>
-          </article>
-
-          <article
-            aria-hidden="true"
-            className="settings-panel settings-panel--summary"
-          >
-            <div className="settings-panel__header">
-              <SkeletonBlock as="div" height="0.8rem" width="5rem" />
-              <SkeletonBlock as="div" height="1.15rem" width="9rem" />
-            </div>
-
-            <dl className="settings-summary">
-              {settingsSummaryWidths.map((row) => (
-                <div className="settings-readiness__summary-row" key={row.id}>
-                  <dt>
-                    <SkeletonBlock
-                      as="span"
-                      height="0.78rem"
-                      width={row.labelWidth}
-                    />
-                  </dt>
-                  <dd>
-                    <SkeletonBlock
-                      as="span"
-                      height="0.95rem"
-                      width={row.detailWidth}
-                    />
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </article>
+          <SettingsFormPanelReadiness />
+          <SettingsSummaryPanelReadiness />
         </div>
       </PageReadinessState>
     </PageLayout>
+  );
+}
+
+function SettingsFormPanelReadiness() {
+  return (
+    <article aria-hidden="true" className="settings-panel settings-panel--form">
+      <SettingsPanelHeaderReadiness titleWidth="10rem" />
+
+      <div className="settings-form settings-readiness__form">
+        {settingsFormFields.map((field) => (
+          <SettingsFormFieldReadiness field={field} key={field.id} />
+        ))}
+
+        <div className="settings-form__checkbox-field settings-readiness__checkbox">
+          <SkeletonBlock as="span" height="1rem" radius="pill" width="1rem" />
+          <SkeletonBlock as="span" height="0.9rem" width="11rem" />
+        </div>
+
+        <SkeletonBlock as="div" height="1rem" width="8rem" />
+        <SkeletonBlock
+          as="div"
+          className="settings-readiness__submit"
+          height="2.6rem"
+          radius="pill"
+          width="11.5rem"
+        />
+      </div>
+    </article>
+  );
+}
+
+function SettingsFormFieldReadiness({
+  field,
+}: Readonly<{
+  field: SettingsFormFieldReadinessConfig;
+}>) {
+  return (
+    <div className="settings-form__field settings-readiness__field">
+      <SkeletonBlock as="span" height="0.85rem" width={field.labelWidth} />
+      <SkeletonBlock as="span" height="2.45rem" width="100%" />
+    </div>
+  );
+}
+
+function SettingsSummaryPanelReadiness() {
+  return (
+    <article
+      aria-hidden="true"
+      className="settings-panel settings-panel--summary"
+    >
+      <SettingsPanelHeaderReadiness titleWidth="9rem" />
+
+      <dl className="settings-summary">
+        {settingsSummaryRows.map((row) => (
+          <SettingsSummaryRowReadiness key={row.id} row={row} />
+        ))}
+      </dl>
+    </article>
+  );
+}
+
+function SettingsPanelHeaderReadiness({
+  titleWidth,
+}: Readonly<{
+  titleWidth: string;
+}>) {
+  return (
+    <div className="settings-panel__header">
+      <SkeletonBlock as="div" height="0.8rem" width="5rem" />
+      <SkeletonBlock as="div" height="1.15rem" width={titleWidth} />
+    </div>
+  );
+}
+
+function SettingsSummaryRowReadiness({
+  row,
+}: Readonly<{
+  row: SettingsSummaryRowReadinessConfig;
+}>) {
+  return (
+    <div className="settings-readiness__summary-row">
+      <dt>
+        <SkeletonBlock as="span" height="0.78rem" width={row.labelWidth} />
+      </dt>
+      <dd>
+        <SkeletonBlock as="span" height="0.95rem" width={row.detailWidth} />
+      </dd>
+    </div>
   );
 }
