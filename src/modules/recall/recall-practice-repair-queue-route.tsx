@@ -6,6 +6,7 @@ import { PageLayout } from "../../design-system/page-layout";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { useAppTranslation } from "../language";
 import { getStudyNoteReadiness, listStudyNotesForUser } from "../study-notes";
+import { useProtectedWorkspaceRefreshState } from "../workspace-shell/app-shell/protected-route";
 import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import { getRecallRatingTranslationKey } from "./learner-copy";
 import {
@@ -218,6 +219,7 @@ function PracticeRepairSectionEmptyState({
 
 function RecallPracticeRepairQueueRoute() {
   const { t } = useAppTranslation();
+  const protectedWorkspaceRefreshState = useProtectedWorkspaceRefreshState();
   const recallContext = useRouteContext({
     from: "/_protected",
     select: (context) => context.recall,
@@ -242,6 +244,14 @@ function RecallPracticeRepairQueueRoute() {
     userId === null ? [] : recallContext.listSessionResults({ userId });
   const studyNotes =
     userId === null ? [] : listStudyNotesForUser(studyNotesSnapshot, userId);
+
+  if (
+    protectedWorkspaceRefreshState.recall ||
+    protectedWorkspaceRefreshState.studyNotes
+  ) {
+    return null;
+  }
+
   const queueItems = listPracticeRepairQueueItems({
     results: sessionResults,
   });

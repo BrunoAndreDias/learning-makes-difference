@@ -473,6 +473,48 @@ describe("authenticated app shell", () => {
     ).toHaveAttribute("aria-expanded", "false");
   });
 
+  it("keeps authenticated shell navigation visible while Study Notes data is still refreshing", async () => {
+    const emptyStudyNotes = [] as const;
+
+    renderRoute("/study-notes", {
+      persistentStudyNotesContext: {
+        createStudyNote: () => {
+          throw new Error("not used");
+        },
+        createStudyNoteFromSource: () => {
+          throw new Error("not used");
+        },
+        deleteStudyNote: () => {
+          throw new Error("not used");
+        },
+        getSnapshot: () => emptyStudyNotes,
+        removeLabelAssignments: () => {
+          throw new Error("not used");
+        },
+        refresh: () =>
+          new Promise<readonly []>(() => {
+            return undefined;
+          }),
+        subscribe: () => () => undefined,
+        updateStudyNote: () => {
+          throw new Error("not used");
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("complementary", {
+        name: "Study Notes workspace",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Open navigation menu" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Study Notes" }),
+    ).toBeInTheDocument();
+  });
+
   it("removes Study Notes header chrome when the sidebar is collapsed", async () => {
     renderRoute("/study-notes");
 

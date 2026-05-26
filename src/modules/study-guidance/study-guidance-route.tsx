@@ -8,6 +8,7 @@ import { useResolvedProtectedSession } from "../access/session/use-resolved-prot
 import type { AppLabel } from "../labels/label-management/labels";
 import type { FlashCardRecallAttemptsByNote } from "../recall";
 import { listStudyNotesForUser } from "../study-notes";
+import { useProtectedWorkspaceRefreshState } from "../workspace-shell/app-shell/protected-route";
 import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import "./study-guidance.css";
 import {
@@ -17,6 +18,7 @@ import {
   type StudyGuidanceRowAction,
   type StudyGuidanceSummaryCard,
 } from "./study-guidance";
+import { StudyGuidancePageReadinessState } from "./study-guidance-page-readiness";
 
 export const Route = createFileRoute("/_protected/today")({
   component: StudyGuidanceWorkspace,
@@ -36,6 +38,7 @@ function StudyGuidanceWorkspace() {
     select: (context) => context.persistentStudyNotes,
   });
   const { sessionSnapshot } = useResolvedProtectedSession("/_protected/today");
+  const protectedWorkspaceRefreshState = useProtectedWorkspaceRefreshState();
   const userId = sessionSnapshot.user?.id ?? null;
   const userTimeZone =
     sessionSnapshot.user?.userTimeZone ?? defaultUserTimeZone;
@@ -103,6 +106,15 @@ function StudyGuidanceWorkspace() {
       userTimeZone,
     ],
   );
+
+  const isReadinessPending =
+    protectedWorkspaceRefreshState.labels ||
+    protectedWorkspaceRefreshState.recall ||
+    protectedWorkspaceRefreshState.studyNotes;
+
+  if (isReadinessPending) {
+    return <StudyGuidancePageReadinessState />;
+  }
 
   return (
     <PageLayout

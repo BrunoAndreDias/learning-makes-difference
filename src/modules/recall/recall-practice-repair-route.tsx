@@ -27,6 +27,7 @@ import {
   listStudyNotesForUser,
   type UpdateStudyNoteInput,
 } from "../study-notes";
+import { useProtectedWorkspaceRefreshState } from "../workspace-shell/app-shell/protected-route";
 import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import {
   getRecallRatingTone,
@@ -1073,6 +1074,7 @@ function PracticeRepairInlineEditor({
 }
 
 function RecallPracticeRepairRoute() {
+  const protectedWorkspaceRefreshState = useProtectedWorkspaceRefreshState();
   const { practiceRepairEntryId } = Route.useParams();
   const search = Route.useSearch();
   const recallContext = useRouteContext({
@@ -1105,6 +1107,14 @@ function RecallPracticeRepairRoute() {
     userId === null
       ? []
       : listStudyNotesForUser(studyNotesStore.getSnapshot(), userId);
+
+  if (
+    protectedWorkspaceRefreshState.recall ||
+    protectedWorkspaceRefreshState.studyNotes
+  ) {
+    return null;
+  }
+
   const workspace = findPracticeRepairWorkspace({
     practiceRepairEntryId,
     sessionResults,
