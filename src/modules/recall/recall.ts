@@ -43,6 +43,16 @@ import {
   getUpdatedRecallSchedule,
   type RecallSchedule,
 } from "./recall-schedule";
+import {
+  AppRecallError,
+  createRecallState,
+  type RecallCrypto,
+  type ShuffleNotes,
+  type StoredRecallSchedule,
+  type StoredRecallSession,
+  type StoredSessionResult,
+} from "./recall-state";
+export { AppRecallError } from "./recall-state";
 
 export type RecallMode = "AiAssisted" | "AiGraded" | "FlashCard";
 
@@ -129,29 +139,11 @@ export type FlashCardRecallAttemptSummary = RecallAttemptSummary;
 export type FlashCardRecallSession = RecallSession;
 export type FlashCardSessionResult = SessionResult;
 
-type StoredRecallSession = RecallSession & {
-  userId: string;
-};
-
-type StoredSessionResult = SessionResult & {
-  userId: string;
-};
-
-type StoredRecallSchedule = RecallSchedule & {
-  userId: string;
-};
-
 export type AppRecallSnapshot = StoredRecallSession | null;
 
 type RecallListener = () => void;
 
 type RecallStorageAdapter = Pick<Storage, "getItem" | "setItem">;
-
-type RecallCrypto = Pick<Crypto, "randomUUID">;
-
-type ShuffleNotes = (
-  notes: readonly RecallNoteSnapshot[],
-) => RecallNoteSnapshot[];
 
 type ScoreRecallAnswerCheck = typeof scoreRecallAnswerCheck;
 
@@ -255,6 +247,7 @@ type CreateAppRecallContextOptions = {
   getLabelsForUser?: (userId: string) => readonly AppLabel[];
   keyPrefix?: string;
   notes: AppNotesContext;
+  now?: () => Date;
   onStudyActivity?: (input: {
     recallSession: RecallStudyActivitySession;
     userId: string;
@@ -264,15 +257,6 @@ type CreateAppRecallContextOptions = {
   storage?: RecallStorageAdapter;
   studyNotes?: AppStudyNotesContext;
 };
-
-export class AppRecallError extends Error {
-  readonly code: "invalid_input" | "not_found";
-
-  constructor(code: "invalid_input" | "not_found", message: string) {
-    super(message);
-    this.code = code;
-  }
-}
 
 export function summarizeAttempts(
   attempts: readonly FlashCardRecallAttempt[],
@@ -1521,23 +1505,34 @@ export function createAppRecallContext(
   options: CreateAppRecallContextOptions,
 ): AppRecallContext {
   const storage = options.storage ?? getDefaultStorage();
-  const cryptoProvider = options.crypto ?? getDefaultCrypto();
   const keyPrefix = options.keyPrefix ?? DEFAULT_STORAGE_KEY_PREFIX;
   const answerCheckScorer = options.scoreAnswerCheck ?? scoreRecallAnswerCheck;
-  const shuffleNotes = options.shuffleNotes ?? defaultShuffleNotes;
+  const studyNotes = options.studyNotes;
+  const recallState = createRecallState({
+    activeSession: parseStoredRecallSession(
+      storage?.getItem(getRecallStorageKey(keyPrefix)) ?? null,
+      answerCheckScorer,
+    ),
+    crypto: options.crypto ?? getDefaultCrypto(),
+    getLabelsForUser: options.getLabelsForUser,
+    getNotesForUser: (userId) =>
+      listNotesForUser(options.notes.getSnapshot(), userId),
+    getStudyNotesForUser:
+      studyNotes === undefined
+        ? undefined
+        : (userId) => listStudyNotesForUser(studyNotes.getSnapshot(), userId),
+    now: options.now,
+    onStudyActivity: options.onStudyActivity,
+    recallSchedules: parseStoredRecallSchedules(
+      storage?.getItem(getRecallSchedulesStorageKey(keyPrefix)) ?? null,
+    ),
+    scoreAnswerCheck: answerCheckScorer,
+    sessionResults: parseStoredSessionResults(
+      storage?.getItem(getSessionResultsStorageKey(keyPrefix)) ?? null,
+    ),
+    shuffleNotes: options.shuffleNotes ?? defaultShuffleNotes,
+  });
   const listeners = new Set<RecallListener>();
-  let snapshot = parseStoredRecallSession(
-    storage?.getItem(getRecallStorageKey(keyPrefix)) ?? null,
-    answerCheckScorer,
-  );
-  let sessionResults = parseStoredSessionResults(
-    storage?.getItem(getSessionResultsStorageKey(keyPrefix)) ?? null,
-  );
-  let recallSchedules = parseStoredRecallSchedules(
-    storage?.getItem(getRecallSchedulesStorageKey(keyPrefix)) ?? null,
-  );
-  let sessionResultsSnapshot = sessionResults.map(cloneSessionResult);
-  let recallSchedulesSnapshot = stripRecallScheduleUserIds(recallSchedules);
 
   function notifyListeners() {
     for (const listener of listeners) {
@@ -1545,890 +1540,89 @@ export function createAppRecallContext(
     }
   }
 
-  function writeSnapshot(nextSnapshot: StoredRecallSession | null) {
-    snapshot = nextSnapshot;
-    storage?.setItem(getRecallStorageKey(keyPrefix), JSON.stringify(snapshot));
-    notifyListeners();
-  }
+  function persistState() {
+    const { activeSession, recallSchedules, sessionResults } =
+      recallState.getPersistedState();
 
-  function writeSessionResults(nextSessionResults: StoredSessionResult[]) {
-    sessionResults = nextSessionResults;
-    sessionResultsSnapshot = sessionResults.map(cloneSessionResult);
+    storage?.setItem(
+      getRecallStorageKey(keyPrefix),
+      JSON.stringify(activeSession),
+    );
     storage?.setItem(
       getSessionResultsStorageKey(keyPrefix),
       JSON.stringify(sessionResults),
     );
-    notifyListeners();
-  }
-
-  function writeRecallSchedules(nextRecallSchedules: StoredRecallSchedule[]) {
-    recallSchedules = nextRecallSchedules;
-    recallSchedulesSnapshot = stripRecallScheduleUserIds(recallSchedules);
     storage?.setItem(
       getRecallSchedulesStorageKey(keyPrefix),
       JSON.stringify(recallSchedules),
     );
-    notifyListeners();
   }
 
-  function updateRecallSchedule(input: {
-    rating: RecallSelfRating;
-    studyNoteId: string;
-    userId: string;
+  function hasStateChanged(input: {
+    after: ReturnType<typeof recallState.getPersistedState>;
+    before: ReturnType<typeof recallState.getPersistedState>;
   }) {
-    const now = new Date().toISOString();
-    const existingSchedule =
-      recallSchedules.find(
-        (schedule) =>
-          schedule.userId === input.userId &&
-          schedule.studyNoteId === input.studyNoteId,
-      ) ??
-      ({
-        ...createInitialRecallSchedule({
-          now,
-          studyNoteId: input.studyNoteId,
-        }),
-        userId: input.userId,
-      } satisfies StoredRecallSchedule);
-    const nextSchedule = {
-      ...getUpdatedRecallSchedule({
-        now,
-        rating: input.rating,
-        schedule: existingSchedule,
-      }),
-      userId: input.userId,
-    };
-
-    writeRecallSchedules([
-      ...recallSchedules.filter(
-        (schedule) =>
-          schedule.userId !== input.userId ||
-          schedule.studyNoteId !== input.studyNoteId,
-      ),
-      nextSchedule,
-    ]);
-  }
-
-  function emitStudyActivity(session: StoredRecallSession) {
-    options.onStudyActivity?.({
-      recallSession: {
-        createdAt: session.createdAt,
-        id: session.id,
-        mode: session.mode,
-        notes: cloneRecallNoteSnapshots(session.notes),
-      },
-      userId: session.userId,
-    });
-  }
-
-  function getActiveSessionForUser({
-    sessionId,
-    userId,
-  }: UpdateRecallSessionInput): StoredRecallSession {
-    if (
-      snapshot === null ||
-      snapshot.userId !== userId ||
-      snapshot.id !== sessionId
-    ) {
-      throw new AppRecallError("not_found", "Recall session not found.");
-    }
-
-    return snapshot;
-  }
-
-  function toSessionResult(session: StoredRecallSession): StoredSessionResult {
-    const questions = session.questions
-      .filter((question) => question.selfRating !== null)
-      .map((question, resultQuestionIndex) => ({
-        ...cloneRecallQuestion(question),
-        questionResultId:
-          question.questionResultId ??
-          getQuestionResultId(session.id, resultQuestionIndex),
-      }));
-
-    return {
-      attempts: [...session.attempts],
-      completedAt: new Date().toISOString(),
-      createdAt: session.createdAt,
-      id: session.id,
-      mode: session.mode,
-      notes: cloneRecallNoteSnapshots(session.notes),
-      questions,
-      score: getAverageQuestionScore(questions),
-      userId: session.userId,
-    };
-  }
-
-  function persistSessionResult(session: StoredRecallSession) {
-    if (session.attempts.length === 0) {
-      return;
-    }
-
-    const nextResult = toSessionResult(session);
-    const nextSessionResults = [
-      ...sessionResults.filter((result) => result.id !== nextResult.id),
-      nextResult,
-    ];
-
-    writeSessionResults(
-      satisfyActionablePracticeFollowUpsFromResult({
-        nextResult,
-        sessionResults: nextSessionResults,
-        userId: session.userId,
-      }),
+    return (
+      input.before.activeSession !== input.after.activeSession ||
+      input.before.sessionResults !== input.after.sessionResults ||
+      input.before.recallSchedules !== input.after.recallSchedules
     );
   }
 
-  function endRecallSession({ sessionId, userId }: UpdateRecallSessionInput) {
-    const activeSession = getActiveSessionForUser({ sessionId, userId });
+  function commit<TResult>(mutate: () => TResult): TResult {
+    const before = recallState.getPersistedState();
+    const result = mutate();
+    const after = recallState.getPersistedState();
 
-    persistSessionResult(activeSession);
-    writeSnapshot(null);
-
-    return activeSession;
-  }
-
-  function getStoredPracticeRepairEntryTarget(input: {
-    reference: PracticeRepairQuestionReference;
-    userId: string;
-  }) {
-    const resultIndex = sessionResults.findIndex((candidate) => {
-      return (
-        candidate.userId === input.userId &&
-        candidate.id === input.reference.sessionResultId
-      );
-    });
-
-    if (resultIndex < 0) {
-      throw new AppRecallError("not_found", "Session result not found.");
+    if (hasStateChanged({ after, before })) {
+      persistState();
+      notifyListeners();
     }
 
-    const result = sessionResults[resultIndex];
-    const questionIndex = getSessionResultQuestionIndex({
-      reference: input.reference,
-      result,
-    });
-
-    if (questionIndex === null) {
-      throw new AppRecallError("not_found", "Question result not found.");
-    }
-
-    return {
-      question: result.questions[questionIndex],
-      questionIndex,
-      result,
-      resultIndex,
-    };
-  }
-
-  function updatePracticeRepairEntryForReference(input: {
-    onHistoricalMessage: string;
-    reference: PracticeRepairQuestionReference;
-    updateEntry: (entry: PracticeRepairEntry) => PracticeRepairEntry;
-    userId: string;
-  }): SessionResult {
-    const { question, questionIndex, result, resultIndex } =
-      getStoredPracticeRepairEntryTarget({
-        reference: input.reference,
-        userId: input.userId,
-      });
-    const practiceRepairEntry = question.practiceRepairEntry;
-
-    if (practiceRepairEntry === undefined) {
-      throw new AppRecallError("not_found", "Practice Repair entry not found.");
-    }
-
-    if (
-      getPracticeRepairEntryLifecycleState(practiceRepairEntry) !== "active"
-    ) {
-      throw new AppRecallError("invalid_input", input.onHistoricalMessage);
-    }
-
-    const nextResult = replacePracticeRepairEntryInSessionResult({
-      practiceRepairEntry: input.updateEntry(
-        clonePracticeRepairEntryValue(practiceRepairEntry),
-      ),
-      questionIndex,
-      result,
-    });
-
-    writeSessionResults(
-      sessionResults.map((candidate, candidateIndex) =>
-        candidateIndex === resultIndex ? nextResult : candidate,
-      ),
-    );
-
-    return cloneSessionResult(nextResult);
-  }
-
-  function confirmPracticeRepairEntry(
-    input: ConfirmPracticeRepairEntryInput,
-  ): SessionResult {
-    if (!isPracticeRepairIntent(input.intent)) {
-      throw new AppRecallError(
-        "invalid_input",
-        "Practice Repair intent is required.",
-      );
-    }
-
-    const correction = input.correction.trim();
-    const nextPracticeIdea = input.nextPracticeIdea?.trim();
-
-    if (correction.length === 0) {
-      throw new AppRecallError(
-        "invalid_input",
-        "Practice Repair correction is required.",
-      );
-    }
-
-    const { question, questionIndex, result, resultIndex } =
-      getStoredPracticeRepairEntryTarget({
-        reference: input.reference,
-        userId: input.userId,
-      });
-
-    if (!isPracticeRepairEligibleQuestion(question)) {
-      throw new AppRecallError(
-        "invalid_input",
-        "Practice Repair is only available for weak Study Note questions.",
-      );
-    }
-
-    const isRepeatedDraftConfirmation =
-      question.practiceRepairEntry !== undefined;
-
-    if (isRepeatedDraftConfirmation) {
-      return cloneSessionResult(result);
-    }
-
-    const confirmedAt = new Date().toISOString();
-    const confirmedReference = {
-      ...input.reference,
-      questionResultId:
-        question.questionResultId ?? input.reference.questionResultId,
-    };
-    const practiceRepairEntry: PracticeRepairEntry = {
-      confirmedAt,
-      correction,
-      intent: input.intent,
-      intentMetadata: createPracticeRepairIntentMetadata(input.intent),
-      nextPracticeIdea:
-        nextPracticeIdea === undefined || nextPracticeIdea.length === 0
-          ? undefined
-          : nextPracticeIdea,
-      practiceRepairEntryId: createPracticeRepairEntryId(confirmedReference),
-      reference: confirmedReference,
-    };
-    const nextResult = replacePracticeRepairEntryInSessionResult({
-      practiceRepairEntry,
-      questionIndex,
-      result,
-    });
-
-    writeSessionResults(
-      supersedeMatchingPracticeRepairEntries({
-        confirmedAt,
-        intent: input.intent,
-        nextResult,
-        questionIndex,
-        resultIndex,
-        sessionResults,
-        studyNoteId: input.reference.studyNoteId,
-        userId: input.userId,
-      }),
-    );
-
-    return cloneSessionResult(nextResult);
-  }
-
-  function updatePracticeRepairEntryCorrection(
-    input: UpdatePracticeRepairEntryCorrectionInput,
-  ): SessionResult {
-    const correction = input.correction.trim();
-
-    if (correction.length === 0) {
-      throw new AppRecallError(
-        "invalid_input",
-        "Practice Repair correction is required.",
-      );
-    }
-
-    return updatePracticeRepairEntryForReference({
-      onHistoricalMessage: "Only active Practice Repair entries can be edited.",
-      reference: input.reference,
-      updateEntry: (entry) => ({
-        ...entry,
-        correction,
-      }),
-      userId: input.userId,
-    });
-  }
-
-  function createCompletedPracticeRepairEntry(
-    entry: PracticeRepairEntry,
-    intentMetadata = entry.intentMetadata,
-  ): PracticeRepairEntry {
-    return {
-      ...entry,
-      intentMetadata,
-      lifecycle: {
-        ...entry.lifecycle,
-        completedAt: new Date().toISOString(),
-      },
-    };
-  }
-
-  function requireLinkedCompletionValue(
-    value: string | null,
-    message: string,
-  ): string {
-    const reference = value?.trim() ?? "";
-
-    if (reference.length === 0) {
-      throw new AppRecallError("invalid_input", message);
-    }
-
-    return reference;
-  }
-
-  function mergeLinkedCompletionReferences(input: {
-    additions: readonly string[];
-    existing: readonly string[];
-    message: string;
-  }): string[] {
-    return [...new Set([...input.existing, ...input.additions])].map(
-      (reference) => requireLinkedCompletionValue(reference, input.message),
-    );
-  }
-
-  function assertLinkedCompletionEntryIntent<
-    Intent extends PracticeRepairLinkedCompletionIntent,
-  >(
-    entry: PracticeRepairEntry,
-    intent: Intent,
-  ): asserts entry is PracticeRepairEntryForIntent<Intent> {
-    if (isPracticeRepairEntryForIntent(entry, intent)) {
-      return;
-    }
-
-    throw new AppRecallError(
-      "invalid_input",
-      "This linked action does not match the active Practice Repair intent.",
-    );
-  }
-
-  function completePracticeRepairEntry(
-    input: PracticeRepairEntryMutationInput,
-  ): SessionResult {
-    return updatePracticeRepairEntryForReference({
-      onHistoricalMessage:
-        "Only active Practice Repair entries can be completed.",
-      reference: input.reference,
-      updateEntry: createCompletedPracticeRepairEntry,
-      userId: input.userId,
-    });
-  }
-
-  function completeLinkedPracticeRepairEntry(
-    input: CompleteLinkedPracticeRepairEntryInput,
-  ): SessionResult {
-    return updatePracticeRepairEntryForReference({
-      onHistoricalMessage:
-        "Only active Practice Repair entries can be completed.",
-      reference: input.reference,
-      updateEntry: (entry) => {
-        switch (input.intent) {
-          case "tighten-prompt": {
-            assertLinkedCompletionEntryIntent(entry, "tighten-prompt");
-
-            const updatedPrompt = requireLinkedCompletionValue(
-              input.intentMetadata.updatedPrompt,
-              "Edit prompt requires the updated prompt.",
-            );
-
-            return createCompletedPracticeRepairEntry(entry, {
-              updatedPrompt,
-            });
-          }
-          case "tighten-expected-answer": {
-            assertLinkedCompletionEntryIntent(entry, "tighten-expected-answer");
-
-            const updatedExpectedAnswer = requireLinkedCompletionValue(
-              input.intentMetadata.updatedExpectedAnswer,
-              "Edit expected answer requires the updated expected answer.",
-            );
-
-            return createCompletedPracticeRepairEntry(entry, {
-              updatedExpectedAnswer,
-            });
-          }
-          case "split-study-note": {
-            assertLinkedCompletionEntryIntent(entry, "split-study-note");
-
-            const existingMetadata = entry.intentMetadata;
-            const createdStudyNoteIds = mergeLinkedCompletionReferences({
-              additions: input.intentMetadata.createdStudyNoteIds,
-              existing: existingMetadata.createdStudyNoteIds,
-              message:
-                "Split Study Note requires created sibling Study Note references.",
-            });
-            const narrowedOriginalStudyNoteAt =
-              input.intentMetadata.narrowedOriginalStudyNoteAt === null
-                ? existingMetadata.narrowedOriginalStudyNoteAt
-                : requireLinkedCompletionValue(
-                    input.intentMetadata.narrowedOriginalStudyNoteAt,
-                    "Split Study Note requires the original Study Note narrowing timestamp.",
-                  );
-            const nextMetadata: SplitStudyNotePracticeRepairMetadata = {
-              createdStudyNoteIds,
-              narrowedOriginalStudyNoteAt,
-            };
-
-            return createdStudyNoteIds.length > 0 &&
-              narrowedOriginalStudyNoteAt !== null
-              ? createCompletedPracticeRepairEntry(entry, nextMetadata)
-              : {
-                  ...entry,
-                  intentMetadata: nextMetadata,
-                };
-          }
-          case "create-sibling-study-note": {
-            assertLinkedCompletionEntryIntent(
-              entry,
-              "create-sibling-study-note",
-            );
-
-            const createdStudyNoteId = requireLinkedCompletionValue(
-              input.intentMetadata.createdStudyNoteId,
-              "Create sibling Study Note requires the created Study Note reference.",
-            );
-
-            return createCompletedPracticeRepairEntry(entry, {
-              createdStudyNoteId,
-            });
-          }
-          case "add-memory-aid": {
-            assertLinkedCompletionEntryIntent(entry, "add-memory-aid");
-
-            const memoryAidId = requireLinkedCompletionValue(
-              input.intentMetadata.memoryAidId,
-              "Add memory aid requires the created aid kind and reference.",
-            );
-
-            if (input.intentMetadata.memoryAidKind === null) {
-              throw new AppRecallError(
-                "invalid_input",
-                "Add memory aid requires the created aid kind and reference.",
-              );
-            }
-
-            return createCompletedPracticeRepairEntry(entry, {
-              memoryAidId,
-              memoryAidKind: input.intentMetadata.memoryAidKind,
-            });
-          }
-        }
-      },
-      userId: input.userId,
-    });
-  }
-
-  function dismissPracticeRepairEntry(
-    input: PracticeRepairEntryMutationInput,
-  ): SessionResult {
-    return updatePracticeRepairEntryForReference({
-      onHistoricalMessage:
-        "Only active Practice Repair entries can be dismissed.",
-      reference: input.reference,
-      updateEntry: (entry) => ({
-        ...entry,
-        lifecycle: {
-          ...entry.lifecycle,
-          dismissedAt: new Date().toISOString(),
-        },
-      }),
-      userId: input.userId,
-    });
-  }
-
-  function revealAnswer({ sessionId, userId }: UpdateRecallSessionInput) {
-    const activeSession = getActiveSessionForUser({ sessionId, userId });
-
-    if (activeSession.notes[activeSession.currentQuestionIndex] === undefined) {
-      throw new AppRecallError("invalid_input", "Recall session is complete.");
-    }
-
-    if (activeSession.isAnswerRevealed) {
-      return activeSession;
-    }
-
-    const nextSession: StoredRecallSession = {
-      ...activeSession,
-      isAnswerRevealed: true,
-      questions: createQuestionsFromProgress({
-        attempts: activeSession.attempts,
-        draftAnswer: activeSession.draftAnswer ?? "",
-        isAnswerRevealed: true,
-        notes: activeSession.notes,
-        questionIndex: activeSession.currentQuestionIndex,
-        scoreAnswerCheck: answerCheckScorer,
-      }),
-    };
-
-    writeSnapshot(nextSession);
-
-    return nextSession;
-  }
-
-  function answerQuestion({ rating, sessionId, userId }: AnswerQuestionInput) {
-    const activeSession = getActiveSessionForUser({ sessionId, userId });
-    const currentNote = activeSession.notes[activeSession.currentQuestionIndex];
-
-    if (currentNote === undefined) {
-      throw new AppRecallError("invalid_input", "Recall session is complete.");
-    }
-
-    if (!activeSession.isAnswerRevealed) {
-      throw new AppRecallError(
-        "invalid_input",
-        "Reveal the answer before rating recall.",
-      );
-    }
-
-    const attempts: RecallAttempt[] = [
-      ...activeSession.attempts,
-      {
-        noteId: currentNote.id,
-        rating,
-        text: normalizeRecallAttemptText(activeSession.draftAnswer ?? ""),
-      },
-    ];
-
-    if (
-      currentNote.sourceNoteId !== undefined &&
-      (currentNote.expectedAnswer ?? "").trim().length > 0
-    ) {
-      updateRecallSchedule({
-        rating,
-        studyNoteId: currentNote.id,
-        userId,
-      });
-    }
-
-    const currentQuestionIndex = activeSession.currentQuestionIndex + 1;
-    const nextSession: StoredRecallSession = {
-      ...activeSession,
-      attempts,
-      currentIndex: currentQuestionIndex,
-      currentQuestionIndex,
-      draftAnswer: "",
-      isAnswerRevealed: false,
-      questions: createQuestionsFromProgress({
-        attempts,
-        draftAnswer: "",
-        isAnswerRevealed: false,
-        notes: activeSession.notes,
-        questionIndex: currentQuestionIndex,
-        scoreAnswerCheck: answerCheckScorer,
-      }),
-    };
-
-    if (nextSession.currentQuestionIndex >= nextSession.notes.length) {
-      emitStudyActivity(nextSession);
-      persistSessionResult(nextSession);
-      writeSnapshot(null);
-      return null;
-    }
-
-    writeSnapshot(nextSession);
-    emitStudyActivity(nextSession);
-
-    return nextSession;
-  }
-
-  function skipFlashCardQuestion({
-    sessionId,
-    userId,
-  }: SkipQuestionInput): RecallSession | null {
-    const activeSession = getActiveSessionForUser({ sessionId, userId });
-
-    if (activeSession.notes[activeSession.currentQuestionIndex] === undefined) {
-      throw new AppRecallError("invalid_input", "Recall session is complete.");
-    }
-
-    const currentQuestionIndex = activeSession.currentQuestionIndex + 1;
-    const nextSession: StoredRecallSession = {
-      ...activeSession,
-      currentIndex: currentQuestionIndex,
-      currentQuestionIndex,
-      draftAnswer: "",
-      isAnswerRevealed: false,
-      questions: createQuestionsFromProgress({
-        attempts: activeSession.attempts,
-        draftAnswer: "",
-        isAnswerRevealed: false,
-        notes: activeSession.notes,
-        questionIndex: currentQuestionIndex,
-        scoreAnswerCheck: answerCheckScorer,
-      }),
-    };
-
-    if (nextSession.currentQuestionIndex >= nextSession.notes.length) {
-      persistSessionResult(nextSession);
-      writeSnapshot(null);
-      return null;
-    }
-
-    writeSnapshot(nextSession);
-
-    return nextSession;
-  }
-
-  function updateAttemptText({
-    sessionId,
-    text,
-    userId,
-  }: UpdateAttemptTextInput) {
-    const activeSession = getActiveSessionForUser({ sessionId, userId });
-
-    if (activeSession.notes[activeSession.currentQuestionIndex] === undefined) {
-      throw new AppRecallError("invalid_input", "Recall session is complete.");
-    }
-
-    if ((activeSession.draftAnswer ?? "") === text) {
-      return activeSession;
-    }
-
-    const nextSession: StoredRecallSession = {
-      ...activeSession,
-      draftAnswer: text,
-      questions: createQuestionsFromProgress({
-        attempts: activeSession.attempts,
-        draftAnswer: text,
-        isAnswerRevealed: activeSession.isAnswerRevealed,
-        notes: activeSession.notes,
-        questionIndex: activeSession.currentQuestionIndex,
-        scoreAnswerCheck: answerCheckScorer,
-      }),
-    };
-
-    writeSnapshot(nextSession);
-
-    return nextSession;
-  }
-
-  function startRecallSession(input: StartRecallSessionInput) {
-    const mode = input.mode ?? "FlashCard";
-
-    if (mode !== "FlashCard") {
-      throw new AppRecallError(
-        "invalid_input",
-        "This RecallMode is not available yet.",
-      );
-    }
-
-    const labelsById = new Map(
-      (options.getLabelsForUser?.(input.userId) ?? []).map((label) => [
-        label.id,
-        label,
-      ]),
-    );
-    const noteSnapshots = createRecallNoteSnapshotsFromSelection({
-      labelsById,
-      noteIds: input.noteIds,
-      notes: options.notes,
-      studyNoteIds: input.studyNoteIds,
-      studyNotes: options.studyNotes,
-      userId: input.userId,
-    });
-    const shuffledNotes = cloneRecallNoteSnapshots(shuffleNotes(noteSnapshots));
-
-    const nextSession: StoredRecallSession = {
-      attempts: [],
-      createdAt: new Date().toISOString(),
-      currentIndex: 0,
-      currentQuestionIndex: 0,
-      draftAnswer: "",
-      id: cryptoProvider.randomUUID(),
-      isAnswerRevealed: false,
-      mode,
-      notes: shuffledNotes,
-      questions: createQuestionsFromProgress({
-        attempts: [],
-        draftAnswer: "",
-        isAnswerRevealed: false,
-        notes: shuffledNotes,
-        questionIndex: 0,
-        scoreAnswerCheck: answerCheckScorer,
-      }),
-      userId: input.userId,
-    };
-
-    writeSnapshot(nextSession);
-    emitStudyActivity(nextSession);
-
-    return nextSession;
+    return result;
   }
 
   return {
-    answerQuestion,
-    completePracticeRepairEntry,
-    completeLinkedPracticeRepairEntry,
-    confirmPracticeRepairEntry,
-    dismissPracticeRepairEntry,
-    endRecallSession,
-    endFlashCardSession: endRecallSession,
-    getSessionResult: ({ sessionResultId, userId }) => {
-      const result = sessionResults.find((candidate) => {
-        return candidate.userId === userId && candidate.id === sessionResultId;
-      });
-
-      if (result === undefined) {
-        throw new AppRecallError("not_found", "Session result not found.");
-      }
-
-      return cloneSessionResult(result);
-    },
-    getRecallSchedulesSnapshot: () => recallSchedulesSnapshot,
-    getSessionResultsSnapshot: () => sessionResultsSnapshot,
-    getSnapshot: () => snapshot,
-    listActivePracticeRepairEntriesForStudyNote: ({ studyNoteId, userId }) => {
-      return listActivePracticeRepairEntriesForStudyNoteValue({
-        results: listFilteredSessionResults({ sessionResults, userId }),
-        studyNoteId,
-      });
-    },
-    listPracticeRepairEntriesForQuestion: ({ reference, userId }) => {
-      return listPracticeRepairEntriesForQuestionValue({
-        reference,
-        results: listFilteredSessionResults({ sessionResults, userId }),
-      });
-    },
-    listSessionResults: ({ labelId, userId }) => {
-      return listFilteredSessionResults({ labelId, sessionResults, userId })
-        .sort((left, right) => {
-          return (
-            right.completedAt.localeCompare(left.completedAt) ||
-            right.id.localeCompare(left.id)
-          );
-        })
-        .map(cloneSessionResult);
-    },
-    listAttemptsByNote: ({ labelId, userId }) => {
-      const currentNoteTitlesById = new Map(
-        listNotesForUser(options.notes.getSnapshot(), userId).map((note) => [
-          note.id,
-          note.title,
-        ]),
-      );
-      const currentStudyNotePromptsById = new Map(
-        options.studyNotes === undefined
-          ? []
-          : listStudyNotesForUser(options.studyNotes.getSnapshot(), userId).map(
-              (studyNote) => [studyNote.id, studyNote.prompt],
-            ),
-      );
-      const groups = new Map<
-        string,
-        {
-          attempts: FlashCardRecallAttemptHistoryEntry[];
-          latestCompletedAt: string;
-          snapshotTitle: string;
-        }
-      >();
-
-      for (const result of listFilteredSessionResults({
-        labelId,
-        sessionResults,
-        userId,
-      })) {
-        const notesById = new Map(result.notes.map((note) => [note.id, note]));
-
-        for (const attempt of result.attempts) {
-          const noteSnapshot = notesById.get(attempt.noteId);
-
-          if (
-            noteSnapshot === undefined ||
-            (labelId !== undefined && !noteSnapshot.labelIds.includes(labelId))
-          ) {
-            continue;
-          }
-
-          const existingGroup = groups.get(attempt.noteId);
-          const historyEntry: FlashCardRecallAttemptHistoryEntry = {
-            bodySnapshot: noteSnapshot.body,
-            completedAt: result.completedAt,
-            rating: attempt.rating,
-            sessionId: result.id,
-            snapshotTitle: noteSnapshot.title,
-          };
-
-          if (existingGroup === undefined) {
-            groups.set(attempt.noteId, {
-              attempts: [historyEntry],
-              latestCompletedAt: result.completedAt,
-              snapshotTitle: noteSnapshot.title,
-            });
-            continue;
-          }
-
-          existingGroup.attempts.push(historyEntry);
-
-          if (result.completedAt >= existingGroup.latestCompletedAt) {
-            existingGroup.latestCompletedAt = result.completedAt;
-            existingGroup.snapshotTitle = noteSnapshot.title;
-          }
-        }
-      }
-
-      return [...groups.entries()]
-        .map(([noteId, group]) => {
-          const summary = summarizeAttempts(
-            group.attempts.map((attempt) => ({
-              noteId,
-              rating: attempt.rating,
-            })),
-          );
-
-          return {
-            ...summary,
-            attempts: group.attempts.sort((left, right) => {
-              return (
-                left.completedAt.localeCompare(right.completedAt) ||
-                left.sessionId.localeCompare(right.sessionId)
-              );
-            }),
-            currentTitle:
-              currentStudyNotePromptsById.get(noteId) ??
-              currentNoteTitlesById.get(noteId) ??
-              null,
-            noteId,
-            snapshotTitle: group.snapshotTitle,
-            totalAttempts: group.attempts.length,
-          };
-        })
-        .sort((left, right) => {
-          const leftLatestCompletedAt =
-            left.attempts[left.attempts.length - 1]?.completedAt ?? "";
-          const rightLatestCompletedAt =
-            right.attempts[right.attempts.length - 1]?.completedAt ?? "";
-
-          return (
-            right.totalAttempts - left.totalAttempts ||
-            rightLatestCompletedAt.localeCompare(leftLatestCompletedAt) ||
-            right.noteId.localeCompare(left.noteId)
-          );
-        });
-    },
-    rateFlashCardAnswer: answerQuestion,
-    revealAnswer,
-    revealFlashCardAnswer: revealAnswer,
-    skipFlashCardQuestion,
-    startFlashCardSession: startRecallSession,
-    startRecallSession,
-    updatePracticeRepairEntryCorrection,
-    updateAttemptText,
-    updateFlashCardAttemptText: updateAttemptText,
+    answerQuestion: (input) => commit(() => recallState.answerQuestion(input)),
+    completePracticeRepairEntry: (input) =>
+      commit(() => recallState.completePracticeRepairEntry(input)),
+    completeLinkedPracticeRepairEntry: (input) =>
+      commit(() => recallState.completeLinkedPracticeRepairEntry(input)),
+    confirmPracticeRepairEntry: (input) =>
+      commit(() => recallState.confirmPracticeRepairEntry(input)),
+    dismissPracticeRepairEntry: (input) =>
+      commit(() => recallState.dismissPracticeRepairEntry(input)),
+    endRecallSession: (input) =>
+      commit(() => recallState.endRecallSession(input)),
+    endFlashCardSession: (input) =>
+      commit(() => recallState.endFlashCardSession(input)),
+    getSessionResult: (input) => recallState.getSessionResult(input),
+    getRecallSchedulesSnapshot: () => recallState.getRecallSchedulesSnapshot(),
+    getSessionResultsSnapshot: () => recallState.getSessionResultsSnapshot(),
+    getSnapshot: () => recallState.getSnapshot(),
+    listActivePracticeRepairEntriesForStudyNote: (input) =>
+      recallState.listActivePracticeRepairEntriesForStudyNote(input),
+    listPracticeRepairEntriesForQuestion: (input) =>
+      recallState.listPracticeRepairEntriesForQuestion(input),
+    listSessionResults: (input) => recallState.listSessionResults(input),
+    listAttemptsByNote: (input) => recallState.listAttemptsByNote(input),
+    rateFlashCardAnswer: (input) =>
+      commit(() => recallState.rateFlashCardAnswer(input)),
+    revealAnswer: (input) => commit(() => recallState.revealAnswer(input)),
+    revealFlashCardAnswer: (input) =>
+      commit(() => recallState.revealFlashCardAnswer(input)),
+    skipFlashCardQuestion: (input) =>
+      commit(() => recallState.skipFlashCardQuestion(input)),
+    startFlashCardSession: (input) =>
+      commit(() => recallState.startFlashCardSession(input)),
+    startRecallSession: (input) =>
+      commit(() => recallState.startRecallSession(input)),
+    updatePracticeRepairEntryCorrection: (input) =>
+      commit(() => recallState.updatePracticeRepairEntryCorrection(input)),
+    updateAttemptText: (input) =>
+      commit(() => recallState.updateAttemptText(input)),
+    updateFlashCardAttemptText: (input) =>
+      commit(() => recallState.updateFlashCardAttemptText(input)),
     subscribe: (listener) => {
       listeners.add(listener);
 

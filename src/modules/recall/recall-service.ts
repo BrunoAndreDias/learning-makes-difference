@@ -1,20 +1,11 @@
-import { and, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { PgDatabase } from "drizzle-orm/pg-core/db";
 import type { PgQueryResultHKT } from "drizzle-orm/pg-core/session";
 
-import type { AppLabel } from "../labels/label-management/labels";
 import { createLabelsService } from "../labels/labels-service";
-import type { AppNote, AppNotesContext, AppStoredNote } from "../notes";
 import { createNotesService } from "../notes/notes-service";
-import type {
-  AppStoredStudyNote,
-  AppStudyNote,
-  AppStudyNotesContext,
-} from "../study-notes";
-import { studyNotesTable } from "../study-notes/study-notes-schema";
 import { createStudyNotesService } from "../study-notes/study-notes-service";
 import {
-  createAppRecallContext,
   type RecallSelfRating,
   type RecallSession,
   type SessionResult,
@@ -24,37 +15,30 @@ import type {
   PracticeRepairLinkedCompletionInput,
   PracticeRepairQuestionReference,
 } from "./recall-practice-repair";
-import {
-  createInitialRecallSchedule,
-  getUpdatedRecallSchedule,
-  type RecallSchedule,
-} from "./recall-schedule";
+import type { RecallSchedule } from "./recall-schedule";
 import {
   activeRecallSessionsTable,
   recallSchedulesTable,
   sessionResultsTable,
 } from "./recall-schema";
+import {
+  createRecallState,
+  type RecallCrypto,
+  type RecallStateContext,
+  type ShuffleNotes,
+  type StoredRecallSchedule,
+  type StoredRecallSession,
+  type StoredSessionResult,
+} from "./recall-state";
 
 type RecallDatabase<TSchema extends Record<string, unknown>> = PgDatabase<
   PgQueryResultHKT,
   TSchema
 >;
 
-type StoredRecallSession = RecallSession & {
-  userId: string;
-};
-
-type StoredSessionResult = SessionResult & {
-  userId: string;
-};
-
-type RecallCrypto = Pick<Crypto, "randomUUID">;
 type RecallNoteSnapshot = RecallSession["notes"][number];
 type RecallMutationResult = RecallSession | SessionResult | null;
-type MutableRecallContext = ReturnType<typeof createAppRecallContext>;
-type ShuffleNotes = (
-  notes: readonly RecallNoteSnapshot[],
-) => RecallNoteSnapshot[];
+type MutableRecallState = RecallStateContext;
 
 type StartRecallSessionInput = {
   noteIds?: string[];
@@ -101,10 +85,6 @@ type CreateRecallServiceOptions = {
   shuffleNotes?: ShuffleNotes;
 };
 
-type MemoryStorage = Pick<Storage, "getItem" | "setItem">;
-
-const SERVICE_STORAGE_KEY_PREFIX = "persistent-recall-service";
-
 const recallScheduleSelection = {
   ease: recallSchedulesTable.ease,
   intervalDays: recallSchedulesTable.intervalDays,
@@ -113,122 +93,6 @@ const recallScheduleSelection = {
   repetitionCount: recallSchedulesTable.repetitionCount,
   studyNoteId: recallSchedulesTable.studyNoteId,
 };
-
-function createMemoryStorage(
-  values: Record<string, string | null>,
-): MemoryStorage {
-  const storage = new Map(
-    Object.entries(values).filter((entry): entry is [string, string] => {
-      return entry[1] !== null;
-    }),
-  );
-
-  return {
-    getItem(key) {
-      return storage.get(key) ?? null;
-    },
-    setItem(key, value) {
-      storage.set(key, value);
-    },
-  };
-}
-
-function toStoredNote(note: AppNote, userId: string): AppStoredNote {
-  return {
-    ...note,
-    userId,
-  };
-}
-
-function toStoredStudyNote(
-  studyNote: AppStudyNote,
-  userId: string,
-): AppStoredStudyNote {
-  return {
-    ...studyNote,
-    userId,
-  };
-}
-
-function createReadonlyNotesContext(
-  notes: readonly AppNote[],
-  userId: string,
-): AppNotesContext {
-  const snapshot = notes.map((note) => toStoredNote(note, userId));
-
-  return {
-    createNote: () => {
-      throw new Error("Readonly recall notes context cannot create notes.");
-    },
-    deleteNote: () => {
-      throw new Error("Readonly recall notes context cannot delete notes.");
-    },
-    getSnapshot() {
-      return snapshot;
-    },
-    subscribe() {
-      return () => undefined;
-    },
-    updateNote: () => {
-      throw new Error("Readonly recall notes context cannot update notes.");
-    },
-  };
-}
-
-function createReadonlyStudyNotesContext(
-  studyNotes: readonly AppStudyNote[],
-  userId: string,
-): AppStudyNotesContext {
-  const snapshot = studyNotes.map((studyNote) =>
-    toStoredStudyNote(studyNote, userId),
-  );
-
-  return {
-    createStudyNote: () => {
-      throw new Error(
-        "Readonly recall Study Notes context cannot create Study Notes.",
-      );
-    },
-    createStudyNoteFromSource: () => {
-      throw new Error(
-        "Readonly recall Study Notes context cannot create Study Notes.",
-      );
-    },
-    deleteStudyNote: () => {
-      throw new Error(
-        "Readonly recall Study Notes context cannot delete Study Notes.",
-      );
-    },
-    getSnapshot() {
-      return snapshot;
-    },
-    removeLabelAssignments: () => {
-      throw new Error(
-        "Readonly recall Study Notes context cannot remove Label assignments.",
-      );
-    },
-    subscribe() {
-      return () => undefined;
-    },
-    updateStudyNote: () => {
-      throw new Error(
-        "Readonly recall Study Notes context cannot update Study Notes.",
-      );
-    },
-  };
-}
-
-function getActiveSessionStorageKey(prefix: string) {
-  return `${prefix}:active-session`;
-}
-
-function getSessionResultsStorageKey(prefix: string) {
-  return `${prefix}:session-results`;
-}
-
-function getRecallSchedulesStorageKey(prefix: string) {
-  return `${prefix}:recall-schedules`;
-}
 
 function toRecallSchedule(row: {
   ease: number;
@@ -305,106 +169,17 @@ async function readStoredSessionResults(
 async function readStoredRecallSchedules(
   db: RecallDatabase<Record<string, unknown>>,
   userId: string,
-): Promise<RecallSchedule[]> {
+): Promise<StoredRecallSchedule[]> {
   const rows = await db
     .select(recallScheduleSelection)
     .from(recallSchedulesTable)
     .where(eq(recallSchedulesTable.userId, userId))
     .orderBy(recallSchedulesTable.studyNoteId);
 
-  return rows.map(toRecallSchedule);
-}
-
-async function readStoredRecallSchedule(input: {
-  db: RecallDatabase<Record<string, unknown>>;
-  studyNoteId: string;
-  userId: string;
-}): Promise<RecallSchedule | null> {
-  const row =
-    (
-      await input.db
-        .select(recallScheduleSelection)
-        .from(recallSchedulesTable)
-        .where(
-          and(
-            eq(recallSchedulesTable.studyNoteId, input.studyNoteId),
-            eq(recallSchedulesTable.userId, input.userId),
-          ),
-        )
-        .limit(1)
-    )[0] ?? null;
-
-  if (row === null) {
-    return null;
-  }
-
-  return toRecallSchedule(row);
-}
-
-async function upsertStoredRecallSchedule(input: {
-  db: RecallDatabase<Record<string, unknown>>;
-  schedule: RecallSchedule;
-  userId: string;
-}) {
-  const storedSchedule = toStoredRecallSchedule(input);
-
-  await input.db
-    .insert(recallSchedulesTable)
-    .values(storedSchedule)
-    .onConflictDoUpdate({
-      set: {
-        ease: storedSchedule.ease,
-        intervalDays: storedSchedule.intervalDays,
-        lastRecalledAt: storedSchedule.lastRecalledAt,
-        nextRecallAt: storedSchedule.nextRecallAt,
-        repetitionCount: storedSchedule.repetitionCount,
-        userId: storedSchedule.userId,
-      },
-      target: recallSchedulesTable.studyNoteId,
-    });
-}
-
-async function updateStudyNoteRecallSchedule(input: {
-  db: RecallDatabase<Record<string, unknown>>;
-  now: string;
-  rating: RecallSelfRating;
-  studyNoteId: string;
-  userId: string;
-}) {
-  const studyNote =
-    (
-      await input.db
-        .select({ id: studyNotesTable.id })
-        .from(studyNotesTable)
-        .where(eq(studyNotesTable.id, input.studyNoteId))
-        .limit(1)
-    )[0] ?? null;
-
-  if (studyNote === null) {
-    return;
-  }
-
-  const existingSchedule =
-    (await readStoredRecallSchedule({
-      db: input.db,
-      studyNoteId: input.studyNoteId,
-      userId: input.userId,
-    })) ??
-    createInitialRecallSchedule({
-      now: input.now,
-      studyNoteId: input.studyNoteId,
-    });
-  const nextSchedule = getUpdatedRecallSchedule({
-    now: input.now,
-    rating: input.rating,
-    schedule: existingSchedule,
-  });
-
-  await upsertStoredRecallSchedule({
-    db: input.db,
-    schedule: nextSchedule,
-    userId: input.userId,
-  });
+  return rows.map((row) => ({
+    ...toRecallSchedule(row),
+    userId,
+  }));
 }
 
 function stripStoredSessionUserId(
@@ -425,18 +200,30 @@ function stripStoredResultUserId(result: StoredSessionResult): SessionResult {
   return sessionResult;
 }
 
+function stripStoredRecallScheduleUserId(
+  schedule: StoredRecallSchedule,
+): RecallSchedule {
+  const { userId: _userId, ...recallSchedule } = schedule;
+
+  return recallSchedule;
+}
+
 async function persistRecallState(input: {
   db: RecallDatabase<Record<string, unknown>>;
-  recall: MutableRecallContext;
+  recall: MutableRecallState;
   userId: string;
 }) {
-  const nextActiveSession = input.recall.getSnapshot();
-  const nextSessionResults = input.recall
-    .getSessionResultsSnapshot()
-    .map((result) => ({
-      ...result,
-      userId: input.userId,
-    })) satisfies StoredSessionResult[];
+  const {
+    activeSession: nextActiveSession,
+    recallSchedules: nextRecallSchedules,
+    sessionResults: nextSessionResults,
+  } = input.recall.getPersistedState();
+  const nextRecallScheduleRows = nextRecallSchedules.map((schedule) =>
+    toStoredRecallSchedule({
+      schedule,
+      userId: schedule.userId,
+    }),
+  );
 
   await input.db.transaction(async (tx) => {
     if (nextActiveSession === null) {
@@ -474,13 +261,19 @@ async function persistRecallState(input: {
         })),
       );
     }
+
+    await tx
+      .delete(recallSchedulesTable)
+      .where(eq(recallSchedulesTable.userId, input.userId));
+
+    if (nextRecallScheduleRows.length > 0) {
+      await tx.insert(recallSchedulesTable).values(nextRecallScheduleRows);
+    }
   });
 }
 
-async function createMutableRecallContext(input: {
-  crypto?: RecallCrypto;
+async function loadRecallStateData(input: {
   db: RecallDatabase<Record<string, unknown>>;
-  shuffleNotes?: ShuffleNotes;
   userId: string;
 }) {
   const notesService = createNotesService({
@@ -513,27 +306,42 @@ async function createMutableRecallContext(input: {
     readStoredSessionResults(input.db, input.userId),
     readStoredRecallSchedules(input.db, input.userId),
   ]);
-  const storage = createMemoryStorage({
-    [getActiveSessionStorageKey(SERVICE_STORAGE_KEY_PREFIX)]:
-      activeSession === null ? null : JSON.stringify(activeSession),
-    [getRecallSchedulesStorageKey(SERVICE_STORAGE_KEY_PREFIX)]: JSON.stringify(
-      recallSchedules.map((schedule) => ({
-        ...schedule,
-        userId: input.userId,
-      })),
-    ),
-    [getSessionResultsStorageKey(SERVICE_STORAGE_KEY_PREFIX)]:
-      JSON.stringify(sessionResults),
-  });
 
-  return createAppRecallContext({
+  return {
+    activeSession,
+    labels,
+    notes,
+    recallSchedules,
+    sessionResults,
+    studyNotes,
+  };
+}
+
+function createMutableRecallState(input: {
+  activeSession: StoredRecallSession | null;
+  crypto?: RecallCrypto;
+  labels: Awaited<ReturnType<ReturnType<typeof createLabelsService>["listLabels"]>>;
+  notes: Awaited<ReturnType<ReturnType<typeof createNotesService>["listNotes"]>>;
+  now?: () => Date;
+  recallSchedules: readonly StoredRecallSchedule[];
+  sessionResults: readonly StoredSessionResult[];
+  shuffleNotes?: ShuffleNotes;
+  studyNotes: Awaited<
+    ReturnType<ReturnType<typeof createStudyNotesService>["listStudyNotes"]>
+  >;
+  userId: string;
+}) {
+  return createRecallState({
+    activeSession: input.activeSession,
     crypto: input.crypto,
-    getLabelsForUser: (_userId: string): readonly AppLabel[] => labels,
-    keyPrefix: SERVICE_STORAGE_KEY_PREFIX,
-    notes: createReadonlyNotesContext(notes, input.userId),
+    getLabelsForUser: (userId) => (userId === input.userId ? input.labels : []),
+    getNotesForUser: (userId) => (userId === input.userId ? input.notes : []),
+    getStudyNotesForUser: (userId) =>
+      userId === input.userId ? input.studyNotes : [],
+    now: input.now,
+    recallSchedules: input.recallSchedules,
+    sessionResults: input.sessionResults,
     shuffleNotes: input.shuffleNotes,
-    storage,
-    studyNotes: createReadonlyStudyNotesContext(studyNotes, input.userId),
   });
 }
 
@@ -542,13 +350,19 @@ async function mutatePersistentRecall<
 >(input: {
   crypto?: RecallCrypto;
   db: RecallDatabase<Record<string, unknown>>;
-  mutate: (recall: MutableRecallContext) => TResult;
+  mutate: (recall: MutableRecallState) => TResult;
+  now?: () => Date;
   shuffleNotes?: ShuffleNotes;
   userId: string;
 }): Promise<TResult> {
-  const recall = await createMutableRecallContext({
-    crypto: input.crypto,
+  const stateData = await loadRecallStateData({
     db: input.db,
+    userId: input.userId,
+  });
+  const recall = createMutableRecallState({
+    ...stateData,
+    crypto: input.crypto,
+    now: input.now,
     shuffleNotes: input.shuffleNotes,
     userId: input.userId,
   });
@@ -577,6 +391,7 @@ export function createRecallService({
         crypto,
         db,
         mutate: (recall) => recall.completePracticeRepairEntry(input),
+        now,
         shuffleNotes,
         userId: input.userId,
       });
@@ -588,6 +403,7 @@ export function createRecallService({
         crypto,
         db,
         mutate: (recall) => recall.completeLinkedPracticeRepairEntry(input),
+        now,
         shuffleNotes,
         userId: input.userId,
       });
@@ -599,6 +415,7 @@ export function createRecallService({
         crypto,
         db,
         mutate: (recall) => recall.confirmPracticeRepairEntry(input),
+        now,
         shuffleNotes,
         userId: input.userId,
       });
@@ -610,6 +427,7 @@ export function createRecallService({
         crypto,
         db,
         mutate: (recall) => recall.dismissPracticeRepairEntry(input),
+        now,
         shuffleNotes,
         userId: input.userId,
       });
@@ -619,6 +437,7 @@ export function createRecallService({
         crypto,
         db,
         mutate: (recall) => recall.endFlashCardSession(input),
+        now,
         shuffleNotes,
         userId: input.userId,
       });
@@ -634,37 +453,26 @@ export function createRecallService({
       );
     },
     async listRecallSchedules(input: { userId: string }) {
-      return readStoredRecallSchedules(db, input.userId);
+      return (await readStoredRecallSchedules(db, input.userId)).map(
+        stripStoredRecallScheduleUserId,
+      );
     },
     async rateFlashCardAnswer(input: AnswerQuestionInput) {
-      const activeSession = await readStoredActiveSession(db, input.userId);
-      const currentStudyNoteId =
-        activeSession?.notes[activeSession.currentQuestionIndex]?.id ?? null;
-      const result = await mutatePersistentRecall({
+      return mutatePersistentRecall({
         crypto,
         db,
         mutate: (recall) => recall.rateFlashCardAnswer(input),
+        now,
         shuffleNotes,
         userId: input.userId,
       });
-
-      if (currentStudyNoteId !== null) {
-        await updateStudyNoteRecallSchedule({
-          db,
-          now: now().toISOString(),
-          rating: input.rating,
-          studyNoteId: currentStudyNoteId,
-          userId: input.userId,
-        });
-      }
-
-      return result;
     },
     async revealFlashCardAnswer(input: UpdateRecallSessionInput) {
       return mutatePersistentRecall({
         crypto,
         db,
         mutate: (recall) => recall.revealFlashCardAnswer(input),
+        now,
         shuffleNotes,
         userId: input.userId,
       });
@@ -674,6 +482,7 @@ export function createRecallService({
         crypto,
         db,
         mutate: (recall) => recall.skipFlashCardQuestion(input),
+        now,
         shuffleNotes,
         userId: input.userId,
       });
@@ -683,6 +492,7 @@ export function createRecallService({
         crypto,
         db,
         mutate: (recall) => recall.startFlashCardSession(input),
+        now,
         shuffleNotes,
         userId: input.userId,
       });
@@ -694,6 +504,7 @@ export function createRecallService({
         crypto,
         db,
         mutate: (recall) => recall.updatePracticeRepairEntryCorrection(input),
+        now,
         shuffleNotes,
         userId: input.userId,
       });
@@ -703,6 +514,7 @@ export function createRecallService({
         crypto,
         db,
         mutate: (recall) => recall.updateFlashCardAttemptText(input),
+        now,
         shuffleNotes,
         userId: input.userId,
       });
