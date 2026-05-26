@@ -5,6 +5,10 @@ import "./skeleton.css";
 type SkeletonDimension = number | string;
 type SkeletonTag = "div" | "span";
 type SkeletonRadius = "default" | "pill";
+type SkeletonStyle = CSSProperties & {
+  "--skeleton-height"?: string;
+  "--skeleton-width"?: string;
+};
 
 type SkeletonBlockProps = Omit<
   HTMLAttributes<HTMLElement>,
@@ -50,12 +54,30 @@ type PageReadinessListRowProps = Omit<
   titleWidth?: SkeletonDimension;
 };
 
-function formatDimension(value: SkeletonDimension | undefined) {
-  if (value === undefined) {
-    return undefined;
+function formatDimension(value: SkeletonDimension) {
+  return typeof value === "number" ? `${value}px` : value;
+}
+
+function resolveSkeletonStyle({
+  height,
+  style,
+  width,
+}: {
+  height: SkeletonDimension | undefined;
+  style: CSSProperties | undefined;
+  width: SkeletonDimension | undefined;
+}) {
+  const resolvedStyle: SkeletonStyle = { ...style };
+
+  if (height !== undefined) {
+    resolvedStyle["--skeleton-height"] = formatDimension(height);
   }
 
-  return typeof value === "number" ? `${value}px` : value;
+  if (width !== undefined) {
+    resolvedStyle["--skeleton-width"] = formatDimension(width);
+  }
+
+  return resolvedStyle;
 }
 
 export function SkeletonBlock({
@@ -69,15 +91,7 @@ export function SkeletonBlock({
   ...props
 }: Readonly<SkeletonBlockProps>) {
   const Tag = as;
-  const resolvedStyle = {
-    ...style,
-    ...(height === undefined
-      ? null
-      : { "--skeleton-height": formatDimension(height) }),
-    ...(width === undefined
-      ? null
-      : { "--skeleton-width": formatDimension(width) }),
-  } as CSSProperties;
+  const resolvedStyle = resolveSkeletonStyle({ height, style, width });
 
   return (
     <Tag

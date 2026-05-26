@@ -8,6 +8,8 @@ import {
 } from "../../design-system/skeleton";
 import "./study-guidance.css";
 
+const readinessLabel = "Preparing Study Guidance";
+
 const summaryCardConfigs = [
   {
     detailWidths: ["12rem", "10rem"],
@@ -106,14 +108,14 @@ export function StudyGuidancePageReadinessState() {
       headingLevel={1}
       title={
         <>
-          <span className="sr-only">Preparing Study Guidance</span>
+          <span className="sr-only">{readinessLabel}</span>
           <SkeletonBlock as="span" height="2.6rem" width="16rem" />
         </>
       }
     >
       <PageReadinessState
         className="study-guidance-readiness"
-        label="Preparing Study Guidance"
+        label={readinessLabel}
       >
         <section className="study-guidance-summary">
           <ul className="study-guidance-summary__list">

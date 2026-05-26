@@ -199,7 +199,11 @@ function getWorkspaceFrameName(
   return undefined;
 }
 
-export function AppLayout({ children }: { children?: ReactNode }) {
+type AppLayoutProps = {
+  children?: ReactNode;
+};
+
+export function AppLayout({ children }: Readonly<AppLayoutProps>) {
   const { t } = useAppTranslation();
   const focus = useRouteContext({
     from: "/_protected",

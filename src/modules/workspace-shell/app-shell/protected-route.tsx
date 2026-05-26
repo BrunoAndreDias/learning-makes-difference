@@ -14,6 +14,13 @@ export const Route = createFileRoute("/_protected")({
   component: ProtectedRouteShell,
 });
 
+function isTodayRoute(pathname: string) {
+  return (
+    pathname === authenticatedLandingPath ||
+    pathname.startsWith(`${authenticatedLandingPath}/`)
+  );
+}
+
 function ProtectedRouteShell() {
   const persistentFocus = useRouteContext({
     from: "/_protected",
@@ -34,22 +41,17 @@ function ProtectedRouteShell() {
   const location = useLocation();
   const { sessionSnapshot } = useResolvedProtectedSession("/_protected");
   const userId = sessionSnapshot.user?.id ?? null;
-  const [isReady, setIsReady] = useState(
-    persistentFocus === undefined &&
-      persistentLabels === undefined &&
-      persistentRecall === undefined &&
-      persistentStudyNotes === undefined,
-  );
+  const hasPersistentStores =
+    persistentFocus !== undefined ||
+    persistentLabels !== undefined ||
+    persistentRecall !== undefined ||
+    persistentStudyNotes !== undefined;
+  const [isReady, setIsReady] = useState(!hasPersistentStores);
 
   useEffect(() => {
     let cancelled = false;
 
-    if (
-      persistentFocus === undefined &&
-      persistentLabels === undefined &&
-      persistentRecall === undefined &&
-      persistentStudyNotes === undefined
-    ) {
+    if (!hasPersistentStores) {
       setIsReady(true);
       return () => {
         cancelled = true;
@@ -74,6 +76,7 @@ function ProtectedRouteShell() {
       cancelled = true;
     };
   }, [
+    hasPersistentStores,
     persistentFocus,
     persistentLabels,
     persistentRecall,
@@ -82,11 +85,7 @@ function ProtectedRouteShell() {
   ]);
 
   if (!isReady) {
-    const isTodayRoute =
-      location.pathname === authenticatedLandingPath ||
-      location.pathname.startsWith(`${authenticatedLandingPath}/`);
-
-    if (isTodayRoute) {
+    if (isTodayRoute(location.pathname)) {
       return (
         <AppLayout>
           <StudyGuidancePageReadinessState />
