@@ -645,13 +645,13 @@ describe("authenticated Study Notes workspace", () => {
     const managementRegion = screen.getByRole("region", {
       name: "Study Notes management",
     });
-    const managementPage = document.querySelector(
+    const managementPage = document.querySelector<HTMLElement>(
       ".study-notes-management-page",
     );
-    const managementHero = document.querySelector(
+    const managementHero = document.querySelector<HTMLElement>(
       ".study-notes-management-page > .page-layout__hero",
     );
-    const managementBody = document.querySelector(
+    const managementBody = document.querySelector<HTMLElement>(
       ".study-notes-management-page > .page-layout__body",
     );
     expect(managementPage).toContainElement(managementHero);

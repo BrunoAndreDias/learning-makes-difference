@@ -199,7 +199,7 @@ function getWorkspaceFrameName(
   return undefined;
 }
 
-export function AppLayout() {
+export function AppLayout({ children }: { children?: ReactNode }) {
   const { t } = useAppTranslation();
   const focus = useRouteContext({
     from: "/_protected",
@@ -421,9 +421,7 @@ export function AppLayout() {
             workspaceTitle={workspaceTitle}
           />
 
-          <div className="app-frame__content">
-            <Outlet />
-          </div>
+          <div className="app-frame__content">{children ?? <Outlet />}</div>
         </div>
       </section>
     </NotesWorkspaceProvider>

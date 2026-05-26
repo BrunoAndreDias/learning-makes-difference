@@ -35,6 +35,14 @@ describe("Study Guidance styling", () => {
       css,
       ".study-guidance-workspace .study-guidance-row__action .notes-action",
     );
+    const readinessDescriptionStyle = getCssRule(
+      css,
+      ".study-guidance-readiness__description",
+    );
+    const readinessRowStyle =
+      css.match(
+        /(?:^|\n)\.study-guidance-readiness__row\s*\{([^}]*)\}/m,
+      )?.[1] ?? "";
     const rowTitleStyle = getCssRule(css, ".study-guidance-row__header h2");
     const emptyTitleStyle =
       Array.from(
@@ -67,6 +75,11 @@ describe("Study Guidance styling", () => {
       "@media (max-width: 58rem)",
       ".study-guidance-row",
     );
+    const compactReadinessRowStyle = getMediaRule(
+      css,
+      "@media (max-width: 58rem)",
+      ".study-guidance-readiness__row",
+    );
 
     expect(workspaceStyle).toContain("max-width: none;");
     expect(workspaceStyle).toContain("margin: 0;");
@@ -87,12 +100,22 @@ describe("Study Guidance styling", () => {
     expect(rowStyle).toContain("grid-template-columns:");
     expect(rowStyle).toContain("var(--study-guidance-row-bucket-column)");
     expect(rowStyle).toContain("var(--study-guidance-row-action-column)");
+    expect(readinessDescriptionStyle).toContain("width: min(100%, 42rem);");
+    expect(readinessRowStyle).toContain(
+      "var(--study-guidance-row-bucket-column)",
+    );
+    expect(readinessRowStyle).toContain(
+      "var(--study-guidance-row-action-column)",
+    );
     expect(rowActionStyle).toContain("width: 100%;");
     expect(rowTitleStyle).toContain("font-size: var(--lmd-card-title-size);");
     expect(rowTitleStyle).toContain(
       "line-height: var(--lmd-card-title-line-height);",
     );
     expect(compactRowStyle).toContain("grid-template-columns: minmax(0, 1fr);");
+    expect(compactReadinessRowStyle).toContain(
+      "grid-template-columns: minmax(0, 1fr);",
+    );
     expect(smallLaptopRowStyle).toContain(
       "var(--study-guidance-row-bucket-column)",
     );

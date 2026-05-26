@@ -1,0 +1,107 @@
+.skeleton-block {
+  --skeleton-height: 1rem;
+  --skeleton-width: 100%;
+  position: relative;
+  display: block;
+  width: var(--skeleton-width);
+  height: var(--skeleton-height);
+  border-radius: var(--radius-sm);
+  background: color-mix(
+    in srgb,
+    var(--color-shell-inset) 82%,
+    var(--color-content-border-soft)
+  );
+  overflow: hidden;
+}
+
+.skeleton-block--pill {
+  border-radius: 999px;
+}
+
+.skeleton-block[data-animated="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, white 62%, transparent) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+.skeleton-text {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.page-readiness-state {
+  display: grid;
+  gap: var(--lmd-content-gap);
+  min-width: 0;
+}
+
+.page-readiness-card {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+  min-width: 0;
+  min-height: 9.2rem;
+  padding: var(--space-5);
+  border: 1px solid var(--color-content-border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--color-shell-panel);
+  box-shadow: var(--shadow-surface-hairline);
+}
+
+.page-readiness-card__metric {
+  display: flex;
+  align-items: end;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.page-readiness-list-row {
+  display: grid;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-shell-panel);
+}
+
+.page-readiness-list-row__eyebrow,
+.page-readiness-list-row__primary,
+.page-readiness-list-row__detail,
+.page-readiness-list-row__action {
+  min-width: 0;
+}
+
+.page-readiness-list-row__primary,
+.page-readiness-list-row__detail {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.page-readiness-list-row__action {
+  justify-self: end;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-block[data-animated="true"]::after {
+    animation: none;
+  }
+}

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, screen, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { SessionResult } from "../../modules/recall";
@@ -195,6 +195,79 @@ function getTodayRow(name: string) {
 }
 
 describe("authenticated Today workspace", () => {
+  it("shows the Today page readiness state while persistent study data is preparing", async () => {
+    const emptyStudyNotes = [] as const;
+    let resolveRefresh: ((value: readonly []) => void) | undefined;
+    const refresh = vi.fn(
+      () =>
+        new Promise<readonly []>((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
+
+    renderRoute("/today", {
+      persistentStudyNotesContext: {
+        createStudyNote: vi.fn(),
+        createStudyNoteFromSource: vi.fn(),
+        deleteStudyNote: vi.fn(),
+        getSnapshot: () => emptyStudyNotes,
+        removeLabelAssignments: vi.fn(),
+        refresh,
+        subscribe: () => () => undefined,
+        updateStudyNote: vi.fn(),
+      },
+      session: {
+        user: {
+          displayName: "Jordan Ready",
+          email: "jordan.ready@example.com",
+          id: "user-today-readiness",
+          userLanguage: "en",
+          userTimeZone: "America/New_York",
+        },
+      },
+    });
+
+    await waitFor(() => {
+      expect(refresh).toHaveBeenCalledWith("user-today-readiness");
+    });
+    expect(
+      screen.getByRole("region", { name: "Preparing Study Guidance" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: "Preparing Study Guidance" }),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelectorAll(
+        ".study-guidance-summary__list .page-readiness-card",
+      ),
+    ).toHaveLength(6);
+    expect(
+      document.querySelectorAll(
+        ".study-guidance-plan__list .study-guidance-readiness__row",
+      ),
+    ).toHaveLength(4);
+    expect(
+      screen.queryByRole("heading", {
+        level: 1,
+        name: "Study Guidance",
+      }),
+    ).toBeNull();
+
+    await act(async () => {
+      resolveRefresh?.(emptyStudyNotes);
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Study Guidance",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Preparing Study Guidance" }),
+    ).toBeNull();
+  });
+
   it("shows the new-user empty state with one obvious Study Notes action", async () => {
     renderRoute("/today", {
       session: {
