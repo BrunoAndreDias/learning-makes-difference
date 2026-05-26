@@ -486,6 +486,48 @@
   display: none;
 }
 
+.focus-readiness__description {
+  max-width: 34rem;
+}
+
+.focus-readiness__timer-copy,
+.focus-readiness__timer-value {
+  display: inline-flex;
+  justify-content: center;
+}
+
+.focus-readiness__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.focus-readiness__plan-dot,
+.focus-readiness__leaf,
+.focus-readiness__support-icon {
+  display: inline-block;
+}
+
+.focus-readiness__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.focus-readiness__stats div {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--focus-line);
+  border-radius: 0.65rem;
+  background: var(--focus-panel);
+}
+
+.focus-readiness__support-heading,
+.focus-readiness__analytics-heading {
+  margin-top: var(--space-2);
+}
+
 .focus-card--activity {
   gap: 1.1rem;
   padding: 1.15rem 1.15rem 1rem;

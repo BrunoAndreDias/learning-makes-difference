@@ -9,11 +9,16 @@ import { type AppTranslationKey, useAppTranslation } from "../language";
 import { listNotesForUser } from "../notes";
 import { listStudyNotesForUser } from "../study-notes";
 import {
+  hasPendingProtectedWorkspaceRefresh,
+  useProtectedWorkspaceRefreshState,
+} from "../workspace-shell/app-shell/protected-workspace-refresh";
+import {
   type AppFocusContext,
   AppFocusError,
   type FocusRecord,
   type FocusSession,
 } from "./focus";
+import { FocusPageReadinessState } from "./focus-page-readiness";
 import { useFocusTimerTick } from "./focus-session-start-control";
 import {
   deriveFocusWeeklyAnalytics,
@@ -125,6 +130,7 @@ export const Route = createFileRoute("/_protected/focus")({
 
 function FocusPage() {
   const { t } = useAppTranslation();
+  const refreshState = useProtectedWorkspaceRefreshState();
   const focus = Route.useRouteContext({
     select: (context) => context.focus,
   });
@@ -215,6 +221,15 @@ function FocusPage() {
     weeklyAnalytics,
     t,
   );
+  const isPagePreparing = hasPendingProtectedWorkspaceRefresh(refreshState, [
+    "focus",
+    "recall",
+    "studyNotes",
+  ]);
+
+  if (isPagePreparing) {
+    return <FocusPageReadinessState />;
+  }
 
   return (
     <PageLayout
