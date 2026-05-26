@@ -45,6 +45,55 @@ function createUnusedPersistentLabelMutation() {
   };
 }
 
+type StudyNotesSnapshot = ReturnType<
+  ReturnType<typeof createAppStudyNotesContext>["getSnapshot"]
+>;
+
+function createPendingPersistentStudyNotesContext(
+  initialSnapshot: StudyNotesSnapshot = [],
+) {
+  const listeners = new Set<() => void>();
+  let snapshot = initialSnapshot;
+  let resolveRefresh:
+    | ((nextSnapshot: typeof initialSnapshot) => void)
+    | undefined;
+  const refresh = vi.fn(
+    () =>
+      new Promise<typeof initialSnapshot>((resolve) => {
+        resolveRefresh = (nextSnapshot) => {
+          snapshot = nextSnapshot;
+          listeners.forEach((listener) => {
+            listener();
+          });
+          resolve(nextSnapshot);
+        };
+      }),
+  );
+
+  return {
+    persistentStudyNotesContext: {
+      createStudyNote: vi.fn(),
+      createStudyNoteFromSource: vi.fn(),
+      deleteStudyNote: vi.fn(),
+      getSnapshot: () => snapshot,
+      refresh,
+      removeLabelAssignments: vi.fn(),
+      subscribe: (listener: () => void) => {
+        listeners.add(listener);
+
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+      updateStudyNote: vi.fn(),
+    },
+    refresh,
+    resolveRefresh(nextSnapshot: typeof initialSnapshot) {
+      resolveRefresh?.(nextSnapshot);
+    },
+  };
+}
+
 const studyNoteExpectedAnswerPlaceholder =
   "Explain the reason, steps, limits, and one example or non-example.";
 const studyNoteMetaphorPlaceholder = "Compare it to something familiar.";
@@ -708,6 +757,180 @@ describe("authenticated Study Notes workspace", () => {
     expect(
       await screen.findByRole("form", { name: "Study Note editor surface" }),
     ).toBeInTheDocument();
+  });
+
+  it("shows the Study Notes management readiness state while persistent Study Notes are preparing", async () => {
+    const userId = "user-study-notes-management-readiness";
+    const hydratedStudyNotesContext = createAppStudyNotesContext({
+      keyPrefix: `test-study-notes-management-readiness-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+
+    hydratedStudyNotesContext.createStudyNote(userId, {
+      expectedAnswer: "The strongest notes stay specific and recallable.",
+      prompt: "Why keep Study Notes atomic?",
+      sourceBody: "Atomic notes isolate one recall target at a time.",
+      sourceTitle: "Atomic Study Notes",
+    });
+
+    const readiness = createPendingPersistentStudyNotesContext();
+
+    renderRoute("/study-notes", {
+      persistentStudyNotesContext: readiness.persistentStudyNotesContext,
+      session: {
+        user: {
+          displayName: "Jordan Ready",
+          email: "jordan.ready@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+    });
+
+    await waitFor(() => {
+      expect(readiness.refresh).toHaveBeenCalledWith(userId);
+    });
+    expect(
+      screen.getByRole("region", { name: "Preparing Study Notes" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: "Preparing Study Notes" }),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelectorAll(
+        ".study-notes-management-readiness__list .study-notes-readiness__management-row",
+      ),
+    ).toHaveLength(4);
+    expect(
+      screen.queryByRole("heading", {
+        level: 1,
+        name: "Study Notes",
+      }),
+    ).toBeNull();
+
+    await act(async () => {
+      readiness.resolveRefresh(hydratedStudyNotesContext.getSnapshot());
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Study Notes",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Preparing Study Notes" }),
+    ).toBeNull();
+  });
+
+  it("shows the dedicated create-route readiness state while persistent Study Notes are preparing", async () => {
+    const userId = "user-study-notes-create-readiness";
+    const readiness = createPendingPersistentStudyNotesContext();
+
+    renderRoute("/study-notes/new", {
+      persistentStudyNotesContext: readiness.persistentStudyNotesContext,
+      session: {
+        user: {
+          displayName: "Jordan Draft",
+          email: "jordan.draft@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+    });
+
+    await waitFor(() => {
+      expect(readiness.refresh).toHaveBeenCalledWith(userId);
+    });
+    expect(
+      screen.getByRole("region", { name: "Preparing Study Notes" }),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelectorAll(
+        ".study-notes-readiness__catalog-list .study-notes-readiness__catalog-row",
+      ),
+    ).toHaveLength(6);
+    expect(
+      document.querySelectorAll(
+        ".study-notes-readiness__editor-toolbar .skeleton-block",
+      ),
+    ).toHaveLength(2);
+    expect(
+      screen.queryByRole("form", { name: "Study Note editor surface" }),
+    ).toBeNull();
+
+    await act(async () => {
+      readiness.resolveRefresh([]);
+    });
+
+    expect(
+      await screen.findByRole("form", {
+        name: "Study Note editor surface",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Preparing Study Notes" }),
+    ).toBeNull();
+  });
+
+  it("shows the dedicated editor readiness state while persistent Study Notes are preparing", async () => {
+    const userId = "user-study-notes-editor-readiness";
+    const hydratedStudyNotesContext = createAppStudyNotesContext({
+      keyPrefix: `test-study-notes-editor-readiness-${Math.random().toString(36).slice(2)}`,
+      storage: window.localStorage,
+    });
+    const studyNote = hydratedStudyNotesContext.createStudyNote(userId, {
+      expectedAnswer: "It isolates one answer target so recall stays clear.",
+      prompt: "Why split broad source material into Study Notes?",
+      sourceBody: "Separate one recallable unit from the broader explanation.",
+      sourceTitle: "Splitting source material",
+    });
+    const readiness = createPendingPersistentStudyNotesContext();
+
+    renderRoute(getStudyNoteEditorPath(studyNote.id), {
+      persistentStudyNotesContext: readiness.persistentStudyNotesContext,
+      session: {
+        user: {
+          displayName: "Jordan Editor",
+          email: "jordan.editor@example.com",
+          id: userId,
+          userLanguage: "en",
+        },
+      },
+    });
+
+    await waitFor(() => {
+      expect(readiness.refresh).toHaveBeenCalledWith(userId);
+    });
+    expect(
+      screen.getByRole("region", { name: "Preparing Study Notes" }),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelectorAll(
+        ".study-notes-readiness__editor-toolbar .skeleton-block",
+      ),
+    ).toHaveLength(3);
+    expect(
+      screen.queryByRole("heading", { level: 2, name: "Study Note not found" }),
+    ).toBeNull();
+
+    await act(async () => {
+      readiness.resolveRefresh(hydratedStudyNotesContext.getSnapshot());
+    });
+
+    expect(
+      await screen.findByRole("form", {
+        name: "Study Note editor surface",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByDisplayValue(
+        "Why split broad source material into Study Notes?",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Preparing Study Notes" }),
+    ).toBeNull();
   });
 
   it("defaults Study Notes management to All notes and toggles Upcoming notes in Due today", async () => {

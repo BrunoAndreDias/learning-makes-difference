@@ -61,6 +61,10 @@ import {
   practiceRepairIntents,
 } from "../recall/recall-practice-repair";
 import { planRecallWork } from "../recall/recall-work-planning";
+import {
+  hasPendingProtectedWorkspaceRefresh,
+  useProtectedWorkspaceRefreshState,
+} from "../workspace-shell/app-shell/protected-workspace-refresh";
 import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import "./study-notes.css";
 import {
@@ -107,6 +111,10 @@ import {
   deriveStudyNoteRecallInsight,
   formatRecallSelfRatingResultLabel,
 } from "./study-note-recall-insight";
+import {
+  StudyNotesManagementPageReadinessState,
+  StudyNotesWorkspacePageReadinessState,
+} from "./study-notes-page-readiness";
 
 export const studyNotesSearchSchema = z.object({
   focus: z.enum(["expected-answer"]).optional(),
@@ -191,6 +199,26 @@ const studyNotesManagementStatusFilterOptions = [
 }[];
 
 function StudyNotesManagementPage({
+  search,
+}: Readonly<{
+  search: StudyNotesSearch;
+}>) {
+  const protectedWorkspaceRefreshState = useProtectedWorkspaceRefreshState();
+
+  if (
+    hasPendingProtectedWorkspaceRefresh(protectedWorkspaceRefreshState, [
+      "labels",
+      "recall",
+      "studyNotes",
+    ])
+  ) {
+    return <StudyNotesManagementPageReadinessState />;
+  }
+
+  return <StudyNotesManagementPageContent search={search} />;
+}
+
+function StudyNotesManagementPageContent({
   search,
 }: Readonly<{
   search: StudyNotesSearch;
@@ -418,21 +446,6 @@ function StudyNotesManagementPage({
     availableLabels,
     selectedLabelId,
   });
-
-  useEffect(() => {
-    if (persistentStudyNotesContext === undefined) {
-      return;
-    }
-
-    void persistentStudyNotesContext.refresh(userId).catch((error: unknown) => {
-      if (error instanceof AppStudyNotesError) {
-        setErrorMessage(error.message);
-        return;
-      }
-
-      throw error;
-    });
-  }, [persistentStudyNotesContext, userId]);
 
   useEffect(() => {
     function syncLabels() {
@@ -2509,6 +2522,32 @@ export function StudyNotesPage({
   routeMode: StudyNotesRouteMode;
   search: StudyNotesSearch;
 }) {
+  const protectedWorkspaceRefreshState = useProtectedWorkspaceRefreshState();
+
+  if (
+    hasPendingProtectedWorkspaceRefresh(protectedWorkspaceRefreshState, [
+      "labels",
+      "recall",
+      "studyNotes",
+    ])
+  ) {
+    return (
+      <StudyNotesWorkspacePageReadinessState
+        routeKind={routeMode.kind as "create" | "edit"}
+      />
+    );
+  }
+
+  return <StudyNotesPageContent routeMode={routeMode} search={search} />;
+}
+
+function StudyNotesPageContent({
+  routeMode,
+  search,
+}: {
+  routeMode: StudyNotesRouteMode;
+  search: StudyNotesSearch;
+}) {
   const navigate = useNavigate();
   const routeKind = routeMode.kind;
   const routeStudyNoteId = getRouteStudyNoteId(routeMode);
@@ -2892,21 +2931,6 @@ export function StudyNotesPage({
     enableBeforeUnload: hasDraftChanges && !isSaving,
     shouldBlockFn: () => !confirmDiscardStudyNoteChanges(),
   });
-
-  useEffect(() => {
-    if (persistentStudyNotesContext === undefined) {
-      return;
-    }
-
-    void persistentStudyNotesContext.refresh(userId).catch((error: unknown) => {
-      if (error instanceof AppStudyNotesError) {
-        setErrorMessage(error.message);
-        return;
-      }
-
-      throw error;
-    });
-  }, [persistentStudyNotesContext, userId]);
 
   useEffect(() => {
     function syncLabels() {

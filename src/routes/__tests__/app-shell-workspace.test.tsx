@@ -511,7 +511,10 @@ describe("authenticated app shell", () => {
       screen.getByRole("button", { name: "Open navigation menu" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { level: 1, name: "Study Notes" }),
+      screen.getByRole("region", { name: "Preparing Study Notes" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: "Preparing Study Notes" }),
     ).toBeInTheDocument();
   });
 
