@@ -1387,6 +1387,39 @@
   margin: 0;
 }
 
+.recall-practice-repair-readiness__description {
+  width: min(100%, 40rem);
+}
+
+.recall-practice-repair-readiness__section {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+}
+
+.recall-practice-repair-readiness__section-header {
+  display: grid;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-content-border-soft);
+}
+
+.recall-practice-repair-readiness__queue-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-bottom: 1px solid var(--color-content-border-soft);
+}
+
+.recall-practice-repair-readiness__queue-list > :where(li + li) {
+  border-top: 1px solid var(--color-content-border-soft);
+}
+
+.recall-practice-repair-readiness__queue-row {
+  background: transparent;
+}
+
 .recall-practice-repair-queue {
   display: grid;
   align-content: start;

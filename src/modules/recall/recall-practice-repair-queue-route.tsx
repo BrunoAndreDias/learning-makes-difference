@@ -20,6 +20,7 @@ import {
   type PracticeRepairQueueListItem,
   type PracticeRepairQueueQuestionLike,
 } from "./recall-practice-repair";
+import { PracticeRepairQueuePageReadinessState } from "./recall-practice-repair-page-readiness";
 
 export const Route = createFileRoute("/_protected/practice-repair")({
   component: RecallPracticeRepairQueueRoute,
@@ -254,7 +255,7 @@ function RecallPracticeRepairQueueRoute() {
       "studyNotes",
     ])
   ) {
-    return null;
+    return <PracticeRepairQueuePageReadinessState />;
   }
 
   const queueItems = listPracticeRepairQueueItems({

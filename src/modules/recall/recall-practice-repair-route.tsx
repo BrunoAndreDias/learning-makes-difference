@@ -57,6 +57,7 @@ import {
   type PracticeRepairIntent,
   type PracticeRepairMemoryAidKind,
 } from "./recall-practice-repair";
+import { PracticeRepairWorkspacePageReadinessState } from "./recall-practice-repair-page-readiness";
 
 const practiceRepairModes = [
   "edit-answer",
@@ -1163,7 +1164,7 @@ function RecallPracticeRepairRoute() {
       "studyNotes",
     ])
   ) {
-    return null;
+    return <PracticeRepairWorkspacePageReadinessState />;
   }
 
   const workspace = findPracticeRepairWorkspace({

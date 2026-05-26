@@ -37,6 +37,7 @@ import {
   type PracticeRepairIntent,
   type PracticeRepairQuestionReference,
 } from "./recall-practice-repair";
+import { PracticeRepairDraftPageReadinessState } from "./recall-practice-repair-page-readiness";
 import {
   ExternalLinkIcon,
   type PracticeRepairWorkspace,
@@ -249,7 +250,7 @@ function RecallPracticeRepairDraftRoute() {
       "studyNotes",
     ])
   ) {
-    return null;
+    return <PracticeRepairDraftPageReadinessState />;
   }
 
   const workspace = findPracticeRepairDraftWorkspace({

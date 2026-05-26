@@ -24,7 +24,12 @@ import {
   type PracticeRepairEntryLifecycle,
   type PracticeRepairIntent,
 } from "../../modules/recall/recall-practice-repair";
-import { createAppStudyNotesContext } from "../../modules/study-notes";
+import {
+  type AppPersistentStudyNotesService,
+  type AppStudyNote,
+  createAppStudyNotesContext,
+  createPersistentStudyNotesContext,
+} from "../../modules/study-notes";
 import {
   createDeterministicRecallTestContexts,
   createLearningLoopTestContexts,
@@ -116,6 +121,33 @@ function createPersistentRecallService(
     } satisfies AppPersistentRecallService,
     overrides,
   );
+}
+
+function createPersistentStudyNotesService(
+  overrides: Partial<AppPersistentStudyNotesService>,
+): AppPersistentStudyNotesService {
+  return Object.assign(
+    {
+      createStudyNote: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      createStudyNoteFromSource: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      deleteStudyNote: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      listStudyNotes: vi.fn(async () => []),
+      updateStudyNote: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+    } satisfies AppPersistentStudyNotesService,
+    overrides,
+  );
+}
+
+function createPendingPromise<T>() {
+  return new Promise<T>(() => {});
 }
 
 function createStoredRecallNote(
@@ -3181,6 +3213,79 @@ describe("authenticated recall workspace", () => {
       }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/practice-repair");
+  });
+
+  it("shows route-owned Practice Repair readiness states while protected refresh is pending", async () => {
+    const scenarios = [
+      {
+        expectedSkeletonCount: 2,
+        label: "Preparing Practice Repair queue",
+        path: "/practice-repair",
+        skeletonSelector: ".recall-practice-repair-readiness__section",
+      },
+      {
+        expectedSkeletonCount: 1,
+        label: "Preparing Practice Repair workspace",
+        path: "/practice-repair/pending-entry",
+        skeletonSelector: ".recall-practice-repair-workspace__current-editor",
+      },
+      {
+        expectedSkeletonCount: 4,
+        label: "Preparing Practice Repair draft view",
+        path: "/practice-repair/results/pending-result/questions/pending-question",
+        skeletonSelector: ".recall-practice-repair-readiness__option",
+      },
+    ] as const;
+
+    for (const scenario of scenarios) {
+      const listSessionResults = vi.fn(() =>
+        createPendingPromise<SessionResult[]>(),
+      );
+      const listStudyNotes = vi.fn(() =>
+        createPendingPromise<AppStudyNote[]>(),
+      );
+      const persistentRecallContext = createPersistentRecallContext({
+        service: createPersistentRecallService({
+          listSessionResults,
+        }),
+      });
+      const persistentStudyNotesContext = createPersistentStudyNotesContext({
+        service: createPersistentStudyNotesService({
+          listStudyNotes,
+        }),
+      });
+      const routeRender = renderRoute(scenario.path, {
+        persistentRecallContext,
+        persistentStudyNotesContext,
+        session: createSession(),
+      });
+
+      await waitFor(() => {
+        expect(listSessionResults).toHaveBeenCalled();
+        expect(listStudyNotes).toHaveBeenCalled();
+      });
+      expect(
+        await screen.findByRole("region", {
+          name: scenario.label,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("status", {
+          name: scenario.label,
+        }),
+      ).toBeInTheDocument();
+      expect(document.querySelectorAll(scenario.skeletonSelector)).toHaveLength(
+        scenario.expectedSkeletonCount,
+      );
+      expect(
+        screen.queryByRole("heading", {
+          level: 1,
+          name: "Practice Repair",
+        }),
+      ).not.toBeInTheDocument();
+
+      routeRender.unmount();
+    }
   });
 
   it("uses the route-hydrated session to load Recall setup notes immediately", async () => {
