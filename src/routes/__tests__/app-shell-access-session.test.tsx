@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import {
+  act,
   cleanup,
   fireEvent,
   screen,
@@ -102,6 +103,75 @@ afterEach(() => {
 });
 
 describe("authenticated app shell", () => {
+  it("shows the Settings page readiness state while protected workspace data is preparing", async () => {
+    const emptyStudyNotes = [] as const;
+    let resolveRefresh: ((value: readonly []) => void) | undefined;
+    const refresh = vi.fn(
+      () =>
+        new Promise<readonly []>((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
+
+    renderRoute("/settings", {
+      persistentStudyNotesContext: {
+        createStudyNote: vi.fn(),
+        createStudyNoteFromSource: vi.fn(),
+        deleteStudyNote: vi.fn(),
+        getSnapshot: () => emptyStudyNotes,
+        removeLabelAssignments: vi.fn(),
+        refresh,
+        subscribe: () => () => undefined,
+        updateStudyNote: vi.fn(),
+      },
+      session: {
+        user: {
+          displayName: "Casey Settings Ready",
+          email: "casey.settings.ready@example.com",
+          id: "user-settings-readiness",
+          userLanguage: "en",
+          userTimeZone: "America/New_York",
+        },
+      },
+    });
+
+    await waitFor(() => {
+      expect(refresh).toHaveBeenCalledWith("user-settings-readiness");
+    });
+    expect(
+      screen.getByRole("region", { name: "Preparing Settings" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: "Preparing Settings" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("form", { name: "Account preferences form" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("complementary", { name: "Study Notes workspace" }),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelectorAll(".settings-main-grid .settings-panel"),
+    ).toHaveLength(2);
+    expect(
+      document.querySelectorAll(".settings-readiness__field"),
+    ).toHaveLength(5);
+    expect(
+      document.querySelectorAll(".settings-readiness__summary-row"),
+    ).toHaveLength(6);
+
+    await act(async () => {
+      resolveRefresh?.(emptyStudyNotes);
+    });
+
+    expect(
+      await screen.findByRole("form", { name: "Account preferences form" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Preparing Settings" }),
+    ).toBeNull();
+  });
+
   it("registers a new account into the intended protected route and logs out cleanly", async () => {
     const sessionContext = createRouteTestSessionContext();
     const { router } = renderRoute("/settings", { sessionContext });

@@ -9,6 +9,11 @@ import {
 import { PageLayout } from "../../../design-system/page-layout";
 import { type AppTranslationKey, useAppTranslation } from "../../language";
 import {
+  hasPendingProtectedWorkspaceRefresh,
+  type ProtectedWorkspaceRefreshKey,
+  useProtectedWorkspaceRefreshState,
+} from "../../workspace-shell/app-shell/protected-workspace-refresh";
+import {
   defaultShowStudyNoteTemplatesPreference,
   defaultUserTimeZone,
   fallbackUserLanguage,
@@ -23,6 +28,7 @@ import {
   type UserTimeZonePreference,
   userLanguagePreferences,
 } from "./session";
+import { SettingsPageReadinessState } from "./settings-page-readiness";
 import { useResolvedProtectedSession } from "./use-resolved-protected-session";
 
 export const Route = createFileRoute("/_protected/settings")({
@@ -37,6 +43,12 @@ const languageLabels: Record<UserLanguage, string> = {
 
 const settingsFallbackErrorKey =
   "settings.error.fallback" satisfies AppTranslationKey;
+const settingsReadinessRefreshKeys = [
+  "focus",
+  "labels",
+  "recall",
+  "studyNotes",
+] as const satisfies readonly ProtectedWorkspaceRefreshKey[];
 
 const studyObjectiveLabelKeys = {
   university_study: "settings.studyObjective.universityStudy",
@@ -109,6 +121,7 @@ function getStudyObjectiveLabelKey(
 
 function SettingsPage() {
   const { t } = useAppTranslation();
+  const refreshState = useProtectedWorkspaceRefreshState();
   const { session, sessionSnapshot } = useResolvedProtectedSession(
     "/_protected/settings",
   );
@@ -147,6 +160,15 @@ function SettingsPage() {
     setStudyIntensity(user?.studyIntensity ?? null);
     setUserTimeZone(user?.userTimeZone ?? defaultUserTimeZone);
   }, [user]);
+
+  const isPagePreparing = hasPendingProtectedWorkspaceRefresh(
+    refreshState,
+    settingsReadinessRefreshKeys,
+  );
+
+  if (isPagePreparing) {
+    return <SettingsPageReadinessState />;
+  }
 
   if (user === null) {
     return null;

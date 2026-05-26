@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
-import { act, fireEvent, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { AppSessionSnapshot } from "../../modules/access/session/session";
 import {
@@ -89,6 +95,84 @@ function completeStudyNoteRecall(
 }
 
 describe("authenticated app shell", () => {
+  it("shows the Focus page readiness state while protected workspace data is preparing", async () => {
+    const emptyStudyNotes = [] as const;
+    let resolveRefresh: ((value: readonly []) => void) | undefined;
+    const refresh = vi.fn(
+      () =>
+        new Promise<readonly []>((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
+
+    renderRoute("/focus", {
+      persistentStudyNotesContext: {
+        createStudyNote: vi.fn(),
+        createStudyNoteFromSource: vi.fn(),
+        deleteStudyNote: vi.fn(),
+        getSnapshot: () => emptyStudyNotes,
+        removeLabelAssignments: vi.fn(),
+        refresh,
+        subscribe: () => () => undefined,
+        updateStudyNote: vi.fn(),
+      },
+      session: {
+        user: {
+          displayName: "Casey Focus Ready",
+          email: "casey.focus.ready@example.com",
+          id: "user-focus-readiness",
+          userLanguage: "en",
+          userTimeZone: "America/New_York",
+        },
+      },
+    });
+
+    await waitFor(() => {
+      expect(refresh).toHaveBeenCalledWith("user-focus-readiness");
+    });
+    expect(
+      screen.getByRole("region", { name: "Preparing Focus" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: "Preparing Focus" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { level: 1, name: "Focus" }),
+    ).toBeNull();
+
+    const sidebar = screen.getByRole("complementary", {
+      name: "Study Notes workspace",
+    });
+    const appSections = within(sidebar).getByRole("navigation", {
+      name: "App sections",
+    });
+    expect(
+      within(appSections).getByRole("link", { name: "Focus" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(
+      document.querySelectorAll(
+        ".focus-session-workspace .focus-session-panel",
+      ),
+    ).toHaveLength(1);
+    expect(
+      document.querySelectorAll(".focus-session-sidebar .focus-card"),
+    ).toHaveLength(2);
+    expect(
+      document.querySelectorAll(".focus-readiness-metrics__item"),
+    ).toHaveLength(4);
+
+    await act(async () => {
+      resolveRefresh?.(emptyStudyNotes);
+    });
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Focus" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Preparing Focus" }),
+    ).toBeNull();
+  });
+
   it("presents Focus as a guided session dashboard", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
 

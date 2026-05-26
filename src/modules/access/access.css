@@ -41,6 +41,10 @@
   gap: 0.15rem;
 }
 
+.settings-readiness__description {
+  max-width: 34rem;
+}
+
 .settings-form {
   display: grid;
   gap: 0.7rem;
@@ -71,6 +75,10 @@
 .settings-form__checkbox-field input:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
+}
+
+.settings-readiness__checkbox {
+  align-items: center;
 }
 
 .settings-form__field input,
@@ -110,6 +118,10 @@
   width: auto;
   min-width: 11.5rem;
   margin-top: 0;
+}
+
+.settings-readiness__submit {
+  justify-self: start;
 }
 
 @media (min-width: 48rem) {

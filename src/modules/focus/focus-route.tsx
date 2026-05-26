@@ -9,11 +9,17 @@ import { type AppTranslationKey, useAppTranslation } from "../language";
 import { listNotesForUser } from "../notes";
 import { listStudyNotesForUser } from "../study-notes";
 import {
+  hasPendingProtectedWorkspaceRefresh,
+  type ProtectedWorkspaceRefreshKey,
+  useProtectedWorkspaceRefreshState,
+} from "../workspace-shell/app-shell/protected-workspace-refresh";
+import {
   type AppFocusContext,
   AppFocusError,
   type FocusRecord,
   type FocusSession,
 } from "./focus";
+import { FocusPageReadinessState } from "./focus-page-readiness";
 import { useFocusTimerTick } from "./focus-session-start-control";
 import {
   deriveFocusWeeklyAnalytics,
@@ -90,6 +96,11 @@ const DEFAULT_FOCUS_SESSION_START_VALUES: FocusSessionStartValues = {
   focusMinutes: DEFAULT_FOCUS_MINUTES,
   plannedFocusIntervals: DEFAULT_PLANNED_FOCUS_INTERVALS,
 };
+const focusReadinessRefreshKeys = [
+  "focus",
+  "recall",
+  "studyNotes",
+] as const satisfies readonly ProtectedWorkspaceRefreshKey[];
 const focusAnalyticsComparisonSuffix = " vs last week";
 const focusAnalyticsNoChangeComparison = `No change${focusAnalyticsComparisonSuffix}`;
 const focusAnalyticsMetricLabelKeys = {
@@ -125,6 +136,7 @@ export const Route = createFileRoute("/_protected/focus")({
 
 function FocusPage() {
   const { t } = useAppTranslation();
+  const refreshState = useProtectedWorkspaceRefreshState();
   const focus = Route.useRouteContext({
     select: (context) => context.focus,
   });
@@ -176,6 +188,15 @@ function FocusPage() {
   const activeSession =
     userId === null ? null : focus.getActiveSession({ userId });
   useFocusTimerTick(activeSession);
+  const isPagePreparing = hasPendingProtectedWorkspaceRefresh(
+    refreshState,
+    focusReadinessRefreshKeys,
+  );
+
+  if (isPagePreparing) {
+    return <FocusPageReadinessState />;
+  }
+
   const records =
     userId === null
       ? []
