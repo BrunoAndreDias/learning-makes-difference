@@ -24,7 +24,12 @@ import {
   type PracticeRepairEntryLifecycle,
   type PracticeRepairIntent,
 } from "../../modules/recall/recall-practice-repair";
-import { createAppStudyNotesContext } from "../../modules/study-notes";
+import {
+  type AppPersistentStudyNotesService,
+  type AppStudyNote,
+  createAppStudyNotesContext,
+  createPersistentStudyNotesContext,
+} from "../../modules/study-notes";
 import {
   createDeterministicRecallTestContexts,
   createLearningLoopTestContexts,
@@ -114,6 +119,29 @@ function createPersistentRecallService(
         throw new Error("not used");
       }),
     } satisfies AppPersistentRecallService,
+    overrides,
+  );
+}
+
+function createPersistentStudyNotesService(
+  overrides: Partial<AppPersistentStudyNotesService>,
+): AppPersistentStudyNotesService {
+  return Object.assign(
+    {
+      createStudyNote: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      createStudyNoteFromSource: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      deleteStudyNote: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+      listStudyNotes: vi.fn(async () => []),
+      updateStudyNote: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+    } satisfies AppPersistentStudyNotesService,
     overrides,
   );
 }
@@ -3017,6 +3045,79 @@ describe("authenticated recall workspace", () => {
       }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/practice-repair");
+  });
+
+  it("shows route-owned Practice Repair readiness states while protected refresh is pending", async () => {
+    const scenarios = [
+      {
+        label: "Preparing Practice Repair queue",
+        path: "/practice-repair",
+        selector: ".recall-practice-repair-readiness__section",
+        selectorCount: 2,
+      },
+      {
+        label: "Preparing Practice Repair workspace",
+        path: "/practice-repair/pending-entry",
+        selector: ".recall-practice-repair-workspace__current-editor",
+        selectorCount: 1,
+      },
+      {
+        label: "Preparing Practice Repair draft view",
+        path: "/practice-repair/results/pending-result/questions/pending-question",
+        selector: ".recall-practice-repair-readiness__option",
+        selectorCount: 4,
+      },
+    ] as const;
+
+    for (const scenario of scenarios) {
+      const pendingSessionResults = new Promise<SessionResult[]>(
+        () => undefined,
+      );
+      const pendingStudyNotes = new Promise<AppStudyNote[]>(() => undefined);
+      const listSessionResults = vi.fn(async () => pendingSessionResults);
+      const listStudyNotes = vi.fn(async () => pendingStudyNotes);
+      const persistentRecallContext = createPersistentRecallContext({
+        service: createPersistentRecallService({
+          listSessionResults,
+        }),
+      });
+      const persistentStudyNotesContext = createPersistentStudyNotesContext({
+        service: createPersistentStudyNotesService({
+          listStudyNotes,
+        }),
+      });
+      const routeRender = renderRoute(scenario.path, {
+        persistentRecallContext,
+        persistentStudyNotesContext,
+        session: createSession(),
+      });
+
+      await waitFor(() => {
+        expect(listSessionResults).toHaveBeenCalled();
+        expect(listStudyNotes).toHaveBeenCalled();
+      });
+      expect(
+        await screen.findByRole("region", {
+          name: scenario.label,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("status", {
+          name: scenario.label,
+        }),
+      ).toBeInTheDocument();
+      expect(document.querySelectorAll(scenario.selector)).toHaveLength(
+        scenario.selectorCount,
+      );
+      expect(
+        screen.queryByRole("heading", {
+          level: 1,
+          name: "Practice Repair",
+        }),
+      ).toBeNull();
+
+      routeRender.unmount();
+    }
   });
 
   it("uses the route-hydrated session to load Recall setup notes immediately", async () => {
