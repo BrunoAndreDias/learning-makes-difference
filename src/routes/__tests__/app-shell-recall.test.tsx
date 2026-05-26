@@ -146,6 +146,10 @@ function createPersistentStudyNotesService(
   );
 }
 
+function createPendingPromise<T>() {
+  return new Promise<T>(() => {});
+}
+
 function createStoredRecallNote(
   overrides: Partial<RecallNoteSnapshot> = {},
 ): RecallNoteSnapshot {
@@ -3050,32 +3054,32 @@ describe("authenticated recall workspace", () => {
   it("shows route-owned Practice Repair readiness states while protected refresh is pending", async () => {
     const scenarios = [
       {
+        expectedSkeletonCount: 2,
         label: "Preparing Practice Repair queue",
         path: "/practice-repair",
-        selector: ".recall-practice-repair-readiness__section",
-        selectorCount: 2,
+        skeletonSelector: ".recall-practice-repair-readiness__section",
       },
       {
+        expectedSkeletonCount: 1,
         label: "Preparing Practice Repair workspace",
         path: "/practice-repair/pending-entry",
-        selector: ".recall-practice-repair-workspace__current-editor",
-        selectorCount: 1,
+        skeletonSelector: ".recall-practice-repair-workspace__current-editor",
       },
       {
+        expectedSkeletonCount: 4,
         label: "Preparing Practice Repair draft view",
         path: "/practice-repair/results/pending-result/questions/pending-question",
-        selector: ".recall-practice-repair-readiness__option",
-        selectorCount: 4,
+        skeletonSelector: ".recall-practice-repair-readiness__option",
       },
     ] as const;
 
     for (const scenario of scenarios) {
-      const pendingSessionResults = new Promise<SessionResult[]>(
-        () => undefined,
+      const listSessionResults = vi.fn(() =>
+        createPendingPromise<SessionResult[]>(),
       );
-      const pendingStudyNotes = new Promise<AppStudyNote[]>(() => undefined);
-      const listSessionResults = vi.fn(async () => pendingSessionResults);
-      const listStudyNotes = vi.fn(async () => pendingStudyNotes);
+      const listStudyNotes = vi.fn(() =>
+        createPendingPromise<AppStudyNote[]>(),
+      );
       const persistentRecallContext = createPersistentRecallContext({
         service: createPersistentRecallService({
           listSessionResults,
@@ -3106,15 +3110,15 @@ describe("authenticated recall workspace", () => {
           name: scenario.label,
         }),
       ).toBeInTheDocument();
-      expect(document.querySelectorAll(scenario.selector)).toHaveLength(
-        scenario.selectorCount,
+      expect(document.querySelectorAll(scenario.skeletonSelector)).toHaveLength(
+        scenario.expectedSkeletonCount,
       );
       expect(
         screen.queryByRole("heading", {
           level: 1,
           name: "Practice Repair",
         }),
-      ).toBeNull();
+      ).not.toBeInTheDocument();
 
       routeRender.unmount();
     }

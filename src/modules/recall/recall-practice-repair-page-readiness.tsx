@@ -165,9 +165,9 @@ function PracticeRepairReadinessPageLayout({
 }
 
 function PracticeRepairWorkspaceEvidenceSkeleton({
-  includeEditor,
+  showInlineEditor,
 }: Readonly<{
-  includeEditor: boolean;
+  showInlineEditor: boolean;
 }>) {
   return (
     <section
@@ -197,7 +197,7 @@ function PracticeRepairWorkspaceEvidenceSkeleton({
         </section>
       ))}
 
-      {includeEditor ? (
+      {showInlineEditor ? (
         <section
           aria-hidden="true"
           className="recall-practice-repair-workspace__current-editor"
@@ -273,12 +273,15 @@ function PracticeRepairOptionsSkeleton() {
 }
 
 function PracticeRepairWorkspaceSidebarSkeleton({
-  includeActions,
+  showLifecycleActions,
 }: Readonly<{
-  includeActions: boolean;
+  showLifecycleActions: boolean;
 }>) {
   return (
-    <aside className="recall-practice-repair-workspace__sidebar">
+    <aside
+      aria-hidden="true"
+      className="recall-practice-repair-workspace__sidebar"
+    >
       <section className="recall-panel recall-practice-repair-workspace__panel">
         <div className="recall-practice-repair-workspace__panel-copy">
           <SkeletonBlock as="div" height="1.1rem" width="8rem" />
@@ -287,7 +290,7 @@ function PracticeRepairWorkspaceSidebarSkeleton({
 
         <PracticeRepairOptionsSkeleton />
 
-        {includeActions ? (
+        {showLifecycleActions ? (
           <>
             <div className="recall-practice-repair-workspace__actions">
               <SkeletonBlock
@@ -378,10 +381,10 @@ export function PracticeRepairWorkspacePageReadinessState() {
       >
         <div className="recall-practice-repair-workspace__layout">
           <div className="recall-practice-repair-workspace__main">
-            <PracticeRepairWorkspaceEvidenceSkeleton includeEditor />
+            <PracticeRepairWorkspaceEvidenceSkeleton showInlineEditor />
           </div>
 
-          <PracticeRepairWorkspaceSidebarSkeleton includeActions />
+          <PracticeRepairWorkspaceSidebarSkeleton showLifecycleActions />
         </div>
       </PageReadinessState>
     </PracticeRepairReadinessPageLayout>
@@ -400,10 +403,12 @@ export function PracticeRepairDraftPageReadinessState() {
       >
         <div className="recall-practice-repair-workspace__layout">
           <div className="recall-practice-repair-workspace__main">
-            <PracticeRepairWorkspaceEvidenceSkeleton includeEditor={false} />
+            <PracticeRepairWorkspaceEvidenceSkeleton showInlineEditor={false} />
           </div>
 
-          <PracticeRepairWorkspaceSidebarSkeleton includeActions={false} />
+          <PracticeRepairWorkspaceSidebarSkeleton
+            showLifecycleActions={false}
+          />
         </div>
       </PageReadinessState>
     </PracticeRepairReadinessPageLayout>
