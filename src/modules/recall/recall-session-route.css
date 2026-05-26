@@ -260,6 +260,23 @@
   text-align: left;
 }
 
+.recall-session-readiness {
+  display: grid;
+  gap: 0.95rem;
+}
+
+.recall-session-readiness__textarea {
+  width: min(100%, 32rem);
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--recall-border);
+  border-radius: 0.55rem;
+  background: var(--recall-subtle-surface);
+}
+
+.recall-session-readiness__footer {
+  align-items: center;
+}
+
 .recall-card__answer-field span {
   color: var(--recall-strong);
   font-size: 0.78rem;

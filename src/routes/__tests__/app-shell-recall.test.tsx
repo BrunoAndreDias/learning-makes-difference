@@ -641,6 +641,36 @@ function createRecallTodayQueueScenario(
   } as const;
 }
 
+function createPendingRouteEntryRecallContext() {
+  let resolveRefresh: (() => void) | undefined;
+  const refreshGate = new Promise<void>((resolve) => {
+    resolveRefresh = resolve;
+  });
+  let refreshCount = 0;
+  const persistentRecallContext = createPersistentRecallContext({
+    service: createPersistentRecallService({
+      getActiveSession: vi.fn(async () => {
+        refreshCount += 1;
+
+        if (refreshCount === 1) {
+          return null;
+        }
+
+        await refreshGate;
+        return null;
+      }),
+    }),
+  });
+
+  return {
+    persistentRecallContext,
+    resolveRefresh,
+    waitForRouteEntryRefresh: () =>
+      waitFor(() => expect(refreshCount).toBeGreaterThanOrEqual(2)),
+    waitForShellRefresh: () => waitFor(() => expect(refreshCount).toBe(1)),
+  };
+}
+
 const defaultViewportWidth = window.innerWidth;
 
 function setViewportWidth(width: number) {
@@ -902,43 +932,177 @@ describe("authenticated recall workspace", () => {
     );
   });
 
-  it("renders Recall Today immediately while persistent recall refresh runs on route entry", async () => {
-    let resolveRefresh: (() => void) | undefined;
-    const refreshGate = new Promise<void>((resolve) => {
-      resolveRefresh = resolve;
-    });
-    let refreshCount = 0;
-    const persistentRecallContext = createPersistentRecallContext({
-      service: createPersistentRecallService({
-        getActiveSession: vi.fn(async () => {
-          refreshCount += 1;
-
-          if (refreshCount === 1) {
-            return null;
-          }
-
-          await refreshGate;
-          return null;
-        }),
-      }),
-    });
+  it("shows the Recall Today readiness state while persistent recall refresh runs on route entry", async () => {
+    const {
+      persistentRecallContext,
+      resolveRefresh,
+      waitForRouteEntryRefresh,
+      waitForShellRefresh,
+    } = createPendingRouteEntryRecallContext();
 
     const { router } = renderRoute("/settings", {
       persistentRecallContext,
       session: createSession(),
     });
 
-    await waitFor(() => expect(refreshCount).toBe(1));
+    await waitForShellRefresh();
 
     await router.navigate({ to: "/recall" });
+    await waitForRouteEntryRefresh();
 
     expect(router.state.location.pathname).toBe("/recall");
     expect(
-      screen.getByRole("heading", {
+      screen.getByRole("region", { name: "Preparing Recall Today" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: "Preparing Recall Today" }),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelectorAll(
+        ".recall-today-readiness__priority .page-readiness-list-row",
+      ),
+    ).toHaveLength(3);
+    expect(
+      document.querySelectorAll(
+        ".recall-today-readiness__continuation .page-readiness-list-row",
+      ),
+    ).toHaveLength(3);
+    expect(
+      screen.queryByRole("heading", {
         level: 1,
         name: "Recall Today",
       }),
+    ).toBeNull();
+
+    resolveRefresh?.();
+  });
+
+  it("shows the Scheduled Recall readiness state while persistent recall refresh runs on route entry", async () => {
+    const {
+      persistentRecallContext,
+      resolveRefresh,
+      waitForRouteEntryRefresh,
+      waitForShellRefresh,
+    } = createPendingRouteEntryRecallContext();
+
+    const { router } = renderRoute("/settings", {
+      persistentRecallContext,
+      session: createSession(),
+    });
+
+    await waitForShellRefresh();
+
+    await router.navigate({ to: "/recall/due-today" });
+    await waitForRouteEntryRefresh();
+
+    expect(router.state.location.pathname).toBe("/recall/due-today");
+    expect(
+      screen.getByRole("region", { name: "Preparing Scheduled Recall" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: "Preparing Scheduled Recall" }),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelectorAll(
+        ".recall-due-today-readiness__queue .page-readiness-list-row",
+      ),
+    ).toHaveLength(4);
+    expect(
+      screen.queryByRole("heading", {
+        level: 1,
+        name: "Scheduled recall",
+      }),
+    ).toBeNull();
+
+    resolveRefresh?.();
+  });
+
+  it("shows the Results readiness state while persistent recall refresh runs on route entry", async () => {
+    const {
+      persistentRecallContext,
+      resolveRefresh,
+      waitForRouteEntryRefresh,
+      waitForShellRefresh,
+    } = createPendingRouteEntryRecallContext();
+
+    const { router } = renderRoute("/settings", {
+      persistentRecallContext,
+      session: createSession(),
+    });
+
+    await waitForShellRefresh();
+
+    await router.navigate({ to: "/recall/results" });
+    await waitForRouteEntryRefresh();
+
+    expect(router.state.location.pathname).toBe("/recall/results");
+    expect(
+      screen.getByRole("region", { name: "Preparing Results Workspace" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: "Preparing Results Workspace" }),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelectorAll(
+        ".recall-results-readiness__master-list .page-readiness-list-row",
+      ),
+    ).toHaveLength(4);
+    expect(
+      document.querySelectorAll(
+        ".recall-results-readiness__detail-list .page-readiness-list-row",
+      ),
+    ).toHaveLength(3);
+    expect(
+      screen.queryByRole("heading", {
+        level: 1,
+        name: "Results",
+      }),
+    ).toBeNull();
+
+    resolveRefresh?.();
+  });
+
+  it("shows the Recall Selection readiness state while persistent recall refresh runs on route entry", async () => {
+    const {
+      persistentRecallContext,
+      resolveRefresh,
+      waitForRouteEntryRefresh,
+      waitForShellRefresh,
+    } = createPendingRouteEntryRecallContext();
+
+    const { router } = renderRoute("/settings", {
+      persistentRecallContext,
+      session: createSession(),
+    });
+
+    await waitForShellRefresh();
+
+    await router.navigate({ to: "/recall/select" });
+    await waitForRouteEntryRefresh();
+
+    expect(router.state.location.pathname).toBe("/recall/select");
+    expect(
+      screen.getByRole("region", { name: "Preparing Recall Selection" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: "Preparing Recall Selection" }),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelectorAll(
+        ".recall-selection-readiness__picker-list .recall-selection-readiness__note-row",
+      ),
+    ).toHaveLength(4);
+    expect(
+      document.querySelectorAll(
+        ".recall-selection-readiness__selected-list .recall-selection-readiness__selected-row",
+      ),
+    ).toHaveLength(3);
+    expect(
+      screen.queryByRole("heading", {
+        level: 1,
+        name: "Recall setup",
+      }),
+    ).toBeNull();
 
     resolveRefresh?.();
   });

@@ -4,7 +4,6 @@ import {
   Outlet,
   useNavigate,
   useRouteContext,
-  useRouterState,
 } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
@@ -25,6 +24,11 @@ import {
   getRecallSelectionHelperTranslationKey,
 } from "./learner-copy";
 import { AppRecallError, type RecallMode } from "./recall";
+import {
+  RecallRouteReadinessProvider,
+  RecallSelectionPageReadinessState,
+  useIsRecallPageReadinessPending,
+} from "./recall-page-readiness";
 
 export const Route = createFileRoute("/_protected/recall")({
   component: RecallRouteShell,
@@ -39,9 +43,6 @@ function RecallRouteShell() {
   const persistentRecallContext = useRouteContext({
     from: "/_protected/recall",
     select: (context) => context.persistentRecall,
-  });
-  const isRecallSessionRoute = useRouterState({
-    select: (state) => state.location.pathname === appRoutePaths.recallSession,
   });
   const { sessionSnapshot } = useResolvedProtectedSession("/_protected/recall");
   const userId = sessionSnapshot.user?.id ?? null;
@@ -81,11 +82,11 @@ function RecallRouteShell() {
     };
   }, [persistentRecallContext, userId]);
 
-  if (!isReady && isRecallSessionRoute) {
-    return null;
-  }
-
-  return <Outlet />;
+  return (
+    <RecallRouteReadinessProvider value={{ routeEntryPending: !isReady }}>
+      <Outlet />
+    </RecallRouteReadinessProvider>
+  );
 }
 
 type RecallTypeOption = {
@@ -376,6 +377,11 @@ export function RecallSelectionPage({
     t,
   });
   const canStart = disabledStartReason === null;
+  const isReadinessPending = useIsRecallPageReadinessPending([
+    "labels",
+    "recall",
+    "studyNotes",
+  ]);
 
   useEffect(() => {
     const nextSelectedLabelId = resolveSelectedLabelIds(
@@ -477,6 +483,10 @@ export function RecallSelectionPage({
     setSelectedStudyNoteIds([]);
     setErrorMessage(null);
     await navigate({ to: appRoutePaths.recall });
+  }
+
+  if (isReadinessPending) {
+    return <RecallSelectionPageReadinessState />;
   }
 
   return (

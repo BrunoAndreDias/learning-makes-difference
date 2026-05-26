@@ -44,6 +44,10 @@ import {
   isMeaningfulAcceptedVariantCandidateText,
 } from "./recall-answer-check";
 import { RecallAnswerCheckPanel } from "./recall-answer-check-panel";
+import {
+  RecallSessionPageReadinessState,
+  useIsRecallPageReadinessPending,
+} from "./recall-page-readiness";
 
 const recallSessionSavedMessageKey = "learning-makes-difference:recall-saved";
 const recallRatingOptions = [
@@ -172,6 +176,7 @@ function RecallSessionPage() {
     focusContext.getSnapshot,
     focusContext.getSnapshot,
   );
+  const isReadinessPending = useIsRecallPageReadinessPending(["recall"]);
   const userId = effectiveSessionSnapshot.user?.id ?? null;
   const activeSession =
     userId !== null && recallSnapshot?.userId === userId
@@ -205,9 +210,10 @@ function RecallSessionPage() {
     useState(false);
   const [isSavingAcceptedVariant, setSavingAcceptedVariant] = useState(false);
   const sessionExitTargetRef = useRef<RecallSessionExitTarget | null>(null);
+  const shouldHoldForReadiness = activeSession === null && isReadinessPending;
 
   useEffect(() => {
-    if (activeSession !== null) {
+    if (activeSession !== null || shouldHoldForReadiness) {
       return;
     }
 
@@ -215,7 +221,7 @@ function RecallSessionPage() {
       replace: true,
       to: sessionExitTargetRef.current ?? appRoutePaths.recall,
     });
-  }, [activeSession, navigate]);
+  }, [activeSession, navigate, shouldHoldForReadiness]);
 
   useEffect(() => {
     if (activeSession === null) {
@@ -528,6 +534,10 @@ function RecallSessionPage() {
     !isSavingAcceptedVariant &&
     isMeaningfulAcceptedVariantCandidateText(typedAnswerForAcceptedVariant) &&
     matchingAcceptedVariant === undefined;
+
+  if (shouldHoldForReadiness) {
+    return <RecallSessionPageReadinessState />;
+  }
 
   if (activeSession === null || currentNote === null) {
     return null;

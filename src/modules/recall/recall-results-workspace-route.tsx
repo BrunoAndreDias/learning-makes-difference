@@ -33,6 +33,12 @@ import type {
 } from "./recall";
 import { RecallAnswerCheckPanel } from "./recall-answer-check-panel";
 import {
+  RecallDueTodayPageReadinessState,
+  RecallResultsPageReadinessState,
+  RecallTodayPageReadinessState,
+  useIsRecallPageReadinessPending,
+} from "./recall-page-readiness";
+import {
   formatPracticeRepairIntentLabel,
   getPracticeRepairEntryId,
   getQuestionPracticeRepairDraft,
@@ -60,6 +66,11 @@ import {
 
 const recallSessionSavedMessageKey = "learning-makes-difference:recall-saved";
 const recallModes = ["FlashCard", "AiAssisted", "AiGraded"] as const;
+const recallWorkspaceReadinessKeys = [
+  "labels",
+  "recall",
+  "studyNotes",
+] as const;
 const resultDateTimeFormatter = new Intl.DateTimeFormat("en", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -337,6 +348,9 @@ async function startWorkspaceFlashCardRecall({
 
 export function RecallTodayWorkspacePage() {
   const navigate = useNavigate();
+  const isReadinessPending = useIsRecallPageReadinessPending(
+    recallWorkspaceReadinessKeys,
+  );
   const {
     currentLabelsById,
     persistentRecallContext,
@@ -373,6 +387,10 @@ export function RecallTodayWorkspacePage() {
     await navigate({ to: appRoutePaths.recallSession });
   }
 
+  if (isReadinessPending) {
+    return <RecallTodayPageReadinessState />;
+  }
+
   return (
     <RecallTodayPage
       labelsById={currentLabelsById}
@@ -384,6 +402,9 @@ export function RecallTodayWorkspacePage() {
 
 export function RecallDueTodayWorkspacePage() {
   const navigate = useNavigate();
+  const isReadinessPending = useIsRecallPageReadinessPending(
+    recallWorkspaceReadinessKeys,
+  );
   const {
     currentLabelsById,
     notes,
@@ -425,6 +446,10 @@ export function RecallDueTodayWorkspacePage() {
     await navigate({ to: appRoutePaths.recallSession });
   }
 
+  if (isReadinessPending) {
+    return <RecallDueTodayPageReadinessState />;
+  }
+
   if (hasNoRecallContent) {
     return <NoNotesRecallState />;
   }
@@ -442,6 +467,9 @@ export function RecallDueTodayWorkspacePage() {
 
 export function RecallResultsWorkspacePage() {
   const { t } = useAppTranslation();
+  const isReadinessPending = useIsRecallPageReadinessPending(
+    recallWorkspaceReadinessKeys,
+  );
   const { currentLabels, notes, sessionResults, studyNotes } =
     useRecallWorkspaceState();
   const availableLabels = listRecallResultLabels({
@@ -504,6 +532,10 @@ export function RecallResultsWorkspacePage() {
     notes.length === 0 &&
     studyNotes.length === 0 &&
     sessionResults.length === 0;
+
+  if (isReadinessPending) {
+    return <RecallResultsPageReadinessState />;
+  }
 
   if (hasNoRecallContent) {
     return <NoNotesRecallState />;
@@ -1455,7 +1487,6 @@ function ResultsMasterPanelContent({
       <ol
         aria-label={t("recall.result.pastSessions")}
         className="recall-results-list"
-        tabIndex={0}
       >
         {results.map((result) => {
           const isSelected = result.id === selectedResultId;
@@ -1608,7 +1639,6 @@ function ResultsDetailPanel({
     <section
       aria-label={t("recall.result.selected")}
       className="recall-panel recall-results-detail-panel"
-      tabIndex={0}
     >
       <div className="recall-results-detail-scroll-content">
         {result === null ? (

@@ -9,6 +9,7 @@ import type {
   RecallSelfRating,
   SessionResult,
 } from "../../modules/recall";
+import { createPersistentRecallContext } from "../../modules/recall";
 import type { AppStudyNote } from "../../modules/study-notes";
 import {
   createDeterministicRecallTestContexts,
@@ -127,6 +128,28 @@ function _createPersistentRecallService(
     } satisfies AppPersistentRecallService,
     overrides,
   );
+}
+
+function createPendingRecallSessionContext() {
+  let resolveRefresh: (() => void) | undefined;
+  const refreshGate = new Promise<void>((resolve) => {
+    resolveRefresh = resolve;
+  });
+  const refreshSpy = vi.fn(async () => {
+    await refreshGate;
+    return null;
+  });
+  const persistentRecallContext = createPersistentRecallContext({
+    service: _createPersistentRecallService({
+      getActiveSession: refreshSpy,
+    }),
+  });
+
+  return {
+    persistentRecallContext,
+    refreshSpy,
+    resolveRefresh,
+  };
 }
 
 function createStoredRecallNote(
@@ -1424,6 +1447,36 @@ describe("authenticated recall workspace", () => {
     expect(emptyDetailPanel).toHaveTextContent(
       "Reference note for empty typed answer.",
     );
+  });
+
+  it("shows the Recall Session readiness state while persistent session hydration is preparing", async () => {
+    const { persistentRecallContext, refreshSpy, resolveRefresh } =
+      createPendingRecallSessionContext();
+
+    const { router } = renderRoute("/recall/session", {
+      persistentRecallContext,
+      session: createSession(),
+    });
+
+    await waitFor(() => expect(refreshSpy).toHaveBeenCalled());
+
+    expect(router.state.location.pathname).toBe("/recall/session");
+    expect(
+      screen.getByRole("region", { name: "Preparing Recall Session" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: "Preparing Recall Session" }),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelectorAll(
+        ".recall-session-readiness__footer .skeleton-block",
+      ),
+    ).toHaveLength(2);
+    expect(
+      screen.queryByRole("button", { name: "Reveal Study Note" }),
+    ).toBeNull();
+
+    resolveRefresh?.();
   });
 
   it("redirects direct /recall/session visits without an active session", async () => {
