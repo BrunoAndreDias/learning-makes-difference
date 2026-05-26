@@ -36,6 +36,7 @@ import {
   RecallDueTodayPageReadinessState,
   RecallResultsPageReadinessState,
   RecallTodayPageReadinessState,
+  recallWorkspaceReadinessKeys,
   useIsRecallPageReadinessPending,
 } from "./recall-page-readiness";
 import {
@@ -66,11 +67,6 @@ import {
 
 const recallSessionSavedMessageKey = "learning-makes-difference:recall-saved";
 const recallModes = ["FlashCard", "AiAssisted", "AiGraded"] as const;
-const recallWorkspaceReadinessKeys = [
-  "labels",
-  "recall",
-  "studyNotes",
-] as const;
 const resultDateTimeFormatter = new Intl.DateTimeFormat("en", {
   dateStyle: "medium",
   timeStyle: "short",

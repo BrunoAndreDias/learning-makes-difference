@@ -46,6 +46,7 @@ import {
 import { RecallAnswerCheckPanel } from "./recall-answer-check-panel";
 import {
   RecallSessionPageReadinessState,
+  recallSessionReadinessKeys,
   useIsRecallPageReadinessPending,
 } from "./recall-page-readiness";
 
@@ -176,7 +177,9 @@ function RecallSessionPage() {
     focusContext.getSnapshot,
     focusContext.getSnapshot,
   );
-  const isReadinessPending = useIsRecallPageReadinessPending(["recall"]);
+  const isReadinessPending = useIsRecallPageReadinessPending(
+    recallSessionReadinessKeys,
+  );
   const userId = effectiveSessionSnapshot.user?.id ?? null;
   const activeSession =
     userId !== null && recallSnapshot?.userId === userId

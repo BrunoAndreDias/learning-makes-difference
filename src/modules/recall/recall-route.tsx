@@ -27,6 +27,7 @@ import { AppRecallError, type RecallMode } from "./recall";
 import {
   RecallRouteReadinessProvider,
   RecallSelectionPageReadinessState,
+  recallWorkspaceReadinessKeys,
   useIsRecallPageReadinessPending,
 } from "./recall-page-readiness";
 
@@ -377,11 +378,9 @@ export function RecallSelectionPage({
     t,
   });
   const canStart = disabledStartReason === null;
-  const isReadinessPending = useIsRecallPageReadinessPending([
-    "labels",
-    "recall",
-    "studyNotes",
-  ]);
+  const isReadinessPending = useIsRecallPageReadinessPending(
+    recallWorkspaceReadinessKeys,
+  );
 
   useEffect(() => {
     const nextSelectedLabelId = resolveSelectedLabelIds(

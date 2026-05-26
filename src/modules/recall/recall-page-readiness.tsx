@@ -18,6 +18,28 @@ type RecallRouteReadinessState = {
   routeEntryPending: boolean;
 };
 
+type RecallReadinessListRow = {
+  actionWidth: string;
+  detailWidths: readonly string[];
+  eyebrowWidth: string;
+  id: string;
+  metaWidths: readonly string[];
+  titleWidth: string;
+};
+
+type SelectionAvailableRow = {
+  detailWidths: readonly string[];
+  id: string;
+  labelWidths: readonly string[];
+  titleWidth: string;
+};
+
+type SelectionSelectedRow = {
+  detailWidths: readonly string[];
+  id: string;
+  titleWidth: string;
+};
+
 const defaultRecallRouteReadinessState: RecallRouteReadinessState = {
   routeEntryPending: false,
 };
@@ -32,7 +54,17 @@ const recallResultsReadinessLabel = "Preparing Results Workspace";
 const recallSelectionReadinessLabel = "Preparing Recall Selection";
 const recallSessionReadinessLabel = "Preparing Recall Session";
 
-const recallTodayPriorityRows = [
+export const recallWorkspaceReadinessKeys = [
+  "labels",
+  "recall",
+  "studyNotes",
+] as const satisfies readonly ProtectedWorkspaceRefreshKey[];
+
+export const recallSessionReadinessKeys = [
+  "recall",
+] as const satisfies readonly ProtectedWorkspaceRefreshKey[];
+
+const recallTodayPriorityRows: readonly RecallReadinessListRow[] = [
   {
     actionWidth: "7rem",
     detailWidths: ["86%", "68%"],
@@ -59,7 +91,7 @@ const recallTodayPriorityRows = [
   },
 ] as const;
 
-const recallTodayContinuationRows = [
+const recallTodayContinuationRows: readonly RecallReadinessListRow[] = [
   {
     actionWidth: "2.25rem",
     detailWidths: ["62%"],
@@ -86,7 +118,7 @@ const recallTodayContinuationRows = [
   },
 ] as const;
 
-const dueTodayRows = [
+const dueTodayRows: readonly RecallReadinessListRow[] = [
   {
     actionWidth: "7rem",
     detailWidths: ["92%", "74%"],
@@ -121,7 +153,7 @@ const dueTodayRows = [
   },
 ] as const;
 
-const resultsRows = [
+const resultsRows: readonly RecallReadinessListRow[] = [
   {
     actionWidth: "5rem",
     detailWidths: ["74%"],
@@ -156,7 +188,7 @@ const resultsRows = [
   },
 ] as const;
 
-const selectedResultQuestionRows = [
+const selectedResultQuestionRows: readonly RecallReadinessListRow[] = [
   {
     actionWidth: "9rem",
     detailWidths: ["92%", "72%"],
@@ -183,7 +215,7 @@ const selectedResultQuestionRows = [
   },
 ] as const;
 
-const selectionAvailableRows = [
+const selectionAvailableRows: readonly SelectionAvailableRow[] = [
   {
     detailWidths: ["88%", "68%"],
     id: "available-1",
@@ -210,7 +242,7 @@ const selectionAvailableRows = [
   },
 ] as const;
 
-const selectionSelectedRows = [
+const selectionSelectedRows: readonly SelectionSelectedRow[] = [
   {
     detailWidths: ["82%"],
     id: "selected-1",
@@ -254,6 +286,16 @@ export function useIsRecallPageReadinessPending(
   );
 }
 
+function PillSkeleton({
+  height,
+  width,
+}: Readonly<{
+  height: string;
+  width: string;
+}>) {
+  return <SkeletonBlock as="div" height={height} radius="pill" width={width} />;
+}
+
 function ReadinessTitle({
   height = "2.3rem",
   label,
@@ -288,6 +330,30 @@ function RecallSurfaceDescription({
   );
 }
 
+function RecallReadinessList({
+  className,
+  rows,
+}: Readonly<{
+  className: string;
+  rows: readonly RecallReadinessListRow[];
+}>) {
+  return (
+    <ol className={className}>
+      {rows.map((row) => (
+        <li key={row.id}>
+          <PageReadinessListRow
+            actionWidth={row.actionWidth}
+            detailWidths={row.detailWidths}
+            eyebrowWidth={row.eyebrowWidth}
+            metaWidths={row.metaWidths}
+            titleWidth={row.titleWidth}
+          />
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 export function RecallTodayPageReadinessState() {
   return (
     <section
@@ -299,18 +365,8 @@ export function RecallTodayPageReadinessState() {
           <PageHeader
             actions={
               <div className="recall-today-actions">
-                <SkeletonBlock
-                  as="div"
-                  height="2.75rem"
-                  radius="pill"
-                  width="10rem"
-                />
-                <SkeletonBlock
-                  as="div"
-                  height="2.75rem"
-                  radius="pill"
-                  width="9.5rem"
-                />
+                <PillSkeleton height="2.75rem" width="10rem" />
+                <PillSkeleton height="2.75rem" width="9.5rem" />
               </div>
             }
             actionsClassName="recall-today-hero__actions"
@@ -337,19 +393,10 @@ export function RecallTodayPageReadinessState() {
           >
             <section className="recall-today-readiness__priority">
               <SkeletonBlock as="div" height="1.25rem" width="9rem" />
-              <ol className="recall-today-readiness__priority-list">
-                {recallTodayPriorityRows.map((row) => (
-                  <li key={row.id}>
-                    <PageReadinessListRow
-                      actionWidth={row.actionWidth}
-                      detailWidths={row.detailWidths}
-                      eyebrowWidth={row.eyebrowWidth}
-                      metaWidths={row.metaWidths}
-                      titleWidth={row.titleWidth}
-                    />
-                  </li>
-                ))}
-              </ol>
+              <RecallReadinessList
+                className="recall-today-readiness__priority-list"
+                rows={recallTodayPriorityRows}
+              />
             </section>
 
             <section className="recall-today-readiness__continuation">
@@ -357,19 +404,10 @@ export function RecallTodayPageReadinessState() {
                 <SkeletonBlock as="div" height="0.85rem" width="8rem" />
                 <SkeletonBlock as="div" height="1px" width="100%" />
               </div>
-              <ol className="recall-today-readiness__continuation-list">
-                {recallTodayContinuationRows.map((row) => (
-                  <li key={row.id}>
-                    <PageReadinessListRow
-                      actionWidth={row.actionWidth}
-                      detailWidths={row.detailWidths}
-                      eyebrowWidth={row.eyebrowWidth}
-                      metaWidths={row.metaWidths}
-                      titleWidth={row.titleWidth}
-                    />
-                  </li>
-                ))}
-              </ol>
+              <RecallReadinessList
+                className="recall-today-readiness__continuation-list"
+                rows={recallTodayContinuationRows}
+              />
             </section>
           </PageReadinessState>
         </article>
@@ -387,14 +425,7 @@ export function RecallDueTodayPageReadinessState() {
       <div className="recall-today-wrapper">
         <article className="recall-surface recall-today-surface recall-scheduled-surface">
           <PageHeader
-            actions={
-              <SkeletonBlock
-                as="div"
-                height="2.75rem"
-                radius="pill"
-                width="11rem"
-              />
-            }
+            actions={<PillSkeleton height="2.75rem" width="11rem" />}
             actionsClassName="recall-today-hero__actions"
             className="recall-surface__header recall-today-hero"
             description={
@@ -409,24 +440,9 @@ export function RecallDueTodayPageReadinessState() {
             }
           >
             <div className="recall-readiness-summary">
-              <SkeletonBlock
-                as="div"
-                height="2.4rem"
-                radius="pill"
-                width="7rem"
-              />
-              <SkeletonBlock
-                as="div"
-                height="2.4rem"
-                radius="pill"
-                width="6rem"
-              />
-              <SkeletonBlock
-                as="div"
-                height="2.4rem"
-                radius="pill"
-                width="9rem"
-              />
+              <PillSkeleton height="2.4rem" width="7rem" />
+              <PillSkeleton height="2.4rem" width="6rem" />
+              <PillSkeleton height="2.4rem" width="9rem" />
             </div>
           </PageHeader>
 
@@ -442,19 +458,10 @@ export function RecallDueTodayPageReadinessState() {
               />
             </section>
 
-            <ol className="recall-due-today-readiness__queue">
-              {dueTodayRows.map((row) => (
-                <li key={row.id}>
-                  <PageReadinessListRow
-                    actionWidth={row.actionWidth}
-                    detailWidths={row.detailWidths}
-                    eyebrowWidth={row.eyebrowWidth}
-                    metaWidths={row.metaWidths}
-                    titleWidth={row.titleWidth}
-                  />
-                </li>
-              ))}
-            </ol>
+            <RecallReadinessList
+              className="recall-due-today-readiness__queue"
+              rows={dueTodayRows}
+            />
           </PageReadinessState>
         </article>
       </div>
@@ -465,9 +472,7 @@ export function RecallDueTodayPageReadinessState() {
 export function RecallResultsPageReadinessState() {
   return (
     <PageLayout
-      actions={
-        <SkeletonBlock as="div" height="2.8rem" radius="pill" width="11rem" />
-      }
+      actions={<PillSkeleton height="2.8rem" width="11rem" />}
       aria-label="Recall"
       as="section"
       className="recall-workspace recall-surface recall-results-surface"
@@ -486,32 +491,13 @@ export function RecallResultsPageReadinessState() {
           <section className="recall-panel recall-results-master">
             <SkeletonBlock as="div" height="1.1rem" width="7rem" />
             <div className="recall-results-readiness__toolbar">
-              <SkeletonBlock
-                as="div"
-                height="2.75rem"
-                radius="pill"
-                width="100%"
-              />
-              <SkeletonBlock
-                as="div"
-                height="2.75rem"
-                radius="pill"
-                width="6.5rem"
-              />
+              <PillSkeleton height="2.75rem" width="100%" />
+              <PillSkeleton height="2.75rem" width="6.5rem" />
             </div>
-            <ol className="recall-results-readiness__master-list">
-              {resultsRows.map((row) => (
-                <li key={row.id}>
-                  <PageReadinessListRow
-                    actionWidth={row.actionWidth}
-                    detailWidths={row.detailWidths}
-                    eyebrowWidth={row.eyebrowWidth}
-                    metaWidths={row.metaWidths}
-                    titleWidth={row.titleWidth}
-                  />
-                </li>
-              ))}
-            </ol>
+            <RecallReadinessList
+              className="recall-results-readiness__master-list"
+              rows={resultsRows}
+            />
           </section>
 
           <section className="recall-panel recall-results-detail-panel">
@@ -522,19 +508,10 @@ export function RecallResultsPageReadinessState() {
                   lineHeight="0.82rem"
                   lineWidths={["100%", "88%"]}
                 />
-                <ol className="recall-results-readiness__detail-list">
-                  {selectedResultQuestionRows.map((row) => (
-                    <li key={row.id}>
-                      <PageReadinessListRow
-                        actionWidth={row.actionWidth}
-                        detailWidths={row.detailWidths}
-                        eyebrowWidth={row.eyebrowWidth}
-                        metaWidths={row.metaWidths}
-                        titleWidth={row.titleWidth}
-                      />
-                    </li>
-                  ))}
-                </ol>
+                <RecallReadinessList
+                  className="recall-results-readiness__detail-list"
+                  rows={selectedResultQuestionRows}
+                />
               </div>
             </div>
           </section>
@@ -563,35 +540,15 @@ export function RecallSelectionPageReadinessState() {
         <div className="recall-selection-layout recall-selection-layout--picker">
           <section className="recall-panel recall-note-picker recall-select-note-picker">
             <div className="recall-selection-readiness__toolbar">
-              <SkeletonBlock
-                as="div"
-                height="2.75rem"
-                radius="pill"
-                width="100%"
-              />
-              <SkeletonBlock
-                as="div"
-                height="2.75rem"
-                radius="pill"
-                width="11rem"
-              />
+              <PillSkeleton height="2.75rem" width="100%" />
+              <PillSkeleton height="2.75rem" width="11rem" />
             </div>
 
             <div className="recall-selection-readiness__filter-summary">
               <SkeletonBlock as="div" height="0.95rem" width="12rem" />
               <div className="recall-selection-readiness__filter-actions">
-                <SkeletonBlock
-                  as="div"
-                  height="2.3rem"
-                  radius="pill"
-                  width="9rem"
-                />
-                <SkeletonBlock
-                  as="div"
-                  height="2.3rem"
-                  radius="pill"
-                  width="8rem"
-                />
+                <PillSkeleton height="2.3rem" width="9rem" />
+                <PillSkeleton height="2.3rem" width="8rem" />
               </div>
             </div>
 
@@ -599,12 +556,7 @@ export function RecallSelectionPageReadinessState() {
               {selectionAvailableRows.map((row) => (
                 <li key={row.id}>
                   <div className="recall-selection-readiness__note-row">
-                    <SkeletonBlock
-                      as="div"
-                      height="1.2rem"
-                      radius="pill"
-                      width="1.2rem"
-                    />
+                    <PillSkeleton height="1.2rem" width="1.2rem" />
                     <div className="recall-selection-readiness__note-copy">
                       <SkeletonBlock
                         as="div"
@@ -617,11 +569,9 @@ export function RecallSelectionPageReadinessState() {
                       />
                       <div className="recall-selection-readiness__note-labels">
                         {row.labelWidths.map((width) => (
-                          <SkeletonBlock
-                            as="div"
+                          <PillSkeleton
                             height="1.55rem"
                             key={`${row.id}-${width}`}
-                            radius="pill"
                             width={width}
                           />
                         ))}
@@ -661,27 +611,12 @@ export function RecallSelectionPageReadinessState() {
 
             <section className="recall-selection-readiness__controls">
               <SkeletonBlock as="div" height="0.95rem" width="9rem" />
-              <SkeletonBlock
-                as="div"
-                height="2.75rem"
-                radius="pill"
-                width="100%"
-              />
+              <PillSkeleton height="2.75rem" width="100%" />
             </section>
 
             <div className="recall-selection-readiness__actions">
-              <SkeletonBlock
-                as="div"
-                height="2.75rem"
-                radius="pill"
-                width="8rem"
-              />
-              <SkeletonBlock
-                as="div"
-                height="2.75rem"
-                radius="pill"
-                width="100%"
-              />
+              <PillSkeleton height="2.75rem" width="8rem" />
+              <PillSkeleton height="2.75rem" width="100%" />
             </div>
           </aside>
         </div>
@@ -702,12 +637,7 @@ export function RecallSessionPageReadinessState() {
                 <SkeletonBlock as="div" height="0.7rem" width="2.5rem" />
               </div>
               <SkeletonBlock as="div" height="0.38rem" width="100%" />
-              <SkeletonBlock
-                as="div"
-                height="1.9rem"
-                radius="pill"
-                width="7rem"
-              />
+              <PillSkeleton height="1.9rem" width="7rem" />
               <SkeletonBlock as="div" height="0.85rem" width="10rem" />
             </div>
           </div>
@@ -733,49 +663,24 @@ export function RecallSessionPageReadinessState() {
           <div className="recall-session-main">
             <article className="recall-card">
               <div className="recall-card__hidden-state">
-                <SkeletonBlock
-                  as="div"
-                  height="2.85rem"
-                  radius="pill"
-                  width="2.85rem"
-                />
+                <PillSkeleton height="2.85rem" width="2.85rem" />
                 <SkeletonBlock as="div" height="2.2rem" width="20rem" />
                 <SkeletonBlock as="div" height="1px" width="3.6rem" />
                 <SkeletonText lineHeight="0.95rem" lineWidths={["18rem"]} />
-                <SkeletonBlock
-                  as="div"
-                  height="2.45rem"
-                  radius="pill"
-                  width="10rem"
-                />
+                <PillSkeleton height="2.45rem" width="10rem" />
                 <div className="recall-session-readiness__textarea">
                   <SkeletonText
                     lineHeight="0.95rem"
                     lineWidths={["100%", "98%", "72%"]}
                   />
                 </div>
-                <SkeletonBlock
-                  as="div"
-                  height="2.8rem"
-                  radius="pill"
-                  width="13rem"
-                />
+                <PillSkeleton height="2.8rem" width="13rem" />
               </div>
             </article>
 
             <div className="recall-session-main__actions recall-session-readiness__footer">
-              <SkeletonBlock
-                as="div"
-                height="2.5rem"
-                radius="pill"
-                width="8rem"
-              />
-              <SkeletonBlock
-                as="div"
-                height="2.5rem"
-                radius="pill"
-                width="9rem"
-              />
+              <PillSkeleton height="2.5rem" width="8rem" />
+              <PillSkeleton height="2.5rem" width="9rem" />
             </div>
           </div>
         </div>
