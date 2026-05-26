@@ -410,6 +410,12 @@ _Avoid_: Admin approval, public signup
 
 ### Workspace Navigation
 
+**Page Readiness State**:
+A temporary workspace condition while the app is preparing route-level study data before the User can work on the page.
+Page Readiness State preserves the approximate page structure with neutral placeholders rather than centering loading copy as the main experience.
+Page Readiness State is separate from **Learning State** and from action-specific pending states such as saving, deleting, or starting a RecallSession.
+_Avoid_: Loading State, Learning State, busy state
+
 **Today**:
 The authenticated landing route and top-level navigation label for Study Guidance.
 The Today route is `/today`.
@@ -1032,6 +1038,8 @@ _Avoid_: Quiz page
 
 ## Flagged ambiguities
 
+- "Loading states" could have conflicted with **Learning State** or action-specific pending states — resolved: use **Page Readiness State** for route-level data preparation before a page is usable.
+- Page readiness could have used page-specific loading messages as the main experience — resolved: preserve the approximate page structure with neutral placeholders from reusable design-system pieces.
 - "trained" was used while discussing **Learning State** — resolved: use "recalled" when referring to a **Study Note** being attempted in a **RecallSession**.
 - "techniques the app should encourage by default" could have meant a broad study-technique menu — resolved: default encouragement means the **Core Learning Loop**, with supporting techniques introduced only when they strengthen recall, correction, spacing, or practice.
 - "Weak" was considered for low-performing Study Notes — resolved: use **Needs practice** in user-facing UI.

@@ -231,7 +231,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     maxIterations: 1,
     idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
     // Opus for planning: dependency analysis benefits from deeper reasoning.
-    agent: sandcastle.codex("gpt-5.5", { effort: "xhigh" }),
+    agent: sandcastle.codex("gpt-5.5", { effort: "medium" }),
     promptFile: "./.sandcastle/plan-prompt.md",
   });
 
