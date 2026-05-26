@@ -16,7 +16,10 @@ import { PageLayout } from "../../design-system/page-layout";
 import { useResolvedProtectedSession } from "../access/session/use-resolved-protected-session";
 import { useAppTranslation } from "../language";
 import { listStudyNotesForUser } from "../study-notes";
-import { useProtectedWorkspaceRefreshState } from "../workspace-shell/app-shell/protected-route";
+import {
+  hasPendingProtectedWorkspaceRefresh,
+  useProtectedWorkspaceRefreshState,
+} from "../workspace-shell/app-shell/protected-workspace-refresh";
 import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import { getRecallRatingTranslationKey } from "./learner-copy";
 import {
@@ -241,8 +244,10 @@ function RecallPracticeRepairDraftRoute() {
       : listStudyNotesForUser(studyNotesStore.getSnapshot(), userId);
 
   if (
-    protectedWorkspaceRefreshState.recall ||
-    protectedWorkspaceRefreshState.studyNotes
+    hasPendingProtectedWorkspaceRefresh(protectedWorkspaceRefreshState, [
+      "recall",
+      "studyNotes",
+    ])
   ) {
     return null;
   }

@@ -10,6 +10,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -27,7 +28,10 @@ import {
   listStudyNotesForUser,
   type UpdateStudyNoteInput,
 } from "../study-notes";
-import { useProtectedWorkspaceRefreshState } from "../workspace-shell/app-shell/protected-route";
+import {
+  hasPendingProtectedWorkspaceRefresh,
+  useProtectedWorkspaceRefreshState,
+} from "../workspace-shell/app-shell/protected-workspace-refresh";
 import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import {
   getRecallRatingTone,
@@ -211,6 +215,18 @@ function createCurrentStudyNoteDraft(
   };
 }
 
+function getCurrentStudyNoteDraftSourceKey(studyNote: AppStudyNote | null) {
+  if (studyNote === null) {
+    return "missing-study-note";
+  }
+
+  return JSON.stringify([
+    studyNote.id,
+    studyNote.prompt,
+    studyNote.expectedAnswer,
+  ]);
+}
+
 function createSplitStudyNoteDraft(
   studyNote: AppStudyNote | null,
 ): PracticeRepairSplitStudyNoteDraft {
@@ -222,6 +238,19 @@ function createSplitStudyNoteDraft(
   };
 }
 
+function getSplitStudyNoteDraftSourceKey(studyNote: AppStudyNote | null) {
+  if (studyNote === null) {
+    return "missing-study-note";
+  }
+
+  return JSON.stringify([
+    studyNote.id,
+    studyNote.prompt,
+    studyNote.expectedAnswer,
+    studyNote.source.body,
+  ]);
+}
+
 function createSiblingStudyNoteDraft(
   studyNote: AppStudyNote | null,
 ): PracticeRepairSiblingStudyNoteDraft {
@@ -229,6 +258,14 @@ function createSiblingStudyNoteDraft(
     expectedAnswer: studyNote?.source.body ?? "",
     prompt: "",
   };
+}
+
+function getSiblingStudyNoteDraftSourceKey(studyNote: AppStudyNote | null) {
+  if (studyNote === null) {
+    return "missing-study-note";
+  }
+
+  return JSON.stringify([studyNote.id, studyNote.source.body]);
 }
 
 function getMemoryAidDescription(input: {
@@ -257,6 +294,18 @@ function createMemoryAidDraft(
     }),
     kind: "Metaphor",
   };
+}
+
+function getMemoryAidDraftSourceKey(studyNote: AppStudyNote | null) {
+  if (studyNote === null) {
+    return "missing-study-note";
+  }
+
+  return JSON.stringify([
+    studyNote.id,
+    studyNote.metaphors[0]?.description ?? "",
+    studyNote.acronyms[0]?.description ?? "",
+  ]);
 }
 
 function hasCurrentStudyNoteDraftChanges(input: {
@@ -756,7 +805,7 @@ export type StudyNotesPracticeRepairSearch = {
   practiceRepairSessionResultId?: string;
 };
 
-export function createStudyNotesPracticeRepairSearch(
+function createStudyNotesPracticeRepairSearch(
   input: StudyNotesPracticeRepairSearch,
 ): StudyNotesPracticeRepairSearch {
   const search: StudyNotesPracticeRepairSearch = {
@@ -1109,8 +1158,10 @@ function RecallPracticeRepairRoute() {
       : listStudyNotesForUser(studyNotesStore.getSnapshot(), userId);
 
   if (
-    protectedWorkspaceRefreshState.recall ||
-    protectedWorkspaceRefreshState.studyNotes
+    hasPendingProtectedWorkspaceRefresh(protectedWorkspaceRefreshState, [
+      "recall",
+      "studyNotes",
+    ])
   ) {
     return null;
   }
@@ -1188,6 +1239,18 @@ export function RecallPracticeRepairWorkspacePage({
     useState<PracticeRepairCurrentStudyNoteDraft>(() =>
       createCurrentStudyNoteDraft(studyNote),
     );
+  const currentStudyNoteDraftSourceKey =
+    getCurrentStudyNoteDraftSourceKey(studyNote);
+  const splitStudyNoteDraftSourceKey =
+    getSplitStudyNoteDraftSourceKey(studyNote);
+  const siblingStudyNoteDraftSourceKey =
+    getSiblingStudyNoteDraftSourceKey(studyNote);
+  const memoryAidDraftSourceKey = getMemoryAidDraftSourceKey(studyNote);
+  const studyNoteDraftRef = useRef(studyNoteDraft);
+  const studyNoteDraftSource = useRef(currentStudyNoteDraftSourceKey);
+  const splitDraftSource = useRef(splitStudyNoteDraftSourceKey);
+  const siblingDraftSource = useRef(siblingStudyNoteDraftSourceKey);
+  const memoryAidDraftSource = useRef(memoryAidDraftSourceKey);
   const { entry, question } = workspace;
   const practiceRepairEntryId = getPracticeRepairEntryId(entry);
   const prompt = getPracticeRepairQuestionPrompt(question);
@@ -1244,47 +1307,71 @@ export function RecallPracticeRepairWorkspacePage({
     getDefaultPracticeRepairActionCard();
 
   useEffect(() => {
+    if (studyNoteDraftSource.current === currentStudyNoteDraftSourceKey) {
+      return;
+    }
+
     if (hasStudyNoteDraftChanges) {
       return;
     }
 
-    setStudyNoteDraft(createCurrentStudyNoteDraft(studyNote));
-  }, [hasStudyNoteDraftChanges, studyNote]);
+    const nextStudyNoteDraft = createCurrentStudyNoteDraft(studyNote);
+    studyNoteDraftSource.current = currentStudyNoteDraftSourceKey;
+    studyNoteDraftRef.current = nextStudyNoteDraft;
+    setStudyNoteDraft(nextStudyNoteDraft);
+  }, [currentStudyNoteDraftSourceKey, hasStudyNoteDraftChanges, studyNote]);
 
   useEffect(() => {
+    if (splitDraftSource.current === splitStudyNoteDraftSourceKey) {
+      return;
+    }
+
     if (hasSplitDraftChanges) {
       return;
     }
 
+    splitDraftSource.current = splitStudyNoteDraftSourceKey;
     setSplitStudyNoteDraft(createSplitStudyNoteDraft(studyNote));
-  }, [hasSplitDraftChanges, studyNote]);
+  }, [hasSplitDraftChanges, splitStudyNoteDraftSourceKey, studyNote]);
 
   useEffect(() => {
+    if (siblingDraftSource.current === siblingStudyNoteDraftSourceKey) {
+      return;
+    }
+
     if (hasSiblingDraftChanges) {
       return;
     }
 
+    siblingDraftSource.current = siblingStudyNoteDraftSourceKey;
     setSiblingStudyNoteDraft(createSiblingStudyNoteDraft(studyNote));
-  }, [hasSiblingDraftChanges, studyNote]);
+  }, [hasSiblingDraftChanges, siblingStudyNoteDraftSourceKey, studyNote]);
 
   useEffect(() => {
+    if (memoryAidDraftSource.current === memoryAidDraftSourceKey) {
+      return;
+    }
+
     if (hasMemoryAidChanges) {
       return;
     }
 
+    memoryAidDraftSource.current = memoryAidDraftSourceKey;
     setMemoryAidDraft(createMemoryAidDraft(studyNote));
-  }, [hasMemoryAidChanges, studyNote]);
+  }, [hasMemoryAidChanges, memoryAidDraftSourceKey, studyNote]);
 
   function updateStudyNoteDraft(
     field: keyof PracticeRepairCurrentStudyNoteDraft,
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) {
     const value = event.target.value;
-
-    setStudyNoteDraft((current) => ({
-      ...current,
+    const nextDraft = {
+      ...studyNoteDraftRef.current,
       [field]: value,
-    }));
+    };
+
+    studyNoteDraftRef.current = nextDraft;
+    setStudyNoteDraft(nextDraft);
   }
 
   function updateSplitStudyNoteDraft(
@@ -1343,9 +1430,15 @@ export function RecallPracticeRepairWorkspacePage({
   }
 
   async function handleSaveStudyNoteChanges() {
+    const currentStudyNoteDraft = studyNoteDraftRef.current;
+    const currentStudyNoteDraftHasChanges = hasCurrentStudyNoteDraftChanges({
+      draft: currentStudyNoteDraft,
+      studyNote,
+    });
+
     if (
       studyNote === null ||
-      !hasStudyNoteDraftChanges ||
+      !currentStudyNoteDraftHasChanges ||
       isStudyNoteSavePending
     ) {
       return;
@@ -1357,7 +1450,7 @@ export function RecallPracticeRepairWorkspacePage({
 
     try {
       await updatePracticeRepairStudyNote({
-        draft: studyNoteDraft,
+        draft: currentStudyNoteDraft,
         persistentStudyNotesContext,
         studyNote,
         studyNotesContext,
@@ -1869,51 +1962,6 @@ export function ExternalLinkIcon() {
       <path d="M14 5h5v5" />
       <path d="m10 14 9-9" />
       <path d="M19 14v5H5V5h5" />
-    </svg>
-  );
-}
-
-export function PencilIcon() {
-  return (
-    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-      <path d="m5 19 4.5-1 9-9a2.1 2.1 0 0 0-3-3l-9 9L5 19Z" />
-      <path d="m14 7 3 3" />
-    </svg>
-  );
-}
-
-export function RefreshIcon() {
-  return (
-    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-      <path d="M20 12a8 8 0 0 1-13.3 6" />
-      <path d="M4 12a8 8 0 0 1 13.3-6" />
-      <path d="M17 2v4h-4" />
-      <path d="M7 22v-4h4" />
-    </svg>
-  );
-}
-
-export function WarningIcon({ className }: Readonly<{ className?: string }>) {
-  return (
-    <svg
-      aria-hidden="true"
-      className={className}
-      focusable="false"
-      viewBox="0 0 24 24"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v7" />
-      <path d="M12 17h.01" />
-    </svg>
-  );
-}
-
-export function InfoIcon() {
-  return (
-    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 10v6" />
-      <path d="M12 7h.01" />
     </svg>
   );
 }

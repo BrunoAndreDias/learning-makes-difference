@@ -8,7 +8,10 @@ import { useResolvedProtectedSession } from "../access/session/use-resolved-prot
 import type { AppLabel } from "../labels/label-management/labels";
 import type { FlashCardRecallAttemptsByNote } from "../recall";
 import { listStudyNotesForUser } from "../study-notes";
-import { useProtectedWorkspaceRefreshState } from "../workspace-shell/app-shell/protected-route";
+import {
+  hasPendingProtectedWorkspaceRefresh,
+  useProtectedWorkspaceRefreshState,
+} from "../workspace-shell/app-shell/protected-workspace-refresh";
 import { appRoutePaths } from "../workspace-shell/app-shell/route-paths";
 import "./study-guidance.css";
 import {
@@ -107,10 +110,10 @@ function StudyGuidanceWorkspace() {
     ],
   );
 
-  const isReadinessPending =
-    protectedWorkspaceRefreshState.labels ||
-    protectedWorkspaceRefreshState.recall ||
-    protectedWorkspaceRefreshState.studyNotes;
+  const isReadinessPending = hasPendingProtectedWorkspaceRefresh(
+    protectedWorkspaceRefreshState,
+    ["labels", "recall", "studyNotes"],
+  );
 
   if (isReadinessPending) {
     return <StudyGuidancePageReadinessState />;
