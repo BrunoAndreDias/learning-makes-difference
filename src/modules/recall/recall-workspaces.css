@@ -2580,20 +2580,20 @@
 }
 
 .recall-select-type-option[data-selected="true"][data-mode="FlashCard"] {
-  border-color: var(--color-content-border-soft);
-  background: color-mix(in srgb, var(--color-primary-soft) 72%, transparent);
+  border-color: var(--recall-accent-border);
+  background: var(--recall-accent-surface);
   color: var(--color-content-strong);
 }
 
 .recall-select-type-option[data-selected="true"][data-mode="AiAssisted"] {
-  border-color: var(--color-content-border-soft);
-  background: color-mix(in srgb, var(--color-primary-soft) 72%, transparent);
+  border-color: var(--recall-accent-border);
+  background: var(--recall-accent-surface);
   color: var(--color-content-strong);
 }
 
 .recall-select-type-option[data-selected="true"][data-mode="AiGraded"] {
-  border-color: var(--color-content-border-soft);
-  background: color-mix(in srgb, var(--color-primary-soft) 72%, transparent);
+  border-color: var(--recall-accent-border);
+  background: var(--recall-accent-surface);
   color: var(--color-content-strong);
 }
 

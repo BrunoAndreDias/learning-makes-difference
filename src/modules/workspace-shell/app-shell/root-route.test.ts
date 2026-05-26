@@ -46,7 +46,7 @@ describe("root route session resolution", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it("uses the cached active session during client navigation", () => {
+  it("refreshes when no routed session is available, even if a cached session exists", async () => {
     const activeSnapshot: AppSessionSnapshot = {
       user: {
         displayName: "Casey Learner",
@@ -55,14 +55,24 @@ describe("root route session resolution", () => {
         userLanguage: "en",
       },
     };
-    const refresh = vi.fn().mockResolvedValue({ user: null });
+    const refreshedSnapshot: AppSessionSnapshot = {
+      user: {
+        displayName: "Fresh Casey",
+        email: "fresh.casey@example.com",
+        id: "user-casey",
+        userLanguage: "en",
+      },
+    };
+    const refresh = vi.fn().mockResolvedValue(refreshedSnapshot);
     const session = createTestSession({
       getSnapshot: () => activeSnapshot,
       refresh,
     });
 
-    expect(resolveRootRouteSessionSnapshot({ session })).toBe(activeSnapshot);
-    expect(refresh).not.toHaveBeenCalled();
+    await expect(resolveRootRouteSessionSnapshot({ session })).resolves.toBe(
+      refreshedSnapshot,
+    );
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it("refreshes when no active session is cached", async () => {

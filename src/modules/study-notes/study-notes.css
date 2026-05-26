@@ -1125,7 +1125,11 @@
 .study-notes-workspace[data-route-kind="create"]
   .study-notes-editor__title-meta,
 .study-notes-workspace[data-route-kind="edit"] .study-notes-editor__title-meta {
-  color: color-mix(in srgb, var(--color-content-muted) 88%, #48618f);
+  color: color-mix(
+    in srgb,
+    var(--color-content-muted) 88%,
+    var(--color-guidance-indigo-muted)
+  );
   font-size: 0.95rem;
   font-weight: 560;
 }
@@ -1702,14 +1706,14 @@
   border-color: color-mix(
     in srgb,
     var(--color-content-border-soft) 82%,
-    #aeb9cc
+    var(--color-content-border)
   );
   border-radius: 0.42rem;
   color: var(--color-content-strong);
   font-size: 0.96rem;
   font-weight: 500;
   line-height: 1.45;
-  box-shadow: 0 1px 1px rgb(23 35 30 / 2%);
+  box-shadow: var(--shadow-surface-hairline);
 }
 
 .study-notes-workspace[data-route-kind="create"]
@@ -1778,11 +1782,11 @@
 .study-notes-workspace[data-route-kind="edit"]
   .study-notes-field
   textarea:focus {
-  border-color: #1f6b45;
+  border-color: var(--color-primary);
   outline: none;
   box-shadow:
-    0 0 0 1px #1f6b45,
-    0 3px 7px rgb(31 107 69 / 10%);
+    0 0 0 1px var(--color-primary),
+    0 3px 7px color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
 .study-notes-field[data-practice-repair-focus="true"] input,
@@ -2067,7 +2071,7 @@
   background:
     linear-gradient(
       135deg,
-      color-mix(in srgb, var(--color-primary) 72%, #082918),
+      color-mix(in srgb, var(--color-primary) 72%, var(--color-neutral-ink)),
       var(--color-primary)
     ),
     var(--color-primary);

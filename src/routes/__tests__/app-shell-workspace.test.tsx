@@ -785,7 +785,7 @@ describe("authenticated app shell", () => {
     ).toHaveAttribute("aria-current", "page");
     expect(
       within(recallItem as HTMLLIElement).getByRole("link", {
-        name: "Scheduled",
+        name: "Scheduled recall",
       }),
     ).toHaveAttribute("href", "/recall/due-today");
     expect(
@@ -823,7 +823,7 @@ describe("authenticated app shell", () => {
     ).not.toHaveAttribute("aria-current");
     expect(
       within(recallItem as HTMLLIElement).getByRole("link", {
-        name: "Scheduled",
+        name: "Scheduled recall",
       }),
     ).not.toHaveAttribute("aria-current");
     expect(

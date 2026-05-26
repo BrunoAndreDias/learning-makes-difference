@@ -62,11 +62,7 @@ export function resolveRootRouteSessionSnapshot({
     return routedSessionSnapshot;
   }
 
-  const cachedSessionSnapshot = session.getSnapshot();
-
-  return hasActiveSession(cachedSessionSnapshot)
-    ? cachedSessionSnapshot
-    : session.refresh();
+  return session.refresh();
 }
 
 function isProtectedPath(pathname: string): boolean {

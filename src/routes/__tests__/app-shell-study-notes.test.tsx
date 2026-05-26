@@ -3368,9 +3368,10 @@ describe("authenticated Study Notes workspace", () => {
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/recall");
     expect(screen.getByText("No Recall Today work")).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Manual selection" }),
-    ).toHaveAttribute("href", "/recall/select");
+    expect(screen.getByRole("link", { name: "Choose notes" })).toHaveAttribute(
+      "href",
+      "/recall/select",
+    );
   });
 
   it("shows active Practice Repair entries in the editor, lets the user edit the correction, and moves completed repairs into Practice Follow-up", async () => {
