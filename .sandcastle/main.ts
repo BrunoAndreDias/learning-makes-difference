@@ -88,6 +88,23 @@ const getHostGitStatus = () =>
     encoding: "utf8",
   }).replace(/\n$/, "");
 
+const getHostCurrentBranch = () =>
+  execFileSync("git", ["branch", "--show-current"], {
+    encoding: "utf8",
+  }).trim();
+
+const getBranchAheadCount = (branch: string) => {
+  try {
+    return Number(
+      execFileSync("git", ["rev-list", "--count", `HEAD..${branch}`], {
+        encoding: "utf8",
+      }).trim(),
+    );
+  } catch {
+    return 0;
+  }
+};
+
 const restoreGeneratedRouteTreeChurn = () => {
   const status = getHostGitStatus();
 
@@ -158,6 +175,7 @@ const sandboxProvider = docker({
 });
 
 const runIssuePipeline = async (issue: PlanIssue) => {
+  const sourceBranch = getHostCurrentBranch();
   const sandbox = await sandcastle.createSandbox({
     branch: issue.branch,
     sandbox: sandboxProvider,
@@ -188,6 +206,7 @@ const runIssuePipeline = async (issue: PlanIssue) => {
         agent: sandcastle.codex("gpt-5.5", { effort: "xhigh" }),
         promptFile: "./.sandcastle/review-prompt.md",
         promptArgs: {
+          SOURCE_BRANCH: sourceBranch,
           BRANCH: issue.branch,
         },
       });
@@ -319,28 +338,31 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     }
   }
 
-  // Only pass branches that actually produced commits to the merge phase.
-  // An agent that ran successfully but made no commits has nothing to merge.
+  // Pass branches that produced commits in this run, or branches that already
+  // contain unmerged work from a previous completed run. This prevents a
+  // completed issue branch from getting stuck if a later reviewer/implementer
+  // completes without adding more commits.
   const completedIssues = settled
     .filter(
       (entry) =>
         entry.outcome.status === "fulfilled" &&
-        entry.outcome.value.commits.length > 0,
+        (entry.outcome.value.commits.length > 0 ||
+          getBranchAheadCount(entry.issue.branch) > 0),
     )
     .map((entry) => entry.issue);
 
   const completedBranches = completedIssues.map((i) => i.branch);
 
   console.log(
-    `\nExecution complete. ${completedBranches.length} branch(es) with commits:`,
+    `\nExecution complete. ${completedBranches.length} branch(es) ready to merge:`,
   );
   for (const branch of completedBranches) {
     console.log(`  ${branch}`);
   }
 
   if (completedBranches.length === 0) {
-    // All agents ran but none made commits — nothing to merge this cycle.
-    console.log("No commits produced. Nothing to merge.");
+    // All agents ran, but no branch has unmerged work for the merge phase.
+    console.log("No merge-ready branches found. Nothing to merge.");
     continue;
   }
 
