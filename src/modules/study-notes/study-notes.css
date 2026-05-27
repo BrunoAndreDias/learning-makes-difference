@@ -260,6 +260,30 @@
   border-top: 1px solid var(--color-content-border-soft);
 }
 
+.study-notes-management-readiness {
+  gap: var(--space-5);
+}
+
+.study-notes-management-readiness__tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  min-width: 0;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--color-content-border-soft);
+}
+
+.study-notes-management-readiness__summary {
+  display: flex;
+  align-items: center;
+}
+
+.study-notes-management-readiness__list .page-readiness-list-row {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 .study-notes-management__item {
   position: relative;
   display: grid;
@@ -857,6 +881,38 @@
   overscroll-behavior: contain;
 }
 
+.study-notes-readiness__catalog-list {
+  list-style: none;
+}
+
+.study-notes-readiness__catalog-row {
+  display: grid;
+  grid-template-columns: 1.4rem minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 0.8rem;
+  width: 100%;
+  min-height: var(--lmd-list-row-height);
+  padding: 0.9rem 0.95rem 0.84rem;
+  background: var(--color-shell-panel);
+}
+
+.study-notes-readiness__catalog-icon {
+  margin-top: 0.12rem;
+}
+
+.study-notes-readiness__catalog-content {
+  gap: var(--space-2);
+}
+
+.study-notes-readiness__catalog-status {
+  margin-top: 0.2rem;
+}
+
+.study-notes-readiness__catalog-updated {
+  align-self: end;
+  justify-self: end;
+}
+
 .study-note-row {
   position: relative;
   display: grid;
@@ -1140,6 +1196,10 @@
   gap: var(--space-2);
   flex: 0 0 auto;
   flex-wrap: wrap;
+}
+
+.study-notes-readiness__editor-toolbar {
+  justify-content: flex-end;
 }
 
 .study-notes-workspace[data-route-kind="create"] .study-notes-editor__toolbar,
@@ -1431,6 +1491,28 @@
 
 .study-notes-editor__fields > * {
   flex-shrink: 0;
+}
+
+.study-notes-readiness__field,
+.study-notes-readiness__section,
+.study-notes-readiness__section-header {
+  display: grid;
+  min-width: 0;
+}
+
+.study-notes-readiness__field,
+.study-notes-readiness__section {
+  gap: var(--space-3);
+}
+
+.study-notes-readiness__section-header {
+  gap: var(--space-2);
+}
+
+.study-notes-readiness__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 .study-notes-editor__info-section {
